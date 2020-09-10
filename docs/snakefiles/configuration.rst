@@ -158,6 +158,41 @@ the schema for validating the samples data frame looks like this:
 Here, in case the case column is missing, the validate function will
 populate it with True for all entries.
 
+.. _snakefiles-peps:
+
+-------------------------------------------
+Configuring scientific experiments via PEPs
+-------------------------------------------
+
+Often scientific experiments consist of a set of samples (with optional subsamples), for which raw data and metainformation is known.
+Instead of writing custom sample sheets as shown above, Snakemake allows to use `portable encapsulated project (PEP) <http://pep.databio.org>`_ definitions to configure a workflow.
+This is done via a special directive `pepfile`, that can optionally complemented by a schema for validation (which is recommended for production workflows):
+
+.. code-block:: python
+
+    pepfile: "pep/config.yaml"
+    pepschema: "schemas/pep.yaml"
+
+    rule all:
+        input:
+            expand("{sample}.txt", sample=pep.sample_table["sample_name"])
+
+    rule a:
+        output:
+            "{sample}.txt"
+        shell:
+            "touch {output}"
+
+Using the ``pepfile`` directive leads to parsing of the provided PEP with `peppy <http://peppy.databio.org>`_.
+The resulting project object is made globally available under the name ``pep``.
+Here, we use it to aggregate over the set of sample names that is defined in the corresponding PEP.
+
+**Importantly**, note that PEPs are meant to contain sample metadata and any global information about a project or experiment. 
+They should **not** be used to encode workflow specific configuration options.
+For those, one should always complement the pepfile with an ordinary :ref:`config file <snakefiles_standard_configuration>`.
+The rationale is that PEPs should be portable between different data analysis workflows (that could be applied to the same data) and even between workflow management systems.
+In other words, a PEP should describe everything needed about the data, while a workflow and its configuration should describe everything needed about the analysis that is applied to it.
+
 .. _snakefiles-cluster_configuration:
 
 ----------------------------------

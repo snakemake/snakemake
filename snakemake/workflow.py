@@ -91,6 +91,7 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
+        scheduler_type=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -155,6 +156,7 @@ class Workflow:
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
+        self.scheduler_type = scheduler_type
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -454,6 +456,7 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
+        scheduler_type=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -484,6 +487,8 @@ class Workflow:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         container_image=None,
         stats=None,
@@ -881,6 +886,8 @@ class Workflow:
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
+            preemption_default=preemption_default,
+            preemptible_rules=preemptible_rules,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
@@ -891,6 +898,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            scheduler_type=scheduler_type,
         )
 
         if not dryrun:
@@ -952,7 +960,7 @@ class Workflow:
 
         success = scheduler.schedule()
 
-        if not immediate_submit:
+        if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
 
         if success:
@@ -1084,6 +1092,32 @@ class Workflow:
         c = snakemake.io.load_configfile(fp)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def pepfile(self, path):
+        global pep
+
+        try:
+            import peppy
+        except ImportError:
+            raise WorkflowError("For PEP support, please install peppy.")
+
+        self.pepfile = path
+        pep = peppy.Project(self.pepfile)
+
+    def pepschema(self, schema):
+        global pep
+
+        try:
+            import eido
+        except ImportError:
+            raise WorkflowError("For PEP schema support, please install eido.")
+
+        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+            # schema is relative to current Snakefile
+            schema = os.path.join(self.current_basedir, schema)
+        if self.pepfile is None:
+            raise WorkflowError("Please specify a PEP with the pepfile directive.")
+        eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """ Define a global report description in .rst format."""

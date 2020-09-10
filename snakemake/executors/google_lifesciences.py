@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
+import logging
 import os
 import sys
 import time
@@ -21,6 +22,8 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
 
+# https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
+logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 
 GoogleLifeSciencesJob = namedtuple(
     "GoogleLifeSciencesJob", "job jobname jobid callback error_callback"
@@ -51,6 +54,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         restart_times=None,
         exec_job=None,
         max_status_checks_per_second=1,
+        preemption_default=None,
+        preemptible_rules=None,
     ):
 
         # Attach variables for easy access
@@ -73,6 +78,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "{overwrite_config} {rules} --nocolor "
             "--notemp --no-hooks --nolock " % self.snakefile
         )
+
+        # Set preemptible instances
+        self._set_preemptible_rules(preemption_default, preemptible_rules)
 
         # IMPORTANT: using Compute Engine API and not k8s == no support secrets
         self.envvars = list(self.workflow.envvars) or []
@@ -144,9 +152,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             raise ex
 
         # Discovery clients for Google Cloud Storage and Life Sciences API
-        self._storage_cli = discovery_build("storage", "v1", credentials=creds)
-        self._compute_cli = discovery_build("compute", "v1", credentials=creds)
-        self._api = discovery_build("lifesciences", "v2beta", credentials=creds)
+        self._storage_cli = discovery_build(
+            "storage", "v1", credentials=creds, cache_discovery=False
+        )
+        self._compute_cli = discovery_build(
+            "compute", "v1", credentials=creds, cache_discovery=False
+        )
+        self._api = discovery_build(
+            "lifesciences", "v2beta", credentials=creds, cache_discovery=False
+        )
         self._bucket_service = storage.Client()
 
     def _get_bucket(self):
@@ -164,6 +178,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.gs_subdir = re.sub(
             "^{}/".format(bucket_name), "", self.workflow.default_remote_prefix
         )
+        self.gs_logs = os.path.join(self.gs_subdir, "google-lifesciences-logs")
 
         # Case 1: The bucket already exists
         try:
@@ -185,6 +200,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         logger.debug("bucket=%s" % self.bucket.name)
         logger.debug("subdir=%s" % self.gs_subdir)
+        logger.debug("logs=%s" % self.gs_logs)
 
     def _set_location(self, location=None):
         """The location is where the Google Life Sciences API is located.
@@ -348,6 +364,31 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         if not self._machine_type_prefix.startswith("n1"):
             self._machine_type_prefix = "n1"
 
+    def _set_preemptible_rules(self, preemption_default=None, preemptible_rules=None):
+        """define a lookup dictionary for preemptible instance retries, which
+           is supported by the Google Life Science API. The user can set a default
+           for all steps, specify per step, or define a default for all steps
+           that aren't individually customized.
+        """
+        self.preemptible_rules = {}
+
+        # If a default is defined, we apply it to all the rules
+        if preemption_default is not None:
+            self.preemptible_rules = {
+                rule.name: preemption_default for rule in self.workflow.rules
+            }
+
+        # Now update custom set rules
+        if preemptible_rules is not None:
+            for rule in preemptible_rules:
+                rule_name, restart_times = rule.strip().split("=")
+                self.preemptible_rules[rule_name] = int(restart_times)
+
+        # Ensure we set the number of restart times for each rule
+        for rule_name, restart_times in self.preemptible_rules.items():
+            rule = self.workflow.get_rule(rule_name)
+            rule.restart_times = restart_times
+
     def _generate_job_resources(self, job):
         """given a particular job, generate the resources that it needs,
            including default regions and the virtual machine configuration
@@ -460,10 +501,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.debug(
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
+
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": disk_gb,
+            "preemptible": job.rule.name in self.preemptible_rules,
         }
 
         # If the user wants gpus, add accelerators here
@@ -622,6 +665,30 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         if not blob.exists():
             blob.upload_from_filename(targz, content_type="application/gzip")
 
+    def _generate_log_action(self, job):
+        """generate an action to save the pipeline logs to storage.
+        """
+        # script should be changed to this when added to version control!
+        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
+
+        # Save logs from /google/logs/output to source/logs in bucket
+        commands = [
+            "/bin/bash",
+            "-c",
+            "wget -O /gls.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
+            % (self.bucket.name, self.gs_logs, job.name),
+        ]
+
+        # Always run the action to generate log output
+        action = {
+            "containerName": "snakelog-{}-{}".format(job.name, job.jobid),
+            "imageUri": self.container_image,
+            "commands": commands,
+            "labels": self._generate_pipeline_labels(job),
+            "alwaysRun": True,
+        }
+        return action
+
     def _generate_job_action(self, job):
         """generate a single action to execute the job.
         """
@@ -635,13 +702,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Now that we've parsed the job resource requirements, add to exec
         exec_job += self.get_default_resources_args()
 
+        # script should be changed to this when added to version control!
+        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
         # for custom images we must allow this to fail (hence || true)
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/84886ef6469bedeeb9a79a4eb7aec0d1/raw/181499f8f17163dcb2f89822079938cbfbd258cc/download.py && chmod +x /download.py && source activate snakemake || true && pip install crc32c && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
             % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 
@@ -689,13 +758,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
            to pass to pipelines.run. This includes actions, resources,
            environment, and timeout.
         """
-        # Generate actions (one per job) and resources
+        # Generate actions (one per job step) and log saving action (runs no matter what) and resources
         resources = self._generate_job_resources(job)
         action = self._generate_job_action(job)
+        log_action = self._generate_log_action(job)
 
         pipeline = {
             # Ordered list of actions to execute
-            "actions": [action],
+            "actions": [action, log_action],
             # resources required for execution
             "resources": resources,
             # Technical question - difference between resource and action environment
@@ -744,8 +814,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "Get status with:\n"
             "gcloud config set project {project}\n"
             "gcloud beta lifesciences operations describe {location}/operations/{jobid}\n"
-            "gcloud beta lifesciences operations list".format(
-                project=self.project, jobid=jobid, location=self.location
+            "gcloud beta lifesciences operations list\n"
+            "Logs will be saved to: {bucket}/{logdir}\n".format(
+                project=self.project,
+                jobid=jobid,
+                location=self.location,
+                bucket=self.bucket.name,
+                logdir=self.gs_logs,
             )
         )
 
