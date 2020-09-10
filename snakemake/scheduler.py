@@ -73,6 +73,8 @@ class JobScheduler:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
         quiet=False,
@@ -294,6 +296,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
             )
 
         else:
@@ -541,7 +545,10 @@ class JobScheduler:
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
-                f"job_{job}_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
+                "job_{job}_{idx}".format(job=job, idx=idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
             )
             for idx, job in enumerate(jobs)
         }
@@ -556,7 +563,7 @@ class JobScheduler:
             )
             for temp_file in temp_files
         }
-        prob = pulp.LpProblem("Job scheduler", pulp.LpMaximize)
+        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
         total_core_requirement = sum(
@@ -593,7 +600,7 @@ class JobScheduler:
                     [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
                 )
                 <= self.resources[name],
-                f"Limitation of resource: {name}",
+                "Limitation of resource: {name}".format(name=name),
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
