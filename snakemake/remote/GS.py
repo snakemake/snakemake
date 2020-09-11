@@ -28,15 +28,15 @@ except ImportError as e:
 
 def google_cloud_retry_predicate(ex):
     """Given an exception from Google Cloud, determine if it's one in the
-       listing of transient errors (determined by function
-       google.api_core.retry.if_transient_error(exception)) or determine if
-       triggered by a hash mismatch due to a bad download. This function will
-       return a boolean to indicate if retry should be done, and is typically 
-       used with the google.api_core.retry.Retry as a decorator (predicate).
+    listing of transient errors (determined by function
+    google.api_core.retry.if_transient_error(exception)) or determine if
+    triggered by a hash mismatch due to a bad download. This function will
+    return a boolean to indicate if retry should be done, and is typically
+    used with the google.api_core.retry.Retry as a decorator (predicate).
 
-       Arguments:
-         ex (Exception) : the exception passed from the decorated function
-       Returns: boolean to indicate doing retry (True) or not (False)
+    Arguments:
+      ex (Exception) : the exception passed from the decorated function
+    Returns: boolean to indicate doing retry (True) or not (False)
     """
     # Most likely case is Google API transient error
     if retry.if_transient_error(ex):
@@ -49,10 +49,10 @@ def google_cloud_retry_predicate(ex):
 
 class Crc32cCalculator:
     """The Google Python client doesn't provide a way to stream a file being
-       written, so we can wrap the file object in an additional class to
-       do custom handling. This is so we don't need to download the file
-       and then stream read it again to calculate the hash.
-   """
+    written, so we can wrap the file object in an additional class to
+    do custom handling. This is so we don't need to download the file
+    and then stream read it again to calculate the hash.
+    """
 
     def __init__(self, fileobj):
         self._fileobj = fileobj
@@ -63,14 +63,13 @@ class Crc32cCalculator:
         self._update(chunk)
 
     def _update(self, chunk):
-        """Given a chunk from the read in file, update the hexdigest
-        """
+        """Given a chunk from the read in file, update the hexdigest"""
         self.checksum.update(chunk)
 
     def hexdigest(self):
         """Return the hexdigest of the hasher.
-           The Base64 encoded CRC32c is in big-endian byte order.
-           See https://cloud.google.com/storage/docs/hashes-etags
+        The Base64 encoded CRC32c is in big-endian byte order.
+        See https://cloud.google.com/storage/docs/hashes-etags
         """
         return base64.b64encode(self.checksum.digest()).decode("utf-8")
 
@@ -129,14 +128,14 @@ class RemoteObject(AbstractRemoteObject):
 
     def inventory(self, cache: snakemake.io.IOCache):
         """Using client.list_blobs(), we want to iterate over the objects in
-           the "folder" of a bucket and store information about the IOFiles in the
-           provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
-           This will be called by the first mention of a remote object, and
-           iterate over the entire bucket once (and then not need to again). 
-           This includes:
-            - cache.exist_remote
-            - cache_mtime
-            - cache.size
+        the "folder" of a bucket and store information about the IOFiles in the
+        provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
+        This will be called by the first mention of a remote object, and
+        iterate over the entire bucket once (and then not need to again).
+        This includes:
+         - cache.exist_remote
+         - cache_mtime
+         - cache.size
         """
         subfolder = os.path.dirname(self.blob.name)
         for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):
@@ -175,8 +174,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
     def download(self):
-        """Download with maximum retry duration of 600 seconds (10 minutes)
-        """
+        """Download with maximum retry duration of 600 seconds (10 minutes)"""
         if not self.exists():
             return None
 

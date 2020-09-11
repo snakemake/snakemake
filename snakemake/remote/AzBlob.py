@@ -198,14 +198,14 @@ class AzureStorageHelper(object):
         relative_start_dir=None,
         extra_args=None,
     ):
-        """ Upload a file to Azure Storage
-            This function uploads a file to an Azure Storage Container as a blob.
-            Args:
-                container_name: the name of the Azure container to use
-                file_path: The path to the file to upload.
-                blob_name: The name to set for the blob on Azure. If not specified, this will default to the
-                    name of the file.
-            Returns: The blob_name of the file on Azure if written, None otherwise
+        """Upload a file to Azure Storage
+        This function uploads a file to an Azure Storage Container as a blob.
+        Args:
+            container_name: the name of the Azure container to use
+            file_path: The path to the file to upload.
+            blob_name: The name to set for the blob on Azure. If not specified, this will default to the
+                name of the file.
+        Returns: The blob_name of the file on Azure if written, None otherwise
         """
         file_path = os.path.realpath(os.path.expanduser(file_path))
 
@@ -254,20 +254,20 @@ class AzureStorageHelper(object):
         make_dest_dirs=True,
         create_stub_only=False,
     ):
-        """ Download a file from Azure Storage
-            This function downloads an object from a specified Azure Storage container.
-            Args:
-                container_name: the name of the Azure Storage container to use (container name only)
-                destination_path: If specified, the file will be saved to this path, otherwise cwd.
-                expandBlobNameIntoDirs: Since Azure blob names can include slashes, if this is True (defult)
-                    then Azure blob names with slashes are expanded into directories on the receiving end.
-                    If it is False, the blob name is passed to os.path.basename() to get the substring
-                    following the last slash.
-                make_dest_dirs: If this is True (default) and the destination path includes directories
-                    that do not exist, they will be created.
-            Returns:
-                The destination path of the downloaded file on the receiving end, or None if the destination_path
-                could not be downloaded
+        """Download a file from Azure Storage
+        This function downloads an object from a specified Azure Storage container.
+        Args:
+            container_name: the name of the Azure Storage container to use (container name only)
+            destination_path: If specified, the file will be saved to this path, otherwise cwd.
+            expandBlobNameIntoDirs: Since Azure blob names can include slashes, if this is True (defult)
+                then Azure blob names with slashes are expanded into directories on the receiving end.
+                If it is False, the blob name is passed to os.path.basename() to get the substring
+                following the last slash.
+            make_dest_dirs: If this is True (default) and the destination path includes directories
+                that do not exist, they will be created.
+        Returns:
+            The destination path of the downloaded file on the receiving end, or None if the destination_path
+            could not be downloaded
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
@@ -296,16 +296,16 @@ class AzureStorageHelper(object):
         return destination_path
 
     def delete_from_container(self, container_name, blob_name):
-        """ Delete a file from Azure Storage container
+        """Delete a file from Azure Storage container
 
-            This function deletes an object from a specified Azure Storage container.
+        This function deletes an object from a specified Azure Storage container.
 
-            Args:
-                container_name: the name of the Azure Storage container to use (container name only, not endpoint)
-                blob_name: the name of the blob to delete from the container
+        Args:
+            container_name: the name of the Azure Storage container to use (container name only, not endpoint)
+            blob_name: the name of the blob to delete from the container
 
-            Returns:
-                nothing
+        Returns:
+            nothing
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
@@ -313,14 +313,14 @@ class AzureStorageHelper(object):
         b.delete_blob()
 
     def exists_in_container(self, container_name, blob_name):
-        """ Returns whether the blob exists in the container
+        """Returns whether the blob exists in the container
 
-            Args:
-                container_name: the name of the Azure Storage container (container name only, not endpoint)
-                blob_name: the blob_name of the object to delete from the container
+        Args:
+            container_name: the name of the Azure Storage container (container name only, not endpoint)
+            blob_name: the blob_name of the object to delete from the container
 
-            Returns:
-                True | False
+        Returns:
+            True | False
         """
 
         assert (
@@ -331,14 +331,14 @@ class AzureStorageHelper(object):
         return any(True for _ in cc.list_blobs(name_starts_with=blob_name))
 
     def blob_size(self, container_name, blob_name):
-        """ Returns the size of a blob
+        """Returns the size of a blob
 
-            Args:
-                container_name: the name of the Azure Storage container (container name only, not endpoint)
-                blob_name: the blob_name of the object to delete from the container
+        Args:
+            container_name: the name of the Azure Storage container (container name only, not endpoint)
+            blob_name: the blob_name of the object to delete from the container
 
-            Returns:
-                Size in kb
+        Returns:
+            Size in kb
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
@@ -347,14 +347,14 @@ class AzureStorageHelper(object):
         return b.get_blob_properties().size // 1024
 
     def blob_last_modified(self, container_name, blob_name):
-        """ Returns a timestamp of a blob
+        """Returns a timestamp of a blob
 
-            Args:
-                container_name: the name of the Azure Storage container (container name only, not endpoint)
-                blob_name: the blob_name of the object to delete from the container
+        Args:
+            container_name: the name of the Azure Storage container (container name only, not endpoint)
+            blob_name: the blob_name of the object to delete from the container
 
-            Returns:
-                timestamp
+        Returns:
+            timestamp
         """
         assert container_name, "container_name must be specified"
         assert blob_name, "blob_name must be specified"
@@ -362,13 +362,13 @@ class AzureStorageHelper(object):
         return b.get_blob_properties().last_modified.timestamp()
 
     def list_blobs(self, container_name):
-        """ Returns a list of blobs from the container
+        """Returns a list of blobs from the container
 
-            Args:
-                container_name: the name of the Azure Storage container (container name only, not endpoint)
+        Args:
+            container_name: the name of the Azure Storage container (container name only, not endpoint)
 
-            Returns:
-                list of blobs
+        Returns:
+            list of blobs
         """
         assert container_name, "container_name must be specified"
         c = self.blob_service_client.get_container_client(container_name)

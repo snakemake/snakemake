@@ -57,8 +57,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an SFTP server.
-    """
+    """This is a class to interact with an SFTP server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -112,8 +111,8 @@ class RemoteObject(DomainObject):
             )
 
     def is_newer(self, time):
-        """ Returns true if the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true if the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         with self.sftpc() as sftpc:
             return (
                 sftpc.stat(self.remote_path).st_mtime > time

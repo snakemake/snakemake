@@ -241,9 +241,9 @@ class RealExecutor(AbstractExecutor):
 
     def get_additional_args(self):
         """Return a string to add to self.exec_job that includes additional
-           arguments from the command line. This is currently used in the
-           ClusterExecutor and CPUExecutor, as both were using the same
-           code. Both have base class of the RealExecutor.
+        arguments from the command line. This is currently used in the
+        ClusterExecutor and CPUExecutor, as both were using the same
+        code. Both have base class of the RealExecutor.
         """
         additional = ""
         if not self.workflow.cleanup_scripts:
@@ -551,10 +551,10 @@ class CPUExecutor(RealExecutor):
 
 
 class ClusterExecutor(RealExecutor):
-    """Backend for distributed execution. 
-    
-        The key idea is that a job is converted into a script that invokes Snakemake again, in whatever environment is targeted. The script is submitted to some job management platform (e.g. a cluster scheduler like slurm).
-        This class can be specialized to generate more specific backends, also for the cloud.
+    """Backend for distributed execution.
+
+    The key idea is that a job is converted into a script that invokes Snakemake again, in whatever environment is targeted. The script is submitted to some job management platform (e.g. a cluster scheduler like slurm).
+    This class can be specialized to generate more specific backends, also for the cloud.
     """
 
     default_jobscript = "jobscript.sh"

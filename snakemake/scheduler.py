@@ -537,7 +537,7 @@ class JobScheduler:
 
     def job_selector_ilp(self, jobs):
         """
-        Job scheduling by optimization of resource usage by solving ILP using pulp 
+        Job scheduling by optimization of resource usage by solving ILP using pulp
         """
         import pulp
         from pulp import lpSum

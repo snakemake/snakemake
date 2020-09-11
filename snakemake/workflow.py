@@ -315,8 +315,8 @@ class Workflow:
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
-           to the calling function Additionally, given that we encourage these 
-           packages to be small, we set a warning at 200MB (0.2GB).
+        to the calling function Additionally, given that we encourage these
+        packages to be small, we set a warning at 200MB (0.2GB).
         """
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
