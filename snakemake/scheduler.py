@@ -612,14 +612,15 @@ class JobScheduler:
                 ]
             ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
 
-        if pulp.apis.LpSolverDefault is None:
-            raise WorkflowError(
-                "You need to install at least one LP solver compatible with PuLP (e.g. coincbc). "
-                "See https://coin-or.github.io/pulp for details. Alternatively, run Snakemake with "
-                "--scheduler greedy."
-            )
-        # disable extensive logging
-        pulp.apis.LpSolverDefault.msg = False
+        # TODO enable this code once we have switched to pulp >=2.0
+        # if pulp.apis.LpSolverDefault is None:
+        #     raise WorkflowError(
+        #         "You need to install at least one LP solver compatible with PuLP (e.g. coincbc). "
+        #         "See https://coin-or.github.io/pulp for details. Alternatively, run Snakemake with "
+        #         "--scheduler greedy."
+        #     )
+        # # disable extensive logging
+        # pulp.apis.LpSolverDefault.msg = False
         prob.solve()
         selected_jobs = [
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
