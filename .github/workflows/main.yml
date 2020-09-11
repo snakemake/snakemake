@@ -15,9 +15,7 @@ jobs:
 
       - name: Setup black environment
         run: |
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          conda install -c conda-forge -q mamba
-          mamba create -y -q --name black black
+          conda create -c conda-forge -y -q --name black black
 
       - name: Check formatting
         run: |
