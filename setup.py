@@ -67,7 +67,7 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
-        "pulp",
+        "pulp <=1.6.8",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
