@@ -124,7 +124,7 @@ to perform a dry-run and
 
 ::
 
-   snakemake --use-conda mapped/A.bam
+   snakemake --use-conda mapped/A.bam --cores 1
 
 to perform the actual execution.
  
@@ -169,7 +169,7 @@ and
 
 ::
 
-   snakemake --use-conda mapped/A.sorted.bam
+   snakemake --use-conda mapped/A.sorted.bam --cores 1
 
 Step 5
 ------
@@ -283,7 +283,7 @@ Make sure to test your workflow with
 
 ::
 
-   snakemake --use-conda plots/quals.svg
+   snakemake --use-conda plots/quals.svg --cores 1
  
 Step 7
 ------
