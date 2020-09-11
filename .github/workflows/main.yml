@@ -21,7 +21,7 @@ jobs:
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests/*.py
+          black --check snakemake tests/tests.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()

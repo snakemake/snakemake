@@ -608,7 +608,7 @@ def test_gs_requester_pays(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+    """Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 
