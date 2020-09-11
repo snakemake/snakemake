@@ -43,6 +43,7 @@ dependencies:
   - python-kubernetes
   - gitpython
   - pulp
+  - coincbc
   - tibanna
   - environment-modules
   - nbformat
