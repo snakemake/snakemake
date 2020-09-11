@@ -277,7 +277,7 @@ execute the script:
        dependencies:
          - pysam =0.15
          - matplotlib =3.1
-         - python =3.7
+         - python =3.8
 
 Make sure to test your workflow with
 

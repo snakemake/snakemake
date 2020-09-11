@@ -34,15 +34,15 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.5
-* Snakemake_ 5.2.3
-* BWA_ 0.7.12
-* SAMtools_ 1.3.1
-* Pysam_ 0.15.0
-* BCFtools_ 1.3.1
-* Graphviz_ 2.38.0
-* Jinja2_ 2.10
-* NetworkX_ 2.1
-* Matplotlib_ 2.2.3
+* Snakemake_ ≥5.24.1
+* BWA_ 0.7
+* SAMtools_ 1.9
+* Pysam_ 0.15
+* BCFtools_ 1.9
+* Graphviz_ 2.42
+* Jinja2_ 2.11
+* NetworkX_ 2.5
+* Matplotlib_ 3.3
 
 The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
@@ -122,8 +122,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
-    $ tar -xf v5.4.5.tar.gz --strip 1
+    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz
+    $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 
