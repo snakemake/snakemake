@@ -13,3 +13,4 @@ Snakemake can communicate with panoptes via the ``--wms-monitor`` flag. The flag
 - Similar endpoints are provided for independent jobs/rules via ``/workflow/<workflow id>/job/<job id>`` or ``/api/workflow/<workflow id>/job/<job id>``
 - All jobs/rules of a specific workflow are accessible via ``/workflow/<workflow id>`` or ``/api/workflow/<workflow id>/jobs``
 - The status of a workflow or a job is updated via the ``/update_workflow_status`` endpoint
+- The status of the server is accessible via the ``/api/service-info`` endpoint
