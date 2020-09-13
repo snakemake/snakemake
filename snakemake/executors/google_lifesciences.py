@@ -582,10 +582,18 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         from snakemake import SNAKEFILE_CHOICES
 
-        for snakefile in SNAKEFILE_CHOICES:
-            if os.path.exists(os.path.join(self.workdir, snakefile)):
-                self.snakefile = snakefile
-                break
+        # Case 1: snakefile specified on the command line
+        if os.path.exists(self.workflow.snakefile):
+            self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(
+                os.sep
+            )
+
+        # Case 2: automatic discovery from set of defaults
+        else:
+            for snakefile in SNAKEFILE_CHOICES:
+                if os.path.exists(os.path.join(self.workdir, snakefile)):
+                    self.snakefile = snakefile
+                    break
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
