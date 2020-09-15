@@ -52,7 +52,7 @@ Containers for Wrappers
 
 As of version 5.23 and later, Snakemake wrappers support the definition of containers to be used
 alongside wrappers. The container will be used given that the user requesting the wrapper adds ``--use-singularity`` 
-to the snakemake run. There are several ways to specify a wrapper for a container, each coming down to a definition in the ``meta.yaml``,
+to the snakemake run. There are several ways to specify a container for a wrapper, each coming down to a definition in the ``meta.yaml``,
 discussed in the following sections.
 
 Automated Detection
