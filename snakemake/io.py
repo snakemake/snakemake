@@ -183,8 +183,8 @@ class _IOFile(str):
 
     def _refer_to_remote(func):
         """
-            A decorator so that if the file is remote and has a version
-            of the same file-related function, call that version instead.
+        A decorator so that if the file is remote and has a version
+        of the same file-related function, call that version instead.
         """
 
         @functools.wraps(func)
@@ -197,7 +197,7 @@ class _IOFile(str):
         return wrapper
 
     def inventory(self):
-        """Starting from the given file, try to cache as much existence and 
+        """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
@@ -233,8 +233,8 @@ class _IOFile(str):
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first. 
-        
+        """Open this file. If necessary, download it from remote first.
+
         This can (and should) be used in a `with`-statement.
         """
         if not self.exists:
@@ -409,8 +409,8 @@ class _IOFile(str):
 
     @_refer_to_remote
     def is_newer(self, time):
-        """ Returns true of the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true of the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
         elif self.is_remote:
@@ -876,7 +876,7 @@ def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
-    rule has been run """
+    rule has been run"""
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -909,11 +909,13 @@ def checkpoint_target(value):
 
 
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns"]
+    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
 )
 
 
-def report(value, caption=None, category=None, subcategory=None, patterns=[]):
+def report(
+    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+):
     """Flag output file or directory as to be included into reports.
 
     In case of directory, files to include can be specified via a glob pattern (default: *).
@@ -926,7 +928,11 @@ def report(value, caption=None, category=None, subcategory=None, patterns=[]):
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
-    return flag(value, "report", ReportObject(caption, category, subcategory, patterns))
+    return flag(
+        value,
+        "report",
+        ReportObject(caption, category, subcategory, patterns, htmlindex),
+    )
 
 
 def local(value):
@@ -1130,10 +1136,10 @@ def split_git_path(path):
 
 def get_git_root(path):
     """
-        Args:
-            path: (str) Path a to a directory/file that is located inside the repo
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory/file that is located inside the repo
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1147,16 +1153,16 @@ def get_git_root(path):
 
 def get_git_root_parent_directory(path, input_path):
     """
-        This function will recursively go through parent directories until a git
-        repository is found or until no parent directories are left, in which case
-        a error will be raised. This is needed when providing a path to a
-        file/folder that is located on a branch/tag no currently checked out.
+    This function will recursively go through parent directories until a git
+    repository is found or until no parent directories are left, in which case
+    a error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag no currently checked out.
 
-        Args:
-            path: (str) Path a to a directory that is located inside the repo
-            input_path: (str) origin path, used when raising WorkflowError
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory that is located inside the repo
+        input_path: (str) origin path, used when raising WorkflowError
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1176,15 +1182,15 @@ def get_git_root_parent_directory(path, input_path):
 
 def git_content(git_file):
     """
-        This function will extract a file from a git repository, one located on
-        the filesystem.
-        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    This function will extract a file from a git repository, one located on
+    the filesystem.
+    Expected format is git+file:///path/to/your/repo/path_to_file@@version
 
-        Args:
-          env_file (str): consist of path to repo, @, version and file information
-                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-        Returns:
-            file content or None if the expected format isn't meet
+    Args:
+      env_file (str): consist of path to repo, @, version and file information
+                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+    Returns:
+        file content or None if the expected format isn't meet
     """
     import git
 
@@ -1260,9 +1266,9 @@ class Namedlist(list):
         """
         Generic function that throws an `AttributeError`.
 
-        Used as replacement for functions such as `index()` and `sort()`, 
-        which may be overridden by workflows, to signal to a user that 
-        these functions should not be used.        
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
         """
         raise AttributeError(
             "{_name}() cannot be used; attribute name reserved"

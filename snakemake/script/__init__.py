@@ -118,8 +118,8 @@ class Snakemake:
 
 class BaseEncoder:
     """shared class for encoding a value. An Encoder subclass should have
-       defined: language, none_value, true_value, and false_value, all strings,
-       along with methods encode_dict, and encode_list.
+    defined: language, none_value, true_value, and false_value, all strings,
+    along with methods encode_dict, and encode_list.
     """
 
     @classmethod
@@ -450,8 +450,10 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         wrapper_path = self.path[7:] if self.path.startswith(file_prefix) else self.path
-        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
-            file_override=repr(os.path.realpath(wrapper_path))
+        preamble_addendum = (
+            "__real_file__ = __file__; __file__ = {file_override};".format(
+                file_override=repr(os.path.realpath(wrapper_path))
+            )
         )
 
         return PythonScript.generate_preamble(

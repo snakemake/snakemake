@@ -33,9 +33,9 @@ file_prefix = "file:"
 
 class WrapperSpec:
     """A Snakemake Wrapper spec coincides with a snakemake wrapper. Specifically,
-       we can use it to interact with scripts (local or on GitHub) and can
-       generate a unique hash and container name based on the environment.yaml.
-       We can then easily determine if the container exists.
+    we can use it to interact with scripts (local or on GitHub) and can
+    generate a unique hash and container name based on the environment.yaml.
+    We can then easily determine if the container exists.
     """
 
     def __init__(self, path, prefix=None):
@@ -50,8 +50,7 @@ class WrapperSpec:
 
     @property
     def conda_env(self):
-        """Get the conda environment
-        """
+        """Get the conda environment"""
         if self._environment_file is None:
             path = self.path
             if is_git_path(path):
@@ -65,8 +64,7 @@ class WrapperSpec:
 
     @property
     def packages(self):
-        """Read the full environment.yaml file
-        """
+        """Read the full environment.yaml file"""
         environment_file = self.conda_env
         if not environment_file:
             return
@@ -85,9 +83,9 @@ class WrapperSpec:
         return path
 
     def parse_path(self, path):
-        """Given a path, determine if it has a script associated. We set 
-           self._path to be the directory (web or local) name, and self._script
-           to be the wrapper.
+        """Given a path, determine if it has a script associated. We set
+        self._path to be the directory (web or local) name, and self._script
+        to be the wrapper.
         """
         # A script can be online (https) or local
         if is_script(path):
@@ -99,8 +97,8 @@ class WrapperSpec:
     @property
     def meta(self):
         """Given a path to a rule, load the meta.yaml / meta.yml and determine if
-           a container is provided. If so, return the container URI. Otherwise
-           return None. 
+        a container is provided. If so, return the container URI. Otherwise
+        return None.
         """
         if self._meta is not None:
             return self._meta
@@ -121,8 +119,7 @@ class WrapperSpec:
 
     @property
     def sets(self):
-        """Return sorted package sets (name and version)
-        """
+        """Return sorted package sets (name and version)"""
         # Generate hashes for the package names (container name) and tag (versions)
         # {'bwa': '0.7.17', 'samtools': '1.9', 'picard': '2.20.1'}
         sets = {
@@ -135,7 +132,7 @@ class WrapperSpec:
 
     def read_local_remote_file(self, path):
         """Given a filename (local or remote) read it with a web request
-           or directly from the filesystem.
+        or directly from the filesystem.
         """
         if path.startswith(file_prefix):
             path = re.sub("(file:|file:/|file://)", "", path).strip("/")
@@ -156,8 +153,8 @@ class WrapperSpec:
 
     def _get_md5(self, listing):
         """Private function to generate an md5sum for a listing of variables
-           You should use the get_container_shamd5, get_versions_md5, and
-           get_names_md5 for more finished hashes. 
+        You should use the get_container_shamd5, get_versions_md5, and
+        get_names_md5 for more finished hashes.
         """
         hasher = hashlib.md5()
         hasher.update("".join(listing).encode("utf-8"))
@@ -165,7 +162,7 @@ class WrapperSpec:
 
     def get_container_name(self):
         """Given a base container name, and hashes for packages and names,
-           return the full container unique resource identifier.
+        return the full container unique resource identifier.
         """
         container_name = None
         if self.meta is not None:
@@ -188,7 +185,7 @@ class WrapperSpec:
 
     def get_versions_md5(self):
         """Given packages for a wrapper, return the md5 sum of sorted versions
-           (sorted by package names)
+        (sorted by package names)
         """
         # Index at 1 is the version
         return self._get_md5([x[1] for x in self.sets])
@@ -199,8 +196,7 @@ class WrapperSpec:
 
 
 def get_script(path, prefix=None):
-    """Get script uses the original (unparsed) path.
-    """
+    """Get script uses the original (unparsed) path."""
     path = get_path(path, prefix=prefix)
     return find_extension(path)
 

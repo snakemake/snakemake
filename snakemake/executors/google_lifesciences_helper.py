@@ -29,8 +29,7 @@ def download_blob(bucket_name, source_blob_name, destination_file_name):
 
 
 def save_files(bucket_name, source_path, destination_path):
-    """given a directory path, save all files recursively to storage
-    """
+    """given a directory path, save all files recursively to storage"""
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
 
@@ -64,8 +63,7 @@ def save_files(bucket_name, source_path, destination_path):
 
 
 def get_source_files(source_path):
-    """Given a directory, return a listing of files to upload
-    """
+    """Given a directory, return a listing of files to upload"""
     filenames = []
     if not os.path.exists(source_path):
         print("%s does not exist!" % source_path)
@@ -79,8 +77,7 @@ def get_source_files(source_path):
 
 
 def add_ending_slash(filename):
-    """Since we want to replace based on having an ending slash, ensure it's there
-    """
+    """Since we want to replace based on having an ending slash, ensure it's there"""
     if not filename.endswith("/"):
         filename = "%s/" % filename
     return filename

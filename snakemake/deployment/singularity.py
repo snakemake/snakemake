@@ -105,7 +105,7 @@ def shellcmd(
     img_path, cmd, args="", envvars=None, shell_executable=None, container_workdir=None
 ):
     """Execute shell command inside singularity container given optional args
-       and environment variables to be passed."""
+    and environment variables to be passed."""
 
     if envvars:
         envvars = " ".join(

@@ -10,7 +10,7 @@ import requests
 
 class DockerContainer:
     """A Docker Container is a thin wrapper to a Docker Registry API to
-       primarily determine if a container exists to be used for a workflow
+    primarily determine if a container exists to be used for a workflow
     """
 
     def __init__(self, name):
@@ -22,7 +22,7 @@ class DockerContainer:
     @property
     def version(self):
         """Derive a container verison. Will by default be latest (the tag)
-           but can be a different tag or full hash.
+        but can be a different tag or full hash.
         """
         # Does the container have a version (tag or hash?)
         version = "latest"
@@ -35,7 +35,7 @@ class DockerContainer:
     @property
     def registry(self):
         """Return the container registry. We default to Docker Hub unless
-           another (quay.io) is defined
+        another (quay.io) is defined
         """
         registry = "https://index.docker.io/v2"
         if "quay.io" in self.name:
@@ -45,14 +45,14 @@ class DockerContainer:
     @property
     def repository(self):
         """The repository is the username/reponame combination, without
-           the registry. E.g., quay.io/name/repo --> name/repo
+        the registry. E.g., quay.io/name/repo --> name/repo
         """
         container_name = self.name.replace("quay.io/", "", 1)
         return re.split("(:|@)", container_name, 1)[0]
 
     def exists(self):
-        """Return True if the container exists under CONTAINER_PREFIX 
-           (quay.io/snakemake-wrappers) otherwise return False
+        """Return True if the container exists under CONTAINER_PREFIX
+        (quay.io/snakemake-wrappers) otherwise return False
         """
         # Cut out early if given no Name, possibly creating instance for later use.
         if not self.name:
@@ -66,8 +66,8 @@ class DockerContainer:
 
     def exists_quay(self):
         """Quay will return a 200 response if a repository, tag combination exists,
-           and return a json object with "images" -> images. We only care if the container
-           exists, which we can determine based on the response.status_code.
+        and return a json object with "images" -> images. We only care if the container
+        exists, which we can determine based on the response.status_code.
         """
         # get /api/v1/repository/{repository}/tag/{tag}/images
         url = "%s/repository/%s/tag/%s/images" % (
@@ -81,8 +81,8 @@ class DockerContainer:
 
     def exists_docker(self):
         """Determine if an image exists for docker hub. We are able to query for
-           an image manifest (referenced by tag) directly after getting an auth
-           token.
+        an image manifest (referenced by tag) directly after getting an auth
+        token.
         """
         # Request for the manifest
         # GET /v2/<name>/manifests/<reference>
@@ -111,8 +111,7 @@ class DockerContainer:
         return response.status_code == 200
 
     def get_token_url(self, challenge, expires_in, sort_query_params=False):
-        """Build token URL from authentication challenge
-        """
+        """Build token URL from authentication challenge"""
         params = parse_bearer_challenge(challenge)
 
         if params and "realm" in params:

@@ -90,23 +90,6 @@ you can specify the name of the container directly.
 
 In the case above, you'll notice that you should provide a reason and sustainability clause.
 
-Dockerfile
-~~~~~~~~~~
-
-The final case is if you want to add a special Dockerfile (mutually exclusive with an environment.yaml). We will
-need to discover the container name from this file (not clear how to do this yet).
-
-.. code-block:: yaml
-
-    container:
-      spec: Dockerfile
-      reason: |
-        It is impossible to generate this container based on a conda environment because...
-
-
-It's likely this case won't be needed and we can remove it. If a user needs to define
- a custom Dockerfile, it's better that they just build and deploy it and provide the container name.
-
 
 .. _cwl:
 

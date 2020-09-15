@@ -550,6 +550,7 @@ class Rule:
                         report_obj.category,
                         report_obj.subcategory,
                         report_obj.patterns,
+                        report_obj.htmlindex,
                     )
                     item.flags["report"] = r
             if is_flagged(item, "subworkflow"):

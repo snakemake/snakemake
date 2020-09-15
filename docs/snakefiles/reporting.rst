@@ -72,6 +72,23 @@ Nevertheless, it is still possible to include those files one by one into the re
 When creating the report, Snakemake will scan the directory for files matching the given patterns and include all of them in the report.
 Wildcards in those patterns are made available in the jinja-templated caption document along with the rules wildcards in the ``snakemake.wildcards`` object.
 
+If the output of a rule is a directory with an HTML file hierarchy, it is also possible to specify an entry-point HTML file for inclusion into the report, instead of the ``patterns`` approach from above.
+This works as follows:
+
+.. code-block:: python
+    rule generate_html_hierarchy:
+        output:
+            report(directory("test"), caption="report/caption.rst", htmlindex="test.html")
+        shell:
+            """
+            # mimic writing of an HTML hierarchy
+            mkdir test
+            cp template.html test/test.html
+            mkdir test/js
+            echo \"alert('test')\" > test/js/test.js
+            """
+
+
 Moreover, in every ``.rst`` document, you can link to
 
 * the **Workflow** panel (with ``Rules_``),

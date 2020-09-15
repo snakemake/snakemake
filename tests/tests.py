@@ -151,6 +151,11 @@ def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_report_dir():
+    run(dpath("test_report_dir"), report="report.zip", check_md5=False)
+
+
 def test_dynamic():
     run(dpath("test_dynamic"))
 
@@ -608,7 +613,7 @@ def test_gs_requester_pays(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+    """Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 

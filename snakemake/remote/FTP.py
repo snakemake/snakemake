@@ -108,8 +108,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an FTP server.
-    """
+    """This is a class to interact with an FTP server."""
 
     def __init__(
         self,
