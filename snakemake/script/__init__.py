@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -24,10 +24,17 @@ from snakemake.shell import shell
 from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
+from snakemake.script.templates import (
+    python_script_template,
+    r_script_template,
+    rmarkdown_script_template,
+    julia_script_template,
+)
 
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
+file_prefix = "file://"
 
 
 class Snakemake:
@@ -64,7 +71,7 @@ class Snakemake:
         Return a shell redirection string to be used in `shell()` calls
 
         This function allows scripts and wrappers support optional `log` files
-        specified in the calling rule.  If no `log` was specified, then an
+        specified in the calling rule.  If no `log` was specifieod, then an
         empty string "" is returned, regardless of the values of `stdout`,
         `stderr`, and `append`.
 
@@ -109,25 +116,22 @@ class Snakemake:
         return lookup[(stdout, stderr, append)].format(self.log)
 
 
-class REncoder:
-    """Encoding Pyton data structures into R."""
-
-    @classmethod
-    def encode_numeric(cls, value):
-        if value is None:
-            return "as.numeric(NA)"
-        return str(value)
+class BaseEncoder:
+    """shared class for encoding a value. An Encoder subclass should have
+    defined: language, none_value, true_value, and false_value, all strings,
+    along with methods encode_dict, and encode_list.
+    """
 
     @classmethod
     def encode_value(cls, value):
         if value is None:
-            return "NULL"
+            return cls.none_value
         elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
-            return "TRUE" if value else "FALSE"
+            return cls.true_value if value else cls.false_value
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
         elif isinstance(value, collections.abc.Iterable):
@@ -142,7 +146,61 @@ class REncoder:
                     return str(value)
             except ImportError:
                 pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
+        raise ValueError(
+            "Unsupported value for conversion into {}: {}".format(cls.language, value)
+        )
+
+
+class PythonEncoder(BaseEncoder):
+    """Encoding Python data structures."""
+
+    language = "Python"
+    none_value = "None"
+    true_value = "True"
+    false_value = "False"
+
+    @classmethod
+    def encode_list(cls, l):
+        return "[{}]".format(", ".join(map(cls.encode_value, l)))
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return '"{}": {}'.format(name, cls.encode_value(value))
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = "{" + "{}".format(cls.encode_items(d.items())) + "}"
+        return d
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        named = cls.encode_items(namedlist.items())
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        source = "{}"
+        if named:
+            source = "{" + named + "}"
+        elif positional:
+            source = "[" + positional + "]"
+        return source
+
+
+class REncoder(BaseEncoder):
+    """Encoding Python data structures into R."""
+
+    language = "R"
+    none_value = "NULL"
+    true_value = "TRUE"
+    false_value = "FALSE"
+
+    @classmethod
+    def encode_numeric(cls, value):
+        if value is None:
+            return "as.numeric(NA)"
+        return str(value)
 
     @classmethod
     def encode_list(cls, l):
@@ -174,36 +232,13 @@ class REncoder:
         return source
 
 
-class JuliaEncoder:
+class JuliaEncoder(BaseEncoder):
     """Encoding Pyton data structures into Julia."""
 
-    @classmethod
-    def encode_value(cls, value):
-        if value is None:
-            return "nothing"
-        elif isinstance(value, str):
-            return repr(value)
-        elif isinstance(value, dict):
-            return cls.encode_dict(value)
-        elif isinstance(value, bool):
-            return "true" if value else "false"
-        elif isinstance(value, int) or isinstance(value, float):
-            return str(value)
-        elif isinstance(value, collections.abc.Iterable):
-            # convert all iterables to vectors
-            return cls.encode_list(value)
-        else:
-            # Try to convert from numpy if numpy is present
-            try:
-                import numpy as np
-
-                if isinstance(value, np.number):
-                    return str(value)
-            except ImportError:
-                pass
-        raise ValueError(
-            "Unsupported value for conversion into Julia: {}".format(value)
-        )
+    language = "Julia"
+    none_value = "nothing"
+    true_value = "true"
+    false_value = "false"
 
     @classmethod
     def encode_list(cls, l):
@@ -381,47 +416,40 @@ class PythonScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        wrapper_path = path[7:] if path.startswith("file://") else path
-        snakemake = Snakemake(
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            bench_iteration,
-            os.path.dirname(wrapper_path),
-        )
-        snakemake = pickle.dumps(snakemake)
-        # Obtain search path for current snakemake module.
-        # The module is needed for unpickling in the script.
-        # We append it at the end (as a fallback).
+
+        # Obtain search path for any mounted containers
+        # This will also ensure recipes that require snakemake have it on path
         searchpath = SNAKEMAKE_SEARCHPATH
         if container_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
+
         # For local scripts, add their location to the path in case they use path-based imports
-        if path.startswith("file://"):
+        if path.startswith(file_prefix):
             searchpath += ", " + repr(os.path.dirname(path[7:]))
 
-        return textwrap.dedent(
-            """
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
-        ######## snakemake preamble end #########
-        """
-        ).format(
+        # The wrapper path should be added too
+        wrapper_path = path[7:] if path.startswith(file_prefix) else path
+
+        return textwrap.dedent(python_script_template).format(
             searchpath=searchpath,
-            snakemake=snakemake,
-            printshellcmds=logger.printshellcmds,
+            sourcedir=PythonEncoder.encode_value(wrapper_path),
+            input_=PythonEncoder.encode_namedlist(input_),
+            output=PythonEncoder.encode_namedlist(output),
+            params=PythonEncoder.encode_namedlist(params),
+            wildcards=PythonEncoder.encode_namedlist(wildcards),
+            threads=threads,
+            log=PythonEncoder.encode_value(log),
+            resources=PythonEncoder.encode_value(resources),
+            config=PythonEncoder.encode_value(config),
+            rule=PythonEncoder.encode_value(rulename),
+            bench_iteration=PythonEncoder.encode_value(bench_iteration),
+            scriptdir=PythonEncoder.encode_value(wrapper_path),
             preamble_addendum=preamble_addendum,
         )
 
     def get_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+        wrapper_path = self.path[7:] if self.path.startswith(file_prefix) else self.path
         preamble_addendum = (
             "__real_file__ = __file__; __file__ = {file_override};".format(
                 file_override=repr(os.path.realpath(wrapper_path))
@@ -474,10 +502,12 @@ class PythonScript(ScriptBase):
         return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
+
         py_exec = sys.executable
         if self.container_img is not None:
             # use python from image
             py_exec = "python"
+
         elif self.conda_env is not None or self.env_modules is not None:
             if self._is_python_env():
                 py_version = self._get_python_version()
@@ -532,51 +562,7 @@ class RScript(ScriptBase):
         shadow_dir,
         preamble_addendum="",
     ):
-        return textwrap.dedent(
-            """
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        library(methods)
-        Snakemake <- setClass(
-            "Snakemake",
-            slots = c(
-                input = "list",
-                output = "list",
-                params = "list",
-                wildcards = "list",
-                threads = "numeric",
-                log = "list",
-                resources = "list",
-                config = "list",
-                rule = "character",
-                bench_iteration = "numeric",
-                scriptdir = "character",
-                source = "function"
-            )
-        )
-        snakemake <- Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
-            source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
-            }}
-        )
-        {preamble_addendum}
-
-        ######## snakemake preamble end #########
-        """
-        ).format(
+        return textwrap.dedent(r_script_template).format(
             REncoder.encode_namedlist(input_),
             REncoder.encode_namedlist(output),
             REncoder.encode_namedlist(params),
@@ -646,50 +632,7 @@ class RScript(ScriptBase):
 
 class RMarkdown(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
-        ######## snakemake preamble start (automatically inserted, do not edit) ########
-        library(methods)
-        Snakemake <- setClass(
-            "Snakemake",
-            slots = c(
-                input = "list",
-                output = "list",
-                params = "list",
-                wildcards = "list",
-                threads = "numeric",
-                log = "list",
-                resources = "list",
-                config = "list",
-                rule = "character",
-                bench_iteration = "numeric",
-                scriptdir = "character",
-                source = "function"
-            )
-        )
-        snakemake <- Snakemake(
-            input = {},
-            output = {},
-            params = {},
-            wildcards = {},
-            threads = {},
-            log = {},
-            resources = {},
-            config = {},
-            rule = {},
-            bench_iteration = {},
-            scriptdir = {},
-            source = function(...){{
-                wd <- getwd()
-                setwd(snakemake@scriptdir)
-                source(...)
-                setwd(wd)
-            }}
-        )
-
-        ######## snakemake preamble end #########
-        """
-        ).format(
+        return textwrap.dedent(rmarkdown_script_template).format(
             REncoder.encode_namedlist(self.input),
             REncoder.encode_namedlist(self.output),
             REncoder.encode_namedlist(self.params),
@@ -708,7 +651,7 @@ class RMarkdown(ScriptBase):
             REncoder.encode_numeric(self.bench_iteration),
             REncoder.encode_value(
                 os.path.dirname(self.path[7:])
-                if self.path.startswith("file://")
+                if self.path.startswith(file_prefix)
                 else os.path.dirname(self.path)
             ),
         )
@@ -745,39 +688,9 @@ class RMarkdown(ScriptBase):
 
 class JuliaScript(ScriptBase):
     def get_preamble(self):
-        return textwrap.dedent(
-            """
-                ######## snakemake preamble start (automatically inserted, do not edit) ########
-                struct Snakemake
-                    input::Dict
-                    output::Dict
-                    params::Dict
-                    wildcards::Dict
-                    threads::Int64
-                    log::Dict
-                    resources::Dict
-                    config::Dict
-                    rule::String
-                    bench_iteration
-                    scriptdir::String
-                    #source::Any
-                end
-                snakemake = Snakemake(
-                    {}, #input::Dict
-                    {}, #output::Dict
-                    {}, #params::Dict
-                    {}, #wildcards::Dict
-                    {}, #threads::Int64
-                    {}, #log::Dict
-                    {}, #resources::Dict
-                    {}, #config::Dict
-                    {}, #rule::String
-                    {}, #bench_iteration::Int64
-                    {}, #scriptdir::String
-                    #, #source::Any
-                )
-                ######## snakemake preamble end #########
-                """.format(
+        return (
+            textwrap.dedent(julia_script_template)
+            .format(
                 JuliaEncoder.encode_namedlist(self.input),
                 JuliaEncoder.encode_namedlist(self.output),
                 JuliaEncoder.encode_namedlist(self.params),
@@ -796,12 +709,11 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_value(self.bench_iteration),
                 JuliaEncoder.encode_value(
                     os.path.dirname(self.path[7:])
-                    if self.path.startswith("file://")
+                    if self.path.startswith(file_prefix)
                     else os.path.dirname(self.path)
                 ),
-            ).replace(
-                "'", '"'
             )
+            .replace("'", '"')
         )
 
     def write_script(self, preamble, fd):
@@ -815,16 +727,17 @@ class JuliaScript(ScriptBase):
 def get_source(path, basedir="."):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
-        if path.startswith("file://"):
+        if path.startswith(file_prefix):
             path = path[7:]
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
-        path = "file://" + path
+        path = file_prefix + path
+
     # TODO this should probably be removed again. It does not work for report and hash!
     path = format(path, stepout=1)
-    if path.startswith("file://"):
+    if path.startswith(file_prefix):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
         source = git_content(path).encode()

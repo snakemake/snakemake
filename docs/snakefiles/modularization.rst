@@ -46,6 +46,50 @@ Examples for each wrapper can be found in the READMEs located in the wrapper sub
 The `Snakemake Wrapper Repository`_ is meant as a collaborative project and pull requests are very welcome.
 
 
+-----------------------
+Containers for Wrappers
+-----------------------
+
+As of version 5.23 and later, Snakemake wrappers support the definition of containers to be used
+alongside wrappers. The container will be used given that the user requesting the wrapper adds ``--use-singularity`` 
+to the snakemake run. There are several ways to specify a container for a wrapper, each coming down to a definition in the ``meta.yaml``,
+discussed in the following sections.
+
+Automated Detection
+~~~~~~~~~~~~~~~~~~~
+
+Automated detection is supported for wrappers that are contributed to the `snakemake wrappers <https://github.com/snakemake/snakemake-wrappers>`_
+repository, and for wrappers that have an ``environment.yaml`` file. We use this environment specification to calculate a hash 
+based on the library names and versions, and deploy a container to `the snakemake wrappers <https://quay.io/organization/snakemake-wrappers>`_ organization on quay.io. In this case, along with having the environment file, your  ``meta.yaml`` should contain the following directive:
+
+.. code-block:: yaml
+
+    container:
+      spec: auto
+
+This means at runtime, we will read the ``meta.yaml``, discover the specification is for an automated detection,
+calculate the correct hashes for the container name and version (tag), and then determine if the container exists.
+If so, the container will be pulled down to Singularity and used as expected for the wrapper.
+
+Custom Image
+~~~~~~~~~~~~
+
+In the case that your wrapper is not served with `snakemake wrappers <https://github.com/snakemake/snakemake-wrappers>`_,
+or does not have an ``environment.yaml`` file to calculate from, you can specify the name of the container directly. 
+
+.. code-block:: yaml
+
+    container:
+      spec: docker://nvidia/tensorflow:v2.1.3
+      reason: |
+        It is only possible to use this official container because...
+      sustainability: |
+        We can be sure that this container will stay available because it is officially hosted by NVIDIA.
+
+
+In the case above, you'll notice that you should provide a reason and sustainability clause.
+
+
 .. _cwl:
 
 --------------------------------------

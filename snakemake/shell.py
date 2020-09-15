@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
@@ -19,8 +19,6 @@ from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
 import snakemake
 
-
-__author__ = "Johannes Köster"
 
 STDOUT = sys.stdout
 if not isinstance(sys.stdout, _io.TextIOWrapper):
