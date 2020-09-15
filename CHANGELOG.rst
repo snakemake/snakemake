@@ -1,3 +1,15 @@
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
+[5.24.1] - 2020-09-13
+=====================
+Changed
+-------
+- Depend on pulp < 2.0, which includes the default coin cbc solver for all platforms.
+
 [5.24.0] - 2020-09-09
 =====================
 Added
