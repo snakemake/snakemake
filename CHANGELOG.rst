@@ -1,3 +1,9 @@
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
 [5.24.1] - 2020-09-13
 =====================
 Changed
