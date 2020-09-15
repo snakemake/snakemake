@@ -151,6 +151,11 @@ def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_report_dir():
+    run(dpath("test_report_dir"), report="report.zip", check_md5=False)
+
+
 def test_dynamic():
     run(dpath("test_dynamic"))
 
