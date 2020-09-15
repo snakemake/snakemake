@@ -909,11 +909,13 @@ def checkpoint_target(value):
 
 
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns"]
+    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
 )
 
 
-def report(value, caption=None, category=None, subcategory=None, patterns=[]):
+def report(
+    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+):
     """Flag output file or directory as to be included into reports.
 
     In case of directory, files to include can be specified via a glob pattern (default: *).
@@ -926,7 +928,11 @@ def report(value, caption=None, category=None, subcategory=None, patterns=[]):
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
-    return flag(value, "report", ReportObject(caption, category, subcategory, patterns))
+    return flag(
+        value,
+        "report",
+        ReportObject(caption, category, subcategory, patterns, htmlindex),
+    )
 
 
 def local(value):
