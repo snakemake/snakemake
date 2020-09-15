@@ -75,8 +75,7 @@ Custom Image
 ~~~~~~~~~~~~
 
 In the case that your wrapper is not served with `snakemake wrappers <https://github.com/snakemake/snakemake-wrappers>`_,
-does not have an ``environment.yaml`` file to calculate from, or otherwise requires a custom Dockerfile to be built and deployed,
-you can specify the name of the container directly. 
+or does not have an ``environment.yaml`` file to calculate from, you can specify the name of the container directly. 
 
 .. code-block:: yaml
 
