@@ -1042,9 +1042,14 @@ class DAG:
                 if j not in groups:
                     groups[j] = group
 
+        self._group = groups
+
+        self._update_group_components()
+
+    def _update_group_components(self):
         # span connected components if requested
         for groupid, conn_components in groupby(
-            set(groups.values()), key=lambda group: group.groupid
+            set(self._group.values()), key=lambda group: group.groupid
         ):
             n_components = self.workflow.group_components.get(groupid, 1)
             if n_components > 1:
@@ -1054,9 +1059,7 @@ class DAG:
                         for secondary in chunk[1:]:
                             primary.merge(secondary)
                         for j in primary:
-                            groups[j] = primary
-
-        self._group = groups
+                            self._group[j] = primary
 
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.
