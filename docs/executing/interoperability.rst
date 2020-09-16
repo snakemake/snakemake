@@ -9,7 +9,7 @@ Interoperability
 CWL export
 ----------
 
-Snakemake workflows can be exported to `CWL <http://www.commonwl.org/>`_, such that they can be executed in any `CWL-enabled workflow engine <https://www.commonwl.org/#Implementations>`_.
+Snakemake workflows can be exported to `CWL <https://www.commonwl.org/>`_, such that they can be executed in any `CWL-enabled workflow engine <https://www.commonwl.org/#Implementations>`_.
 Since, CWL is less powerful for expressing workflows than Snakemake (most importantly Snakemake offers more flexible scatter-gather patterns, since full Python can be used), export works such that every Snakemake job is encoded into a single step in the CWL workflow.
 Moreover, every step of that workflow calls Snakemake again to execute the job. The latter enables advanced Snakemake features like scripts, benchmarks and remote files to work inside CWL.
 So, when exporting keep in mind that the resulting CWL file can become huge, depending on the number of jobs in your workflow.

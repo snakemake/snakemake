@@ -37,7 +37,15 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
-    packages=["snakemake", "snakemake.remote", "snakemake.report", "snakemake.caching", "snakemake.deployment"],
+    packages=[
+        "snakemake",
+        "snakemake.remote",
+        "snakemake.report",
+        "snakemake.caching",
+        "snakemake.deployment",
+        "snakemake.linting",
+        "snakemake.executors",
+    ],
     entry_points={
         "console_scripts": [
             "snakemake = snakemake:main",
@@ -59,8 +67,22 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "pulp >=2.0",
     ],
-    extras_require={"reports": ["jinja2", "networkx", "pygments", "pygraphviz"], "messaging": ["slacker"]},
+    extras_require={
+        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "messaging": ["slacker"],
+        "google-cloud": [
+            "oauth2client",
+            "google-crc32c",
+            "google-api-python-client",
+            "google-cloud-storage",
+        ],
+        "pep": [
+            "peppy",
+            "eido",
+        ]
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",

@@ -11,6 +11,7 @@ import functools
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject, DomainObject
 from snakemake.exceptions import WebDAVFileException, WorkflowError
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -49,8 +50,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with a WebDAV file store.
-    """
+    """This is a class to interact with a WebDAV file store."""
 
     def __init__(self, *args, keep_local=False, **kwargs):
         # self.loop = asyncio.get_event_loop()
@@ -127,7 +127,7 @@ class RemoteObject(DomainObject):
                 epoch_time = email.utils.mktime_tz(parsed_date)
                 return epoch_time
         else:
-            raise EasyWebDAVFileException(
+            raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 
@@ -150,9 +150,9 @@ class RemoteObject(DomainObject):
                 self.loop.run_until_complete(
                     self.conn.download(self.webdav_file, self.local_file())
                 )
-                os.sync()  # ensure flush to disk
+                os_sync()  # ensure flush to disk
         else:
-            raise EasyWebDAVFileException(
+            raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 

@@ -3,8 +3,11 @@ __copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import os
+
 from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.caching import AbstractOutputFileCache
+from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
 from snakemake.io import get_flag_value, IOFile
 
@@ -21,7 +24,7 @@ class OutputFileCache(AbstractOutputFileCache):
         self.remote_provider = remote_provider
 
     def store(self, job: Job):
-        for entry in self._get_remotes(job):
+        for entry in self._get_remotes(job, check_output_exists=True):
             # upload to remote
             try:
                 entry.upload()
@@ -50,6 +53,12 @@ class OutputFileCache(AbstractOutputFileCache):
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
 
         for outputfile, ext in self.get_outputfiles(job):
+            if check_output_exists and not os.path.exists(outputfile):
+                raise WorkflowError(
+                    "Cannot move output file {} to cache. It does not exist "
+                    "(maybe it was not created by the job?)."
+                )
+
             f = self.remote_provider.remote(
                 "{}/{}{}".format(self.cache_location, provenance_hash, ext)
             )

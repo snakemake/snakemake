@@ -167,19 +167,19 @@ class RemoteProvider(AbstractRemoteProvider):
 
     @classmethod
     def _username(cls):
-        return self._credentials("EGA_USERNAME")
+        return cls._credentials("EGA_USERNAME")
 
     @classmethod
     def _password(cls):
-        return self._credentials("EGA_PASSWORD")
+        return cls._credentials("EGA_PASSWORD")
 
     @classmethod
     def _client_id(cls):
-        return self._credentials("EGA_CLIENT_ID")
+        return cls._credentials("EGA_CLIENT_ID")
 
     @classmethod
     def _client_secret(cls):
-        return self._credentials("EGA_CLIENT_SECRET")
+        return cls._credentials("EGA_CLIENT_SECRET")
 
     @classmethod
     def _credentials(cls, name):

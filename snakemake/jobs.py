@@ -75,8 +75,47 @@ class AbstractJob:
         raise NotImplementedError()
 
 
+class JobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        update=False,
+    ):
+        if rule.is_branched:
+            # for distinguishing branched rules, we need input and output in addition
+            key = (
+                rule.name,
+                *rule.output,
+                *rule.input,
+                *sorted(wildcards_dict.items()),
+            )
+        else:
+            key = (rule.name, *sorted(wildcards_dict.items()))
+        if update:
+            # cache entry has to be replaced because job shall be constructed from scratch
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            self.cache[key] = obj
+        else:
+            try:
+                # try to get job from cache
+                obj = self.cache[key]
+            except KeyError:
+                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                self.cache[key] = obj
+        return obj
+
+
 class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
+
+    obj_cache = dict()
 
     __slots__ = [
         "rule",
@@ -180,16 +219,14 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
-        self._hash = self.rule.__hash__()
-        for wildcard_value in self.wildcards_dict.values():
-            self._hash ^= wildcard_value.__hash__()
 
     def updated(self):
-        job = Job(
+        job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
+            update=True,
         )
         job.is_updated = True
         return job
@@ -287,7 +324,7 @@ class Job(AbstractJob):
         if self.conda_env_file:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_file, self.singularity_img_url)
+                    (self.conda_env_file, self.container_img_url)
                 )
             return self._conda_env
         return None
@@ -304,16 +341,16 @@ class Job(AbstractJob):
 
     @property
     def needs_singularity(self):
-        return self.singularity_img is not None
+        return self.container_img is not None
 
     @property
-    def singularity_img_url(self):
-        return self.rule.singularity_img
+    def container_img_url(self):
+        return self.rule.container_img
 
     @property
-    def singularity_img(self):
-        if self.singularity_img_url:
-            return self.dag.singularity_imgs[self.singularity_img_url]
+    def container_img(self):
+        if self.dag.workflow.use_singularity and self.container_img_url:
+            return self.dag.container_imgs[self.container_img_url]
         return None
 
     @property
@@ -321,8 +358,8 @@ class Job(AbstractJob):
         return self.rule.env_modules
 
     @property
-    def singularity_img_path(self):
-        return self.singularity_img.path if self.singularity_img else None
+    def container_img_path(self):
+        return self.container_img.path if self.container_img else None
 
     @property
     def is_shadow(self):
@@ -410,9 +447,14 @@ class Job(AbstractJob):
             self.is_shell
             or self.is_norun
             or self.is_script
+            or self.is_notebook
             or self.is_wrapper
             or self.is_cwl
         )
+
+    @property
+    def is_pipe(self):
+        return any([is_flagged(o, "pipe") for o in self.output])
 
     @property
     def expanded_output(self):
@@ -489,6 +531,7 @@ class Job(AbstractJob):
     @property
     def output_mintime(self):
         """ Return oldest output file. """
+
         existing = [f.mtime for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
             existing.append(self.benchmark.mtime)
@@ -525,6 +568,10 @@ class Job(AbstractJob):
                 if f in self.dynamic_output:
                     if not self.expand_dynamic(f_):
                         files.add("{} (dynamic)".format(f_))
+                elif is_flagged(f, "pipe"):
+                    # pipe output is always declared as missing
+                    # (even if it might be present on disk for some reason)
+                    files.add(f)
                 elif not f.exists:
                     files.add(f)
 
@@ -626,8 +673,7 @@ class Job(AbstractJob):
             raise ProtectedOutputException(self.rule, protected)
 
     def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run
-        """
+        """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
                 os.remove(f)
@@ -778,24 +824,6 @@ class Job(AbstractJob):
             for f in to_remove:
                 f.remove()
 
-            self.rmdir_empty_remote_dirs()
-
-    @property
-    def empty_remote_dirs(self):
-        for f in set(self.output) | set(self.input):
-            if f.is_remote and not f.should_stay_on_remote:
-                if os.path.exists(os.path.dirname(f)) and not len(
-                    os.listdir(os.path.dirname(f))
-                ):
-                    yield os.path.dirname(f)
-
-    def rmdir_empty_remote_dirs(self):
-        for d in self.empty_remote_dirs:
-            try:
-                os.removedirs(d)
-            except:
-                pass  # it's ok if we can't remove the leaf
-
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
         _variables = dict()
@@ -860,23 +888,11 @@ class Job(AbstractJob):
     def __repr__(self):
         return self.rule.name
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            self.rule == other.rule
-            and (self.wildcards_dict == other.wildcards_dict)
-            and (self.input == other.input)
-        )
-
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
 
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
-
-    def __hash__(self):
-        return self._hash
 
     def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
@@ -1038,7 +1054,24 @@ class Job(AbstractJob):
         return 1
 
 
+class GroupJobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(self, id, jobs):
+        jobs = frozenset(jobs)
+        key = (id, jobs)
+        try:
+            obj = self.cache[key]
+        except KeyError:
+            obj = GroupJob(id, jobs)
+            self.cache[key] = obj
+        return obj
+
+
 class GroupJob(AbstractJob):
+
+    obj_cache = dict()
 
     __slots__ = [
         "groupid",
@@ -1055,7 +1088,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = frozenset(jobs)
+        self.jobs = jobs
         self.toposorted = None
         self._resources = None
         self._input = None
@@ -1164,9 +1197,8 @@ class GroupJob(AbstractJob):
     def resources(self):
         if self._resources is None:
             self._resources = defaultdict(int)
-            pipe_group = any(
-                [any([is_flagged(o, "pipe") for o in job.output]) for job in self.jobs]
-            )
+            self._resources["_nodes"] = 1
+            pipe_group = any([job.is_pipe for job in self.jobs])
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
                 sibling_resources = defaultdict(int)
@@ -1395,6 +1427,7 @@ class Reason:
         "noio",
         "nooutput",
         "derived",
+        "pipe",
     ]
 
     def __init__(self):
@@ -1406,6 +1439,7 @@ class Reason:
         self.noio = False
         self.nooutput = False
         self.derived = True
+        self.pipe = False
 
     @lazy_property
     def updated_input(self):
@@ -1470,4 +1504,5 @@ class Reason:
             or self.updated_input_run
             or self.noio
             or self.nooutput
+            or self.pipe
         )

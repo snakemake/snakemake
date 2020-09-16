@@ -48,7 +48,7 @@ class Image:
             raise WorkflowError("Minimum singularity version is 2.4.1.")
 
         self.url = url
-        self._img_dir = dag.workflow.persistence.singularity_img_path
+        self._img_dir = dag.workflow.persistence.container_img_path
 
     @property
     def is_local(self):
@@ -105,7 +105,7 @@ def shellcmd(
     img_path, cmd, args="", envvars=None, shell_executable=None, container_workdir=None
 ):
     """Execute shell command inside singularity container given optional args
-       and environment variables to be passed."""
+    and environment variables to be passed."""
 
     if envvars:
         envvars = " ".join(

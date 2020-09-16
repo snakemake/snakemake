@@ -1,5 +1,7 @@
 from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
 
+shell.executable("bash")
+
 HTTP = HTTPRemoteProvider()
 
 

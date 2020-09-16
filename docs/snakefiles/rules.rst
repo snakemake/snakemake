@@ -14,7 +14,7 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <http://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -40,7 +40,7 @@ Shell commands like above can also be invoked inside a python based rule, via th
 
     shell("somecommand {output.somename}")
 
-Further, this combination of python and shell commands, allows to iterate over the output of the shell command, e.g.:
+Further, this combination of python and shell commands allows us to iterate over the output of the shell command, e.g.:
 
 .. code-block:: python
 
@@ -117,7 +117,7 @@ Finally, you can also define global wildcard constraints that apply for all rule
     rule b:
         ...
 
-See the `Python documentation on regular expressions <http://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
+See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
 
 Aggregation
@@ -135,7 +135,7 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
         shell:
             ...
 
-Above expression can be simplified in two ways.
+The above expression can be simplified in two ways.
 
 The expand function
 ~~~~~~~~~~~~~~~~~~~
@@ -152,7 +152,7 @@ The expand function
 
 
 Note that *dataset* is NOT a wildcard here because it is resolved by Snakemake due to the ``expand`` statement.
-The ``expand`` function thereby allows also to combine different variables, e.g.
+The ``expand`` function also allows us to combine different variables, e.g.
 
 .. code-block:: python
 
@@ -164,9 +164,9 @@ The ``expand`` function thereby allows also to combine different variables, e.g.
         shell:
             ...
 
-If now ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
+If ``FORMATS=["txt", "csv"]`` contains a list of desired output formats then expand will automatically combine any dataset with any of these extensions.
 
-Further, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
+Furthermore, the first argument can also be a list of strings. In that case, the transformation is applied to all elements of the list. E.g.
 
 .. code-block:: python
 
@@ -190,7 +190,7 @@ leads to
 
     ["ds1/a.txt", "ds1/b.txt", "ds2/a.csv", "ds2/b.csv"]
 
-You can also mask a wildcard expression in expand such that it will be kept, e.g.
+You can also mask a wildcard expression in ``expand`` such that it will be kept, e.g.
 
 .. code-block:: python
 
@@ -204,7 +204,7 @@ will create strings with all values for ext but starting with the wildcard ``"{d
 The multiext function
 ~~~~~~~~~~~~~~~~~~~~~
 
-``multiext`` provides a simplified variant of ``expand`` that allows to define a set of output or input files that just differ by their extension:
+``multiext`` provides a simplified variant of ``expand`` that allows us to define a set of output or input files that just differ by their extension:
 
 
 .. code-block:: python
@@ -261,9 +261,13 @@ Further, a rule can be given a number of threads to use, i.e.
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
 In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
 
-Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond it parallelization won't help to further speed it up.
+Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
-If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+Also, setting a ``threads:`` maximum is required to achieve parallelism in tools that (often implicitly and without the user knowing) rely on an environment variable for the maximum of cores to use.
+For example, this is the case for many linear algebra libraries and for OpenMP.
+Snakemake limits the respective environment variables to one core by default, to avoid unexpected and unlimited core-grabbing, but will override this with the ``threads:`` you specify in a rule (the parameters set to ``threads:``, or defaulting to ``1``, are: ``OMP_NUM_THREADS``, ``GOTO_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``VECLIB_MAXIMUM_THREADS``, ``NUMEXPR_NUM_THREADS``).
+
+If it is certain that no maximum for efficient parallelism exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
 
 .. code-block:: python
 
@@ -303,16 +307,19 @@ If limits for the resources are given via the command line, e.g.
 
     $ snakemake --resources mem_mb=100
 
+
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
-Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` values.
+Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
+Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
-Note that you are free to choose any names for the given resources.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
-When defining memory constraints, it is advised to use ``mem_mb``, because there are
-Some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
@@ -321,7 +328,7 @@ Any resource definitions inside a rule override what has been defined with ``--d
 Resources can also be callables that return ``int`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
-The parameter ``attempt`` allows to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
 When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
 Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
@@ -339,6 +346,62 @@ This can be used to adjust the required memory as follows
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+
+Preemptible Virtual Machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
+several ways to go about doing this. This first example will use preemptible instances for all rules, with 10 repeats (restarts
+of the instance if it stops unexpectedly).
+
+.. code-block:: console
+
+    snakemake --preemption-default 10
+
+
+If your preference is to set a default but then overwrite some rules with a custom value, this is where you can use ``--preemtible-rules``:
+
+.. code-block:: console
+
+    snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0
+
+
+The above statement says that we want to use preemtible instances for all steps, defaulting to 10 retries,
+but for the steps "map_reads" and "call_variants" we want to apply 3 and 0 retries, respectively. The final
+option is to not use preemptible instances by default, but only for a particular rule:
+
+
+.. code-block:: console
+
+    snakemake --preemptible-rules map_reads=10
+
+
+Note that this is currently implemented for the Google Life Sciences API.
+
+
+GPU Resources
+~~~~~~~~~~~~~
+
+The Google Life Sciences API currently has support for 
+`NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
+
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        resources:
+            nvidia_gpu=1
+        shell:
+            "somecommand ..."
+
+
+A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
+
+
 
 Messages
 --------
@@ -360,7 +423,7 @@ Note that access to wildcards is also possible via the variable ``wildcards`` (e
 Priorities
 ----------
 
-Snakemake allows rules to specify numeric priorities:
+Snakemake allows for rules that specify numeric priorities:
 
 
 .. code-block:: python
@@ -480,14 +543,14 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
-The script path is always relative to the Snakefile (in contrast to the input and output file paths, which are relative to the working directory).
+The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
-.. _Markdown: http://rmarkdown.rstudio.com
+.. _Markdown: https://rmarkdown.rstudio.com
 
 .. code-block:: python
 
@@ -501,7 +564,7 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
         script:
             "scripts/script.R"
 
-In the R script, an S4 object named ``snakemake`` analog to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
+In the R script, an S4 object named ``snakemake`` analogous to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
 
 Alternatively, it is possible to integrate Julia_ scripts, e.g.
@@ -609,18 +672,14 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
 
 .. code-block:: python
 
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
+    rule hello:
         output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
+            "test.txt"
         log:
             # optional path to the processed notebook
-            notebook = "logs/notebooks/processed_notebook.ipynb"
+            notebook="logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "notebooks/notebook.ipynb"
+            "hello.py.ipynb"
 
 .. note:
 
@@ -628,14 +687,40 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
     The benefit will be maximal when integrating many small notebooks that each do a particular job, hence allowing to get away from large monolithic, and therefore unreadable notebooks.
 
+It is recommended to prefix the ``.ipynb`` suffix with either ``.py`` or ``.r`` to indicate the notebook language.
 In the notebook, a snakemake object is available, which can be accessed in the same way as the with :ref:`script integration <snakefiles_external-scripts>`.
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
-Hence, integrating a new notebook works by first writing it from scratch in the usual interactive way.
-Then, you replace all hardcoded variables with references to properties of the rule where it shall be integrated, e.g. replacing the path to an input file with ``snakemake.input[0]``.
-Once having moved the notebook to the right place in the pipeline (ideally a subfolder ``notebooks``) and referring to it from the rule, Snakemake will be able to re-execute it while inserting the desired variable values from the rule properties.
-
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
+Let us assume you have written above rule, but the notebook does not yet exist.
+By running
+
+.. code-block:: console
+
+    snakemake --cores 1 --edit-notebook test.txt
+
+you instruct Snakemake to allow interactive editing of the notebook needed to create the file ``test.txt``.
+Snakemake will run all dependencies of the notebook rule, such that all input files are present.
+Then, it will start a jupyter notebook server with an empty draft of the notebook, in which you can interactively program everything needed for this particular step.
+Once done, you should save the notebook from the jupyter web interface, go to the jupyter dashboard and hit the ``Quit`` button on the top right in order to shut down the jupyter server.
+Snakemake will detect that the server is closed and automatically store the drafted notebook into the path given in the rule (here ``hello.py.ipynb``).
+If the notebook already exists, above procedure can be used to easily modify it.
+Note that Snakemake requires local execution for the notebook edit mode.
+On a cluster or the cloud, you can generate all dependencies of the notebook rule via
+
+.. code-block:: console
+
+    snakemake --cluster ... --jobs 100 --until test.txt
+
+Then, the notebook rule can easily be executed locally.
+An demo of the entire interactive editing process can be found by clicking below:
+
+.. image:: images/snakemake-notebook-demo.gif
+    :scale: 20%
+    :alt: Notebook integration demo
+    :align: center
 
 
 Protected and Temporary Files
@@ -776,7 +861,7 @@ Dynamic Files
 -------------
 
 Snakemake provides experimental support for dynamic files.
-Dynamic files can be used whenever one has a rule, for which the number of output files is unknown before the rule was executed.
+Dynamic files can be used whenever one has a rule for which the number of output files is unknown before the rule was executed.
 This is useful for example with certain clustering algorithms:
 
 .. code-block:: python
@@ -855,10 +940,10 @@ This can be done by having them return ``dict()`` objects with the names as the 
         output: "someoutput.{token}.txt"
         shell: "..."
 
-Note that ``unpack()`` only necessary for input functions returning ``dict``.
+Note that ``unpack()`` is only necessary for input functions returning ``dict``.
 While it also works for ``list``, remember that lists (and nested lists) of strings are automatically flattened.
 
-Also note that if you do not pass in a *function* into the input list but you directly *call a function* then you don't use ``unpack()`` either.
+Also note that if you do not pass in a *function* into the input list but you directly *call a function* then you shouldn't use ``unpack()``.
 Here, you can simply use Python's double-star (``**``) operator for unpacking the parameters.
 
 Note that as Snakefiles are translated into Python for execution, the same rules as for using the `star and double-star unpacking Python operators <https://docs.python.org/3/tutorial/controlflow.html#unpacking-argument-lists>`_ apply.
@@ -956,9 +1041,9 @@ With Snakemake 3.2.1, this is possible via the ``onsuccess`` and ``onerror`` key
         print("An error occurred")
         shell("mail -s "an error occurred" youremail@provider.com < {log}")
 
-The ``onsuccess`` handler is executed if the workflow finished without error. Else, the ``onerror`` handler is executed.
+The ``onsuccess`` handler is executed if the workflow finished without error. Otherwise, the ``onerror`` handler is executed.
 In both handlers, you have access to the variable ``log``, which contains the path to a logfile with the complete Snakemake output.
-Snakemake 3.6.0 adds an ````onstart```` handler, that will be executed before the workflow starts.
+Snakemake 3.6.0 adds an ``onstart`` handler, that will be executed before the workflow starts.
 Note that dry-runs do not trigger any of the handlers.
 
 
@@ -979,8 +1064,8 @@ From version 2.4.8 on, rules can also refer to the output of other rules in the 
         output: "path/to/output/of/b"
         shell:  ...
 
-Importantly, be aware that referring to rule a here requires that rule a was defined above rule b in the file, since the object has to be known already.
-This feature also allows to resolve dependencies that are ambiguous when using filenames.
+Importantly, be aware that referring to rule ``a`` here requires that rule ``a`` was defined above rule ``b`` in the file, since the object has to be known already.
+This feature also allows us to resolve dependencies that are ambiguous when using filenames.
 
 Note that when the rule you refer to defines multiple output files but you want to require only a subset of those as input for another rule, you should name the output files and refer to them specifically:
 
@@ -1002,9 +1087,9 @@ Note that when the rule you refer to defines multiple output files but you want 
 Handling Ambiguous Rules
 ------------------------
 
-When two rules can produce the same output file, snakemake cannot decide per default which one to use. Hence an ``AmbiguousRuleException`` is thrown.
+When two rules can produce the same output file, snakemake cannot decide which one to use without additional guidance. Hence an ``AmbiguousRuleException`` is thrown.
 Note: ruleorder is not intended to bring rules in the correct execution order (this is solely guided by the names of input and output files you use), it only helps snakemake to decide which rule to use when multiple ones can create the same output file!
-The proposed strategy to deal with such ambiguity is to provide a ``ruleorder`` for the conflicting rules, e.g.
+To deal with such ambiguity, provide a ``ruleorder`` for the conflicting rules, e.g.
 
 .. code-block:: python
 
@@ -1098,7 +1183,7 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-By this, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
+This way, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
 Groups can be defined via the ``group`` keyword, e.g.,

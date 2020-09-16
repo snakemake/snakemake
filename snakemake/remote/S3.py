@@ -13,6 +13,7 @@ import concurrent.futures
 # module-specific
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, S3FileException
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -59,8 +60,7 @@ class RemoteProvider(
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the AWS S3 object store.
-    """
+    """This is a class to interact with the AWS S3 object store."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -99,7 +99,7 @@ class RemoteObject(AbstractRemoteObject):
 
     def download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
-        os.sync()  # ensure flush to disk
+        os_sync()  # ensure flush to disk
 
     def upload(self):
         self._s3c.upload_to_s3(
@@ -187,21 +187,21 @@ class S3Helper(object):
         extra_args=None,
         config=None,
     ):
-        """ Upload a file to S3
+        """Upload a file to S3
 
-            This function uploads a file to an AWS S3 bucket.
+        This function uploads a file to an AWS S3 bucket.
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                file_path: The path to the file to upload.
-                key: The key to set for the file on S3. If not specified, this will default to the
-                    name of the file.
-                use_relative_path_for_key: If set to True (default), and key is None, the S3 key will include slashes
-                    representing the path of the file relative to the CWD. If False only the
-                    file basename will be used for the key.
-                relative_start_dir: The start dir to use for use_relative_path_for_key. No effect if key is set.
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            file_path: The path to the file to upload.
+            key: The key to set for the file on S3. If not specified, this will default to the
+                name of the file.
+            use_relative_path_for_key: If set to True (default), and key is None, the S3 key will include slashes
+                representing the path of the file relative to the CWD. If False only the
+                file basename will be used for the key.
+            relative_start_dir: The start dir to use for use_relative_path_for_key. No effect if key is set.
 
-            Returns: The key of the file on S3 if written, None otherwise
+        Returns: The key of the file on S3 if written, None otherwise
         """
         file_path = os.path.realpath(os.path.expanduser(file_path))
 
@@ -242,23 +242,23 @@ class S3Helper(object):
         make_dest_dirs=True,
         create_stub_only=False,
     ):
-        """ Download a file from s3
+        """Download a file from s3
 
-            This function downloads an object from a specified AWS S3 bucket.
+        This function downloads an object from a specified AWS S3 bucket.
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                destination_path: If specified, the file will be saved to this path, otherwise cwd.
-                expandKeyIntoDirs: Since S3 keys can include slashes, if this is True (defult)
-                    then S3 keys with slashes are expanded into directories on the receiving end.
-                    If it is False, the key is passed to os.path.basename() to get the substring
-                    following the last slash.
-                make_dest_dirs: If this is True (default) and the destination path includes directories
-                    that do not exist, they will be created.
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            destination_path: If specified, the file will be saved to this path, otherwise cwd.
+            expandKeyIntoDirs: Since S3 keys can include slashes, if this is True (defult)
+                then S3 keys with slashes are expanded into directories on the receiving end.
+                If it is False, the key is passed to os.path.basename() to get the substring
+                following the last slash.
+            make_dest_dirs: If this is True (default) and the destination path includes directories
+                that do not exist, they will be created.
 
-            Returns:
-                The destination path of the downloaded file on the receiving end, or None if the destination_path
-                could not be downloaded
+        Returns:
+            The destination path of the downloaded file on the receiving end, or None if the destination_path
+            could not be downloaded
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
@@ -289,19 +289,21 @@ class S3Helper(object):
                     )
             return destination_path
         except:
-            return None
+            raise S3FileException(
+                "Error downloading file '%s' from bucket '%s'." % (key, bucket_name)
+            )
 
     def delete_from_bucket(self, bucket_name, key):
-        """ Delete a file from s3
+        """Delete a file from s3
 
-            This function deletes an object from a specified AWS S3 bucket.
+        This function deletes an object from a specified AWS S3 bucket.
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                key: the key of the object to delete from the bucket
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            key: the key of the object to delete from the bucket
 
-            Returns:
-                The name of the object deleted
+        Returns:
+            The name of the object deleted
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
@@ -311,14 +313,14 @@ class S3Helper(object):
         return ret.name
 
     def exists_in_bucket(self, bucket_name, key):
-        """ Returns whether the key exists in the bucket
+        """Returns whether the key exists in the bucket
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                key: the key of the object to delete from the bucket
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            key: the key of the object to delete from the bucket
 
-            Returns:
-                True | False
+        Returns:
+            True | False
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
@@ -333,14 +335,14 @@ class S3Helper(object):
         return True
 
     def key_size(self, bucket_name, key):
-        """ Returns the size of a key based on a HEAD request
+        """Returns the size of a key based on a HEAD request
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                key: the key of the object to delete from the bucket
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            key: the key of the object to delete from the bucket
 
-            Returns:
-                Size in kb
+        Returns:
+            Size in kb
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"
@@ -350,14 +352,14 @@ class S3Helper(object):
         return k.content_length // 1024
 
     def key_last_modified(self, bucket_name, key):
-        """ Returns a timestamp of a key based on a HEAD request
+        """Returns a timestamp of a key based on a HEAD request
 
-            Args:
-                bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
-                key: the key of the object to delete from the bucket
+        Args:
+            bucket_name: the name of the S3 bucket to use (bucket name only, not ARN)
+            key: the key of the object to delete from the bucket
 
-            Returns:
-                timestamp
+        Returns:
+            timestamp
         """
         assert bucket_name, "bucket_name must be specified"
         assert key, "Key must be specified"

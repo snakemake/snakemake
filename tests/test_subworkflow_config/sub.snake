@@ -1,0 +1,2 @@
+rule all:
+    output: touch('test.txt')

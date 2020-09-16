@@ -124,7 +124,7 @@ to perform a dry-run and
 
 ::
 
-   snakemake --use-conda mapped/A.bam
+   snakemake --use-conda mapped/A.bam --cores 1
 
 to perform the actual execution.
  
@@ -169,7 +169,7 @@ and
 
 ::
 
-   snakemake --use-conda mapped/A.sorted.bam
+   snakemake --use-conda mapped/A.sorted.bam --cores 1
 
 Step 5
 ------
@@ -184,12 +184,12 @@ variants. First, we define a variable
 at the top of the ``Snakefile``. This serves as a definition of the
 samples over which we would want to aggregate. In real life, you would
 want to use an external sample sheet or a `config
-file <http://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#step-2-config-files>`__
+file <https://snakemake.readthedocs.io/en/stable/tutorial/advanced.html#step-2-config-files>`__
 for things like this.
 
 For aggregation over many files, Snakemake provides the helper function
 ``expand`` (see `the
-docs <http://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-5-calling-genomic-variants>`__).
+docs <https://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-5-calling-genomic-variants>`__).
 Create a rule ``call`` with input files
 
 -  ``fa="data/genome.fa"``
@@ -277,13 +277,13 @@ execute the script:
        dependencies:
          - pysam =0.15
          - matplotlib =3.1
-         - python =3.7
+         - python =3.8
 
 Make sure to test your workflow with
 
 ::
 
-   snakemake --use-conda plots/quals.svg
+   snakemake --use-conda plots/quals.svg --cores 1
  
 Step 7
 ------

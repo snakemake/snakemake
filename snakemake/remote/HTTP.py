@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import HTTPFileException, WorkflowError
 from snakemake.logging import logger
+from snakemake.utils import os_sync
 
 
 try:
@@ -80,8 +81,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an HTTP server.
-    """
+    """This is a class to interact with an HTTP server."""
 
     def __init__(
         self,
@@ -231,7 +231,7 @@ class RemoteObject(DomainObject):
                     os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
                     with open(self.local_path, "wb") as f:
                         shutil.copyfileobj(httpr.raw, f)
-                    os.sync()  # ensure flush to disk
+                    os_sync()  # ensure flush to disk
             else:
                 raise HTTPFileException(
                     "The file does not seem to exist remotely: %s" % self.remote_file()
@@ -244,8 +244,8 @@ class RemoteObject(DomainObject):
 
     def get_header_item(self, httpr, header_name, default):
         """
-            Since HTTP header capitalization may differ, this returns
-            a header value regardless of case
+        Since HTTP header capitalization may differ, this returns
+        a header value regardless of case
         """
 
         header_value = default

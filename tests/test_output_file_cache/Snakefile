@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input:
         "test3.x.out",
@@ -27,6 +29,7 @@ rule c:
         "test3.{w}.out"
     params:
         a=1.5
+    cache: True
     shell:
         "echo test3 {params.a} > {output}"
 

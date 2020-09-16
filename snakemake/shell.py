@@ -11,10 +11,12 @@ import inspect
 import shutil
 import threading
 
-from snakemake.utils import format
+from snakemake.utils import format, argvquote, _find_bash_on_windows
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
+from snakemake.exceptions import WorkflowError
 import snakemake
 
 
@@ -33,6 +35,7 @@ class shell:
     _process_suffix = ""
     _lock = threading.Lock()
     _processes = {}
+    _win_command_prefix = ""
 
     @classmethod
     def get_executable(cls):
@@ -40,13 +43,18 @@ class shell:
 
     @classmethod
     def check_output(cls, cmd, **kwargs):
-        return sp.check_output(
-            cmd, shell=True, executable=cls.get_executable(), **kwargs
-        )
+        executable = cls.get_executable()
+        if ON_WINDOWS and executable:
+            cmd = '"{}" {} {}'.format(
+                executable, cls._win_command_prefix, argvquote(cmd)
+            )
+            return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
+        else:
+            return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
 
     @classmethod
     def executable(cls, cmd):
-        if os.name == "posix" and not os.path.isabs(cmd):
+        if os.name in ("posix", "nt") and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
             if not cmd:
@@ -55,8 +63,9 @@ class shell:
                     "is not available in your "
                     "PATH.".format(cmd)
                 )
-        if os.path.split(cmd)[-1] == "bash":
+        if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
             cls._process_prefix = "set -euo pipefail; "
+            cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -66,6 +75,16 @@ class shell:
     @classmethod
     def suffix(cls, suffix):
         cls._process_suffix = format(suffix, stepout=2)
+
+    @classmethod
+    def win_command_prefix(cls, cmd):
+        """The command prefix used on windows when specifing a explicit
+        shell executable. This would be "-c" for bash and "/C" for cmd.exe
+        Note: that if no explicit executable is set commands are executed
+        with Popen(..., shell=True) which uses COMSPEC on windows where this
+        is not needed.
+        """
+        cls._win_command_prefix = cmd
 
     @classmethod
     def kill(cls, jobid):
@@ -99,7 +118,7 @@ class shell:
 
         env_prefix = ""
         conda_env = context.get("conda_env", None)
-        singularity_img = context.get("singularity_img", None)
+        container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
@@ -112,29 +131,53 @@ class shell:
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
-            cmd = Conda(singularity_img).shellcmd(conda_env, cmd)
+            cmd = Conda(container_img).shellcmd(conda_env, cmd)
 
-        if singularity_img:
+        if container_img:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
-                singularity_img,
+                container_img,
                 cmd,
                 args,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
             )
-            logger.info("Activating singularity image {}".format(singularity_img))
+            logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
+
+        threads = str(context.get("threads", 1))
+        # environment variable lists for linear algebra libraries taken from:
+        # https://stackoverflow.com/a/53224849/2352071
+        # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
+        envvars = dict(os.environ)
+        envvars["OMP_NUM_THREADS"] = threads
+        envvars["GOTO_NUM_THREADS"] = threads
+        envvars["OPENBLAS_NUM_THREADS"] = threads
+        envvars["MKL_NUM_THREADS"] = threads
+        envvars["VECLIB_MAXIMUM_THREADS"] = threads
+        envvars["NUMEXPR_NUM_THREADS"] = threads
+
+        use_shell = True
+
+        if ON_WINDOWS and cls.get_executable():
+            # If executable is set on Windows shell mode can not be used
+            # and the executable should be prepended the command together
+            # with a command prefix (e.g. -c for bash).
+            use_shell = False
+            cmd = '"{}" {} {}'.format(
+                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+            )
 
         proc = sp.Popen(
             cmd,
             bufsize=-1,
-            shell=True,
+            shell=use_shell,
             stdout=stdout,
-            universal_newlines=iterable or None,
+            universal_newlines=iterable or read or None,
             close_fds=close_fds,
-            **cls._process_args
+            **cls._process_args,
+            env=envvars,
         )
 
         if jobid is not None:

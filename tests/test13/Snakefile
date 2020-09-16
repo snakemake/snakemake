@@ -1,4 +1,8 @@
 
+# Has only effect on Win
+shell.executable("bash")
+
+
 rule all:
 	input: 'test.algo1-p7-improved.out'
 

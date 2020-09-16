@@ -6,11 +6,14 @@ __license__ = "MIT"
 import os, signal, sys
 import threading
 import operator
+import time
+import math
+
 from functools import partial
 from collections import defaultdict
-from itertools import chain, accumulate
+from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
-import time
+
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -20,6 +23,7 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
@@ -61,11 +65,17 @@ class JobScheduler:
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
-        kubernetes_envvars=None,
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
+        tibanna_config=False,
         jobname=None,
         quiet=False,
         printreason=False,
@@ -78,6 +88,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        scheduler_type=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -97,8 +108,13 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
+        self.scheduler_type = scheduler_type
 
-        self.resources = dict(self.workflow.global_resources)
+        self.global_resources = {
+            name: (sys.maxsize if res is None else res)
+            for name, res in workflow.global_resources.items()
+        }
+        self.resources = dict(self.global_resources)
 
         use_threads = (
             force_use_threads
@@ -220,7 +236,6 @@ class JobScheduler:
                 workflow,
                 dag,
                 kubernetes,
-                kubernetes_envvars,
                 container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
@@ -249,6 +264,7 @@ class JobScheduler:
                 cores,
                 tibanna_sfn,
                 precommand=precommand,
+                tibanna_config=tibanna_config,
                 container_image=container_image,
                 printreason=printreason,
                 quiet=quiet,
@@ -256,6 +272,34 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
             )
+        elif google_lifesciences:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+            )
+
+            self._executor = GoogleLifeSciencesExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                regions=google_lifesciences_regions,
+                location=google_lifesciences_location,
+                cache=google_lifesciences_cache,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
+            )
+
         else:
             self._executor = CPUExecutor(
                 workflow,
@@ -305,7 +349,6 @@ class JobScheduler:
 
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
-
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -357,7 +400,11 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector(needrun)
+                    run = (
+                        self.job_selector_greedy(needrun)
+                        if self.scheduler_type == "greedy"
+                        else self.job_selector_ilp(needrun)
+                    )
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -368,10 +415,12 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
+
                 # actually run jobs
-                for job in run:
-                    with self.rate_limiter:
-                        self.run(job)
+                local_runjobs = [job for job in run if job.is_local]
+                runjobs = [job for job in run if not job.is_local]
+                self.run(local_runjobs, executor=self._local_executor or self._executor)
+                self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -379,19 +428,20 @@ class JobScheduler:
             self._executor.cancel()
             return False
 
-    def get_executor(self, job):
-        if self._local_executor is None:
-            return self._executor
-        else:
-            return self._local_executor if job.is_local else self._executor
-
-    def run(self, job):
-        self.get_executor(job).run(
-            job,
+    def run(self, jobs, executor=None):
+        if executor is None:
+            executor = self._executor
+        executor.run_jobs(
+            jobs,
             callback=self._finish_callback,
             submit_callback=self._submit_callback,
             error_callback=self._error,
         )
+
+    def get_executor(self, job):
+        if job.is_local and self._local_executor is not None:
+            return self._local_executor
+        return self._executor
 
     def _noop(self, job):
         pass
@@ -485,11 +535,111 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
-    def job_selector(self, jobs):
+    def job_selector_ilp(self, jobs):
+        """
+        Job scheduling by optimization of resource usage by solving ILP using pulp
+        """
+        import pulp
+        from pulp import lpSum
+
+        # assert self.resources["_cores"] > 0
+        scheduled_jobs = {
+            job: pulp.LpVariable(
+                "job_{job}_{idx}".format(job=job, idx=idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
+            )
+            for idx, job in enumerate(jobs)
+        }
+
+        temp_files = {
+            temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+        }
+
+        temp_job_improvement = {
+            temp_file: pulp.LpVariable(
+                temp_file, lowBound=0, upBound=1, cat="Continuous"
+            )
+            for temp_file in temp_files
+        }
+        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+
+        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_core_requirement = sum(
+            [job.resources.get("_cores", 1) + 1 for job in jobs]
+        )
+        # Objective function
+        # Job priority > Core load
+        # Core load > temp file removal
+        # Instant removal > temp size
+        # temp file size > fast removal?!
+        prob += (
+            total_core_requirement
+            * total_temp_size
+            * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
+            + total_temp_size
+            * lpSum(
+                [
+                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
+                    for job in jobs
+                ]
+            )
+            + lpSum(
+                [
+                    temp_job_improvement[temp_file] * temp_file.size
+                    for temp_file in temp_files
+                ]
+            )
+        )
+
+        # Constraints:
+        for name in self.workflow.global_resources:
+            prob += (
+                lpSum(
+                    [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
+                )
+                <= self.resources[name],
+                "limitation_of_resource_{name}".format(name=name),
+            )
+
+        # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        for temp_file in temp_files:
+            prob += temp_job_improvement[temp_file] <= lpSum(
+                [
+                    scheduled_jobs[job] * self.required_by_job(temp_file, job)
+                    for job in jobs
+                ]
+            ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+        # TODO enable this code once we have switched to pulp >=2.0
+        if pulp.apis.LpSolverDefault is None:
+            raise WorkflowError(
+                "You need to install at least one LP solver compatible with PuLP (e.g. coincbc). "
+                "See https://coin-or.github.io/pulp for details. Alternatively, run Snakemake with "
+                "--scheduler greedy."
+            )
+        # disable extensive logging
+        pulp.apis.LpSolverDefault.msg = False
+
+        prob.solve()
+        selected_jobs = [
+            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
+        ]
+        for name in self.workflow.global_resources:
+            self.resources[name] -= sum(
+                [job.resources.get(name, 0) for job in selected_jobs]
+            )
+        return selected_jobs
+
+    def required_by_job(self, temp_file, job):
+        return 1 if temp_file in self.dag.temp_input(job) else 0
+
+    def job_selector_greedy(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
-Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+        Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         Args:
             jobs (list):    list of jobs
@@ -507,7 +657,7 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
                 return [c_j * y_j for c_j, y_j in zip(c, y)]
 
             b = [
-                self.resources[name] for name in self.workflow.global_resources
+                self.resources[name] for name in self.global_resources
             ]  # resource capacities
 
             while True:
@@ -548,12 +698,12 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
             solution = [job for job, sel in zip(jobs, x) if sel]
             # update resources
-            for name, b_i in zip(self.workflow.global_resources, b):
+            for name, b_i in zip(self.global_resources, b):
                 self.resources[name] = b_i
             return solution
 
     def calc_resource(self, name, value):
-        gres = self.workflow.global_resources[name]
+        gres = self.global_resources[name]
         if value > gres:
             if name == "_cores":
                 name = "threads"
@@ -569,15 +719,13 @@ Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
     def rule_weight(self, rule):
         res = rule.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_weight(self, job):
         res = job.resources
         return [
-            self.calc_resource(name, res.get(name, 0))
-            for name in self.workflow.global_resources
+            self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
     def job_reward(self, job):

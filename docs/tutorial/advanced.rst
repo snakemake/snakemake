@@ -6,32 +6,32 @@ Advanced: Decorating the example workflow
 .. _Snakemake: https://snakemake.readthedocs.io
 .. _Snakemake homepage: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
-.. _Python: http://www.python.org
+.. _Python: https://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
-.. _SAMtools: http://www.htslib.org
-.. _BCFtools: http://www.htslib.org
-.. _Pandas: http://pandas.pydata.org
-.. _Miniconda: http://conda.pydata.org/miniconda.html
-.. _Conda: http://conda.pydata.org
-.. _Bash: http://www.tldp.org/LDP/Bash-Beginners-Guide/html
+.. _SAMtools: https://www.htslib.org
+.. _BCFtools: https://www.htslib.org
+.. _Pandas: https://pandas.pydata.org
+.. _Miniconda: https://conda.pydata.org/miniconda.html
+.. _Conda: https://conda.pydata.org
+.. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
 .. _Atom: https://atom.io
 .. _Anaconda: https://anaconda.org
-.. _Graphviz: http://www.graphviz.org
-.. _RestructuredText: http://docutils.sourceforge.net/rst.html
+.. _Graphviz: https://www.graphviz.org
+.. _RestructuredText: https://docutils.sourceforge.io/docs/user/rst/quickstart.html
 .. _data URI: https://developer.mozilla.org/en-US/docs/Web/HTTP/data_URIs
-.. _JSON: http://json.org
-.. _YAML: http://yaml.org
-.. _DRMAA: http://www.drmaa.org
-.. _rpy2: http://rpy.sourceforge.net
+.. _JSON: https://json.org
+.. _YAML: https://yaml.org
+.. _DRMAA: https://www.drmaa.org
+.. _rpy2: https://rpy2.github.io
 .. _R: https://www.r-project.org
 .. _Rscript: https://stat.ethz.ch/R-manual/R-devel/library/utils/html/Rscript.html
-.. _PyYAML: http://pyyaml.org
-.. _Docutils: http://docutils.sourceforge.net
+.. _PyYAML: https://pyyaml.org
+.. _Docutils: https://docutils.sourceforge.io
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
-.. _Blogpost: http://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
-.. _slides: http://slides.com/johanneskoester/deck-1
+.. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
+.. _slides: https://slides.com/johanneskoester/deck-1
 
 Now that the basic concepts of Snakemake have been illustrated, we can introduce advanced topics.
 

@@ -10,11 +10,9 @@ class EnvModules:
 
     def shellcmd(self, cmd):
         """Return shell command with given modules loaded."""
-        loads = " ".join(self._load_module(name) for name in self.names)
-        return "{} {}".format(loads, cmd)
-
-    def _load_module(self, name):
-        return "module load {};".format(name)
+        return "module purge && module load {to_load}; {cmd}".format(
+            to_load=" ".join(self.names), cmd=cmd
+        )
 
     def __str__(self):
         return ", ".join(self.names)

@@ -121,7 +121,7 @@ class XRootDHelper(object):
 
     def _parse_url(self, url):
         match = re.search(
-            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:\_\-\.]+\:?/)(?P<path>/.+)", url
+            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
         )
         if match is None:
             return None
@@ -157,7 +157,25 @@ class XRootDHelper(object):
         matches = [
             f for f in self.list_directory(domain, dirname) if f.name == filename
         ]
-        assert len(matches) == 1
+
+        assert len(matches) > 0
+        if len(matches) > 1:
+            # -- check matches for consistency
+            # There is a transient effect in XRootD
+            # where a file may match more than once.
+            # This is okay as long as the statinfo
+            # is the same for all of them.
+            relevant_properties = [  # we only need to check front-facing attributes
+                x
+                for x in dir(matches[0].statinfo)
+                if not (x[:1] == "_" or x[-2:] == "__")
+            ]
+            assert all(
+                getattr(m.statinfo, p) == getattr(matches[0].statinfo, p)
+                for m in matches[1:]
+                for p in relevant_properties
+            )
+
         return matches[0].statinfo
 
     def file_last_modified(self, filename):

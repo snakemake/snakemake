@@ -29,7 +29,7 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
 
 def lutime(f, times):
@@ -77,19 +77,58 @@ else:
         os.chmod(f, mode)
 
 
+class ExistsDict(dict):
+    def __init__(self, cache):
+        super().__init__()
+        self.cache = cache
+
+    def __getitem__(self, path):
+        # Always return False if not dict.
+        # The reason is that this is only called if the method contains below has returned True.
+        # Hence, we already know that either path is in dict, or inventory has never
+        # seen it, and hence it does not exist.
+        return self.get(path, False)
+
+    def __contains__(self, path):
+        # if already in inventory, always return True.
+        return self.cache.in_inventory(path) or super().__contains__(path)
+
+
 class IOCache:
     def __init__(self):
         self.mtime = dict()
-        self.exists_local = dict()
-        self.exists_remote = dict()
+        self.exists_local = ExistsDict(self)
+        self.exists_remote = ExistsDict(self)
         self.size = dict()
+        # Indicator whether an inventory has been created for the root of a given IOFile.
+        # In case of remote objects the root is the bucket or server host.
+        self.has_inventory = set()
         self.active = True
+
+    def get_inventory_root(self, path):
+        """If eligible for inventory, get the root of a given path.
+
+        This code does not work on local Windows paths,
+        but inventory is disabled on Windows.
+        """
+        root = path.split("/", maxsplit=1)[0]
+        if root and root != "..":
+            return root
+
+    def needs_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root not in self.has_inventory
+
+    def in_inventory(self, path):
+        root = self.get_inventory_root(path)
+        return root and root in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
         self.exists_remote.clear()
+        self.has_inventory.clear()
 
     def deactivate(self):
         self.clear()
@@ -111,6 +150,7 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
+        # Remove trailing slashes.
         obj = str.__new__(cls, file)
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
@@ -130,10 +170,11 @@ class _IOFile(str):
         def wrapper(self, *args, **kwargs):
             if self.rule.workflow.iocache.active:
                 cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
+                normalized = self.rstrip("/")
+                if normalized in cache:
+                    return cache[normalized]
                 v = func(self, *args, **kwargs)
-                cache[self] = v
+                cache[normalized] = v
                 return v
             else:
                 return func(self, *args, **kwargs)
@@ -142,8 +183,8 @@ class _IOFile(str):
 
     def _refer_to_remote(func):
         """
-            A decorator so that if the file is remote and has a version
-            of the same file-related function, call that version instead.
+        A decorator so that if the file is remote and has a version
+        of the same file-related function, call that version instead.
         """
 
         @functools.wraps(func)
@@ -155,10 +196,45 @@ class _IOFile(str):
 
         return wrapper
 
+    def inventory(self):
+        """Starting from the given file, try to cache as much existence and
+        modification date information of this and other files as possible.
+        """
+        cache = self.rule.workflow.iocache
+        if cache.active and cache.needs_inventory(self):
+            if self.is_remote:
+                # info not yet in inventory, let's discover as much as we can
+                self.remote_object.inventory(cache)
+            elif not ON_WINDOWS:
+                # we don't want to mess with different path representations on windows
+                self._local_inventory(cache)
+
+    def _local_inventory(self, cache):
+        # for local files, perform BFS via os.scandir to determine existence of files
+        root = cache.get_inventory_root(self)
+        if root == self:
+            # there is no root directory that could be used
+            return
+        if os.path.exists(root):
+            queue = [root]
+            while queue:
+                path = queue.pop(0)
+                # path must be a dir
+                cache.exists_local[path] = True
+                with os.scandir(path) as scan:
+                    for entry in scan:
+                        if entry.is_dir():
+                            queue.append(entry.path)
+                        else:
+                            # path is a file
+                            cache.exists_local[entry.path] = True
+
+        cache.has_inventory.add(root)
+
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first. 
-        
+        """Open this file. If necessary, download it from remote first.
+
         This can (and should) be used in a `with`-statement.
         """
         if not self.exists:
@@ -273,20 +349,6 @@ class _IOFile(str):
     @property
     @iocache
     def exists_local(self):
-        if self.rule.workflow.iocache.active:
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last ancestor, because this is always "." or "/" or a
-            # drive letter.
-            for p in self.parents(omit=1):
-                try:
-                    if not p.exists_local:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory.
-                    continue
         return os.path.exists(self.file)
 
     @property
@@ -294,23 +356,6 @@ class _IOFile(str):
     def exists_remote(self):
         if not self.is_remote:
             return False
-        if (
-            self.rule.workflow.iocache.active
-            and self.remote_object.provider.allows_directories
-        ):
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last 2 ancestors, because these are "." and the host
-            # name of the remote location.
-            for p in self.parents(omit=2):
-                try:
-                    if not p.exists_remote:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory in the remote.
-                    continue
         return self.remote_object.exists()
 
     @property
@@ -364,8 +409,8 @@ class _IOFile(str):
 
     @_refer_to_remote
     def is_newer(self, time):
-        """ Returns true of the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true of the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
         elif self.is_remote:
@@ -808,7 +853,9 @@ def pipe(value):
         raise SyntaxError("Pipes may not be protected.")
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
-    return flag(value, "pipe")
+    if ON_WINDOWS:
+        logger.warning("Pipes is not yet supported on Windows.")
+    return flag(value, "pipe", not ON_WINDOWS)
 
 
 def temporary(value):
@@ -829,11 +876,7 @@ def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
-    rule has been run """
-    logger.warning(
-        "Dynamic output is deprecated in favor of checkpoints (see docs). "
-        "It will be removed in Snakemake 6.0."
-    )
+    rule has been run"""
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -865,12 +908,31 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
-ReportObject = collections.namedtuple("ReportObject", ["caption", "category"])
+ReportObject = collections.namedtuple(
+    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
+)
 
 
-def report(value, caption=None, category=None):
-    """Flag output file as to be included into reports."""
-    return flag(value, "report", ReportObject(caption, category))
+def report(
+    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+):
+    """Flag output file or directory as to be included into reports.
+
+    In case of directory, files to include can be specified via a glob pattern (default: *).
+
+    Arguments
+    value -- File or directory.
+    caption -- Path to a .rst file with a textual description of the result.
+    category -- Name of the category in which the result should be displayed in the report.
+    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+               input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
+               directory itself.
+    """
+    return flag(
+        value,
+        "report",
+        ReportObject(caption, category, subcategory, patterns, htmlindex),
+    )
 
 
 def local(value):
@@ -899,7 +961,7 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, str):
+    if isinstance(filepatterns, str) or isinstance(filepatterns, Path):
         filepatterns = [filepatterns]
 
     def path_to_str(f):
@@ -961,13 +1023,10 @@ def expand(*args, **wildcards):
 
 
 def multiext(prefix, *extensions):
-    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, ...)."""
-    if any(
-        ("/" in ext or "\\" in ext or not ext.startswith(".")) for ext in extensions
-    ):
+    """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
+    if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            "Extensions for multiext may not contain path delimiters "
-            "(/,\) and must start with '.' (e.g. .txt)."
+            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1077,10 +1136,10 @@ def split_git_path(path):
 
 def get_git_root(path):
     """
-        Args:
-            path: (str) Path a to a directory/file that is located inside the repo
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory/file that is located inside the repo
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1094,16 +1153,16 @@ def get_git_root(path):
 
 def get_git_root_parent_directory(path, input_path):
     """
-        This function will recursively go through parent directories until a git
-        repository is found or until no parent directories are left, in which case
-        a error will be raised. This is needed when providing a path to a
-        file/folder that is located on a branch/tag no currently checked out.
+    This function will recursively go through parent directories until a git
+    repository is found or until no parent directories are left, in which case
+    a error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag no currently checked out.
 
-        Args:
-            path: (str) Path a to a directory that is located inside the repo
-            input_path: (str) origin path, used when raising WorkflowError
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory that is located inside the repo
+        input_path: (str) origin path, used when raising WorkflowError
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1123,15 +1182,15 @@ def get_git_root_parent_directory(path, input_path):
 
 def git_content(git_file):
     """
-        This function will extract a file from a git repository, one located on
-        the filesystem.
-        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    This function will extract a file from a git repository, one located on
+    the filesystem.
+    Expected format is git+file:///path/to/your/repo/path_to_file@@version
 
-        Args:
-          env_file (str): consist of path to repo, @, version and file information
-                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-        Returns:
-            file content or None if the expected format isn't meet
+    Args:
+      env_file (str): consist of path to repo, @, version and file information
+                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+    Returns:
+        file content or None if the expected format isn't meet
     """
     import git
 
@@ -1144,7 +1203,6 @@ def git_content(git_file):
             "expected format:".format(git_file) + ", expected format is "
             "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
         )
-    return None
 
 
 def strip_wildcard_constraints(pattern):
@@ -1181,6 +1239,12 @@ class Namedlist(list):
         list.__init__(self)
         self._names = dict()
 
+        # white-list of attribute names that can be overridden in _set_name
+        # default to throwing exception if called to prevent use as functions
+        self._allowed_overrides = ["index", "sort"]
+        for name in self._allowed_overrides:
+            setattr(self, name, functools.partial(self._used_attribute, _name=name))
+
         if toclone:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
@@ -1196,6 +1260,20 @@ class Namedlist(list):
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
+
+    @staticmethod
+    def _used_attribute(*args, _name, **kwargs):
+        """
+        Generic function that throws an `AttributeError`.
+
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
+        """
+        raise AttributeError(
+            "{_name}() cannot be used; attribute name reserved"
+            " for use in some existing workflows".format(_name=_name)
+        )
 
     def _add_name(self, name):
         """
@@ -1214,10 +1292,10 @@ class Namedlist(list):
         name  -- a name
         index -- the item index
         """
-        if name == "items" or name == "keys" or name == "get":
+        if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
                 "invalid name for input, output, wildcard, "
-                "params or log: 'items', 'keys', and 'get' are reserved for internal use"
+                "params or log: {name} is reserved for internal use".format(name=name)
             )
 
         self._names[name] = (index, end)
@@ -1311,6 +1389,10 @@ class InputFiles(Namedlist):
     def size(self):
         return sum(f.size for f in self)
 
+    @property
+    def size_mb(self):
+        return self.size / 1024 / 1024
+
 
 class OutputFiles(Namedlist):
     pass
@@ -1343,7 +1425,7 @@ def _load_configfile(configpath, filetype="Config"):
             except ValueError:
                 f.seek(0)  # try again
             try:
-                # From http://stackoverflow.com/a/21912744/84349
+                # From https://stackoverflow.com/a/21912744/84349
                 class OrderedLoader(yaml.Loader):
                     pass
 
