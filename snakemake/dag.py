@@ -26,7 +26,7 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
@@ -1041,7 +1041,25 @@ class DAG:
             for j in group:
                 if j not in groups:
                     groups[j] = group
+
         self._group = groups
+
+        self._update_group_components()
+
+    def _update_group_components(self):
+        # span connected components if requested
+        for groupid, conn_components in groupby(
+            set(self._group.values()), key=lambda group: group.groupid
+        ):
+            n_components = self.workflow.group_components.get(groupid, 1)
+            if n_components > 1:
+                for chunk in group_into_chunks(n_components, conn_components):
+                    if len(chunk) > 1:
+                        primary = chunk[0]
+                        for secondary in chunk[1:]:
+                            primary.merge(secondary)
+                        for j in primary:
+                            self._group[j] = primary
 
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.

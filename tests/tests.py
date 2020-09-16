@@ -750,6 +750,16 @@ def test_group_jobs():
 
 
 @skip_on_windows
+def test_multicomp_group_jobs():
+    run(
+        dpath("test_multicomp_group_jobs"),
+        cluster="./qsub",
+        overwrite_groups={"a": "group0", "b": "group0"},
+        group_components={"group0": 2},
+    )
+
+
+@skip_on_windows
 def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 

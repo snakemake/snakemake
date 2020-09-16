@@ -80,6 +80,8 @@ class Workflow:
         overwrite_configfiles=None,
         overwrite_clusterconfig=dict(),
         overwrite_threads=dict(),
+        overwrite_groups=None,
+        group_components=None,
         config_args=None,
         debug=False,
         verbose=False,
@@ -173,6 +175,8 @@ class Workflow:
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
+        self.overwrite_groups = overwrite_groups or dict()
+        self.group_components = group_components or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -1228,8 +1232,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if not self.run_local and ruleinfo.group is not None:
-                rule.group = ruleinfo.group
+            if not self.run_local:
+                group = self.overwrite_groups.get(name) or ruleinfo.group
+                if group is not None:
+                    rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix

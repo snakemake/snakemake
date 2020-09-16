@@ -4,6 +4,7 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from functools import update_wrapper
+import itertools
 import platform
 import hashlib
 import inspect
@@ -139,3 +140,16 @@ def log_location(msg):
     logger.debug(
         "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
     )
+
+
+def group_into_chunks(n, iterable):
+    """Group iterable into chunks of size at most n.
+
+    See https://stackoverflow.com/a/8998040.
+    """
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, n))
+        if not chunk:
+            return
+        yield chunk
