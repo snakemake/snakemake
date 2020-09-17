@@ -1,0 +1,19 @@
+DATASETS = list(str(i) for i in range(10))
+
+rule aggregate:
+    input:
+        ["d_{dataset}.txt".format(dataset=dataset) for dataset in DATASETS]
+    output:
+        "aggregated.txt"
+    shell:
+        """
+        touch {output}
+        """
+
+rule dataset:
+    output: "d_{dataset}.txt"
+    shell:
+        """
+        touch {output}
+        echo {output} >> order.txt
+        """

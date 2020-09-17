@@ -1012,6 +1012,16 @@ class DAG:
             stop=self.noneedrun_finished,
         ):
             self._priority[job] = Job.HIGHEST_PRIORITY
+        self.apply_ordered_priority()
+
+    def apply_ordered_priority(self):
+        # If all jobs have priority 0, ensure executed in order
+        if sum(self._priority.values()) == 0:
+            idx = len(self._priority)
+            for job in self._priority:
+                self._priority[job] = idx
+                job.rule.priority = idx
+                idx -= 1
 
     def update_groups(self):
         groups = dict()
@@ -1066,7 +1076,6 @@ class DAG:
 
         Given jobs must be needrun jobs!
         """
-
         if jobs is None:
             jobs = self.needrun_jobs
 

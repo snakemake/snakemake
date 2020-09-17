@@ -133,6 +133,9 @@ def test_directory2():
 
 
 def test_ancient():
+    run(dpath("test_aggregate_order"))
+
+def test_aggregate_order():
     run(dpath("test_ancient"), targets=["D", "old_file"])
 
 
