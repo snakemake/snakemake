@@ -396,12 +396,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
         mem_mb = job.resources.get("mem_mb", 15360)
+        disk_mb = job.resources.get("disk_mb", 128000)
 
-        # IOPS performance proportional to disk size
-        disk_mb = job.resources.get("disk_mb", 512000)
-
-        # Convert mb to gb
-        disk_gb = math.ceil(disk_mb / 1024)
+        # Convert mb to gb, add buffer of 50
+        disk_gb = math.ceil(disk_mb / 1024) + 10
 
         # Look for if the user wants an nvidia gpu
         gpu_count = job.resources.get("nvidia_gpu") or job.resources.get("gpu")

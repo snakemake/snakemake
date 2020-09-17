@@ -11,6 +11,7 @@ import time
 import tarfile
 from collections import defaultdict, Counter
 from itertools import chain, filterfalse, groupby
+from orderedset import OrderedSet
 from functools import partial
 from pathlib import Path
 import uuid
@@ -97,13 +98,13 @@ class DAG:
         batch=None,
     ):
         self.dryrun = dryrun
-        self.dependencies = defaultdict(partial(defaultdict, set))
-        self.depending = defaultdict(partial(defaultdict, set))
-        self._needrun = set()
+        self.dependencies = defaultdict(partial(defaultdict, OrderedSet))
+        self.depending = defaultdict(partial(defaultdict, OrderedSet))
+        self._needrun = OrderedSet()
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
-        self._dynamic = set()
+        self._dynamic = OrderedSet()
         self._len = 0
         self.workflow = workflow
         self.rules = set(rules)
@@ -112,9 +113,9 @@ class DAG:
         self.targetrules = targetrules
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
-        self.targetjobs = set()
-        self.prioritytargetjobs = set()
-        self._ready_jobs = set()
+        self.targetjobs = OrderedSet()
+        self.prioritytargetjobs = OrderedSet()
+        self._ready_jobs = OrderedSet()
         self.notemp = notemp
         self.keep_remote_local = keep_remote_local
         self._jobid = dict()
@@ -127,13 +128,13 @@ class DAG:
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
 
-        self.forcerules = set()
-        self.forcefiles = set()
-        self.untilrules = set()
-        self.untilfiles = set()
-        self.omitrules = set()
-        self.omitfiles = set()
-        self.updated_subworkflow_files = set()
+        self.forcerules = OrderedSet()
+        self.forcefiles = OrderedSet()
+        self.untilrules = OrderedSet()
+        self.untilfiles = OrderedSet()
+        self.omitrules = OrderedSet()
+        self.omitfiles = OrderedSet()
+        self.updated_subworkflow_files = OrderedSet()
         if forceall:
             self.forcerules.update(self.rules)
         elif forcerules:
@@ -151,7 +152,7 @@ class DAG:
 
         self.has_dynamic_rules = any(rule.dynamic_output for rule in self.rules)
 
-        self.omitforce = set()
+        self.omitforce = OrderedSet()
 
         self.batch = batch
         if batch is not None and not batch.is_final:

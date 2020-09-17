@@ -68,6 +68,7 @@ setup(
         "nbformat",
         "toposort",
         "pulp >=2.0",
+        "orderedset",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
