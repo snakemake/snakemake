@@ -43,6 +43,7 @@ dependencies:
   - python-kubernetes
   - gitpython
   - pulp >=2.0
+  - orderedset
   - tibanna
   - environment-modules
   - nbformat
