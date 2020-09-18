@@ -500,7 +500,7 @@ def available_cpu_count():
 
 
 def argvquote(arg, force=True):
-    """ Returns an argument quoted in such a way that that CommandLineToArgvW
+    """Returns an argument quoted in such a way that that CommandLineToArgvW
     on Windows will return the argument string unchanged.
     This is the same thing Popen does when supplied with an list of arguments.
     Arguments in a command line should be separated by spaces; this
@@ -542,7 +542,7 @@ def os_sync():
 def _find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
-    First attempt is to look for bash installed  with a git conda package. 
+    First attempt is to look for bash installed  with a git conda package.
     alternatively try bash installed with 'Git for Windows'.
     """
     if not ON_WINDOWS:

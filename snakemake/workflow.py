@@ -80,6 +80,8 @@ class Workflow:
         overwrite_configfiles=None,
         overwrite_clusterconfig=dict(),
         overwrite_threads=dict(),
+        overwrite_groups=None,
+        group_components=None,
         config_args=None,
         debug=False,
         verbose=False,
@@ -175,6 +177,8 @@ class Workflow:
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
+        self.overwrite_groups = overwrite_groups or dict()
+        self.group_components = group_components or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -317,8 +321,8 @@ class Workflow:
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
-           to the calling function Additionally, given that we encourage these 
-           packages to be small, we set a warning at 200MB (0.2GB).
+        to the calling function Additionally, given that we encourage these
+        packages to be small, we set a warning at 200MB (0.2GB).
         """
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
@@ -1232,8 +1236,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if not self.run_local and ruleinfo.group is not None:
-                rule.group = ruleinfo.group
+            if not self.run_local:
+                group = self.overwrite_groups.get(name) or ruleinfo.group
+                if group is not None:
+                    rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix

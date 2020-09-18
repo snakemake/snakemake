@@ -164,6 +164,8 @@ def snakemake(
     az_batch_configfile=None,
     edit_notebook=None,
     envvars=None,
+    overwrite_groups=None,
+    group_components=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -281,9 +283,11 @@ def snakemake(
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
-        log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
         az_batch_configfile (str):  Azure Batch configuration file
         scheduler (str):            Select scheduling algorithm (default ilp)
+        overwrite_groups (dict):    Rule to group assignments (default None)
+        group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
+        log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -533,6 +537,8 @@ def snakemake(
             overwrite_configfiles=configfiles,
             overwrite_clusterconfig=cluster_config_content,
             overwrite_threads=overwrite_threads,
+            overwrite_groups=overwrite_groups,
+            group_components=group_components,
             config_args=config_args,
             debug=debug,
             verbose=verbose,
@@ -657,6 +663,8 @@ def snakemake(
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     az_batch_configfile=az_batch_configfile,
+                    overwrite_groups=overwrite_groups,
+                    group_components=group_components,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -793,11 +801,37 @@ def parse_batch(args):
     return None
 
 
+def parse_groups(args):
+    errmsg = "Invalid groups definition: entries have to be defined as RULE=GROUP pairs"
+    overwrite_groups = dict()
+    if args.groups is not None:
+        for entry in args.groups:
+            rule, group = parse_key_value_arg(entry, errmsg=errmsg)
+            overwrite_groups[rule] = group
+    return overwrite_groups
+
+
+def parse_group_components(args):
+    errmsg = "Invalid group components definition: entries have to be defined as GROUP=COMPONENTS pairs (with COMPONENTS being a positive integer)"
+    group_components = dict()
+    if args.group_components is not None:
+        for entry in args.group_components:
+            group, count = parse_key_value_arg(entry, errmsg=errmsg)
+            try:
+                count = int(count)
+            except ValueError:
+                raise ValueError(errmsg)
+            if count <= 0:
+                raise ValueError(errmsg)
+            group_components[group] = count
+    return group_components
+
+
 def parse_key_value_arg(arg, errmsg):
     try:
         key, val = arg.split("=", 1)
     except ValueError:
-        raise ValueError(errmsg + ' Unparseable value: %r.' % arg)
+        raise ValueError(errmsg + " Unparseable value: %r." % arg)
     return key, val
 
 
@@ -1222,6 +1256,34 @@ def get_argument_parser(profile=None):
             "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
+    )
+
+    # TODO add group_partitioning, allowing to define --group rulename=groupname.
+    # i.e. setting groups via the CLI for improving cluster performance given
+    # available resources.
+    # TODO add an additional flag --group-components groupname=3, allowing to set the
+    # number of connected components a group is allowed to span. By default, this is 1
+    # (as now), but the flag allows to extend this. This can be used to run e.g.
+    # 3 jobs of the same rule in the same group, although they are not connected.
+    # Can be helpful for putting together many small jobs or benefitting of shared memory
+    # setups.
+
+    group_group = parser.add_argument_group("GROUPING")
+    group_group.add_argument(
+        "--groups",
+        nargs="+",
+        help="Assign rules to groups (this overwrites any "
+        "group definitions from the workflow).",
+    )
+    group_group.add_argument(
+        "--group-components",
+        nargs="+",
+        help="Set the number of connected components a group is "
+        "allowed to span. By default, this is 1, but this flag "
+        "allows to extend this. This can be used to run e.g. 3 "
+        "jobs of the same rule in the same group, although they "
+        "are not connected. It can be helpful for putting together "
+        "many small jobs or benefitting of shared memory setups.",
     )
 
     group_report = parser.add_argument_group("REPORTS")
@@ -2102,6 +2164,9 @@ def main(argv=None):
         default_resources = DefaultResources(args.default_resources)
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
+
+        overwrite_groups = parse_groups(args)
+        group_components = parse_group_components(args)
     except ValueError as e:
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
@@ -2481,6 +2546,8 @@ def main(argv=None):
             keep_incomplete=args.keep_incomplete,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
+            overwrite_groups=overwrite_groups,
+            group_components=group_components,
             log_handler=log_handler,
             az_batch_configfile=args.az_batch_configfile,
         )

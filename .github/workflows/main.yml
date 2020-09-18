@@ -14,13 +14,14 @@ jobs:
       - uses: actions/checkout@v1
 
       - name: Setup black environment
-        run: conda create --quiet --name black black
+        run: |
+          conda create -c conda-forge -y -q --name black black
 
       - name: Check formatting
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests/*.py
+          black --check snakemake tests/tests.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()

@@ -673,8 +673,7 @@ class Job(AbstractJob):
             raise ProtectedOutputException(self.rule, protected)
 
     def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run
-        """
+        """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
                 os.remove(f)

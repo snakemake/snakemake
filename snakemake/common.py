@@ -4,6 +4,7 @@ __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from functools import update_wrapper
+import itertools
 import platform
 import hashlib
 import inspect
@@ -60,7 +61,7 @@ def get_uuid(name):
 
 def get_file_hash(filename, algorithm="sha256"):
     """find the SHA256 hash string of a file. We use this so that the
-       user can choose to cache working directories in storage.
+    user can choose to cache working directories in storage.
     """
     from snakemake.logging import logger
 
@@ -79,9 +80,9 @@ def get_file_hash(filename, algorithm="sha256"):
 
 def bytesto(bytes, to, bsize=1024):
     """convert bytes to megabytes.
-       bytes to mb: bytesto(bytes, 'm')
-       bytes to gb: bytesto(bytes, 'g' etc.
-       From https://gist.github.com/shawnbutts/3906915
+    bytes to mb: bytesto(bytes, 'm')
+    bytes to gb: bytesto(bytes, 'g' etc.
+    From https://gist.github.com/shawnbutts/3906915
     """
     levels = {"k": 1, "m": 2, "g": 3, "t": 4, "p": 5, "e": 6}
     answer = float(bytes)
@@ -139,3 +140,16 @@ def log_location(msg):
     logger.debug(
         "{}: {info.filename}, {info.function}, {info.lineno}".format(msg, info=info)
     )
+
+
+def group_into_chunks(n, iterable):
+    """Group iterable into chunks of size at most n.
+
+    See https://stackoverflow.com/a/8998040.
+    """
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it, n))
+        if not chunk:
+            return
+        yield chunk
