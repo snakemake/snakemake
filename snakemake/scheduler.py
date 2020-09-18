@@ -537,7 +537,7 @@ class JobScheduler:
 
     def job_selector_ilp(self, jobs):
         """
-        Job scheduling by optimization of resource usage by solving ILP using pulp 
+        Job scheduling by optimization of resource usage by solving ILP using pulp
         """
         import pulp
         from pulp import lpSum
@@ -600,7 +600,7 @@ class JobScheduler:
                     [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
                 )
                 <= self.resources[name],
-                "Limitation of resource: {name}".format(name=name),
+                "limitation_of_resource_{name}".format(name=name),
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
@@ -611,6 +611,16 @@ class JobScheduler:
                     for job in jobs
                 ]
             ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+        # TODO enable this code once we have switched to pulp >=2.0
+        if pulp.apis.LpSolverDefault is None:
+            raise WorkflowError(
+                "You need to install at least one LP solver compatible with PuLP (e.g. coincbc). "
+                "See https://coin-or.github.io/pulp for details. Alternatively, run Snakemake with "
+                "--scheduler greedy."
+            )
+        # disable extensive logging
+        pulp.apis.LpSolverDefault.msg = False
 
         prob.solve()
         selected_jobs = [

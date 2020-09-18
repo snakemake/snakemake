@@ -56,8 +56,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(PooledDomainObject):
-    """ This is a class to interact with an SFTP server.
-    """
+    """This is a class to interact with an SFTP server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -68,8 +67,13 @@ class RemoteObject(PooledDomainObject):
         """ define defaults beyond those set in PooledDomainObject """
         return super().get_default_kwargs(**{"port": 22,})
 
-    def connect(self, *args_to_use, **kwargs_to_use):
+    def create_connection(self, *args_to_use, **kwargs_to_use):
+        """ open an SFTP connection """
         return pysftp.Connection(*args_to_use, **kwargs_to_use)
+
+    def close_connection(self, connection):
+        """ close an SFTP connection """
+        connection.close()
 
     # === Implementations of abstract class members ===
 
@@ -96,8 +100,8 @@ class RemoteObject(PooledDomainObject):
             )
 
     def is_newer(self, time):
-        """ Returns true if the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true if the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         with self.connection_pool.item() as sftpc:
             return (
                 sftpc.stat(self.remote_path).st_mtime > time

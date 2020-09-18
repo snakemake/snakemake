@@ -81,8 +81,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an HTTP server.
-    """
+    """This is a class to interact with an HTTP server."""
 
     def __init__(
         self,
@@ -245,8 +244,8 @@ class RemoteObject(DomainObject):
 
     def get_header_item(self, httpr, header_name, default):
         """
-            Since HTTP header capitalization may differ, this returns
-            a header value regardless of case
+        Since HTTP header capitalization may differ, this returns
+        a header value regardless of case
         """
 
         header_value = default

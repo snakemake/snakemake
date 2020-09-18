@@ -37,15 +37,15 @@ def noop():
 
 def pickled_moto_wrapper(func):
     """
-        This is a class decorator that in turn decorates all methods within
-        a class to mock out boto calls with moto-simulated ones.
-        Since the moto backends are not presistent across calls by default,
-        the wrapper also pickles the bucket state after each function call,
-        and restores it before execution. This way uploaded files are available
-        for follow-on tasks. Since snakemake may execute with multiple threads
-        it also waits for the pickled bucket state file to be available before
-        loading it in. This is a hackey alternative to using proper locks,
-        but works ok in practice.
+    This is a class decorator that in turn decorates all methods within
+    a class to mock out boto calls with moto-simulated ones.
+    Since the moto backends are not presistent across calls by default,
+    the wrapper also pickles the bucket state after each function call,
+    and restores it before execution. This way uploaded files are available
+    for follow-on tasks. Since snakemake may execute with multiple threads
+    it also waits for the pickled bucket state file to be available before
+    loading it in. This is a hackey alternative to using proper locks,
+    but works ok in practice.
     """
 
     def wrapper_func(self, *args, **kwargs):
@@ -90,10 +90,10 @@ class RemoteProvider(S3RemoteProvider):
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteObject(S3RemoteObject):
     """
-        This is a derivative of the S3 remote provider that mocks
-        out boto-based S3 calls using the "moto" Python package.
-        Only the initializer is different; it "uploads" the input
-        test file to the moto-simulated bucket at the start.
+    This is a derivative of the S3 remote provider that mocks
+    out boto-based S3 calls using the "moto" Python package.
+    Only the initializer is different; it "uploads" the input
+    test file to the moto-simulated bucket at the start.
     """
 
     def __init__(

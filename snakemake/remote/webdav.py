@@ -50,8 +50,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with a WebDAV file store.
-    """
+    """This is a class to interact with a WebDAV file store."""
 
     def __init__(self, *args, keep_local=False, **kwargs):
         # self.loop = asyncio.get_event_loop()

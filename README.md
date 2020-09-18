@@ -5,6 +5,7 @@
 [![docker container status](https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container)](https://hub.docker.com/r/snakemake/snakemake)
 [![Stack Overflow](https://img.shields.io/badge/stack-overflow-orange.svg)](https://stackoverflow.com/questions/tagged/snakemake)
 [![Twitter](https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow)](https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester)
+[![Discord](https://img.shields.io/discord/753690260830945390?label=discord%20chat)](https://discord.gg/NUdMtmr)
 [![Github stars](https://img.shields.io/github/stars/snakemake/snakemake?style=social)](https://github.com/snakemake/snakemake/stargazers)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md) 
 

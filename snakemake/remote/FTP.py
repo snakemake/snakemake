@@ -93,10 +93,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(PooledDomainObject):
-    """ This is a class to interact with an FTP server.
-    """
-
-    connection_pools = {}
+    """This is a class to interact with an FTP server."""
 
     def __init__(
         self,
@@ -125,7 +122,8 @@ class RemoteObject(PooledDomainObject):
         """ returns list of keywords relevant to a unique connection """
         return ["host", "port", "username", "encrypt_data_channel"]
 
-    def connect(self, *args_to_use, **kwargs_to_use):
+    def create_connection(self, *args_to_use, **kwargs_to_use):
+        """ create a connection to the FTP server using the saved arguments """
         ftp_base_class = (
             ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
         )
@@ -143,6 +141,11 @@ class RemoteObject(PooledDomainObject):
             kwargs_to_use["password"],
             session_factory=ftp_session_factory,
         )
+
+    def close_connection(self, connection):
+        """ close an FTP connection """
+        connection.keep_alive()
+        connection.close()
 
     def exists(self):
         if self._matched_address:

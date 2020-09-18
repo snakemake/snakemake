@@ -10,7 +10,13 @@ import re
 from functools import partial
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
-from connection_pool import ConnectionPool
+from contextlib import contextmanager
+try:
+    from connection_pool import ConnectionPool
+except:
+    # we just won't pool connections if it's not installed
+    #  Should there be a warning? Should there be a runtime flag?
+    pass
 import copy
 
 # module-specific
@@ -44,8 +50,8 @@ class StaticRemoteObjectProxy(ObjectProxy):
 
 
 class AbstractRemoteProvider:
-    """ This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
-        and are then passed to RemoteObjects.
+    """This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
+    and are then passed to RemoteObjects.
     """
 
     __metaclass__ = ABCMeta
@@ -142,9 +148,9 @@ class AbstractRemoteProvider:
 
 
 class AbstractRemoteObject:
-    """ This is an abstract class to be used to derive remote object classes for
-        different cloud storage providers. For example, there could be classes for interacting with
-        Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
+    """This is an abstract class to be used to derive remote object classes for
+    different cloud storage providers. For example, there could be classes for interacting with
+    Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
     """
 
     __metaclass__ = ABCMeta
@@ -170,7 +176,7 @@ class AbstractRemoteObject:
         self.protocol = protocol
 
     def inventory(self, cache: snakemake.io.IOCache):
-        """From this file, try to find as much existence and modification date 
+        """From this file, try to find as much existence and modification date
         information as possible.
         """
         # If this is implemented in a remote object, results have to be stored in
@@ -241,8 +247,8 @@ class AbstractRemoteObject:
 
 class DomainObject(AbstractRemoteObject):
     """This is a mixin related to parsing components
-        out of a location path specified as
-        (host|IP):port/remote/location
+    out of a location path specified as
+    (host|IP):port/remote/location
     """
 
     def __init__(self, *args, **kwargs):
@@ -302,9 +308,10 @@ class PooledDomainObject(DomainObject):
 
     connection_pools = {}
 
-    def __init__(self, *args, pool_size=100, **kwargs):
+    def __init__(self, *args, pool_size=100, immediate_close=False, **kwargs):
         super(DomainObject, self).__init__(*args, **kwargs)
         self.pool_size = 100
+        self.immediate_close = immediate_close
 
     def get_default_kwargs(self, **defaults):
         defaults.setdefault("host", self.host)
@@ -335,6 +342,22 @@ class PooledDomainObject(DomainObject):
 
         return args_to_use, kwargs_to_use
 
+    @contextmanager
+    def get_connection():
+        """ get a connection from a pool or create a new one """
+        if not self.immediate_close and 'connection_pool' in sys.modules:
+            # if we can (and the user doesn't override) use a pool
+            with self.connection_pool.item() as conn:
+                yield conn
+        else:
+            # otherwise create a one-time connection
+            args_to_use, kwargs_to_use = self.get_args_to_use()
+            conn = self.create_connection(*args_to_use, **kwargs_to_use)
+            try:
+                yield conn
+            finally:
+                self.close_connection(conn)
+
     @property
     def conn_keywords(self):
         """ returns list of keywords relevant to a unique connection """
@@ -342,6 +365,7 @@ class PooledDomainObject(DomainObject):
 
     @property
     def connection_pool(self):
+        """ set up a pool of re-usable active connections """
         # merge this object's values with those of its parent provider
         args_to_use, kwargs_to_use = self.get_args_to_use()
 
@@ -354,13 +378,19 @@ class PooledDomainObject(DomainObject):
         )
 
         if conn_pool_label_tuple not in self.connection_pools:
-            create_callback = partial(self.connect, *args_to_use, **kwargs_to_use)
+            create_callback = partial(self.create_connection, *args_to_use, **kwargs_to_use)
             self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
-                create_callback, close=lambda c: c.close(), max_size=self.pool_size
+                create_callback, close=self.close_connection(), max_size=self.pool_size
             )
 
         return self.connection_pools[conn_pool_label_tuple]
 
     @abstractmethod
-    def connect(self):
+    def create_connection(self):
+        """ handle the protocol specific job of creating a connection """
+        pass
+
+    @abstractmethod
+    def close_connection(self, connection):
+        """ handle the protocol specific job of closing a connection """
         pass
