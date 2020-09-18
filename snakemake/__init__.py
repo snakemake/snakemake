@@ -1212,7 +1212,9 @@ def get_argument_parser(profile=None):
         "--wms-monitor",
         action="store",
         nargs="?",
-        help=("IP of workflow management system to monitor the execution of snakemake"),
+        help=(
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
+        ),
     )
 
     group_utils = parser.add_argument_group("UTILITIES")
