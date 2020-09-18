@@ -9,7 +9,7 @@ import sys
 import signal
 import json
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
@@ -80,6 +80,7 @@ class Workflow:
         overwrite_configfiles=None,
         overwrite_clusterconfig=dict(),
         overwrite_threads=dict(),
+        overwrite_scatter=dict(),
         overwrite_groups=None,
         group_components=None,
         config_args=None,
@@ -177,6 +178,8 @@ class Workflow:
         self.envvars = set()
         self.overwrite_groups = overwrite_groups or dict()
         self.group_components = group_components or dict()
+        self._scatter = dict(overwrite_scatter)
+        self.overwrite_scatter = overwrite_scatter
 
         self.enable_cache = False
         if cache is not None:
@@ -210,6 +213,10 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+        global scatter
+        scatter = Scatter()
+        global gather
+        gather = Gather()
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -1081,6 +1088,18 @@ class Workflow:
         # update all rules so far
         for rule in self.rules:
             rule.update_wildcard_constraints()
+    
+    def scattergather(self, **content):
+        """Register scattergather defaults."""
+        self._scatter.update(content)
+        self._scatter.update(self.overwrite_scatter)
+
+        def func(*args, **wildcards):
+            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+
+        for key in content:
+            setattr(scatter, key, func)
+            setattr(gather, key, func)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1604,6 +1623,16 @@ class Subworkflow:
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
 
+    pass
+
+
+class Scatter:
+    """ A namespace for scatter to allow items to be accessed via dot notation."""
+    pass
+
+
+class Gather:
+    """ A namespace for gather to allow items to be accessed via dot notation."""
     pass
 
 
