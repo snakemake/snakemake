@@ -13,7 +13,7 @@ from functools import partial
 from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
-
+from fractions import Fraction
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -24,12 +24,11 @@ from snakemake.executors import (
     TibannaExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
+from snakemake.executors.azure_batch import AzBatchExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
 
 from snakemake.logging import logger
 
-from fractions import Fraction
 
 
 def cumsum(iterable, zero=[0]):
@@ -88,6 +87,7 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        az_batch_config=None,
         scheduler_type=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
@@ -115,6 +115,10 @@ class JobScheduler:
             for name, res in workflow.global_resources.items()
         }
         self.resources = dict(self.global_resources)
+
+        az_batch = False
+        if az_batch_config:
+            az_batch = True
 
         use_threads = (
             force_use_threads
@@ -272,6 +276,29 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
             )
+        elif az_batch:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_config=az_batch_config,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,

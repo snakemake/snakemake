@@ -111,6 +111,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        az_batch_config=None,
     ):
         """
         Create the controller.
@@ -173,6 +174,7 @@ class Workflow:
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self.edit_notebook = edit_notebook
+        self.az_batch_config = az_batch_config
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
@@ -545,6 +547,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        # FIXME az_batch_config here
     ):
 
         self.check_localrules()
@@ -909,6 +912,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            az_batch_config=self.az_batch_config,
             scheduler_type=scheduler_type,
         )
 

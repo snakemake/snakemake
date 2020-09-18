@@ -162,6 +162,7 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     messaging=None,
+    az_batch_configfile=None,
     edit_notebook=None,
     envvars=None,
     overwrite_groups=None,
@@ -283,6 +284,7 @@ def snakemake(
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
+        az_batch_configfile (str):  Azure Batch configuration file
         scheduler (str):            Select scheduling algorithm (default ilp)
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
@@ -335,6 +337,10 @@ def snakemake(
         immediate_submit and notemp
     ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
 
+    az_batch = False
+    if az_batch_configfile:
+        az_batch = True
+
     if tibanna:
         assume_shared_fs = False
         default_remote_provider = "S3"
@@ -361,6 +367,11 @@ def snakemake(
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
+    if az_batch:
+        # TODO check that other modes are not activated, e.g. tibanna, drmaa etc
+        assume_shared_fs = False
+        default_remote_provider = "AzBlob"
+
     # Google Cloud Life Sciences API uses compute engine and storage
     if google_lifesciences:
         assume_shared_fs = False
@@ -376,7 +387,7 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences:
+    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences or az_batch:
         cores = None
     else:
         nodes = None
@@ -397,7 +408,7 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences or az_batch
     )
     if run_local:
         if not dryrun:
@@ -493,6 +504,11 @@ def snakemake(
 
     logger.setup_logfile()
 
+    if az_batch_configfile:
+        az_batch_config = load_configfile(az_batch_configfile)
+    else:
+        az_batch_config = None
+
     try:
         # handle default remote provider
         _default_remote_provider = None
@@ -553,6 +569,7 @@ def snakemake(
             resources=resources,
             edit_notebook=edit_notebook,
             envvars=envvars,
+            az_batch_config=az_batch_config,
         )
         success = True
 
@@ -649,6 +666,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
+                    az_batch_configfile=az_batch_configfile,
                     overwrite_groups=overwrite_groups,
                     group_components=group_components,
                 )
@@ -2105,6 +2123,13 @@ def get_argument_parser(profile=None):
         "fallback for rules which don't define environment modules.",
     )
 
+    group_env_modules = parser.add_argument_group("AZURE")
+
+    group_env_modules.add_argument(
+        "--az-batch-configfile",
+        help="Azure Batch config file",
+    )
+
     return parser
 
 
@@ -2158,6 +2183,7 @@ def main(argv=None):
             or (args.tibanna and not args.default_resources)
             or (args.google_lifesciences and not args.default_resources)
         ):
+        # FIXME do we need default resources for az_batch as well?
             args.default_resources = [
                 "mem_mb=max(2*input.size_mb, 1000)",
                 "disk_mb=max(2*input.size_mb, 1000)",
@@ -2183,6 +2209,7 @@ def main(argv=None):
         or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
+        or args.az_batch_configfile
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2265,6 +2292,17 @@ def main(argv=None):
     if args.singularity_prefix and not args.use_singularity:
         print(
             "Error: --use_singularity must be set if --singularity-prefix " "is set.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if args.az_batch_configfile and (
+        not args.default_remote_provider or not args.default_remote_prefix
+    ): 
+        print(
+            "Error: --az-batch-configfile must be combined with "
+            "--default-remote-provider AzBlob and --default-remote-prefix to "
+            "provide a bucket name",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -2541,6 +2579,7 @@ def main(argv=None):
             overwrite_groups=overwrite_groups,
             group_components=group_components,
             log_handler=log_handler,
+            az_batch_configfile=args.az_batch_configfile,
         )
 
     if args.runtime_profile:
