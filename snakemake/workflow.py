@@ -178,7 +178,7 @@ class Workflow:
         self.envvars = set()
         self.overwrite_groups = overwrite_groups or dict()
         self.group_components = group_components or dict()
-        self._scatter = dict(overwrite_scatter)
+        self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
 
         self.enable_cache = False
