@@ -15,6 +15,7 @@ Snakemake sends the following requests to wms monitor:
    ":code:`/api/service-info`", "GET", "json", "Snakemake gets the status of panoptes. Snakemake continues to run if the status (:code:`json['status']`) is :code:`'running'`. In all other cases snakemake exits with an error message."
    ":code:`/create_workflow`", "GET", "json", "Snakemake gets a unique id/name :code:`str(uuid.uuid4())` for each workflow triggered."
    ":code:`/update_workflow_status`", "POST", "dictionary", "Snakemake posts updates for workflows/jobs. The dictionary sent contains the log message dictionary , the current timestamp and the unique id/name of the workflow.
+   
     .. code:: python
 
         {
