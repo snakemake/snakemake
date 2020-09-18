@@ -575,17 +575,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return keepers[smallest]
 
     def _set_snakefile(self):
-        """The snakefile must be a relative path, which cannot be reliably
-        derived from the self.workflow.snakefile as we might have moved
-        execution into a temporary directory, and the initial Snakefile
-        was somewhere else on the system.
+        """The snakefile must be a relative path, which should be derived
+        from the self.workflow.snakefile.
         """
-        from snakemake import SNAKEFILE_CHOICES
-
-        for snakefile in SNAKEFILE_CHOICES:
-            if os.path.exists(os.path.join(self.workdir, snakefile)):
-                self.snakefile = snakefile
-                break
+        assert os.path.exists(self.workflow.snakefile)
+        self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(os.sep)
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
