@@ -1088,7 +1088,7 @@ class Workflow:
         # update all rules so far
         for rule in self.rules:
             rule.update_wildcard_constraints()
-    
+
     def scattergather(self, **content):
         """Register scattergather defaults."""
         self._scatter.update(content)
@@ -1628,11 +1628,13 @@ class Rules:
 
 class Scatter:
     """ A namespace for scatter to allow items to be accessed via dot notation."""
+
     pass
 
 
 class Gather:
     """ A namespace for gather to allow items to be accessed via dot notation."""
+
     pass
 
 

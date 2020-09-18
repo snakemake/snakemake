@@ -757,17 +757,17 @@ def snakemake(
 
 def parse_set_threads(args):
     return parse_set_ints(
-        args.set_threads, 
+        args.set_threads,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
-        "(with THREADS being a positive integer)."
+        "(with THREADS being a positive integer).",
     )
 
 
 def parse_set_scatter(args):
     return parse_set_ints(
-        args.set_scatter, 
+        args.set_scatter,
         "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
-        "(with SCATTERITEMS being a positive integer)."
+        "(with SCATTERITEMS being a positive integer).",
     )
 
 
@@ -1060,7 +1060,7 @@ def get_argument_parser(profile=None):
         nargs="+",
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
-        "the name of the scattergather process defined via a scattergather directive in the workflow."
+        "the name of the scattergather process defined via a scattergather directive in the workflow.",
     )
     group_exec.add_argument(
         "--default-resources",
