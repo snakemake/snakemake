@@ -151,6 +151,11 @@ def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_report_dir():
+    run(dpath("test_report_dir"), report="report.zip", check_md5=False)
+
+
 def test_dynamic():
     run(dpath("test_dynamic"))
 
@@ -608,7 +613,7 @@ def test_gs_requester_pays(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+    """Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 
@@ -742,6 +747,16 @@ def test_pathlib_missing_file():
 @skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_multicomp_group_jobs():
+    run(
+        dpath("test_multicomp_group_jobs"),
+        cluster="./qsub",
+        overwrite_groups={"a": "group0", "b": "group0"},
+        group_components={"group0": 2},
+    )
 
 
 @skip_on_windows
@@ -1023,3 +1038,7 @@ def test_jupyter_notebook():
 
 def test_github_issue456():
     run(dpath("test_github_issue456"))
+
+
+def test_scatter_gather():
+    run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})

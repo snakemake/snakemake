@@ -32,8 +32,8 @@ GoogleLifeSciencesJob = namedtuple(
 
 class GoogleLifeSciencesExecutor(ClusterExecutor):
     """the GoogleLifeSciences executor uses Google Cloud Storage, and
-       Compute Engine paired with the Google Life Sciences API.
-       https://cloud.google.com/life-sciences/docs/quickstart
+    Compute Engine paired with the Google Life Sciences API.
+    https://cloud.google.com/life-sciences/docs/quickstart
     """
 
     def __init__(
@@ -134,8 +134,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _get_services(self):
         """use the Google Discovery Build to generate API clients
-           for Life Sciences, and use the google storage python client 
-           for storage.
+        for Life Sciences, and use the google storage python client
+        for storage.
         """
         from googleapiclient.discovery import build as discovery_build
         from oauth2client.client import (
@@ -165,11 +165,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _get_bucket(self):
         """get a connection to the storage bucket (self.bucket) and exit
-           if the name is taken or otherwise invalid.
+        if the name is taken or otherwise invalid.
 
-           Parameters
-           ==========
-           workflow: the workflow object to derive the prefix from
+        Parameters
+        ==========
+        workflow: the workflow object to derive the prefix from
         """
         import google
 
@@ -204,14 +204,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _set_location(self, location=None):
         """The location is where the Google Life Sciences API is located.
-           This can be meaningful if the requester has data residency
-           requirements or multi-zone needs. To determine this value,
-           we first use the locations API to determine locations available,
-           and then compare them against:
+        This can be meaningful if the requester has data residency
+        requirements or multi-zone needs. To determine this value,
+        we first use the locations API to determine locations available,
+        and then compare them against:
 
-           1. user specified location or prefix
-           2. regions having the same prefix
-           3. if cannot be satisifed, we throw an error.
+        1. user specified location or prefix
+        2. regions having the same prefix
+        3. if cannot be satisifed, we throw an error.
         """
         # Derive available locations
         # See https://cloud.google.com/life-sciences/docs/concepts/locations
@@ -271,7 +271,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def shutdown(self):
         """shutdown deletes build packages if the user didn't request to clean
-           up the cache. At this point we've already cancelled running jobs.
+        up the cache. At this point we've already cancelled running jobs.
         """
         # Delete build source packages only if user regooglquested no cache
         if self._save_storage_cache:
@@ -288,7 +288,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def cancel(self):
         """cancel execution, usually by way of control+c. Cleanup is done in
-           shutdown (deleting cached workdirs in Google Cloud Storage
+        shutdown (deleting cached workdirs in Google Cloud Storage
         """
         import googleapiclient
 
@@ -307,7 +307,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def get_available_machine_types(self):
         """Using the regions available at self.regions, use the GCP API
-           to retrieve a lookup dictionary of all available machine types.
+        to retrieve a lookup dictionary of all available machine types.
         """
         # Regular expression to determine if zone in region
         regexp = "^(%s)" % "|".join(self.regions)
@@ -347,9 +347,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _add_gpu(self, gpu_count):
         """Add a number of NVIDIA gpus to the current executor. This works
-           by way of adding nvidia_gpu to the job default resources, and also
-           changing the default machine type prefix to be n1, which is
-           the currently only supported instance type for using GPUs for LHS.
+        by way of adding nvidia_gpu to the job default resources, and also
+        changing the default machine type prefix to be n1, which is
+        the currently only supported instance type for using GPUs for LHS.
         """
         if not gpu_count or gpu_count == 0:
             return
@@ -366,9 +366,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _set_preemptible_rules(self, preemption_default=None, preemptible_rules=None):
         """define a lookup dictionary for preemptible instance retries, which
-           is supported by the Google Life Science API. The user can set a default
-           for all steps, specify per step, or define a default for all steps
-           that aren't individually customized.
+        is supported by the Google Life Science API. The user can set a default
+        for all steps, specify per step, or define a default for all steps
+        that aren't individually customized.
         """
         self.preemptible_rules = {}
 
@@ -391,7 +391,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _generate_job_resources(self, job):
         """given a particular job, generate the resources that it needs,
-           including default regions and the virtual machine configuration
+        including default regions and the virtual machine configuration
         """
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
@@ -523,10 +523,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _get_accelerator(self, gpu_count, zone, gpu_model=None):
         """Get an appropriate accelerator for a GPU given a zone selection.
-           Currently Google offers NVIDIA Tesla T4 (likely the best),
-           NVIDIA P100, and the same T4 for a graphical workstation. Since
-           this isn't a graphical workstation use case, we choose the 
-           accelerator that has >= to the maximumCardsPerInstace
+        Currently Google offers NVIDIA Tesla T4 (likely the best),
+        NVIDIA P100, and the same T4 for a graphical workstation. Since
+        this isn't a graphical workstation use case, we choose the
+        accelerator that has >= to the maximumCardsPerInstace
         """
         if not gpu_count or gpu_count == 0:
             return
@@ -575,21 +575,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return keepers[smallest]
 
     def _set_snakefile(self):
-        """The snakefile must be a relative path, which cannot be reliably
-           derived from the self.workflow.snakefile as we might have moved
-           execution into a temporary directory, and the initial Snakefile
-           was somewhere else on the system.
+        """The snakefile must be a relative path, which should be derived
+        from the self.workflow.snakefile.
         """
-        from snakemake import SNAKEFILE_CHOICES
-
-        for snakefile in SNAKEFILE_CHOICES:
-            if os.path.exists(os.path.join(self.workdir, snakefile)):
-                self.snakefile = snakefile
-                break
+        assert os.path.exists(self.workflow.snakefile)
+        self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(os.sep)
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
-           (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
+        (e.g., the Snakefile or a config.yml equivalent), or checked into git.
         """
         self.workflow_sources = []
 
@@ -609,8 +603,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _generate_build_source_package(self):
         """in order for the instance to access the working directory in storage,
-           we need to upload it. This file is cleaned up at the end of the run.
-           We do this, and then obtain from the instance and extract.
+        we need to upload it. This file is cleaned up at the end of the run.
+        We do this, and then obtain from the instance and extract.
         """
         # Workflow sources for cloud executor must all be under same workdir root
         for filename in self.workflow_sources:
@@ -656,7 +650,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _upload_build_source_package(self, targz):
         """given a .tar.gz created for a workflow, upload it to source/cache
-           of Google storage, only if the blob doesn't already exist.
+        of Google storage, only if the blob doesn't already exist.
         """
         # Upload to temporary storage, only if doesn't exist
         self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
@@ -666,8 +660,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             blob.upload_from_filename(targz, content_type="application/gzip")
 
     def _generate_log_action(self, job):
-        """generate an action to save the pipeline logs to storage.
-        """
+        """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
 
@@ -690,8 +683,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return action
 
     def _generate_job_action(self, job):
-        """generate a single action to execute the job.
-        """
+        """generate a single action to execute the job."""
         # Derive the entrypoint command, the same content that might be written by self.get_jobscript(job)
         use_threads = "--force-use-threads" if not job.is_group() else ""
 
@@ -730,8 +722,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
 
     def _generate_pipeline_labels(self, job):
-        """generate basic labels to identify the job, namespace, and that 
-           snakemake is running the show!
+        """generate basic labels to identify the job, namespace, and that
+        snakemake is running the show!
         """
         jobname = self._get_jobname(job)
         labels = {"name": jobname, "app": "snakemake"}
@@ -739,7 +731,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _generate_environment(self):
         """loop through envvars (keys to host environment) and add
-           any that are requested for the container environment.
+        any that are requested for the container environment.
         """
         envvars = {}
         for key in self.envvars:
@@ -755,8 +747,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _generate_pipeline(self, job):
         """based on the job details, generate a google Pipeline object
-           to pass to pipelines.run. This includes actions, resources,
-           environment, and timeout.
+        to pass to pipelines.run. This includes actions, resources,
+        environment, and timeout.
         """
         # Generate actions (one per job step) and log saving action (runs no matter what) and resources
         resources = self._generate_job_resources(job)
@@ -830,9 +822,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _job_was_successful(self, status):
         """based on a status response (a [pipeline].projects.locations.operations.get
-           debug print the list of events, return True if all return codes 0
-           and False otherwise (indication of failure). In that a nonzero exit
-           status is found, we also debug print it for the user.
+        debug print the list of events, return True if all return codes 0
+        and False otherwise (indication of failure). In that a nonzero exit
+        status is found, we also debug print it for the user.
         """
         success = True
 
@@ -863,14 +855,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _retry_request(self, request, timeout=2, attempts=3):
         """The Google Python API client frequently has BrokenPipe errors. This
-           function takes a request, and executes it up to number of retry,
-           each time with a 2* increase in timeout.
+        function takes a request, and executes it up to number of retry,
+        each time with a 2* increase in timeout.
 
-           Parameters
-           ==========
-           request: the Google Cloud request that needs to be executed
-           timeout: time to sleep (in seconds) before trying again
-           attempts: remaining attempts, throw error when hit 0
+        Parameters
+        ==========
+        request: the Google Cloud request that needs to be executed
+        timeout: time to sleep (in seconds) before trying again
+        attempts: remaining attempts, throw error when hit 0
         """
         import googleapiclient
 
@@ -890,8 +882,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _wait_for_jobs(self):
         """wait for jobs to complete. This means requesting their status,
-           and then marking them as finished when a "done" parameter
-           shows up. Even for finished jobs, the status should still return
+        and then marking them as finished when a "done" parameter
+        shows up. Even for finished jobs, the status should still return
         """
         import googleapiclient
 

@@ -1,3 +1,27 @@
+[5.25.0] - 2020-09-18
+=====================
+Added
+-----
+- Simplified and more configurable support for scatter-gather processes (see docs).
+- Fully configurable DAG partitioning by grouping jobs at the command line. This should provide a vast additional improvement to scalability in cluster and cloud settings.
+
+Changed
+-------
+- Depend on latest pulp, thereby enable Python >=3.8 compatibility again.
+- Fixes for snakefile handling in google life sciences backend (@vsoch).
+
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
+[5.24.1] - 2020-09-13
+=====================
+Changed
+-------
+- Depend on pulp < 2.0, which includes the default coin cbc solver for all platforms.
+
 [5.24.0] - 2020-09-09
 =====================
 Added

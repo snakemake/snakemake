@@ -9,7 +9,7 @@ import sys
 import signal
 import json
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
@@ -75,11 +75,14 @@ class Workflow:
         snakefile=None,
         jobscript=None,
         overwrite_shellcmd=None,
-        overwrite_config=dict(),
+        overwrite_config=None,
         overwrite_workdir=None,
         overwrite_configfiles=None,
-        overwrite_clusterconfig=dict(),
-        overwrite_threads=dict(),
+        overwrite_clusterconfig=None,
+        overwrite_threads=None,
+        overwrite_scatter=None,
+        overwrite_groups=None,
+        group_components=None,
         config_args=None,
         debug=False,
         verbose=False,
@@ -135,10 +138,10 @@ class Workflow:
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
-        self.overwrite_config = overwrite_config
+        self.overwrite_config = overwrite_config or dict()
         self.overwrite_configfiles = overwrite_configfiles
-        self.overwrite_clusterconfig = overwrite_clusterconfig
-        self.overwrite_threads = overwrite_threads
+        self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
+        self.overwrite_threads = overwrite_threads or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -173,6 +176,10 @@ class Workflow:
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
+        self.overwrite_groups = overwrite_groups or dict()
+        self.group_components = group_components or dict()
+        self._scatter = dict(overwrite_scatter or dict())
+        self.overwrite_scatter = overwrite_scatter or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -206,6 +213,10 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+        global scatter
+        scatter = Scatter()
+        global gather
+        gather = Gather()
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -315,8 +326,8 @@ class Workflow:
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
-           to the calling function Additionally, given that we encourage these 
-           packages to be small, we set a warning at 200MB (0.2GB).
+        to the calling function Additionally, given that we encourage these
+        packages to be small, we set a warning at 200MB (0.2GB).
         """
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
@@ -1078,6 +1089,18 @@ class Workflow:
         for rule in self.rules:
             rule.update_wildcard_constraints()
 
+    def scattergather(self, **content):
+        """Register scattergather defaults."""
+        self._scatter.update(content)
+        self._scatter.update(self.overwrite_scatter)
+
+        def func(*args, **wildcards):
+            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+
+        for key in content:
+            setattr(scatter, key, func)
+            setattr(gather, key, func)
+
     def workdir(self, workdir):
         """Register workdir."""
         if self.overwrite_workdir is None:
@@ -1228,8 +1251,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if not self.run_local and ruleinfo.group is not None:
-                rule.group = ruleinfo.group
+            if not self.run_local:
+                group = self.overwrite_groups.get(name) or ruleinfo.group
+                if group is not None:
+                    rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix
@@ -1597,6 +1622,18 @@ class Subworkflow:
 
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
+
+    pass
+
+
+class Scatter:
+    """ A namespace for scatter to allow items to be accessed via dot notation."""
+
+    pass
+
+
+class Gather:
+    """ A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
 

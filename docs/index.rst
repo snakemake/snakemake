@@ -25,6 +25,10 @@ Snakemake
 .. image:: https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow
     :target: https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester
 
+.. image:: https://img.shields.io/discord/753690260830945390?label=discord%20chat   
+    :alt: Discord
+    :target: https://discord.gg/NUdMtmr
+
 .. image:: https://img.shields.io/github/stars/snakemake/snakemake?style=social
     :alt: GitHub stars
     :target: https://github.com/snakemake/snakemake/stargazers
@@ -112,6 +116,7 @@ Resources
   executing/cli
   executing/cluster
   executing/cloud
+  executing/grouping
   executing/caching
   executing/interoperability
 

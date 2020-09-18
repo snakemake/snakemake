@@ -48,7 +48,15 @@ class RuleLinter(Linter):
     def lint_not_used_params(
         self,
         rule,
-        valid_names={"input", "output", "log", "params", "wildcards", "threads"},
+        valid_names={
+            "input",
+            "output",
+            "log",
+            "params",
+            "wildcards",
+            "threads",
+            "resources",
+        },
         regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN)),
     ):
         if rule.shellcmd:

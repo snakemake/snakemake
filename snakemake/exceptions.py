@@ -256,8 +256,10 @@ class MissingOutputException(RuleException):
     def __init__(
         self, message=None, include=None, lineno=None, snakefile=None, rule=None
     ):
-        message = "Job completed successfully, but some output files are missing. {}".format(
-            message
+        message = (
+            "Job completed successfully, but some output files are missing. {}".format(
+                message
+            )
         )
         super().__init__(message, include, lineno, snakefile, rule)
 
@@ -488,8 +490,8 @@ class SpawnedJobError(Exception):
 
 
 class CheckSumMismatchException(WorkflowError):
-    """"should be called to indicate that checksum of a file compared to known
-        hash does not match, typically done with large downloads, etc.
+    """ "should be called to indicate that checksum of a file compared to known
+    hash does not match, typically done with large downloads, etc.
     """
 
     pass

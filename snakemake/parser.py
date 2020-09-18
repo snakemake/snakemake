@@ -257,6 +257,10 @@ class Report(GlobalKeywordState):
     pass
 
 
+class Scattergather(GlobalKeywordState):
+    pass
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -804,6 +808,7 @@ class Python(TokenAutomaton):
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
         container=GlobalContainer,
+        scattergather=Scattergather,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

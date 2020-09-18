@@ -349,6 +349,7 @@ class FileRecord:
         category,
         wildcards_overwrite=None,
         mode_embedded=True,
+        aux_files=None,
     ):
         self.mode_embedded = mode_embedded
         self.path = path
@@ -371,6 +372,8 @@ class FileRecord:
             logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
         )
         self.category = category
+
+        self.aux_files = aux_files or []
 
         self.table_content = None
         if self.is_table:
@@ -630,7 +633,7 @@ def auto_report(dag, path, stylesheet=None):
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(f, wildcards_overwrite=None):
+                def register_file(f, wildcards_overwrite=None, aux_files=None):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category, wildcards=wildcards, job=job
@@ -648,34 +651,66 @@ def auto_report(dag, path, stylesheet=None):
                             category,
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
+                            aux_files=aux_files,
                         )
                     )
                     recorded_files.add(f)
 
                 if os.path.isfile(f):
                     register_file(f)
-                if os.path.isdir(f):
-                    if not isinstance(report_obj.patterns, list):
-                        raise WorkflowError(
-                            "Invalid patterns given for report. Must be list.",
-                            rule=job.rule,
+                elif os.path.isdir(f):
+                    if report_obj.htmlindex:
+                        if mode_embedded:
+                            raise WorkflowError(
+                                "Directory marked for report specifies htmlindex. "
+                                "This is unsupported when requesting a pure HTML report. "
+                                "Please use store as zip instead (--report report.zip)."
+                            )
+                        aux_files = []
+                        index_found = False
+                        for root, dirs, files in os.walk(f):
+                            for name in files:
+                                if name != ".snakemake_timestamp":
+                                    filepath = os.path.join(root, name)
+                                    if (
+                                        os.path.relpath(filepath, f)
+                                        != report_obj.htmlindex
+                                    ):
+                                        aux_files.append(filepath)
+                                    else:
+                                        index_found = True
+                        if not index_found:
+                            raise WorkflowError(
+                                "Given htmlindex {} not found in directory "
+                                "marked for report".format(report_obj.htmlindex)
+                            )
+                        register_file(
+                            os.path.join(f, report_obj.htmlindex), aux_files=aux_files
                         )
-                    if not report_obj.patterns:
+                    elif report_obj.patterns:
+                        if not isinstance(report_obj.patterns, list):
+                            raise WorkflowError(
+                                "Invalid patterns given for report. Must be list.",
+                                rule=job.rule,
+                            )
+
+                        for pattern in report_obj.patterns:
+                            pattern = os.path.join(f, pattern)
+                            wildcards = glob_wildcards(pattern)._asdict()
+                            names = wildcards.keys()
+                            for w in zip(*wildcards.values()):
+                                w = dict(zip(names, w))
+                                w.update(job.wildcards_dict)
+                                w = Wildcards(fromdict=w)
+                                f = apply_wildcards(pattern, w)
+                                register_file(f, wildcards_overwrite=w)
+                    else:
                         raise WorkflowError(
-                            "Directory marked for report but no file patterns given via patterns=[...]. "
+                            "Directory marked for report but neither file patterns "
+                            "given via patterns=[...], nor htmlindex given. "
                             "See report documentation.",
                             rule=job.rule,
                         )
-                    for pattern in report_obj.patterns:
-                        pattern = os.path.join(f, pattern)
-                        wildcards = glob_wildcards(pattern)._asdict()
-                        names = wildcards.keys()
-                        for w in zip(*wildcards.values()):
-                            w = dict(zip(names, w))
-                            w.update(job.wildcards_dict)
-                            w = Wildcards(fromdict=w)
-                            f = apply_wildcards(pattern, w)
-                            register_file(f, wildcards_overwrite=w)
 
         for f in job.expanded_output:
             meta = persistence.metadata(f)
@@ -853,6 +888,20 @@ def auto_report(dag, path, stylesheet=None):
                         if result.is_img and result.png_content:
                             zipout.writestr(
                                 str(folder.joinpath(result.png_uri)), result.png_content
+                            )
+                        # write aux files
+                        parent = folder.joinpath(result.data_uri).parent
+                        for path in result.aux_files:
+                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                            zipout.write(
+                                path,
+                                str(
+                                    parent.joinpath(
+                                        os.path.relpath(
+                                            path, os.path.dirname(result.path)
+                                        )
+                                    )
+                                ),
                             )
 
             # write report html

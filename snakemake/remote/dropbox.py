@@ -56,8 +56,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the Dropbox API.
-    """
+    """This is a class to interact with the Dropbox API."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(

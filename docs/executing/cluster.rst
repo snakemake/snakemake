@@ -25,23 +25,28 @@ The cluster command can be decorated with job specific information, e.g.
 
     $ snakemake --cluster "qsub {threads}"
 
-Thereby, all keywords of a rule are allowed (e.g. rulename, params, input, output, threads, priority, ...).
-For example, you could encode the expected running time into params:
+Thereby, all keywords of a rule are allowed (e.g. rulename, params, input, output, threads, priority, resources, ...).
+For example, you could encode the expected running time into resources:
 
 .. code-block:: python
 
     rule:
-        input:  ...
-        output: ...
-        params: runtime="4h"
-        shell: ...
+        input:  
+            ...
+        output:
+            ...
+        resources: 
+            runtime_min=240
+        shell:
+            ...
 
 and forward it to the cluster scheduler:
 
 .. code-block:: console
 
-    $ snakemake --cluster "qsub --runtime {params.runtime}"
+    $ snakemake --cluster "qsub --runtime {resources.runtime}"
 
+In order to avoid specifying ``runtime_min`` for each rule, you can make use of the ``--default-resources`` flag, see ``snakemake --help``.
 If your cluster system supports `DRMAA <https://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
 E.g. jobs can be cancelled upon pressing ``Ctrl+C``, which is not possible with the generic ``--cluster`` support.
 With DRMAA, no ``qsub`` command needs to be provided, but system specific arguments can still be given as a string, e.g.
