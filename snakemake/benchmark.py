@@ -39,6 +39,7 @@ class BenchmarkRecord:
                 "io_in",
                 "io_out",
                 "mean_load",
+                "cpu_usage",
             )
         )
 
@@ -52,6 +53,7 @@ class BenchmarkRecord:
         io_in=None,
         io_out=None,
         cpu_seconds=None,
+        cpu_usage=None,
     ):
         #: Running time in seconds
         self.running_time = running_time
@@ -69,6 +71,8 @@ class BenchmarkRecord:
         self.io_out = io_out
         #: Count of CPU seconds, divide by running time to get mean load estimate
         self.cpu_seconds = cpu_seconds or 0
+        #: CPU usage (user and system) in seconds
+        self.cpu_usage = cpu_usage or 0
         #: First time when we measured CPU load, for estimating total running time
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
@@ -112,6 +116,7 @@ class BenchmarkRecord:
                     self.io_in,
                     self.io_out,
                     100.0 * self.cpu_seconds / self.running_time,
+                    self.cpu_usage,
                 ),
             )
         )
@@ -214,6 +219,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         check_io = True
         # CPU seconds
         cpu_seconds = 0
+        # CPU usage time
+        cpu_usage = 0
         # Iterate over process and all children
         try:
             this_time = time.time()
@@ -239,6 +246,9 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                         except NotImplementedError as nie:
                             # OS doesn't track IO
                             check_io = False
+                    cpu_times = proc.cpu_times()
+                    cpu_usage += cpu_times.user + cpu_times.system
+                    print(f"{cpu_times}")
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:
                 self.bench_record.prev_time = this_time
@@ -262,6 +272,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         self.bench_record.io_in = io_in
         self.bench_record.io_out = io_out
         self.bench_record.cpu_seconds += cpu_seconds
+        self.bench_record.cpu_usage = cpu_usage
 
 
 @contextlib.contextmanager
