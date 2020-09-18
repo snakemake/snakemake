@@ -772,7 +772,6 @@ def parse_set_scatter(args):
 
 
 def parse_set_ints(arg, errmsg):
-    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs (with THREADS being a positive integer)."
     assignments = dict()
     if arg is not None:
         for entry in arg:
