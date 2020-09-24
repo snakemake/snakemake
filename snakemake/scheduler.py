@@ -324,7 +324,12 @@ class JobScheduler:
             self.rate_limiter = DummyRateLimiter()
 
         self._user_kill = None
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        try:
+            signal.signal(signal.SIGTERM, self.exit_gracefully)
+        except ValueError:
+            # If this fails, it is due to scheduler not being invoked in the main thread.
+            # This can only happen with --gui, in which case it is fine for now.
+            pass
         self._open_jobs.release()
 
     @property
