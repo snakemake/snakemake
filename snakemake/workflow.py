@@ -94,7 +94,7 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
-        scheduler_type=None,
+        scheduler_type="ilp",
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,

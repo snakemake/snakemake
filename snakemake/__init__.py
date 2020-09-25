@@ -138,7 +138,7 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
-    scheduler=None,
+    scheduler="ilp",
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,

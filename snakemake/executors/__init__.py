@@ -86,6 +86,21 @@ class AbstractExecutor:
             )
         return ""
 
+    def _format_key_value_args(self, flag, kwargs):
+        if kwargs:
+            return " {} {} ".format(flag, " ".join(map("{}={}".format, kwargs.items())))
+        return ""
+
+    def get_set_threads_args(self):
+        return self._format_key_value_args(
+            "--set-threads", self.workflow.overwrite_threads
+        )
+
+    def get_set_scatter_args(self):
+        return self._format_key_value_args(
+            "--set-scatter", self.workflow.overwrite_scatter
+        )
+
     def get_default_resources_args(self):
         if self.workflow.default_resources.args is not None:
 
@@ -378,11 +393,13 @@ class CPUExecutor(RealExecutor):
                 "cd {workflow.workdir_init} && ",
                 "{sys.executable} -m snakemake {target} --snakefile {snakefile} ",
                 "--force -j{cores} --keep-target-files --keep-remote ",
-                "--attempt {attempt} ",
+                "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_set_scatter_args(),
+                self.get_set_threads_args(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
                 "--notemp --quiet --no-hooks --nolock --mode {} ".format(
                     Mode.subprocess
@@ -621,7 +638,9 @@ class ClusterExecutor(RealExecutor):
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
-                    " --attempt {attempt} {use_threads} ",
+                    " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
+                    self.get_set_scatter_args(),
+                    self.get_set_threads_args(),
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
                     "--nocolor --notemp --no-hooks --nolock ",
@@ -1025,7 +1044,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
-            logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
+            # logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
             for active_job in active_jobs:
                 with self.status_rate_limiter:
                     status = job_status(active_job)
@@ -1368,14 +1387,18 @@ class KubernetesExecutor(ClusterExecutor):
     ):
 
         exec_job = (
-            "cp -rf /source/. . && "
-            "snakemake {target} --snakefile {snakefile} "
-            "--force -j{cores} --keep-target-files  --keep-remote "
-            "--latency-wait {latency_wait} "
-            " --attempt {attempt} {use_threads} "
-            "--wrapper-prefix {workflow.wrapper_prefix} "
-            "{overwrite_config} {printshellcmds} {rules} --nocolor "
-            "--notemp --no-hooks --nolock "
+            (
+                "cp -rf /source/. . && "
+                "snakemake {target} --snakefile {snakefile} "
+                "--force -j{cores} --keep-target-files  --keep-remote "
+                "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
+                " --attempt {attempt} {use_threads} "
+                "--wrapper-prefix {workflow.wrapper_prefix} "
+                "{overwrite_config} {printshellcmds} {rules} --nocolor "
+                "--notemp --no-hooks --nolock "
+            )
+            + self.get_set_scatter_args()
+            + self.get_set_threads_args()
         )
 
         super().__init__(
@@ -1763,12 +1786,16 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("subdir=" + self.s3_subdir)
         self.quiet = quiet
         exec_job = (
-            "snakemake {target} --snakefile {snakefile} "
-            "--force -j{cores} --keep-target-files  --keep-remote "
-            "--latency-wait 0 "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock "
+            (
+                "snakemake {target} --snakefile {snakefile} "
+                "--force -j{cores} --keep-target-files  --keep-remote "
+                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+                "--attempt 1 {use_threads} "
+                "{overwrite_config} {rules} --nocolor "
+                "--notemp --no-hooks --nolock "
+            )
+            + self.get_set_threads_args()
+            + self.get_set_scatter_args()
         )
 
         super().__init__(

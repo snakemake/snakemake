@@ -70,13 +70,18 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        exec_job = exec_job or (
-            "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
-            "--latency-wait 0 "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock " % self.snakefile
+        exec_job = (
+            exec_job
+            or (
+                "snakemake {target} --snakefile %s "
+                "--force -j{cores} --keep-target-files --keep-remote "
+                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+                "--attempt 1 {use_threads} "
+                "{overwrite_config} {rules} --nocolor "
+                "--notemp --no-hooks --nolock " % self.snakefile
+            )
+            + self.get_set_threads_args()
+            + self.get_set_scatter_args()
         )
 
         # Set preemptible instances
