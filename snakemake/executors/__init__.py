@@ -89,7 +89,7 @@ class AbstractExecutor:
     def _format_key_value_args(self, flag, kwargs):
         if kwargs:
             return " {} {} ".format(
-                flag, " ".join(map("{item[0]}={item[1]}".format, kwargs.items()))
+                flag, " ".join("{}={}".format(key, value) for key, value in kwargs.items())
             )
         return ""
 
