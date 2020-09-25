@@ -88,7 +88,9 @@ class AbstractExecutor:
 
     def _format_key_value_args(self, flag, kwargs):
         if kwargs:
-            return " {} {} ".format(flag, " ".join(map("{}={}".format, kwargs.items())))
+            return " {} {} ".format(
+                flag, " ".join(map("{item[0]}={item[1]}".format, kwargs.items()))
+            )
         return ""
 
     def get_set_threads_args(self):
