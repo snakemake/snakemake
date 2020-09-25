@@ -116,6 +116,7 @@ Resources
   executing/cli
   executing/cluster
   executing/cloud
+  executing/grouping
   executing/caching
   executing/interoperability
 

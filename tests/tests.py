@@ -1038,3 +1038,7 @@ def test_jupyter_notebook():
 
 def test_github_issue456():
     run(dpath("test_github_issue456"))
+
+
+def test_scatter_gather():
+    run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})

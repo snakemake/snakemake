@@ -70,13 +70,18 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        exec_job = exec_job or (
-            "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
-            "--latency-wait 0 "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock " % self.snakefile
+        exec_job = (
+            exec_job
+            or (
+                "snakemake {target} --snakefile %s "
+                "--force -j{cores} --keep-target-files --keep-remote "
+                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+                "--attempt 1 {use_threads} "
+                "{overwrite_config} {rules} --nocolor "
+                "--notemp --no-hooks --nolock " % self.snakefile
+            )
+            + self.get_set_threads_args()
+            + self.get_set_scatter_args()
         )
 
         # Set preemptible instances
@@ -396,10 +401,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
         mem_mb = job.resources.get("mem_mb", 15360)
-        disk_mb = job.resources.get("disk_mb", 128000)
 
-        # Convert mb to gb, add buffer of 50
-        disk_gb = math.ceil(disk_mb / 1024) + 10
+        # IOPS performance proportional to disk size
+        disk_mb = job.resources.get("disk_mb", 512000)
+
+        # Convert mb to gb
+        disk_gb = math.ceil(disk_mb / 1024)
 
         # Look for if the user wants an nvidia gpu
         gpu_count = job.resources.get("nvidia_gpu") or job.resources.get("gpu")
@@ -575,17 +582,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return keepers[smallest]
 
     def _set_snakefile(self):
-        """The snakefile must be a relative path, which cannot be reliably
-        derived from the self.workflow.snakefile as we might have moved
-        execution into a temporary directory, and the initial Snakefile
-        was somewhere else on the system.
+        """The snakefile must be a relative path, which should be derived
+        from the self.workflow.snakefile.
         """
-        from snakemake import SNAKEFILE_CHOICES
-
-        for snakefile in SNAKEFILE_CHOICES:
-            if os.path.exists(os.path.join(self.workdir, snakefile)):
-                self.snakefile = snakefile
-                break
+        assert os.path.exists(self.workflow.snakefile)
+        self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(os.sep)
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related

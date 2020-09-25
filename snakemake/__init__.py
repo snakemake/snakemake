@@ -50,7 +50,8 @@ def snakemake(
     nodes=1,
     local_cores=1,
     resources=dict(),
-    overwrite_threads=dict(),
+    overwrite_threads=None,
+    overwrite_scatter=None,
     default_resources=None,
     config=dict(),
     configfiles=None,
@@ -137,7 +138,7 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
-    scheduler=None,
+    scheduler="ilp",
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -521,6 +522,7 @@ def snakemake(
             overwrite_configfiles=configfiles,
             overwrite_clusterconfig=cluster_config_content,
             overwrite_threads=overwrite_threads,
+            overwrite_scatter=overwrite_scatter,
             overwrite_groups=overwrite_groups,
             group_components=group_components,
             config_args=config_args,
@@ -575,6 +577,8 @@ def snakemake(
                     snakemake,
                     local_cores=local_cores,
                     cache=cache,
+                    overwrite_threads=overwrite_threads,
+                    overwrite_scatter=overwrite_scatter,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -752,19 +756,34 @@ def snakemake(
 
 
 def parse_set_threads(args):
-    errmsg = "Invalid threads definition: entries have to be defined as RULE=THREADS pairs (with THREADS being a positive integer)."
-    overwrite_threads = dict()
-    if args.set_threads is not None:
-        for entry in args.set_threads:
-            rule, threads = parse_key_value_arg(entry, errmsg=errmsg)
+    return parse_set_ints(
+        args.set_threads,
+        "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
+        "(with THREADS being a positive integer).",
+    )
+
+
+def parse_set_scatter(args):
+    return parse_set_ints(
+        args.set_scatter,
+        "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
+        "(with SCATTERITEMS being a positive integer).",
+    )
+
+
+def parse_set_ints(arg, errmsg):
+    assignments = dict()
+    if arg is not None:
+        for entry in arg:
+            key, value = parse_key_value_arg(entry, errmsg=errmsg)
             try:
-                threads = int(threads)
+                value = int(value)
             except ValueError:
                 raise ValueError(errmsg)
-            if threads < 0:
+            if value < 0:
                 raise ValueError(errmsg)
-            overwrite_threads[rule] = threads
-    return overwrite_threads
+            assignments[key] = value
+    return assignments
 
 
 def parse_batch(args):
@@ -1028,11 +1047,19 @@ def get_argument_parser(profile=None):
     group_exec.add_argument(
         "--set-threads",
         metavar="RULE=THREADS",
-        nargs="*",
+        nargs="+",
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
         "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule.",
+    )
+    group_exec.add_argument(
+        "--set-scatter",
+        metavar="NAME=SCATTERITEMS",
+        nargs="+",
+        help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
+        "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
+        "the name of the scattergather process defined via a scattergather directive in the workflow.",
     )
     group_exec.add_argument(
         "--default-resources",
@@ -2139,6 +2166,8 @@ def main(argv=None):
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
 
+        overwrite_scatter = parse_set_scatter(args)
+
         overwrite_groups = parse_groups(args)
         group_components = parse_group_components(args)
     except ValueError as e:
@@ -2170,6 +2199,7 @@ def main(argv=None):
         or args.summary
         or args.lint
         or args.report
+        or args.gui
     )
 
     if args.cores is not None:
@@ -2403,6 +2433,7 @@ def main(argv=None):
             nodes=args.cores,
             resources=resources,
             overwrite_threads=overwrite_threads,
+            overwrite_scatter=overwrite_scatter,
             default_resources=default_resources,
             config=config,
             configfiles=args.configfile,

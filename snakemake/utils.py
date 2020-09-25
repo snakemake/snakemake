@@ -352,9 +352,13 @@ class QuotedFormatter(string.Formatter):
         super().__init__(*args, **kwargs)
 
     def format_field(self, value, format_spec):
-        do_quote = format_spec.endswith("q")
-        if do_quote:
+        if format_spec.endswith("u"):
             format_spec = format_spec[:-1]
+            do_quote = False
+        else:
+            do_quote = format_spec.endswith("q")
+            if do_quote:
+                format_spec = format_spec[:-1]
         formatted = super().format_field(value, format_spec)
         if do_quote and formatted != "":
             formatted = self.quote_func(formatted)
@@ -365,12 +369,12 @@ class AlwaysQuotedFormatter(QuotedFormatter):
     """Subclass of QuotedFormatter that always quotes.
 
     Usage is identical to QuotedFormatter, except that it *always*
-    acts like "q" was appended to the format spec.
+    acts like "q" was appended to the format spec, unless u (for unquoted) is appended.
 
     """
 
     def format_field(self, value, format_spec):
-        if not format_spec.endswith("q"):
+        if not format_spec.endswith("q") and not format_spec.endswith("u"):
             format_spec += "q"
         return super().format_field(value, format_spec)
 

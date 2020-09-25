@@ -119,6 +119,7 @@ Finally, you can also define global wildcard constraints that apply for all rule
 
 See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
+.. _snakefiles_aggregation:
 
 Aggregation
 -----------
@@ -136,6 +137,8 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
             ...
 
 The above expression can be simplified in two ways.
+
+.. _snakefiles_expand:
 
 The expand function
 ~~~~~~~~~~~~~~~~~~~
@@ -1176,6 +1179,68 @@ The resulting tsv file can be used as input for other rules, just like any other
     When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.
 
 
+.. _snakefiles-scattergather:
+
+Defining scatter-gather processes
+---------------------------------
+
+Via Snakemake's powerful and abitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows well supported.
+Nevertheless, it can sometimes be handy to use Snakemake's specific scatter-gather support, which allows to avoid boilerplate and offers additional configuration options.
+Scatter-gather processes can be defined via a global ``scattergather`` directive:
+
+.. code-block:: python
+
+    scattergather:
+        split=8
+
+Each process thereby defines a name (here e.g. ``split``) and a default number of scatter items.
+Then, scattering and gathering can be implemented by using globally available ``scatter`` and ``gather`` objects:
+
+.. code-block:: python
+
+
+    rule all:
+        input:
+            "gathered/all.txt"
+
+
+    rule split:
+        output:
+            scatter.split("splitted/{scatteritem}.txt")
+        shell:
+            "touch {output}"
+
+
+    rule intermediate:
+        input:
+            "splitted/{scatteritem}.txt"
+        output:
+            "splitted/{scatteritem}.post.txt"
+        shell:
+            "cp {input} {output}"
+
+
+    rule gather:
+        input:
+            gather.split("splitted/{scatteritem}.post.txt")
+        output:
+            "gathered/all.txt"
+        shell:
+            "cat {input} > {output}"
+
+Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/0.txt"``, ``"splitted/1.txt"``, ..., depending on the number of scatter items defined.
+Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.pos.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
+
+The default number of scatter items can be overwritten via the command line interface.
+For example
+
+.. code-block:: bash
+
+    snakemake --set-scatter split=2
+
+would set the number of scatter items for the split process defined above to 2 instead of 8. 
+This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution
@@ -1183,10 +1248,10 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-This way, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
-Groups can be defined via the ``group`` keyword, e.g.,
+Groups can be defined via the ``group`` keyword.
+This way, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 
 .. code-block:: python
 
@@ -1228,6 +1293,9 @@ Here, jobs from rule ``a`` and ``b`` end up in one group ``mygroup``, whereas jo
 Note that Snakemake always determines a **connected subgraph** with the same group id to be a **group job**.
 Here, this means that, e.g., the jobs creating ``a/1.out`` and ``b/1.out`` will be in one group, and the jobs creating ``a/2.out`` and ``b/2.out`` will be in a separate group.
 However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end up in a single group, including the one spawned from rule ``c``, because ``c`` connects all the other jobs.
+
+Alternatively, groups can be defined via the command line interface.
+This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
 
 Piped output
 ------------

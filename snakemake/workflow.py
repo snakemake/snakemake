@@ -9,7 +9,7 @@ import sys
 import signal
 import json
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
@@ -75,11 +75,12 @@ class Workflow:
         snakefile=None,
         jobscript=None,
         overwrite_shellcmd=None,
-        overwrite_config=dict(),
+        overwrite_config=None,
         overwrite_workdir=None,
         overwrite_configfiles=None,
-        overwrite_clusterconfig=dict(),
-        overwrite_threads=dict(),
+        overwrite_clusterconfig=None,
+        overwrite_threads=None,
+        overwrite_scatter=None,
         overwrite_groups=None,
         group_components=None,
         config_args=None,
@@ -93,7 +94,7 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
-        scheduler_type=None,
+        scheduler_type="ilp",
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -137,10 +138,10 @@ class Workflow:
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
-        self.overwrite_config = overwrite_config
+        self.overwrite_config = overwrite_config or dict()
         self.overwrite_configfiles = overwrite_configfiles
-        self.overwrite_clusterconfig = overwrite_clusterconfig
-        self.overwrite_threads = overwrite_threads
+        self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
+        self.overwrite_threads = overwrite_threads or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -177,6 +178,8 @@ class Workflow:
         self.envvars = set()
         self.overwrite_groups = overwrite_groups or dict()
         self.group_components = group_components or dict()
+        self._scatter = dict(overwrite_scatter or dict())
+        self.overwrite_scatter = overwrite_scatter or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -210,6 +213,10 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+        global scatter
+        scatter = Scatter()
+        global gather
+        gather = Gather()
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -1082,6 +1089,18 @@ class Workflow:
         for rule in self.rules:
             rule.update_wildcard_constraints()
 
+    def scattergather(self, **content):
+        """Register scattergather defaults."""
+        self._scatter.update(content)
+        self._scatter.update(self.overwrite_scatter)
+
+        def func(*args, **wildcards):
+            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+
+        for key in content:
+            setattr(scatter, key, func)
+            setattr(gather, key, func)
+
     def workdir(self, workdir):
         """Register workdir."""
         if self.overwrite_workdir is None:
@@ -1603,6 +1622,18 @@ class Subworkflow:
 
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
+
+    pass
+
+
+class Scatter:
+    """ A namespace for scatter to allow items to be accessed via dot notation."""
+
+    pass
+
+
+class Gather:
+    """ A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
 
