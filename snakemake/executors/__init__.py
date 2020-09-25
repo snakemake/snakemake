@@ -397,6 +397,7 @@ class CPUExecutor(RealExecutor):
                 "--force -j{cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
+                "--max-inventory-time 0 ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
@@ -638,7 +639,7 @@ class ClusterExecutor(RealExecutor):
                     else "",
                     "{path:u} {sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
-                    "--force -j{cores} --keep-target-files --keep-remote ",
+                    "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     self.get_set_scatter_args(),
@@ -1394,7 +1395,7 @@ class KubernetesExecutor(ClusterExecutor):
                 "snakemake {target} --snakefile {snakefile} "
                 "--force -j{cores} --keep-target-files  --keep-remote "
                 "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-                " --attempt {attempt} {use_threads} "
+                " --attempt {attempt} {use_threads} --max-inventory-time 0 "
                 "--wrapper-prefix {workflow.wrapper_prefix} "
                 "{overwrite_config} {printshellcmds} {rules} --nocolor "
                 "--notemp --no-hooks --nolock "
@@ -1792,7 +1793,7 @@ class TibannaExecutor(ClusterExecutor):
                 "snakemake {target} --snakefile {snakefile} "
                 "--force -j{cores} --keep-target-files  --keep-remote "
                 "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} "
+                "--attempt 1 {use_threads} --max-inventory-time 0 "
                 "{overwrite_config} {rules} --nocolor "
                 "--notemp --no-hooks --nolock "
             )

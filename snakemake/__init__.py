@@ -166,6 +166,7 @@ def snakemake(
     envvars=None,
     overwrite_groups=None,
     group_components=None,
+    max_inventory_wait_time=20,
 ):
     """Run snakemake on a given snakefile.
 
@@ -553,6 +554,7 @@ def snakemake(
             resources=resources,
             edit_notebook=edit_notebook,
             envvars=envvars,
+            max_inventory_wait_time=max_inventory_wait_time,
         )
         success = True
 
@@ -651,6 +653,7 @@ def snakemake(
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
                     group_components=group_components,
+                    max_inventory_wait_time=max_inventory_wait_time,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -1621,6 +1624,17 @@ def get_argument_parser(profile=None):
         help="Do not check for incomplete output files.",
     )
     group_behavior.add_argument(
+        "--max-inventory-time",
+        type=int,
+        default=20,
+        metavar="SECONDS",
+        help="Spend at most SECONDS seconds to create a file inventory for the working directory. "
+        "The inventory vastly speeds up file modification and existence checks when computing "
+        "which jobs need to be executed. However, creating the inventory itself can be slow, e.g. on "
+        "network file systems. Hence, we do not spend more than a given amount of time and fall back "
+        "to individual checks for the rest.",
+    )
+    group_behavior.add_argument(
         "--latency-wait",
         "--output-wait",
         "-w",
@@ -2541,6 +2555,7 @@ def main(argv=None):
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
             group_components=group_components,
+            max_inventory_wait_time=args.max_inventory_time,
             log_handler=log_handler,
         )
 

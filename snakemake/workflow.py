@@ -111,6 +111,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        max_inventory_wait_time=20,
     ):
         """
         Create the controller.
@@ -201,7 +202,7 @@ class Workflow:
             # only _cores and _nodes
             self.default_resources = DefaultResources()
 
-        self.iocache = snakemake.io.IOCache()
+        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         global config
         config = copy.deepcopy(self.overwrite_config)
