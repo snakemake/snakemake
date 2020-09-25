@@ -138,6 +138,10 @@ class RemoteObject(AbstractRemoteObject):
          - cache_mtime
          - cache.size
         """
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
+
         start_time = time.time()
         subfolder = os.path.dirname(self.blob.name)
         for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):

@@ -83,7 +83,7 @@ class ExistsDict(dict):
         self.cache = cache
 
     def __getitem__(self, path):
-        # Always return False if not dict.
+        # Always return False if not in dict.
         # The reason is that this is only called if the method contains below has returned True.
         # Hence, we already know that either path is in dict, or inventory has never
         # seen it, and hence it does not exist.
@@ -214,6 +214,9 @@ class _IOFile(str):
 
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
 
         start_time = time.time()
 
@@ -223,7 +226,7 @@ class _IOFile(str):
             return
         if os.path.exists(root):
             queue = [root]
-            while queue and cache.remaining_wait_time > 0:
+            while queue:
                 path = queue.pop(0)
                 # path must be a dir
                 cache.exists_local[path] = True
@@ -235,6 +238,11 @@ class _IOFile(str):
                             # path is a file
                             cache.exists_local[entry.path] = True
                 cache.remaining_wait_time -= time.time() - start_time
+                if cache.remaining_wait_time <= 0:
+                    # Stop, do not mark inventory as done below.
+                    # Otherwise, we would falsely assume that those files
+                    # are not present.
+                    return
 
         cache.has_inventory.add(root)
 
