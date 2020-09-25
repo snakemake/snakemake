@@ -307,7 +307,7 @@ class RealExecutor(AbstractExecutor):
         if "cores" in kwargs:
             del kwargs["cores"]
 
-        return format(
+        cmd = format(
             pattern,
             job=job,
             attempt=job.attempt,
@@ -322,6 +322,7 @@ class RealExecutor(AbstractExecutor):
             rules=rules,
             **kwargs
         )
+        return cmd
 
 
 class TouchExecutor(RealExecutor):
@@ -616,7 +617,7 @@ class ClusterExecutor(RealExecutor):
                     "{envvars} " "cd {workflow.workdir_init} && "
                     if assume_shared_fs
                     else "",
-                    "{sys.executable} " if assume_shared_fs else "python ",
+                    "{path:u} {sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
@@ -695,9 +696,15 @@ class ClusterExecutor(RealExecutor):
 
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
+        path = ""
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
+            # Prepend PATH of current python executable to PATH.
+            # This way, we ensure that the snakemake process in the cluster node runs
+            # in the same environment as the current process.
+            # This is necessary in order to find the pulp solver backends (e.g. coincbc).
+            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
 
         format_p = partial(
             self.format_job_pattern,
@@ -705,6 +712,7 @@ class ClusterExecutor(RealExecutor):
             properties=job.properties(cluster=self.cluster_params(job)),
             latency_wait=self.latency_wait,
             wait_for_files=wait_for_files,
+            path=path,
             **kwargs
         )
         try:

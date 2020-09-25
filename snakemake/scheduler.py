@@ -323,6 +323,20 @@ class JobScheduler:
             # essentially no rate limit
             self.rate_limiter = DummyRateLimiter()
 
+        # Choose job selector (greedy or ILP)
+        self.job_selector = self.job_selector_greedy
+        if scheduler_type == "ilp":
+            import pulp
+
+            if pulp.apis.LpSolverDefault is None:
+                logger.warning(
+                    "Falling back to greedy scheduler because no default "
+                    "solver is found for pulp (you have to install either "
+                    "coincbc or glpk)."
+                )
+            else:
+                self.job_selector = self.job_selector_ilp
+
         self._user_kill = None
         try:
             signal.signal(signal.SIGTERM, self.exit_gracefully)
@@ -405,11 +419,8 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = (
-                        self.job_selector_greedy(needrun)
-                        if self.scheduler_type == "greedy"
-                        else self.job_selector_ilp(needrun)
-                    )
+                    run = self.job_selector(needrun)
+
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -617,13 +628,6 @@ class JobScheduler:
                 ]
             ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
 
-        # TODO enable this code once we have switched to pulp >=2.0
-        if pulp.apis.LpSolverDefault is None:
-            raise WorkflowError(
-                "You need to install at least one LP solver compatible with PuLP (e.g. coincbc). "
-                "See https://coin-or.github.io/pulp for details. Alternatively, run Snakemake with "
-                "--scheduler greedy."
-            )
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
 
