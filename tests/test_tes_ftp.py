@@ -16,8 +16,7 @@ def test_tes_ftp():
     run(
         workdir,
         snakefile="Snakefile",
-        tes=True,
-        tes_url="http://localhost:8000",
+        tes="http://localhost:8000",
         use_conda=True,
         conda_prefix="/tmp/conda",
         conda_frontend="conda",
