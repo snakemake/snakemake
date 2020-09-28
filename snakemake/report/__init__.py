@@ -30,7 +30,7 @@ from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
-from snakemake import script, wrapper
+from snakemake import script, wrapper, notebook
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
@@ -242,6 +242,7 @@ class RuleRecord:
         self.n_jobs = 1
         self.id = uuid.uuid4()
 
+    @lazy_property
     def code(self):
         try:
             from pygments.lexers import get_lexer_by_name
@@ -252,16 +253,16 @@ class RuleRecord:
             raise WorkflowError(
                 "Python package pygments must be installed to create reports."
             )
-        source, language = None, None
+        sources, language = None, None
         if self._rule.shellcmd is not None:
-            source = self._rule.shellcmd
+            sources = [self._rule.shellcmd]
             language = "bash"
         elif self._rule.script is not None:
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
-            source = source.decode()
+            sources = [source.decode()]
         elif self._rule.wrapper is not None:
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
@@ -269,26 +270,32 @@ class RuleRecord:
                     self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
                 )
             )
-            source = source.decode()
+            sources = [source.decode()]
         elif self._rule.notebook is not None:
-            source = notebook.get_source_html(
-                os.path.join(self._rule.basedir, self._rule.notebook)
+            _, source, language = script.get_source(
+                self._rule.notebook, self._rule.basedir
             )
-
-            # directly return rendered HTML
-            return '<iframe class="code" src="{}" />'.format(
-                data_uri(source, mime="text/html")
-            )
+            language = language.split("_")[1]
+            sources = notebook.get_cell_sources(source)
 
         try:
             lexer = get_lexer_by_name(language)
-            return highlight(
-                source,
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-            )
+
+            highlighted = [
+                highlight(
+                    source,
+                    lexer,
+                    HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+                )
+                for source in sources
+            ]
+
+            return highlighted
         except pygments.util.ClassNotFound:
-            return '<pre class="code"><code>source</code></pre>'
+            return [
+                '<pre class="source"><code>{}</code></pre>'.format(source)
+                for source in sources
+            ]
 
     def add(self, job_rec):
         self.n_jobs += 1

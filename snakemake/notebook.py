@@ -19,17 +19,12 @@ class Listen:
         self.ip, self.port = arg.split(":")
 
 
-def get_source_html(path):
+def get_cell_sources(source):
     import nbformat
-    from nbconvert import HTMLExporter
 
-    nb = nbformat.reads(self.source)
+    nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
 
-    html_exporter = HTMLExporter()
-    html_exporter.template_name = "classic"
-
-    body, _ = html_exporter.from_notebook_node(nb)
-    return body
+    return [cell["source"] for cell in nb["cells"]]
 
 
 class JupyterNotebook(ScriptBase):
@@ -57,7 +52,7 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
+        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
