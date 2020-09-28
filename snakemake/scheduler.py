@@ -582,7 +582,10 @@ class JobScheduler:
 
         temp_file_deletable = {
             temp_file: pulp.LpVariable(
-                "deletable_{}".format(temp_file), lowBound=0, upBound=1, cat=pulp.LpInteger
+                "deletable_{}".format(temp_file),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
             )
             for temp_file in temp_files
         }
