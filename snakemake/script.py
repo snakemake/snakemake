@@ -422,10 +422,8 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
-        preamble_addendum = (
-            "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(os.path.realpath(wrapper_path))
-            )
+        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
+            file_override=repr(os.path.realpath(wrapper_path))
         )
 
         return PythonScript.generate_preamble(

@@ -579,9 +579,17 @@ class JobScheduler:
             )
             for temp_file in temp_files
         }
+
+        temp_file_deletable = {
+            temp_file: pulp.LpVariable(
+                temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger
+            )
+            for temp_file in temp_files
+        }
         prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_temp_files = len(temp_files)
         total_core_requirement = sum(
             [job.resources.get("_cores", 1) + 1 for job in jobs]
         )
@@ -589,18 +597,21 @@ class JobScheduler:
         # Job priority > Core load
         # Core load > temp file removal
         # Instant removal > temp size
-        # temp file size > fast removal?!
         prob += (
             total_core_requirement
             * total_temp_size
+            * total_temp_files
             * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
             + total_temp_size
+            * total_temp_files
             * lpSum(
                 [
                     (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
                     for job in jobs
                 ]
             )
+            + total_temp_size
+            * lpSum([temp_file_deletable[temp_file] for temp_file in temp_files])
             + lpSum(
                 [
                     temp_job_improvement[temp_file] * temp_file.size
@@ -627,6 +638,8 @@ class JobScheduler:
                     for job in jobs
                 ]
             ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+            prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
