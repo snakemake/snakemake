@@ -599,7 +599,6 @@ class JobScheduler:
         prob += (
             total_core_requirement
             * total_temp_size
-            * total_temp_files
             * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
             + 2
             * total_temp_size
