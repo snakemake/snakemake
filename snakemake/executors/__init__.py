@@ -1389,6 +1389,7 @@ class KubernetesExecutor(ClusterExecutor):
         restart_times=None,
         keepincomplete=False,
     ):
+        self.workflow = workflow
 
         exec_job = (
             (
@@ -1757,7 +1758,7 @@ class TibannaExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):
-
+        self.workflow = workflow
         self.workflow_sources = []
         for wfs in workflow.get_sources():
             if os.path.isdir(wfs):
