@@ -19,6 +19,19 @@ class Listen:
         self.ip, self.port = arg.split(":")
 
 
+def get_source_html(path):
+    import nbformat
+    from nbconvert import HTMLExporter
+
+    nb = nbformat.reads(self.source)
+
+    html_exporter = HTMLExporter()
+    html_exporter.template_name = "classic"
+
+    body, _ = html_exporter.from_notebook_node(nb)
+    return body
+
+
 class JupyterNotebook(ScriptBase):
 
     editable = True

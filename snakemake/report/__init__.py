@@ -270,6 +270,15 @@ class RuleRecord:
                 )
             )
             source = source.decode()
+        elif self._rule.notebook is not None:
+            source = notebook.get_source_html(
+                os.path.join(self._rule.basedir, self._rule.notebook)
+            )
+
+            # directly return rendered HTML
+            return '<iframe class="code" src="{}" />'.format(
+                data_uri(source, mime="text/html")
+            )
 
         try:
             lexer = get_lexer_by_name(language)
@@ -279,7 +288,7 @@ class RuleRecord:
                 HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
             )
         except pygments.util.ClassNotFound:
-            return "<pre><code>source</code></pre>"
+            return '<pre class="code"><code>source</code></pre>'
 
     def add(self, job_rec):
         self.n_jobs += 1
