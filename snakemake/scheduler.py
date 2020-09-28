@@ -600,7 +600,8 @@ class JobScheduler:
         # Core load > temp file removal
         # Instant removal > temp size
         prob += (
-            total_core_requirement
+            2
+            * total_core_requirement
             * 2
             * total_temp_size
             * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
