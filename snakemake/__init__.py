@@ -148,8 +148,7 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
-    tes=False,
-    tes_url="",
+    tes=None,
     precommand="",
     default_remote_provider=None,
     default_remote_prefix="",
@@ -269,8 +268,7 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        tes (bool):                 Use GA4GH TES workflow execution
-        tes_url (str):              TES server
+        tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         tibanna_config (list):      Additional tibanan config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
@@ -623,7 +621,6 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    tes_url=tes_url,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
@@ -663,7 +660,6 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    tes_url=tes_url,
                     precommand=precommand,
                     tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
@@ -1868,13 +1864,7 @@ def get_argument_parser(profile=None):
     group_tes.add_argument(
         "--tes",
         action="store_true",
-        help="Send workflow tasks to GA4GH TES server specified by --tes_url."
-    )
-    
-    group_tes.add_argument(
-        "--tes_url",
-        action="store_true",
-        help="Specify TES server for execution of tasks"
+        help="Send workflow tasks to GA4GH TES server specified by url."
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -2333,7 +2323,6 @@ def main(argv=None):
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             tes=args.tes,
-            tes_url=args.tes_url,
             precommand=args.precommand,
             tibanna_config=args.tibanna_config,
             jobname=args.jobname,

@@ -71,7 +71,6 @@ class JobScheduler:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         tes=None,
-        tes_url=None,
         precommand="",
         tibanna_config=False,
         jobname=None,
@@ -314,7 +313,7 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
-                tes_url=tes_url,
+                tes_url=tes,
                 container_image=container_image
             )
         
