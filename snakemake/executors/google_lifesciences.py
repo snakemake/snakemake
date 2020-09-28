@@ -76,7 +76,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 "snakemake {target} --snakefile %s "
                 "--force -j{cores} --keep-target-files --keep-remote "
                 "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} "
+                "--attempt 1 {use_threads} --max-inventory-time 0 "
                 "{overwrite_config} {rules} --nocolor "
                 "--notemp --no-hooks --nolock " % self.snakefile
             )

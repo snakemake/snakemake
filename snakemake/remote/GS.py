@@ -7,6 +7,7 @@ import base64
 import os
 import re
 import struct
+import time
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, CheckSumMismatchException
@@ -137,6 +138,11 @@ class RemoteObject(AbstractRemoteObject):
          - cache_mtime
          - cache.size
         """
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
+
+        start_time = time.time()
         subfolder = os.path.dirname(self.blob.name)
         for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):
             # By way of being listed, it exists. mtime is a datetime object
@@ -144,6 +150,8 @@ class RemoteObject(AbstractRemoteObject):
             cache.exists_remote[name] = True
             cache.mtime[name] = blob.updated.timestamp()
             cache.size[name] = blob.size
+
+        cache.remaining_wait_time -= time.time() - start_time
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.

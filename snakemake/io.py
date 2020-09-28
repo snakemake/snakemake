@@ -83,7 +83,7 @@ class ExistsDict(dict):
         self.cache = cache
 
     def __getitem__(self, path):
-        # Always return False if not dict.
+        # Always return False if not in dict.
         # The reason is that this is only called if the method contains below has returned True.
         # Hence, we already know that either path is in dict, or inventory has never
         # seen it, and hence it does not exist.
@@ -95,7 +95,7 @@ class ExistsDict(dict):
 
 
 class IOCache:
-    def __init__(self):
+    def __init__(self, max_wait_time):
         self.mtime = dict()
         self.exists_local = ExistsDict(self)
         self.exists_remote = ExistsDict(self)
@@ -104,6 +104,8 @@ class IOCache:
         # In case of remote objects the root is the bucket or server host.
         self.has_inventory = set()
         self.active = True
+        self.remaining_wait_time = max_wait_time
+        self.max_wait_time = max_wait_time
 
     def get_inventory_root(self, path):
         """If eligible for inventory, get the root of a given path.
@@ -129,6 +131,7 @@ class IOCache:
         self.exists_local.clear()
         self.exists_remote.clear()
         self.has_inventory.clear()
+        self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
         self.clear()
@@ -211,6 +214,12 @@ class _IOFile(str):
 
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
+
+        start_time = time.time()
+
         root = cache.get_inventory_root(self)
         if root == self:
             # there is no root directory that could be used
@@ -228,6 +237,12 @@ class _IOFile(str):
                         else:
                             # path is a file
                             cache.exists_local[entry.path] = True
+                cache.remaining_wait_time -= time.time() - start_time
+                if cache.remaining_wait_time <= 0:
+                    # Stop, do not mark inventory as done below.
+                    # Otherwise, we would falsely assume that those files
+                    # are not present.
+                    return
 
         cache.has_inventory.add(root)
 
