@@ -18,10 +18,10 @@ from snakemake.executors import (
     SynchronousClusterExecutor,
     DRMAAExecutor,
     KubernetesExecutor,
-    TibannaExecutor,
-    TaskExecutionServiceExecutor
+    TibannaExecutor
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
+from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
