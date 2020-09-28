@@ -582,7 +582,7 @@ class JobScheduler:
 
         temp_file_deletable = {
             temp_file: pulp.LpVariable(
-                temp_file, lowBound=0, upBound=1, cat=pulp.LpInteger
+                "deletable_{}".format(temp_file), lowBound=0, upBound=1, cat=pulp.LpInteger
             )
             for temp_file in temp_files
         }
@@ -598,6 +598,7 @@ class JobScheduler:
         # Instant removal > temp size
         prob += (
             total_core_requirement
+            * 2
             * total_temp_size
             * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
             + 2
@@ -646,7 +647,6 @@ class JobScheduler:
 
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
-
         prob.solve()
         selected_jobs = [
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
