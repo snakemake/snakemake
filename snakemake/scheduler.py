@@ -566,7 +566,7 @@ class JobScheduler:
                 upBound=1,
                 cat=pulp.LpInteger,
             )
-            for idx, _ in enumerate(jobs)
+            for idx, job in enumerate(jobs)
         }
 
         temp_files = {
@@ -577,7 +577,7 @@ class JobScheduler:
             temp_file: pulp.LpVariable(
                 "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
             )
-            for idx, _ in enumerate(temp_files)
+            for idx, temp_file in enumerate(temp_files)
         }
 
         temp_file_deletable = {
@@ -587,7 +587,7 @@ class JobScheduler:
                 upBound=1,
                 cat=pulp.LpInteger,
             )
-            for idx, _ in enumerate(temp_files)
+            for idx, temp_file in enumerate(temp_files)
         }
         prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
