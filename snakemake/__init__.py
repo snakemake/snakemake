@@ -1274,8 +1274,9 @@ def get_argument_parser(profile=None):
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )
-    
+
     import pulp
+
     group_exec.add_argument(
         "--scheduler-ilp-solver",
         default=None,
