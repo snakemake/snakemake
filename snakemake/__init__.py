@@ -17,7 +17,6 @@ from functools import partial
 import importlib
 import shutil
 from importlib.machinery import SourceFileLoader
-import pulp
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -140,7 +139,7 @@ def snakemake(
     singularity_prefix=None,
     shadow_prefix=None,
     scheduler="ilp",
-    scheduler_ilp_solver="GLPK_CMD",
+    scheduler_ilp_solver=None,
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -1276,9 +1275,26 @@ def get_argument_parser(profile=None):
     ),
     group_exec.add_argument(
         "--scheduler-ilp-solver",
-        default="GLPK_CMD",
+        default=None,
         nargs="?",
-        choices=pulp.list_solvers(available_only=True),
+        choices=[
+            "GLPK_CMD",
+            "PYGLPK",
+            "CPLEX_CMD",
+            "CPLEX_PY",
+            "CPLEX_DLL",
+            "GUROBI",
+            "GUROBI_CMD",
+            "MOSEK",
+            "XPRESS",
+            "PULP_CBC_CMD",
+            "COIN_CMD",
+            "COINMP_DLL",
+            "CHOCO_CMD",
+            "PULP_CHOCO_CMD",
+            "MIPCL_CMD",
+            "SCIP_CMD",
+        ],
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 

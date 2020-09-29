@@ -423,9 +423,9 @@ class JobScheduler:
                     )
 
                     run = (
-                        self.job_selector(needrun)
-                        if self.scheduler_type == "greedy"
-                        else self.job_selector(needrun, self.scheduler_ilp_solver)
+                        self.job_selector(needrun, self.scheduler_ilp_solver)
+                        if self.scheduler_ilp_solver
+                        else self.job_selector(needrun)
                     )
 
                     logger.debug(
@@ -558,7 +558,7 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
-    def job_selector_ilp(self, jobs, solver):
+    def job_selector_ilp(self, jobs, solver=None):
         """
         Job scheduling by optimization of resource usage by solving ILP using pulp
         """
@@ -658,7 +658,10 @@ class JobScheduler:
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
         try:
-            prob.solve(pulp.get_solver(solver))
+            if solver:
+                prob.solve(pulp.get_solver(solver))
+            else:
+                prob.solve()
         except pulp.apis.core.PulpSolverError as e:
             raise WorkflowError(
                 "Failed to solve the job scheduling problem with pulp. "
