@@ -139,6 +139,7 @@ def snakemake(
     singularity_prefix=None,
     shadow_prefix=None,
     scheduler="ilp",
+    scheduler_ilp_solver="GLPK_CMD",
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -285,6 +286,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
+        scheduler_ilp_solver (str): Select solver for ilp scheduler (default GLPK_CMD)
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
@@ -539,6 +541,7 @@ def snakemake(
             shadow_prefix=shadow_prefix,
             singularity_args=singularity_args,
             scheduler_type=scheduler,
+            scheduler_ilp_solver=scheduler_ilp_solver,
             mode=mode,
             wrapper_prefix=wrapper_prefix,
             printshellcmds=printshellcmds,
@@ -660,6 +663,7 @@ def snakemake(
                     dryrun=dryrun,
                     touch=touch,
                     scheduler_type=scheduler,
+                    scheduler_ilp_solver=scheduler_ilp_solver,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -1268,6 +1272,30 @@ def get_argument_parser(profile=None):
             "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
+    ),
+    group_exec.add_argument(
+        "--scheduler-ilp-solver",
+        default="GLPK_CMD",
+        nargs="?",
+        choices=[
+            "GLPK_CMD",
+            "PYGLPK",
+            "CPLEX_CMD",
+            "CPLEX_PY",
+            "CPLEX_DLL",
+            "GUROBI",
+            "GUROBI_CMD",
+            "MOSEK",
+            "XPRESS",
+            "PULP_CBC_CMD",
+            "COIN_CMD",
+            "COINMP_DLL",
+            "CHOCO_CMD",
+            "PULP_CHOCO_CMD",
+            "MIPCL_CMD",
+            "SCIP_CMD",
+        ],
+        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     # TODO add group_partitioning, allowing to define --group rulename=groupname.
@@ -2541,6 +2569,7 @@ def main(argv=None):
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
             scheduler=args.scheduler,
+            scheduler_ilp_solver=args.scheduler_ilp_solver,
             conda_create_envs_only=args.conda_create_envs_only,
             mode=args.mode,
             wrapper_prefix=args.wrapper_prefix,

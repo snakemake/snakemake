@@ -89,6 +89,7 @@ class JobScheduler:
         assume_shared_fs=True,
         keepincomplete=False,
         scheduler_type=None,
+        scheduler_ilp_solver=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -109,6 +110,7 @@ class JobScheduler:
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
         self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -419,7 +421,12 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-                    run = self.job_selector(needrun)
+
+                    run = (
+                        self.job_selector(needrun)
+                        if self.scheduler_type == "greedy"
+                        else self.job_selector(needrun, self.scheduler_ilp_solver)
+                    )
 
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
@@ -551,7 +558,7 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
-    def job_selector_ilp(self, jobs):
+    def job_selector_ilp(self, jobs, solver):
         """
         Job scheduling by optimization of resource usage by solving ILP using pulp
         """
@@ -650,7 +657,7 @@ class JobScheduler:
 
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
-        prob.solve()
+        prob.solve(pulp.get_solver(solver))
         selected_jobs = [
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
         ]
