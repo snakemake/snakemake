@@ -107,8 +107,10 @@ def test14():
 def test15():
     run(dpath("test15"))
 
+
 def test16():
     run(dpath("test16"))
+
 
 def test_directory():
     run(
