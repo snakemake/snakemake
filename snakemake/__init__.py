@@ -17,7 +17,6 @@ from functools import partial
 import importlib
 import shutil
 from importlib.machinery import SourceFileLoader
-import pulp
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -1264,7 +1263,7 @@ def get_argument_parser(profile=None):
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
         ),
-    ),
+    )
     group_exec.add_argument(
         "--scheduler",
         default="ilp",
@@ -1274,7 +1273,9 @@ def get_argument_parser(profile=None):
             "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
-    ),
+    )
+    
+    import pulp
     group_exec.add_argument(
         "--scheduler-ilp-solver",
         default=None,
