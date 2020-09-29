@@ -286,7 +286,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
-        scheduler_ilp_solver (str): Select solver for ilp scheduler (default GLPK_CMD)
+        scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
