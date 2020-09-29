@@ -561,7 +561,7 @@ class JobScheduler:
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
-                "job_{job}_{idx}".format(job=job, idx=idx),
+                "job_{idx}".format(idx=idx),
                 lowBound=0,
                 upBound=1,
                 cat=pulp.LpInteger,
