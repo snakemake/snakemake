@@ -651,7 +651,17 @@ class JobScheduler:
 
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
-        prob.solve()
+
+        try:
+            prob.solve()
+        except pulp.apis.core.PulpSolverError as e:
+            raise WorkflowError(
+                "Failed to solve the job scheduling problem with pulp. "
+                "Please report a bug and use --scheduler greedy as a workaround:\n{}".format(
+                    e
+                )
+            )
+
         selected_jobs = [
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
         ]
