@@ -635,6 +635,7 @@ def snakemake(
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
                     scheduler=scheduler,
+                    scheduler_ilp_solver=scheduler_ilp_solver,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
