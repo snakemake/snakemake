@@ -1278,7 +1278,7 @@ def get_argument_parser(profile=None):
         "--scheduler-ilp-solver",
         default=None,
         nargs="?",
-        choices=pulp.list_solvers(available_only=True),
+        choices=pulp.list_solvers(onlyAvailable=True),
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
