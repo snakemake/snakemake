@@ -17,6 +17,7 @@ from functools import partial
 import importlib
 import shutil
 from importlib.machinery import SourceFileLoader
+import pulp
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -1277,24 +1278,7 @@ def get_argument_parser(profile=None):
         "--scheduler-ilp-solver",
         default="GLPK_CMD",
         nargs="?",
-        choices=[
-            "GLPK_CMD",
-            "PYGLPK",
-            "CPLEX_CMD",
-            "CPLEX_PY",
-            "CPLEX_DLL",
-            "GUROBI",
-            "GUROBI_CMD",
-            "MOSEK",
-            "XPRESS",
-            "PULP_CBC_CMD",
-            "COIN_CMD",
-            "COINMP_DLL",
-            "CHOCO_CMD",
-            "PULP_CHOCO_CMD",
-            "MIPCL_CMD",
-            "SCIP_CMD",
-        ],
+        choices=pulp.list_solvers(available_only=True),
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
