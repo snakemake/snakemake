@@ -651,13 +651,15 @@ class JobScheduler:
 
             prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
+        solver = (
+            pulp.get_solver(self.scheduler_ilp_solver)
+            if self.scheduler_ilp_solver
+            else pulp.apis.LpSolverDefault
+        )
+        solver.msg = False
         # disable extensive logging
-        pulp.apis.LpSolverDefault.msg = False
         try:
-            if self.scheduler_ilp_solver:
-                prob.solve(pulp.get_solver(self.scheduler_ilp_solver))
-            else:
-                prob.solve()
+            prob.solve(solver)
         except pulp.apis.core.PulpSolverError as e:
             raise WorkflowError(
                 "Failed to solve the job scheduling problem with pulp. "

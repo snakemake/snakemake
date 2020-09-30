@@ -1264,9 +1264,15 @@ def get_argument_parser(profile=None):
             "to the working directory."
         ),
     )
+
+    import pulp
+
+    lp_solvers = pulp.list_solvers(onlyAvailable=True)
+    recommended_lp_solver = "COIN_CMD"
+
     group_exec.add_argument(
         "--scheduler",
-        default="ilp",
+        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
         nargs="?",
         choices=["ilp", "greedy"],
         help=(
@@ -1275,12 +1281,10 @@ def get_argument_parser(profile=None):
         ),
     )
 
-    import pulp
-
     group_exec.add_argument(
         "--scheduler-ilp-solver",
-        default=None,
-        choices=pulp.list_solvers(onlyAvailable=True),
+        default=recommended_lp_solver,
+        choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
