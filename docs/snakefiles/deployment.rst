@@ -67,6 +67,12 @@ Given that cookiecutter is installed, you can use it via:
 
 Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
+----------------------------------
+Uploading workflows to WorkflowHub
+----------------------------------
+
+text text text
+
 .. _integrated_package_management:
 
 -----------------------------
