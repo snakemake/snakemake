@@ -17,6 +17,19 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
+Snakemake does not connect my rules as I have expected, what can I do to debug my dependency structure?
+-------------------------------------------------------------------------------------------------------
+
+Since dependencies are inferred implicitly, results can sometimes be suprising when little errors are made in filenames or when input functions raise unexpected errors.
+For debugging such cases, Snakemake provides the command line flag ``--debug-dag`` that leads to printing details each decision that is taken while determining the dependencies.
+
+In addition, it is advisable to check whether certain intermediate files would be created by targetting them individually via the command line.
+
+Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``. 
+This way, you can easily check rule by rule if it does what you expect.
+However, note that ``--allowed-rules`` is only meant for debugging.
+A workflow should always work fine without it.
+
 My shell command fails with with errors about an "unbound variable", what's wrong?
 ----------------------------------------------------------------------------------
 
@@ -502,7 +515,23 @@ If you are just interested in the final summary, you can use the ``--quiet`` fla
 Git is messing up the modification times of my input files, what can I do?
 --------------------------------------------------------------------------
 
-When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. See `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_ for a solution to achieve this.
+When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. One solution is to add the following lines to your ``.bashrc`` (or similar):
+
+.. code-block:: bash
+
+    gitmtim(){
+        local f
+        for f; do
+            touch -d @0`git log --pretty=%at -n1 -- "$f"` "$f"
+        done
+    }
+    gitmodtimes(){
+        for f in $(git ls-tree -r $(git rev-parse --abbrev-ref HEAD) --name-only); do
+            gitmtim $f
+        done
+    }
+
+(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_). You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been commited.
 
 How do I exit a running Snakemake workflow?
 -------------------------------------------

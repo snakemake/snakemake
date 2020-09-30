@@ -6,11 +6,14 @@ __license__ = "MIT"
 import os, signal, sys
 import threading
 import operator
+import time
+import math
+
 from functools import partial
 from collections import defaultdict
-from itertools import chain, accumulate
+from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
-import time
+
 
 from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
 from snakemake.executors import (
@@ -72,6 +75,8 @@ class JobScheduler:
         google_lifesciences_cache=False,
         tes=None,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
         quiet=False,
@@ -85,6 +90,8 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
+        scheduler_type=None,
+        scheduler_ilp_solver=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -104,6 +111,8 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
+        self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -291,6 +300,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
             )
         elif tes:
             self._local_executor = CPUExecutor(
@@ -340,8 +351,27 @@ class JobScheduler:
             # essentially no rate limit
             self.rate_limiter = DummyRateLimiter()
 
+        # Choose job selector (greedy or ILP)
+        self.job_selector = self.job_selector_greedy
+        if scheduler_type == "ilp":
+            import pulp
+
+            if pulp.apis.LpSolverDefault is None:
+                logger.warning(
+                    "Falling back to greedy scheduler because no default "
+                    "solver is found for pulp (you have to install either "
+                    "coincbc or glpk)."
+                )
+            else:
+                self.job_selector = self.job_selector_ilp
+
         self._user_kill = None
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        try:
+            signal.signal(signal.SIGTERM, self.exit_gracefully)
+        except ValueError:
+            # If this fails, it is due to scheduler not being invoked in the main thread.
+            # This can only happen with --gui, in which case it is fine for now.
+            pass
         self._open_jobs.release()
 
     @property
@@ -417,7 +447,9 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
+
                     run = self.job_selector(needrun)
+
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
                         + "\n\t".join(map(str, run))
@@ -548,11 +580,135 @@ class JobScheduler:
             self._user_kill = "graceful"
         self._open_jobs.release()
 
-    def job_selector(self, jobs):
+    def job_selector_ilp(self, jobs):
+        """
+        Job scheduling by optimization of resource usage by solving ILP using pulp
+        """
+        import pulp
+        from pulp import lpSum
+
+        # assert self.resources["_cores"] > 0
+        scheduled_jobs = {
+            job: pulp.LpVariable(
+                "job_{}".format(idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
+            )
+            for idx, job in enumerate(jobs)
+        }
+
+        temp_files = {
+            temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+        }
+
+        temp_job_improvement = {
+            temp_file: pulp.LpVariable(
+                "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
+            )
+            for idx, temp_file in enumerate(temp_files)
+        }
+
+        temp_file_deletable = {
+            temp_file: pulp.LpVariable(
+                "deletable_{}".format(idx),
+                lowBound=0,
+                upBound=1,
+                cat=pulp.LpInteger,
+            )
+            for idx, temp_file in enumerate(temp_files)
+        }
+        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+
+        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_core_requirement = sum(
+            [job.resources.get("_cores", 1) + 1 for job in jobs]
+        )
+        # Objective function
+        # Job priority > Core load
+        # Core load > temp file removal
+        # Instant removal > temp size
+        prob += (
+            2
+            * total_core_requirement
+            * 2
+            * total_temp_size
+            * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
+            + 2
+            * total_temp_size
+            * lpSum(
+                [
+                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
+                    for job in jobs
+                ]
+            )
+            + total_temp_size
+            * lpSum(
+                [
+                    temp_file_deletable[temp_file] * temp_file.size
+                    for temp_file in temp_files
+                ]
+            )
+            + lpSum(
+                [
+                    temp_job_improvement[temp_file] * temp_file.size
+                    for temp_file in temp_files
+                ]
+            )
+        )
+
+        # Constraints:
+        for name in self.workflow.global_resources:
+            prob += (
+                lpSum(
+                    [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
+                )
+                <= self.resources[name]
+            )
+
+        # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        for temp_file in temp_files:
+            prob += temp_job_improvement[temp_file] <= lpSum(
+                [
+                    scheduled_jobs[job] * self.required_by_job(temp_file, job)
+                    for job in jobs
+                ]
+            ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+
+            prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
+
+        # disable extensive logging
+        pulp.apis.LpSolverDefault.msg = False
+        try:
+            if self.scheduler_ilp_solver:
+                prob.solve(pulp.get_solver(self.scheduler_ilp_solver))
+            else:
+                prob.solve()
+        except pulp.apis.core.PulpSolverError as e:
+            raise WorkflowError(
+                "Failed to solve the job scheduling problem with pulp. "
+                "Please report a bug and use --scheduler greedy as a workaround:\n{}".format(
+                    e
+                )
+            )
+
+        selected_jobs = [
+            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
+        ]
+        for name in self.workflow.global_resources:
+            self.resources[name] -= sum(
+                [job.resources.get(name, 0) for job in selected_jobs]
+            )
+        return selected_jobs
+
+    def required_by_job(self, temp_file, job):
+        return 1 if temp_file in self.dag.temp_input(job) else 0
+
+    def job_selector_greedy(self, jobs):
         """
         Using the greedy heuristic from
         "A Greedy Algorithm for the General Multidimensional Knapsack
-Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
+        Problem", Akcay, Li, Xu, Annals of Operations Research, 2012
 
         Args:
             jobs (list):    list of jobs

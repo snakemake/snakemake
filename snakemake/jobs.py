@@ -673,8 +673,7 @@ class Job(AbstractJob):
             raise ProtectedOutputException(self.rule, protected)
 
     def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run
-        """
+        """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
                 os.remove(f)
@@ -824,14 +823,6 @@ class Job(AbstractJob):
             )
             for f in to_remove:
                 f.remove()
-
-    @property
-    def empty_dirs(self):
-        for f in set(self.output) | set(self.input):
-            if os.path.exists(os.path.dirname(f)) and not len(
-                os.listdir(os.path.dirname(f))
-            ):
-                yield os.path.dirname(f)
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """

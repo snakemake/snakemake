@@ -26,7 +26,7 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
@@ -44,7 +44,7 @@ class Batch:
 
     def get_batch(self, items: list):
         """Return the defined batch of the given items.
-           Items are usually input files."""
+        Items are usually input files."""
         # make sure that we always consider items in the same order
         if len(items) < self.batches:
             raise WorkflowError(
@@ -207,7 +207,7 @@ class DAG:
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
-            if common == os.path.commonpath([a]) and job_a != job_b:
+            if a != b and common == os.path.commonpath([a]) and job_a != job_b:
                 raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
@@ -227,9 +227,14 @@ class DAG:
                 self._jobid[job] = len(self._jobid)
 
     def cleanup_workdir(self):
-        for job in self.jobs:
-            for d in job.empty_dirs:
-                os.removedirs(d)
+        for io_dir in set(
+            os.path.dirname(io_file)
+            for job in self.jobs
+            for io_file in chain(job.output, job.input)
+            if not os.path.exists(io_file)
+        ):
+            if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
+                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -525,8 +530,8 @@ class DAG:
         shutil.rmtree(job.shadow_dir)
 
     def check_periodic_wildcards(self, job):
-        """ Raise an exception if a wildcard of the given job appears to be periodic,
-        indicating a cyclic dependency. """
+        """Raise an exception if a wildcard of the given job appears to be periodic,
+        indicating a cyclic dependency."""
         for wildcard, value in job.wildcards_dict.items():
             periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
             if periodic_substring is not None:
@@ -721,6 +726,7 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                WorkflowError,
             ) as ex:
                 exceptions.append(ex)
             except RecursionError as e:
@@ -741,10 +747,19 @@ class DAG:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
-            if exceptions:
+            if len(exceptions) > 1:
+                raise WorkflowError(*exceptions)
+            elif len(exceptions) == 1:
                 raise exceptions[0]
         else:
             logger.dag_debug(dict(status="selected", job=producer))
+            logger.dag_debug(
+                dict(
+                    file=file,
+                    msg="Producer found, hence exceptions are ignored.",
+                    exception=WorkflowError(*exceptions),
+                )
+            )
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -797,10 +812,19 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                WorkflowError,
             ) as ex:
                 if not file.exists:
                     self.delete_job(job, recursive=False)  # delete job from tree
                     raise ex
+                else:
+                    logger.dag_debug(
+                        dict(
+                            file=file,
+                            msg="No producers found, but file is present on disk.",
+                            exception=ex,
+                        )
+                    )
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
@@ -1017,10 +1041,28 @@ class DAG:
             for j in group:
                 if j not in groups:
                     groups[j] = group
+
         self._group = groups
 
+        self._update_group_components()
+
+    def _update_group_components(self):
+        # span connected components if requested
+        for groupid, conn_components in groupby(
+            set(self._group.values()), key=lambda group: group.groupid
+        ):
+            n_components = self.workflow.group_components.get(groupid, 1)
+            if n_components > 1:
+                for chunk in group_into_chunks(n_components, conn_components):
+                    if len(chunk) > 1:
+                        primary = chunk[0]
+                        for secondary in chunk[1:]:
+                            primary.merge(secondary)
+                        for j in primary:
+                            self._group[j] = primary
+
     def update_ready(self, jobs=None):
-        """ Update information whether a job is ready to execute.
+        """Update information whether a job is ready to execute.
 
         Given jobs must be needrun jobs!
         """
@@ -1076,7 +1118,7 @@ class DAG:
 
     def handle_pipes(self):
         """Use pipes to determine job groups. Check if every pipe has exactly
-           one consumer"""
+        one consumer"""
         for job in self.needrun_jobs:
             candidate_groups = set()
             if job.group is not None:
@@ -1884,8 +1926,7 @@ class DAG:
             raise e
 
     def clean(self, only_temp=False, dryrun=False):
-        """Removes files generated by the workflow.
-        """
+        """Removes files generated by the workflow."""
         for job in self.jobs:
             for f in job.output:
                 if not only_temp or is_flagged(f, "temp"):
@@ -1902,8 +1943,7 @@ class DAG:
                                 f.remove(remove_non_empty_dir=only_temp)
 
     def list_untracked(self):
-        """List files in the workdir that are not in the dag.
-        """
+        """List files in the workdir that are not in the dag."""
         used_files = set()
         files_in_cwd = set()
         for job in self.jobs:

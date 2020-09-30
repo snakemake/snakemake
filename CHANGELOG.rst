@@ -1,3 +1,100 @@
+[5.25.0] - 2020-09-18
+=====================
+Added
+-----
+- Simplified and more configurable support for scatter-gather processes (see docs).
+- Fully configurable DAG partitioning by grouping jobs at the command line. This should provide a vast additional improvement to scalability in cluster and cloud settings.
+
+Changed
+-------
+- Depend on latest pulp, thereby enable Python >=3.8 compatibility again.
+- Fixes for snakefile handling in google life sciences backend (@vsoch).
+
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
+[5.24.1] - 2020-09-13
+=====================
+Changed
+-------
+- Depend on pulp < 2.0, which includes the default coin cbc solver for all platforms.
+
+[5.24.0] - 2020-09-09
+=====================
+Added
+-----
+- Preemtion support for google cloud backend (@vsoch).
+
+Changed
+-------
+- Fixed compatibility issues in new scheduler code (@dtrodrigues and @johanneskoester).
+- Improved error messages (@Sam-Tygier, @terrycojones)
+- Various small bug fixes.
+- Improved profile documentation (@johanneskoester).
+
+
+[5.23.0] - 2020-08-24
+=====================
+Added
+-----
+- Support for workflow configuration via portable encapsulated projects (PEPs, https://pep.databio.org).
+- A new ILP based default scheduler now ensures that temporary files are deleted as fast as possible (@FelixMoelder, @johanneskoester).
+
+Changed
+-------
+- Fixed bug in modification date comparison for files in google storage (@vsoch).
+- Various small documentation improvements (@dcroote, @erjel, @dlaehnemann, @goi42).
+
+
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
+[5.22.0] - 2020-08-13
+=====================
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
+
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
 [5.19.3] - 2020-06-16
 =====================
 Changed
@@ -371,7 +468,7 @@ Added
 -----
 
 -  Snakemake workflows can now be exported to CWL via the flag
-   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executable.html>`_.
+   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executing/interoperability.html>`_.
 
 Changed
 -------

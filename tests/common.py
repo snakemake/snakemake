@@ -23,7 +23,7 @@ from snakemake.common import ON_WINDOWS
 
 def dpath(path):
     """get path to a data file (relative to the directory this
-	test lives in)"""
+    test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
@@ -147,6 +147,7 @@ def run(
         config=config,
         verbose=True,
         conda_frontend=conda_frontend,
+        container_image=container_image,
         **params
     )
 

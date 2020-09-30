@@ -1,3 +1,5 @@
+from pathlib import PosixPath
+
 from snakemake.io import _wildcard_regex, expand
 from snakemake.exceptions import WildcardError
 
@@ -100,3 +102,13 @@ def test_expand():
     assert sorted(
         expand(["a: {a} + b: {b}", "c: {c}"], a="aa", b=["b", "bb"], c=["c", "cc"])
     ) == sorted(["a: aa + b: b", "a: aa + b: bb", "c: c", "c: cc"])
+
+    # expand on pathlib.Path objects
+    assert (
+        expand(
+            PosixPath() / "{x}" / "{y}",
+            x="Hello",
+            y="world",
+        )
+        == ["Hello/world"]
+    )

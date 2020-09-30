@@ -218,6 +218,8 @@
 
       .source {
         background: none !important;
+        overflow-x: auto;
+        width: 100%;
       }
 
       table.dataTable tbody tr.selected,
@@ -533,15 +535,17 @@
                     </tr>
                     {% endif %}
 
-                    {% if rule.code is not none %}
+                    {% if rule.code %}
                     <tr>
                       <th scope="row" colspan=2>Code</th>
                     </tr>
+                      {% for item in rule.code %}
                     <tr>
                       <td class="rule-property" colspan=2>
-                        {{ rule.code()|safe }}
+                        {{ item|safe }}
                       </td>
                     </tr>
+                      {% endfor %}
                     {% endif %}
                   </tbody>
                 </table>

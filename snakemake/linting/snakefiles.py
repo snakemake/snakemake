@@ -61,7 +61,7 @@ class SnakefileLinter(Linter):
                 title="Path composition with '+' in line {}".format(line),
                 body="This becomes quickly unreadable. Usually, it is better to endure some "
                 "redundancy against having a more readable workflow. Hence, just repeat common "
-                'prefixes. If path composition is unavoidable, use pathlib or string formatting with f"...". ',
+                'prefixes. If path composition is unavoidable, use pathlib or (python >= 3.6) string formatting with f"...". ',
             )
 
     def lint_envvars(

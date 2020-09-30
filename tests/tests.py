@@ -108,6 +108,15 @@ def test15():
     run(dpath("test15"))
 
 
+def test_glpk_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
+
+
+@skip_on_windows
+def test_coin_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="COIN_CMD")
+
+
 def test_directory():
     run(
         dpath("test_directory"),
@@ -149,6 +158,11 @@ def test_report():
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
+
+
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_report_dir():
+    run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
 
 def test_dynamic():
@@ -289,7 +303,7 @@ def test_empty_include():
 
 @skip_on_windows
 def test_script():
-    run(dpath("test_script"), use_conda=True)
+    run(dpath("test_script"), use_conda=True, check_md5=False)
 
 
 def test_script_python():
@@ -608,7 +622,7 @@ def test_gs_requester_pays(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+    """Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 
@@ -742,6 +756,16 @@ def test_pathlib_missing_file():
 @skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_multicomp_group_jobs():
+    run(
+        dpath("test_multicomp_group_jobs"),
+        cluster="./qsub",
+        overwrite_groups={"a": "group0", "b": "group0"},
+        group_components={"group0": 2},
+    )
 
 
 @skip_on_windows
@@ -1023,3 +1047,7 @@ def test_jupyter_notebook():
 
 def test_github_issue456():
     run(dpath("test_github_issue456"))
+
+
+def test_scatter_gather():
+    run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})

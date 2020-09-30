@@ -83,7 +83,7 @@ class ExistsDict(dict):
         self.cache = cache
 
     def __getitem__(self, path):
-        # Always return False if not dict.
+        # Always return False if not in dict.
         # The reason is that this is only called if the method contains below has returned True.
         # Hence, we already know that either path is in dict, or inventory has never
         # seen it, and hence it does not exist.
@@ -95,7 +95,7 @@ class ExistsDict(dict):
 
 
 class IOCache:
-    def __init__(self):
+    def __init__(self, max_wait_time):
         self.mtime = dict()
         self.exists_local = ExistsDict(self)
         self.exists_remote = ExistsDict(self)
@@ -104,6 +104,8 @@ class IOCache:
         # In case of remote objects the root is the bucket or server host.
         self.has_inventory = set()
         self.active = True
+        self.remaining_wait_time = max_wait_time
+        self.max_wait_time = max_wait_time
 
     def get_inventory_root(self, path):
         """If eligible for inventory, get the root of a given path.
@@ -129,6 +131,7 @@ class IOCache:
         self.exists_local.clear()
         self.exists_remote.clear()
         self.has_inventory.clear()
+        self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
         self.clear()
@@ -183,8 +186,8 @@ class _IOFile(str):
 
     def _refer_to_remote(func):
         """
-            A decorator so that if the file is remote and has a version
-            of the same file-related function, call that version instead.
+        A decorator so that if the file is remote and has a version
+        of the same file-related function, call that version instead.
         """
 
         @functools.wraps(func)
@@ -197,7 +200,7 @@ class _IOFile(str):
         return wrapper
 
     def inventory(self):
-        """Starting from the given file, try to cache as much existence and 
+        """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
@@ -211,6 +214,12 @@ class _IOFile(str):
 
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
+
+        start_time = time.time()
+
         root = cache.get_inventory_root(self)
         if root == self:
             # there is no root directory that could be used
@@ -228,13 +237,19 @@ class _IOFile(str):
                         else:
                             # path is a file
                             cache.exists_local[entry.path] = True
+                cache.remaining_wait_time -= time.time() - start_time
+                if cache.remaining_wait_time <= 0:
+                    # Stop, do not mark inventory as done below.
+                    # Otherwise, we would falsely assume that those files
+                    # are not present.
+                    return
 
         cache.has_inventory.add(root)
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first. 
-        
+        """Open this file. If necessary, download it from remote first.
+
         This can (and should) be used in a `with`-statement.
         """
         if not self.exists:
@@ -409,8 +424,8 @@ class _IOFile(str):
 
     @_refer_to_remote
     def is_newer(self, time):
-        """ Returns true of the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true of the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
         elif self.is_remote:
@@ -876,7 +891,7 @@ def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
-    rule has been run """
+    rule has been run"""
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -909,11 +924,13 @@ def checkpoint_target(value):
 
 
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns"]
+    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
 )
 
 
-def report(value, caption=None, category=None, subcategory=None, patterns=[]):
+def report(
+    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+):
     """Flag output file or directory as to be included into reports.
 
     In case of directory, files to include can be specified via a glob pattern (default: *).
@@ -926,7 +943,11 @@ def report(value, caption=None, category=None, subcategory=None, patterns=[]):
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
-    return flag(value, "report", ReportObject(caption, category, subcategory, patterns))
+    return flag(
+        value,
+        "report",
+        ReportObject(caption, category, subcategory, patterns, htmlindex),
+    )
 
 
 def local(value):
@@ -955,7 +976,7 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, str):
+    if isinstance(filepatterns, str) or isinstance(filepatterns, Path):
         filepatterns = [filepatterns]
 
     def path_to_str(f):
@@ -1130,10 +1151,10 @@ def split_git_path(path):
 
 def get_git_root(path):
     """
-        Args:
-            path: (str) Path a to a directory/file that is located inside the repo
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory/file that is located inside the repo
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1147,16 +1168,16 @@ def get_git_root(path):
 
 def get_git_root_parent_directory(path, input_path):
     """
-        This function will recursively go through parent directories until a git
-        repository is found or until no parent directories are left, in which case
-        a error will be raised. This is needed when providing a path to a
-        file/folder that is located on a branch/tag no currently checked out.
+    This function will recursively go through parent directories until a git
+    repository is found or until no parent directories are left, in which case
+    a error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag no currently checked out.
 
-        Args:
-            path: (str) Path a to a directory that is located inside the repo
-            input_path: (str) origin path, used when raising WorkflowError
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory that is located inside the repo
+        input_path: (str) origin path, used when raising WorkflowError
+    Returns:
+        path to root folder for git repo
     """
     import git
 
@@ -1176,15 +1197,15 @@ def get_git_root_parent_directory(path, input_path):
 
 def git_content(git_file):
     """
-        This function will extract a file from a git repository, one located on
-        the filesystem.
-        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    This function will extract a file from a git repository, one located on
+    the filesystem.
+    Expected format is git+file:///path/to/your/repo/path_to_file@@version
 
-        Args:
-          env_file (str): consist of path to repo, @, version and file information
-                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-        Returns:
-            file content or None if the expected format isn't meet
+    Args:
+      env_file (str): consist of path to repo, @, version and file information
+                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+    Returns:
+        file content or None if the expected format isn't meet
     """
     import git
 
@@ -1260,13 +1281,13 @@ class Namedlist(list):
         """
         Generic function that throws an `AttributeError`.
 
-        Used as replacement for functions such as `index()` and `sort()`, 
-        which may be overridden by workflows, to signal to a user that 
-        these functions should not be used.        
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
         """
         raise AttributeError(
-            f"{_name}() cannot be used; attribute name reserved"
-            f" for use in some existing workflows"
+            "{_name}() cannot be used; attribute name reserved"
+            " for use in some existing workflows".format(_name=_name)
         )
 
     def _add_name(self, name):
@@ -1288,8 +1309,8 @@ class Namedlist(list):
         """
         if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
-                f"invalid name for input, output, wildcard, "
-                f"params or log: {name} is reserved for internal use"
+                "invalid name for input, output, wildcard, "
+                "params or log: {name} is reserved for internal use".format(name=name)
             )
 
         self._names[name] = (index, end)

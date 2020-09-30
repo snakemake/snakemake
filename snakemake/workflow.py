@@ -9,7 +9,7 @@ import sys
 import signal
 import json
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
@@ -75,11 +75,14 @@ class Workflow:
         snakefile=None,
         jobscript=None,
         overwrite_shellcmd=None,
-        overwrite_config=dict(),
+        overwrite_config=None,
         overwrite_workdir=None,
         overwrite_configfiles=None,
-        overwrite_clusterconfig=dict(),
-        overwrite_threads=dict(),
+        overwrite_clusterconfig=None,
+        overwrite_threads=None,
+        overwrite_scatter=None,
+        overwrite_groups=None,
+        group_components=None,
         config_args=None,
         debug=False,
         verbose=False,
@@ -91,6 +94,8 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
+        scheduler_type="ilp",
+        scheduler_ilp_solver=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -107,6 +112,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        max_inventory_wait_time=20,
     ):
         """
         Create the controller.
@@ -134,10 +140,10 @@ class Workflow:
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
-        self.overwrite_config = overwrite_config
+        self.overwrite_config = overwrite_config or dict()
         self.overwrite_configfiles = overwrite_configfiles
-        self.overwrite_clusterconfig = overwrite_clusterconfig
-        self.overwrite_threads = overwrite_threads
+        self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
+        self.overwrite_threads = overwrite_threads or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -155,6 +161,8 @@ class Workflow:
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
+        self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -171,6 +179,10 @@ class Workflow:
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
+        self.overwrite_groups = overwrite_groups or dict()
+        self.group_components = group_components or dict()
+        self._scatter = dict(overwrite_scatter or dict())
+        self.overwrite_scatter = overwrite_scatter or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -192,7 +204,7 @@ class Workflow:
             # only _cores and _nodes
             self.default_resources = DefaultResources()
 
-        self.iocache = snakemake.io.IOCache()
+        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -204,6 +216,10 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+        global scatter
+        scatter = Scatter()
+        global gather
+        gather = Gather()
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -313,8 +329,8 @@ class Workflow:
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
-           to the calling function Additionally, given that we encourage these 
-           packages to be small, we set a warning at 200MB (0.2GB).
+        to the calling function Additionally, given that we encourage these
+        packages to be small, we set a warning at 200MB (0.2GB).
         """
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
@@ -454,6 +470,8 @@ class Workflow:
         targets=None,
         dryrun=False,
         touch=False,
+        scheduler_type=None,
+        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -485,6 +503,8 @@ class Workflow:
         google_lifesciences_cache=False,
         tes=None,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         container_image=None,
         stats=None,
@@ -883,6 +903,8 @@ class Workflow:
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
             tes=tes,
+            preemption_default=preemption_default,
+            preemptible_rules=preemptible_rules,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
@@ -893,6 +915,8 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            scheduler_type=scheduler_type,
+            scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:
@@ -954,7 +978,7 @@ class Workflow:
 
         success = scheduler.schedule()
 
-        if not immediate_submit:
+        if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
 
         if success:
@@ -1072,6 +1096,18 @@ class Workflow:
         for rule in self.rules:
             rule.update_wildcard_constraints()
 
+    def scattergather(self, **content):
+        """Register scattergather defaults."""
+        self._scatter.update(content)
+        self._scatter.update(self.overwrite_scatter)
+
+        def func(*args, **wildcards):
+            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+
+        for key in content:
+            setattr(scatter, key, func)
+            setattr(gather, key, func)
+
     def workdir(self, workdir):
         """Register workdir."""
         if self.overwrite_workdir is None:
@@ -1086,6 +1122,32 @@ class Workflow:
         c = snakemake.io.load_configfile(fp)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def pepfile(self, path):
+        global pep
+
+        try:
+            import peppy
+        except ImportError:
+            raise WorkflowError("For PEP support, please install peppy.")
+
+        self.pepfile = path
+        pep = peppy.Project(self.pepfile)
+
+    def pepschema(self, schema):
+        global pep
+
+        try:
+            import eido
+        except ImportError:
+            raise WorkflowError("For PEP schema support, please install eido.")
+
+        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+            # schema is relative to current Snakefile
+            schema = os.path.join(self.current_basedir, schema)
+        if self.pepfile is None:
+            raise WorkflowError("Please specify a PEP with the pepfile directive.")
+        eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """ Define a global report description in .rst format."""
@@ -1196,8 +1258,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if not self.run_local and ruleinfo.group is not None:
-                rule.group = ruleinfo.group
+            if not self.run_local:
+                group = self.overwrite_groups.get(name) or ruleinfo.group
+                if group is not None:
+                    rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix
@@ -1565,6 +1629,18 @@ class Subworkflow:
 
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
+
+    pass
+
+
+class Scatter:
+    """ A namespace for scatter to allow items to be accessed via dot notation."""
+
+    pass
+
+
+class Gather:
+    """ A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
 
