@@ -71,7 +71,21 @@ Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/d
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share the workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission is automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles for scientific data.
+In order to share the workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission is automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles for scientific data.
+
+To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
+
+- 1
+- 2
+- 3
+
+1 should be X, 2 should be Y, 3 should be Z.
+
+Therefore, the repository structure should comply with:
+
+.. code-block:: none
+
+    ├── .gitignore
 
 .. _integrated_package_management:
 
