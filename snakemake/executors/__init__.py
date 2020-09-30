@@ -2072,6 +2072,7 @@ class TibannaExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             sleep()
 
+
 def run_wrapper(
     job_rule,
     input,

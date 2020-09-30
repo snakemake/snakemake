@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from common import *
 
+
 def test_tes():
     subprocess.call(["rm", "-rf", "tests/test_tes/.snakemake"])
     subprocess.call(["rm", "-rf", "tests/test_tes/output.txt"])
@@ -25,7 +26,8 @@ def test_tes():
             "CONDA_PKGS_DIRS",
             "CONDA_ENVS_PATH",
             "S3_ACCESS_KEY",
-            "S3_SECRET_ACCESS_KEY"],
+            "S3_SECRET_ACCESS_KEY",
+        ],
         no_tmpdir=True,
-        cleanup=False
+        cleanup=False,
     )

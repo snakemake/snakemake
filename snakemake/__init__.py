@@ -371,8 +371,6 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    
-
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
     if preemption_default or preemptible_rules and not google_lifesciences:
@@ -383,7 +381,15 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences or tes:
+    if (
+        cluster
+        or cluster_sync
+        or drmaa
+        or tibanna
+        or kubernetes
+        or google_lifesciences
+        or tes
+    ):
         cores = None
     else:
         nodes = None
@@ -404,7 +410,13 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences or tes
+        cluster
+        or cluster_sync
+        or drmaa
+        or kubernetes
+        or tibanna
+        or google_lifesciences
+        or tes
     )
     if run_local:
         if not dryrun:
@@ -1951,7 +1963,6 @@ def get_argument_parser(profile=None):
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
     group_tes = parser.add_argument_group("TES")
-    
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2050,7 +2061,7 @@ def get_argument_parser(profile=None):
     group_tes.add_argument(
         "--tes",
         action="store_true",
-        help="Send workflow tasks to GA4GH TES server specified by url."
+        help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
     group_conda = parser.add_argument_group("CONDA")

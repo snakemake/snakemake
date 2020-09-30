@@ -21,7 +21,7 @@ from snakemake.executors import (
     SynchronousClusterExecutor,
     DRMAAExecutor,
     KubernetesExecutor,
-    TibannaExecutor
+    TibannaExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
@@ -325,9 +325,9 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
                 tes_url=tes,
-                container_image=container_image
+                container_image=container_image,
             )
-        
+
         else:
             self._executor = CPUExecutor(
                 workflow,
