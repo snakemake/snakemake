@@ -89,6 +89,7 @@ class JobScheduler:
         assume_shared_fs=True,
         keepincomplete=False,
         scheduler_type=None,
+        scheduler_ilp_solver=None,
     ):
         """ Create a new instance of KnapsackJobScheduler. """
         from ratelimiter import RateLimiter
@@ -109,6 +110,7 @@ class JobScheduler:
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
         self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -419,6 +421,7 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
+
                     run = self.job_selector(needrun)
 
                     logger.debug(
@@ -561,7 +564,7 @@ class JobScheduler:
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
-                "job_{idx}".format(idx=idx),
+                "job_{}".format(idx),
                 lowBound=0,
                 upBound=1,
                 cat=pulp.LpInteger,
@@ -634,8 +637,7 @@ class JobScheduler:
                 lpSum(
                     [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
                 )
-                <= self.resources[name],
-                "limitation_of_resource_{name}".format(name=name),
+                <= self.resources[name]
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
@@ -651,9 +653,11 @@ class JobScheduler:
 
         # disable extensive logging
         pulp.apis.LpSolverDefault.msg = False
-
         try:
-            prob.solve()
+            if self.scheduler_ilp_solver:
+                prob.solve(pulp.get_solver(self.scheduler_ilp_solver))
+            else:
+                prob.solve()
         except pulp.apis.core.PulpSolverError as e:
             raise WorkflowError(
                 "Failed to solve the job scheduling problem with pulp. "
