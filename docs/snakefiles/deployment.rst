@@ -81,7 +81,7 @@ To adhere to the high WorkflowHub standards of scientific workflows the recommen
 - Workflow documentation
 - Test directory
 
-1 should be X, 2 should be Y, 3 should be Z.
+A code of conduct for the repository developers as well as instruction on how to contribute to the project should be placed in the top-level files: ``CODE_OF_CONDUCT.md`` and ``CONTRIBUTING.md``, respectively. Each *snakemake* workflow repository needs to contain an SVG-formatted rule graph placed in a subdirectory ``images/rulegraph.svg``. Additionally, the workflow should be annotated with a technical documentation of all subsequent steps, placed under ``workflow/documentation.md``.
 
 Therefore, the repository structure should comply with:
 
