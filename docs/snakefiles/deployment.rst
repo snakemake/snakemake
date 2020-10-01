@@ -75,9 +75,11 @@ In order to share the workflow with the scientific community it is advised to up
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
-- 1
-- 2
-- 3
+- Code of Conduct
+- Contribution instructions
+- Workflow rule graph
+- Workflow documentation
+- Test directory
 
 1 should be X, 2 should be Y, 3 should be Z.
 
@@ -88,6 +90,13 @@ Therefore, the repository structure should comply with:
     ├── .gitignore
     ├── README.md
     ├── LICENSE.md
+    ├── CODE_OF_CONDUCT.md
+    ├── CONTRIBUTING.md
+    ├── .tests
+    │   ├── integration
+    │   └── unit
+    ├── images
+    │   └── rulegraph.svg
     ├── workflow
     │   ├── rules
     |   │   ├── module1.smk
@@ -104,12 +113,14 @@ Therefore, the repository structure should comply with:
     │   ├── report
     |   │   ├── plot1.rst
     |   │   └── plot2.rst
-    |   └── Snakefile
+    │   ├── Snakefile
+    |   └── documentation.md
     ├── config
     │   ├── config.yaml
     │   └── some-sheet.tsv
     ├── results
     └── resources
+
 
 .. _integrated_package_management:
 
