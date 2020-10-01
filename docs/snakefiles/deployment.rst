@@ -81,7 +81,7 @@ To adhere to the high WorkflowHub standards of scientific workflows the recommen
 - Workflow documentation
 - Test directory
 
-A code of conduct for the repository developers as well as instruction on how to contribute to the project should be placed in the top-level files: ``CODE_OF_CONDUCT.md`` and ``CONTRIBUTING.md``, respectively. Each *snakemake* workflow repository needs to contain an SVG-formatted rule graph placed in a subdirectory ``images/rulegraph.svg``. Additionally, the workflow should be annotated with a technical documentation of all subsequent steps, placed under ``workflow/documentation.md``.
+A code of conduct for the repository developers as well as instruction on how to contribute to the project should be placed in the top-level files: ``CODE_OF_CONDUCT.md`` and ``CONTRIBUTING.md``, respectively. Each *snakemake* workflow repository needs to contain an SVG-formatted rule graph placed in a subdirectory ``images/rulegraph.svg``. Additionally, the workflow should be annotated with a technical documentation of all subsequent steps, included in ``workflow/documentation.md``. Finally, the repository should contain a ``.tests`` directory with two subdirectories: ``.tests/integration`` and ``.tests/unit``. The former shall contain all the input data, configuration specifications and shell commands required to run an integration test of the whole workflow. The latter shall contain subdirectories dedicated to testing each of the separate workflow steps.
 
 Therefore, the repository structure should comply with:
 
