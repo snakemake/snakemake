@@ -17,17 +17,6 @@ def test_tes():
         workdir,
         snakefile="Snakefile",
         tes="http://localhost:8000",
-        use_conda=True,
-        conda_prefix="/tmp/conda",
-        conda_frontend="conda",
-        envvars=[
-            "HTTP_PROXY",
-            "HTTPS_PROXY",
-            "CONDA_PKGS_DIRS",
-            "CONDA_ENVS_PATH",
-            "S3_ACCESS_KEY",
-            "S3_SECRET_ACCESS_KEY",
-        ],
         no_tmpdir=True,
         cleanup=False,
     )
