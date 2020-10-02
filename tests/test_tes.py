@@ -8,10 +8,6 @@ from common import *
 
 
 def test_tes():
-    subprocess.call(["rm", "-rf", "tests/test_tes/.snakemake"])
-    subprocess.call(["rm", "-rf", "tests/test_tes/output.txt"])
-    subprocess.call(["rm", "-rf", "tests/test_tes/output.txt.bz2"])
-    subprocess.call(["rm", "-rf", "tests/test_tes/test.log"])
     workdir = dpath("test_tes")
     run(
         workdir,
