@@ -33,7 +33,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         assume_shared_fs=False,
         max_status_checks_per_second=0.5,  # TODO: argument doesn't appear to be passed through from CLI?
         tes_url=None,
@@ -187,6 +186,27 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             time.sleep(1 / self.max_status_checks_per_second)
 
+    def _check_file_in_dir(self, checkdir, f):
+        if checkdir:
+            checkdir = checkdir.rstrip("/")
+            if not f.startswith(checkdir):
+                direrrmsg = (
+                    "All files including Snakefile, "
+                    + "conda env files, rule script files, output files "
+                    + "must be in the same working directory: {} vs {}"
+                )
+                raise WorkflowError(direrrmsg.format(checkdir, f))
+
+    def _get_members_path(self, overwrite_path, f):
+        if overwrite_path:
+            members_path = overwrite_path
+        else:
+            members_path = os.path.join(
+                self.container_workdir,
+                str(os.path.relpath(f)),
+            )
+        return members_path
+
     def _prepare_file(
         self,
         filename,
@@ -196,12 +216,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         type="Input",
     ):
         # TODO: handle FTP files
-        supported_protocols = ["ftp://"]
-        max_file_size = (
-            128 * 1024
-        )  # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
+        max_file_size = 131072 # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
         if type not in ["Input", "Output"]:
-            raise ValueError("Value for 'model' has to be either 'Input' or 'Outuput'.")
+            raise ValueError("Value for 'model' has to be either 'Input' or 'Output'.")
 
         members = {}
 
@@ -213,23 +230,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         else:
             f = os.path.abspath(filename)
 
-            if checkdir:
-                checkdir = checkdir.rstrip("/")
-                if not f.startswith(checkdir):
-                    direrrmsg = (
-                        "All files including Snakefile, "
-                        + "conda env files, rule script files, output files "
-                        + "must be in the same working directory: {} vs {}"
-                    )
-                    raise WorkflowError(direrrmsg.format(checkdir, f))
+            self._check_file_in_dir(checkdir, f)
 
-            if overwrite_path:
-                members["path"] = overwrite_path
-            else:
-                members["path"] = os.path.join(
-                    self.container_workdir,
-                    str(os.path.relpath(f)),
-                )
+            members["path"] = self._get_members_path(overwrite_path, f)
 
             members["url"] = "file://" + f
             if pass_content:
@@ -239,7 +242,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                         "Will not pass file '{f}' by content, as it exceeds the "
                         "minimum supported file size of {max_file_size} bytes "
                         "defined in the TES specification. Will try to upload "
-                        "file instead.".format(f=f, source_file_size=source_file_size)
+                        "file instead.".format(f=f, max_file_size=max_file_size)
                     )
                 else:
                     with open(f) as stream:
@@ -250,25 +253,20 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         logger.warning(members)
         return model(**members)
 
-    def _get_task(self, job, jobscript):
-        checkdir, _ = os.path.split(self.snakefile)
-
-        task = {}
-        task["name"] = job.format_wildcards(self.jobname)
-        task["description"] = ""
-        task["inputs"] = []
-        task["outputs"] = []
-        task["executors"] = []
-        task["resources"] = tes.models.Resources()
-
-        # populate description with rule messages
+    def _get_task_description(self, job):
+        description=""
         if job.is_group():
             msgs = [i.message for i in job.jobs if i.message]
             if msgs:
-                task["description"] = " & ".join(msgs)
+                description = " & ".join(msgs)
         else:
             if job.message:
-                task["description"] = job.message
+                description = job.message
+
+        return description
+
+    def _get_task_inputs(self, job, jobscript, checkdir):
+        inputs = []
 
         # add workflow sources to inputs
         for src in self.workflow.get_sources():
@@ -280,7 +278,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 or src.endswith(".pyc")
             ):
                 continue
-            task["inputs"].append(
+            inputs.append(
                 self._prepare_file(
                     filename=src,
                     checkdir=checkdir,
@@ -292,10 +290,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         for i in job.input:
             obj = self._prepare_file(filename=i, checkdir=checkdir)
             if obj:
-                task["inputs"].append(obj)
+                inputs.append(obj)
 
         # add jobscript to inputs
-        task["inputs"].append(
+        inputs.append(
             self._prepare_file(
                 filename=jobscript,
                 overwrite_path=os.path.join(
@@ -307,6 +305,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             )
         )
 
+        return inputs
+
+    def _get_task_outputs(self, job, checkdir):
+        outputs = []
         # add output files to outputs
         for o in job.output:
             obj = self._prepare_file(
@@ -315,12 +317,12 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 type="Output",
             )
             if obj:
-                task["outputs"].append(obj)
+                outputs.append(obj)
 
         # add log files to outputs
         if job.log:
             for log in job.log:
-                task["outputs"].append(
+                outputs.append(
                     self._prepare_file(
                         filename=log,
                         checkdir=checkdir,
@@ -331,7 +333,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
             for benchmark in job.benchmark:
-                task["outputs"].append(
+                outputs.append(
                     self._prepare_file(
                         filename=benchmark,
                         checkdir=checkdir,
@@ -339,8 +341,11 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                     )
                 )
 
-        # define executor
-        task["executors"].append(
+        return outputs
+
+    def _get_task_executors(self):
+        executors = [] 
+        executors.append(
             tes.models.Executor(
                 image=self.container_image,
                 command=[  # TODO: info about what is executed is opaque
@@ -350,6 +355,18 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 workdir=self.container_workdir,
             )
         )
+        return executors
+
+    def _get_task(self, job, jobscript):
+        checkdir, _ = os.path.split(self.snakefile)
+
+        task = {}
+        task["name"] = job.format_wildcards(self.jobname)
+        task["description"] = self._get_task_description(job)
+        task["inputs"] = self._get_task_inputs(job, jobscript, checkdir)
+        task["outputs"] = self._get_task_outputs(job, checkdir)
+        task["executors"] = self._get_task_executors()
+        task["resources"] = tes.models.Resources()
 
         # define resources
         if "_cores" in job.resources:
