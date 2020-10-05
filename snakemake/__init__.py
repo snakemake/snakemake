@@ -122,6 +122,7 @@ def snakemake(
     updated_files=None,
     log_handler=[],
     keep_logger=False,
+    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -261,6 +262,7 @@ def snakemake(
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
+        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -444,6 +446,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            wms_monitor=wms_monitor,
         )
 
     if greediness is None:
@@ -1278,6 +1281,14 @@ def get_argument_parser(profile=None):
         help=(
             "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
+        ),
+    )
+    group_exec.add_argument(
+        "--wms-monitor",
+        action="store",
+        nargs="?",
+        help=(
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
         ),
     )
 
@@ -2569,6 +2580,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
