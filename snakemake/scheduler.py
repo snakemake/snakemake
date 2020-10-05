@@ -368,6 +368,11 @@ class JobScheduler:
         """ Return open jobs. """
         return filter(self.candidate, list(job for job in self.dag.ready_jobs))
 
+    @property
+    def remaining_jobs(self):
+        """ Return jobs to be scheduled including not yet ready ones. """
+        return [job for job in self.dag.needrun_jobs if job not in self.running and not self.dag.finished(job)]
+
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
         try:
@@ -647,7 +652,7 @@ class JobScheduler:
                     scheduled_jobs[job] * self.required_by_job(temp_file, job)
                     for job in jobs
                 ]
-            ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+            ) / lpSum([self.required_by_job(temp_file, job) for job in self.remaining_jobs])
 
             prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
