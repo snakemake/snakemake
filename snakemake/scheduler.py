@@ -650,15 +650,14 @@ class JobScheduler:
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        remaining_jobs = self.remaining_jobs
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum(
                 [
                     scheduled_jobs[job] * self.required_by_job(temp_file, job)
                     for job in jobs
                 ]
-            ) / lpSum(
-                [self.required_by_job(temp_file, job) for job in self.remaining_jobs]
-            )
+            ) / lpSum([self.required_by_job(temp_file, job) for job in remaining_jobs])
 
             prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
