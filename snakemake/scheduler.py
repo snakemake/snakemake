@@ -368,6 +368,15 @@ class JobScheduler:
         """ Return open jobs. """
         return filter(self.candidate, list(job for job in self.dag.ready_jobs))
 
+    @property
+    def remaining_jobs(self):
+        """ Return jobs to be scheduled including not yet ready ones. """
+        return [
+            job
+            for job in self.dag.needrun_jobs
+            if job not in self.running and not self.dag.finished(job)
+        ]
+
     def schedule(self):
         """ Schedule jobs that are ready, maximizing cpu usage. """
         try:
@@ -596,7 +605,7 @@ class JobScheduler:
 
         total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
         total_core_requirement = sum(
-            [job.resources.get("_cores", 1) + 1 for job in jobs]
+            [max(job.resources.get("_cores", 1), 1) for job in jobs]
         )
         # Objective function
         # Job priority > Core load
@@ -612,7 +621,7 @@ class JobScheduler:
             * total_temp_size
             * lpSum(
                 [
-                    (job.resources.get("_cores", 1) + 1) * scheduled_jobs[job]
+                    max(job.resources.get("_cores", 1), 1) * scheduled_jobs[job]
                     for job in jobs
                 ]
             )
@@ -641,13 +650,14 @@ class JobScheduler:
             )
 
         # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+        remaining_jobs = self.remaining_jobs
         for temp_file in temp_files:
             prob += temp_job_improvement[temp_file] <= lpSum(
                 [
                     scheduled_jobs[job] * self.required_by_job(temp_file, job)
                     for job in jobs
                 ]
-            ) / lpSum([self.required_by_job(temp_file, job) for job in jobs])
+            ) / lpSum([self.required_by_job(temp_file, job) for job in remaining_jobs])
 
             prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
 
