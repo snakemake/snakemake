@@ -358,9 +358,13 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        jobs = self.dag.ready_jobs - (self.running |  self.failed)
+        jobs = self.dag.ready_jobs - (self.running | self.failed)
         if not self.dryrun:
-            jobs = [job for job in jobs if not job.dynamic_input and not self.dag.dynamic(job)]
+            jobs = [
+                job
+                for job in jobs
+                if not job.dynamic_input and not self.dag.dynamic(job)
+            ]
         return jobs
 
     @property
@@ -497,7 +501,9 @@ class JobScheduler:
                     return
 
             try:
-                potential_new_ready_jobs = self.dag.finish(job, update_dynamic=update_dynamic)
+                potential_new_ready_jobs = self.dag.finish(
+                    job, update_dynamic=update_dynamic
+                )
             except (RuleException, WorkflowError) as e:
                 # if an error occurs while processing job output,
                 # we do the same as in case of errors during execution
@@ -520,7 +526,7 @@ class JobScheduler:
                 self.progress()
 
             if (
-                not self.running 
+                not self.running
                 or (potential_new_ready_jobs and self.open_jobs)
                 or self.workflow.immediate_submit
             ):
