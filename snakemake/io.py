@@ -33,10 +33,11 @@ from inspect import isfunction, ismethod
 
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
-#IO cache constants. Object to get unique id()
-IOCACHE_DEFERRED = object() #value is unknown during inventory operation
+# IO cache constants. Object to get unique id()
+IOCACHE_DEFERRED = object()  # value is unknown during inventory operation
 IOCACHE_BROKENSYMLINK = object()
 IOCACHE_NOTEXIST = object()
+
 
 def lutime(f, times):
     # In some cases, we have a platform where os.supports_follow_symlink includes stat()
@@ -179,12 +180,20 @@ def IOFile(file, rule=None):
 def cached_abspath(path):
     return os.path.abspath(path)
 
+
 class _IOFile(str):
     """
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex", "inventory_root", "inventory_path"]
+    __slots__ = [
+        "_is_function",
+        "_file",
+        "rule",
+        "_regex",
+        "inventory_root",
+        "inventory_path",
+    ]
 
     def __new__(cls, file):
         # Remove trailing slashes.
@@ -210,7 +219,7 @@ class _IOFile(str):
 
             if file.endswith("/"):
                 obj.inventory_path = os.path.join(directory, name + "/")
-            else: 
+            else:
                 obj.inventory_path = os.path.join(directory, name)
             obj.inventory_root = directory
 
@@ -223,18 +232,24 @@ class _IOFile(str):
                 iocache = self.rule.workflow.iocache
                 if iocache.active:
                     cache = getattr(iocache, func.__name__)
-                    if (self.inventory_path in cache):  # first check if file is present in cache
+                    # first check if file is present in cache
+                    if self.inventory_path in cache:
                         res = cache[self.inventory_path]
-                    elif iocache.in_inventory(self.inventory_root):  # check if the folder was cached
+                    # check if the folder was cached
+                    elif iocache.in_inventory(self.inventory_root):
                         # as the folder was cached, we do know that the file does not exist
                         if raise_error:
-                             # make sure that the cache behaves the same as non-cached results
-                            raise FileNotFoundError("No such file or directory: {}".format(self.file))
+                            # make sure that the cache behaves the same as non-cached results
+                            raise FileNotFoundError(
+                                "No such file or directory: {}".format(self.file)
+                            )
                         else:
                             return False
                     elif self._is_function:
-                        raise ValueError("This IOFile is specified as a function and "
-                                                     "may not be used directly." )
+                        raise ValueError(
+                            "This IOFile is specified as a function and "
+                            "may not be used directly."
+                        )
                     else:
                         res = IOCACHE_DEFERRED
 
@@ -260,7 +275,6 @@ class _IOFile(str):
             return wrapper
 
         return inner_iocache
-
 
     def _refer_to_remote(func):
         """
@@ -314,9 +328,14 @@ class _IOFile(str):
             # this function is only called for local objects
             cache.exists_remote[path] = False
 
-            if ((not cache.mtime.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
+            if (
+                (not cache.mtime.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
                 and (not cache.size.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
-                and (not cache.exists_local.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)):
+                and (
+                    not cache.exists_local.get(path, IOCACHE_DEFERRED)
+                    is IOCACHE_DEFERRED
+                )
+            ):
                 continue
 
             try:
@@ -348,7 +367,6 @@ class _IOFile(str):
                     else:
                         raise  # this will stop the thread, thereby slowing/disabling caching
 
-
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
         # obtaining mtime and size of the files is deferred for parallel execution
@@ -366,16 +384,21 @@ class _IOFile(str):
                 counter = 0
                 for entry in os.scandir(path):
                     if entry.is_dir():
-                        if not ".snakemake" in entry.path and \
-                            not cache.in_inventory(entry.path):
+                        if not ".snakemake" in entry.path and not cache.in_inventory(
+                            entry.path
+                        ):
                             queue.add(entry.path)
                         cache.exists_local[entry.path] = True
 
-                        timestamp_path = os.path.join(entry.path, ".snakemake_timestamp")
+                        timestamp_path = os.path.join(
+                            entry.path, ".snakemake_timestamp"
+                        )
                         if os.path.exists(timestamp_path):
                             cache.mtime[entry.path] = os.lstat(timestamp_path).st_mtime
                         else:
-                            cache.mtime[entry.path] = entry.stat(follow_symlinks=False).st_mtime
+                            cache.mtime[entry.path] = entry.stat(
+                                follow_symlinks=False
+                            ).st_mtime
                             if entry.is_symlink():
                                 cache.mtime[entry.path] = max(
                                     cache.mtime[entry.path],
@@ -383,7 +406,7 @@ class _IOFile(str):
                                 )
 
                         # no point to get accurate directory size
-                        cache.size[entry.path] = 0  
+                        cache.size[entry.path] = 0
                     else:
                         counter += 1
                         # path is a file
@@ -397,7 +420,7 @@ class _IOFile(str):
                             pbuffer = []
 
                     # local_inventory is only called if there is no remote object.
-                    cache.exists_remote[entry.path] = False  
+                    cache.exists_remote[entry.path] = False
 
                 if pbuffer:
                     cache.submit(self._local_add_paths_to_inventory, pbuffer)
