@@ -461,9 +461,16 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.default_remote_prefix, path)
-        path = os.path.normpath(path)
-        return self.default_remote_provider.remote(path)
+
+        # This will convert any AnnotatedString to str
+        fullpath = "{}/{}".format(self.default_remote_prefix, path)
+        fullpath = os.path.normpath(fullpath)
+        remote = self.default_remote_provider.remote(fullpath)
+
+        # Important, update with previous flags in case of AnnotatedString #596
+        if hasattr(path, "flags"):
+            remote.flags.update(path.flags)
+        return remote
 
     def execute(
         self,
