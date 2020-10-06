@@ -549,6 +549,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -913,6 +914,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )

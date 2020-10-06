@@ -980,6 +980,7 @@ class Job(AbstractJob):
         ignore_missing_output=False,
         assume_shared_fs=True,
         latency_wait=None,
+        keep_metadata=True,
     ):
         if assume_shared_fs:
             if not error and handle_touch:
@@ -1002,7 +1003,7 @@ class Job(AbstractJob):
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self)
+                self.dag.workflow.persistence.finished(self,keep_metadata=keep_metadata)
             except IOError as e:
                 logger.warning(
                     "Error recording metadata for finished job "

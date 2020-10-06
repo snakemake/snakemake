@@ -40,6 +40,8 @@ class Persistence:
         self._lockfile = dict()
 
         self._metadata_path = os.path.join(self.path, "metadata")
+        self._incomplete_path = os.path.join(self.path, "incomplete")
+
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
 
@@ -61,6 +63,16 @@ class Persistence:
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
         self.aux_path = os.path.join(self.path, "auxiliary")
 
+        self.incomplete_oldapproach =  os.path.exists(self._metadata_path) and not os.path.exists(self._incomplete_path)
+        if self.incomplete_oldapproach:
+            self.incomplete = self._incomplete_oldapproach
+            self.started = self._started_oldapproach
+        else:
+            self.incomplete = self._incomplete_newapproach
+            self.started = self._started_newapproach
+            os.makedirs(self._incomplete_path, exist_ok=True)
+            self._incomplete_cache = None
+
         for d in (
             self._metadata_path,
             self.shadow_path,
@@ -79,6 +91,7 @@ class Persistence:
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
+
 
     @property
     def files(self):
@@ -157,7 +170,14 @@ class Persistence:
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid=None):
+    def _started_newapproach(self, job, external_jobid=None):
+        for f in job.output:
+            self._record(
+                self._incomplete_path,
+                {"external_jobid": external_jobid},
+                f,
+            )
+    def _started_oldapproach(self, job, external_jobid=None):
         for f in job.output:
             self._record(
                 self._metadata_path,
@@ -165,53 +185,78 @@ class Persistence:
                 f,
             )
 
-    def finished(self, job):
-        version = str(job.rule.version) if job.rule.version is not None else None
-        code = self._code(job.rule)
-        input = self._input(job)
-        log = self._log(job)
-        params = self._params(job)
-        shellcmd = job.shellcmd
-        conda_env = self._conda_env(job)
-        fallback_time = time.time()
-        for f in job.expanded_output:
-            rec_path = self._record_path(self._metadata_path, f)
-            starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-            endtime = f.mtime if os.path.exists(f) else fallback_time
-            self._record(
-                self._metadata_path,
-                {
-                    "version": version,
-                    "code": code,
-                    "rule": job.rule.name,
-                    "input": input,
-                    "log": log,
-                    "params": params,
-                    "shellcmd": shellcmd,
-                    "incomplete": False,
-                    "starttime": starttime,
-                    "endtime": endtime,
-                    "job_hash": hash(job),
-                    "conda_env": conda_env,
-                    "container_img_url": job.container_img_url,
-                },
-                f,
-            )
+    def finished(self, job,keep_metadata=True):
+        records_path = self._metadata_path if self.incomplete_oldapproach else self._incomplete_path
+        if not keep_metadata:
+            for f in job.expanded_output:
+                self._delete_record(records_path, f)
+        else:
+            version = str(job.rule.version) if job.rule.version is not None else None
+            code = self._code(job.rule)
+            input = self._input(job)
+            log = self._log(job)
+            params = self._params(job)
+            shellcmd = job.shellcmd
+            conda_env = self._conda_env(job)
+            fallback_time = time.time()
+            for f in job.expanded_output:
+                rec_path = self._record_path(records_path, f)
+                starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
+                endtime = f.mtime if os.path.exists(f) else fallback_time
+                self._record(
+                    self._metadata_path,
+                    {
+                        "version": version,
+                        "code": code,
+                        "rule": job.rule.name,
+                        "input": input,
+                        "log": log,
+                        "params": params,
+                        "shellcmd": shellcmd,
+                        "incomplete": False,
+                        "starttime": starttime,
+                        "endtime": endtime,
+                        "job_hash": hash(job),
+                        "conda_env": conda_env,
+                        "container_img_url": job.container_img_url,
+                    },
+                    f,
+                )
+                if not self.incomplete_oldapproach:
+                    self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
+            self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
-    def incomplete(self, job):
+    def _incomplete_oldapproach(self, job):
         def marked_incomplete(f):
             return self._read_record(self._metadata_path, f).get("incomplete", False)
+        return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
+
+    def _incomplete_newapproach(self, job):
+        if self._incomplete_cache is None:
+            self._cache_incomplete_folder()
+
+        if self._incomplete_cache is False: #cache deactivated
+            def marked_incomplete(f):
+                return self._exists_record(self._incomplete_path, f)
+        else:
+            def marked_incomplete(f):
+                rec_path = self._record_path(self._incomplete_path, f)
+                return rec_path in self._incomplete_cache
 
         return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
 
+    def _cache_incomplete_folder(self):
+        self._incomplete_cache = {file_entry.path for file_entry in os.scandir(self._incomplete_path)}
+
     def external_jobids(self, job):
+        records_path = self._metadata_path if self.incomplete_oldapproach else self._incomplete_path
         return list(
             set(
-                self._read_record(self._metadata_path, f).get("external_jobid", None)
+                self._read_record(records_path, f).get("external_jobid", None)
                 for f in job.output
             )
         )
@@ -378,6 +423,8 @@ class Persistence:
     def deactivate_cache(self):
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
+        self._incomplete_cache = False
+
 
 
 def _bool_or_gen(func, job, file=None):

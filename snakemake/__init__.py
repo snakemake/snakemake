@@ -163,6 +163,7 @@ def snakemake(
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
+    keep_metadata=True,
     messaging=None,
     edit_notebook=None,
     envvars=None,
@@ -218,6 +219,7 @@ def snakemake(
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
+        drop_metadata (bool):       drop metadata tracking information after job (code/input/params/version change listings will be incomplete) (default False)
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
@@ -744,6 +746,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    keepmetadata=keep_metadata
                 )
 
     except BrokenPipeError:
@@ -1566,6 +1569,11 @@ def get_argument_parser(profile=None):
         "--keep-incomplete",
         action="store_true",
         help="Do not remove incomplete output files by failed jobs.",
+    )
+    group_utils.add_argument(
+        "--drop-metadata",
+        action="store_true",
+        help="Drop metadata after job completion.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -2582,6 +2590,7 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
+            keep_metadata=not args.drop_metadata,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
