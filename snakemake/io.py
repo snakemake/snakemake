@@ -373,65 +373,66 @@ class _IOFile(str):
         # as this can be a slow step on network filesystems
         root = self.inventory_root
 
-        if os.path.exists(root):
-            queue = set([root])
-            while queue:
-                path = queue.pop()
-                start = time.time()
-
-                logger.debug("Inventory started of {}".format(path))
-                pbuffer = []
-                counter = 0
-                for entry in os.scandir(path):
-                    if entry.is_dir():
-                        if not ".snakemake" in entry.path and not cache.in_inventory(
-                            entry.path
-                        ):
-                            queue.add(entry.path)
-                        cache.exists_local[entry.path] = True
-
-                        timestamp_path = os.path.join(
-                            entry.path, ".snakemake_timestamp"
-                        )
-                        if os.path.exists(timestamp_path):
-                            cache.mtime[entry.path] = os.lstat(timestamp_path).st_mtime
-                        else:
-                            cache.mtime[entry.path] = entry.stat(
-                                follow_symlinks=False
-                            ).st_mtime
-                            if entry.is_symlink():
-                                cache.mtime[entry.path] = max(
-                                    cache.mtime[entry.path],
-                                    entry.stat(follow_symlinks=True).st_mtime,
-                                )
-
-                        # no point to get accurate directory size
-                        cache.size[entry.path] = 0
-                    else:
-                        counter += 1
-                        # path is a file
-                        # exists_local returns False for broken symlinks, make sure same happens here by using is_file().
-                        cache.exists_local[entry.path] = entry.is_file()
-                        cache.mtime[entry.path] = IOCACHE_DEFERRED
-                        cache.size[entry.path] = IOCACHE_DEFERRED
-                        pbuffer.append(entry.path)
-                        if len(pbuffer) > 100:
-                            cache.submit(self._local_add_paths_to_inventory, pbuffer)
-                            pbuffer = []
-
-                    # local_inventory is only called if there is no remote object.
-                    cache.exists_remote[entry.path] = False
-
-                if pbuffer:
-                    cache.submit(self._local_add_paths_to_inventory, pbuffer)
-                cache.has_inventory.add(path)
-                logger.debug(
-                    "Inventory of {} completed in {} seconds. {} files added to stat queue ({} tasks in queue).".format(
-                        path, time.time() - start, counter, cache.queue.qsize()
-                    )
-                )
-        else:
+        if not os.path.exists(root):
             cache.has_inventory.add(root)
+            return
+
+        queue = set([root])
+        while queue:
+            path = queue.pop()
+            start = time.time()
+
+            logger.debug("Inventory started of {}".format(path))
+            pbuffer = []
+            counter = 0
+            for entry in os.scandir(path):
+                if entry.is_dir():
+                    if not ".snakemake" in entry.path and \
+                              not cache.in_inventory(entry.path):
+                        queue.add(entry.path)
+                    cache.exists_local[entry.path] = True
+
+                    timestamp_path = os.path.join(
+                        entry.path, ".snakemake_timestamp"
+                    )
+                    if os.path.exists(timestamp_path):
+                        cache.mtime[entry.path] = os.lstat(timestamp_path).st_mtime
+                    else:
+                        cache.mtime[entry.path] = entry.stat(
+                            follow_symlinks=False
+                        ).st_mtime
+                        if entry.is_symlink():
+                            cache.mtime[entry.path] = max(
+                                cache.mtime[entry.path],
+                                entry.stat(follow_symlinks=True).st_mtime,
+                            )
+
+                    # no point to get accurate directory size
+                    cache.size[entry.path] = 0
+                else:
+                    counter += 1
+                    # path is a file
+                    # exists_local returns False for broken symlinks, make sure same happens here by using is_file().
+                    cache.exists_local[entry.path] = entry.is_file()
+                    cache.mtime[entry.path] = IOCACHE_DEFERRED
+                    cache.size[entry.path] = IOCACHE_DEFERRED
+                    pbuffer.append(entry.path)
+                    if len(pbuffer) > 100:
+                        cache.submit(self._local_add_paths_to_inventory, pbuffer)
+                        pbuffer = []
+
+                # local_inventory is only called if there is no remote object.
+                cache.exists_remote[entry.path] = False
+
+            if pbuffer:
+                cache.submit(self._local_add_paths_to_inventory, pbuffer)
+
+            cache.has_inventory.add(path)
+            logger.debug(
+                "Inventory of {} completed in {} seconds. {} files added to stat queue ({} tasks in queue).".format(
+                    path, time.time() - start, counter, cache.queue.qsize()
+                )
+            )
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
