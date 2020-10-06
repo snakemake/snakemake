@@ -2060,7 +2060,7 @@ def get_argument_parser(profile=None):
 
     group_tes.add_argument(
         "--tes",
-        action="store_true",
+        metavar="URL",
         help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
