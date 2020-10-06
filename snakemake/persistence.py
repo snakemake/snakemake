@@ -193,45 +193,45 @@ class Persistence:
             if self.incomplete_oldapproach
             else self._incomplete_path
         )
+
         if not keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(records_path, f)
-        else:
-            version = str(job.rule.version) if job.rule.version is not None else None
-            code = self._code(job.rule)
-            input = self._input(job)
-            log = self._log(job)
-            params = self._params(job)
-            shellcmd = job.shellcmd
-            conda_env = self._conda_env(job)
-            fallback_time = time.time()
-            for f in job.expanded_output:
-                rec_path = self._record_path(records_path, f)
-                starttime = (
-                    os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-                )
-                endtime = f.mtime if os.path.exists(f) else fallback_time
-                self._record(
-                    self._metadata_path,
-                    {
-                        "version": version,
-                        "code": code,
-                        "rule": job.rule.name,
-                        "input": input,
-                        "log": log,
-                        "params": params,
-                        "shellcmd": shellcmd,
-                        "incomplete": False,
-                        "starttime": starttime,
-                        "endtime": endtime,
-                        "job_hash": hash(job),
-                        "conda_env": conda_env,
-                        "container_img_url": job.container_img_url,
-                    },
-                    f,
-                )
-                if not self.incomplete_oldapproach:
-                    self._delete_record(self._incomplete_path, f)
+            return
+
+        version = str(job.rule.version) if job.rule.version is not None else None
+        code = self._code(job.rule)
+        input = self._input(job)
+        log = self._log(job)
+        params = self._params(job)
+        shellcmd = job.shellcmd
+        conda_env = self._conda_env(job)
+        fallback_time = time.time()
+        for f in job.expanded_output:
+            rec_path = self._record_path(records_path, f)
+            starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
+            endtime = f.mtime if os.path.exists(f) else fallback_time
+            self._record(
+                self._metadata_path,
+                {
+                    "version": version,
+                    "code": code,
+                    "rule": job.rule.name,
+                    "input": input,
+                    "log": log,
+                    "params": params,
+                    "shellcmd": shellcmd,
+                    "incomplete": False,
+                    "starttime": starttime,
+                    "endtime": endtime,
+                    "job_hash": hash(job),
+                    "conda_env": conda_env,
+                    "container_img_url": job.container_img_url,
+                },
+                f,
+            )
+            if not self.incomplete_oldapproach:
+                self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
