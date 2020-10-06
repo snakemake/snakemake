@@ -63,7 +63,9 @@ class Persistence:
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
         self.aux_path = os.path.join(self.path, "auxiliary")
 
-        self.incomplete_oldapproach =  os.path.exists(self._metadata_path) and not os.path.exists(self._incomplete_path)
+        self.incomplete_oldapproach = os.path.exists(
+            self._metadata_path
+        ) and not os.path.exists(self._incomplete_path)
         if self.incomplete_oldapproach:
             self.incomplete = self._incomplete_oldapproach
             self.started = self._started_oldapproach
@@ -91,7 +93,6 @@ class Persistence:
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
-
 
     @property
     def files(self):
@@ -177,6 +178,7 @@ class Persistence:
                 {"external_jobid": external_jobid},
                 f,
             )
+
     def _started_oldapproach(self, job, external_jobid=None):
         for f in job.output:
             self._record(
@@ -185,8 +187,12 @@ class Persistence:
                 f,
             )
 
-    def finished(self, job,keep_metadata=True):
-        records_path = self._metadata_path if self.incomplete_oldapproach else self._incomplete_path
+    def finished(self, job, keep_metadata=True):
+        records_path = (
+            self._metadata_path
+            if self.incomplete_oldapproach
+            else self._incomplete_path
+        )
         if not keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(records_path, f)
@@ -201,7 +207,9 @@ class Persistence:
             fallback_time = time.time()
             for f in job.expanded_output:
                 rec_path = self._record_path(records_path, f)
-                starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
+                starttime = (
+                    os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
+                )
                 endtime = f.mtime if os.path.exists(f) else fallback_time
                 self._record(
                     self._metadata_path,
@@ -233,16 +241,20 @@ class Persistence:
     def _incomplete_oldapproach(self, job):
         def marked_incomplete(f):
             return self._read_record(self._metadata_path, f).get("incomplete", False)
+
         return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def _incomplete_newapproach(self, job):
         if self._incomplete_cache is None:
             self._cache_incomplete_folder()
 
-        if self._incomplete_cache is False: #cache deactivated
+        if self._incomplete_cache is False:  # cache deactivated
+
             def marked_incomplete(f):
                 return self._exists_record(self._incomplete_path, f)
+
         else:
+
             def marked_incomplete(f):
                 rec_path = self._record_path(self._incomplete_path, f)
                 return rec_path in self._incomplete_cache
@@ -250,10 +262,16 @@ class Persistence:
         return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
 
     def _cache_incomplete_folder(self):
-        self._incomplete_cache = {file_entry.path for file_entry in os.scandir(self._incomplete_path)}
+        self._incomplete_cache = {
+            file_entry.path for file_entry in os.scandir(self._incomplete_path)
+        }
 
     def external_jobids(self, job):
-        records_path = self._metadata_path if self.incomplete_oldapproach else self._incomplete_path
+        records_path = (
+            self._metadata_path
+            if self.incomplete_oldapproach
+            else self._incomplete_path
+        )
         return list(
             set(
                 self._read_record(records_path, f).get("external_jobid", None)
@@ -424,7 +442,6 @@ class Persistence:
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
         self._incomplete_cache = False
-
 
 
 def _bool_or_gen(func, job, file=None):

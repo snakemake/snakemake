@@ -1227,7 +1227,7 @@ class DRMAAExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
-        keepmetadata=True
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,

@@ -1003,7 +1003,9 @@ class Job(AbstractJob):
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self,keep_metadata=keep_metadata)
+                self.dag.workflow.persistence.finished(
+                    self, keep_metadata=keep_metadata
+                )
             except IOError as e:
                 logger.warning(
                     "Error recording metadata for finished job "

@@ -746,7 +746,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
-                    keepmetadata=keep_metadata
+                    keepmetadata=keep_metadata,
                 )
 
     except BrokenPipeError:
