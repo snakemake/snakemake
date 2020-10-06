@@ -387,14 +387,13 @@ class _IOFile(str):
             counter = 0
             for entry in os.scandir(path):
                 if entry.is_dir():
-                    if not ".snakemake" in entry.path and \
-                              not cache.in_inventory(entry.path):
+                    if not ".snakemake" in entry.path and not cache.in_inventory(
+                        entry.path
+                    ):
                         queue.add(entry.path)
                     cache.exists_local[entry.path] = True
 
-                    timestamp_path = os.path.join(
-                        entry.path, ".snakemake_timestamp"
-                    )
+                    timestamp_path = os.path.join(entry.path, ".snakemake_timestamp")
                     if os.path.exists(timestamp_path):
                         cache.mtime[entry.path] = os.lstat(timestamp_path).st_mtime
                     else:
