@@ -167,13 +167,28 @@ class AbstractRemoteObject:
         self.provider = provider
         self.protocol = protocol
 
+    @property
+    def inventory_path(self):
+        #returns path as used by the IOCache inventory
+        pass
+
+    @property
+    def inventory_root(self):
+        #should return folder that that contains this object and has to becached in IOCache
+        pass
+
+    @abstractmethod
     def inventory(self, cache: snakemake.io.IOCache):
-        """From this file, try to find as much existence and modification date
-        information as possible.
+        """From this file, try to find as much existence and modification date 
+        information as possible for files in the same folder.
         """
         # If this is implemented in a remote object, results have to be stored in
         # the given IOCache object.
         pass
+
+    def _add_to_inventory(self, cache: snakemake.io.IOCache, attribute):
+        cache[self.inventory_path] = getattr(self, attribute)
+
 
     @property
     def _file(self):

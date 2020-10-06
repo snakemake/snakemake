@@ -127,6 +127,15 @@ class RemoteObject(AbstractRemoteObject):
         self._bucket = None
         self._blob = None
 
+    @property
+    def inventory_path(self):
+        return "{}/{}".format(self.bucket_name, self.blob.name)
+
+    @property
+    def inventory_root(self):
+        subfolder = os.path.dirname(self.blob.name)
+        return "{}/{}".format(self.bucket_name, subfolder)
+
     def inventory(self, cache: snakemake.io.IOCache):
         """Using client.list_blobs(), we want to iterate over the objects in
         the "folder" of a bucket and store information about the IOFiles in the
@@ -150,12 +159,13 @@ class RemoteObject(AbstractRemoteObject):
             cache.exists_remote[name] = True
             cache.mtime[name] = blob.updated.timestamp()
             cache.size[name] = blob.size
+            cache.exists_local[name] = snakemake.io.IOCACHE_DEFERRED
 
         cache.remaining_wait_time -= time.time() - start_time
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
+        cache.has_inventory.add("{}/{}".format(self.bucket_name, subfolder))
 
     # === Implementations of abstract class members ===
 
