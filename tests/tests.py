@@ -1051,3 +1051,7 @@ def test_github_issue456():
 
 def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
+
+
+def test_issue661():
+    run(dpath("test_issue661"), check_md5=True)
