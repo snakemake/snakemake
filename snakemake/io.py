@@ -34,9 +34,10 @@ from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
 # IO cache constants. Object to get unique id()
-IOCACHE_DEFERRED = object()  # value is unknown during inventory operation
+IOCACHE_DEFERRED = object()  # value is not yet filled in
 IOCACHE_BROKENSYMLINK = object()
 IOCACHE_NOTEXIST = object()
+IOCACHE_NOPERMISSION = object()
 
 
 def lutime(f, times):
@@ -267,6 +268,12 @@ class _IOFile(str):
                         raise FileNotFoundError(
                             "File {} does not exist.".format(self.file)
                         )
+                    elif res is IOCACHE_NOPERMISSION:
+                        raise PermissionError(
+                            "File {} does not have the required permissions.".format(
+                                self.file
+                            )
+                        )
                     return res
 
                 else:
@@ -340,14 +347,14 @@ class _IOFile(str):
 
             try:
                 fstat = os.lstat(path)
-            except OSError as e:
-                if e.errno == errno.ENOENT:  # is it a file not exist error?
-                    cache.exists_local[path] = False
-                    cache.mtime[path] = IOCACHE_NOTEXIST
-                    cache.size[path] = IOCACHE_NOTEXIST
-                    continue
-                else:
-                    raise  # this will stop the thread, thereby slowing/disabling caching
+            except FileNotFoundError as e:
+                cache.exists_local[path] = False
+                cache.mtime[path] = IOCACHE_NOTEXIST
+                cache.size[path] = IOCACHE_NOTEXIST
+            except PermissionError as e:
+                cache.exists_local[path] = True
+                cache.mtime[path] = IOCACHE_NOPERMISSION
+                cache.size[path] = IOCACHE_NOPERMISSION
 
             cache.mtime[path] = fstat.st_mtime
             if not stat.S_ISLNK(fstat.st_mode):
@@ -359,13 +366,14 @@ class _IOFile(str):
                     cache.mtime[path] = max(cache.mtime[path], fstat.st_mtime)
                     cache.size[path] = fstat.st_size
                     cache.exists_local[path] = True
-                except OSError as e:
-                    if e.errno == errno.ENOENT:  # is it a file not exist error?
-                        cache.exists_local[path] = False
-                        cache.mtime[path] = IOCACHE_BROKENSYMLINK
-                        cache.size[path] = IOCACHE_BROKENSYMLINK
-                    else:
-                        raise  # this will stop the thread, thereby slowing/disabling caching
+                except FileNotFoundError as e:
+                    cache.exists_local[path] = False
+                    cache.mtime[path] = IOCACHE_BROKENSYMLINK
+                    cache.size[path] = IOCACHE_BROKENSYMLINK
+                except PermissionError as e:
+                    cache.exists_local[path] = True
+                    cache.mtime[path] = IOCACHE_NOPERMISSION
+                    cache.size[path] = IOCACHE_NOPERMISSION
 
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
@@ -385,53 +393,61 @@ class _IOFile(str):
             logger.debug("Inventory started of {}".format(path))
             pbuffer = []
             counter = 0
-            for entry in os.scandir(path):
-                if entry.is_dir():
-                    if not ".snakemake" in entry.path and not cache.in_inventory(
-                        entry.path
-                    ):
-                        queue.add(entry.path)
-                    cache.exists_local[entry.path] = True
+            try:
+                for entry in os.scandir(path):
+                    if entry.is_dir():
+                        if not ".snakemake" in entry.path and not cache.in_inventory(
+                            entry.path
+                        ):
+                            queue.add(entry.path)
+                        cache.exists_local[entry.path] = True
 
-                    timestamp_path = os.path.join(entry.path, ".snakemake_timestamp")
-                    if os.path.exists(timestamp_path):
-                        cache.mtime[entry.path] = os.lstat(timestamp_path).st_mtime
+                        timestamp_path = os.path.join(
+                            entry.path, ".snakemake_timestamp"
+                        )
+                        try:
+                            s = os.lstat(timestamp_path)
+                            cache.mtime[entry.path] = s.st_mtime
+                        except FileNotFoundError as e:
+                            cache.mtime[entry.path] = entry.stat(
+                                follow_symlinks=False
+                            ).st_mtime
+                            if entry.is_symlink():
+                                cache.mtime[entry.path] = max(
+                                    cache.mtime[entry.path],
+                                    entry.stat(follow_symlinks=True).st_mtime,
+                                )
+
+                        # no point to get accurate directory size
+                        cache.size[entry.path] = 0
                     else:
-                        cache.mtime[entry.path] = entry.stat(
-                            follow_symlinks=False
-                        ).st_mtime
-                        if entry.is_symlink():
-                            cache.mtime[entry.path] = max(
-                                cache.mtime[entry.path],
-                                entry.stat(follow_symlinks=True).st_mtime,
-                            )
+                        counter += 1
+                        # path is a file
+                        # exists_local returns False for broken symlinks, make sure same happens here by using is_file().
+                        cache.exists_local[entry.path] = entry.is_file()
+                        cache.mtime[entry.path] = IOCACHE_DEFERRED
+                        cache.size[entry.path] = IOCACHE_DEFERRED
+                        pbuffer.append(entry.path)
+                        if len(pbuffer) > 100:
+                            cache.submit(self._local_add_paths_to_inventory, pbuffer)
+                            pbuffer = []
 
-                    # no point to get accurate directory size
-                    cache.size[entry.path] = 0
-                else:
-                    counter += 1
-                    # path is a file
-                    # exists_local returns False for broken symlinks, make sure same happens here by using is_file().
-                    cache.exists_local[entry.path] = entry.is_file()
-                    cache.mtime[entry.path] = IOCACHE_DEFERRED
-                    cache.size[entry.path] = IOCACHE_DEFERRED
-                    pbuffer.append(entry.path)
-                    if len(pbuffer) > 100:
-                        cache.submit(self._local_add_paths_to_inventory, pbuffer)
-                        pbuffer = []
+                    # local_inventory is only called if there is no remote object.
+                    cache.exists_remote[entry.path] = False
 
-                # local_inventory is only called if there is no remote object.
-                cache.exists_remote[entry.path] = False
+                if pbuffer:
+                    cache.submit(self._local_add_paths_to_inventory, pbuffer)
 
-            if pbuffer:
-                cache.submit(self._local_add_paths_to_inventory, pbuffer)
-
-            cache.has_inventory.add(path)
-            logger.debug(
-                "Inventory of {} completed in {} seconds. {} files added to stat queue ({} tasks in queue).".format(
-                    path, time.time() - start, counter, cache.queue.qsize()
+                cache.has_inventory.add(path)
+                logger.debug(
+                    "Inventory of {} completed in {} seconds. {} files added to stat queue ({} tasks in queue).".format(
+                        path, time.time() - start, counter, cache.queue.qsize()
+                    )
                 )
-            )
+            except (FileNotFoundError, PermissionError) as e:
+                logger.debug("Inventory of {} failed: {}".format(path, str(e)))
+                # no permission or some external process deleted the directory or file? skip inventory.
+                pass
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
