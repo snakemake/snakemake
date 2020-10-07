@@ -142,7 +142,7 @@ def test_directory2():
 
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=["D", "old_file"])
+    run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
