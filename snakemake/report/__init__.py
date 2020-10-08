@@ -333,7 +333,7 @@ class ConfigfileRecord:
         file_ext = self.path.suffix
         if file_ext in (".yml", ".yaml"):
             language = "yaml"
-        elif file_ext == "json":
+        elif file_ext == ".json":
             language = "json"
         else:
             raise ValueError(
