@@ -169,12 +169,10 @@ class AbstractRemoteObject:
 
     @property
     def inventory_path(self):
-        # returns path as used by the IOCache inventory
         pass
 
     @property
     def inventory_root(self):
-        # should return folder that that contains this object and has to becached in IOCache
         pass
 
     @abstractmethod
@@ -187,7 +185,23 @@ class AbstractRemoteObject:
         pass
 
     def _add_to_inventory(self, cache: snakemake.io.IOCache, attribute):
-        cache[self.inventory_path] = getattr(self, attribute)
+        """Perform cache inventory for this remote file object.
+        If attribute is set to 'exists_remote', 'mtime','size',
+        this function guarantees that the respective value is set in the cache.
+        If attribute is set to None, all these values are set in the cache."""
+        if attribute is None:
+            attributes = ["exists_remote", "mtime", "size"]
+        else:
+            attributes = [attribute]
+
+        for attribute in attributes:
+            local_attribute = "exists" if attribute == "exists_remote" else attribute
+            attribute_cache = getattr(cache, attribute)
+            if (
+                attribute_cache.get(self.inventory_path, snakemake.io.IOCACHE_DEFERRED)
+                == snakemake.io.IOCACHE_DEFERRED
+            ):
+                attribute_cache[self.inventory_path] = getattr(self, local_attribute)
 
     @property
     def _file(self):

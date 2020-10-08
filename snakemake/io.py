@@ -87,6 +87,10 @@ else:
 
 class IOCache:
     def __init__(self, max_wait_time, nthreads=8):
+        #need to clear cached_abspath cache. Current working directory can change in situation
+        #when snakemake is called as a function (e.g. as is done in test suite)
+        cached_abspath.cache_clear()
+
         self.mtime = dict()
         self.exists_local = dict()
         self.exists_remote = dict()
@@ -209,29 +213,33 @@ class _IOFile(str):
 
         if obj.is_remote:
             obj.remote_object._iofile = obj
-            obj.inventory_path = obj.remote_object.inventory_path(obj)
-            obj.inventory_root = obj.remote_object.inventory_root(obj)
-        elif obj._is_function:
-            obj.inventory_path = None
-            obj.inventory_root = None
+
+        obj.set_inventory_paths()
+        return obj
+
+    def set_inventory_paths(self):
+        if self.is_remote:
+            self.inventory_path = self.remote_object.inventory_path
+            self.inventory_root = self.remote_object.inventory_root
+        elif self._is_function:
+            self.inventory_path = None
+            self.inventory_root = None
         else:
-            directory, name = os.path.split(file.rstrip("/"))
+            directory, name = os.path.split(self._file.rstrip("/"))
             directory = cached_abspath(directory)
 
-            if file.endswith("/"):
-                obj.inventory_path = os.path.join(directory, name + "/")
+            if self._file.endswith("/"):
+                self.inventory_path = os.path.join(directory, name + "/")
             else:
-                obj.inventory_path = os.path.join(directory, name)
-            obj.inventory_root = directory
-
-        return obj
+                self.inventory_path = os.path.join(directory, name)
+            self.inventory_root = directory
 
     def iocache(raise_error=False):
         def inner_iocache(func):
             @functools.wraps(func)
             def wrapper(self, *args, **kwargs):
                 iocache = self.rule.workflow.iocache
-                if iocache.active:
+                if iocache.active and not self.inventory_path is None:
                     cache = getattr(iocache, func.__name__)
                     # first check if file is present in cache
                     if self.inventory_path in cache:
@@ -303,9 +311,8 @@ class _IOFile(str):
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
-        if cache.active:
-            inventory_path = self.inventory_root
-            if cache.needs_inventory(inventory_path):
+        if cache.active and not self.inventory_path is None:
+            if cache.needs_inventory(self.inventory_root):
                 # info not yet in inventory, let's discover as much as we can
                 if self.is_remote:
                     self.remote_object.inventory(cache)
@@ -313,17 +320,21 @@ class _IOFile(str):
                     self._local_inventory(cache)
 
     def _add_to_inventory(self, attribute=None):
-        """Perform cache inventory for all paths.
+        """Perform cache inventory for this file object.
         If attribute is set to 'exists_local','exists_remote', 'mtime','size',
-        this function guarantees that the respective value is set in the cache
-        for paths. If attribute is set to None, all these values are set in the
-        cache."""
+        this function guarantees that the respective value is set in the cache.
+        If attribute is set to None, all these values are set in the cache."""
 
         cache = self.rule.workflow.iocache
-        if cache.active:
+        if cache.active and not self.inventory_path is None:
             # info not yet in inventory, let's discover as much as we can
             if self.is_remote:
-                self.remote_object._add_to_inventory(cache, attribute)
+                cache.exists_local[self.inventory_path] = os.path.exists(self.file)
+                if attribute != "exists_local":
+                    self.remote_object._add_to_inventory(cache, attribute)
+                    assert self.inventory_path in getattr(
+                        cache, attribute
+                    ), "_add_to_inventory did not fill in the required attribute"
             else:
                 self._local_add_paths_to_inventory(
                     cache, [self.inventory_path], attribute
@@ -351,10 +362,12 @@ class _IOFile(str):
                 cache.exists_local[path] = False
                 cache.mtime[path] = IOCACHE_NOTEXIST
                 cache.size[path] = IOCACHE_NOTEXIST
+                continue
             except PermissionError as e:
                 cache.exists_local[path] = True
                 cache.mtime[path] = IOCACHE_NOPERMISSION
                 cache.size[path] = IOCACHE_NOPERMISSION
+                continue
 
             cache.mtime[path] = fstat.st_mtime
             if not stat.S_ISLNK(fstat.st_mode):
@@ -440,7 +453,7 @@ class _IOFile(str):
 
                 cache.has_inventory.add(path)
                 logger.debug(
-                    "Inventory of {} completed in {} seconds. {} files added to stat queue ({} tasks in queue).".format(
+                    "Inventory of {} completed in {:.1f} seconds. {} files added to stat queue ({} tasks in queue).".format(
                         path, time.time() - start, counter, cache.queue.qsize()
                     )
                 )
@@ -494,6 +507,7 @@ class _IOFile(str):
         remote_object = self.remote_object
         if remote_object._file != self._file:
             remote_object._iofile = self
+        self.set_inventory_paths()
 
     @property
     def should_keep_local(self):
