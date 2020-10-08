@@ -318,7 +318,7 @@ class RuleRecord:
 
 class ConfigfileRecord:
     def __init__(self, configfile):
-        self.name = configfile
+        self.path = Path(configfile)
 
     def code(self):
         try:
@@ -330,18 +330,24 @@ class ConfigfileRecord:
                 "Python package pygments must be installed to create reports."
             )
 
-        language = (
-            "yaml"
-            if self.name.endswith(".yaml") or self.name.endswith(".yml")
-            else "json"
-        )
-        lexer = get_lexer_by_name(language)
-        with open(self.name) as f:
-            return highlight(
-                f.read(),
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        file_ext = self.path.suffix
+        if file_ext in (".yml", ".yaml"):
+            language = "yaml"
+        elif file_ext == "json":
+            language = "json"
+        else:
+            raise ValueError(
+                "Config file extension {} is not supported - must be YAML or JSON".format(
+                    file_ext
+                )
             )
+
+        lexer = get_lexer_by_name(language)
+        return highlight(
+            self.path.read_text(),
+            lexer,
+            HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        )
 
 
 class JobRecord:
