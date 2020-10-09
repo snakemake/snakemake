@@ -358,7 +358,10 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        jobs = self.dag.ready_jobs - (self.running | self.failed)
+        jobs = set(self.dag.ready_jobs)
+        jobs -= self.running
+        jobs -= self.failed
+
         if not self.dryrun:
             jobs = [
                 job

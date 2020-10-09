@@ -935,11 +935,11 @@ class DAG:
         for job in candidates:
             update_needrun(job)
 
-        queue = list(filter(reason, candidates))
+        queue = deque(filter(reason, candidates))
         visited = set(queue)
         candidates_set = set(candidates)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
