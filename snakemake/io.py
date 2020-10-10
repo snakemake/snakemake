@@ -143,7 +143,6 @@ class IOCache:
 
     def process_queue(self):
         name = threading.current_thread().getName()
-        logger.debug("({}) IOCache local inventory thread started".format(name))
         start = time.time()
         allcounter = 0
         counter = 0
@@ -364,37 +363,27 @@ class _IOFile(str):
         # for local files, perform BFS via os.scandir to determine existence of files
         # obtaining mtime and size of the files is deferred for parallel execution
         # as this can be a slow step on network filesystems
-        root = self.inventory_root
+        path = self.inventory_root
 
-        if not os.path.exists(root):
-            cache.has_inventory.add(root)
+        if not os.path.exists(path):
+            cache.has_inventory.add(path)
             return
 
-        queue = set([root])
-        while queue:
-            path = queue.pop()
-            start = time.time()
+        start = time.time()
 
-            logger.debug("Inventory started of {}".format(path))
-            pbuffer = []
-            counter = 0
-            try:
-                for entry in os.scandir(path):
-                    is_file = self._local_inventory_direntry_quick(cache, entry)
+        logger.debug("Inventory started of {}".format(path))
+        pbuffer = []
+        counter = 0
+        try:
+            for entry in os.scandir(path):
+                is_file = self._local_inventory_direntry_quick(cache, entry)
 
-                    if is_file is True:
-                        counter += 1
-                        pbuffer.append(entry.path)
-                        if len(pbuffer) > 100:
-                            cache.submit(self._local_inventory_files_complete, pbuffer)
-                            pbuffer = []
-                    elif is_file is False:
-                        if not ".snakemake" in entry.path and not cache.in_inventory(
-                            entry.path
-                        ):
-                            queue.add(entry.path)
-            except OSError as e:
-                continue  # skip inventory
+                if is_file is True:
+                    counter += 1
+                    pbuffer.append(entry.path)
+                    if len(pbuffer) > 100:
+                        cache.submit(self._local_inventory_files_complete, pbuffer)
+                        pbuffer = []
 
             if pbuffer:
                 cache.submit(self._local_inventory_files_complete, pbuffer)
@@ -403,6 +392,13 @@ class _IOFile(str):
             logger.debug(
                 "Inventory of {} completed in {:.1f} seconds. {} files added to stat queue ({} tasks in queue).".format(
                     path, time.time() - start, counter, cache.queue.qsize()
+                )
+            )
+
+        except OSError as e:
+            logger.debug(
+                "Inventory of {} failed. Continuing without inventory caching. Error message: {}.".format(
+                    path, str(e)
                 )
             )
 
