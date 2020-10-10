@@ -40,6 +40,9 @@ IOCACHE_NOTEXIST = object()
 IOCACHE_NOPERMISSION = object()
 
 
+TIMESTAMP_FILENAME = ".snakemake_timestamp"
+
+
 def lutime(f, times):
     # In some cases, we have a platform where os.supports_follow_symlink includes stat()
     # but not utime().  This leads to an anomaly.  In any case we never want to touch the
@@ -137,9 +140,9 @@ class IOCache:
         for t in self.threads:
             t.start()
 
-    def submit(self, func, data):
+    def submit(self, func, paths):
         assert self.active
-        self.queue.put((func, data))
+        self.queue.put((func, paths))
 
     def process_queue(self):
         name = threading.current_thread().getName()
@@ -151,11 +154,12 @@ class IOCache:
                 res = self.queue.get(timeout=0.5)
             except queue.Empty:
                 continue
-            func, data = res
-            func(self, data)
+            func, paths = res
+            for path in paths:
+                func(self, path)
             self.queue.task_done()
 
-            counter += len(data)
+            counter += len(paths)
             difftime = time.time() - start
             if difftime > 15:
                 allcounter += counter
@@ -249,10 +253,7 @@ class _IOFile(str):
             directory, name = os.path.split(self._file.rstrip("/"))
             directory = cached_abspath(directory)
 
-            if self._file.endswith("/"):
-                self.inventory_path = os.path.join(directory, name + "/")
-            else:
-                self.inventory_path = os.path.join(directory, name)
+            self.inventory_path = os.path.join(directory, name)
             self.inventory_root = directory
 
     def iocache(raise_error=False):
@@ -260,53 +261,50 @@ class _IOFile(str):
             @functools.wraps(func)
             def wrapper(self, *args, **kwargs):
                 iocache = self.rule.workflow.iocache
-                if iocache.active and not self.inventory_path is None:
-                    cache = getattr(iocache, func.__name__)
-                    # first check if file is present in cache
-                    if self.inventory_path in cache:
-                        res = cache[self.inventory_path]
-                    # check if the folder was cached
-                    elif iocache.in_inventory(self.inventory_root):
-                        # as the folder was cached, we do know that the file does not exist
-                        if raise_error:
-                            # make sure that the cache behaves the same as non-cached results
-                            raise FileNotFoundError(
-                                "No such file or directory: {}".format(self.file)
-                            )
-                        else:
-                            return False
-                    elif self._is_function:
-                        raise ValueError(
-                            "This IOFile is specified as a function and "
-                            "may not be used directly."
+                if not iocache.active or self.inventory_path is None:
+                    return func(self, *args, **kwargs)
+
+                cache = getattr(iocache, func.__name__)
+                # first check if file is present in cache
+                if self.inventory_path in cache:
+                    res = cache[self.inventory_path]
+                # check if the folder was cached
+                elif iocache.in_inventory(self.inventory_root):
+                    # as the folder was cached, we do know that the file does not exist
+                    if raise_error:
+                        # make sure that the cache behaves the same as non-cached results
+                        raise FileNotFoundError(
+                            "No such file or directory: {}".format(self.file)
                         )
                     else:
-                        res = IOCACHE_DEFERRED
-
-                    if res is IOCACHE_DEFERRED:
-                        # determine values that are not yet cached
-                        self._add_to_inventory(func.__name__)
-                        res = cache[self.inventory_path]
-
-                    # makes sure that cache behaves same as non-cached results
-                    if res is IOCACHE_BROKENSYMLINK:
-                        raise WorkflowError(
-                            "File {} seems to be a broken symlink.".format(self.file)
-                        )
-                    elif res is IOCACHE_NOTEXIST:
-                        raise FileNotFoundError(
-                            "File {} does not exist.".format(self.file)
-                        )
-                    elif res is IOCACHE_NOPERMISSION:
-                        raise PermissionError(
-                            "File {} does not have the required permissions.".format(
-                                self.file
-                            )
-                        )
-                    return res
-
+                        return False
+                elif self._is_function:
+                    raise ValueError(
+                        "This IOFile is specified as a function and "
+                        "may not be used directly."
+                    )
                 else:
-                    return func(self, *args, **kwargs)
+                    res = IOCACHE_DEFERRED
+
+                if res is IOCACHE_DEFERRED:
+                    # determine values that are not yet cached
+                    self._add_to_inventory(func.__name__)
+                    res = cache[self.inventory_path]
+
+                # makes sure that cache behaves same as non-cached results
+                if res is IOCACHE_BROKENSYMLINK:
+                    raise WorkflowError(
+                        "File {} seems to be a broken symlink.".format(self.file)
+                    )
+                elif res is IOCACHE_NOTEXIST:
+                    raise FileNotFoundError("File {} does not exist.".format(self.file))
+                elif res is IOCACHE_NOPERMISSION:
+                    raise PermissionError(
+                        "File {} does not have the required permissions.".format(
+                            self.file
+                        )
+                    )
+                return res
 
             return wrapper
 
@@ -332,13 +330,16 @@ class _IOFile(str):
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
-        if cache.active and not self.inventory_path is None:
-            if cache.needs_inventory(self.inventory_root):
-                # info not yet in inventory, let's discover as much as we can
-                if self.is_remote:
-                    self.remote_object.inventory(cache)
-                else:
-                    self._local_inventory(cache)
+        if (
+            cache.active
+            and not self.inventory_path is None
+            and cache.needs_inventory(self.inventory_root)
+        ):
+            # info not yet in inventory, let's discover as much as we can
+            if self.is_remote:
+                self.remote_object.inventory(cache)
+            else:
+                self._local_inventory(cache)
 
     def _add_to_inventory(self, attribute=None):
         """Perform cache inventory for this file object.
@@ -357,7 +358,7 @@ class _IOFile(str):
                         cache, attribute
                     ), "_add_to_inventory did not fill in the required attribute"
             else:
-                self._local_inventory_files_complete(cache, [self.inventory_path])
+                self._local_inventory_path_complete(cache, self.inventory_path)
 
     def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
@@ -382,11 +383,11 @@ class _IOFile(str):
                     counter += 1
                     pbuffer.append(entry.path)
                     if len(pbuffer) > 100:
-                        cache.submit(self._local_inventory_files_complete, pbuffer)
+                        cache.submit(self._local_inventory_path_complete, pbuffer)
                         pbuffer = []
 
             if pbuffer:
-                cache.submit(self._local_inventory_files_complete, pbuffer)
+                cache.submit(self._local_inventory_path_complete, pbuffer)
 
             cache.has_inventory.add(path)
             logger.debug(
@@ -408,7 +409,7 @@ class _IOFile(str):
             cache.exists_remote[entry.path] = False
             if entry.is_dir():
                 cache.exists_local[entry.path] = True
-                timestamp_path = os.path.join(entry.path, ".snakemake_timestamp")
+                timestamp_path = os.path.join(entry.path, TIMESTAMP_FILENAME)
                 try:
                     s = os.lstat(timestamp_path)
                     cache.mtime[entry.path] = s.st_mtime
@@ -430,6 +431,7 @@ class _IOFile(str):
                 return True
 
         except OSError as e:
+            logger.debug("file")
             if e.errno == 1 or e.errno == 13:  # no permission
                 cache.exists_local[entry.path] = True
                 cache.mtime[entry.path] = IOCACHE_NOPERMISSION
@@ -445,49 +447,45 @@ class _IOFile(str):
             else:
                 raise e
 
-    def _local_inventory_files_complete(self, cache, paths):
+    def _local_inventory_path_complete(self, cache, path):
         # fills in all attributes in one go to reduce use of stat system calls
-        for path in paths:
-            # this function is only called for local objects
-            cache.exists_remote[path] = False
+        # this function is only called for local objects
+        cache.exists_remote[path] = False
 
-            if (
-                (not cache.mtime.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
-                and (not cache.size.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
-                and (
-                    not cache.exists_local.get(path, IOCACHE_DEFERRED)
-                    is IOCACHE_DEFERRED
-                )
-            ):
-                continue
+        if (
+            (not cache.mtime.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
+            and (not cache.size.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
+            and (not cache.exists_local.get(path, IOCACHE_DEFERRED) is IOCACHE_DEFERRED)
+        ):
+            return
 
-            fstat = None
-            try:
-                fstat = os.lstat(path)
-                cache.mtime[path] = fstat.st_mtime
-                if not stat.S_ISLNK(fstat.st_mode):
-                    cache.size[path] = fstat.st_size
-                    cache.exists_local[path] = True
-                else:  # report latest mtime from symlink and target, and linked file size
-                    fstat = os.stat(path)
-                    cache.mtime_target[path] = fstat.st_mtime
-                    cache.size[path] = fstat.st_size
-                    cache.exists_local[path] = True
-            except OSError as e:
-                if e.errno == 2 and fstat is None:  # file does not exist anymore
-                    cache.exists_local[path] = False
-                    cache.mtime[path] = IOCACHE_NOTEXIST
-                    cache.size[path] = IOCACHE_NOTEXIST
-                elif e.errno == 2 or e.errno == 40:  # broken or cyclic symlink
-                    cache.exists_local[path] = False
-                    cache.mtime[path] = IOCACHE_BROKENSYMLINK
-                    cache.size[path] = IOCACHE_BROKENSYMLINK
-                elif e.errno == 1 or e.errno == 13:
-                    cache.exists_local[path] = True
-                    cache.mtime[path] = IOCACHE_NOPERMISSION
-                    cache.size[path] = IOCACHE_NOPERMISSION
-                else:
-                    raise e
+        fstat = None
+        try:
+            fstat = os.lstat(path)
+            cache.mtime[path] = fstat.st_mtime
+            if not stat.S_ISLNK(fstat.st_mode):
+                cache.size[path] = fstat.st_size
+                cache.exists_local[path] = True
+            else:  # report latest mtime from symlink and target, and linked file size
+                fstat = os.stat(path)
+                cache.mtime_target[path] = fstat.st_mtime
+                cache.size[path] = fstat.st_size
+                cache.exists_local[path] = True
+        except OSError as e:
+            if e.errno == 2 and fstat is None:  # file does not exist anymore
+                cache.exists_local[path] = False
+                cache.mtime[path] = IOCACHE_NOTEXIST
+                cache.size[path] = IOCACHE_NOTEXIST
+            elif e.errno == 2 or e.errno == 40:  # broken or cyclic symlink
+                cache.exists_local[path] = False
+                cache.mtime[path] = IOCACHE_BROKENSYMLINK
+                cache.size[path] = IOCACHE_BROKENSYMLINK
+            elif e.errno == 1 or e.errno == 13:
+                cache.exists_local[path] = True
+                cache.mtime[path] = IOCACHE_NOPERMISSION
+                cache.size[path] = IOCACHE_NOPERMISSION
+            else:
+                raise e
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
@@ -645,9 +643,9 @@ class _IOFile(str):
     def mtime_target_local(self):
         lstat = os.lstat(self.file)
         if stat.S_ISDIR(lstat.st_mode) and os.path.exists(
-            os.path.join(self.file, ".snakemake_timestamp")
+            os.path.join(self.file, TIMESTAMP_FILENAME)
         ):
-            return os.lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
+            return os.lstat(os.path.join(self.file, TIMESTAMP_FILENAME)).st_mtime
         else:
             if stat.S_ISLNK(lstat.st_mode):
                 # return modification time of target file
@@ -660,9 +658,9 @@ class _IOFile(str):
         # do not follow symlinks for modification time
         lstat = os.lstat(self.file)
         if stat.S_ISDIR(lstat.st_mode) and os.path.exists(
-            os.path.join(self.file, ".snakemake_timestamp")
+            os.path.join(self.file, TIMESTAMP_FILENAME)
         ):
-            return os.lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
+            return os.lstat(os.path.join(self.file, TIMESTAMP_FILENAME)).st_mtime
         else:
             return lstat.st_mtime
 
@@ -753,7 +751,7 @@ class _IOFile(str):
         """ times must be 2-tuple: (atime, mtime) """
         try:
             if self.is_directory:
-                file = os.path.join(self.file, ".snakemake_timestamp")
+                file = os.path.join(self.file, TIMESTAMP_FILENAME)
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
                     with open(file, "w") as f:
@@ -782,7 +780,7 @@ class _IOFile(str):
                 os.makedirs(dir, exist_ok=True)
             # create empty file
             file = (
-                os.path.join(self.file, ".snakemake_timestamp")
+                os.path.join(self.file, TIMESTAMP_FILENAME)
                 if self.is_directory
                 else self.file
             )

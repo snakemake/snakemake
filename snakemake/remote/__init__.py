@@ -169,10 +169,12 @@ class AbstractRemoteObject:
 
     @property
     def inventory_path(self):
+        # To enable inventory operations, this methods needs to return the path name of the file.
         pass
 
     @property
     def inventory_root(self):
+        # To enable inventory operations, this methods needs to return the directory name of the file.
         pass
 
     @abstractmethod
