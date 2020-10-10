@@ -219,7 +219,7 @@ def snakemake(
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
-        drop_metadata (bool):       drop metadata tracking information after job (code/input/params/version change listings will be incomplete) (default False)
+        drop_metadata (bool):       drop metadata file tracking information after job finishes (--report and --list_x_changes information will be incomplete) (default False)
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
@@ -1573,7 +1573,9 @@ def get_argument_parser(profile=None):
     group_utils.add_argument(
         "--drop-metadata",
         action="store_true",
-        help="Drop metadata after job completion.",
+        help="Drop metadata file tracking information after job finishes. "
+        "Provenance-information based reports (e.g. --report and the "
+        "--list_x_changes functions) will be empty or incomplete.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
