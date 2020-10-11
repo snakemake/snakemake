@@ -6,6 +6,7 @@ Google Life Sciences Tutorial
 
 .. _Snakemake: http://snakemake.readthedocs.io
 .. _Snakemake Remotes: https://snakemake.readthedocs.io/en/stable/snakefiles/remote_files.html
+.. _Python: https://www.python.org/
 
 
 Setup
