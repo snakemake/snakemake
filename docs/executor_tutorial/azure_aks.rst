@@ -3,6 +3,9 @@
 Auto-scaling Azure Kubernetes cluster without shared filesystem
 ---------------------------------------------------------------
 
+.. _Snakemake: http://snakemake.readthedocs.io
+.. _Python: https://www.python.org/
+
 In this tutorial we will show how to execute a Snakemake workflow
 on an auto-scaling Azure Kubernetes cluster without a shared file-system.
 While Kubernetes is mainly known as microservice orchestration system with
