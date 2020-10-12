@@ -214,7 +214,22 @@ class RemoteObject(AbstractRemoteObject):
             if not self.bucket.exists():
                 self.bucket.create()
                 self.update_blob()
-            self.blob.upload_from_filename(self.local_file())
+
+            # Distinguish between single file, and folder
+            f = self.local_file()
+            if os.path.isdir(f):
+
+                # Ensure the "directory" exists
+                self.blob.upload_from_string(
+                    "", content_type="application/x-www-form-urlencoded;charset=UTF-8"
+                )
+                for root, _, files in os.walk(f):
+                    for filename in files:
+                        filename = os.path.join(root, filename)
+                        blob = self.bucket.blob(filename)
+                        blob.upload_from_filename(filename)
+            else:
+                self.blob.upload_from_filename(f)
         except google.cloud.exceptions.Forbidden as e:
             raise WorkflowError(
                 e,
