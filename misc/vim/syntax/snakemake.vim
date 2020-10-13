@@ -1,4 +1,4 @@
-" Vim syntax file
+ Vim syntax file
 " Language: Snakemake (extended from python.vim)
 " Maintainer: Jay Hesselberth (jay.hesselberth@gmail.com)
 " Last Change: 2020 Oct 6
