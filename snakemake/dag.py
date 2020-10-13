@@ -479,6 +479,7 @@ class DAG:
                     "filesystem latency. If that is the case, consider to increase the "
                     "wait time with --latency-wait.",
                     rule=job.rule,
+                    jobid=self.jobid(job)
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
