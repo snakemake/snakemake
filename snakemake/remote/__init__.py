@@ -11,6 +11,7 @@ from functools import partial
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 from contextlib import contextmanager
+
 try:
     from connection_pool import ConnectionPool
 except ImportError:
@@ -345,7 +346,7 @@ class PooledDomainObject(DomainObject):
     @contextmanager
     def get_connection(self):
         """ get a connection from a pool or create a new one """
-        if not self.immediate_close and 'connection_pool' in sys.modules:
+        if not self.immediate_close and "connection_pool" in sys.modules:
             # if we can (and the user doesn't override) use a pool
             with self.connection_pool.item() as conn:
                 yield conn
@@ -378,7 +379,9 @@ class PooledDomainObject(DomainObject):
         )
 
         if conn_pool_label_tuple not in self.connection_pools:
-            create_callback = partial(self.create_connection, *args_to_use, **kwargs_to_use)
+            create_callback = partial(
+                self.create_connection, *args_to_use, **kwargs_to_use
+            )
             self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
                 create_callback, close=self.close_connection, max_size=self.pool_size
             )
