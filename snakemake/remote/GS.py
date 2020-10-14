@@ -220,11 +220,7 @@ class RemoteObject(AbstractRemoteObject):
             if os.path.isdir(f):
 
                 # We must ensure ends with / to be treated as directory
-                upload_blob = (
-                    self.bucket.blob(f)
-                    if f.endswith("/")
-                    else self.bucket.blob(f + "/")
-                )
+                upload_blob = self.blob(f) if f.endswith("/") else self.blob(f + "/")
 
                 # Ensure the "directory" exists
                 upload_blob.upload_from_string(
