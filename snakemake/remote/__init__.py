@@ -303,8 +303,8 @@ class DomainObject(AbstractRemoteObject):
 
 class PooledDomainObject(DomainObject):
     """This adds conection pooling to DomainObjects
-        out of a location path specified as
-        (host|IP):port/remote/location
+    out of a location path specified as
+    (host|IP):port/remote/location
     """
 
     connection_pools = {}
@@ -320,7 +320,7 @@ class PooledDomainObject(DomainObject):
         return defaults
 
     def get_args_to_use(self):
-        """ merge the objects args with the parent provider
+        """merge the objects args with the parent provider
 
         Positional Args: use those of object or fall back to ones from provider
         Keyword Args: merge with any defaults
