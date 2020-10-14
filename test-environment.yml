@@ -51,3 +51,6 @@ dependencies:
   - crc32c
   - peppy
   - eido
+  - pip
+  - pip:
+    - connection_pool

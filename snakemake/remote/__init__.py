@@ -380,7 +380,7 @@ class PooledDomainObject(DomainObject):
         if conn_pool_label_tuple not in self.connection_pools:
             create_callback = partial(self.create_connection, *args_to_use, **kwargs_to_use)
             self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
-                create_callback, close=self.close_connection(), max_size=self.pool_size
+                create_callback, close=self.close_connection, max_size=self.pool_size
             )
 
         return self.connection_pools[conn_pool_label_tuple]
