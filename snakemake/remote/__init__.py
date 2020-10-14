@@ -13,7 +13,7 @@ from wrapt import ObjectProxy
 from contextlib import contextmanager
 try:
     from connection_pool import ConnectionPool
-except:
+except ImportError:
     # we just won't pool connections if it's not installed
     #  Should there be a warning? Should there be a runtime flag?
     pass
@@ -343,7 +343,7 @@ class PooledDomainObject(DomainObject):
         return args_to_use, kwargs_to_use
 
     @contextmanager
-    def get_connection():
+    def get_connection(self):
         """ get a connection from a pool or create a new one """
         if not self.immediate_close and 'connection_pool' in sys.modules:
             # if we can (and the user doesn't override) use a pool
