@@ -94,7 +94,8 @@ class Workflow:
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
-        scheduler_type=None,
+        scheduler_type="ilp",
+        scheduler_ilp_solver=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -111,6 +112,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        max_inventory_wait_time=20,
     ):
         """
         Create the controller.
@@ -160,6 +162,7 @@ class Workflow:
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
         self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -201,7 +204,7 @@ class Workflow:
             # only _cores and _nodes
             self.default_resources = DefaultResources()
 
-        self.iocache = snakemake.io.IOCache()
+        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -468,6 +471,7 @@ class Workflow:
         dryrun=False,
         touch=False,
         scheduler_type=None,
+        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -910,6 +914,7 @@ class Workflow:
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
             scheduler_type=scheduler_type,
+            scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:

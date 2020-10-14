@@ -70,13 +70,18 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        exec_job = exec_job or (
-            "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
-            "--latency-wait 0 "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock " % self.snakefile
+        exec_job = (
+            exec_job
+            or (
+                "snakemake {target} --snakefile %s "
+                "--force -j{cores} --keep-target-files --keep-remote "
+                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+                "--attempt 1 {use_threads} --max-inventory-time 0 "
+                "{overwrite_config} {rules} --nocolor "
+                "--notemp --no-hooks --nolock " % self.snakefile
+            )
+            + self.get_set_threads_args()
+            + self.get_set_scatter_args()
         )
 
         # Set preemptible instances
@@ -396,10 +401,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
         mem_mb = job.resources.get("mem_mb", 15360)
-        disk_mb = job.resources.get("disk_mb", 128000)
 
-        # Convert mb to gb, add buffer of 50
-        disk_gb = math.ceil(disk_mb / 1024) + 10
+        # IOPS performance proportional to disk size
+        disk_mb = job.resources.get("disk_mb", 512000)
+
+        # Convert mb to gb
+        disk_gb = math.ceil(disk_mb / 1024)
 
         # Look for if the user wants an nvidia gpu
         gpu_count = job.resources.get("nvidia_gpu") or job.resources.get("gpu")
@@ -668,7 +675,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
+            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
             % (self.bucket.name, self.gs_logs, job.name),
         ]
 

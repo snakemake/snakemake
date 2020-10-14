@@ -122,6 +122,7 @@ def snakemake(
     updated_files=None,
     log_handler=[],
     keep_logger=False,
+    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -138,7 +139,8 @@ def snakemake(
     list_conda_envs=False,
     singularity_prefix=None,
     shadow_prefix=None,
-    scheduler=None,
+    scheduler="ilp",
+    scheduler_ilp_solver=None,
     conda_create_envs_only=False,
     mode=Mode.default,
     wrapper_prefix=None,
@@ -166,6 +168,7 @@ def snakemake(
     envvars=None,
     overwrite_groups=None,
     group_components=None,
+    max_inventory_wait_time=20,
 ):
     """Run snakemake on a given snakefile.
 
@@ -259,6 +262,7 @@ def snakemake(
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
+        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -284,6 +288,7 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
+        scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
@@ -441,6 +446,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            wms_monitor=wms_monitor,
         )
 
     if greediness is None:
@@ -538,6 +544,7 @@ def snakemake(
             shadow_prefix=shadow_prefix,
             singularity_args=singularity_args,
             scheduler_type=scheduler,
+            scheduler_ilp_solver=scheduler_ilp_solver,
             mode=mode,
             wrapper_prefix=wrapper_prefix,
             printshellcmds=printshellcmds,
@@ -553,6 +560,7 @@ def snakemake(
             resources=resources,
             edit_notebook=edit_notebook,
             envvars=envvars,
+            max_inventory_wait_time=max_inventory_wait_time,
         )
         success = True
 
@@ -629,6 +637,7 @@ def snakemake(
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
                     scheduler=scheduler,
+                    scheduler_ilp_solver=scheduler_ilp_solver,
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
@@ -651,12 +660,14 @@ def snakemake(
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
                     group_components=group_components,
+                    max_inventory_wait_time=max_inventory_wait_time,
                 )
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
                     touch=touch,
                     scheduler_type=scheduler,
+                    scheduler_ilp_solver=scheduler_ilp_solver,
                     local_cores=local_cores,
                     forcetargets=forcetargets,
                     forceall=forceall,
@@ -1255,16 +1266,37 @@ def get_argument_parser(profile=None):
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
         ),
-    ),
+    )
+
+    import pulp
+
+    lp_solvers = pulp.list_solvers(onlyAvailable=True)
+    recommended_lp_solver = "COIN_CMD"
+
     group_exec.add_argument(
         "--scheduler",
-        default="ilp",
+        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
         nargs="?",
         choices=["ilp", "greedy"],
         help=(
             "Specifies if jobs are selected by a greedy algorithm or by solving an ilp. "
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
+    )
+    group_exec.add_argument(
+        "--wms-monitor",
+        action="store",
+        nargs="?",
+        help=(
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
+        ),
+    )
+
+    group_exec.add_argument(
+        "--scheduler-ilp-solver",
+        default=recommended_lp_solver,
+        choices=lp_solvers,
+        help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
     # TODO add group_partitioning, allowing to define --group rulename=groupname.
@@ -1619,6 +1651,17 @@ def get_argument_parser(profile=None):
         "--ii",
         action="store_true",
         help="Do not check for incomplete output files.",
+    )
+    group_behavior.add_argument(
+        "--max-inventory-time",
+        type=int,
+        default=20,
+        metavar="SECONDS",
+        help="Spend at most SECONDS seconds to create a file inventory for the working directory. "
+        "The inventory vastly speeds up file modification and existence checks when computing "
+        "which jobs need to be executed. However, creating the inventory itself can be slow, e.g. on "
+        "network file systems. Hence, we do not spend more than a given amount of time and fall back "
+        "to individual checks for the rest.",
     )
     group_behavior.add_argument(
         "--latency-wait",
@@ -2199,6 +2242,7 @@ def main(argv=None):
         or args.summary
         or args.lint
         or args.report
+        or args.gui
     )
 
     if args.cores is not None:
@@ -2526,6 +2570,7 @@ def main(argv=None):
             shadow_prefix=args.shadow_prefix,
             singularity_args=args.singularity_args,
             scheduler=args.scheduler,
+            scheduler_ilp_solver=args.scheduler_ilp_solver,
             conda_create_envs_only=args.conda_create_envs_only,
             mode=args.mode,
             wrapper_prefix=args.wrapper_prefix,
@@ -2535,11 +2580,13 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
             group_components=group_components,
+            max_inventory_wait_time=args.max_inventory_time,
             log_handler=log_handler,
         )
 

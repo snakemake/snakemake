@@ -108,6 +108,15 @@ def test15():
     run(dpath("test15"))
 
 
+def test_glpk_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
+
+
+@skip_on_windows
+def test_coin_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="COIN_CMD")
+
+
 def test_directory():
     run(
         dpath("test_directory"),

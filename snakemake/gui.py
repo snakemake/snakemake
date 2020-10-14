@@ -58,7 +58,7 @@ def register(run_snakemake, args):
         if msg["level"] == "rule_info":
             target_rules.append(msg["name"])
 
-    run_snakemake(list_target_rules=True, log_handler=log_handler)
+    run_snakemake(list_target_rules=True, log_handler=[log_handler])
     for target in args.target:
         target_rules.remove(target)
     app.extensions["targets"] = args.target + target_rules
@@ -69,7 +69,7 @@ def register(run_snakemake, args):
         if msg["level"] == "info":
             resources.append(msg["msg"])
 
-    run_snakemake(list_resources=True, log_handler=log_handler)
+    run_snakemake(list_resources=True, log_handler=[log_handler])
     app.extensions["resources"] = resources
     app.extensions["snakefilepath"] = os.path.abspath(args.snakefile)
 
@@ -105,7 +105,7 @@ def dag():
             elif msg["level"] in ("error", "info"):
                 app.extensions["log"].append(msg)
 
-        run_snakemake(printd3dag=True, log_handler=record)
+        run_snakemake(printd3dag=True, log_handler=[record])
     return json.dumps(app.extensions["dag"])
 
 
@@ -120,30 +120,30 @@ def progress():
     return json.dumps(app.extensions["progress"])
 
 
-def _run(dryrun=False):
+def _run(dryrun=False, cores=1):
     def log_handler(msg):
         level = msg["level"]
         if level == "progress":
             app.extensions["progress"] = msg
-        elif level in ("info", "error", "job_info", "job_finished"):
+        elif level in ("info", "error", "job_info", "job_finished", "job_error"):
             app.extensions["log"].append(msg)
 
     with LOCK:
         app.extensions["status"]["running"] = True
-    run_snakemake(log_handler=log_handler, dryrun=dryrun)
+    run_snakemake(log_handler=[log_handler], dryrun=dryrun, cores=cores)
     with LOCK:
         app.extensions["status"]["running"] = False
     return ""
 
 
-@app.route("/run")
-def run():
-    _run()
+@app.route("/run/<int:cores>")
+def run(cores):
+    return _run(cores=cores)
 
 
 @app.route("/dryrun")
 def dryrun():
-    _run(dryrun=True)
+    return _run(dryrun=True)
 
 
 @app.route("/status")
