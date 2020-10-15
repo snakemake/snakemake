@@ -951,7 +951,7 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates and not all([f.is_ancient for f in files]):
                     reason(job_).updated_input_run.update(
-                        [f for f in files if not f.is_ancient]
+                        f for f in files if not f.is_ancient
                     )
                     if not job_ in visited:
                         visited.add(job_)
