@@ -890,7 +890,7 @@ class DAG:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists]
+                                f for f in job.input if not f.exists
                             )
                         else:
                             reason.nooutput = True
