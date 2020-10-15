@@ -1482,6 +1482,7 @@ class PeriodicityDetector:
             max_repeat (int): The maximum length of the periodic substring.
             min_repeat (int): The minimum length of the periodic substring.
         """
+        self.min_repeat = min_repeat
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(
                 min_repeat=min_repeat - 1, max_repeat=max_repeat - 1
@@ -1490,6 +1491,29 @@ class PeriodicityDetector:
 
     def is_periodic(self, value):
         """Returns the periodic substring or None if not periodic."""
+        # short-circuit: need at least min_repeat characters
+        if len(value) < self.min_repeat:
+            return None
+
+        # short-circuit: need at least min_repeat same characters
+        last_letter = value[-1]
+        counter = collections.Counter(value)
+        if counter[last_letter] < self.min_repeat:
+            return None
+
+        # short-circuit: need at least min_repeat same characters
+        pos = 2
+        while (
+            value[-pos] != last_letter
+        ):  # as long as last letter is not seen, repeat length is minimally pos
+            if (
+                len(value) < (pos * self.min_repeat)
+                or counter[value[-pos]] < self.min_repeat
+            ):
+                return None
+            pos += 1
+
+        # now do the expensive regex
         m = self.regex.search(value)  # search for a periodic suffix.
         if m is not None:
             return m.group("value")

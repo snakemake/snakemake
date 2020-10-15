@@ -365,18 +365,20 @@ class JobScheduler:
         except AttributeError:
             raise TypeError("Executor does not support stats")
 
-    def candidate(self, job):
-        """ Return whether a job is a candidate to be executed. """
-        return (
-            job not in self.running
-            and job not in self.failed
-            and (self.dryrun or (not job.dynamic_input and not self.dag.dynamic(job)))
-        )
-
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        return filter(self.candidate, list(job for job in self.dag.ready_jobs))
+        jobs = set(self.dag.ready_jobs)
+        jobs -= self.running
+        jobs -= self.failed
+
+        if not self.dryrun:
+            jobs = [
+                job
+                for job in jobs
+                if not job.dynamic_input and not self.dag.dynamic(job)
+            ]
+        return jobs
 
     @property
     def remaining_jobs(self):
@@ -512,7 +514,9 @@ class JobScheduler:
                     return
 
             try:
-                self.dag.finish(job, update_dynamic=update_dynamic)
+                potential_new_ready_jobs = self.dag.finish(
+                    job, update_dynamic=update_dynamic
+                )
             except (RuleException, WorkflowError) as e:
                 # if an error occurs while processing job output,
                 # we do the same as in case of errors during execution
@@ -535,8 +539,8 @@ class JobScheduler:
                 self.progress()
 
             if (
-                any(self.open_jobs)
-                or not self.running
+                not self.running
+                or (potential_new_ready_jobs and self.open_jobs)
                 or self.workflow.immediate_submit
             ):
                 # go on scheduling if open jobs are ready or no job is running
