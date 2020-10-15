@@ -364,7 +364,7 @@ class Workflow:
             file
             for rule in self.rules
             for file in chain(rule.input, rule.output)
-            if not callable(file) and not file.contains_wildcard()
+            if file._is_concrete
         )
 
     def check(self):

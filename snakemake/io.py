@@ -150,15 +150,21 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+    __slots__ = ["_is_function", "_is_concrete", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
         # Remove trailing slashes.
         obj = str.__new__(cls, file)
+        
+        # is this a function or a string
         obj._is_function = isfunction(file) or ismethod(file)
         obj._is_function = obj._is_function or (
             isinstance(file, AnnotatedString) and bool(file.callable)
         )
+
+        # do we need to apply wildcards
+        obj._is_concrete = not (obj._is_function or contains_wildcard(file))
+
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -538,6 +544,11 @@ class _IOFile(str):
                 pass
 
     def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
+
+        # if the file is a string and has no braces, do nothing
+        if self._is_concrete:
+            return self
+
         f = self._file
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
@@ -562,9 +573,6 @@ class _IOFile(str):
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
-
-    def contains_wildcard(self):
-        return contains_wildcard(self.file)
 
     def regex(self):
         if self._regex is None:
