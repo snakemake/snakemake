@@ -142,7 +142,7 @@ def test_directory2():
 
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=["D", "old_file"])
+    run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
@@ -1051,3 +1051,7 @@ def test_github_issue456():
 
 def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
+
+
+def test_issue661():
+    run(dpath("test_issue661"), check_md5=True)
