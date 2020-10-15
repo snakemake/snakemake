@@ -23,7 +23,7 @@ Make sure to ...
 * Install the **Python 3** version of Miniconda.
 * Answer yes to the question whether conda shall be put into your PATH.
 
-The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/QuantStack/mamba>`_ as a drop-in replacement via
+The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/mamba-org/mamba>`_ as a drop-in replacement via
 
 .. code-block:: console
 
