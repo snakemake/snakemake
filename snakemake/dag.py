@@ -9,7 +9,7 @@ import shutil
 import textwrap
 import time
 import tarfile
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, deque
 from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
@@ -479,6 +479,7 @@ class DAG:
                     "filesystem latency. If that is the case, consider to increase the "
                     "wait time with --latency-wait.",
                     rule=job.rule,
+                    jobid=self.jobid(job),
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
@@ -912,7 +913,7 @@ class DAG:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists]
+                                f for f in job.input if not f.exists
                             )
                         else:
                             reason.nooutput = True
@@ -957,10 +958,11 @@ class DAG:
         for job in candidates:
             update_needrun(job)
 
-        queue = list(filter(reason, candidates))
+        queue = deque(filter(reason, candidates))
         visited = set(queue)
+        candidates_set = set(candidates)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
@@ -971,8 +973,10 @@ class DAG:
                     queue.append(job_)
 
             for job_, files in depending[job].items():
-                if job_ in candidates:
-                    reason(job_).updated_input_run.update(files)
+                if job_ in candidates_set and not all(f.is_ancient for f in files):
+                    reason(job_).updated_input_run.update(
+                        f for f in files if not f.is_ancient
+                    )
                     if not job_ in visited:
                         visited.add(job_)
                         queue.append(job_)
@@ -1092,9 +1096,11 @@ class DAG:
         if jobs is None:
             jobs = self.needrun_jobs
 
+        potential_new_ready_jobs = False
         candidate_groups = set()
         for job in jobs:
             if not self.finished(job) and self._ready(job):
+                potential_new_ready_jobs = True
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
@@ -1107,6 +1113,7 @@ class DAG:
             for group in candidate_groups
             if all(self._ready(job) for job in group)
         )
+        return potential_new_ready_jobs
 
     def get_jobs_or_groups(self):
         visited_groups = set()
@@ -1274,7 +1281,7 @@ class DAG:
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
-        self.update_ready(
+        potential_new_ready_jobs = self.update_ready(
             j
             for job in jobs
             for j in self.depending[job]
@@ -1303,6 +1310,9 @@ class DAG:
                 self.pull_container_imgs()
             if self.workflow.use_conda:
                 self.create_conda_envs()
+            potential_new_ready_jobs = True
+
+        return potential_new_ready_jobs
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
@@ -1486,10 +1496,10 @@ class DAG:
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
         """Perform a breadth-first traversal of the DAG."""
-        queue = list(jobs)
+        queue = deque(jobs)
         visited = set(queue)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             if stop(job):
                 # stop criterion reached for this node
                 continue
