@@ -688,11 +688,13 @@ class DAG:
             return self._jobid[job]
 
     def update(
-        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
+        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False, producers=None,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
             visited = set()
+        if producers is None:
+            producers = {}
         producer = None
         exceptions = list()
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
@@ -711,6 +713,7 @@ class DAG:
                 self.update_(
                     job,
                     visited=set(visited),
+                    producers=producers,
                     skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
                 )
@@ -768,15 +771,18 @@ class DAG:
 
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
+    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False, producers=None):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
         if visited is None:
             visited = set()
         visited.add(job)
+        if producers is None:
+            producers = {}
         dependencies = self.dependencies[job]
-        potential_dependencies = self.collect_potential_dependencies(job)
+        potential_dependencies = self.collect_potential_dependencies(job,
+                                                                     producers=producers)
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
@@ -799,14 +805,17 @@ class DAG:
                 # file found, no problem
                 continue
 
+
             try:
                 selected_job = self.update(
                     jobs,
                     file=file,
                     visited=visited,
+                    producers=producers,
                     skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input,
                     progress=progress,
                 )
+                producers[file] = selected_job
                 producer[file] = selected_job
             except (
                 MissingInputException,
@@ -1420,9 +1429,11 @@ class DAG:
         """Return True if the underlying rule is to be used for batching the DAG."""
         return self.batch is not None and rule.name == self.batch.rulename
 
-    def collect_potential_dependencies(self, job):
+    def collect_potential_dependencies(self, job, producers=None):
         """Collect all potential dependencies of a job. These might contain
         ambiguities. The keys of the returned dict represent the files to be considered."""
+        if producers is None:
+            producers = {}
         dependencies = defaultdict(list)
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
@@ -1444,6 +1455,9 @@ class DAG:
         for file in input_files:
             # omit the file if it comes from a subworkflow
             if file in job.subworkflow_input:
+                continue
+            # omit the file if we already know its producer
+            if file in producers:
                 continue
             try:
                 if file in job.dependencies:
