@@ -1,0 +1,11 @@
+rule all:
+    input: "fileJob2.txt"
+
+rule job1:
+    output: "fileJob1"
+    shell: "echo Hello World -- job1 > {output}"
+
+rule job2:
+    input: "fileJob1"
+    output: touch("fileJob2.txt")
+    shell: "echo Hello World! -- job2"

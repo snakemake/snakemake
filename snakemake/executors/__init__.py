@@ -66,6 +66,7 @@ class AbstractExecutor:
         printthreads=True,
         latency_wait=3,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -75,6 +76,7 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.latency_wait = latency_wait
         self.keepincomplete = keepincomplete
+        self.keepmetadata = keepmetadata
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -200,6 +202,7 @@ class RealExecutor(AbstractExecutor):
         latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
+        keepmetadata=False,
     ):
         super().__init__(
             workflow,
@@ -209,6 +212,7 @@ class RealExecutor(AbstractExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -247,6 +251,7 @@ class RealExecutor(AbstractExecutor):
             ignore_missing_output=ignore_missing_output,
             latency_wait=self.latency_wait,
             assume_shared_fs=self.assume_shared_fs,
+            keep_metadata=self.keepmetadata,
         )
         self.stats.report_job_end(job)
 
@@ -285,6 +290,8 @@ class RealExecutor(AbstractExecutor):
 
         if self.workflow.use_env_modules:
             additional += " --use-envmodules"
+        if not self.keepmetadata:
+            additional += " --drop-metadata"
 
         return additional
 
@@ -380,6 +387,7 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -389,6 +397,7 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         self.exec_job = "\\\n".join(
@@ -600,6 +609,7 @@ class ClusterExecutor(RealExecutor):
         disable_default_remote_provider_args=False,
         disable_get_default_resources_args=False,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         from ratelimiter import RateLimiter
 
@@ -612,6 +622,8 @@ class ClusterExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         if not self.assume_shared_fs:
@@ -855,6 +867,7 @@ class GenericClusterExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
 
         self.submitcmd = submitcmd
@@ -880,6 +893,8 @@ class GenericClusterExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         if statuscmd:
@@ -1100,6 +1115,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1114,6 +1130,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=10,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
@@ -1209,6 +1227,7 @@ class DRMAAExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1223,6 +1242,8 @@ class DRMAAExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         try:
             import drmaa
@@ -1388,6 +1409,7 @@ class KubernetesExecutor(ClusterExecutor):
         local_input=None,
         restart_times=None,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         self.workflow = workflow
 
@@ -1757,6 +1779,7 @@ class TibannaExecutor(ClusterExecutor):
         restart_times=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         self.workflow = workflow
         self.workflow_sources = []
