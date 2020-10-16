@@ -790,8 +790,9 @@ class DAG:
     ):
         """ Update the DAG by adding the given job and its dependencies. """
         logger.debug("JME: updating job: %s" % (job))
-        logger.debug('JME: test.in ' + ('exists' if os.path.exists('test.in') else
-                            'missing'))
+        logger.debug(
+            "JME: test.in " + ("exists" if os.path.exists("test.in") else "missing")
+        )
 
         if job in self.dependencies:
             return
@@ -811,8 +812,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
-            logger.debug("JME: update_: checking file: " + str(file) + " with " +
-                  str(len(jobs)) + " jobs")
+            logger.debug(
+                "JME: update_: checking file: "
+                + str(file)
+                + " with "
+                + str(len(jobs))
+                + " jobs"
+            )
             # If possible, obtain inventory information starting from
             # given file and store it in the IOCache.
             # This should provide faster access to existence and mtime information
@@ -840,7 +846,8 @@ class DAG:
                         file=file,
                         visited=visited,
                         known_producers=known_producers,
-                        skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input,
+                        skip_until_dynamic=skip_until_dynamic
+                        or file in job.dynamic_input,
                         progress=progress,
                     )
                     known_producers[file] = selected_job
@@ -975,8 +982,9 @@ class DAG:
         queue = deque(filter(reason, candidates))
         visited = set(queue)
         known_files = {}
-        logger.debug("JME: {} of {} jobs needed at start".format(
-                        len(visited), len(candidates)))
+        logger.debug(
+            "JME: {} of {} jobs needed at start".format(len(visited), len(candidates))
+        )
         logger.debug("JME: " + repr(visited))
         candidates_set = set(candidates)
         while queue:
@@ -986,8 +994,9 @@ class DAG:
 
             # check files that this job needs
             for job_, files in dependencies[job].items():
-                logger.debug("JME: needed job {} makes files {}".format(job_,
-                                                                 repr(files)))
+                logger.debug(
+                    "JME: needed job {} makes files {}".format(job_, repr(files))
+                )
                 # assume a give file can only come from one job
                 #  only check files we haven't seen before from this job
                 unknown_files = files.difference(known_files)
@@ -995,8 +1004,7 @@ class DAG:
 
                 # save newly found missing files to reason and known dict
                 reason(job_).missing_output.update(missing_output)
-                known_files.update({f:(f in missing_output)
-                                    for f in unknown_files})
+                known_files.update({f: (f in missing_output) for f in unknown_files})
 
                 if missing_output and not job_ in visited:
                     visited.add(job_)
@@ -1004,8 +1012,9 @@ class DAG:
 
             # check jobs needing this job's output
             for job_, files in depending[job].items():
-                logger.debug("JME: downstream job {} makes files {}".format(job_,
-                                                                 repr(files)))
+                logger.debug(
+                    "JME: downstream job {} makes files {}".format(job_, repr(files))
+                )
                 if job_ in candidates_set and not all(f.is_ancient for f in files):
                     reason(job_).updated_input_run.update(
                         f for f in files if not f.is_ancient
@@ -1516,7 +1525,9 @@ class DAG:
                 continue
             # set to producer if we already know it
             try:
-                dependencies[file] = [known_producers[file],]
+                dependencies[file] = [
+                    known_producers[file],
+                ]
             except KeyError as key_err:
                 # if we don't already know it, find possible dependencies
                 try:

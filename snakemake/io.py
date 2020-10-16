@@ -194,6 +194,7 @@ class IOCache:
         self.threads = []
         self.clear()
 
+
 def IOFile(file, rule):
     assert rule is not None
     f = _IOFile(file)

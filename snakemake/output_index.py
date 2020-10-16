@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from itertools import chain
 
+
 class OutputIndex:
     def __init__(self, rules):
         import datrie
