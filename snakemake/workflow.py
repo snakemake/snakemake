@@ -52,7 +52,7 @@ from snakemake.io import (
     repeat,
     report,
     multiext,
-    IOFile,
+    get_IOFile,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -452,7 +452,7 @@ class Workflow:
             path = str(path)
         if self.default_remote_provider is not None:
             path = self.apply_default_remote(path)
-        return IOFile(path)
+        return get_IOFile(path)
 
     def apply_default_remote(self, path):
         """Apply the defined default remote provider to the given path and return the updated _IOFile.

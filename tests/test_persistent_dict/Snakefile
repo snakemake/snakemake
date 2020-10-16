@@ -22,6 +22,7 @@ rule:
 
 rule:
 	output: temp("test.in")  # mark output as temp, since var1 has to be stored in each run
+	#output: "test.in"
 	run:
 		storage.store("var2", 1)
 		shell("touch {output}")

@@ -27,6 +27,7 @@ from snakemake.exceptions import (
     WorkflowError,
     WildcardError,
     RemoteFileException,
+    AmbiguousRuleException,
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
@@ -193,11 +194,22 @@ class IOCache:
         self.threads = []
         self.clear()
 
+FILE_CACHE = {}
+def get_IOFile(file):
+    try:
+        return FILE_CACHE[file]
+    except KeyError:
+        f = _IOFile(file)
+        FILE_CACHE[file] = f
+        return f
 
-def IOFile(file, rule=None):
+def get_output_file(file, rule):
     assert rule is not None
-    f = _IOFile(file)
-    f.rule = rule
+    f = get_IOFile(file)
+    if f.rule is None:
+        f.rule = rule
+    elif f.rule != rule:
+        raise AmbiguousRuleException(file, rule, f.rule)
     return f
 
 
@@ -220,6 +232,7 @@ class _IOFile(str):
         "_is_function",
         "_is_concrete",
         "_file",
+        "_hash",
         "rule",
         "_regex",
         "inventory_root",
@@ -240,6 +253,7 @@ class _IOFile(str):
         obj._is_concrete = not (obj._is_function or contains_wildcard(file))
 
         obj._file = file
+        obj._hash = file.__hash__()
         obj.rule = None
         obj._regex = None
 
@@ -606,7 +620,9 @@ class _IOFile(str):
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
-            p = IOFile(str(p), rule=self.rule)
+            p = get_IOFile(str(p))
+            if self.rule:
+                p.rule = self.rule
             p.clone_flags(self)
             yield p
 
@@ -797,27 +813,22 @@ class _IOFile(str):
     def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
 
         # if the file is a string and has no braces, do nothing
-        if self._is_concrete:
-            return self
-
         f = self._file
-        if self._is_function:
-            f = self._file(Namedlist(fromdict=wildcards))
-
-        # this bit ensures flags are transferred over to files after
-        # wildcards are applied
-
-        file_with_wildcards_applied = IOFile(
-            apply_wildcards(
+        if not self._is_concrete:
+            if self._is_function:
+                f = self._file(Namedlist(fromdict=wildcards))
+            f = apply_wildcards(
                 f,
                 wildcards,
                 fill_missing=fill_missing,
                 fail_dynamic=fail_dynamic,
                 dynamic_fill=DYNAMIC_FILL,
-            ),
-            rule=self.rule,
-        )
-
+            )
+        # this bit ensures flags are transferred over to files after
+        # wildcards are applied
+        file_with_wildcards_applied = get_IOFile(f, self.rule)
+        if self.rule:
+            file_with_wildcards_applied.rule = self.rule
         file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
@@ -883,7 +894,7 @@ class _IOFile(str):
         return self._file == f
 
     def __hash__(self):
-        return self._file.__hash__()
+        return self._hash
 
 
 _double_slash_regex = (
