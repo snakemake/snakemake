@@ -19,8 +19,7 @@ from urllib.request import urlopen
 from urllib.parse import urlparse
 
 from snakemake.io import (
-    get_IOFile,
-    get_output_file,
+    IOFile,
     Wildcards,
     Resources,
     _IOFile,
@@ -466,7 +465,7 @@ class Job(AbstractJob):
                 if not expansion:
                     yield f_
                 for f, _ in expansion:
-                    file_to_yield = get_output_file(f, self.rule)
+                    file_to_yield = IOFile(f, self.rule)
                     file_to_yield.clone_flags(f_)
                     yield file_to_yield
             else:
@@ -476,7 +475,7 @@ class Job(AbstractJob):
         """ Get the shadowed path of _IOFile f. """
         if not self.shadow_dir:
             return f
-        f_ = get_output_file(os.path.join(self.shadow_dir, f), self.rule)
+        f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
         f_.clone_flags(f)
         return f_
 

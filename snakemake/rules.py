@@ -14,8 +14,7 @@ from pathlib import Path
 from itertools import chain
 
 from snakemake.io import (
-    get_IOFile,
-    get_output_file,
+    IOFile,
     _IOFile,
     protected,
     temp,
@@ -171,7 +170,7 @@ class Rule:
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
-            return get_output_file(anno_s, f.rule)
+            return IOFile(anno_s, f.rule)
 
         io, dynamic_io = get_io(self)
 

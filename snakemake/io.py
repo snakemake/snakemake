@@ -194,22 +194,10 @@ class IOCache:
         self.threads = []
         self.clear()
 
-FILE_CACHE = {}
-def get_IOFile(file):
-    try:
-        return FILE_CACHE[file]
-    except KeyError:
-        f = _IOFile(file)
-        FILE_CACHE[file] = f
-        return f
-
-def get_output_file(file, rule):
+def IOFile(file, rule):
     assert rule is not None
-    f = get_IOFile(file)
-    if f.rule is None:
-        f.rule = rule
-    elif f.rule != rule:
-        raise AmbiguousRuleException(file, rule, f.rule)
+    f = _IOFile(file)
+    f.rule = rule
     return f
 
 
@@ -620,9 +608,7 @@ class _IOFile(str):
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
         for p in list(Path(self.file).parents)[::-1][omit:]:
-            p = get_IOFile(str(p))
-            if self.rule:
-                p.rule = self.rule
+            p = IOFile(str(p), self.rule)
             p.clone_flags(self)
             yield p
 
@@ -826,9 +812,7 @@ class _IOFile(str):
             )
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
-        file_with_wildcards_applied = get_IOFile(f, self.rule)
-        if self.rule:
-            file_with_wildcards_applied.rule = self.rule
+        file_with_wildcards_applied = IOFile(f, self.rule)
         file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
