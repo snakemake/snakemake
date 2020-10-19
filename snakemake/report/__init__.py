@@ -278,6 +278,18 @@ class RuleRecord:
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
 
+        if sources is None:
+            # if the rule is not one of the types above (e.g., it is run_func),
+            # then `sources` is `None` which causes an error below when the
+            # code attempts to iterate over `None`. In `snakemake` version 5.25,
+            # instead it just printed "source" for the code. This still seems
+            # non-ideal (we'd like to access the actual code for the run rule),
+            # but I'm not sure how to do that. So in the meantime, at least this
+            # change simply makes the report just put "source" in place of the
+            # the actual code source, rather than throwing an error which
+            # crashes the entire generation of the `snakemake` report.
+            sources = ['source']
+
         try:
             lexer = get_lexer_by_name(language)
 
