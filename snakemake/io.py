@@ -20,14 +20,12 @@ from contextlib import contextmanager
 import string
 import queue
 import threading
-import errno
 
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
     WildcardError,
     RemoteFileException,
-    AmbiguousRuleException,
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
@@ -423,7 +421,7 @@ class _IOFile(str):
                 try:
                     s = os.lstat(timestamp_path)
                     cache.mtime[entry.path] = s.st_mtime
-                except FileNotFoundError as e:
+                except FileNotFoundError:
                     cache.mtime[entry.path] = entry.stat(follow_symlinks=False).st_mtime
                     if entry.is_symlink():
                         cache.mtime_target[entry.path] = entry.stat(
@@ -764,7 +762,7 @@ class _IOFile(str):
                 file = os.path.join(self.file, TIMESTAMP_FILENAME)
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
-                    with open(file, "w") as f:
+                    with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
@@ -794,23 +792,25 @@ class _IOFile(str):
                 if self.is_directory
                 else self.file
             )
-            with open(file, "w") as f:
+            with open(file, "w"):
                 pass
 
     def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
 
         # if the file is a string and has no braces, do nothing
         f = self._file
-        if not self._is_concrete:
-            if self._is_function:
-                f = self._file(Namedlist(fromdict=wildcards))
-            f = apply_wildcards(
-                f,
-                wildcards,
-                fill_missing=fill_missing,
-                fail_dynamic=fail_dynamic,
-                dynamic_fill=DYNAMIC_FILL,
-            )
+        if self._is_concrete:
+            return self
+
+        if self._is_function:
+            f = self._file(Namedlist(fromdict=wildcards))
+        f = apply_wildcards(
+            f,
+            wildcards,
+            fill_missing=fill_missing,
+            fail_dynamic=fail_dynamic,
+            dynamic_fill=DYNAMIC_FILL,
+        )
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
         file_with_wildcards_applied = IOFile(f, self.rule)
@@ -1416,7 +1416,7 @@ def get_git_root(path):
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         return get_git_root_parent_directory(tail, path)
 
@@ -1439,7 +1439,7 @@ def get_git_root_parent_directory(path, input_path):
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         if tail is None:
             raise WorkflowError(
