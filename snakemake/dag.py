@@ -698,8 +698,6 @@ class DAG:
         known_producers=None,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
-        logger.debug("updating file: " + str(file))
-        logger.debug("JME: job list: " + repr(jobs))
         if visited is None:
             visited = set()
         if known_producers is None:
@@ -789,11 +787,6 @@ class DAG:
         known_producers=None,
     ):
         """ Update the DAG by adding the given job and its dependencies. """
-        logger.debug("JME: updating job: %s" % (job))
-        logger.debug(
-            "JME: test.in " + ("exists" if os.path.exists("test.in") else "missing")
-        )
-
         if job in self.dependencies:
             return
         if visited is None:
@@ -811,13 +804,6 @@ class DAG:
         missing_input = set()
         producer = dict()
         for file, jobs in potential_dependencies.items():
-            logger.debug(
-                "JME: update_: checking file: "
-                + str(file)
-                + " with "
-                + str(len(jobs))
-                + " jobs"
-            )
             # If possible, obtain inventory information starting from
             # given file and store it in the IOCache.
             # This should provide faster access to existence and mtime information
@@ -830,7 +816,6 @@ class DAG:
                 if not file.exists:
                     # file not found, hence missing input
                     missing_input.add(file)
-                    logger.debug("JME: missing inputs is now: " + repr(missing_input))
                 # file found, no problem
                 continue
 
@@ -980,21 +965,13 @@ class DAG:
         queue = deque(filter(reason, candidates))
         visited = set(queue)
         known_files = {}
-        logger.debug(
-            "JME: {} of {} jobs needed at start".format(len(visited), len(candidates))
-        )
-        logger.debug("JME: " + repr(visited))
         candidates_set = set(candidates)
         while queue:
             job = queue.popleft()
-            logger.debug("JME: adding job {} to _needrun".format(job))
             _needrun.add(job)
 
             # check files that this job needs
             for job_, files in dependencies[job].items():
-                logger.debug(
-                    "JME: needed job {} makes files {}".format(job_, repr(files))
-                )
                 # assume a give file can only come from one job
                 #  only check files we haven't seen before from this job
                 unknown_files = files.difference(known_files)
@@ -1010,9 +987,6 @@ class DAG:
 
             # check jobs needing this job's output
             for job_, files in depending[job].items():
-                logger.debug(
-                    "JME: downstream job {} makes files {}".format(job_, repr(files))
-                )
                 if job_ in candidates_set and not all(f.is_ancient for f in files):
                     reason(job_).updated_input_run.update(
                         f for f in files if not f.is_ancient
@@ -1020,8 +994,6 @@ class DAG:
                     if not job_ in visited:
                         visited.add(job_)
                         queue.append(job_)
-
-            logger.debug("JME: queue at end of loop: " + repr(queue))
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
