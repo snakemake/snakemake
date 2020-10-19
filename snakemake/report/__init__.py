@@ -288,7 +288,7 @@ class RuleRecord:
             # change simply makes the report just put "source" in place of the
             # the actual code source, rather than throwing an error which
             # crashes the entire generation of the `snakemake` report.
-            sources = ['source']
+            sources = ["source"]
 
         try:
             lexer = get_lexer_by_name(language)
