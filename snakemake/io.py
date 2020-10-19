@@ -193,7 +193,7 @@ class IOCache:
         self.clear()
 
 
-def IOFile(file, rule):
+def IOFile(file, rule=None):
     assert rule is not None
     f = _IOFile(file)
     f.rule = rule
