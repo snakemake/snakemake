@@ -810,7 +810,6 @@ class DAG:
 
         missing_input = set()
         producer = dict()
-        exceptions = dict()
         for file, jobs in potential_dependencies.items():
             logger.debug(
                 "JME: update_: checking file: "
@@ -944,9 +943,8 @@ class DAG:
                     if job.rule in self.targetrules:
                         missing_output = job.missing_output()
                     else:
-                        missing_output = job.missing_output(
-                            requested=set(chain(*self.depending[job].values()))
-                            | self.targetfiles
+                        missing_output = job.missing_requested_output(
+                            set(chain(*self.depending[job].values())) | self.targetfiles
                         )
                     reason.missing_output.update(missing_output)
             if not reason:
@@ -1000,7 +998,7 @@ class DAG:
                 # assume a give file can only come from one job
                 #  only check files we haven't seen before from this job
                 unknown_files = files.difference(known_files)
-                missing_output = job_.missing_output(requested=unknown_files)
+                missing_output = job_.missing_requested_output(unknown_files)
 
                 # save newly found missing files to reason and known dict
                 reason(job_).missing_output.update(missing_output)
@@ -1528,7 +1526,7 @@ class DAG:
                 dependencies[file] = [
                     known_producers[file],
                 ]
-            except KeyError as key_err:
+            except KeyError:
                 # if we don't already know it, find possible dependencies
                 try:
                     if file in job.dependencies:
@@ -1536,7 +1534,7 @@ class DAG:
                     else:
                         jobs = file2jobs(file)
                     dependencies[file].extend(jobs)
-                except MissingRuleException as ex:
+                except MissingRuleException:
                     # no dependency found
                     dependencies[file] = []
 

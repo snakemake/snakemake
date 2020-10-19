@@ -3,40 +3,28 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import hashlib
 import os
 import sys
 import base64
 import tempfile
-import subprocess
 import json
 
 from collections import defaultdict
 from itertools import chain, filterfalse
-from functools import partial
 from operator import attrgetter
-from urllib.request import urlopen
 from urllib.parse import urlparse
 
 from snakemake.io import (
-    IOFile,
     Wildcards,
     Resources,
-    _IOFile,
+    IOFile,
     is_flagged,
     get_flag_value,
-    contains_wildcard,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-from snakemake.exceptions import (
-    UnexpectedOutputException,
-    CreateCondaEnvironmentException,
-)
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake.deployment import conda
-from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
@@ -126,6 +114,7 @@ class Job(AbstractJob):
         "input",
         "dependencies",
         "output",
+        "output_mapping",
         "_params",
         "_log",
         "_benchmark",
@@ -170,7 +159,7 @@ class Job(AbstractJob):
             self.wildcards_dict
         )
 
-        self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        self.output, self.output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
         self._log = None
@@ -192,7 +181,7 @@ class Job(AbstractJob):
         self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
-            f_ = output_mapping[f]
+            f_ = self.output_mapping[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
@@ -556,6 +545,29 @@ class Job(AbstractJob):
             return max(existing)
         return None
 
+    def missing_requested_output(self, requested_output):
+        """ return files from requested that are missing """
+        files = set()
+        for f in requested_output:
+            try:
+                f_ = self.output_mapping[f]
+                self._add_if_missing(f, f_, files)
+            except KeyError:
+                if not f.exists:
+                    files.add(f)
+        return files
+
+    def _add_if_missing(self, job_output, rule_output, files):
+        if job_output in self.dynamic_output:
+            if not self.expand_dynamic(rule_output):
+                files.add("{} (dynamic)".format(rule_output))
+        elif is_flagged(job_output, "pipe"):
+            # pipe output is always declared as missing
+            # (even if it might be present on disk for some reason)
+            files.add(job_output)
+        elif not job_output.exists:
+            files.add(job_output)
+
     def missing_output(self, requested=None):
         """ Return missing output files. """
         files = set()
@@ -565,15 +577,7 @@ class Job(AbstractJob):
 
         for f, f_ in zip(self.output, self.rule.output):
             if requested is None or f in requested:
-                if f in self.dynamic_output:
-                    if not self.expand_dynamic(f_):
-                        files.add("{} (dynamic)".format(f_))
-                elif is_flagged(f, "pipe"):
-                    # pipe output is always declared as missing
-                    # (even if it might be present on disk for some reason)
-                    files.add(f)
-                elif not f.exists:
-                    files.add(f)
+                self._add_if_missing(f, f_, files)
 
         for f in self.log:
             if requested and f in requested and not f.exists:
@@ -1021,10 +1025,6 @@ class Job(AbstractJob):
     @property
     def name(self):
         return self.rule.name
-
-    @property
-    def priority(self):
-        return self.dag.priority(self)
 
     @property
     def products(self):
