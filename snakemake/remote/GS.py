@@ -280,7 +280,7 @@ class RemoteObject(AbstractRemoteObject):
     def key(self):
         key = self.parse().group("key")
         f = self.local_file()
-        if os.path.exists(f) and os.path.isdir(f):
+        if snakemake.io.is_flagged(f, "directory"):
             key = key if f.endswith("/") else key + "/"
         return key
 
