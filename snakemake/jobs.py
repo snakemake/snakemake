@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from snakemake.io import (
     Wildcards,
     Resources,
+    _IOFile,
     IOFile,
     is_flagged,
     get_flag_value,
@@ -159,7 +160,8 @@ class Job(AbstractJob):
             self.wildcards_dict
         )
 
-        self.output, self.output_mapping = self.rule.expand_output(self.wildcards_dict)
+        self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        self.output_mapping = {f: (f, f_) for f, f_ in output_mapping.items()}
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
         self._log = None
@@ -181,7 +183,7 @@ class Job(AbstractJob):
         self.touch_output = set()
         self.subworkflow_input = dict()
         for f in self.output:
-            f_ = self.output_mapping[f]
+            f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
                 self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
@@ -550,9 +552,17 @@ class Job(AbstractJob):
         files = set()
         for f in requested_output:
             try:
-                f_ = self.output_mapping[f]
+                f, f_ = self.output_mapping[f]
                 self._add_if_missing(f, f_, files)
             except KeyError:
+                if f == self.log:
+                    if not isinstance(f, _IOFile):
+                        f = self.log
+                elif f == self.benchmark:
+                    if not isinstance(f, _IOFile):
+                        f = self.benchmark
+                else:
+                    continue
                 if not f.exists:
                     files.add(f)
         return files
