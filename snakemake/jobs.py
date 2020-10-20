@@ -555,14 +555,17 @@ class Job(AbstractJob):
                 f, f_ = self.output_mapping[f]
                 self._add_if_missing(f, f_, files)
             except KeyError:
-                if f == self.log:
-                    if not isinstance(f, _IOFile):
-                        f = self.log
-                elif f == self.benchmark:
-                    if not isinstance(f, _IOFile):
-                        f = self.benchmark
+                for l in self.log:
+                    if l == f:
+                        if not isinstance(f, _IOFile):
+                            f = l
+                            break
                 else:
-                    continue
+                    if self.benchmark == f:
+                        if not isinstance(f, _IOFile):
+                            f = self.benchmark
+                    else:
+                        continue
                 if not f.exists:
                     files.add(f)
         return files
