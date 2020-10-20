@@ -229,22 +229,15 @@ class RemoteObject(AbstractRemoteObject):
             f = self.local_file()
             if os.path.isdir(f):
 
-                # We must ensure ends with / to be treated as directory
-                upload_blob = (
-                    self.bucket.blob(f)
-                    if f.endswith("/")
-                    else self.bucket.blob(f + "/")
-                )
-
                 # Ensure the "directory" exists
-                upload_blob.upload_from_string(
+                self.blob.upload_from_string(
                     "", content_type="application/x-www-form-urlencoded;charset=UTF-8"
                 )
                 for root, _, files in os.walk(f):
-                    root = root.lstrip(self.bucket.name).lstrip("/")
                     for filename in files:
                         filename = os.path.join(root, filename)
-                        blob = self.bucket.blob(filename)
+                        bucket_path = filename.lstrip(self.bucket.name).lstrip("/")
+                        blob = self.bucket.blob(bucket_path)
                         blob.upload_from_filename(filename)
             else:
                 self.blob.upload_from_filename(f)
@@ -283,9 +276,13 @@ class RemoteObject(AbstractRemoteObject):
     def bucket_name(self):
         return self.parse().group("bucket")
 
-    @lazy_property
+    @property
     def key(self):
-        return self.parse().group("key")
+        key = self.parse().group("key")
+        f = self.local_file()
+        if os.path.exists(f) and os.path.isdir(f):
+            key = key if f.endswith("/") else key + "/"
+        return key
 
     def parse(self):
         m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
