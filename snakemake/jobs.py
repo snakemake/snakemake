@@ -559,13 +559,14 @@ class Job(AbstractJob):
                     if l == f:
                         if not isinstance(f, _IOFile):
                             f = l
-                            break
+                        break
                 else:
                     if self.benchmark == f:
                         if not isinstance(f, _IOFile):
                             f = self.benchmark
                     else:
                         continue
+
                 if not f.exists:
                     files.add(f)
         return files
