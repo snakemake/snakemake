@@ -515,6 +515,10 @@ class _IOFile(str):
             f.close()
 
     @property
+    def is_concrete(self):
+        return self._is_concrete
+
+    @property
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
 
