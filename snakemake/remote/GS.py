@@ -48,6 +48,33 @@ def google_cloud_retry_predicate(ex):
     return False
 
 
+@retry.Retry(predicate=google_cloud_retry_predicate)
+def download_blob(blob, filename):
+    """A helper function to download a storage Blob to a blob_file (the filename)
+    and validate it using the Crc32cCalculator.
+
+    Arguments:
+      blob (storage.Blob) : the Google storage blob object
+      blob_file (str)     : the file path to download to
+    Returns: boolean to indicate doing retry (True) or not (False)
+    """
+    # ideally we could calculate hash while streaming to file with provided function
+    # https://github.com/googleapis/python-storage/issues/29
+    with open(filename, "wb") as blob_file:
+        parser = Crc32cCalculator(blob_file)
+        blob.download_to_file(parser)
+    os.sync()
+
+    # **Important** hash can be incorrect or missing if not refreshed
+    blob.reload()
+
+    # Compute local hash and verify correct
+    if parser.hexdigest() != blob.crc32c:
+        os.remove(filename)
+        raise CheckSumMismatchException("The checksum of %s does not match." % filename)
+    return filename
+
+
 class Crc32cCalculator:
     """The Google Python client doesn't provide a way to stream a file being
     written, so we can wrap the file object in an additional class to
@@ -196,26 +223,30 @@ class RemoteObject(AbstractRemoteObject):
         if not self.exists():
             return None
 
-        # Create the directory for the intended file
-        os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
+        # Create just a directory, or a file itself
+        if snakemake.io.is_flagged(self.local_file(), "directory"):
+            return self._download_directory()
+        return download_blob(self.blob, self.local_file())
 
-        # ideally we could calculate hash while streaming to file with provided function
-        # https://github.com/googleapis/python-storage/issues/29
-        with open(self.local_file(), "wb") as blob_file:
-            parser = Crc32cCalculator(blob_file)
-            self.blob.download_to_file(parser)
-        os.sync()
+    @retry.Retry(predicate=google_cloud_retry_predicate)
+    def _download_directory(self):
+        """A 'private' function to handle download of a storage folder, which
+        includes the content found inside.
+        """
+        # Create the directory locally
+        os.makedirs(self.local_file(), exist_ok=True)
 
-        # **Important** hash can be incorrect or missing if not refreshed
-        self.blob.reload()
+        for blob in self.client.list_blobs(self.bucket_name, prefix=self.key):
+            local_name = "{}/{}".format(blob.bucket.name, blob.name)
 
-        # Compute local hash and verify correct
-        if parser.hexdigest() != self.blob.crc32c:
-            os.remove(self.local_file())
-            raise CheckSumMismatchException(
-                "The checksum of %s does not match." % self.local_file()
-            )
+            # Don't try to create "directory blob"
+            if os.path.exists(local_name) and os.path.isdir(local_name):
+                continue
 
+            os.makedirs(os.path.dirname(local_name), exist_ok=True)
+            download_blob(blob, local_name)
+
+        # Return the root directory
         return self.local_file()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
