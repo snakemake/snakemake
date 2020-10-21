@@ -34,7 +34,8 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     blobs = bucket.list_blobs(prefix=prefix)
     for blob in blobs:
         blob.delete()
-    bucket.delete()
+    # Using API we get an exception about bucket deletion
+    shell("gsutil -m rm -r gs://{bucket.name}/* || true")
 
 
 def create_google_storage(bucket_name="snakemake-testing"):
