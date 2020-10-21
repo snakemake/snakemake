@@ -41,6 +41,7 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     shell("gsutil -m rm -r gs://{bucket.name}/* || true")
     bucket.delete()
 
+
 def create_google_storage(bucket_name="snakemake-testing"):
     """Given a bucket name, create the Google storage bucket,
     with intention to be used for testing and then cleaned up by
