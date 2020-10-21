@@ -174,7 +174,12 @@ class DAG:
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file, progress=progress, create_inventory=True)
+            job = self.update(
+                self.file2jobs(file),
+                file=file,
+                progress=progress,
+                create_inventory=True,
+            )
             self.targetjobs.add(job)
 
         self.cleanup()
@@ -688,7 +693,13 @@ class DAG:
             return self._jobid[job]
 
     def update(
-        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False, create_inventory=False,
+        self,
+        jobs,
+        file=None,
+        visited=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
@@ -769,7 +780,14 @@ class DAG:
 
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False, create_inventory=False):
+    def update_(
+        self,
+        job,
+        visited=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
+    ):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return

@@ -143,7 +143,12 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
-        is_callable = isfunction(file) or ismethod(file) or isinstance(file, AnnotatedString) and bool(file.callable)
+        is_callable = (
+            isfunction(file)
+            or ismethod(file)
+            or isinstance(file, AnnotatedString)
+            and bool(file.callable)
+        )
         if not is_callable:
             # remove trailing slashes
             file = file.rstrip("/")
@@ -241,7 +246,7 @@ class _IOFile(str):
                     "are readable and writable for you.".format(self)
                 )
             cache.has_inventory.add(path)
-        
+
         cache.remaining_wait_time -= time.time() - start_time
 
     @_refer_to_remote
