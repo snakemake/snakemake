@@ -169,6 +169,9 @@ class DAG:
 
     def init(self, progress=False):
         """ Initialise the DAG. """
+        print("DAG INIT")
+        import IPython
+        IPython.embed()
         for job in map(self.rule2job, self.targetrules):
             job = self.update([job], progress=progress)
             self.targetjobs.add(job)
@@ -297,6 +300,9 @@ class DAG:
     def check_incomplete(self):
         """Check if any output files are incomplete. This is done by looking up
         markers in the persistence module."""
+        print("CHECK INCOMPLETE")
+        import IPython
+        IPython.embed()
         if not self.ignore_incomplete:
             incomplete = self.incomplete_files
             if incomplete:
@@ -328,6 +334,9 @@ class DAG:
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
+        print("CHECK DYNAMIC")
+        import IPython
+        IPython.embed()
         if self.has_dynamic_rules:
             for job in filter(
                 lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
