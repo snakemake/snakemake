@@ -175,6 +175,10 @@ class AbstractRemoteObject:
         # the given IOCache object.
         pass
 
+    @abstractmethod
+    def get_inventory_parent(self):
+        pass
+
     @property
     def _file(self):
         if self._iofile is None:

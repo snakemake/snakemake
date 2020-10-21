@@ -107,23 +107,13 @@ class IOCache:
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
 
-    def get_inventory_root(self, path):
-        """If eligible for inventory, get the root of a given path.
-
-        This code does not work on local Windows paths,
-        but inventory is disabled on Windows.
-        """
-        root = path.split("/", maxsplit=1)[0]
-        if root and root != "..":
-            return root
-
     def needs_inventory(self, path):
-        root = self.get_inventory_root(path)
-        return root and root not in self.has_inventory
+        parent = path.get_inventory_parent()
+        return parent and parent not in self.has_inventory
 
     def in_inventory(self, path):
-        root = self.get_inventory_root(path)
-        return root and root in self.has_inventory
+        parent = path.get_inventory_parent()
+        return parent and parent in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
@@ -153,12 +143,12 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
-        # Remove trailing slashes.
+        is_callable = isfunction(file) or ismethod(file) or isinstance(file, AnnotatedString) and bool(file.callable)
+        if not is_callable:
+            # remove trailing slashes
+            file = file.rstrip("/")
         obj = str.__new__(cls, file)
-        obj._is_function = isfunction(file) or ismethod(file)
-        obj._is_function = obj._is_function or (
-            isinstance(file, AnnotatedString) and bool(file.callable)
-        )
+        obj._is_function = is_callable
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -173,11 +163,10 @@ class _IOFile(str):
         def wrapper(self, *args, **kwargs):
             if self.rule.workflow.iocache.active:
                 cache = getattr(self.rule.workflow.iocache, func.__name__)
-                normalized = self.rstrip("/")
-                if normalized in cache:
-                    return cache[normalized]
+                if self in cache:
+                    return cache[self]
                 v = func(self, *args, **kwargs)
-                cache[normalized] = v
+                cache[self] = v
                 return v
             else:
                 return func(self, *args, **kwargs)
@@ -220,31 +209,51 @@ class _IOFile(str):
 
         start_time = time.time()
 
-        root = cache.get_inventory_root(self)
-        if root == self:
-            # there is no root directory that could be used
+        folders = self.split("/")[:-1]
+        if not folders:
             return
-        if os.path.exists(root):
-            queue = [root]
-            while queue:
-                path = queue.pop(0)
-                # path must be a dir
-                cache.exists_local[path] = True
+
+        if os.path.isabs(self):
+            # For absolute paths, only use scan the immediate parent
+            ancestors = [os.path.dirname(self)]
+        else:
+            ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
+
+        for (i, path) in enumerate(ancestors):
+            if path in cache.has_inventory:
+                # This path was already scanned before, hence we can stop.
+                break
+            try:
                 with os.scandir(path) as scan:
                     for entry in scan:
-                        if entry.is_dir():
-                            queue.append(entry.path)
-                        else:
-                            # path is a file
-                            cache.exists_local[entry.path] = True
-                cache.remaining_wait_time -= time.time() - start_time
-                if cache.remaining_wait_time <= 0:
-                    # Stop, do not mark inventory as done below.
-                    # Otherwise, we would falsely assume that those files
-                    # are not present.
-                    return
+                        cache.exists_local[entry.path] = True
+                    cache.exists_local[path] = True
+            except FileNotFoundError:
+                # Not found, hence, all subfolders cannot be present as well
+                for path in ancestors[i:]:
+                    cache.exists_local[path] = False
+                    cache.has_inventory.add(path)
+                break
+            except PermissionError:
+                raise WorkflowError(
+                    "Insufficient permissions to access {}. "
+                    "Please make sure that all accessed files and directories "
+                    "are readable and writable for you.".format(self)
+                )
+            cache.has_inventory.add(path)
+        
+        cache.remaining_wait_time -= time.time() - start_time
 
-        cache.has_inventory.add(root)
+    @_refer_to_remote
+    def get_inventory_parent(self):
+        """If eligible for inventory, get the parent of a given path.
+
+        This code does not work on local Windows paths,
+        but inventory is disabled on Windows.
+        """
+        parent = os.path.dirname(self)
+        if parent and parent != "..":
+            return parent
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):

@@ -1,0 +1,7 @@
+rule all:
+    input:
+        'Input/{file}'
+    output:
+        'Output/{file}'
+    shell:
+        'cp {input} {output}'

@@ -170,11 +170,11 @@ class DAG:
     def init(self, progress=False):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
-            job = self.update([job], progress=progress)
+            job = self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file, progress=progress)
+            job = self.update(self.file2jobs(file), file=file, progress=progress, create_inventory=True)
             self.targetjobs.add(job)
 
         self.cleanup()
@@ -688,7 +688,7 @@ class DAG:
             return self._jobid[job]
 
     def update(
-        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
+        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False, create_inventory=False,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
@@ -713,6 +713,7 @@ class DAG:
                     visited=set(visited),
                     skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
+                    create_inventory=create_inventory,
                 )
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
@@ -768,7 +769,7 @@ class DAG:
 
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
+    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False, create_inventory=False):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
@@ -784,12 +785,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
-            # If possible, obtain inventory information starting from
-            # given file and store it in the IOCache.
-            # This should provide faster access to existence and mtime information
-            # than querying file by file. If the file type does not support inventory
-            # information, this call is a no-op.
-            file.inventory()
+            if create_inventory:
+                # If possible, obtain inventory information starting from
+                # given file and store it in the IOCache.
+                # This should provide faster access to existence and mtime information
+                # than querying file by file. If the file type does not support inventory
+                # information, this call is a no-op.
+                file.inventory()
 
             if not jobs:
                 # no producing job found
