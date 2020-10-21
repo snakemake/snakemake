@@ -34,9 +34,12 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     blobs = bucket.list_blobs(prefix=prefix)
     for blob in blobs:
         blob.delete()
+    blobs = bucket.list_blobs(prefix="source")
+    for blob in blobs:
+        blob.delete()
     # Using API we get an exception about bucket deletion
     shell("gsutil -m rm -r gs://{bucket.name}/* || true")
-
+    bucket.delete()
 
 def create_google_storage(bucket_name="snakemake-testing"):
     """Given a bucket name, create the Google storage bucket,
@@ -62,7 +65,7 @@ def test_google_lifesciences():
             use_conda=True,
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
-            google_lifesciences_cache=True,
+            google_lifesciences_cache=False,
             preemption_default=None,
             preemptible_rules=["pack=1"],
         )
@@ -85,7 +88,7 @@ def test_touch_remote_prefix():
             use_conda=True,
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
-            google_lifesciences_cache=True,
+            google_lifesciences_cache=False,
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
