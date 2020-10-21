@@ -143,15 +143,18 @@ class _IOFile(str):
     __slots__ = ["_is_function", "_file", "rule", "_regex"]
 
     def __new__(cls, file):
+        is_annotated = isinstance(file, AnnotatedString)
         is_callable = (
             isfunction(file)
             or ismethod(file)
-            or isinstance(file, AnnotatedString)
-            and bool(file.callable)
+            or (is_annotated and bool(file.callable))
         )
-        if not is_callable:
+        if not is_callable and file.endswith("/"):
             # remove trailing slashes
-            file = file.rstrip("/")
+            stripped = file.rstrip("/")
+            if is_annotated:
+                file = AnnotatedString(stripped)
+                file.flags = other._file.flags
         obj = str.__new__(cls, file)
         obj._is_function = is_callable
         obj._file = file
