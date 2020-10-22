@@ -184,7 +184,7 @@ class DAG:
 
         self.cleanup()
 
-        self.update_needrun()
+        self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
@@ -870,8 +870,12 @@ class DAG:
         if skip_until_dynamic:
             self._dynamic.add(job)
 
-    def update_needrun(self):
+    def update_needrun(self, create_inventory=False):
         """ Update the information whether a job needs to be executed. """
+
+        if create_inventory:
+            # Concurrently collect mtimes of all existing files.
+            self.workflow.iocache.mtime_inventory(self.jobs)
 
         output_mintime = dict()
 

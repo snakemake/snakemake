@@ -109,6 +109,38 @@ class IOCache:
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
 
+    def mtime_inventory(self, jobs):
+        asyncio.run(self._mtime_inventory(jobs))
+
+    async def _mtime_inventory(self, jobs):
+
+        queue = asyncio.Queue()
+
+        async def worker(queue):
+            while True:
+                path = await queue.get()
+                self.mtime[path] = await self.collect_mtime(path)
+                queue.task_done()
+
+        tasks = [asyncio.create_task(worker(queue)) for _ in range(8)]
+
+        for job in jobs:
+            for f in chain(job.input, job.expanded_output):
+                if f.exists:
+                    queue.put_nowait(f)
+            if job.benchmark and job.benchmark.exists:
+                queue.put_nowait(job.benchmark)
+
+        await queue.join()
+
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(*tasks)
+
+    async def collect_mtime(self, path):
+        return path.uncached_mtime
+
     def clear(self):
         self.mtime.clear()
         self.size.clear()
@@ -193,14 +225,14 @@ class _IOFile(str):
         """
         cache = self.rule.workflow.iocache
         if cache.active:
-            jobs = []
+            tasks = []
             if self.is_remote and self not in cache.exists_remote:
                 # info not yet in inventory, let's discover as much as we can
-                jobs.append(self.remote_object.inventory(cache))
+                tasks.append(self.remote_object.inventory(cache))
             if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
-                jobs.append(self._local_inventory(cache))
-            asyncio.gather(*jobs)
+                tasks.append(self._local_inventory(cache))
+            asyncio.run(asyncio.gather(*tasks))
 
     async def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
@@ -393,8 +425,12 @@ class _IOFile(str):
 
     @property
     @iocache
-    @_refer_to_remote
     def mtime(self):
+        return self.uncached_mtime
+
+    @property
+    @_refer_to_remote
+    def uncached_mtime(self):
         return self.mtime_local
 
     @property

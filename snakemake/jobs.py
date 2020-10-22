@@ -540,15 +540,6 @@ class Job(AbstractJob):
         return None
 
     @property
-    def output_mintime_local(self):
-        existing = [f.mtime_local for f in self.expanded_output if f.exists]
-        if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime_local)
-        if existing:
-            return min(existing)
-        return None
-
-    @property
     def input_maxtime(self):
         """ Return newest input file. """
         existing = [f.mtime for f in self.input if f.exists]
