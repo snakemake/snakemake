@@ -82,6 +82,7 @@ class ExistsDict(dict):
     def __init__(self, cache):
         super().__init__()
         self.cache = cache
+        self.has_inventory = set()
 
     def __getitem__(self, path):
         # Always return False if not in dict.
@@ -93,10 +94,7 @@ class ExistsDict(dict):
     def __contains__(self, path):
         # if already in inventory, always return True.
         parent = path.get_inventory_parent()
-        return super().__contains__(parent) or super().__contains__(path)
-
-    def contains_path(self, path):
-        return super().__contains__(path)
+        return parent in self.has_inventory or super().__contains__(path)
 
 
 class IOCache:
@@ -263,7 +261,7 @@ class _IOFile(str):
             ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
 
         for (i, path) in enumerate(ancestors):
-            if cache.exists_local.contains_path(path):
+            if path in cache.exists_local.has_inventory:
                 # This path was already scanned before, hence we can stop.
                 break
             try:
@@ -271,10 +269,12 @@ class _IOFile(str):
                     for entry in scan:
                         cache.exists_local[entry.path] = True
                 cache.exists_local[path] = True
+                cache.exists_local.has_inventory.add(path)
             except FileNotFoundError:
                 # Not found, hence, all subfolders cannot be present as well
                 for path in ancestors[i:]:
                     cache.exists_local[path] = False
+                    cache.exists_local.has_inventory.add(path)
                 break
             except PermissionError:
                 raise WorkflowError(
