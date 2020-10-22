@@ -19,6 +19,7 @@ from itertools import product, chain
 from contextlib import contextmanager
 import string
 import collections
+import asyncio
 
 from snakemake.exceptions import (
     MissingOutputException,
@@ -192,14 +193,16 @@ class _IOFile(str):
         """
         cache = self.rule.workflow.iocache
         if cache.active:
+            jobs = []
             if self.is_remote and self not in cache.exists_remote:
                 # info not yet in inventory, let's discover as much as we can
-                self.remote_object.inventory(cache)
+                jobs.append(self.remote_object.inventory(cache))
             if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
-                self._local_inventory(cache)
+                jobs.append(self._local_inventory(cache))
+            asyncio.gather(*jobs)
 
-    def _local_inventory(self, cache):
+    async def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
         if cache.remaining_wait_time <= 0:
             # No more time to create inventory.

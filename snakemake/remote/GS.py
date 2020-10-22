@@ -127,7 +127,7 @@ class RemoteObject(AbstractRemoteObject):
         self._bucket = None
         self._blob = None
 
-    def inventory(self, cache: snakemake.io.IOCache):
+    async def inventory(self, cache: snakemake.io.IOCache):
         """Using client.list_blobs(), we want to iterate over the objects in
         the "folder" of a bucket and store information about the IOFiles in the
         provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
