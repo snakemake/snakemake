@@ -91,7 +91,11 @@ class ExistsDict(dict):
 
     def __contains__(self, path):
         # if already in inventory, always return True.
-        return self.cache.in_inventory(path) or super().__contains__(path)
+        parent = path.get_inventory_parent()
+        return super().__contains__(parent) or super().__contains__(path)
+
+    def contains_path(self, path):
+        return super().__contains__(path)
 
 
 class IOCache:
@@ -100,27 +104,15 @@ class IOCache:
         self.exists_local = ExistsDict(self)
         self.exists_remote = ExistsDict(self)
         self.size = dict()
-        # Indicator whether an inventory has been created for the root of a given IOFile.
-        # In case of remote objects the root is the bucket or server host.
-        self.has_inventory = set()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
-
-    def needs_inventory(self, path):
-        parent = path.get_inventory_parent()
-        return parent and parent not in self.has_inventory
-
-    def in_inventory(self, path):
-        parent = path.get_inventory_parent()
-        return parent and parent in self.has_inventory
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
         self.exists_remote.clear()
-        self.has_inventory.clear()
         self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
@@ -199,11 +191,11 @@ class _IOFile(str):
         modification date information of this and other files as possible.
         """
         cache = self.rule.workflow.iocache
-        if cache.active and cache.needs_inventory(self):
-            if self.is_remote:
+        if cache.active:
+            if self.is_remote and self not in cache.exists_remote:
                 # info not yet in inventory, let's discover as much as we can
                 self.remote_object.inventory(cache)
-            elif not ON_WINDOWS:
+            if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 self._local_inventory(cache)
 
@@ -226,19 +218,18 @@ class _IOFile(str):
             ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
 
         for (i, path) in enumerate(ancestors):
-            if path in cache.has_inventory:
+            if cache.exists_local.contains_path(path):
                 # This path was already scanned before, hence we can stop.
                 break
             try:
                 with os.scandir(path) as scan:
                     for entry in scan:
                         cache.exists_local[entry.path] = True
-                    cache.exists_local[path] = True
+                cache.exists_local[path] = True
             except FileNotFoundError:
                 # Not found, hence, all subfolders cannot be present as well
                 for path in ancestors[i:]:
                     cache.exists_local[path] = False
-                    cache.has_inventory.add(path)
                 break
             except PermissionError:
                 raise WorkflowError(
@@ -246,7 +237,6 @@ class _IOFile(str):
                     "Please make sure that all accessed files and directories "
                     "are readable and writable for you.".format(self)
                 )
-            cache.has_inventory.add(path)
 
         cache.remaining_wait_time -= time.time() - start_time
 
