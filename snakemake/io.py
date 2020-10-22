@@ -112,17 +112,24 @@ class IOCache:
     def mtime_inventory(self, jobs):
         asyncio.run(self._mtime_inventory(jobs))
 
-    async def _mtime_inventory(self, jobs):
-
+    async def _mtime_inventory(self, jobs, n_workers=8):
         queue = asyncio.Queue()
+        stop_item = object()
 
         async def worker(queue):
             while True:
-                path = await queue.get()
-                self.mtime[path] = await self.collect_mtime(path)
+                item = await queue.get()
+                if item is stop_item:
+                    queue.task_done()
+                    return
+                try:
+                    self.mtime[item] = await self.collect_mtime(item)
+                except Exception as e:
+                    queue.task_done()
+                    raise e
                 queue.task_done()
 
-        tasks = [asyncio.create_task(worker(queue)) for _ in range(8)]
+        tasks = [asyncio.create_task(worker(queue)) for _ in range(n_workers)]
 
         for job in jobs:
             for f in chain(job.input, job.expanded_output):
@@ -131,11 +138,11 @@ class IOCache:
             if job.benchmark and job.benchmark.exists:
                 queue.put_nowait(job.benchmark)
 
+        # Send a stop item to each worker.
+        for _ in range(n_workers):
+            queue.put_nowait(stop_item)
+
         await queue.join()
-
-        for task in tasks:
-            task.cancel()
-
         await asyncio.gather(*tasks)
 
     async def collect_mtime(self, path):
@@ -220,6 +227,9 @@ class _IOFile(str):
         return wrapper
 
     def inventory(self):
+        asyncio.run(self._inventory())
+
+    async def _inventory(self):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
@@ -232,7 +242,7 @@ class _IOFile(str):
             if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 tasks.append(self._local_inventory(cache))
-            asyncio.run(asyncio.gather(*tasks))
+            await asyncio.gather(*tasks)
 
     async def _local_inventory(self, cache):
         # for local files, perform BFS via os.scandir to determine existence of files
