@@ -1054,7 +1054,9 @@ def test_scatter_gather():
 
 
 def test_github_issue640():
-    run(dpath("test_github_issue640"), targets=["Output/FileWithOUTRights"], dryrun=True)
+    run(
+        dpath("test_github_issue640"), targets=["Output/FileWithOUTRights"], dryrun=True
+    )
 
 
 def test_issue661():
