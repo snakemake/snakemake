@@ -367,7 +367,12 @@ class CPUExecutor(RealExecutor):
 
         self.use_threads = use_threads
         self.cores = cores
-        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=workers + 1)
+
+        # Zero thread jobs do not need a thread, but they occupy additional workers.
+        # Hence we need to reserve additional workers for them.
+        self.pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=workers + dag.zero_thread_job_count + 1
+        )
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)

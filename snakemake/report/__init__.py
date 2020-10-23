@@ -367,7 +367,9 @@ class FileRecord:
             job.wildcards if wildcards_overwrite is None else wildcards_overwrite
         )
         self.wildcards = logging.format_wildcards(self._wildcards)
-        self.params = logging.format_dict(job.params)
+        self.params = (
+            logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
+        )
         self.category = category
 
         self.table_content = None
@@ -538,23 +540,6 @@ class FileRecord:
     @property
     def name(self):
         return os.path.basename(self.path)
-
-    def to_json(self):
-        return json.dumps(
-            {
-                "name": self.name,
-                "path": self.path,
-                "size": self.size,
-                "caption": self.caption,
-                "job_properties": {
-                    "rule": self.job.rule.name,
-                    "wildcards": self.wildcards,
-                    "params": self.params,
-                },
-                "data_uri": self.data_uri,
-                "thumbnail_uri": self.png_uri,
-            }
-        )
 
 
 def rulegraph_d3_spec(dag):
@@ -877,7 +862,3 @@ def auto_report(dag, path, stylesheet=None):
             htmlout.write(rendered)
 
     logger.info("Report created: {}.".format(path))
-
-
-def escapejs(val):
-    return json.dumps(str(val))
