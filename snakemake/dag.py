@@ -636,7 +636,7 @@ class DAG:
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
-                    remote_mtime = f.mtime
+                    remote_mtime = f.mtime.remote()
                     # immediately force local mtime to match remote,
                     # since conversions from S3 headers are not 100% reliable
                     # without this, newness comparisons may fail down the line
@@ -1852,7 +1852,7 @@ class DAG:
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
 
-                date = time.ctime(f.mtime) if f.exists else "-"
+                date = time.ctime(f.mtime.local_or_remote()) if f.exists else "-"
 
                 pending = "update pending" if self.reason(job) else "no update"
 

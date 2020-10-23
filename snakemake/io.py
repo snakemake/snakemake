@@ -33,6 +33,32 @@ from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
 
 
+class Mtime:
+    __slots__ = ["_local", "_local_target", "_remote"]
+
+    def __init__(self, local=None, local_target=None, remote=None):
+        self._local = local
+        self._local_target = local_target
+        self._remote = remote
+
+    def local_or_remote(self, follow_symlinks=False):
+        if self._remote is not None:
+            return self._remote
+        if follow_symlinks and self._local_target is not None:
+            return self._local_target
+        return self._local
+
+    def remote(
+        self,
+    ):
+        return self._remote
+
+    def local(self, follow_symlinks=False):
+        if follow_symlinks and self._local_target is not None:
+            return self._local_target
+        return self._local
+
+
 def lutime(f, times):
     # In some cases, we have a platform where os.supports_follow_symlink includes stat()
     # but not utime().  This leads to an anomaly.  In any case we never want to touch the
@@ -124,6 +150,7 @@ class IOCache:
                     self.mtime[item] = await self.collect_mtime(item)
                 except Exception as e:
                     queue.task_done()
+
                     raise e
                 queue.task_done()
 
@@ -140,11 +167,10 @@ class IOCache:
         for _ in range(n_workers):
             queue.put_nowait(stop_item)
 
-        await queue.join()
         await asyncio.gather(*tasks)
 
     async def collect_mtime(self, path):
-        return path.uncached_mtime
+        return path.mtime_uncached
 
     def clear(self):
         self.mtime.clear()
@@ -436,22 +462,43 @@ class _IOFile(str):
     @property
     @iocache
     def mtime(self):
-        return self.uncached_mtime
+        return self.mtime_uncached
 
     @property
-    @_refer_to_remote
-    def uncached_mtime(self):
-        return self.mtime_local
+    def mtime_uncached(self):
+        """Obtain mtime.
 
-    @property
-    def mtime_local(self):
-        # do not follow symlinks for modification time
-        if os.path.isdir(self.file) and os.path.exists(
-            os.path.join(self.file, ".snakemake_timestamp")
-        ):
-            return os.lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
-        else:
-            return os.lstat(self.file).st_mtime
+        Usually, this will be one stat call only. For symlinks it will be two,
+        for remote files it will additionally query the remote location.
+        """
+        mtime_remote = self.remote_object.mtime if self.is_remote else None
+
+        # We first do a normal stat.
+        target_stat = os.stat(self.file)
+        is_symlink = stat.S_ISLNK(target_stat.st_mode)
+        is_dir = stat.S_ISDIR(target_stat.st_mode)
+
+        if is_dir:
+            try:
+                # Try whether we have a timestamp file for it.
+                mtime = os.stat(
+                    os.path.join(self.file, ".snakemake_timestamp")
+                ).st_mtime
+                return Mtime(local=mtime, remote=mtime_remote)
+            except FileNotFoundError:
+                # Not the case, hence go on as if it is a file.
+                pass
+
+        if is_symlink:
+            # Only in case of a symlink, we do a second stat on the link to get the link mtime.
+            return Mtime(
+                local=os.lstat(self.file).st_mtime,
+                local_target=target_stat.st_mtime,
+                remote=mtime_remote,
+            )
+
+        # Not a symlink, just use the mtime from the first stat.
+        return Mtime(local=target_stat.st_mtime, remote=mtime_remote)
 
     @property
     def flags(self):
@@ -478,29 +525,12 @@ class _IOFile(str):
 
     @_refer_to_remote
     def is_newer(self, time):
-        """Returns true of the file is newer than time, or if it is
+        """Returns true of the file (which is an input file) is newer than time, or if it is
         a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
-        elif self.is_remote:
-            # If file is remote but provider does not override the implementation this
-            # is the best we can do.
-            return self.mtime > time
-        else:
-            if os.path.isdir(self.file) and os.path.exists(
-                os.path.join(self.file, ".snakemake_timestamp")
-            ):
-                st_mtime_file = os.path.join(self.file, ".snakemake_timestamp")
-            else:
-                st_mtime_file = self.file
-            try:
-                return os.stat(st_mtime_file).st_mtime > time or self.mtime > time
-            except FileNotFoundError:
-                raise WorkflowError(
-                    "File {} not found although it existed before. Is there another active process that might have deleted it?".format(
-                        self.file
-                    )
-                )
+
+        return self.mtime.local_or_remote(follow_symlinks=True) > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
