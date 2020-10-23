@@ -155,7 +155,7 @@ class RemoteObject(AbstractRemoteObject):
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
+        cache.exists_remote.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
 
     # === Implementations of abstract class members ===
 
