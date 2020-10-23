@@ -468,39 +468,57 @@ class _IOFile(str):
     def mtime_uncached(self):
         """Obtain mtime.
 
-        Usually, this will be one stat call only. For symlinks it will be two,
-        for remote files it will additionally query the remote location.
+        Usually, this will be one stat call only. For symlinks and directories
+        it will be two, for symlinked directories it will be three,
+        for remote files it will additionally query the remote
+        location.
         """
         mtime_remote = self.remote_object.mtime() if self.is_remote else None
 
         # We first do a normal stat.
         try:
-            target_stat = os.stat(self.file)
+            _stat = os.stat(self.file, follow_symlinks=False)
 
-            is_symlink = stat.S_ISLNK(target_stat.st_mode)
-            is_dir = stat.S_ISDIR(target_stat.st_mode)
+            is_symlink = stat.S_ISLNK(_stat.st_mode)
+            is_dir = stat.S_ISDIR(_stat.st_mode)
+            mtime = _stat.st_mtime
 
-            if is_dir:
-                try:
-                    # Try whether we have a timestamp file for it.
-                    mtime = os.stat(
-                        os.path.join(self.file, ".snakemake_timestamp")
-                    ).st_mtime
-                    return Mtime(local=mtime, remote=mtime_remote)
-                except FileNotFoundError:
-                    # Not the case, hence go on as if it is a file.
-                    pass
+            def get_dir_mtime():
+                # Try whether we have a timestamp file for it.
+                return os.stat(
+                    os.path.join(self.file, ".snakemake_timestamp"),
+                    follow_symlinks=True,
+                ).st_mtime
 
-            if is_symlink:
-                # Only in case of a symlink, we do a second stat on the link to get the link mtime.
+            if not is_symlink:
+                if is_dir:
+                    try:
+                        mtime = get_dir_mtime()
+                    except FileNotFoundError:
+                        # No timestamp, hence go on as if it is a file.
+                        pass
+
+                # In the usual case, not a dir, not a symlink.
+                # We need just a single stat call.
+                return Mtime(local=mtime, remote=mtime_remote)
+
+            else:
+                # In case of a symlink, we need the stats for the target file/dir.
+                target_stat = os.stat(self.file, follow_symlinks=True)
+                # Further, we need to check again if this is a directory.
+                is_dir = stat.S_ISDIR(target_stat.st_mode)
+                mtime_target = target_stat.st_mtime
+
+                if is_dir:
+                    try:
+                        mtime_target = get_dir_mtime()
+                    except FileNotFoundError:
+                        # No timestamp, hence go on as if it is a file.
+                        pass
+
                 return Mtime(
-                    local=os.lstat(self.file).st_mtime,
-                    local_target=target_stat.st_mtime,
-                    remote=mtime_remote,
+                    local=mtime, local_target=mtime_target, remote=mtime_remote
                 )
-
-            # Not a symlink, just use the mtime from the first stat.
-            return Mtime(local=target_stat.st_mtime, remote=mtime_remote)
 
         except FileNotFoundError as e:
             if self.is_remote:
