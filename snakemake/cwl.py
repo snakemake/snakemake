@@ -100,13 +100,13 @@ def job_to_cwl(job, dag, outputs, inputs):
     }
     files = [f for f in job.input if f not in dep_ids]
     if job.conda_env_file:
-        files.add(os.path.relpath(job.conda_env_file))
+        files.append(os.path.relpath(job.conda_env_file))
 
     out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
 
     def workdir_entry(i, f):
         location = "??inputs.input_files[{}].location??".format(i)
-        if f.is_directory:
+        if os.path.isdir(f):
             entry = {
                 "class": "Directory",
                 "basename": os.path.basename(f),
