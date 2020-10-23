@@ -1,3 +1,215 @@
+[5.26.1] - 2020-10-01
+=====================
+Changed
+-------
+- Use coin ILP solver for scheduling by default (GLPK has bugs that can cause it to fail in certain situations).
+- If coin is not available, fall back to greedy scheduler.
+
+[5.26.0] - 2020-09-30
+=====================
+Added
+-----
+- Flag --max-inventory-time for setting maximum time spend on creating file inventory.
+- Flag --scheduler-ilp-solver for defining which solver to use for the ILP scheduler.
+
+Changed
+-------
+- Fixed various bugs with the new scheduler (@FelixMoelder).
+- Fixed bug causing certain parameters not to be passed to the cluster (--set-scatter, --scheduler, --set-threads).
+- Updated docs and fixed of google backend (@vsoch).
+- Display jupyter notebook code in reports.
+- Improved scheduler behavior in order to directly remove temporary files if possible.
+
+[5.25.0] - 2020-09-18
+=====================
+Added
+-----
+- Simplified and more configurable support for scatter-gather processes (see docs).
+- Fully configurable DAG partitioning by grouping jobs at the command line. This should provide a vast additional improvement to scalability in cluster and cloud settings.
+
+Changed
+-------
+- Depend on latest pulp, thereby enable Python >=3.8 compatibility again.
+- Fixes for snakefile handling in google life sciences backend (@vsoch).
+
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
+[5.24.1] - 2020-09-13
+=====================
+Changed
+-------
+- Depend on pulp < 2.0, which includes the default coin cbc solver for all platforms.
+
+[5.24.0] - 2020-09-09
+=====================
+Added
+-----
+- Preemtion support for google cloud backend (@vsoch).
+
+Changed
+-------
+- Fixed compatibility issues in new scheduler code (@dtrodrigues and @johanneskoester).
+- Improved error messages (@Sam-Tygier, @terrycojones)
+- Various small bug fixes.
+- Improved profile documentation (@johanneskoester).
+
+
+[5.23.0] - 2020-08-24
+=====================
+Added
+-----
+- Support for workflow configuration via portable encapsulated projects (PEPs, https://pep.databio.org).
+- A new ILP based default scheduler now ensures that temporary files are deleted as fast as possible (@FelixMoelder, @johanneskoester).
+
+Changed
+-------
+- Fixed bug in modification date comparison for files in google storage (@vsoch).
+- Various small documentation improvements (@dcroote, @erjel, @dlaehnemann, @goi42).
+
+
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
+[5.22.0] - 2020-08-13
+=====================
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
+
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
+[5.19.3] - 2020-06-16
+=====================
+Changed
+-------
+- Performance improvements for DAG generation (up to 7x in the google cloud, anything from a little to massive in a cluster, depending on the overall filesystem performance).
+- Made harcoded bucket in google cloud executor configurable.
+- Improved speed of --unlock command.
+
+
+[5.19.2] - 2020-06-04
+=====================
+Changed
+-------
+- Fixed a bug in script and wrapper directives. Tried to decode a str.
+
+[5.19.1] - 2020-06-03
+=====================
+Changed
+-------
+- Fixed an issue with the parameter linting code, that could cause an index out of bounds exception.
+
+[5.19.0] - 2020-06-02
+=====================
+Added
+-----
+- The multiext function now allows arbitrary file extensions (no longer required to start with a "." (thanks to @jafors)
+- The include directive can now also take a Pathlib Path object (thanks to @mbhall88).
+
+Changed
+-------
+- Jupyter notebook integration no longer automatically starts a browser.
+- Empty directories are cleaned up after workflow execution.
+- Fixed directory handling: no longer fail if the same job writes both a dir and a contained file.
+- Linter now recommends using spaces only for indentation.
+- Persistence dir "aux" has been renamed to "auxilliary" in order to make windows happy.
+- Linter now distinguishes awk syntax from regular variable usage.
+- Various bug fixes for Windows (thanks to @melund).
+ 
+
+[5.18.0] - 2020-05-21
+=====================
+Added
+-----
+- Native Google Cloud support via the (despite the name generic) lifesciences API.
+- Ability to optionally exchange the conda frontend to mamba (faster and sometimes more correct) instead of conda.
+Changed
+-------
+- Improved notebook integration experience, with various removed bugs and pitfalls.
+- Auto-retry google storage API calls on transient or checksum errors.
+
+
+[5.17.0] - 2020-05-07
+=====================
+Added
+-----
+- --envvars flag for passing secrets to cloud executors
+Changed
+-------
+- Wider thumbnail dialogs in report.
+- Updated installation instructions.
+- Various small kubernetes bug fixes.
+- Bug fix for iRods remote files.
+
+[5.16.0] - 2020-04-29
+=====================
+Added
+-----
+- Interactive jupyter notebook editing. Notebooks defined by rules can be interactively drafted and updated using snakemake --edit-notebook (see docs).
+Changed
+-------
+- Fixed group resource usage to occupy one cluster/cloud node.
+- Minor bug fixes.
+
+[5.15.0] - 2020-04-21
+=====================
+Changed
+-------
+- The resource directive can now take strings, e.g. for defining a GPU model (see docs). This will e.g. be used for upcoming updates to cloud executors.
+- More extensive conda cleanup with --conda-cleanup-packages, meant for CI usage.
+- Further polish for reports.
+
+[5.14.0] - 2020-04-08
+=====================
+Changed
+-------
+- Redesigned HTML reports, with improved interface and performance.
+- For big data, HTML reports can now be stored as ZIP, where files are not anymore embedded but rather are stored in an auxilliary folder, such that they don't have to be in memory during report rendering.
+- Added subcategories to report (see docs).
+- Fixed a bug linter, leading to only one rule or snakefile to be linted.
+- Breaking change in CLI: added flags --conda-cleanup-envs and --conda-cleanup-pkgs, removed flag --cleanup-conda.
+- Fixed scheduling of pipe jobs, they are now always scheduled, fixing a hangup.
+- Corrected quoting of shell command for cluster submission.
+
 [5.13.0] - 2020-03-27
 =====================
 Added
@@ -58,10 +270,11 @@ Changed
 - --cores is now a mandatory argument!
 - Automatic checksum validation for google storage.
 
+
 Added
 -----
 - Azure storage authentication via SAS
-- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- A generic container directive that will in the future allow for other backends than just singularity. This deprecates the singularity directive, which will however stay functional at least until the next major release.
 - envvars directive for asserting environment variable existence. See docs.
 - support for AWS spot instances via --tibanna-config spot=true.
 - Automatic code quality linting via --lint.
@@ -277,7 +490,7 @@ Added
 -----
 
 -  Snakemake workflows can now be exported to CWL via the flag
-   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executable.html>`_.
+   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executing/interoperability.html>`_.
 
 Changed
 -------

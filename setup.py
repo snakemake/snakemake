@@ -67,16 +67,21 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "pulp >=2.0",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
         "messaging": ["slacker"],
         "google-cloud": [
-            "crc32c",
             "oauth2client",
+            "google-crc32c",
             "google-api-python-client",
             "google-cloud-storage",
         ],
+        "pep": [
+            "peppy",
+            "eido",
+        ]
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",

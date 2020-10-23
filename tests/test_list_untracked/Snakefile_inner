@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 shell("mkdir -p some_workdir/some_subdir && \
     touch some_workdir/used_input && \
     touch some_workdir/some_subdir/used_output && \

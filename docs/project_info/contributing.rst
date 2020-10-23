@@ -90,12 +90,31 @@ Below you find a skeleton
             for job in self.active_jobs:
                 # cancel active jobs here
             self.shutdown()
+        
+        def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
+            """Run a list of jobs that is ready at a given point in time.
+
+            By default, this method just runs each job individually.
+            This behavior is inherited and therefore this method can be removed from the skeleton if the
+            default behavior is intended.
+            This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
+
+            Note that in any case, for each job, the callback functions have to be called individually!
+            """
+            for job in jobs:
+                self.run(
+                    job,
+                    callback=callback,
+                    submit_callback=submit_callback,
+                    error_callback=error_callback,
+                )
 
         def run(self, job,
                 callback=None,
                 submit_callback=None,
                 error_callback=None):
-            import kubernetes.client
+            """Run an individual job or a job group.
+            """
 
             super()._run(job)
             # obtain job execution command

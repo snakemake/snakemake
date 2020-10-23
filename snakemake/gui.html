@@ -2,13 +2,13 @@
 <html lang="en">
     <head>
         <title>Snakemake</title>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
-        <script type="text/javascript" src="http://cpettitt.github.io/project/dagre-d3/v0.1.5/dagre-d3.js"></script>
-        <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.js"></script>
-        <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.min.css"/>
-        <link rel="stylesheet" type="text/css" href="http://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.css"/>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.4.6/d3.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="https://cpettitt.github.io/project/dagre-d3/v0.1.5/dagre-d3.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.1.1/css/bootstrap.min.css"/>
+        <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.5.4/bootstrap-select.min.css"/>
         <style>
         body {
           font-family: sans-serif;
@@ -119,8 +119,16 @@
         #log .job_info:nth-child(even) {
             background-color: #27ae60;
         }
+
+        #log .job_error {
+            background-color: #e74c3c;
+        }
+
+        #log .job_error:nth-child(even) {
+            background-color: #c0392b;
+        }
         
-        th.ruleitem {
+        th.logentryitem {
             width: 10em;
             vertical-align: top;
         }
@@ -221,12 +229,28 @@
                         + entry.name + '</h4><table>';
                         $.each(["input", "output"], function(i, item) {
                             if(entry[item].length) {
-                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item].join(", ") + '</td></tr>';
+                                html += '<tr><th class="logentryitem">' + item + '</th><td>' + entry[item].join(", ") + '</td></tr>';
                             }
                         });
                         $.each(["threads", "priority"], function(item) {
                             if(entry[item] > 1) {
-                                html += '<tr><th class="ruleitem">' + item + '</th><td>' + entry[item] + '</td></tr>';
+                                html += '<tr><th class="logentryitem">' + item + '</th><td>' + entry[item] + '</td></tr>';
+                            }
+                        });
+                        html += '</table></div>';
+                        $(html).appendTo("#log");
+                    }
+                    else if (entry.level == "job_error") {
+                        console.log(entry);
+                        var html = `<div class="job_error"><h4>Error in rule ${entry.name}</h4><table>`;
+                        $.each(["output", "log"], function(i, item) {
+                            if(entry[item].length) {
+                                html += `<tr><th class="logentryitem">${item}</th><td>${entry[item].join(",")}</td></tr>`;
+                            }
+                        });
+                        $.each(["conda_env", "shellcmd"], function(i, item) {
+                            if(entry[item] != null) {
+                                html += `<tr><th class="logentryitem">${item}</th><td>${entry[item]}</td></tr>`;
                             }
                         });
                         html += '</table></div>';
@@ -268,7 +292,8 @@
 
             $("#run-btn").click(function() {
                 $("#log").empty();
-                $.ajax("run");
+                var cores = $("#cores").val();
+                $.ajax(`run/${cores}`);
             });
 
             $("#dryrun-btn").click(function() {

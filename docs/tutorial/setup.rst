@@ -4,29 +4,29 @@
 Setup
 -----
 
-.. _Snakemake: http://snakemake.readthedocs.io
-.. _Snakemake homepage: http://snakemake.readthedocs.io
+.. _Snakemake: https://snakemake.readthedocs.io
+.. _Snakemake homepage: https://snakemake.readthedocs.io
 .. _GNU Make: https://www.gnu.org/software/make
-.. _Python: http://www.python.org
+.. _Python: https://www.python.org
 .. _BWA: http://bio-bwa.sourceforge.net
-.. _SAMtools: http://www.htslib.org
-.. _BCFtools: http://www.htslib.org
-.. _Pandas: http://pandas.pydata.org
-.. _Miniconda: http://conda.pydata.org/miniconda.html
-.. _Conda: http://conda.pydata.org
-.. _Bash: http://www.tldp.org/LDP/Bash-Beginners-Guide/html
+.. _SAMtools: https://www.htslib.org
+.. _BCFtools: https://www.htslib.org
+.. _Pandas: https://pandas.pydata.org
+.. _Miniconda: https://conda.pydata.org/miniconda.html
+.. _Conda: https://conda.pydata.org
+.. _Bash: https://www.tldp.org/LDP/Bash-Beginners-Guide/html
 .. _Atom: https://atom.io
-.. _Graphviz: http://www.graphviz.org
-.. _PyYAML: http://pyyaml.org
-.. _Docutils: http://docutils.sourceforge.net
-.. _Jinja2: http://jinja.pocoo.org
+.. _Graphviz: https://www.graphviz.org
+.. _PyYAML: https://pyyaml.org
+.. _Docutils: https://docutils.sourceforge.io
+.. _Jinja2: https://jinja.palletsprojects.com
 .. _NetworkX: https://networkx.github.io
 .. _Matplotlib: https://matplotlib.org
 .. _Pysam: https://pysam.readthedocs.io
 .. _Bioconda: https://bioconda.github.io
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
-.. _Blogpost: http://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
+.. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
 
 Requirements
 ::::::::::::
@@ -34,15 +34,15 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.5
-* Snakemake_ 5.2.3
-* BWA_ 0.7.12
-* SAMtools_ 1.3.1
-* Pysam_ 0.15.0
-* BCFtools_ 1.3.1
-* Graphviz_ 2.38.0
-* Jinja2_ 2.10
-* NetworkX_ 2.1
-* Matplotlib_ 2.2.3
+* Snakemake_ ≥5.24.1
+* BWA_ 0.7
+* SAMtools_ 1.9
+* Pysam_ 0.15
+* BCFtools_ 1.9
+* Graphviz_ 2.42
+* Jinja2_ 2.11
+* NetworkX_ 2.5
+* Matplotlib_ 3.3
 
 The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
@@ -83,14 +83,14 @@ Assuming that you have a 64-bit system, on Linux, download and install Miniconda
 
 .. code:: console
 
-    $ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    $ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     $ bash Miniconda3-latest-Linux-x86_64.sh
 
 On MacOS X, download and install with
 
 .. code:: console
 
-    $ curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
+    $ curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
     $ bash Miniconda3-latest-MacOSX-x86_64.sh
 
 For a 32-bit system, URLs and file names are analogous but without the ``_64``.
@@ -122,8 +122,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
-    $ tar -xf v5.4.5.tar.gz --strip 1
+    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz
+    $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 

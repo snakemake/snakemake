@@ -19,6 +19,7 @@ from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -31,10 +32,10 @@ def validate(data, schema, set_default=True):
         schema (str): Path to JSON schema used for validation. The schema can also be
             in YAML format. If validating a pandas data frame, the schema has to
             describe a row record (i.e., a dict with column names as keys pointing
-            to row values). See http://json-schema.org. The path is interpreted
+            to row values). See https://json-schema.org. The path is interpreted
             relative to the Snakefile when this function is called.
         set_default (bool): set default values defined in schema. See
-            http://python-jsonschema.readthedocs.io/en/latest/faq/ for more
+            https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
     try:
@@ -61,7 +62,7 @@ def validate(data, schema, set_default=True):
         handlers={"file": lambda uri: _load_configfile(re.sub("^file://", "", uri))},
     )
 
-    # Taken from http://python-jsonschema.readthedocs.io/en/latest/faq/
+    # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
         validate_properties = validator_class.VALIDATORS["properties"]
 
@@ -351,9 +352,13 @@ class QuotedFormatter(string.Formatter):
         super().__init__(*args, **kwargs)
 
     def format_field(self, value, format_spec):
-        do_quote = format_spec.endswith("q")
-        if do_quote:
+        if format_spec.endswith("u"):
             format_spec = format_spec[:-1]
+            do_quote = False
+        else:
+            do_quote = format_spec.endswith("q")
+            if do_quote:
+                format_spec = format_spec[:-1]
         formatted = super().format_field(value, format_spec)
         if do_quote and formatted != "":
             formatted = self.quote_func(formatted)
@@ -364,12 +369,12 @@ class AlwaysQuotedFormatter(QuotedFormatter):
     """Subclass of QuotedFormatter that always quotes.
 
     Usage is identical to QuotedFormatter, except that it *always*
-    acts like "q" was appended to the format spec.
+    acts like "q" was appended to the format spec, unless u (for unquoted) is appended.
 
     """
 
     def format_field(self, value, format_spec):
-        if not format_spec.endswith("q"):
+        if not format_spec.endswith("q") and not format_spec.endswith("u"):
             format_spec += "q"
         return super().format_field(value, format_spec)
 
@@ -404,6 +409,11 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
+        if str(ex).strip("'") in variables["wildcards"].keys():
+            raise NameError(
+                "The name '{0}' is unknown in this context. "
+                "Did you mean 'wildcards.{0}'?".format(str(ex).strip("'"))
+            )
         raise NameError(
             "The name {} is unknown in this context. Please "
             "make sure that you defined that variable. "
@@ -450,7 +460,7 @@ def update_config(config, overwrite_config):
     """Recursively update dictionary config with overwrite_config.
 
     See
-    http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
+    https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
     for details.
 
     Args:
@@ -477,7 +487,7 @@ def available_cpu_count():
     when the cpuset(7) mechanism is in use, as is the case on some cluster
     systems.
 
-    Adapted from http://stackoverflow.com/a/1006301/715090
+    Adapted from https://stackoverflow.com/a/1006301/715090
     """
     try:
         with open("/proc/self/status") as f:
@@ -494,7 +504,7 @@ def available_cpu_count():
 
 
 def argvquote(arg, force=True):
-    """ Returns an argument quoted in such a way that that CommandLineToArgvW
+    """Returns an argument quoted in such a way that that CommandLineToArgvW
     on Windows will return the argument string unchanged.
     This is the same thing Popen does when supplied with an list of arguments.
     Arguments in a command line should be separated by spaces; this
@@ -527,4 +537,30 @@ def argvquote(arg, force=True):
         return cmdline
 
 
-ON_WINDOWS = platform.system() == "Windows"
+def os_sync():
+    """Ensure flush to disk"""
+    if not ON_WINDOWS:
+        os.sync()
+
+
+def _find_bash_on_windows():
+    """
+    Find the path to a usable bash on windows.
+    First attempt is to look for bash installed  with a git conda package.
+    alternatively try bash installed with 'Git for Windows'.
+    """
+    if not ON_WINDOWS:
+        return None
+    # First look for bash in git's conda package
+    bashcmd = os.path.join(os.path.dirname(sys.executable), r"Library\bin\bash.exe")
+    if not os.path.exists(bashcmd):
+        # Otherwise try bash installed with "Git for Windows".
+        import winreg
+
+        try:
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows")
+            gfwp, _ = winreg.QueryValueEx(key, "InstallPath")
+            bashcmd = os.path.join(gfwp, "bin\\bash.exe")
+        except FileNotFoundError:
+            bashcmd = ""
+    return bashcmd if os.path.exists(bashcmd) else None

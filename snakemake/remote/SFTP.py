@@ -9,6 +9,7 @@ from contextlib import contextmanager
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
 from snakemake.exceptions import SFTPFileException, WorkflowError
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -56,8 +57,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an SFTP server.
-    """
+    """This is a class to interact with an SFTP server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -111,8 +111,8 @@ class RemoteObject(DomainObject):
             )
 
     def is_newer(self, time):
-        """ Returns true if the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true if the file is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         with self.sftpc() as sftpc:
             return (
                 sftpc.stat(self.remote_path).st_mtime > time
@@ -139,7 +139,7 @@ class RemoteObject(DomainObject):
                     localpath=self.local_path,
                     preserve_mtime=True,
                 )
-                os.sync()  # ensure flush to disk
+                os_sync()  # ensure flush to disk
             else:
                 raise SFTPFileException(
                     "The file does not seem to exist remotely: %s" % self.local_file()

@@ -212,9 +212,7 @@ class RuleKeywordState(KeywordState):
         yield "@workflow.{keyword}(".format(keyword=self.keyword)
 
 
-class SubworkflowKeywordState(KeywordState):
-    prefix = "Subworkflow"
-
+class SectionKeywordState(KeywordState):
     def start(self):
         yield ", {keyword}=".format(keyword=self.keyword)
 
@@ -244,7 +242,22 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+# PEPs
+
+
+class Pepfile(GlobalKeywordState):
+    pass
+
+
+class Pepschema(GlobalKeywordState):
+    pass
+
+
 class Report(GlobalKeywordState):
+    pass
+
+
+class Scattergather(GlobalKeywordState):
     pass
 
 
@@ -281,6 +294,10 @@ class GlobalContainer(GlobalKeywordState):
 
 
 # subworkflows
+
+
+class SubworkflowKeywordState(SectionKeywordState):
+    prefix = "Subworkflow"
 
 
 class SubworkflowSnakefile(SubworkflowKeywordState):
@@ -470,7 +487,7 @@ class Run(RuleKeywordState):
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir):".format(
+            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount
@@ -582,6 +599,17 @@ class Notebook(Script):
     start_func = "@workflow.notebook"
     end_func = "notebook"
 
+    def args(self):
+        # basedir
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
+        # other args
+        yield (
+            ", input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
+            "edit_notebook"
+        )
+
 
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
@@ -679,7 +707,9 @@ class Rule(GlobalKeywordState):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Expected name or colon after rule keyword.", token)
+            self.error(
+                "Expected name or colon after " "rule or checkpoint keyword.", token
+            )
 
     def block_content(self, token):
         if is_name(token):
@@ -764,6 +794,8 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pepfile=Pepfile,
+        pepschema=Pepschema,
         report=Report,
         ruleorder=Ruleorder,
         rule=Rule,
@@ -776,6 +808,7 @@ class Python(TokenAutomaton):
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
         container=GlobalContainer,
+        scattergather=Scattergather,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

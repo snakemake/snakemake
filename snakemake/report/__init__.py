@@ -30,7 +30,7 @@ from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
-from snakemake import script, wrapper
+from snakemake import script, wrapper, notebook
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
@@ -242,6 +242,7 @@ class RuleRecord:
         self.n_jobs = 1
         self.id = uuid.uuid4()
 
+    @lazy_property
     def code(self):
         try:
             from pygments.lexers import get_lexer_by_name
@@ -252,16 +253,16 @@ class RuleRecord:
             raise WorkflowError(
                 "Python package pygments must be installed to create reports."
             )
-        source, language = None, None
+        sources, language = None, None
         if self._rule.shellcmd is not None:
-            source = self._rule.shellcmd
+            sources = [self._rule.shellcmd]
             language = "bash"
         elif self._rule.script is not None:
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
-            source = source.decode()
+            sources = [source.decode()]
         elif self._rule.wrapper is not None:
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
@@ -269,17 +270,32 @@ class RuleRecord:
                     self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
                 )
             )
-            source = source.decode()
+            sources = [source.decode()]
+        elif self._rule.notebook is not None:
+            _, source, language = script.get_source(
+                self._rule.notebook, self._rule.basedir
+            )
+            language = language.split("_")[1]
+            sources = notebook.get_cell_sources(source)
 
         try:
             lexer = get_lexer_by_name(language)
-            return highlight(
-                source,
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-            )
+
+            highlighted = [
+                highlight(
+                    source,
+                    lexer,
+                    HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+                )
+                for source in sources
+            ]
+
+            return highlighted
         except pygments.util.ClassNotFound:
-            return "<pre><code>source</code></pre>"
+            return [
+                '<pre class="source"><code>{}</code></pre>'.format(source)
+                for source in sources
+            ]
 
     def add(self, job_rec):
         self.n_jobs += 1
@@ -302,7 +318,7 @@ class RuleRecord:
 
 class ConfigfileRecord:
     def __init__(self, configfile):
-        self.name = configfile
+        self.path = Path(configfile)
 
     def code(self):
         try:
@@ -314,18 +330,24 @@ class ConfigfileRecord:
                 "Python package pygments must be installed to create reports."
             )
 
-        language = (
-            "yaml"
-            if self.name.endswith(".yaml") or self.name.endswith(".yml")
-            else "json"
-        )
-        lexer = get_lexer_by_name(language)
-        with open(self.name) as f:
-            return highlight(
-                f.read(),
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        file_ext = self.path.suffix
+        if file_ext in (".yml", ".yaml"):
+            language = "yaml"
+        elif file_ext == ".json":
+            language = "json"
+        else:
+            raise ValueError(
+                "Config file extension {} is not supported - must be YAML or JSON".format(
+                    file_ext
+                )
             )
+
+        lexer = get_lexer_by_name(language)
+        return highlight(
+            self.path.read_text(),
+            lexer,
+            HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        )
 
 
 class JobRecord:
@@ -349,6 +371,7 @@ class FileRecord:
         category,
         wildcards_overwrite=None,
         mode_embedded=True,
+        aux_files=None,
     ):
         self.mode_embedded = mode_embedded
         self.path = path
@@ -371,6 +394,8 @@ class FileRecord:
             logging.format_dict(job.params).replace("\n", r"\n").replace('"', r"\"")
         )
         self.category = category
+
+        self.aux_files = aux_files or []
 
         self.table_content = None
         if self.is_table:
@@ -498,7 +523,7 @@ class FileRecord:
                 )
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file of output " "marked for report.", e
+                    "Error loading caption file of output marked for report.", e
                 )
 
     @property
@@ -630,7 +655,7 @@ def auto_report(dag, path, stylesheet=None):
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(f, wildcards_overwrite=None):
+                def register_file(f, wildcards_overwrite=None, aux_files=None):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category, wildcards=wildcards, job=job
@@ -648,34 +673,66 @@ def auto_report(dag, path, stylesheet=None):
                             category,
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
+                            aux_files=aux_files,
                         )
                     )
                     recorded_files.add(f)
 
                 if os.path.isfile(f):
                     register_file(f)
-                if os.path.isdir(f):
-                    if not isinstance(report_obj.patterns, list):
-                        raise WorkflowError(
-                            "Invalid patterns given for report. Must be list.",
-                            rule=job.rule,
+                elif os.path.isdir(f):
+                    if report_obj.htmlindex:
+                        if mode_embedded:
+                            raise WorkflowError(
+                                "Directory marked for report specifies htmlindex. "
+                                "This is unsupported when requesting a pure HTML report. "
+                                "Please use store as zip instead (--report report.zip)."
+                            )
+                        aux_files = []
+                        index_found = False
+                        for root, dirs, files in os.walk(f):
+                            for name in files:
+                                if name != ".snakemake_timestamp":
+                                    filepath = os.path.join(root, name)
+                                    if (
+                                        os.path.relpath(filepath, f)
+                                        != report_obj.htmlindex
+                                    ):
+                                        aux_files.append(filepath)
+                                    else:
+                                        index_found = True
+                        if not index_found:
+                            raise WorkflowError(
+                                "Given htmlindex {} not found in directory "
+                                "marked for report".format(report_obj.htmlindex)
+                            )
+                        register_file(
+                            os.path.join(f, report_obj.htmlindex), aux_files=aux_files
                         )
-                    if not report_obj.patterns:
+                    elif report_obj.patterns:
+                        if not isinstance(report_obj.patterns, list):
+                            raise WorkflowError(
+                                "Invalid patterns given for report. Must be list.",
+                                rule=job.rule,
+                            )
+
+                        for pattern in report_obj.patterns:
+                            pattern = os.path.join(f, pattern)
+                            wildcards = glob_wildcards(pattern)._asdict()
+                            names = wildcards.keys()
+                            for w in zip(*wildcards.values()):
+                                w = dict(zip(names, w))
+                                w.update(job.wildcards_dict)
+                                w = Wildcards(fromdict=w)
+                                f = apply_wildcards(pattern, w)
+                                register_file(f, wildcards_overwrite=w)
+                    else:
                         raise WorkflowError(
-                            "Directory marked for report but no file patterns given via patterns=[...]. "
+                            "Directory marked for report but neither file patterns "
+                            "given via patterns=[...], nor htmlindex given. "
                             "See report documentation.",
                             rule=job.rule,
                         )
-                    for pattern in report_obj.patterns:
-                        pattern = os.path.join(f, pattern)
-                        wildcards = glob_wildcards(pattern)._asdict()
-                        names = wildcards.keys()
-                        for w in zip(*wildcards.values()):
-                            w = dict(zip(names, w))
-                            w.update(job.wildcards_dict)
-                            w = Wildcards(fromdict=w)
-                            f = apply_wildcards(pattern, w)
-                            register_file(f, wildcards_overwrite=w)
 
         for f in job.expanded_output:
             meta = persistence.metadata(f)
@@ -853,6 +910,20 @@ def auto_report(dag, path, stylesheet=None):
                         if result.is_img and result.png_content:
                             zipout.writestr(
                                 str(folder.joinpath(result.png_uri)), result.png_content
+                            )
+                        # write aux files
+                        parent = folder.joinpath(result.data_uri).parent
+                        for path in result.aux_files:
+                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                            zipout.write(
+                                path,
+                                str(
+                                    parent.joinpath(
+                                        os.path.relpath(
+                                            path, os.path.dirname(result.path)
+                                        )
+                                    )
+                                ),
                             )
 
             # write report html

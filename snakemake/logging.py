@@ -14,6 +14,8 @@ import threading
 import tempfile
 from functools import partial
 import inspect
+import traceback
+import textwrap
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -245,6 +247,30 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
+    def custom_server_handler(self, msg):
+        """Custom server log handler.
+
+        Sends the log to the server.
+
+        Args:
+            msg (dict):     the log message dictionary
+        """
+        import requests
+
+        server_info = {
+            "msg": repr(msg),
+            "timestamp": time.asctime(),
+            "id": self.server["id"],
+        }
+
+        try:
+            requests.post(
+                self.server["url"] + "/update_workflow_status", data=server_info
+            )
+        except:
+            traceback.print_exc()
+            pass
+
     def text_handler(self, msg):
         """The default snakemake log handler.
 
@@ -403,14 +429,25 @@ class Logger:
                 print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
             elif level == "dag_debug":
                 if self.debug_dag:
-                    job = msg["job"]
-                    self.logger.warning(
-                        "{status} job {name}\n\twildcards: {wc}".format(
-                            status=msg["status"],
-                            name=job.rule.name,
-                            wc=format_wildcards(job.wildcards),
+                    if "file" in msg:
+                        self.logger.warning(
+                            "file {file}:\n    {msg}\n{exception}".format(
+                                file=msg["file"],
+                                msg=msg["msg"],
+                                exception=textwrap.indent(
+                                    str(msg["exception"]), "    "
+                                ),
+                            )
                         )
-                    )
+                    else:
+                        job = msg["job"]
+                        self.logger.warning(
+                            "{status} job {name}\n    wildcards: {wc}".format(
+                                status=msg["status"],
+                                name=job.rule.name,
+                                wc=format_wildcards(job.wildcards),
+                            )
+                        )
 
             self.last_msg_was_job_info = False
 
@@ -456,7 +493,10 @@ def setup_logger(
     use_threads=False,
     mode=Mode.default,
     show_failed_logs=False,
+    wms_monitor=None,
 ):
+    import requests
+
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
@@ -467,6 +507,32 @@ def setup_logger(
         mode=mode,
     )
     logger.set_stream_handler(stream_handler)
+
+    if wms_monitor is not None:
+        try:
+            r = requests.get(wms_monitor + "/api/service-info")
+        except:
+            sys.stderr.write(
+                "Problem with server: {} {}".format(wms_monitor, os.linesep)
+            )
+            sys.exit(-1)
+        else:
+            if r.json()["status"] != "running":
+                sys.stderr.write(
+                    "The status of the server {} is not in 'running' mode {}".format(
+                        wms_monitor, os.linesep
+                    )
+                )
+                sys.exit(-1)
+        logger.log_handler.append(logger.custom_server_handler)
+
+        try:
+            r = requests.get(wms_monitor + "/create_workflow")
+        except:
+            traceback.print_exc()
+            pass
+        else:
+            logger.server = {"url": wms_monitor, "id": r.json()["id"]}
 
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet

@@ -16,20 +16,30 @@ from distutils.version import StrictVersion
 import json
 from glob import glob
 import tarfile
+import zipfile
 import uuid
+from enum import Enum
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import strip_prefix
+from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity
 from snakemake.io import git_content
 
 
+class CondaCleanupMode(Enum):
+    tarballs = "tarballs"
+    cache = "cache"
+
+    def __str__(self):
+        return self.value
+
+
 def content(env_file):
     if env_file.startswith("git+file:"):
         return git_content(env_file).encode("utf-8")
-    elif urlparse(env_file).scheme:
+    elif urlparse(env_file).netloc:
         try:
             return urlopen(env_file).read()
         except URLError as e:
@@ -47,9 +57,10 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, container_img=None):
+    def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
+        self.frontend = dag.workflow.conda_frontend
         self._env_dir = dag.workflow.persistence.conda_env_path
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
 
@@ -59,6 +70,8 @@ class Env:
         self._path = None
         self._archive_file = None
         self._container_img = container_img
+        self._cleanup = cleanup
+        self._singularity_args = dag.workflow.singularity_args
 
     @property
     def container_img_url(self):
@@ -144,14 +157,13 @@ class Env:
                 out = shell.check_output(
                     "conda list --explicit --prefix '{}'".format(self.path),
                     stderr=subprocess.STDOUT,
+                    universal_newlines=True,
                 )
-                logger.debug(out.decode())
+                logger.debug(out)
             except subprocess.CalledProcessError as e:
-                raise WorkflowError(
-                    "Error exporting conda packages:\n" + e.output.decode()
-                )
+                raise WorkflowError("Error exporting conda packages:\n" + e.output)
             with open(os.path.join(env_archive, "packages.txt"), "w") as pkg_list:
-                for l in out.decode().split("\n"):
+                for l in out.split("\n"):
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
@@ -166,10 +178,13 @@ class Env:
                             r.raise_for_status()
                             copy.write(r.content)
                         try:
-                            tarfile.open(pkg_path)
+                            if pkg_path.endswith(".conda"):
+                                assert zipfile.ZipFile(pkg_path).testzip() is None
+                            else:
+                                tarfile.open(pkg_path)
                         except:
                             raise WorkflowError(
-                                "Package is invalid tar archive: {}".format(pkg_url)
+                                "Package is invalid tar/zip archive: {}".format(pkg_url)
                             )
         except (
             requests.exceptions.ChunkedEncodingError,
@@ -260,16 +275,25 @@ class Env:
 
                     # install packages manually from env archive
                     cmd = " ".join(
-                        ["conda", "create", "--copy", "--prefix '{}'".format(env_path)]
+                        [
+                            "conda",
+                            "create",
+                            "--quiet",
+                            "--copy",
+                            "--prefix '{}'".format(env_path),
+                        ]
                         + packages
                     )
                     if self._container_img:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
                             cmd,
+                            args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
+                    out = shell.check_output(
+                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                    )
 
                 else:
                     # Copy env file to env_path (because they can be on
@@ -282,9 +306,10 @@ class Env:
                     logger.info("Downloading and installing remote packages.")
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "env",
                             "create",
+                            "--quiet",
                             "--file '{}'".format(target_env_file),
                             "--prefix '{}'".format(env_path),
                         ]
@@ -293,14 +318,27 @@ class Env:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
                             cmd,
+                            args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(cmd, stderr=subprocess.STDOUT)
+                    out = shell.check_output(
+                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                    )
+
+                    # cleanup if requested
+                    if self._cleanup is CondaCleanupMode.tarballs:
+                        logger.info("Cleaning up conda package tarballs.")
+                        shell.check_output("conda clean -y --tarballs")
+                    elif self._cleanup is CondaCleanupMode.cache:
+                        logger.info(
+                            "Cleaning up conda package tarballs and package cache."
+                        )
+                        shell.check_output("conda clean -y --tarballs --packages")
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
 
-                logger.debug(out.decode())
+                logger.debug(out)
                 logger.info(
                     "Environment for {} created (location: {})".format(
                         os.path.relpath(env_file), os.path.relpath(env_path)
@@ -311,7 +349,7 @@ class Env:
                 shutil.rmtree(env_path, ignore_errors=True)
                 raise CreateCondaEnvironmentException(
                     "Could not create conda environment from {}:\n".format(env_file)
-                    + e.output.decode()
+                    + e.output
                 )
 
         if tmp_file:
@@ -364,10 +402,15 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
+        # Use type here since conda now is a function.
+        # type allows to check for both functions and regular commands.
+        if not ON_WINDOWS or shell.get_executable():
+            locate_cmd = "type conda"
+        else:
+            locate_cmd = "where conda"
+
         try:
-            # Use type here since conda now is a function.
-            # type allows to check for both functions and regular commands.
-            shell.check_output(self._get_cmd("type conda"), stderr=subprocess.STDOUT)
+            shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             if self.container_img:
                 raise CreateCondaEnvironmentException(
@@ -397,8 +440,10 @@ class Conda:
                 )
         try:
             version = shell.check_output(
-                self._get_cmd("conda --version"), stderr=subprocess.STDOUT
-            ).decode()
+                self._get_cmd("conda --version"),
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+            )
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
