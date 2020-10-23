@@ -474,31 +474,42 @@ class _IOFile(str):
         mtime_remote = self.remote_object.mtime if self.is_remote else None
 
         # We first do a normal stat.
-        target_stat = os.stat(self.file)
-        is_symlink = stat.S_ISLNK(target_stat.st_mode)
-        is_dir = stat.S_ISDIR(target_stat.st_mode)
+        try:
+            target_stat = os.stat(self.file)
 
-        if is_dir:
-            try:
-                # Try whether we have a timestamp file for it.
-                mtime = os.stat(
-                    os.path.join(self.file, ".snakemake_timestamp")
-                ).st_mtime
-                return Mtime(local=mtime, remote=mtime_remote)
-            except FileNotFoundError:
-                # Not the case, hence go on as if it is a file.
-                pass
+            is_symlink = stat.S_ISLNK(target_stat.st_mode)
+            is_dir = stat.S_ISDIR(target_stat.st_mode)
 
-        if is_symlink:
-            # Only in case of a symlink, we do a second stat on the link to get the link mtime.
-            return Mtime(
-                local=os.lstat(self.file).st_mtime,
-                local_target=target_stat.st_mtime,
-                remote=mtime_remote,
+            if is_dir:
+                try:
+                    # Try whether we have a timestamp file for it.
+                    mtime = os.stat(
+                        os.path.join(self.file, ".snakemake_timestamp")
+                    ).st_mtime
+                    return Mtime(local=mtime, remote=mtime_remote)
+                except FileNotFoundError:
+                    # Not the case, hence go on as if it is a file.
+                    pass
+
+            if is_symlink:
+                # Only in case of a symlink, we do a second stat on the link to get the link mtime.
+                return Mtime(
+                    local=os.lstat(self.file).st_mtime,
+                    local_target=target_stat.st_mtime,
+                    remote=mtime_remote,
+                )
+
+            # Not a symlink, just use the mtime from the first stat.
+            return Mtime(local=target_stat.st_mtime, remote=mtime_remote)
+
+        except FileNotFoundError as e:
+            if self.is_remote:
+                return Mtime(remote=mtime_remote)
+            raise WorkflowError(
+                "Unable to obtain modification time of file {} although it existed before. "
+                "It could be that a concurrent process has deleted it while Snakemake "
+                "was running."
             )
-
-        # Not a symlink, just use the mtime from the first stat.
-        return Mtime(local=target_stat.st_mtime, remote=mtime_remote)
 
     @property
     def flags(self):
