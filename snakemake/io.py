@@ -207,8 +207,9 @@ class _IOFile(str):
             # remove trailing slashes
             stripped = file.rstrip("/")
             if is_annotated:
-                file = AnnotatedString(stripped)
-                file.flags = other._file.flags
+                stripped = AnnotatedString(stripped)
+                stripped.flags = file.flags
+            file = stripped
         obj = str.__new__(cls, file)
         obj._is_function = is_callable
         obj._file = file
