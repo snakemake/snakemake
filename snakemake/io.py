@@ -521,13 +521,18 @@ class _IOFile(str):
                     local=mtime, local_target=mtime_target, remote=mtime_remote
                 )
 
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             if self.is_remote:
                 return Mtime(remote=mtime_remote)
             raise WorkflowError(
                 "Unable to obtain modification time of file {} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
-                "was running."
+                "was running.".format(self.file)
+            )
+        except PermissionError:
+            raise WorkflowError(
+                "Unable to obtain modification time of file {} because of missing "
+                "read permissions.".format(self.file)
             )
 
     @property
