@@ -792,6 +792,7 @@ class Workflow:
 
         if generate_unit_tests:
             from snakemake import unit_tests
+
             path = generate_unit_tests
             deploy = []
             if self.use_conda:

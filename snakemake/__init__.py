@@ -1392,7 +1392,7 @@ def get_argument_parser(profile=None):
         "For each rule, one test case will be "
         "created in the specified test folder (.tests/unit by default). After "
         "successfull execution, tests can be run with "
-        "'pytest TESTPATH'."
+        "'pytest TESTPATH'.",
     )
     group_utils.add_argument(
         "--export-cwl",
