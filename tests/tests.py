@@ -1055,3 +1055,9 @@ def test_scatter_gather():
 
 def test_issue661():
     run(dpath("test_issue661"), check_md5=True)
+
+
+def test_generate_unit_tests():
+    import subprocess as sp
+    tmpdir = run(dpath("test_generate_unit_tests"), generate_unit_tests=True, check_md5=False, cleanup=False)
+    sp.check_output(["pytest", Path(tmpdir) / ".tests"])

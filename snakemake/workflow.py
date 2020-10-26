@@ -476,6 +476,7 @@ class Workflow:
         self,
         targets=None,
         dryrun=False,
+        generate_unit_tests=None,
         touch=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
@@ -789,7 +790,17 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if export_cwl:
+        if generate_unit_tests:
+            from snakemake import unit_tests
+            path = generate_unit_tests
+            deploy = []
+            if self.use_conda:
+                deploy.append("conda")
+            if self.use_singularity:
+                deploy.append("singularity")
+            unit_tests.generate(dag, path, deploy)
+            return True
+        elif export_cwl:
             from snakemake.cwl import dag_to_cwl
             import json
 
