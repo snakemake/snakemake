@@ -127,7 +127,7 @@ class RemoteObject(AbstractRemoteObject):
         self._bucket = None
         self._blob = None
 
-    def inventory(self, cache: snakemake.io.IOCache):
+    async def inventory(self, cache: snakemake.io.IOCache):
         """Using client.list_blobs(), we want to iterate over the objects in
         the "folder" of a bucket and store information about the IOFiles in the
         provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
@@ -155,9 +155,12 @@ class RemoteObject(AbstractRemoteObject):
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
+        cache.exists_remote.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
 
     # === Implementations of abstract class members ===
+
+    def get_inventory_parent(self):
+        return self.bucket_name
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
