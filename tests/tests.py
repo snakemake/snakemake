@@ -1055,9 +1055,7 @@ def test_scatter_gather():
 
 @skip_on_windows
 def test_github_issue640():
-    run(
-        dpath("test_github_issue640"), targets=["Output/FileWithRights"], dryrun=True
-    )
+    run(dpath("test_github_issue640"), targets=["Output/FileWithRights"], dryrun=True)
 
 
 def test_issue661():
