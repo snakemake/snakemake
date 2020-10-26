@@ -913,14 +913,14 @@ def auto_report(dag, path, stylesheet=None):
                             )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
-                        for path in result.aux_files:
-                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                        for aux_path in result.aux_files:
+                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
                             zipout.write(
-                                path,
+                                aux_path,
                                 str(
                                     parent.joinpath(
                                         os.path.relpath(
-                                            path, os.path.dirname(result.path)
+                                            aux_path, os.path.dirname(result.path)
                                         )
                                     )
                                 ),
