@@ -33,7 +33,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
 
     try:
         from jinja2 import Template, Environment, PackageLoader
-    except ImportError as e:
+    except ImportError:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
         )
