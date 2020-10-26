@@ -277,6 +277,11 @@ class RuleRecord:
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
+        else:
+            # A run directive. There is no easy way yet to obtain
+            # the actual uncompiled source code.
+            sources = []
+            language = "python"
 
         try:
             lexer = get_lexer_by_name(language)
