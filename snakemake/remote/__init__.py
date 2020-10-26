@@ -167,43 +167,13 @@ class AbstractRemoteObject:
         self.provider = provider
         self.protocol = protocol
 
-    @property
-    def inventory_path(self):
-        # To enable inventory operations, this methods needs to return the path name of the file.
-        pass
-
-    @property
-    def inventory_root(self):
-        # To enable inventory operations, this methods needs to return the directory name of the file.
-        pass
-
-    @abstractmethod
     def inventory(self, cache: snakemake.io.IOCache):
         """From this file, try to find as much existence and modification date
-        information as possible for files in the same folder.
+        information as possible.
         """
         # If this is implemented in a remote object, results have to be stored in
         # the given IOCache object.
         pass
-
-    def _add_to_inventory(self, cache: snakemake.io.IOCache, attribute):
-        """Perform cache inventory for this remote file object.
-        If attribute is set to 'exists_remote', 'mtime','size',
-        this function guarantees that the respective value is set in the cache.
-        If attribute is set to None, all these values are set in the cache."""
-        if attribute is None:
-            attributes = ["exists_remote", "mtime", "size"]
-        else:
-            attributes = [attribute]
-
-        for attribute in attributes:
-            local_attribute = "exists" if attribute == "exists_remote" else attribute
-            attribute_cache = getattr(cache, attribute)
-            if (
-                attribute_cache.get(self.inventory_path, snakemake.io.IOCACHE_DEFERRED)
-                == snakemake.io.IOCACHE_DEFERRED
-            ):
-                attribute_cache[self.inventory_path] = getattr(self, local_attribute)
 
     @property
     def _file(self):
