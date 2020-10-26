@@ -914,7 +914,7 @@ def auto_report(dag, path, stylesheet=None):
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
                         for aux_path in result.aux_files:
-                            #print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
+                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
                             zipout.write(
                                 aux_path,
                                 str(
