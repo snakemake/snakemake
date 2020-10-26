@@ -27,6 +27,12 @@ def test_{{ ruletest.name }}():
             "{{ ruletest.target }}", 
             "-F", 
             "-j1",
+            {% if configfiles %}
+            "--configfile",
+            {% for configfile in configfiles %}
+            {{ configfile }}
+            {% endfor %}
+            {% endif %}    
             {% if "conda" in deploy %}
             "--use-conda",
             {% endif %}

@@ -799,7 +799,9 @@ class Workflow:
                 deploy.append("conda")
             if self.use_singularity:
                 deploy.append("singularity")
-            unit_tests.generate(dag, path, deploy)
+            unit_tests.generate(
+                dag, path, deploy, configfiles=self.overwrite_configfiles
+            )
             return True
         elif export_cwl:
             from snakemake.cwl import dag_to_cwl
