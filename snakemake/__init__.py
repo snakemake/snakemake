@@ -44,7 +44,7 @@ def snakemake(
     report=None,
     report_stylesheet=None,
     lint=None,
-    generate_unit_tests=".tests/unit",
+    generate_unit_tests=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
