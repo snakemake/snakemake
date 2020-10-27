@@ -22,7 +22,7 @@ def test_{{ ruletest.name }}():
         shutil.copytree(data_path, workdir)
 
         # dbg
-        print("{{ ruletest.target }}")
+        print("{{ ruletest.target }}", file=sys.stderr)
 
         # Run the test job.
         sp.check_output([
