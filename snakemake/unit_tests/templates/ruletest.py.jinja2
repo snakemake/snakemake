@@ -21,12 +21,15 @@ def test_{{ ruletest.name }}():
         # Copy data to the temporary workdir.
         shutil.copytree(data_path, workdir)
 
+        # dbg
+        print("{{ ruletest.target }}")
+
         # Run the test job.
         sp.check_output([
             "python",
             "-m",
             "snakemake", 
-            "{{ ruletest.target }}", 
+            "{{ ruletest.target }}",
             "-F", 
             "-j1",
             {% if configfiles %}
