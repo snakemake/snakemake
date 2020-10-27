@@ -242,7 +242,10 @@ class Job(AbstractJob):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        assert os.path.exists(path)  # to make sure lstat works
+        if self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = os.path.relpath(os.path.join(self.rule.basedir, path))
+        assert os.path.exists(path), "cannot find {0}".format(path)
         script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
