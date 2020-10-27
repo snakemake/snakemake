@@ -110,7 +110,7 @@ jobs:
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
       - name: Build and publish docker image
-        if: contains(github.event.issue.labels.*.name, 'update-container-image')
+        if: "contains(github.event.issue.labels.*.name, 'update-container-image')"
         uses: elgohr/Publish-Docker-Github-Action@2.16
         with:
           name: snakemake/snakemake
@@ -119,7 +119,7 @@ jobs:
           tags: ${{ env.GITHUB_SHA }}
       
       - name: Set container image
-        if: contains(github.event.issue.labels.*.name, 'update-container-image')
+        if: "contains(github.event.issue.labels.*.name, 'update-container-image')"
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
 
@@ -154,7 +154,7 @@ jobs:
           pytest -s -v -x tests/test_google_lifesciences.py
         
       - name: Delete container image
-        if: contains(github.event.issue.labels.*.name, 'update-container-image') && always()
+        if: "contains(github.event.issue.labels.*.name, 'update-container-image') && always()"
         run: |
           docker run --rm -it lumir/remove-dockerhub-tag \
           --user ${{ secrets.DOCKER_USERNAME }} \
@@ -162,7 +162,7 @@ jobs:
           snakemake/snakemake:${{ env.GITHUB_SHA }}
 
       - name: Build container image
-        if: !contains(github.event.issue.labels.*.name, 'update-container-image')
+        if: "!contains(github.event.issue.labels.*.name, 'update-container-image')"
         run: docker build .
 
 
