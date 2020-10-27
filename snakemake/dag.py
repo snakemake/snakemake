@@ -488,10 +488,10 @@ class DAG:
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa).
+        # are directories and not files and vice versa). We can't check for remote objects
         for f in expanded_output:
-            if (f.is_directory and not os.path.isdir(f)) or (
-                os.path.isdir(f) and not f.is_directory
+            if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
+                not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
                 raise ImproperOutputException(job.rule, [f])
 
