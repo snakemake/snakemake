@@ -224,7 +224,7 @@ class Persistence:
         for f in job.expanded_output:
             rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-            endtime = f.mtime if os.path.exists(f) else fallback_time
+            endtime = f.mtime.local_or_remote() if f.exists else fallback_time
             self._record(
                 self._metadata_path,
                 {

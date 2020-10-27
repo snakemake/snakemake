@@ -1040,7 +1040,7 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Plaese help fix.
+@skip_on_windows  # currently fails on windows. Please help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
@@ -1051,6 +1051,16 @@ def test_github_issue456():
 
 def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
+
+
+@skip_on_windows
+def test_github_issue640():
+    run(
+        dpath("test_github_issue640"),
+        targets=["Output/FileWithRights"],
+        dryrun=True,
+        cleanup=False,
+    )
 
 
 def test_issue661():

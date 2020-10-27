@@ -277,6 +277,11 @@ class RuleRecord:
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
+        else:
+            # A run directive. There is no easy way yet to obtain
+            # the actual uncompiled source code.
+            sources = []
+            language = "python"
 
         try:
             lexer = get_lexer_by_name(language)
@@ -913,14 +918,14 @@ def auto_report(dag, path, stylesheet=None):
                             )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
-                        for path in result.aux_files:
-                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                        for aux_path in result.aux_files:
+                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
                             zipout.write(
-                                path,
+                                aux_path,
                                 str(
                                     parent.joinpath(
                                         os.path.relpath(
-                                            path, os.path.dirname(result.path)
+                                            aux_path, os.path.dirname(result.path)
                                         )
                                     )
                                 ),
