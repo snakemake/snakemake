@@ -23,6 +23,8 @@ def test_{{ ruletest.name }}():
 
         # Run the test job.
         sp.check_output([
+            "python",
+            "-m",
             "snakemake", 
             "{{ ruletest.target }}", 
             "-F", 
