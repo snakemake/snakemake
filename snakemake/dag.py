@@ -174,6 +174,7 @@ class DAG:
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
+            print(file, file=sys.stderr)
             job = self.update(self.file2jobs(file), file=file, progress=progress)
             self.targetjobs.add(job)
 
