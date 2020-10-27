@@ -118,9 +118,6 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
           tags: ${{ env.GITHUB_SHA }}
       
-      - run: |
-          echo ${{ contains(github.event.pull_request.labels.*.name, 'update-container-image') }}
-
       - name: Set container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: |
