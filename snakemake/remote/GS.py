@@ -58,6 +58,10 @@ def download_blob(blob, filename):
       blob_file (str)     : the file path to download to
     Returns: boolean to indicate doing retry (True) or not (False)
     """
+
+    # create parent directories if necessary
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
     # ideally we could calculate hash while streaming to file with provided function
     # https://github.com/googleapis/python-storage/issues/29
     with open(filename, "wb") as blob_file:
@@ -236,7 +240,6 @@ class RemoteObject(AbstractRemoteObject):
             if os.path.exists(local_name) and os.path.isdir(local_name):
                 continue
 
-            os.makedirs(os.path.dirname(local_name), exist_ok=True)
             download_blob(blob, local_name)
 
         # Return the root directory
