@@ -156,7 +156,7 @@ jobs:
       - name: Delete container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
         run: |
-          docker run --rm -it lumir/remove-dockerhub-tag \
+          docker run --rm lumir/remove-dockerhub-tag \
           --user ${{ secrets.DOCKER_USERNAME }} \
           --password ${{ secrets.DOCKER_TOKEN }} \
           snakemake/snakemake:${{ env.GITHUB_SHA }}
