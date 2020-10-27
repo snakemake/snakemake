@@ -1066,4 +1066,4 @@ def test_generate_unit_tests():
         check_md5=False,
         cleanup=False,
     )
-    sp.check_call(["pytest", ".tests", "-v"], cwd=tmpdir)
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
