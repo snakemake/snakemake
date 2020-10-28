@@ -174,10 +174,6 @@ class DAG:
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            # dbg
-            import sys
-
-            print(file, file=sys.stderr)
             job = self.update(
                 self.file2jobs(file),
                 file=file,

@@ -32,6 +32,7 @@ def test_{{ ruletest.name }}():
             "{{ ruletest.target }}",
             "-F", 
             "-j1",
+            "--keep-target-files",
             {% if configfiles %}
             "--configfile",
             {% for configfile in configfiles %}
