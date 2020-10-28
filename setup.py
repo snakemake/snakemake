@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 5):
-    print("At least Python 3.5 is required.\n", file=sys.stderr)
+if sys.version_info < (3, 7):
+    print("At least Python 3.7 is required.\n", file=sys.stderr)
     exit(1)
 
 

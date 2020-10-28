@@ -109,6 +109,20 @@ jobs:
           
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
+      - name: Build and publish docker image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        uses: elgohr/Publish-Docker-Github-Action@2.16
+        with:
+          name: snakemake/snakemake
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+          tags: ${{ env.GITHUB_SHA }}
+      
+      - name: Set container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        run: |
+          echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
+
       - name: Test Kubernetes execution
         if: env.GCP_AVAILABLE
         env:
@@ -138,9 +152,17 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
           pytest -s -v -x tests/test_google_lifesciences.py
-
+        
+      - name: Delete container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
+        run: |
+          docker run --rm lumir/remove-dockerhub-tag \
+          --user ${{ secrets.DOCKER_USERNAME }} \
+          --password ${{ secrets.DOCKER_TOKEN }} \
+          snakemake/snakemake:${{ env.GITHUB_SHA }}
 
       - name: Build container image
+        if: "!contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: docker build .
 
 
