@@ -6,6 +6,8 @@ __license__ = "MIT"
 import os
 import sys
 import uuid
+import subprocess as sp
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -1065,3 +1067,13 @@ def test_github_issue640():
 
 def test_issue661():
     run(dpath("test_issue661"), check_md5=True)
+
+
+def test_generate_unit_tests():
+    tmpdir = run(
+        dpath("test_generate_unit_tests"),
+        generate_unit_tests=".tests/unit",
+        check_md5=False,
+        cleanup=False,
+    )
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)

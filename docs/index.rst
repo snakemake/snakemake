@@ -135,6 +135,7 @@ Resources
     snakefiles/utils
     snakefiles/deployment
     snakefiles/reporting
+    snakefiles/testing
 
 
 .. toctree::

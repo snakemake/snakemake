@@ -431,7 +431,7 @@ class FileRecord:
                         reader = csv.reader(table, dialect)
                         columns = next(reader)
                         table = map(lambda row: list(map(num_if_possible, row)), reader)
-                        template = env.get_template("table.html")
+                        template = env.get_template("table.html.jinja2")
                         html = template.render(
                             columns=columns, table=table, name=self.name
                         ).encode()
@@ -869,7 +869,7 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    template = env.get_template("report.html")
+    template = env.get_template("report.html.jinja2")
 
     logger.info("Downloading resources and rendering HTML.")
 

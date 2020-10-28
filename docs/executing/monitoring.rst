@@ -1,8 +1,8 @@
 .. _monitoring:
 
-========================
+==========
 Monitoring
-========================
+==========
 
 Snakemake supports `panoptes <https://github.com/panoptes-organization/panoptes>`_ a server (under development) that lets you monitor the execution of snakemake workflows.
 Snakemake communicates with panoptes via the :code:`--wms-monitor` flag. The flag specifies the ip and port where panoptes is running (e.g. :code:`--wms-monitor http://127.0.0.1:5000`).
