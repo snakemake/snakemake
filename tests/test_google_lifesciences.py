@@ -31,9 +31,6 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     """
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
-    blobs = bucket.list_blobs(prefix=prefix)
-    for blob in blobs:
-        blob.delete()
     blobs = bucket.list_blobs(prefix="source")
     for blob in blobs:
         blob.delete()
