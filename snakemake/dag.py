@@ -176,6 +176,7 @@ class DAG:
         for file in self.targetfiles:
             # dbg
             import sys
+
             print(file, file=sys.stderr)
             job = self.update(
                 self.file2jobs(file),
