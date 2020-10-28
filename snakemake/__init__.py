@@ -44,6 +44,7 @@ def snakemake(
     report=None,
     report_stylesheet=None,
     lint=None,
+    generate_unit_tests=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -122,6 +123,7 @@ def snakemake(
     updated_files=None,
     log_handler=[],
     keep_logger=False,
+    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -163,6 +165,7 @@ def snakemake(
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
+    keep_metadata=True,
     messaging=None,
     edit_notebook=None,
     envvars=None,
@@ -218,6 +221,7 @@ def snakemake(
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
+        drop_metadata (bool):       drop metadata file tracking information after job finishes (--report and --list_x_changes information will be incomplete) (default False)
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
@@ -262,6 +266,7 @@ def snakemake(
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
+        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -460,6 +465,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            wms_monitor=wms_monitor,
         )
 
     if greediness is None:
@@ -679,6 +685,7 @@ def snakemake(
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
+                    generate_unit_tests=generate_unit_tests,
                     touch=touch,
                     scheduler_type=scheduler,
                     scheduler_ilp_solver=scheduler_ilp_solver,
@@ -759,6 +766,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    keepmetadata=keep_metadata,
                 )
 
     except BrokenPipeError:
@@ -1282,9 +1290,15 @@ def get_argument_parser(profile=None):
             "to the working directory."
         ),
     )
+
+    import pulp
+
+    lp_solvers = pulp.list_solvers(onlyAvailable=True)
+    recommended_lp_solver = "COIN_CMD"
+
     group_exec.add_argument(
         "--scheduler",
-        default="ilp",
+        default="greedy" if recommended_lp_solver not in lp_solvers else "ilp",
         nargs="?",
         choices=["ilp", "greedy"],
         help=(
@@ -1292,13 +1306,19 @@ def get_argument_parser(profile=None):
             "The ilp scheduler aims to reduce runtime and hdd usage by best possible use of resources."
         ),
     )
-
-    import pulp
+    group_exec.add_argument(
+        "--wms-monitor",
+        action="store",
+        nargs="?",
+        help=(
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
+        ),
+    )
 
     group_exec.add_argument(
         "--scheduler-ilp-solver",
-        default=None,
-        choices=pulp.list_solvers(onlyAvailable=True),
+        default=recommended_lp_solver,
+        choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
     )
 
@@ -1379,7 +1399,19 @@ def get_argument_parser(profile=None):
         "specific suggestions to improve code quality (work in progress, more lints "
         "to be added in the future). If no argument is provided, plain text output is used.",
     )
-
+    group_utils.add_argument(
+        "--generate-unit-tests",
+        nargs="?",
+        const=".tests/unit",
+        metavar="TESTPATH",
+        help="Automatically generate unit tests for each workflow rule. "
+        "This assumes that all input files of each job are already present. "
+        "Rules without a job with present input files will be skipped (a warning will be issued). "
+        "For each rule, one test case will be "
+        "created in the specified test folder (.tests/unit by default). After "
+        "successfull execution, tests can be run with "
+        "'pytest TESTPATH'.",
+    )
     group_utils.add_argument(
         "--export-cwl",
         action="store",
@@ -1569,6 +1601,13 @@ def get_argument_parser(profile=None):
         "--keep-incomplete",
         action="store_true",
         help="Do not remove incomplete output files by failed jobs.",
+    )
+    group_utils.add_argument(
+        "--drop-metadata",
+        action="store_true",
+        help="Drop metadata file tracking information after job finishes. "
+        "Provenance-information based reports (e.g. --report and the "
+        "--list_x_changes functions) will be empty or incomplete.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -2246,6 +2285,7 @@ def main(argv=None):
         or args.list_untracked
         or args.list_version_changes
         or args.export_cwl
+        or args.generate_unit_tests
         or args.dag
         or args.d3dag
         or args.filegraph
@@ -2480,6 +2520,7 @@ def main(argv=None):
             report=args.report,
             report_stylesheet=args.report_stylesheet,
             lint=args.lint,
+            generate_unit_tests=args.generate_unit_tests,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
@@ -2592,7 +2633,9 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
+            wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
+            keep_metadata=not args.drop_metadata,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,

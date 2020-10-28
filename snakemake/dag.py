@@ -9,7 +9,7 @@ import shutil
 import textwrap
 import time
 import tarfile
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, deque
 from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
@@ -170,16 +170,21 @@ class DAG:
     def init(self, progress=False):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
-            job = self.update([job], progress=progress)
+            job = self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file, progress=progress)
+            job = self.update(
+                self.file2jobs(file),
+                file=file,
+                progress=progress,
+                create_inventory=True,
+            )
             self.targetjobs.add(job)
 
         self.cleanup()
 
-        self.update_needrun()
+        self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
@@ -479,13 +484,14 @@ class DAG:
                     "filesystem latency. If that is the case, consider to increase the "
                     "wait time with --latency-wait.",
                     rule=job.rule,
+                    jobid=self.jobid(job),
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa).
+        # are directories and not files and vice versa). We can't check for remote objects
         for f in expanded_output:
-            if (f.is_directory and not os.path.isdir(f)) or (
-                os.path.isdir(f) and not f.is_directory
+            if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
+                not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
                 raise ImproperOutputException(job.rule, [f])
 
@@ -630,7 +636,7 @@ class DAG:
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
-                    remote_mtime = f.mtime
+                    remote_mtime = f.mtime.remote()
                     # immediately force local mtime to match remote,
                     # since conversions from S3 headers are not 100% reliable
                     # without this, newness comparisons may fail down the line
@@ -688,7 +694,13 @@ class DAG:
             return self._jobid[job]
 
     def update(
-        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
+        self,
+        jobs,
+        file=None,
+        visited=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
@@ -713,6 +725,7 @@ class DAG:
                     visited=set(visited),
                     skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
+                    create_inventory=create_inventory,
                 )
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
@@ -768,7 +781,14 @@ class DAG:
 
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
+    def update_(
+        self,
+        job,
+        visited=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
+    ):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
@@ -784,12 +804,13 @@ class DAG:
         producer = dict()
         exceptions = dict()
         for file, jobs in potential_dependencies.items():
-            # If possible, obtain inventory information starting from
-            # given file and store it in the IOCache.
-            # This should provide faster access to existence and mtime information
-            # than querying file by file. If the file type does not support inventory
-            # information, this call is a no-op.
-            file.inventory()
+            if create_inventory:
+                # If possible, obtain inventory information starting from
+                # given file and store it in the IOCache.
+                # This should provide faster access to existence and mtime information
+                # than querying file by file. If the file type does not support inventory
+                # information, this call is a no-op.
+                file.inventory()
 
             if not jobs:
                 # no producing job found
@@ -850,8 +871,12 @@ class DAG:
         if skip_until_dynamic:
             self._dynamic.add(job)
 
-    def update_needrun(self):
+    def update_needrun(self, create_inventory=False):
         """ Update the information whether a job needs to be executed. """
+
+        if create_inventory:
+            # Concurrently collect mtimes of all existing files.
+            self.workflow.iocache.mtime_inventory(self.jobs)
 
         output_mintime = dict()
 
@@ -890,7 +915,7 @@ class DAG:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists]
+                                f for f in job.input if not f.exists
                             )
                         else:
                             reason.nooutput = True
@@ -935,10 +960,11 @@ class DAG:
         for job in candidates:
             update_needrun(job)
 
-        queue = list(filter(reason, candidates))
+        queue = deque(filter(reason, candidates))
         visited = set(queue)
+        candidates_set = set(candidates)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
@@ -949,8 +975,10 @@ class DAG:
                     queue.append(job_)
 
             for job_, files in depending[job].items():
-                if job_ in candidates:
-                    reason(job_).updated_input_run.update(files)
+                if job_ in candidates_set and not all(f.is_ancient for f in files):
+                    reason(job_).updated_input_run.update(
+                        f for f in files if not f.is_ancient
+                    )
                     if not job_ in visited:
                         visited.add(job_)
                         queue.append(job_)
@@ -1070,9 +1098,11 @@ class DAG:
         if jobs is None:
             jobs = self.needrun_jobs
 
+        potential_new_ready_jobs = False
         candidate_groups = set()
         for job in jobs:
             if not self.finished(job) and self._ready(job):
+                potential_new_ready_jobs = True
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
@@ -1085,6 +1115,7 @@ class DAG:
             for group in candidate_groups
             if all(self._ready(job) for job in group)
         )
+        return potential_new_ready_jobs
 
     def get_jobs_or_groups(self):
         visited_groups = set()
@@ -1252,7 +1283,7 @@ class DAG:
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
-        self.update_ready(
+        potential_new_ready_jobs = self.update_ready(
             j
             for job in jobs
             for j in self.depending[job]
@@ -1281,6 +1312,9 @@ class DAG:
                 self.pull_container_imgs()
             if self.workflow.use_conda:
                 self.create_conda_envs()
+            potential_new_ready_jobs = True
+
+        return potential_new_ready_jobs
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
@@ -1459,10 +1493,10 @@ class DAG:
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
         """Perform a breadth-first traversal of the DAG."""
-        queue = list(jobs)
+        queue = deque(jobs)
         visited = set(queue)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             if stop(job):
                 # stop criterion reached for this node
                 continue
@@ -1818,7 +1852,7 @@ class DAG:
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
 
-                date = time.ctime(f.mtime) if f.exists else "-"
+                date = time.ctime(f.mtime.local_or_remote()) if f.exists else "-"
 
                 pending = "update pending" if self.reason(job) else "no update"
 

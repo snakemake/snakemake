@@ -6,7 +6,8 @@ GS = GSRemoteProvider()
 
 rule all:
     input:
-        "landsat-data.txt.bz2"
+        "landsat-data.txt.bz2",
+        "testdir"
 
 rule copy:
     input:
@@ -33,3 +34,12 @@ rule pack:
         "logs/pack.log"
     shell:
         "bzip2 -c {input} > {output}; echo successful > {log}"
+
+
+rule directory:
+    output:
+        directory("testdir")
+    log:
+        "logs/directory.log"
+    shell:
+        "mkdir -p {output}; touch {output}/test.txt"

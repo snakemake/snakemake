@@ -1,3 +1,25 @@
+[5.26.1] - 2020-10-01
+=====================
+Changed
+-------
+- Use coin ILP solver for scheduling by default (GLPK has bugs that can cause it to fail in certain situations).
+- If coin is not available, fall back to greedy scheduler.
+
+[5.26.0] - 2020-09-30
+=====================
+Added
+-----
+- Flag --max-inventory-time for setting maximum time spend on creating file inventory.
+- Flag --scheduler-ilp-solver for defining which solver to use for the ILP scheduler.
+
+Changed
+-------
+- Fixed various bugs with the new scheduler (@FelixMoelder).
+- Fixed bug causing certain parameters not to be passed to the cluster (--set-scatter, --scheduler, --set-threads).
+- Updated docs and fixed of google backend (@vsoch).
+- Display jupyter notebook code in reports.
+- Improved scheduler behavior in order to directly remove temporary files if possible.
+
 [5.25.0] - 2020-09-18
 =====================
 Added

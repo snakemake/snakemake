@@ -300,7 +300,7 @@ Then, the docs can be built with
 
 .. code-block:: console
 
-    $ source activate snakemake
+    $ conda activate snakemake
     $ cd docs
     $ make html
     $ make clean && make html  # force rebuild

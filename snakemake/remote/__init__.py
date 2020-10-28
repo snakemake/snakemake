@@ -167,12 +167,16 @@ class AbstractRemoteObject:
         self.provider = provider
         self.protocol = protocol
 
-    def inventory(self, cache: snakemake.io.IOCache):
+    async def inventory(self, cache: snakemake.io.IOCache):
         """From this file, try to find as much existence and modification date
         information as possible.
         """
         # If this is implemented in a remote object, results have to be stored in
         # the given IOCache object.
+        pass
+
+    @abstractmethod
+    def get_inventory_parent(self):
         pass
 
     @property

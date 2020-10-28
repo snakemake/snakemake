@@ -171,7 +171,7 @@ the ``--container-image`` (or ``container_image`` from within Python),
 however if you do so, your container must meet the following requirements:
 
  - have an entrypoint that can execute a ``/bin/bash`` command
- - have snakemake installed, either via ``source activate snakemake`` or already on the path
+ - have snakemake installed, either via ``conda activate snakemake`` or already on the path
  - also include snakemake Python dependencies for google.cloud
 
 If you use any Snakemake container as a base, you should be good to go. If you'd
