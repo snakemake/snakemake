@@ -34,7 +34,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         local_input=None,
         restart_times=None,
         assume_shared_fs=False,
-        max_status_checks_per_second=0.5,  # TODO: argument doesn't appear to be passed through from CLI?
+        max_status_checks_per_second=0.5,
         tes_url=None,
         container_image=None,
     ):
@@ -216,7 +216,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         type="Input",
     ):
         # TODO: handle FTP files
-        max_file_size = 131072 # see https://github.com/ga4gh/task-execution-schemas/blob/9cc12b0c215a7f54fdeb0d0598ebc74fa70eb2a7/openapi/task_execution.swagger.yaml#L297
+        max_file_size = 131072
         if type not in ["Input", "Output"]:
             raise ValueError("Value for 'model' has to be either 'Input' or 'Output'.")
 
