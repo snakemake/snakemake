@@ -259,19 +259,22 @@ This can be done by invoking Snakemake with the ``--forcerules`` or ``-R`` flag,
 
 This will cause Snakemake to re-run all jobs of that rule and everything downstream (i.e. directly or indirectly depending on the rules output).
 
+How should Snakefiles be formatted?
+--------------------------------------
+
+To ensure readability and consistency, you can format Snakefiles with our tool `snakefmt <https://github.com/snakemake/snakefmt>`_. 
+
+Python code gets formatted with `black <https://github.com/psf/black>`_ and Snakemake-specific blocks are formatted using similar principles (such as `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_).
+
 How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
 
-A vim syntax highlighting definition for Snakemake is available `here <https://github.com/snakemake/snakemake/raw/master/misc/vim/syntax/snakemake.vim>`_.
-You can copy that file to ``$HOME/.vim/syntax`` directory and add
+Instructions for doing this are located `here
+<https://github.com/snakemake/snakemake/tree/master/misc/vim>`_.
 
-.. code-block:: vim
-
-    au BufNewFile,BufRead Snakefile set syntax=snakemake
-    au BufNewFile,BufRead *.smk set syntax=snakemake
-
-to your ``$HOME/.vimrc`` file. Highlighting can be forced in a vim session with ``:set syntax=snakemake``.
-
+Note that you can also format Snakefiles in Vim using :ref:`snakefmt
+<How should Snakefiles be formatted?>`, with instructions located `here
+<https://github.com/snakemake/snakefmt/blob/master/docs/editor_integration.md#vim>`_!
 
 I want to import some helper functions from another python file. Is that possible?
 ----------------------------------------------------------------------------------
