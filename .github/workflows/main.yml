@@ -139,6 +139,12 @@ jobs:
           source activate snakemake
           pytest -s -v -x tests/test_google_lifesciences.py
 
+      - name: Test GA4GH TES executor
+          run: |
+            # activate conda env
+            export PATH="/usr/share/miniconda/bin:$PATH"
+            source activate snakemake
+            pytest -s -v -x tests/test_tes.py
 
       - name: Build container image
         run: docker build .

@@ -41,7 +41,6 @@ def _get_task(request, context):
     context.status_code = 200
     return TEST_TASK
 
-@requests_mock.Mocker()
 def test_tes(requests_mock):
     requests_mock.register_uri("POST",
         "{}/v1/tasks".format(TES_URL),
