@@ -152,7 +152,9 @@ class AbstractExecutor:
         self.printjob(job)
         if provenance_manager.is_active():
             prov_mgr = provenance_manager
-            job_URI = prov_mgr.gen_URI("http://snakemake-provenance#", "activity-"+job.__str__())
+            job_URI = prov_mgr.gen_URI(
+                "http://snakemake-provenance#", "activity-" + job.__str__()
+            )
             job.uri = job_URI
 
     def rule_prefix(self, job):
@@ -167,16 +169,26 @@ class AbstractExecutor:
     def handle_job_success(self, job):
         if provenance_manager.is_active():
             prov_mgr = provenance_manager
-            #print(job.params['biotools_id'])
-            tool_name = ''
-            if 'biotools_id' in job.params.keys():
-                tool_name = job.params['biotools_id']
+            # print(job.params['biotools_id'])
+            tool_name = ""
+            if "biotools_id" in job.params.keys():
+                tool_name = job.params["biotools_id"]
             else:
                 tool_name = job.__str__()
-            prov_mgr.add_activity(tool_name=tool_name, job_uri=job.uri, input_id_list=job.input, cmd=job.shellcmd)
+            prov_mgr.add_activity(
+                tool_name=tool_name,
+                job_uri=job.uri,
+                input_id_list=job.input,
+                cmd=job.shellcmd,
+            )
             outputs = job.output
             for o in outputs:
-                prov_mgr.add_output(output_id=o, input_id_list=job.input, tool_name=tool_name, job_uri=job.uri)
+                prov_mgr.add_output(
+                    output_id=o,
+                    input_id_list=job.input,
+                    tool_name=tool_name,
+                    job_uri=job.uri,
+                )
 
         pass
 
