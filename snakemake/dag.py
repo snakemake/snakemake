@@ -123,6 +123,7 @@ class DAG:
         self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
+        self._n_until_ready = defaultdict(int)
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -944,8 +945,10 @@ class DAG:
         _needrun = self._needrun
         dependencies = self.dependencies
         depending = self.depending
+        _n_until_ready = self._n_until_ready
 
         _needrun.clear()
+        _n_until_ready.clear()
         candidates = list(self.jobs)
 
         # Update the output mintime of all jobs.
@@ -975,10 +978,9 @@ class DAG:
                     queue.append(job_)
 
             for job_, files in depending[job].items():
-                if job_ in candidates_set and not all(f.is_ancient for f in files):
-                    reason(job_).updated_input_run.update(
-                        f for f in files if not f.is_ancient
-                    )
+                if job_ in candidates_set:
+                    _n_until_ready[job_] += 1
+                    reason(job_).updated_input_run.update(files)
                     if not job_ in visited:
                         visited.add(job_)
                         queue.append(job_)
@@ -1101,6 +1103,9 @@ class DAG:
         potential_new_ready_jobs = False
         candidate_groups = set()
         for job in jobs:
+            if job in self._ready_jobs:
+                # job has been seen before, no need to process again
+                continue
             if not self.finished(job) and self._ready(job):
                 potential_new_ready_jobs = True
                 if job.group is None:
@@ -1230,16 +1235,9 @@ class DAG:
         """Return whether the given job is ready to execute."""
         group = self._group.get(job, None)
         if group is None:
-            is_external_needrun_dep = self.needrun
+            return self._n_until_ready[job] == 0
         else:
-
-            def is_external_needrun_dep(j):
-                g = self._group.get(j, None)
-                return self.needrun(j) and (g is None or g != group)
-
-        return self._finished.issuperset(
-            filter(is_external_needrun_dep, self.dependencies[job])
-        )
+            return all(self._n_until_ready[job] for job in group)
 
     def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
@@ -1283,12 +1281,16 @@ class DAG:
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
-        potential_new_ready_jobs = self.update_ready(
+        depending = [
             j
             for job in jobs
             for j in self.depending[job]
             if not self.in_until(job) and self.needrun(j)
-        )
+        ]
+        for job in depending:
+            self._n_until_ready[job] -= 1
+
+        potential_new_ready_jobs = self.update_ready(depending)
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:

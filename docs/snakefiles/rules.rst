@@ -789,6 +789,7 @@ The timestamp of such files is ignored and always assumed to be older than any o
 
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
+Also, dependencies in the same run that are re-executed for another reason will trigger a re-execution of this job although the file is marked as ancient.
 
 Shadow rules
 ------------

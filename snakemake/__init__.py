@@ -2626,7 +2626,16 @@ def main(argv=None):
         with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
-            profile.print_all(out=out)
+            profile.print_all(
+                out=out,
+                columns={
+                    0: ("name", 120),
+                    1: ("ncall", 10),
+                    2: ("tsub", 8),
+                    3: ("ttot", 8),
+                    4: ("tavg", 8),
+                },
+            )
 
     sys.exit(0 if success else 1)
 
