@@ -25,7 +25,7 @@ class ProvenanceTracker:
         for job in dag.jobs:
             for f in itertools.chain(job.expanded_output, job.input):
                 if f in recorded_files:
-                    print(f'RECORDED file {f}')
+                    print(f"RECORDED file {f}")
                     continue
 
                 meta = persistence.metadata(f)
