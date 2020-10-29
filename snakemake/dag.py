@@ -1508,7 +1508,7 @@ class DAG:
                 # stop criterion reached for this node
                 continue
             yield job
-            for job_, _ in direction[job].items():
+            for job_ in direction[job].keys():
                 if not job_ in visited:
                     queue.append(job_)
                     visited.add(job_)
