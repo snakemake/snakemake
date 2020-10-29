@@ -44,6 +44,7 @@ setup(
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
+        "snakemake.executors",
         "snakemake.provenance_tracking"
     ],
     entry_points={
