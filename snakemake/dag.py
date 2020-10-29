@@ -244,9 +244,13 @@ class DAG:
 
     def cleanup(self):
         self.job_cache.clear()
-        final_jobs = set(self.jobs)
+        final_jobs = set(self.bfs(self.dependencies, *self.targetjobs))
         todelete = [job for job in self.dependencies if job not in final_jobs]
         for job in todelete:
+            try:
+                self._needrun.remove(job)
+            except KeyError:
+                pass
             del self.dependencies[job]
             try:
                 del self.depending[job]
@@ -352,17 +356,12 @@ class DAG:
     @property
     def jobs(self):
         """ All jobs in the DAG. """
-        for job in self.bfs(self.dependencies, *self.targetjobs):
-            yield job
+        return self.dependencies.keys()
 
     @property
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
-        for job in filter(
-            self.needrun,
-            self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished),
-        ):
-            yield job
+        return iter(self._needrun)
 
     @property
     def local_needrun_jobs(self):
@@ -372,8 +371,7 @@ class DAG:
     @property
     def finished_jobs(self):
         """ Iterate over all jobs that have been finished."""
-        for job in filter(self.finished, self.bfs(self.dependencies, *self.targetjobs)):
-            yield job
+        return filter(self.finished, self.jobs)
 
     @property
     def ready_jobs(self):
@@ -631,9 +629,9 @@ class DAG:
         """ Remove local files if they are no longer needed and upload. """
         if upload:
             # handle output files
-            files = list(job.expanded_output)
+            files = job.expanded_output
             if job.benchmark:
-                files.append(job.benchmark)
+                files = chain(job.expanded_output, (job.benchmark,))
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
@@ -651,6 +649,9 @@ class DAG:
                         )
 
         if not self.keep_remote_local:
+            if not any(f.is_remote for f in job.input):
+                return
+
             # handle input files
             needed = lambda job_, f: any(
                 f in files
@@ -664,6 +665,7 @@ class DAG:
                     and not f.protected
                     and not f.should_keep_local
                 )
+
                 generated_input = set()
                 for job_, files in self.dependencies[job].items():
                     generated_input |= files
@@ -1143,6 +1145,7 @@ class DAG:
     def postprocess(self):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
+        self.cleanup()
         self.update_jobids()
         self.update_needrun()
         self.update_priority()
@@ -1287,10 +1290,12 @@ class DAG:
             for j in self.depending[job]
             if not self.in_until(job) and self.needrun(j)
         ]
+        any_ready = False
         for job in depending:
             self._n_until_ready[job] -= 1
+            any_ready |= self._n_until_ready[job] == 0
 
-        potential_new_ready_jobs = self.update_ready(depending)
+        potential_new_ready_jobs = self.update_ready(depending) if any_ready else False
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
