@@ -852,7 +852,9 @@ def parse_key_value_arg(arg, errmsg):
 
 def parse_config(args):
     """Parse config from args."""
-    parsers = [int, float, eval, str]
+    import yaml
+    yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
+    parsers = [int, float, yaml_base_load, str]
     config = dict()
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
