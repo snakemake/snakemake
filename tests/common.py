@@ -84,7 +84,7 @@ def run(
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
-    container_image="snakemake/snakemake:latest",
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     **params
 ):
     """

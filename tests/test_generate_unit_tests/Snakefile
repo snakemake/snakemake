@@ -1,0 +1,18 @@
+rule all:
+    input:
+        expand("test/{sample}.tsv", sample=range(3))
+
+rule a:
+    output:
+        temp("test/{sample}.txt")
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "test/{sample}.txt"
+    output:
+        "test/{sample}.tsv"
+    shell:
+        "cp {input} {output}"

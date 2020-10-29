@@ -6,7 +6,4 @@
 " Usage
 "
 " copy to $HOME/.vim/ftdetect directory
-au BufNewFile,BufRead Snakefile set filetype=snakemake 
-au BufNewFile,BufRead *.rules set filetype=snakemake 
-au BufNewFile,BufRead *.snakefile set filetype=snakemake 
-au BufNewFile,BufRead *.snake set filetype=snakemake 
+au BufNewFile,BufRead Snakefile,*.smk set filetype=snakemake 

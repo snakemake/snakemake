@@ -48,6 +48,37 @@ def google_cloud_retry_predicate(ex):
     return False
 
 
+@retry.Retry(predicate=google_cloud_retry_predicate)
+def download_blob(blob, filename):
+    """A helper function to download a storage Blob to a blob_file (the filename)
+    and validate it using the Crc32cCalculator.
+
+    Arguments:
+      blob (storage.Blob) : the Google storage blob object
+      blob_file (str)     : the file path to download to
+    Returns: boolean to indicate doing retry (True) or not (False)
+    """
+
+    # create parent directories if necessary
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    # ideally we could calculate hash while streaming to file with provided function
+    # https://github.com/googleapis/python-storage/issues/29
+    with open(filename, "wb") as blob_file:
+        parser = Crc32cCalculator(blob_file)
+        blob.download_to_file(parser)
+    os.sync()
+
+    # **Important** hash can be incorrect or missing if not refreshed
+    blob.reload()
+
+    # Compute local hash and verify correct
+    if parser.hexdigest() != blob.crc32c:
+        os.remove(filename)
+        raise CheckSumMismatchException("The checksum of %s does not match." % filename)
+    return filename
+
+
 class Crc32cCalculator:
     """The Google Python client doesn't provide a way to stream a file being
     written, so we can wrap the file object in an additional class to
@@ -127,7 +158,7 @@ class RemoteObject(AbstractRemoteObject):
         self._bucket = None
         self._blob = None
 
-    def inventory(self, cache: snakemake.io.IOCache):
+    async def inventory(self, cache: snakemake.io.IOCache):
         """Using client.list_blobs(), we want to iterate over the objects in
         the "folder" of a bucket and store information about the IOFiles in the
         provided cache (snakemake.io.IOCache) indexed by bucket/blob name.
@@ -155,9 +186,12 @@ class RemoteObject(AbstractRemoteObject):
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
+        cache.exists_remote.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
 
     # === Implementations of abstract class members ===
+
+    def get_inventory_parent(self):
+        return self.bucket_name
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
@@ -186,26 +220,29 @@ class RemoteObject(AbstractRemoteObject):
         if not self.exists():
             return None
 
-        # Create the directory for the intended file
-        os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
+        # Create just a directory, or a file itself
+        if snakemake.io.is_flagged(self.local_file(), "directory"):
+            return self._download_directory()
+        return download_blob(self.blob, self.local_file())
 
-        # ideally we could calculate hash while streaming to file with provided function
-        # https://github.com/googleapis/python-storage/issues/29
-        with open(self.local_file(), "wb") as blob_file:
-            parser = Crc32cCalculator(blob_file)
-            self.blob.download_to_file(parser)
-        os.sync()
+    @retry.Retry(predicate=google_cloud_retry_predicate)
+    def _download_directory(self):
+        """A 'private' function to handle download of a storage folder, which
+        includes the content found inside.
+        """
+        # Create the directory locally
+        os.makedirs(self.local_file(), exist_ok=True)
 
-        # **Important** hash can be incorrect or missing if not refreshed
-        self.blob.reload()
+        for blob in self.client.list_blobs(self.bucket_name, prefix=self.key):
+            local_name = "{}/{}".format(blob.bucket.name, blob.name)
 
-        # Compute local hash and verify correct
-        if parser.hexdigest() != self.blob.crc32c:
-            os.remove(self.local_file())
-            raise CheckSumMismatchException(
-                "The checksum of %s does not match." % self.local_file()
-            )
+            # Don't try to create "directory blob"
+            if os.path.exists(local_name) and os.path.isdir(local_name):
+                continue
 
+            download_blob(blob, local_name)
+
+        # Return the root directory
         return self.local_file()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
@@ -214,7 +251,23 @@ class RemoteObject(AbstractRemoteObject):
             if not self.bucket.exists():
                 self.bucket.create()
                 self.update_blob()
-            self.blob.upload_from_filename(self.local_file())
+
+            # Distinguish between single file, and folder
+            f = self.local_file()
+            if os.path.isdir(f):
+
+                # Ensure the "directory" exists
+                self.blob.upload_from_string(
+                    "", content_type="application/x-www-form-urlencoded;charset=UTF-8"
+                )
+                for root, _, files in os.walk(f):
+                    for filename in files:
+                        filename = os.path.join(root, filename)
+                        bucket_path = filename.lstrip(self.bucket.name).lstrip("/")
+                        blob = self.bucket.blob(bucket_path)
+                        blob.upload_from_filename(filename)
+            else:
+                self.blob.upload_from_filename(f)
         except google.cloud.exceptions.Forbidden as e:
             raise WorkflowError(
                 e,
@@ -250,9 +303,13 @@ class RemoteObject(AbstractRemoteObject):
     def bucket_name(self):
         return self.parse().group("bucket")
 
-    @lazy_property
+    @property
     def key(self):
-        return self.parse().group("key")
+        key = self.parse().group("key")
+        f = self.local_file()
+        if snakemake.io.is_flagged(f, "directory"):
+            key = key if f.endswith("/") else key + "/"
+        return key
 
     def parse(self):
         m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
