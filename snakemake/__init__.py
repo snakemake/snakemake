@@ -45,6 +45,7 @@ def snakemake(
     report=None,
     report_stylesheet=None,
     lint=None,
+    generate_unit_tests=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -668,6 +669,7 @@ def snakemake(
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
+                    generate_unit_tests=generate_unit_tests,
                     touch=touch,
                     scheduler_type=scheduler,
                     scheduler_ilp_solver=scheduler_ilp_solver,
@@ -1272,9 +1274,14 @@ def get_argument_parser(profile=None):
         ),
     )
 
-    import pulp
+    try:
+        import pulp
 
-    lp_solvers = pulp.list_solvers(onlyAvailable=True)
+        lp_solvers = pulp.list_solvers(onlyAvailable=True)
+    except ImportError:
+        # Dummy list for the case that pulp is not available
+        # This only happend when building docs.
+        lp_solvers = ["COIN_CMD"]
     recommended_lp_solver = "COIN_CMD"
 
     group_exec.add_argument(
@@ -1380,17 +1387,31 @@ def get_argument_parser(profile=None):
         "specific suggestions to improve code quality (work in progress, more lints "
         "to be added in the future). If no argument is provided, plain text output is used.",
     )
-
+    group_utils.add_argument(
+        "--generate-unit-tests",
+        nargs="?",
+        const=".tests/unit",
+        metavar="TESTPATH",
+        help="Automatically generate unit tests for each workflow rule. "
+        "This assumes that all input files of each job are already present. "
+        "Rules without a job with present input files will be skipped (a warning will be issued). "
+        "For each rule, one test case will be "
+        "created in the specified test folder (.tests/unit by default). After "
+        "successfull execution, tests can be run with "
+        "'pytest TESTPATH'.",
+    )
     group_utils.add_argument(
         "--export-cwl",
         action="store",
         metavar="FILE",
         help="Compile workflow to CWL and store it in given FILE.",
     )
-    group_utils.add_argument("--provenance",
-                             action="store_true",
-                             help="Track workflow provenance based on the PROV W3C standard "
-                                  "and store provenance.trig and provenance.json files.")
+    group_utils.add_argument(
+        "--provenance",
+        action="store_true",
+        help="Track workflow provenance based on the PROV W3C standard "
+        "and store provenance.trig and provenance.json files.",
+    )
     group_utils.add_argument(
         "--list",
         "-l",
@@ -2250,6 +2271,7 @@ def main(argv=None):
         or args.list_untracked
         or args.list_version_changes
         or args.export_cwl
+        or args.generate_unit_tests
         or args.dag
         or args.d3dag
         or args.filegraph
@@ -2489,6 +2511,7 @@ def main(argv=None):
             report=args.report,
             report_stylesheet=args.report_stylesheet,
             lint=args.lint,
+            generate_unit_tests=args.generate_unit_tests,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
