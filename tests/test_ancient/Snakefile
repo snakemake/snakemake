@@ -25,7 +25,6 @@ rule b:
     shell:
         "echo \"C recreated\" > {output}"
 
-#Will not be executed because C is marked ancient and D exists
 rule c:
     input:
         ancient("C")
