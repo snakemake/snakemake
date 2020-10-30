@@ -154,11 +154,11 @@ jobs:
           pytest -s -v -x tests/test_google_lifesciences.py
 
       - name: Test GA4GH TES executor
-          run: |
-            # activate conda env
-            export PATH="/usr/share/miniconda/bin:$PATH"
-            source activate snakemake
-            pytest -s -v -x tests/test_tes.py
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_tes.py
         
       - name: Delete container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
