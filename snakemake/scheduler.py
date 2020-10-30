@@ -394,9 +394,7 @@ class JobScheduler:
     @property
     def open_jobs(self):
         """ Return open jobs. """
-        jobs = set(self.dag.ready_jobs)
-        jobs -= self.running
-        jobs -= self.failed
+        jobs = self.dag.ready_jobs
 
         if not self.dryrun:
             jobs = [
@@ -426,7 +424,7 @@ class JobScheduler:
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
-                    needrun = list(self.open_jobs)
+                    needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
                     user_kill = self._user_kill
@@ -481,6 +479,8 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
+                    # remove from read_jobs
+                    self.dag._ready_jobs -= run
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
@@ -564,9 +564,15 @@ class JobScheduler:
                     logger.job_finished(jobid=job.jobid)
                 self.progress()
 
-            if (
+            if self.dryrun:
+                if not self.running:
+                    # During dryrun, only release when all running jobs are done.
+                    # This saves a lot of time, as self.open_jobs has to be
+                    # evaluated less frequently.
+                    self._open_jobs.release()
+            elif (
                 not self.running
-                or (potential_new_ready_jobs and self.open_jobs)
+                or potential_new_ready_jobs
                 or self.workflow.immediate_submit
             ):
                 # go on scheduling if open jobs are ready or no job is running
@@ -591,6 +597,8 @@ class JobScheduler:
         if job.restart_times > job.attempt - 1:
             logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
             job.attempt += 1
+            # add job to those being ready again
+            self.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
@@ -718,9 +726,9 @@ class JobScheduler:
                 )
             )
 
-        selected_jobs = [
+        selected_jobs = set(
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
-        ]
+        )
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
                 [job.resources.get(name, 0) for job in selected_jobs]
@@ -791,7 +799,7 @@ class JobScheduler:
                 if not E:
                     break
 
-            solution = [job for job, sel in zip(jobs, x) if sel]
+            solution = set(job for job, sel in zip(jobs, x) if sel)
             # update resources
             for name, b_i in zip(self.global_resources, b):
                 self.resources[name] = b_i
