@@ -571,6 +571,8 @@ class JobScheduler:
         if job.restart_times > job.attempt - 1:
             logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
             job.attempt += 1
+            # add job to those being ready again
+            self.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
