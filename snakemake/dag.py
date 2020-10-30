@@ -362,7 +362,7 @@ class DAG:
     @property
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
-        return iter(self._needrun)
+        return filterfalse(self.finished, self._needrun)
 
     @property
     def local_needrun_jobs(self):
