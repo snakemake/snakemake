@@ -1,3 +1,9 @@
+[5.27.3] - 2020-10-30
+=====================
+Changed
+-------
+- Added missing files to source distribution.
+
 [5.27.2] - 2020-10-30
 =====================
 Changed
