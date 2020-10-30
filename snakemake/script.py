@@ -860,7 +860,13 @@ def get_language(path, source):
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
         nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
-        kernel_language = nb["metadata"]["language_info"]["name"]
+        try:
+            kernel_language = nb["metadata"]["language_info"]["name"]
+        except KeyError as e:
+            raise WorkflowError(
+                "Notebook metadata is corrupt. Please delete notebook "
+                "and recreate it via --edit-notebook."
+            )
 
         language += "_" + kernel_language.lower()
 
