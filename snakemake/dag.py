@@ -340,7 +340,8 @@ class DAG:
         """Check dynamic output and update downstream rules if necessary."""
         if self.has_dynamic_rules:
             for job in filter(
-                lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
+                lambda job: (job.dynamic_output and not self.needrun(job)),
+                list(self.jobs),
             ):
                 self.update_dynamic(job)
             self.postprocess()
