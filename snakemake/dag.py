@@ -976,17 +976,22 @@ class DAG:
             for job_, files in dependencies[job].items():
                 missing_output = job_.missing_output(requested=files)
                 reason(job_).missing_output.update(missing_output)
-                if missing_output and not job_ in visited:
+                if missing_output and job_ not in visited:
                     visited.add(job_)
                     queue.append(job_)
 
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
-                    _n_until_ready[job_] += 1
-                    reason(job_).updated_input_run.update(files)
-                    if not job_ in visited:
+                    if job_ not in visited:
+                        if all(f.is_ancient for f in files):
+                            # No other reason to run job_.
+                            # Since all files are ancient, we do not trigger it.
+                            continue
                         visited.add(job_)
                         queue.append(job_)
+
+                    _n_until_ready[job_] += 1
+                    reason(job_).updated_input_run.update(files)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
