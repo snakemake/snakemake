@@ -1241,13 +1241,11 @@ class DAG:
         if group is None:
             return self._n_until_ready[job] == 0
         else:
-            only_external_deps = lambda job: all(
-                self._group.get(dep) != group for dep in self.dependencies[job]
+            n_internal_deps = lambda job: sum(
+                self._group.get(dep) == group for dep in self.dependencies[job]
             )
             return all(
-                self._n_until_ready[job] == 0
-                for job in group
-                if only_external_deps(job)
+                (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
             )
 
     def update_checkpoint_dependencies(self, jobs=None):
@@ -1298,12 +1296,10 @@ class DAG:
             for j in self.depending[job]
             if not self.in_until(job) and self.needrun(j)
         ]
-        any_ready = False
         for job in depending:
             self._n_until_ready[job] -= 1
-            any_ready |= self._n_until_ready[job] == 0
 
-        potential_new_ready_jobs = self.update_ready(depending) if any_ready else False
+        potential_new_ready_jobs = self.update_ready(depending)
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
