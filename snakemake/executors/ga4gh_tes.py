@@ -254,7 +254,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         return model(**members)
 
     def _get_task_description(self, job):
-        description=""
+        description = ""
         if job.is_group():
             msgs = [i.message for i in job.jobs if i.message]
             if msgs:
@@ -344,7 +344,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         return outputs
 
     def _get_task_executors(self):
-        executors = [] 
+        executors = []
         executors.append(
             tes.models.Executor(
                 image=self.container_image,
