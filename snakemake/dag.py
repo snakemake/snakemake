@@ -1241,7 +1241,14 @@ class DAG:
         if group is None:
             return self._n_until_ready[job] == 0
         else:
-            return all(self._n_until_ready[job] for job in group)
+            only_external_deps = lambda job: all(
+                self._group.get(dep) != group for dep in self.dependencies[job]
+            )
+            return all(
+                self._n_until_ready[job] == 0
+                for job in group
+                if only_external_deps(job)
+            )
 
     def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
