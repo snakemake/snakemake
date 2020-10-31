@@ -6,6 +6,8 @@ __license__ = "MIT"
 import os
 import sys
 import uuid
+import subprocess as sp
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -108,6 +110,15 @@ def test15():
     run(dpath("test15"))
 
 
+def test_glpk_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
+
+
+@skip_on_windows
+def test_coin_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="COIN_CMD")
+
+
 def test_directory():
     run(
         dpath("test_directory"),
@@ -133,7 +144,7 @@ def test_directory2():
 
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=["D", "old_file"])
+    run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
 @skip_on_windows  # No conda-forge version of pygraphviz for windows
@@ -1031,7 +1042,7 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Plaese help fix.
+@skip_on_windows  # currently fails on windows. Please help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
@@ -1042,3 +1053,23 @@ def test_github_issue456():
 
 def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
+
+
+@skip_on_windows
+def test_github_issue640():
+    run(
+        dpath("test_github_issue640"),
+        targets=["Output/FileWithRights"],
+        dryrun=True,
+        cleanup=False,
+    )
+
+
+def test_generate_unit_tests():
+    tmpdir = run(
+        dpath("test_generate_unit_tests"),
+        generate_unit_tests=".tests/unit",
+        check_md5=False,
+        cleanup=False,
+    )
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)

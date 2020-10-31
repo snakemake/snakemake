@@ -95,6 +95,7 @@ class Workflow:
         singularity_args="",
         shadow_prefix=None,
         scheduler_type="ilp",
+        scheduler_ilp_solver=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -161,6 +162,7 @@ class Workflow:
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
         self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -459,16 +461,25 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.default_remote_prefix, path)
-        path = os.path.normpath(path)
-        return self.default_remote_provider.remote(path)
+
+        # This will convert any AnnotatedString to str
+        fullpath = "{}/{}".format(self.default_remote_prefix, path)
+        fullpath = os.path.normpath(fullpath)
+        remote = self.default_remote_provider.remote(fullpath)
+
+        # Important, update with previous flags in case of AnnotatedString #596
+        if hasattr(path, "flags"):
+            remote.flags.update(path.flags)
+        return remote
 
     def execute(
         self,
         targets=None,
         dryrun=False,
+        generate_unit_tests=None,
         touch=False,
         scheduler_type=None,
+        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -546,6 +557,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -778,7 +790,20 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if export_cwl:
+        if generate_unit_tests:
+            from snakemake import unit_tests
+
+            path = generate_unit_tests
+            deploy = []
+            if self.use_conda:
+                deploy.append("conda")
+            if self.use_singularity:
+                deploy.append("singularity")
+            unit_tests.generate(
+                dag, path, deploy, configfiles=self.overwrite_configfiles
+            )
+            return True
+        elif export_cwl:
             from snakemake.cwl import dag_to_cwl
             import json
 
@@ -910,7 +935,9 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
+            scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:

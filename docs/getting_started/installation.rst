@@ -23,13 +23,16 @@ Make sure to ...
 * Install the **Python 3** version of Miniconda.
 * Answer yes to the question whether conda shall be put into your PATH.
 
-The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/QuantStack/mamba>`_ as a drop-in replacement via
+The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. Therefore, we recommend to install `Mamba <https://github.com/mamba-org/mamba>`_ as a drop-in replacement via
 
 .. code-block:: console
 
     $ conda install -c conda-forge mamba
 
-Then, you can install Snakemake with
+Full installation
+-----------------
+
+Snakemake can be installed with all goodies needed to run in any environment and for creating interactive reports via
 
 .. code-block:: console
 
@@ -44,13 +47,25 @@ This will install snakemake into an isolated software environment, that has to b
     $ snakemake --help
 
 Installing into isolated environments is best practice in order to avoid side effects with other packages.
+
+Note that full installation is not possible from **Windows**, because some of the dependencies are Unix (Linux/MacOS) only.
+For Windows, please use the minimal installation below.
+
+Minimal installation
+--------------------
+
 A minimal version of Snakemake which only depends on the bare necessities can be installed with
 
 .. code-block:: console
 
     $ mamba create -c bioconda -c conda-forge -n snakemake snakemake-minimal
 
-Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons.
+In contrast to the full installation, which depends on some Unix (Linux/MacOS) only packages, this also works on Windows.
+
+Notes on Bioconda as a package source
+-------------------------------------
+
+Note that Snakemake is available via Bioconda for historical, reproducibility, and continuity reasons (although it is not limited to biology applications at all).
 However, it is easy to combine Snakemake installation with other channels, e.g., by prefixing the package name with ``::bioconda``, i.e.,
 
 .. code-block:: console

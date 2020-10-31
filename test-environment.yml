@@ -51,3 +51,4 @@ dependencies:
   - crc32c
   - peppy
   - eido
+  - glpk
