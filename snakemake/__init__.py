@@ -2299,7 +2299,7 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        if local_exec and not args.dryrun:
+        if local_exec and not (args.dryrun or args.unlock):
             print(
                 "Error: you need to specify the maximum number of CPU cores to "
                 "be used at the same time. If you want to use N cores, say --cores N or "
