@@ -543,11 +543,9 @@ class Job(AbstractJob):
 
     def missing_output(self, requested):
         def handle_file(f):
-            if f in self.pipe_output:
-                # pipe output is always declared as missing
-                # (even if it might be present on disk for some reason)
-                yield f
-            elif not f.exists:
+            # pipe output is always declared as missing
+            # (even if it might be present on disk for some reason)
+            if f in self.pipe_output or not f.exists:
                 yield f
 
         if self.dynamic_output:
