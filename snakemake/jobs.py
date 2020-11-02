@@ -187,6 +187,7 @@ class Job(AbstractJob):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
+        self.pipe_output = set(f for f in self.output if is_flagged(f, "pipe"))
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -551,30 +552,26 @@ class Job(AbstractJob):
 
         return mintime
 
-    def missing_output(self, requested=None):
-        """ Return missing output files. """
-        files = set()
-        if self.benchmark and (requested is None or self.benchmark in requested):
-            if not self.benchmark.exists:
-                files.add(self.benchmark)
+    def missing_output(self, requested):
+        def handle_file(f):
+            if f in self.pipe_output:
+                # pipe output is always declared as missing
+                # (even if it might be present on disk for some reason)
+                yield f
+            elif not f.exists:
+                yield f
 
-        for f, f_ in zip(self.output, self.rule.output):
-            if requested is None or f in requested:
-                if f in self.dynamic_output:
-                    if not self.expand_dynamic(f_):
-                        files.add("{} (dynamic)".format(f_))
-                elif is_flagged(f, "pipe"):
-                    # pipe output is always declared as missing
-                    # (even if it might be present on disk for some reason)
-                    files.add(f)
-                elif not f.exists:
-                    files.add(f)
-
-        for f in self.log:
-            if requested and f in requested and not f.exists:
-                files.add(f)
-
-        return files
+        if self.dynamic_output:
+            for f, f_ in zip(self.output, self.rule.output):
+                if f in requested:
+                    if f in self.dynamic_output:
+                        if not self.expand_dynamic(f_):
+                            yield "{} (dynamic)".format(f_)
+                    else:
+                        yield from handle_file(f)
+        else:
+            for f in requested:
+                yield from handle_file(f)
 
     @property
     def local_input(self):
@@ -1436,6 +1433,7 @@ class Reason:
         "nooutput",
         "derived",
         "pipe",
+        "target",
     ]
 
     def __init__(self):
@@ -1448,6 +1446,7 @@ class Reason:
         self.nooutput = False
         self.derived = True
         self.pipe = False
+        self.target = False
 
     @lazy_property
     def updated_input(self):
@@ -1469,6 +1468,8 @@ class Reason:
         s = list()
         if self.forced:
             s.append("Forced execution")
+        elif self.target:
+            s.append("Rule has been targeted by name")
         else:
             if self.noio:
                 s.append(
@@ -1513,4 +1514,5 @@ class Reason:
             or self.noio
             or self.nooutput
             or self.pipe
+            or self.target
         )

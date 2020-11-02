@@ -16,7 +16,7 @@ from pathlib import Path
 import uuid
 import math
 
-from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
+from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -927,13 +927,19 @@ class DAG:
                         reason.noio = True
                 else:
                     if job.rule in self.targetrules:
-                        missing_output = job.missing_output()
+                        reason.target = True
                     else:
-                        missing_output = job.missing_output(
-                            requested=set(chain(*self.depending[job].values()))
-                            | self.targetfiles
-                        )
-                    reason.missing_output.update(missing_output)
+                        files = set(chain(*self.depending[job].values()))
+                        if self.targetfiles:
+                            files.update(
+                                f
+                                for f in chain(job.output, job.log)
+                                if f in self.targetfiles
+                            )
+                            if job.benchmark and job.benchmark in self.targetfiles:
+                                files.add(job.benchmark)
+                        missing_output = job.missing_output(files)
+                        reason.missing_output.update(missing_output)
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
@@ -974,7 +980,7 @@ class DAG:
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
-                missing_output = job_.missing_output(requested=files)
+                missing_output = job_.missing_output(files)
                 reason(job_).missing_output.update(missing_output)
                 if missing_output and job_ not in visited:
                     visited.add(job_)
