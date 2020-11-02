@@ -38,6 +38,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         container_image=None,
     ):
         import tes
+
         self.container_image = container_image or get_container_image()
         self.container_workdir = "/tmp"
         self.max_status_checks_per_second = max_status_checks_per_second
@@ -216,6 +217,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         type="Input",
     ):
         import tes
+
         # TODO: handle FTP files
         max_file_size = 131072
         if type not in ["Input", "Output"]:
@@ -346,6 +348,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def _get_task_executors(self):
         import tes
+
         executors = []
         executors.append(
             tes.models.Executor(
@@ -361,6 +364,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def _get_task(self, job, jobscript):
         import tes
+
         checkdir, _ = os.path.split(self.snakefile)
 
         task = {}
