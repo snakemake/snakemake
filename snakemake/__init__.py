@@ -2182,6 +2182,11 @@ def get_argument_parser(profile=None):
 
 def main(argv=None):
     """Main entry point."""
+
+    if sys.version_info < (3, 6):
+        print("Snakemake requires at least Python 3.6.", file=sys.stderr)
+        exit(1)
+
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
