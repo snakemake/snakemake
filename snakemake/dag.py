@@ -878,7 +878,7 @@ class DAG:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
             if any(
-                f for f in job.input if f not in potential_dependencies and not f.exists
+                (f not in producer and not f.exists) for f in job.input
             ):
                 raise WorkflowError(
                     "Unable to execute batch {} because not all previous batches "
