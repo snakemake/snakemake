@@ -1,3 +1,27 @@
+[5.27.3] - 2020-10-30
+=====================
+Changed
+-------
+- Added missing files to source distribution.
+
+[5.27.2] - 2020-10-30
+=====================
+Changed
+-------
+- DAG computation runtime has been improved by orders of magnitude, it is linear in the number of jobs now (@mhulsmann, @johanneskoester).
+- Stat calls have been dramatically reduced and are now performed in parallel (@johanneskoester).
+- Scheduler fixes (@FelixMoelder).
+- Directory support and other fixes for Google Life Sciences backend (@vsoch, @millerdz).
+- Support for panoptes monitor server (@fgypas).
+- Extended pathlib support (@mbhall88).
+- Vim plugin improvements (@troycomi).
+- Prevent jobs being rerun when input files are marked as ancient and another job in the DAG creates them.
+- Fixed --list-code-changes for included rules (@jbloom).
+
+Added
+-----
+- Syntax highlighting for nano (@baileythegreen).
+
 [5.26.1] - 2020-10-01
 =====================
 Changed

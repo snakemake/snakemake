@@ -67,6 +67,61 @@ Given that cookiecutter is installed, you can use it via:
 
 Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
+----------------------------------
+Uploading workflows to WorkflowHub
+----------------------------------
+
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+
+To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
+
+- Code of Conduct
+- Contribution instructions
+- Workflow rule graph
+- Workflow documentation
+- Test directory
+
+A code of conduct for the repository developers as well as instruction on how to contribute to the project should be placed in the top-level files: ``CODE_OF_CONDUCT.md`` and ``CONTRIBUTING.md``, respectively. Each *snakemake* workflow repository needs to contain an SVG-formatted rule graph placed in a subdirectory ``images/rulegraph.svg``. Additionally, the workflow should be annotated with a technical documentation of all of its subsequent steps, described in ``workflow/documentation.md``. Finally, the repository should contain a ``.tests`` directory with two subdirectories: ``.tests/integration`` and ``.tests/unit``. The former has to contain all the input data, configuration specifications and shell commands required to run an integration test of the whole workflow. The latter shall contain subdirectories dedicated to testing each of the separate workflow steps independently. To simplify the testing procedure *snakemake* can automatically generate unit tests from a successful workflow execution (see :ref:`snakefiles-testing`).
+
+Therefore, the repository structure should comply with:
+
+.. code-block:: none
+
+    ├── .gitignore
+    ├── README.md
+    ├── LICENSE.md
+    ├── CODE_OF_CONDUCT.md
+    ├── CONTRIBUTING.md
+    ├── .tests
+    │   ├── integration
+    │   └── unit
+    ├── images
+    │   └── rulegraph.svg
+    ├── workflow
+    │   ├── rules
+    |   │   ├── module1.smk
+    |   │   └── module2.smk
+    │   ├── envs
+    |   │   ├── tool1.yaml
+    |   │   └── tool2.yaml
+    │   ├── scripts
+    |   │   ├── script1.py
+    |   │   └── script2.R
+    │   ├── notebooks
+    |   │   ├── notebook1.py.ipynb
+    |   │   └── notebook2.r.ipynb
+    │   ├── report
+    |   │   ├── plot1.rst
+    |   │   └── plot2.rst
+    │   ├── Snakefile
+    |   └── documentation.md
+    ├── config
+    │   ├── config.yaml
+    │   └── some-sheet.tsv
+    ├── results
+    └── resources
+
+
 .. _integrated_package_management:
 
 -----------------------------

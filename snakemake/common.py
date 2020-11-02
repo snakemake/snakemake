@@ -10,6 +10,8 @@ import hashlib
 import inspect
 import uuid
 import os
+import asyncio
+import sys
 
 from ._version import get_versions
 
@@ -23,6 +25,17 @@ SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 ON_WINDOWS = platform.system() == "Windows"
+
+
+if sys.version_info < (3, 7):
+
+    def async_run(coroutine):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(coroutine)
+
+
+else:
+    async_run = asyncio.run
 
 
 class TBDInt(int):
