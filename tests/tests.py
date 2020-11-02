@@ -1065,10 +1065,6 @@ def test_github_issue640():
     )
 
 
-def test_issue661():
-    run(dpath("test_issue661"), check_md5=True)
-
-
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),

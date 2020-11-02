@@ -1416,6 +1416,8 @@ class GroupJob(AbstractJob):
         return hash(self.jobs)
 
     def __eq__(self, other):
+        if not isinstance(other, AbstractJob):
+            return False
         if other.is_group():
             return self.jobs == other.jobs
         else:

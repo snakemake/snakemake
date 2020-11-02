@@ -29,8 +29,7 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
-
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 
 
 class Mtime:
@@ -134,7 +133,7 @@ class IOCache:
         self.max_wait_time = max_wait_time
 
     def mtime_inventory(self, jobs):
-        asyncio.run(self._mtime_inventory(jobs))
+        async_run(self._mtime_inventory(jobs))
 
     async def _mtime_inventory(self, jobs, n_workers=8):
         queue = asyncio.Queue()
@@ -252,7 +251,7 @@ class _IOFile(str):
         return wrapper
 
     def inventory(self):
-        asyncio.run(self._inventory())
+        async_run(self._inventory())
 
     async def _inventory(self):
         """Starting from the given file, try to cache as much existence and

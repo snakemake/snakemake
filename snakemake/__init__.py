@@ -25,7 +25,7 @@ from snakemake.logging import setup_logger, logger, SlackLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import Mode, __version__
+from snakemake.common import Mode, __version__, MIN_PY_VERSION
 from snakemake.resources import parse_resources, DefaultResources
 from snakemake.provenance_tracking.provenance import provenance_manager
 
@@ -2189,6 +2189,14 @@ def get_argument_parser(profile=None):
 
 def main(argv=None):
     """Main entry point."""
+
+    if sys.version_info < MIN_PY_VERSION:
+        print(
+            "Snakemake requires at least Python {}.".format(MIN_PY_VERSION),
+            file=sys.stderr,
+        )
+        exit(1)
+
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
@@ -2638,7 +2646,16 @@ def main(argv=None):
         with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
-            profile.print_all(out=out)
+            profile.print_all(
+                out=out,
+                columns={
+                    0: ("name", 120),
+                    1: ("ncall", 10),
+                    2: ("tsub", 8),
+                    3: ("ttot", 8),
+                    4: ("tavg", 8),
+                },
+            )
 
     if args.provenance:
         provenance_manager.terminate_wf_exec()

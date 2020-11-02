@@ -48,7 +48,6 @@ dependencies:
   - nbformat
   - toposort
   - mamba
-  - crc32c
   - peppy
   - eido
   - glpk
