@@ -877,9 +877,7 @@ class DAG:
         if self.is_batch_rule(job.rule) and self.batch.is_final:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
-            if any(
-                (f not in producer and not f.exists) for f in job.input
-            ):
+            if any((f not in producer and not f.exists) for f in job.input):
                 raise WorkflowError(
                     "Unable to execute batch {} because not all previous batches "
                     "have been completed before or files have been deleted.".format(
