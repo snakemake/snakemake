@@ -242,7 +242,10 @@ class Job(AbstractJob):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        assert os.path.exists(path)  # to make sure lstat works
+        if self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = os.path.relpath(os.path.join(self.rule.basedir, path))
+        assert os.path.exists(path), "cannot find {0}".format(path)
         script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
@@ -531,30 +534,22 @@ class Job(AbstractJob):
     @property
     def output_mintime(self):
         """ Return oldest output file. """
+        try:
+            mintime = min(
+                f.mtime.local_or_remote() for f in self.expanded_output if f.exists
+            )
+        except ValueError:
+            # no existing output
+            mintime = None
 
-        existing = [f.mtime for f in self.expanded_output if f.exists]
         if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime)
-        if existing:
-            return min(existing)
-        return None
+            mintime_benchmark = self.benchmark.mtime.local_or_remote()
+            if mintime is not None:
+                return min(mintime, mintime_benchmark)
+            else:
+                return mintime_benchmark
 
-    @property
-    def output_mintime_local(self):
-        existing = [f.mtime_local for f in self.expanded_output if f.exists]
-        if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime_local)
-        if existing:
-            return min(existing)
-        return None
-
-    @property
-    def input_maxtime(self):
-        """ Return newest input file. """
-        existing = [f.mtime for f in self.input if f.exists]
-        if existing:
-            return max(existing)
-        return None
+        return mintime
 
     def missing_output(self, requested=None):
         """ Return missing output files. """
@@ -617,7 +612,9 @@ class Job(AbstractJob):
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -625,7 +622,9 @@ class Job(AbstractJob):
     def remote_input_older_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -633,7 +632,9 @@ class Job(AbstractJob):
     def remote_output_newer_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -641,7 +642,9 @@ class Job(AbstractJob):
     def remote_output_older_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 

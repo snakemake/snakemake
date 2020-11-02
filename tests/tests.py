@@ -6,6 +6,8 @@ __license__ = "MIT"
 import os
 import sys
 import uuid
+import subprocess as sp
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -1040,7 +1042,7 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Plaese help fix.
+@skip_on_windows  # currently fails on windows. Please help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
@@ -1053,5 +1055,25 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+@skip_on_windows
+def test_github_issue640():
+    run(
+        dpath("test_github_issue640"),
+        targets=["Output/FileWithRights"],
+        dryrun=True,
+        cleanup=False,
+    )
+
+
 def test_issue661():
     run(dpath("test_issue661"), check_md5=True)
+
+
+def test_generate_unit_tests():
+    tmpdir = run(
+        dpath("test_generate_unit_tests"),
+        generate_unit_tests=".tests/unit",
+        check_md5=False,
+        cleanup=False,
+    )
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
