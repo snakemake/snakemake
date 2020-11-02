@@ -1,21 +1,17 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import hashlib
 import os
 import sys
 import base64
 import tempfile
-import subprocess
 import json
 
 from collections import defaultdict
 from itertools import chain, filterfalse
-from functools import partial
 from operator import attrgetter
-from urllib.request import urlopen
 from urllib.parse import urlparse
 
 from snakemake.io import (
@@ -25,18 +21,11 @@ from snakemake.io import (
     _IOFile,
     is_flagged,
     get_flag_value,
-    contains_wildcard,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-from snakemake.exceptions import (
-    UnexpectedOutputException,
-    CreateCondaEnvironmentException,
-)
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake.deployment import conda
-from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
