@@ -1077,8 +1077,9 @@ class DAG:
                     group = other
             # update assignment
             for j in group:
-                if j not in groups:
-                    groups[j] = group
+                # Since groups might have been merged, we need
+                # to update each job j in group.
+                groups[j] = group
 
         self._group = groups
 
