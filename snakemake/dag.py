@@ -1297,10 +1297,8 @@ class DAG:
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
-                if updated:
-                    # This has to be done for each checkpoint,
-                    # otherwise, jobs may be missing in the end.
-                    self.postprocess()
+        if updated:
+            self.postprocess()
         return updated
 
     def finish(self, job, update_dynamic=True):
