@@ -733,7 +733,7 @@ class DAG:
                 self.update_(
                     job,
                     visited=set(visited),
-                    known_producers=None,
+                    known_producers=known_producers,
                     skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
                     create_inventory=create_inventory,
@@ -845,6 +845,7 @@ class DAG:
                         res.jobs,
                         file=res.file,
                         visited=visited,
+                        known_producers=known_producers,
                         skip_until_dynamic=skip_until_dynamic
                         or res.file in job.dynamic_input,
                         progress=progress,
