@@ -2184,7 +2184,10 @@ def main(argv=None):
     """Main entry point."""
 
     if sys.version_info < MIN_PY_VERSION:
-        print("Snakemake requires at least Python {}.".format(MIN_PY_VERSION), file=sys.stderr)
+        print(
+            "Snakemake requires at least Python {}.".format(MIN_PY_VERSION),
+            file=sys.stderr,
+        )
         exit(1)
 
     parser = get_argument_parser()

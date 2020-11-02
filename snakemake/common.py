@@ -28,12 +28,14 @@ ON_WINDOWS = platform.system() == "Windows"
 
 
 if sys.version_info < (3, 7):
+
     def async_run(coroutine):
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(coroutine)
+
+
 else:
     async_run = asyncio.run
-
 
 
 class TBDInt(int):
