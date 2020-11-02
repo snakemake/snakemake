@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 6):
-    print("At least Python 3.6 is required.\n", file=sys.stderr)
+if sys.version_info < (3, 5):
+    print("At least Python 3.5 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
@@ -91,7 +91,7 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.5",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
 )
