@@ -946,7 +946,9 @@ class DAG:
                         reason.noio = True
                 else:
                     if job.rule in self.targetrules:
-                        reason.target = True
+                        files = set(job.output)
+                        if job.benchmark:
+                            files.add(job.benchmark)
                     else:
                         files = set(chain(*self.depending[job].values()))
                         if self.targetfiles:
@@ -957,8 +959,7 @@ class DAG:
                             )
                             if job.benchmark and job.benchmark in self.targetfiles:
                                 files.add(job.benchmark)
-                        missing_output = job.missing_output(files)
-                        reason.missing_output.update(missing_output)
+                    reason.missing_output.update(job.missing_output(files))
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
@@ -999,7 +1000,7 @@ class DAG:
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
-                missing_output = job_.missing_output(files)
+                missing_output = list(job_.missing_output(files))
                 reason(job_).missing_output.update(missing_output)
                 if missing_output and job_ not in visited:
                     visited.add(job_)
@@ -1008,13 +1009,14 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
                     if job_ not in visited:
+                        # TODO may it happen that order determines whether
+                        # _n_until_ready is incremented for this job?
                         if all(f.is_ancient for f in files):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue
                         visited.add(job_)
                         queue.append(job_)
-
                     _n_until_ready[job_] += 1
                     reason(job_).updated_input_run.update(files)
 
@@ -1174,12 +1176,13 @@ class DAG:
             if not self.needrun(job):
                 job.close_remote()
 
-    def postprocess(self):
+    def postprocess(self, update_needrun=True):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
         self.cleanup()
         self.update_jobids()
-        self.update_needrun()
+        if update_needrun:
+            self.update_needrun()
         self.update_priority()
         self.handle_pipes()
         self.update_groups()

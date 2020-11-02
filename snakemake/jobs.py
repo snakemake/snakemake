@@ -1435,7 +1435,6 @@ class Reason:
         self.nooutput = False
         self.derived = True
         self.pipe = False
-        self.target = False
 
     @lazy_property
     def updated_input(self):
@@ -1457,8 +1456,6 @@ class Reason:
         s = list()
         if self.forced:
             s.append("Forced execution")
-        elif self.target:
-            s.append("Rule has been targeted by name")
         else:
             if self.noio:
                 s.append(
@@ -1495,7 +1492,7 @@ class Reason:
         return s
 
     def __bool__(self):
-        return bool(
+        v = bool(
             self.updated_input
             or self.missing_output
             or self.forced
@@ -1503,5 +1500,5 @@ class Reason:
             or self.noio
             or self.nooutput
             or self.pipe
-            or self.target
         )
+        return v
