@@ -1073,3 +1073,7 @@ def test_generate_unit_tests():
         cleanup=False,
     )
     sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+
+
+def test_metadata_migration():
+    run(dpath("test_metadata_migration"), forceall=True)

@@ -13,7 +13,7 @@ import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
-import pathlib
+from pathlib import Path
 
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -65,7 +65,7 @@ class Persistence:
         self.aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
-        migration_indicator = pathlib.Path(
+        migration_indicator = Path(
             os.path.join(self._incomplete_path, "migration_underway")
         )
         if (
@@ -106,17 +106,20 @@ class Persistence:
         logger.info("Migrating .snakemake folder to new format...")
         i = 0
         for path, _, filenames in os.walk(self._metadata_path):
+            path = Path(path)
             for filename in filenames:
-                with open(os.path.join(path, filename), "r") as f:
+                with open(path / filename, "r") as f:
                     try:
                         record = json.load(f)
                     except json.JSONDecodeError:
                         continue  # not a properly formatted JSON file
 
                     if record.get("incomplete", False):
+                        target_path = path.relative_to(self._metadata_path)
+                        os.makedirs(target_path, exist_ok=True)
                         shutil.copyfile(
-                            os.path.join(self._metadata_path, filename),
-                            os.path.join(self._incomplete_path, filename),
+                            path / filename,
+                            target_path / filename,
                         )
                 i += 1
                 # this can take a while for large folders...
