@@ -1077,12 +1077,25 @@ def test_generate_unit_tests():
 
 @skip_on_windows
 def test_metadata_migration():
+    outpath = Path(
+        "tests/test_metadata_migration/some/veryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryverylong"
+    )
+    os.makedirs(outpath, exist_ok=True)
+    metapath = Path(
+        "tests/test_metadata_migration/.snakemake/metadata/@c29tZS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcn/@l2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVy"
+    )
+    os.makedirs(metapath, exist_ok=True)
+    with open(outpath / "path.txt", "w"):
+        # generate empty file
+        pass
     # generate artificial incomplete metadata in v1 format for migration
     with open(
-        "tests/test_metadata_migration/.snakemake/metadata/@c29tZS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcn/@l2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVy/eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ\=",
+        metapath
+        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ\=",
         "w",
     ) as meta:
         print('{"incomplete": true, "external_jobid": null}', file=meta)
+
     # run workflow, incomplete v1 metadata should be migrated and trigger rerun of the rule,
     # which will save different data than the output contained in the git repo.
     run(dpath("test_metadata_migration"), force_incomplete=True)
