@@ -115,7 +115,7 @@ class Persistence:
                         continue  # not a properly formatted JSON file
 
                     if record.get("incomplete", False):
-                        target_path = path.relative_to(self._metadata_path)
+                        target_path = Path(self._incomplete_path) / path.relative_to(self._metadata_path)
                         os.makedirs(target_path, exist_ok=True)
                         shutil.copyfile(
                             path / filename,
@@ -276,7 +276,9 @@ class Persistence:
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
-            file_entry.path for file_entry in os.scandir(self._incomplete_path)
+            os.path.join(path, f) 
+            for path, dirnames, filenames in os.walk(self._incomplete_path)
+            for f in filenames
         }
 
     def external_jobids(self, job):

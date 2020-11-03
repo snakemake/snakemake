@@ -1076,4 +1076,4 @@ def test_generate_unit_tests():
 
 
 def test_metadata_migration():
-    run(dpath("test_metadata_migration"), forceall=True)
+    run(dpath("test_metadata_migration"), force_incomplete=True)
