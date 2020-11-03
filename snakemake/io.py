@@ -195,7 +195,12 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+    __slots__ = [
+        "_is_function",
+        "_file",
+        "rule",
+        "_regex",
+    ]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -340,6 +345,9 @@ class _IOFile(str):
             yield f
         finally:
             f.close()
+
+    def contains_wildcard(self):
+        return contains_wildcard(self.file)
 
     @property
     def is_remote(self):
@@ -622,7 +630,7 @@ class _IOFile(str):
                 file = os.path.join(self.file, ".snakemake_timestamp")
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
-                    with open(file, "w") as f:
+                    with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
@@ -657,6 +665,7 @@ class _IOFile(str):
 
     def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
         f = self._file
+
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -680,9 +689,6 @@ class _IOFile(str):
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
-
-    def contains_wildcard(self):
-        return contains_wildcard(self.file)
 
     def regex(self):
         if self._regex is None:
@@ -898,7 +904,7 @@ def apply_wildcards(
             else:
                 raise WildcardError(str(ex))
 
-    return re.sub(_wildcard_regex, format_match, pattern)
+    return _wildcard_regex.sub(format_match, pattern)
 
 
 def not_iterable(value):
@@ -1248,7 +1254,7 @@ def update_wildcard_constraints(
             return match.group(0)
 
     examined_names = set()
-    updated = re.sub(_wildcard_regex, replace_constraint, pattern)
+    updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
     if isinstance(pattern, AnnotatedString):
@@ -1279,7 +1285,7 @@ def get_git_root(path):
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         return get_git_root_parent_directory(tail, path)
 
@@ -1302,7 +1308,7 @@ def get_git_root_parent_directory(path, input_path):
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         if tail is None:
             raise WorkflowError(

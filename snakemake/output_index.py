@@ -5,8 +5,6 @@ __license__ = "MIT"
 
 from itertools import chain
 
-from snakemake.io import _IOFile
-
 
 class OutputIndex:
     def __init__(self, rules):
