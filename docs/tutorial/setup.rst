@@ -134,7 +134,7 @@ The ``environment.yaml`` file can be used to install all required software into 
 
 .. code:: console
 
-    $ conda env create --name snakemake-tutorial --file environment.yaml
+    $ conda-env create --name snakemake-tutorial --file environment.yaml
 
 Step 4: Activating the environment
 ::::::::::::::::::::::::::::::::::
