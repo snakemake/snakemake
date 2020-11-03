@@ -741,6 +741,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
+                        cores=self.cores,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
