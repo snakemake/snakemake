@@ -1075,5 +1075,6 @@ def test_generate_unit_tests():
     sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
 
 
+@skip_on_windows
 def test_metadata_migration():
     run(dpath("test_metadata_migration"), force_incomplete=True)
