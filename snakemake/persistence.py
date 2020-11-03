@@ -104,21 +104,24 @@ class Persistence:
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
-        for pos, filename in enumerate(os.listdir(self._metadata_path)):
-            with open(os.path.join(self._metadata_path, filename), "r") as f:
-                try:
-                    record = json.load(f)
-                except json.JSONDecodeError:
-                    continue  # not a properly formatted JSON file
+        i = 0
+        for path, _, filenames in os.walk(self._metadata_path):
+            for filename in filenames:
+                with open(os.path.join(path, filename), "r") as f:
+                    try:
+                        record = json.load(f)
+                    except json.JSONDecodeError:
+                        continue  # not a properly formatted JSON file
 
-                if record.get("incomplete", False):
-                    shutil.copyfile(
-                        os.path.join(self._metadata_path, filename),
-                        os.path.join(self._incomplete_path, filename),
-                    )
-            # this can take a while for large folders...
-            if (pos % 10000) == 0 and pos > 0:
-                logger.info("{} files migrated".format(pos))
+                    if record.get("incomplete", False):
+                        shutil.copyfile(
+                            os.path.join(self._metadata_path, filename),
+                            os.path.join(self._incomplete_path, filename),
+                        )
+                i += 1
+                # this can take a while for large folders...
+                if (i % 10000) == 0 and i > 0:
+                    logger.info("{} files migrated".format(i))
 
         logger.info("Migration complete")
 
