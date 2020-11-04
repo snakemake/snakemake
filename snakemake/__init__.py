@@ -2288,6 +2288,7 @@ def main(argv=None):
         or args.lint
         or args.report
         or args.gui
+        or args.archive
     )
 
     if args.cores is not None:
