@@ -2,7 +2,6 @@ __author__ = "Alban Gaignard, Johannes Köster"
 __copyright__ = "Copyright 2020, Alban Gaignard, Johannes Köster"
 __license__ = "MIT"
 
-# from snakemake.logging import logger
 import json
 
 
@@ -18,11 +17,11 @@ class RO:
     def __init__(self, name):
         self.name = name
 
-    def toJSON(self):
+    def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 
 if __name__ == "__main__":
     ro1 = RO(name="toto")
-    print(ro1.toJSON())
+    print(ro1.to_json())
     print(ro1.root)

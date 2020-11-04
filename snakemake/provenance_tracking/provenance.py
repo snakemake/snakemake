@@ -17,9 +17,9 @@ class PROVMgr(object):
 
     whoami = getpass.getuser()
 
-    def __new__(self):
+    def __new__(cls):
         if PROVMgr.__instance is None:
-            PROVMgr.__instance = object.__new__(self)
+            PROVMgr.__instance = object.__new__(cls)
         return PROVMgr.__instance
 
     def __init__(self):
@@ -55,18 +55,18 @@ class PROVMgr(object):
             activity.add_attributes({"rdfs:comment": cmd})
 
         for in_id in input_id_list:
-            input = self.bundle.entity(in_id)
+            activity_input = self.bundle.entity(in_id)
             try:
                 if os.path.isfile(os.path.abspath(in_id)):
                     digest = hashlib.sha512(
                         open(os.path.abspath(in_id), "rb").read()
                     ).hexdigest()
-                    input.add_attributes({"crypto:sha512": digest})
-            except Exception as e:
+                    activity_input.add_attributes({"crypto:sha512": digest})
+            except Exception:
                 logger.error(
                     "Error while computing the SHA512 fingerprint for " + str(in_id)
                 )
-            activity.used(entity=input)
+            activity.used(entity=activity_input)
 
     def add_output(self, output_id, input_id_list, tool_name, job_uri):
         output = self.bundle.entity(output_id)
@@ -80,7 +80,7 @@ class PROVMgr(object):
                     open(os.path.abspath(output_id), "rb").read()
                 ).hexdigest()
                 output.add_attributes({"crypto:sha512": digest})
-        except Exception as e:
+        except Exception:
             logger.error(
                 "Error while computing the SHA512 fingerprint for " + str(output_id)
             )
