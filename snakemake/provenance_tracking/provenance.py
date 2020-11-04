@@ -107,5 +107,6 @@ class PROVMgr(object):
         else:
             return prefix + name + "-" + str(uuid.uuid4())
 
+
 ############ Singleton class instanciation ###########
 provenance_manager = PROVMgr()
