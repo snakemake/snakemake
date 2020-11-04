@@ -152,7 +152,7 @@ class AbstractExecutor:
         self.printjob(job)
         if provenance_manager.is_active():
             prov_mgr = provenance_manager
-            job_URI = prov_mgr.gen_URI(
+            job_URI = prov_mgr.gen_uri(
                 "http://snakemake-provenance#", "activity-" + job.__str__()
             )
             job.uri = job_URI

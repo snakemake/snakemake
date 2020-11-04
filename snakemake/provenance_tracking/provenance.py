@@ -35,9 +35,9 @@ class PROVMgr(object):
 
         ag = self.document.agent(self.whoami)
 
-        self.bundle = self.document.bundle(self.gen_URI())
+        self.bundle = self.document.bundle(self.gen_uri())
         self.bundle.wasAttributedTo(agent=ag.identifier, entity=self.bundle.identifier)
-        self.wfexec = self.bundle.activity(self.gen_URI(), startTime=self.__get_iso_now)
+        self.wfexec = self.bundle.activity(self.gen_uri(), startTime=self.get_iso_now())
 
     def set_activate(self, is_active):
         self.__is_active = is_active
@@ -47,7 +47,7 @@ class PROVMgr(object):
 
     def add_activity(self, tool_name, job_uri, input_id_list, cmd):
         activity = self.bundle.activity(
-            identifier=str(job_uri), startTime=self.__get_iso_now
+            identifier=str(job_uri), startTime=self.get_iso_now()
         )
         activity.wasAssociatedWith(agent=tool_name)
 
@@ -95,20 +95,17 @@ class PROVMgr(object):
         self.document.serialize(destination="provenance.trig", format="rdf")
         self.document.serialize(destination="provenance.json", format="json")
 
-    @property
-    def __get_iso_now(self):
+    def get_iso_now(self):
         return datetime.datetime.now().isoformat()
 
-    @property
-    def __get_xsd_now(self):
+    def get_xsd_now(self):
         return datetime.datetime.now().isoformat() + '"^^xsd:dateTime'
 
-    def gen_URI(self, prefix="", name=""):
+    def gen_uri(self, prefix="", name=""):
         if str(prefix + name) == "":
             return str(uuid.uuid4())
         else:
             return prefix + name + "-" + str(uuid.uuid4())
-
 
 ############ Singleton class instanciation ###########
 provenance_manager = PROVMgr()
