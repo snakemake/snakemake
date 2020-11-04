@@ -10,9 +10,7 @@ class PROV(ProvenanceTracker):
     def record_metadata(self, output_path, metadata):
         """store metadata for given output in PROV"""
         logger.info(f"RECORD METADATA {metadata} to {output_path}")
-        pass
 
     def record_content(self, output_path):
         # do not store the file content in PROV
         logger.info(f"RECORD METADATA to {output_path}")
-        pass
