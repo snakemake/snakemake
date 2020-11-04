@@ -1,3 +1,13 @@
+
+[5.27.4] - 2020-11-03
+=====================
+Changed
+-------
+- Further speed improvements for DAG computation.
+- Fixed metadata migration errors occuring with long output file paths.
+- Add WorkflowHub specifications to the docs.
+- Fix group assignments.
+
 [5.27.3] - 2020-10-30
 =====================
 Changed
