@@ -152,10 +152,9 @@ class AbstractExecutor:
         self.printjob(job)
         if provenance_manager.is_active():
             prov_mgr = provenance_manager
-            job_URI = prov_mgr.gen_uri(
+            job.uri = prov_mgr.gen_uri(
                 "http://snakemake-provenance#", "activity-" + job.__str__()
             )
-            job.uri = job_URI
 
     def rule_prefix(self, job):
         return "local " if job.is_local else ""
@@ -189,8 +188,6 @@ class AbstractExecutor:
                     tool_name=tool_name,
                     job_uri=job.uri,
                 )
-
-        pass
 
     def handle_job_error(self, job):
         pass
