@@ -45,7 +45,7 @@ setup(
         "snakemake.deployment",
         "snakemake.linting",
         "snakemake.executors",
-        "snakemake.provenance_tracking"
+        "snakemake.provenance_tracking",
         "snakemake.unit_tests",
         "snakemake.unit_tests.templates"
     ],
