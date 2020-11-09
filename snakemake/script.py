@@ -25,24 +25,25 @@ from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
+
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
 
 class Snakemake:
     def __init__(
-            self,
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            bench_iteration,
-            scriptdir=None,
+        self,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        bench_iteration,
+        scriptdir=None,
     ):
         # convert input and output to plain strings as some remote objects cannot
         # be pickled
@@ -245,28 +246,28 @@ class ScriptBase(ABC):
     editable = False
 
     def __init__(
-            self,
-            path,
-            source,
-            basedir,
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            conda_env,
-            container_img,
-            singularity_args,
-            env_modules,
-            bench_record,
-            jobid,
-            bench_iteration,
-            cleanup_scripts,
-            shadow_dir,
+        self,
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
     ):
         self.path = path
         self.source = source
@@ -304,7 +305,7 @@ class ScriptBase(ABC):
             os.makedirs(dir_, exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
-                    suffix="." + os.path.basename(self.path), dir=dir_, delete=False
+                suffix="." + os.path.basename(self.path), dir=dir_, delete=False
             ) as fd:
                 self.write_script(preamble, fd)
 
@@ -357,28 +358,28 @@ class ScriptBase(ABC):
 class PythonScript(ScriptBase):
     @staticmethod
     def generate_preamble(
-            path,
-            source,
-            basedir,
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            conda_env,
-            container_img,
-            singularity_args,
-            env_modules,
-            bench_record,
-            jobid,
-            bench_iteration,
-            cleanup_scripts,
-            shadow_dir,
-            preamble_addendum="",
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
     ):
         wrapper_path = path[7:] if path.startswith("file://") else path
         snakemake = Snakemake(
@@ -508,28 +509,28 @@ class PythonScript(ScriptBase):
 class RScript(ScriptBase):
     @staticmethod
     def generate_preamble(
-            path,
-            source,
-            basedir,
-            input_,
-            output,
-            params,
-            wildcards,
-            threads,
-            resources,
-            log,
-            config,
-            rulename,
-            conda_env,
-            container_img,
-            singularity_args,
-            env_modules,
-            bench_record,
-            jobid,
-            bench_iteration,
-            cleanup_scripts,
-            shadow_dir,
-            preamble_addendum="",
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
     ):
         return textwrap.dedent(
             """
@@ -875,26 +876,26 @@ def get_language(path, source):
 
 
 def script(
-        path,
-        basedir,
-        input,
-        output,
-        params,
-        wildcards,
-        threads,
-        resources,
-        log,
-        config,
-        rulename,
-        conda_env,
-        container_img,
-        singularity_args,
-        env_modules,
-        bench_record,
-        jobid,
-        bench_iteration,
-        cleanup_scripts,
-        shadow_dir,
+    path,
+    basedir,
+    input,
+    output,
+    params,
+    wildcards,
+    threads,
+    resources,
+    log,
+    config,
+    rulename,
+    conda_env,
+    container_img,
+    singularity_args,
+    env_modules,
+    bench_record,
+    jobid,
+    bench_iteration,
+    cleanup_scripts,
+    shadow_dir,
 ):
     """
     Load a script from the given basedir + path and execute it.
