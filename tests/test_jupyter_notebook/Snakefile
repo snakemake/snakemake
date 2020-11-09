@@ -1,6 +1,6 @@
 rule all:
     input:
-        'result_final.txt'
+        'result_final.Notebook.txt'
 
 rule foo:
     output:
@@ -13,20 +13,20 @@ rule bar:
     input:
         infile = 'data.txt'
     output:
-        outfile = 'result_intermediate.txt'
+        outfile = 'result_intermediate.{notebook}.txt'
     conda:
         'env.yaml'
     notebook:
-        'Notebook.ipynb'
+        '{wildcards.notebook}.ipynb'
 
 rule baz:
     input:
-        infile = 'result_intermediate.txt'
+        infile = 'result_intermediate.{notebook}.txt'
     output:
-        outfile = 'result_final.txt'
+        outfile = 'result_final.{notebook}.txt'
     log:
-        notebook = 'Notebook_Processed.ipynb'
+        notebook = 'Notebook_Processed.{notebook}.ipynb'
     conda:
         'env.yaml'
     notebook:
-        'Notebook.ipynb'
+        '{wildcards.notebook}.ipynb'
