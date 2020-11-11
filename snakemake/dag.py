@@ -690,7 +690,7 @@ class DAG:
 
             for f in unneeded_files():
                 if f.exists_local:
-                    logger.info("Removing local output file: {}".format(f))
+                    logger.info("Removing local copy of remote file: {}".format(f))
                     f.remove()
 
     def jobid(self, job):

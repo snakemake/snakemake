@@ -558,6 +558,7 @@ class Workflow:
         batch=None,
         keepincomplete=False,
         keepmetadata=True,
+        executesubworkflows=True,
     ):
 
         self.check_localrules()
@@ -720,6 +721,7 @@ class Workflow:
 
         if (
             self.subworkflows
+            and executesubworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -741,6 +743,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
+                        cores=self.cores,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,

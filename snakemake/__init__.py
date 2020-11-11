@@ -171,6 +171,7 @@ def snakemake(
     overwrite_groups=None,
     group_components=None,
     max_inventory_wait_time=20,
+    execute_subworkflows=True,
 ):
     """Run snakemake on a given snakefile.
 
@@ -196,6 +197,7 @@ def snakemake(
         forcetargets (bool):        force given targets to be re-created (default False)
         forceall (bool):            force all output files to be re-created (default False)
         forcerun (list):            list of files and rules that shall be re-created/re-executed (default [])
+        execute_subworkflows (bool):   execute subworkflows if present (default True)
         prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
         stats (str):                path to file that shall contain stats about the workflow execution (default None)
         printreason (bool):         print the reason for the execution of each job (default false)
@@ -749,6 +751,7 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     keepmetadata=keep_metadata,
+                    executesubworkflows=execute_subworkflows,
                 )
 
     except BrokenPipeError:
@@ -854,7 +857,10 @@ def parse_key_value_arg(arg, errmsg):
 
 def parse_config(args):
     """Parse config from args."""
-    parsers = [int, float, eval, str]
+    import yaml
+
+    yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
+    parsers = [int, float, yaml_base_load, str]
     config = dict()
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
@@ -1307,6 +1313,13 @@ def get_argument_parser(profile=None):
         default=recommended_lp_solver,
         choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
+    )
+
+    group_exec.add_argument(
+        "--no-subworkflows",
+        "--nosw",
+        action="store_true",
+        help=("Do not evaluate or execute subworkflows."),
     )
 
     # TODO add group_partitioning, allowing to define --group rulename=groupname.
@@ -2629,6 +2642,7 @@ def main(argv=None):
             group_components=group_components,
             max_inventory_wait_time=args.max_inventory_time,
             log_handler=log_handler,
+            execute_subworkflows=not args.no_subworkflows,
         )
 
     if args.runtime_profile:
