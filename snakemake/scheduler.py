@@ -595,10 +595,7 @@ class JobScheduler:
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
-                "job_{}".format(idx),
-                lowBound=0,
-                upBound=1,
-                cat=pulp.LpInteger,
+                "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger,
             )
             for idx, job in enumerate(jobs)
         }
@@ -616,10 +613,7 @@ class JobScheduler:
 
         temp_file_deletable = {
             temp_file: pulp.LpVariable(
-                "deletable_{}".format(idx),
-                lowBound=0,
-                upBound=1,
-                cat=pulp.LpInteger,
+                "deletable_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger,
             )
             for idx, temp_file in enumerate(temp_files)
         }

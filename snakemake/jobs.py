@@ -791,7 +791,6 @@ class Job(AbstractJob):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists_local])
         to_remove.extend(
             [
                 f
