@@ -33,27 +33,9 @@ if sys.version_info < (3, 7):
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(coroutine)
 
-    def async_get_running_loop():
-        """Return the running event loop.  Raise a RuntimeError if there is none.
-        This function is thread-specific.
-        """
-        # NOTE: this function is implemented in C (see _asynciomodule.c)
-        loop = asyncio._get_running_loop()
-        if loop is None:
-            raise RuntimeError("no running event loop")
-        return loop
-
-    def create_task(coro, *, name=None):
-        """Schedule the execution of a coroutine object in a spawn task.
-        Return a Task object.
-        """
-        return async_get_running_loop().create_task(coro)
-
 
 else:
     async_run = asyncio.run
-    async_get_running_loop = asyncio.get_running_loop
-    async_create_task = asyncio.create_task
 
 
 class TBDInt(int):
