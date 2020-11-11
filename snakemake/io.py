@@ -153,7 +153,10 @@ class IOCache:
                     raise e
                 queue.task_done()
 
-        tasks = [asyncio.create_task(worker(queue)) for _ in range(n_workers)]
+        tasks = [
+            asyncio.get_event_loop().create_task(worker(queue))
+            for _ in range(n_workers)
+        ]
 
         for job in jobs:
             for f in chain(job.input, job.expanded_output):
