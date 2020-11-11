@@ -47,7 +47,9 @@ class Mtime:
             return self._local_target
         return self._local
 
-    def remote(self,):
+    def remote(
+        self,
+    ):
         return self._remote
 
     def local(self, follow_symlinks=False):
