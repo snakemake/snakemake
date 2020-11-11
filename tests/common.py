@@ -156,9 +156,11 @@ def run(
     else:
         assert success, "expected successful execution"
         for resultfile in os.listdir(results_dir):
-            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
+            if resultfile in [
+                ".gitignore",
+                ".gitkeep",
+                ".gitempty",
+            ] or not os.path.isfile(os.path.join(results_dir, resultfile)):
                 # this means tests cannot use directories as output files
                 continue
             targetfile = join(tmpdir, resultfile)
