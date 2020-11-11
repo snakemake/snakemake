@@ -6,6 +6,7 @@ dependencies:
   - datrie
   - boto3
   - moto
+  - junit-xml  # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
