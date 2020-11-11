@@ -29,7 +29,7 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run, async_create_task
 
 
 class Mtime:
@@ -153,7 +153,10 @@ class IOCache:
                     raise e
                 queue.task_done()
 
-        tasks = [asyncio.create_task(worker(queue)) for _ in range(n_workers)]
+        async def workers():
+            return await asyncio.gather(*(worker(queue) for _ in range(n_workers)))
+
+        task = async_create_task(workers())
 
         for job in jobs:
             for f in chain(job.input, job.expanded_output):
@@ -166,7 +169,7 @@ class IOCache:
         for _ in range(n_workers):
             queue.put_nowait(stop_item)
 
-        await asyncio.gather(*tasks)
+        await task
 
     async def collect_mtime(self, path):
         return path.mtime_uncached
