@@ -812,7 +812,7 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
-def get_source(path, basedir=".", wildcards=None):
+def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
@@ -822,9 +822,9 @@ def get_source(path, basedir=".", wildcards=None):
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
-    if wildcards is not None:
+    if wildcards is not None and params is not None:
         # Format path if wildcards are given.
-        path = format(path, wildcards=wildcards)
+        path = format(path, wildcards=wildcards, params=params)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
@@ -899,7 +899,7 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir, wildcards)
+    path, source, language = get_source(path, basedir, wildcards, params)
 
     exec_class = {
         "python": PythonScript,

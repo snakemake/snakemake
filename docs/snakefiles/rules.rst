@@ -546,6 +546,10 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
+.. note::
+
+    It is possible to refer to wildcards and params in the script path, e.g. by specifying ``"scripts/{params.scriptname}.py"`` or ``"scripts/{wildcards.scriptname}.py"``.
+
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
@@ -682,7 +686,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
             # optional path to the processed notebook
             notebook="logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "hello.py.ipynb"
+            "notebooks/hello.py.ipynb"
 
 .. note:
 
@@ -695,6 +699,10 @@ In the notebook, a snakemake object is available, which can be accessed in the s
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+.. note::
+
+    It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.

@@ -34,9 +34,13 @@ For example
             "-m 4G"
         threads: 8
         wrapper:
-            "0.0.8/bio/samtools_sort"
+            "0.0.8/bio/samtools/sort"
 
-Refers to the wrapper ``"0.0.8/bio/samtools_sort"`` to create the output from the input.
+.. note::
+
+    It is possible to refer to wildcards and params in the wrapper identifier, e.g. by specifying ``"0.0.8/bio/{params.wrapper}"`` or ``"0.0.8/bio/{wildcards.wrapper}"``.
+
+Refers to the wrapper ``"0.0.8/bio/samtools/sort"`` to create the output from the input.
 Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository`_.
 Thereby, 0.0.8 can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
 This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
@@ -69,6 +73,10 @@ A CWL tool definition can be used as follows.
         cwl:
             "https://github.com/common-workflow-language/workflows/blob/"
             "fb406c95/tools/samtools-sort.cwl"
+
+.. note::
+
+    It is possible to refer to wildcards and params in the tool definition URL, e.g. by specifying something like ``"https://.../tools/{params.tool}.cwl"`` or ``"https://.../tools/{wildcards.tool}.cwl"``.
 
 It is advisable to use a github URL that includes the commit as above instead of a branch name, in order to ensure reproducible results.
 Snakemake will execute the rule by invoking `cwltool`, which has to be available via your `$PATH` variable, and can be, e.g., installed via `conda` or `pip`.
