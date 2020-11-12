@@ -1,4 +1,17 @@
 
+[5.28.0] - 2020-11-12
+=====================
+Added
+-----
+- Execution backend for GA4GH TES (task execution scheduler) an abstraction layer for various cluster and cloud queuing systems (@svedziok, @uniqueg).
+- script, notebook, wrapper and cwl directives now permit to use wildcards and params for composing paths (@johanneskoester).
+
+Changed
+-------
+- Restored compatibility with Python 3.5 and 3.6 (@cclienti).
+- Various usability bug fixes (@goi43, @johanneskoester, @dcroote).
+- Better and more secure parsing of values when using --config (@bingxiao).
+
 [5.27.4] - 2020-11-03
 =====================
 Changed
