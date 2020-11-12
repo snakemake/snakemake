@@ -52,7 +52,7 @@ def cwl(
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
-    path = format(path, stepout=1)
+    path = format(path, wildcards=wildcards)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     else:
