@@ -245,7 +245,7 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir)
+        path, source, language = get_source(path, basedir, wildcards, params)
     else:
         source = None
 

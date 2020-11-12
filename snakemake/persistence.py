@@ -13,7 +13,7 @@ import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
-import pathlib
+from pathlib import Path
 
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -65,7 +65,7 @@ class Persistence:
         self.aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
-        migration_indicator = pathlib.Path(
+        migration_indicator = Path(
             os.path.join(self._incomplete_path, "migration_underway")
         )
         if (
@@ -104,21 +104,29 @@ class Persistence:
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
-        for pos, filename in enumerate(os.listdir(self._metadata_path)):
-            with open(os.path.join(self._metadata_path, filename), "r") as f:
-                try:
-                    record = json.load(f)
-                except json.JSONDecodeError:
-                    continue  # not a properly formatted JSON file
+        i = 0
+        for path, _, filenames in os.walk(self._metadata_path):
+            path = Path(path)
+            for filename in filenames:
+                with open(path / filename, "r") as f:
+                    try:
+                        record = json.load(f)
+                    except json.JSONDecodeError:
+                        continue  # not a properly formatted JSON file
 
-                if record.get("incomplete", False):
-                    shutil.copyfile(
-                        os.path.join(self._metadata_path, filename),
-                        os.path.join(self._incomplete_path, filename),
-                    )
-            # this can take a while for large folders...
-            if (pos % 10000) == 0 and pos > 0:
-                logger.info("{} files migrated".format(pos))
+                    if record.get("incomplete", False):
+                        target_path = Path(self._incomplete_path) / path.relative_to(
+                            self._metadata_path
+                        )
+                        os.makedirs(target_path, exist_ok=True)
+                        shutil.copyfile(
+                            path / filename,
+                            target_path / filename,
+                        )
+                i += 1
+                # this can take a while for large folders...
+                if (i % 10000) == 0 and i > 0:
+                    logger.info("{} files migrated".format(i))
 
         logger.info("Migration complete")
 
@@ -270,7 +278,9 @@ class Persistence:
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {
-            file_entry.path for file_entry in os.scandir(self._incomplete_path)
+            os.path.join(path, f)
+            for path, dirnames, filenames in os.walk(self._incomplete_path)
+            for f in filenames
         }
 
     def external_jobids(self, job):

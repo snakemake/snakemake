@@ -257,13 +257,15 @@ class RuleRecord:
         if self._rule.shellcmd is not None:
             sources = [self._rule.shellcmd]
             language = "bash"
-        elif self._rule.script is not None:
+        elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
             sources = [source.decode()]
-        elif self._rule.wrapper is not None:
+        elif self._rule.wrapper is not None and not contains_wildcard(
+            self._rule.wrapper
+        ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 wrapper.get_script(
@@ -271,7 +273,9 @@ class RuleRecord:
                 )
             )
             sources = [source.decode()]
-        elif self._rule.notebook is not None:
+        elif self._rule.notebook is not None and not contains_wildcard(
+            self._rule.notebook
+        ):
             _, source, language = script.get_source(
                 self._rule.notebook, self._rule.basedir
             )
