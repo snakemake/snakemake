@@ -171,7 +171,7 @@ the ``--container-image`` (or ``container_image`` from within Python),
 however if you do so, your container must meet the following requirements:
 
  - have an entrypoint that can execute a ``/bin/bash`` command
- - have snakemake installed, either via ``source activate snakemake`` or already on the path
+ - have snakemake installed, either via ``conda activate snakemake`` or already on the path
  - also include snakemake Python dependencies for google.cloud
 
 If you use any Snakemake container as a base, you should be good to go. If you'd
@@ -334,3 +334,63 @@ to schedule jobs to the correct nodes. In particular, it will forward memory req
 defined as `mem_mb` to Tibanna. Further, it will propagate the number of threads
 a job intends to use, such that Tibanna can allocate it to the most cost-effective
 cloud compute instance available.
+
+-----------------------------------------------------------------
+Executing a Snakemake workflow via GA4GH TES
+-----------------------------------------------------------------
+
+The task execution service (`TES <https://github.com/ga4gh/task-execution-schemas>`_) is an application programming interface developed by the Global Alliance for Genomics and Health (`GA4GH <https://www.ga4gh.org/>`_).
+It is used to process workflow tasks in a cloud environment.
+A TES server can be easily implemented in a public cloud or at a commercial cloud provider.
+Here, the TES standard provides an additional abstraction layer between the execution of a workflow (e.g. on your local machine) and technologies for execution of single tasks (e.g. based Kubernetes or HPC).
+We recommend using either `Funnel <https://ohsu-comp-bio.github.io/funnel/>`_ or `TESK <https://github.com/EMBL-EBI-TSI/TESK/>`_  to install a TES server.
+The guide here is based on Funnel (0.10.0).
+To install and configure Funnel follow its official `documentation <https://ohsu-comp-bio.github.io/funnel/docs/>`_.
+
+Configuration
+~~~~~~~~~~~~~
+
+Two steps are required to make a Snakemake workflow TES ready:
+
+**Attach conda to rules:**
+Execution of Snakemake tasks via TES means, Snakemake is running in a container in the cloud and it executes a specific rule (or a group of rules) with defined input/output data.
+By default, the TES module uses the latest Snakemake container.
+Running Snakemake within a container requires having all external tools installed within this container.
+This can be done by providing a custom container image having installed Snakemake and other all required tools (e.g. BWA).
+Or it can be done by attaching a conda environment to each rule, such that those tools will be installed within the running container.
+For simplicity, this guide recommends to attach a specific conda environment to each rule, although it is more efficient in the long term to provide custom container images.
+
+**Use remote files:**
+The TES module requires using a remote file storage system for input/output files such that all files are available on the cloud machines and within their running container.
+There are several options available in Snakemake to use remote files.
+This guide recommends to use S3 (or SWIFT) object storage.
+
+Execution
+~~~~~~~~~
+
+Funnel starts container in read only mode, which is good practice.
+Anyhow, using the default Snakemake container image will likely require installing additional software within the running container.
+Therefore, we need to set two conda specific variables such that new environments will be installed at `/tmp` which will be mounted as a writable volume in the container.
+
+.. code-block:: console
+
+    $ export CONDA_PKGS_DIRS=/tmp/conda
+    $ export CONDA_ENVS_PATH=/tmp/conda
+
+Next, using S3 or SWIFT storage, we also need to set credentials.
+
+.. code-block:: console
+
+    $ export AWS_ACCESS_KEY_ID=YOUR_ACCESS_KEY
+    $ export AWS_SECRET_ACCESS_KEY=YOUR_SECRET_ACCESS_KEY
+
+Now we can run Snakemake using:
+
+.. code-block:: console
+
+    $ snakemake \
+        --tes $TES_URL \
+        --use-conda \
+        --envvars CONDA_PKGS_DIRS CONDA_ENVS_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
+        --conda-prefix $CONDA_ENVS_PATH \
+        all

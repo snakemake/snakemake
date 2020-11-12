@@ -66,6 +66,7 @@ class AbstractExecutor:
         printthreads=True,
         latency_wait=3,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -75,6 +76,7 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.latency_wait = latency_wait
         self.keepincomplete = keepincomplete
+        self.keepmetadata = keepmetadata
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -89,7 +91,8 @@ class AbstractExecutor:
     def _format_key_value_args(self, flag, kwargs):
         if kwargs:
             return " {} {} ".format(
-                flag, " ".join(map("{item[0]}={item[1]}".format, kwargs.items()))
+                flag,
+                " ".join("{}={}".format(key, value) for key, value in kwargs.items()),
             )
         return ""
 
@@ -199,6 +202,7 @@ class RealExecutor(AbstractExecutor):
         latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
+        keepmetadata=False,
     ):
         super().__init__(
             workflow,
@@ -208,6 +212,7 @@ class RealExecutor(AbstractExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -246,6 +251,7 @@ class RealExecutor(AbstractExecutor):
             ignore_missing_output=ignore_missing_output,
             latency_wait=self.latency_wait,
             assume_shared_fs=self.assume_shared_fs,
+            keep_metadata=self.keepmetadata,
         )
         self.stats.report_job_end(job)
 
@@ -284,6 +290,8 @@ class RealExecutor(AbstractExecutor):
 
         if self.workflow.use_env_modules:
             additional += " --use-envmodules"
+        if not self.keepmetadata:
+            additional += " --drop-metadata"
 
         return additional
 
@@ -379,6 +387,7 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -388,6 +397,7 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         self.exec_job = "\\\n".join(
@@ -397,6 +407,7 @@ class CPUExecutor(RealExecutor):
                 "--force -j{cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
+                "--max-inventory-time 0 ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
@@ -598,6 +609,7 @@ class ClusterExecutor(RealExecutor):
         disable_default_remote_provider_args=False,
         disable_get_default_resources_args=False,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         from ratelimiter import RateLimiter
 
@@ -610,6 +622,8 @@ class ClusterExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         if not self.assume_shared_fs:
@@ -638,7 +652,7 @@ class ClusterExecutor(RealExecutor):
                     else "",
                     "{path:u} {sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
-                    "--force -j{cores} --keep-target-files --keep-remote ",
+                    "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     self.get_set_scatter_args(),
@@ -853,6 +867,7 @@ class GenericClusterExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
 
         self.submitcmd = submitcmd
@@ -878,6 +893,8 @@ class GenericClusterExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
 
         if statuscmd:
@@ -1098,6 +1115,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1112,6 +1130,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=10,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
@@ -1207,6 +1227,7 @@ class DRMAAExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1221,6 +1242,8 @@ class DRMAAExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
+            keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
         )
         try:
             import drmaa
@@ -1386,7 +1409,9 @@ class KubernetesExecutor(ClusterExecutor):
         local_input=None,
         restart_times=None,
         keepincomplete=False,
+        keepmetadata=True,
     ):
+        self.workflow = workflow
 
         exec_job = (
             (
@@ -1394,7 +1419,7 @@ class KubernetesExecutor(ClusterExecutor):
                 "snakemake {target} --snakefile {snakefile} "
                 "--force -j{cores} --keep-target-files  --keep-remote "
                 "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-                " --attempt {attempt} {use_threads} "
+                " --attempt {attempt} {use_threads} --max-inventory-time 0 "
                 "--wrapper-prefix {workflow.wrapper_prefix} "
                 "{overwrite_config} {printshellcmds} {rules} --nocolor "
                 "--notemp --no-hooks --nolock "
@@ -1754,8 +1779,9 @@ class TibannaExecutor(ClusterExecutor):
         restart_times=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
+        keepmetadata=True,
     ):
-
+        self.workflow = workflow
         self.workflow_sources = []
         for wfs in workflow.get_sources():
             if os.path.isdir(wfs):
@@ -1792,7 +1818,7 @@ class TibannaExecutor(ClusterExecutor):
                 "snakemake {target} --snakefile {snakefile} "
                 "--force -j{cores} --keep-target-files  --keep-remote "
                 "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} "
+                "--attempt 1 {use_threads} --max-inventory-time 0 "
                 "{overwrite_config} {rules} --nocolor "
                 "--notemp --no-hooks --nolock "
             )

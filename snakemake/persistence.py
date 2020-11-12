@@ -13,6 +13,7 @@ import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
+from pathlib import Path
 
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -40,6 +41,8 @@ class Persistence:
         self._lockfile = dict()
 
         self._metadata_path = os.path.join(self.path, "metadata")
+        self._incomplete_path = os.path.join(self.path, "incomplete")
+
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
 
@@ -61,8 +64,27 @@ class Persistence:
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
         self.aux_path = os.path.join(self.path, "auxiliary")
 
+        # migration of .snakemake folder structure
+        migration_indicator = Path(
+            os.path.join(self._incomplete_path, "migration_underway")
+        )
+        if (
+            os.path.exists(self._metadata_path)
+            and not os.path.exists(self._incomplete_path)
+        ) or migration_indicator.exists():
+            os.makedirs(self._incomplete_path, exist_ok=True)
+
+            migration_indicator.touch()
+
+            self.migrate_v1_to_v2()
+
+            migration_indicator.unlink()
+
+        self._incomplete_cache = None
+
         for d in (
             self._metadata_path,
+            self._incomplete_path,
             self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
@@ -79,6 +101,34 @@ class Persistence:
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
+
+    def migrate_v1_to_v2(self):
+        logger.info("Migrating .snakemake folder to new format...")
+        i = 0
+        for path, _, filenames in os.walk(self._metadata_path):
+            path = Path(path)
+            for filename in filenames:
+                with open(path / filename, "r") as f:
+                    try:
+                        record = json.load(f)
+                    except json.JSONDecodeError:
+                        continue  # not a properly formatted JSON file
+
+                    if record.get("incomplete", False):
+                        target_path = Path(self._incomplete_path) / path.relative_to(
+                            self._metadata_path
+                        )
+                        os.makedirs(target_path, exist_ok=True)
+                        shutil.copyfile(
+                            path / filename,
+                            target_path / filename,
+                        )
+                i += 1
+                # this can take a while for large folders...
+                if (i % 10000) == 0 and i > 0:
+                    logger.info("{} files migrated".format(i))
+
+        logger.info("Migration complete")
 
     @property
     def files(self):
@@ -160,12 +210,17 @@ class Persistence:
     def started(self, job, external_jobid=None):
         for f in job.output:
             self._record(
-                self._metadata_path,
-                {"incomplete": True, "external_jobid": external_jobid},
+                self._incomplete_path,
+                {"external_jobid": external_jobid},
                 f,
             )
 
-    def finished(self, job):
+    def finished(self, job, keep_metadata=True):
+        if not keep_metadata:
+            for f in job.expanded_output:
+                self._delete_record(self._incomplete_path, f)
+            return
+
         version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
@@ -175,9 +230,9 @@ class Persistence:
         conda_env = self._conda_env(job)
         fallback_time = time.time()
         for f in job.expanded_output:
-            rec_path = self._record_path(self._metadata_path, f)
+            rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
-            endtime = f.mtime if os.path.exists(f) else fallback_time
+            endtime = f.mtime.local_or_remote() if f.exists else fallback_time
             self._record(
                 self._metadata_path,
                 {
@@ -197,21 +252,41 @@ class Persistence:
                 },
                 f,
             )
+            self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
         for f in job.expanded_output:
+            self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
     def incomplete(self, job):
-        def marked_incomplete(f):
-            return self._read_record(self._metadata_path, f).get("incomplete", False)
+        if self._incomplete_cache is None:
+            self._cache_incomplete_folder()
+
+        if self._incomplete_cache is False:  # cache deactivated
+
+            def marked_incomplete(f):
+                return self._exists_record(self._incomplete_path, f)
+
+        else:
+
+            def marked_incomplete(f):
+                rec_path = self._record_path(self._incomplete_path, f)
+                return rec_path in self._incomplete_cache
 
         return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
+
+    def _cache_incomplete_folder(self):
+        self._incomplete_cache = {
+            os.path.join(path, f)
+            for path, dirnames, filenames in os.walk(self._incomplete_path)
+            for f in filenames
+        }
 
     def external_jobids(self, job):
         return list(
             set(
-                self._read_record(self._metadata_path, f).get("external_jobid", None)
+                self._read_record(self._incomplete_path, f).get("external_jobid", None)
                 for f in job.output
             )
         )
@@ -378,6 +453,7 @@ class Persistence:
     def deactivate_cache(self):
         self._read_record_cached.cache_clear()
         self._read_record = self._read_record_uncached
+        self._incomplete_cache = False
 
 
 def _bool_or_gen(func, job, file=None):

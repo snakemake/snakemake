@@ -812,7 +812,7 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
-def get_source(path, basedir="."):
+def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
@@ -822,8 +822,9 @@ def get_source(path, basedir="."):
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
-    # TODO this should probably be removed again. It does not work for report and hash!
-    path = format(path, stepout=1)
+    if wildcards is not None and params is not None:
+        # Format path if wildcards are given.
+        path = format(path, wildcards=wildcards, params=params)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
@@ -860,7 +861,13 @@ def get_language(path, source):
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
         nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
-        kernel_language = nb["metadata"]["language_info"]["name"]
+        try:
+            kernel_language = nb["metadata"]["language_info"]["name"]
+        except KeyError as e:
+            raise WorkflowError(
+                "Notebook metadata is corrupt. Please delete notebook "
+                "and recreate it via --edit-notebook."
+            )
 
         language += "_" + kernel_language.lower()
 
@@ -892,7 +899,7 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir)
+    path, source, language = get_source(path, basedir, wildcards, params)
 
     exec_class = {
         "python": PythonScript,

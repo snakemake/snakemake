@@ -30,7 +30,7 @@ from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
-from snakemake import script, wrapper
+from snakemake import script, wrapper, notebook
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
@@ -242,6 +242,7 @@ class RuleRecord:
         self.n_jobs = 1
         self.id = uuid.uuid4()
 
+    @lazy_property
     def code(self):
         try:
             from pygments.lexers import get_lexer_by_name
@@ -252,34 +253,58 @@ class RuleRecord:
             raise WorkflowError(
                 "Python package pygments must be installed to create reports."
             )
-        source, language = None, None
+        sources, language = None, None
         if self._rule.shellcmd is not None:
-            source = self._rule.shellcmd
+            sources = [self._rule.shellcmd]
             language = "bash"
-        elif self._rule.script is not None:
+        elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
-            source = source.decode()
-        elif self._rule.wrapper is not None:
+            sources = [source.decode()]
+        elif self._rule.wrapper is not None and not contains_wildcard(
+            self._rule.wrapper
+        ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 wrapper.get_script(
                     self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
                 )
             )
-            source = source.decode()
+            sources = [source.decode()]
+        elif self._rule.notebook is not None and not contains_wildcard(
+            self._rule.notebook
+        ):
+            _, source, language = script.get_source(
+                self._rule.notebook, self._rule.basedir
+            )
+            language = language.split("_")[1]
+            sources = notebook.get_cell_sources(source)
+        else:
+            # A run directive. There is no easy way yet to obtain
+            # the actual uncompiled source code.
+            sources = []
+            language = "python"
 
         try:
             lexer = get_lexer_by_name(language)
-            return highlight(
-                source,
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-            )
+
+            highlighted = [
+                highlight(
+                    source,
+                    lexer,
+                    HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+                )
+                for source in sources
+            ]
+
+            return highlighted
         except pygments.util.ClassNotFound:
-            return "<pre><code>source</code></pre>"
+            return [
+                '<pre class="source"><code>{}</code></pre>'.format(source)
+                for source in sources
+            ]
 
     def add(self, job_rec):
         self.n_jobs += 1
@@ -302,7 +327,7 @@ class RuleRecord:
 
 class ConfigfileRecord:
     def __init__(self, configfile):
-        self.name = configfile
+        self.path = Path(configfile)
 
     def code(self):
         try:
@@ -314,18 +339,24 @@ class ConfigfileRecord:
                 "Python package pygments must be installed to create reports."
             )
 
-        language = (
-            "yaml"
-            if self.name.endswith(".yaml") or self.name.endswith(".yml")
-            else "json"
-        )
-        lexer = get_lexer_by_name(language)
-        with open(self.name) as f:
-            return highlight(
-                f.read(),
-                lexer,
-                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        file_ext = self.path.suffix
+        if file_ext in (".yml", ".yaml"):
+            language = "yaml"
+        elif file_ext == ".json":
+            language = "json"
+        else:
+            raise ValueError(
+                "Config file extension {} is not supported - must be YAML or JSON".format(
+                    file_ext
+                )
             )
+
+        lexer = get_lexer_by_name(language)
+        return highlight(
+            self.path.read_text(),
+            lexer,
+            HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+        )
 
 
 class JobRecord:
@@ -404,7 +435,7 @@ class FileRecord:
                         reader = csv.reader(table, dialect)
                         columns = next(reader)
                         table = map(lambda row: list(map(num_if_possible, row)), reader)
-                        template = env.get_template("table.html")
+                        template = env.get_template("table.html.jinja2")
                         html = template.render(
                             columns=columns, table=table, name=self.name
                         ).encode()
@@ -842,7 +873,7 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    template = env.get_template("report.html")
+    template = env.get_template("report.html.jinja2")
 
     logger.info("Downloading resources and rendering HTML.")
 
@@ -891,14 +922,14 @@ def auto_report(dag, path, stylesheet=None):
                             )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
-                        for path in result.aux_files:
-                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                        for aux_path in result.aux_files:
+                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
                             zipout.write(
-                                path,
+                                aux_path,
                                 str(
                                     parent.joinpath(
                                         os.path.relpath(
-                                            path, os.path.dirname(result.path)
+                                            aux_path, os.path.dirname(result.path)
                                         )
                                     )
                                 ),

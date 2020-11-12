@@ -38,7 +38,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinxcontrib.napoleon',
-    'sphinxarg.ext'
+    'sphinxarg.ext',
+    'sphinx.ext.autosectionlabel'
 ]
 
 # Snakemake theme (made by SciAni).

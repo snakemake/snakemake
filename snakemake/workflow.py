@@ -95,6 +95,7 @@ class Workflow:
         singularity_args="",
         shadow_prefix=None,
         scheduler_type="ilp",
+        scheduler_ilp_solver=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -111,6 +112,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        max_inventory_wait_time=20,
     ):
         """
         Create the controller.
@@ -160,6 +162,7 @@ class Workflow:
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
         self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -201,7 +204,7 @@ class Workflow:
             # only _cores and _nodes
             self.default_resources = DefaultResources()
 
-        self.iocache = snakemake.io.IOCache()
+        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -458,16 +461,25 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.default_remote_prefix, path)
-        path = os.path.normpath(path)
-        return self.default_remote_provider.remote(path)
+
+        # This will convert any AnnotatedString to str
+        fullpath = "{}/{}".format(self.default_remote_prefix, path)
+        fullpath = os.path.normpath(fullpath)
+        remote = self.default_remote_provider.remote(fullpath)
+
+        # Important, update with previous flags in case of AnnotatedString #596
+        if hasattr(path, "flags"):
+            remote.flags.update(path.flags)
+        return remote
 
     def execute(
         self,
         targets=None,
         dryrun=False,
+        generate_unit_tests=None,
         touch=False,
         scheduler_type=None,
+        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -497,6 +509,7 @@ class Workflow:
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        tes=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -545,6 +558,8 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        keepmetadata=True,
+        executesubworkflows=True,
     ):
 
         self.check_localrules()
@@ -707,6 +722,7 @@ class Workflow:
 
         if (
             self.subworkflows
+            and executesubworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -728,6 +744,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
+                        cores=self.cores,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
@@ -746,7 +763,7 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.postprocess()
+        dag.postprocess(update_needrun=False)
         if not dryrun:
             # deactivate IOCache such that from now on we always get updated
             # size, existence and mtime information
@@ -777,7 +794,20 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if export_cwl:
+        if generate_unit_tests:
+            from snakemake import unit_tests
+
+            path = generate_unit_tests
+            deploy = []
+            if self.use_conda:
+                deploy.append("conda")
+            if self.use_singularity:
+                deploy.append("singularity")
+            unit_tests.generate(
+                dag, path, deploy, configfiles=self.overwrite_configfiles
+            )
+            return True
+        elif export_cwl:
             from snakemake.cwl import dag_to_cwl
             import json
 
@@ -897,6 +927,7 @@ class Workflow:
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
+            tes=tes,
             preemption_default=preemption_default,
             preemptible_rules=preemptible_rules,
             precommand=precommand,
@@ -909,7 +940,9 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
+            scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:
