@@ -153,6 +153,7 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
+    tes=None,
     preemption_default=None,
     preemptible_rules=None,
     precommand="",
@@ -282,6 +283,7 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
+        tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
@@ -386,7 +388,15 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences:
+    if (
+        cluster
+        or cluster_sync
+        or drmaa
+        or tibanna
+        or kubernetes
+        or google_lifesciences
+        or tes
+    ):
         cores = None
     else:
         nodes = None
@@ -407,7 +417,13 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+        cluster
+        or cluster_sync
+        or drmaa
+        or kubernetes
+        or tibanna
+        or google_lifesciences
+        or tes
     )
     if run_local:
         if not dryrun:
@@ -655,6 +671,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -701,6 +718,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -2001,6 +2019,7 @@ def get_argument_parser(profile=None):
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_tes = parser.add_argument_group("TES")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2094,6 +2113,12 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_tes.add_argument(
+        "--tes",
+        metavar="URL",
+        help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -2276,6 +2301,7 @@ def main(argv=None):
         or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
+        or args.tes
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2568,6 +2594,7 @@ def main(argv=None):
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
+            tes=args.tes,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,

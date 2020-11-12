@@ -49,6 +49,10 @@ dependencies:
   - nbformat
   - toposort
   - mamba
+  - crc32c
+  - pip:
+    - py-tes
+  - requests-mock
   - peppy
   - eido
   - glpk

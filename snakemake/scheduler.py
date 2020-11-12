@@ -24,6 +24,7 @@ from snakemake.executors import (
     TibannaExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
+from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
 
@@ -72,6 +73,7 @@ class JobScheduler:
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        tes=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -309,6 +311,30 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
+            )
+        elif tes:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+
+            self._executor = TaskExecutionServiceExecutor(
+                workflow,
+                dag,
+                cores=local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                tes_url=tes,
+                container_image=container_image,
             )
 
         else:
