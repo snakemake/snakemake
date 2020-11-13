@@ -115,7 +115,7 @@ class BenchmarkRecord:
                     self.max_pss,
                     self.io_in,
                     self.io_out,
-                    100.0 * self.cpu_usages / self.running_time,
+                    self.cpu_usages / self.running_time,
                     self.cpu_time,
                 ),
             )
@@ -221,6 +221,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         cpu_usages = 0
         # CPU usage time
         cpu_time = 0
+
         # Iterate over process and all children
         try:
             this_time = time.time()
@@ -228,16 +229,16 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                 proc = self.procs.setdefault(proc.pid, proc)
                 with proc.oneshot():
                     if self.bench_record.prev_time:
-                        cpu_usages += (
-                            proc.cpu_percent()
-                            / 100
-                            * (this_time - self.bench_record.prev_time)
+                        cpu_usages += proc.cpu_percent() * (
+                            this_time - self.bench_record.prev_time
                         )
+
                     meminfo = proc.memory_full_info()
                     rss += meminfo.rss
                     vms += meminfo.vms
                     uss += meminfo.uss
                     pss += meminfo.pss
+
                     if check_io:
                         try:
                             ioinfo = proc.io_counters()
@@ -246,31 +247,38 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                         except NotImplementedError as nie:
                             # OS doesn't track IO
                             check_io = False
+
                     cpu_times = proc.cpu_times()
                     cpu_time += cpu_times.user + cpu_times.system
 
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:
                 self.bench_record.prev_time = this_time
+
             rss /= 1024 * 1024
             vms /= 1024 * 1024
             uss /= 1024 * 1024
             pss /= 1024 * 1024
+
             if check_io:
                 io_in /= 1024 * 1024
                 io_out /= 1024 * 1024
             else:
                 io_in = None
                 io_out = None
+
         except psutil.Error as e:
             return
+
         # Update benchmark record's RSS and VMS
         self.bench_record.max_rss = max(self.bench_record.max_rss or 0, rss)
         self.bench_record.max_vms = max(self.bench_record.max_vms or 0, vms)
         self.bench_record.max_uss = max(self.bench_record.max_uss or 0, uss)
         self.bench_record.max_pss = max(self.bench_record.max_pss or 0, pss)
+
         self.bench_record.io_in = io_in
         self.bench_record.io_out = io_out
+
         self.bench_record.cpu_usages += cpu_usages
         self.bench_record.cpu_time = cpu_time
 
