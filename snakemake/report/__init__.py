@@ -39,6 +39,7 @@ from snakemake.io import (
     glob_wildcards,
     Wildcards,
     apply_wildcards,
+    contains_wildcard,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
