@@ -1,0 +1,41 @@
+# A nano syntax sheet for Snakemake files
+
+# Language: Snakemake (extended from python.nanorc
+# Maintainer: Bailey Harrington (baileythegreen@gmail.com)
+# Created: 28 September 2020
+# Last change: 13 October 2020
+
+# To use this file in nano, add a
+# line to your ~/.nanorc saying:
+# include <path_to_this_file>/snakemake.nanorc
+
+# Specify the filename patterns this syntax applies to
+syntax "python" "\.smk$" "Snakefile$" "\.snake$"
+
+# describes the shebang line as the header
+# header "^#!.*/python[-0-9._]*"
+
+# Python keywords
+color blue "\<(and|as|assert|break|class|continue|del|elif|else|except|exec|finally|for|from|global|if|import|in|is|lambda|not|or|pass|print|raise|return|try|while|with|yield)\>"
+
+# the function definition keyword for Python
+color brightblue "def [0-9A-Za-z_]+"
+
+# strings
+color green "['][^']*[^\\][']" "[']{3}.*[^\\][']{3}"
+color green "["][^"]*[^\\]["]" "["]{3}.*[^\\]["]{3}"
+
+# multi-line comments
+color green start=""""[^"]" end=""""" start="'''[^']" end="'''"
+
+# regular comments
+color brightmagenta "#.*$"
+
+# Snakemake keywords
+color blue "\<(include|workdir|onsuccess|onerror|ruleorder|localrules|configfile|touch|protected|temp|input|output|params|message|threads|resources|version|run|shell|benchmark|snakefile|log)\>"
+
+# rule or subworkflow names
+color brightmagenta "(rule|subworkflow)\s*[A-Za-z_]*"
+
+# the Snakemake rule and subworkflow keywords
+color blue "(rule|subworkflow)"

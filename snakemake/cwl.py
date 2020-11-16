@@ -52,7 +52,7 @@ def cwl(
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
-    path = format(path, stepout=1)
+    path = format(path, wildcards=wildcards)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     else:
@@ -79,8 +79,7 @@ def cwl(
 
 
 def job_to_cwl(job, dag, outputs, inputs):
-    """Convert a job with its dependencies to a CWL workflow step.
-    """
+    """Convert a job with its dependencies to a CWL workflow step."""
 
     if job.dynamic_output:
         raise WorkflowError("Dynamic output is not supported by CWL conversion.")
@@ -193,8 +192,7 @@ def job_to_cwl(job, dag, outputs, inputs):
 
 
 def dag_to_cwl(dag):
-    """Convert a given DAG to a CWL workflow, which is returned as JSON object.
-    """
+    """Convert a given DAG to a CWL workflow, which is returned as JSON object."""
     snakemake_cwl = {
         "class": "CommandLineTool",
         "id": "#snakemake-job",

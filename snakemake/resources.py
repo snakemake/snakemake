@@ -7,9 +7,13 @@ class DefaultResources:
 
         def fallback(val):
             def callable(wildcards, input, attempt, threads, rulename):
-                value = eval(
-                    val, {"input": input, "attempt": attempt, "threads": threads}
-                )
+                try:
+                    value = eval(
+                        val, {"input": input, "attempt": attempt, "threads": threads}
+                    )
+                # Triggers for string arguments like n1-standard-4
+                except NameError:
+                    return val
                 return value
 
             return callable
@@ -23,7 +27,7 @@ def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
     if resources_args is not None:
-        valid = re.compile("[a-zA-Z_]\w*$")
+        valid = re.compile(r"[a-zA-Z_]\w*$")
         for res in resources_args:
             try:
                 res, val = res.split("=")

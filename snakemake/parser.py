@@ -212,9 +212,7 @@ class RuleKeywordState(KeywordState):
         yield "@workflow.{keyword}(".format(keyword=self.keyword)
 
 
-class SubworkflowKeywordState(KeywordState):
-    prefix = "Subworkflow"
-
+class SectionKeywordState(KeywordState):
     def start(self):
         yield ", {keyword}=".format(keyword=self.keyword)
 
@@ -244,7 +242,22 @@ class Configfile(GlobalKeywordState):
     pass
 
 
+# PEPs
+
+
+class Pepfile(GlobalKeywordState):
+    pass
+
+
+class Pepschema(GlobalKeywordState):
+    pass
+
+
 class Report(GlobalKeywordState):
+    pass
+
+
+class Scattergather(GlobalKeywordState):
     pass
 
 
@@ -281,6 +294,10 @@ class GlobalContainer(GlobalKeywordState):
 
 
 # subworkflows
+
+
+class SubworkflowKeywordState(SectionKeywordState):
+    prefix = "Subworkflow"
 
 
 class SubworkflowSnakefile(SubworkflowKeywordState):
@@ -777,6 +794,8 @@ class Python(TokenAutomaton):
         include=Include,
         workdir=Workdir,
         configfile=Configfile,
+        pepfile=Pepfile,
+        pepschema=Pepschema,
         report=Report,
         ruleorder=Ruleorder,
         rule=Rule,
@@ -789,6 +808,7 @@ class Python(TokenAutomaton):
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
         container=GlobalContainer,
+        scattergather=Scattergather,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

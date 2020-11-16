@@ -12,7 +12,10 @@ import threading
 import functools
 
 # intra-module
-from snakemake.remote.S3 import RemoteObject as S3RemoteObject, RemoteProvider as S3RemoteProvider
+from snakemake.remote.S3 import (
+    RemoteObject as S3RemoteObject,
+    RemoteProvider as S3RemoteProvider,
+)
 from snakemake.remote.S3 import S3Helper
 from snakemake.decorators import dec_all_methods
 from snakemake.exceptions import WorkflowError
@@ -24,11 +27,15 @@ try:
     from moto import mock_s3
     import filechunkio
 except ImportError as e:
-    raise WorkflowError("The Python 3 packages 'moto', boto' and 'filechunkio' " + 
-        "need to be installed to use S3Mocked remote() file functionality. %s" % e.msg)
+    raise WorkflowError(
+        "The Python 3 packages 'moto', boto' and 'filechunkio' "
+        + "need to be installed to use S3Mocked remote() file functionality. %s" % e.msg
+    )
+
 
 def noop():
     pass
+
 
 def pickled_moto_wrapper(func):
     """
@@ -42,6 +49,7 @@ def pickled_moto_wrapper(func):
         loading it in. This is a hackey alternative to using proper locks,
         but works ok in practice.
     """
+
     def wrapper_func(self, *args, **kwargs):
         moto_context_file = "motoState.p"
 
@@ -53,28 +61,31 @@ def pickled_moto_wrapper(func):
         # load moto buckets from pickle
         if os.path.isfile(moto_context_file) and os.path.getsize(moto_context_file) > 0:
             with file_lock(moto_context_file):
-                with open( moto_context_file, "rb" ) as f:
-                    moto_context.backends["global"].buckets = pickle.load( f )
+                with open(moto_context_file, "rb") as f:
+                    moto_context.backends["global"].buckets = pickle.load(f)
 
         mocked_function = moto_context(func)
         retval = mocked_function(self, *args, **kwargs)
 
         with file_lock(moto_context_file):
-            with open( moto_context_file, "wb" ) as f:
+            with open(moto_context_file, "wb") as f:
                 pickle.dump(moto_context.backends["global"].buckets, f)
 
         moto_context.stop()
 
         return retval
+
     functools.update_wrapper(wrapper_func, func)
     wrapper_func.__wrapped__ = func
     return wrapper_func
+
 
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteProvider(S3RemoteProvider):
     def __init__(self, *args, **kwargs):
         super(RemoteProvider, self).__init__(*args, **kwargs)
-        
+
+
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteObject(S3RemoteObject):
     """ 
@@ -85,27 +96,32 @@ class RemoteObject(S3RemoteObject):
     """
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
-        super(RemoteObject, self).__init__(*args, keep_local=keep_local, provider=provider, **kwargs)
+        super(RemoteObject, self).__init__(
+            *args, keep_local=keep_local, provider=provider, **kwargs
+        )
 
-        bucket_name = 'test-static-remote-bucket'
-        test_files = ('test.txt', 'out1.txt', 'out2.txt')
+        bucket_name = "test-static-remote-bucket"
+        test_files = ("test.txt", "out1.txt", "out2.txt")
 
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource("s3")
         s3.create_bucket(Bucket=bucket_name)
 
         # "Upload" files that should be in S3 before tests...
         s3c = S3Helper()
         for test_file in test_files:
             if not s3c.exists_in_bucket(bucket_name, test_file):
-                logger.debug("Pre-populating remote bucket {} with file {}".format(
-                    bucket_name, test_file))
+                logger.debug(
+                    "Pre-populating remote bucket {} with file {}".format(
+                        bucket_name, test_file
+                    )
+                )
                 s3c.upload_to_s3(bucket_name, test_file)
 
     def mtime(self):
-        if self.s3_key == 'test.txt':
+        if self.s3_key == "test.txt":
             logger.debug("test.txt is new")
-            return float('inf')
-        elif self.s3_key.startswith('out'):
+            return float("inf")
+        elif self.s3_key.startswith("out"):
             logger.debug("{} is old".format(self.s3_key))
             # For some reason this breaks if you return 0
             return 5
@@ -116,13 +132,18 @@ class RemoteObject(S3RemoteObject):
 
 # ====== Helpers =====
 
+
 def touch(fname, mode=0o666, dir_fd=None, **kwargs):
     # create lock file faster
     # https://stackoverflow.com/a/1160227
     flags = os.O_CREAT | os.O_APPEND
     with os.fdopen(os.open(fname, flags=flags, mode=mode, dir_fd=dir_fd)) as f:
-        os.utime(f.fileno() if os.utime in os.supports_fd else fname,
-            dir_fd=None if os.supports_fd else dir_fd, **kwargs)
+        os.utime(
+            f.fileno() if os.utime in os.supports_fd else fname,
+            dir_fd=None if os.supports_fd else dir_fd,
+            **kwargs
+        )
+
 
 @contextmanager
 def file_lock(filepath):

@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 # a target rule to define the desired final output
 rule all:
     input:

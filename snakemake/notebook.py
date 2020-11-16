@@ -10,13 +10,21 @@ from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 
-KERNEL_STARTED_RE = re.compile("Kernel started: (?P<kernel_id>\S+)")
-KERNEL_SHUTDOWN_RE = re.compile("Kernel shutdown: (?P<kernel_id>\S+)")
+KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
+KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
 class Listen:
     def __init__(self, arg):
         self.ip, self.port = arg.split(":")
+
+
+def get_cell_sources(source):
+    import nbformat
+
+    nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
+
+    return [cell["source"] for cell in nb["cells"]]
 
 
 class JupyterNotebook(ScriptBase):
@@ -32,6 +40,8 @@ class JupyterNotebook(ScriptBase):
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
 
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
+
         with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
 
@@ -42,7 +52,7 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
+        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
@@ -62,7 +72,7 @@ class JupyterNotebook(ScriptBase):
         if edit is not None:
             logger.info("Opening notebook for editing.")
             cmd = (
-                "jupyter notebook --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
                 "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
             )
         else:
@@ -78,7 +88,12 @@ class JupyterNotebook(ScriptBase):
         if edit:
             logger.info("Saving modified notebook.")
             nb = nbformat.read(fname, as_version=4)
+
             self.remove_preamble_cell(nb)
+
+            # clean up all outputs
+            for cell in nb["cells"]:
+                cell["outputs"] = []
 
             nbformat.write(nb, self.local_path)
 
@@ -205,11 +220,15 @@ def notebook(
     draft = False
     if edit is not None:
         if urlparse(path).scheme == "":
-            if not os.path.exists(path):
+            if not os.path.isabs(path):
+                local_path = os.path.join(basedir, path)
+            else:
+                local_path = path
+            if not os.path.exists(local_path):
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = "file://{}".format(os.path.abspath(path))
+                path = "file://{}".format(os.path.abspath(local_path))
                 if path.endswith(".py.ipynb"):
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
@@ -226,7 +245,7 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir)
+        path, source, language = get_source(path, basedir, wildcards, params)
     else:
         source = None
 

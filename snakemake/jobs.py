@@ -1,21 +1,17 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2015-2020, Johannes Köster"
 __email__ = "koester@jimmy.harvard.edu"
 __license__ = "MIT"
 
-import hashlib
 import os
 import sys
 import base64
 import tempfile
-import subprocess
 import json
 
 from collections import defaultdict
 from itertools import chain, filterfalse
-from functools import partial
 from operator import attrgetter
-from urllib.request import urlopen
 from urllib.parse import urlparse
 
 from snakemake.io import (
@@ -25,18 +21,11 @@ from snakemake.io import (
     _IOFile,
     is_flagged,
     get_flag_value,
-    contains_wildcard,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-from snakemake.exceptions import (
-    UnexpectedOutputException,
-    CreateCondaEnvironmentException,
-)
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake.deployment import conda
-from snakemake import wrapper
 
 
 def format_files(job, io, dynamicio):
@@ -75,8 +64,47 @@ class AbstractJob:
         raise NotImplementedError()
 
 
+class JobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        update=False,
+    ):
+        if rule.is_branched:
+            # for distinguishing branched rules, we need input and output in addition
+            key = (
+                rule.name,
+                *rule.output,
+                *rule.input,
+                *sorted(wildcards_dict.items()),
+            )
+        else:
+            key = (rule.name, *sorted(wildcards_dict.items()))
+        if update:
+            # cache entry has to be replaced because job shall be constructed from scratch
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            self.cache[key] = obj
+        else:
+            try:
+                # try to get job from cache
+                obj = self.cache[key]
+            except KeyError:
+                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                self.cache[key] = obj
+        return obj
+
+
 class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
+
+    obj_cache = dict()
 
     __slots__ = [
         "rule",
@@ -148,6 +176,7 @@ class Job(AbstractJob):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
+        self.pipe_output = set(f for f in self.output if is_flagged(f, "pipe"))
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -180,16 +209,14 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
-        self._hash = self.rule.__hash__()
-        for wildcard_value in self.wildcards_dict.values():
-            self._hash ^= wildcard_value.__hash__()
 
     def updated(self):
-        job = Job(
+        job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
+            update=True,
         )
         job.is_updated = True
         return job
@@ -205,7 +232,10 @@ class Job(AbstractJob):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        assert os.path.exists(path)  # to make sure lstat works
+        if self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = os.path.relpath(os.path.join(self.rule.basedir, path))
+        assert os.path.exists(path), "cannot find {0}".format(path)
         script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
@@ -494,54 +524,41 @@ class Job(AbstractJob):
     @property
     def output_mintime(self):
         """ Return oldest output file. """
-        existing = [f.mtime for f in self.expanded_output if f.exists]
+        try:
+            mintime = min(
+                f.mtime.local_or_remote() for f in self.expanded_output if f.exists
+            )
+        except ValueError:
+            # no existing output
+            mintime = None
+
         if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime)
-        if existing:
-            return min(existing)
-        return None
+            mintime_benchmark = self.benchmark.mtime.local_or_remote()
+            if mintime is not None:
+                return min(mintime, mintime_benchmark)
+            else:
+                return mintime_benchmark
 
-    @property
-    def output_mintime_local(self):
-        existing = [f.mtime_local for f in self.expanded_output if f.exists]
-        if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime_local)
-        if existing:
-            return min(existing)
-        return None
+        return mintime
 
-    @property
-    def input_maxtime(self):
-        """ Return newest input file. """
-        existing = [f.mtime for f in self.input if f.exists]
-        if existing:
-            return max(existing)
-        return None
+    def missing_output(self, requested):
+        def handle_file(f):
+            # pipe output is always declared as missing
+            # (even if it might be present on disk for some reason)
+            if f in self.pipe_output or not f.exists:
+                yield f
 
-    def missing_output(self, requested=None):
-        """ Return missing output files. """
-        files = set()
-        if self.benchmark and (requested is None or self.benchmark in requested):
-            if not self.benchmark.exists:
-                files.add(self.benchmark)
-
-        for f, f_ in zip(self.output, self.rule.output):
-            if requested is None or f in requested:
-                if f in self.dynamic_output:
-                    if not self.expand_dynamic(f_):
-                        files.add("{} (dynamic)".format(f_))
-                elif is_flagged(f, "pipe"):
-                    # pipe output is always declared as missing
-                    # (even if it might be present on disk for some reason)
-                    files.add(f)
-                elif not f.exists:
-                    files.add(f)
-
-        for f in self.log:
-            if requested and f in requested and not f.exists:
-                files.add(f)
-
-        return files
+        if self.dynamic_output:
+            for f, f_ in zip(self.output, self.rule.output):
+                if f in requested:
+                    if f in self.dynamic_output:
+                        if not self.expand_dynamic(f_):
+                            yield "{} (dynamic)".format(f_)
+                    else:
+                        yield from handle_file(f)
+        else:
+            for f in requested:
+                yield from handle_file(f)
 
     @property
     def local_input(self):
@@ -579,7 +596,9 @@ class Job(AbstractJob):
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -587,7 +606,9 @@ class Job(AbstractJob):
     def remote_input_older_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -595,7 +616,9 @@ class Job(AbstractJob):
     def remote_output_newer_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -603,7 +626,9 @@ class Job(AbstractJob):
     def remote_output_older_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -635,8 +660,7 @@ class Job(AbstractJob):
             raise ProtectedOutputException(self.rule, protected)
 
     def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run
-        """
+        """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
                 os.remove(f)
@@ -767,7 +791,6 @@ class Job(AbstractJob):
         """ Cleanup output files. """
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists_local])
         to_remove.extend(
             [
                 f
@@ -786,24 +809,6 @@ class Job(AbstractJob):
             )
             for f in to_remove:
                 f.remove()
-
-            self.rmdir_empty_remote_dirs()
-
-    @property
-    def empty_remote_dirs(self):
-        for f in set(self.output) | set(self.input):
-            if f.is_remote and not f.should_stay_on_remote:
-                if os.path.exists(os.path.dirname(f)) and not len(
-                    os.listdir(os.path.dirname(f))
-                ):
-                    yield os.path.dirname(f)
-
-    def rmdir_empty_remote_dirs(self):
-        for d in self.empty_remote_dirs:
-            try:
-                os.removedirs(d)
-            except:
-                pass  # it's ok if we can't remove the leaf
 
     def format_wildcards(self, string, **variables):
         """ Format a string with variables from the job. """
@@ -869,23 +874,11 @@ class Job(AbstractJob):
     def __repr__(self):
         return self.rule.name
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            self.rule == other.rule
-            and (self.wildcards_dict == other.wildcards_dict)
-            and (self.input == other.input)
-        )
-
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
 
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
-
-    def __hash__(self):
-        return self._hash
 
     def expand_dynamic(self, pattern):
         """ Expand dynamic files. """
@@ -973,6 +966,7 @@ class Job(AbstractJob):
         ignore_missing_output=False,
         assume_shared_fs=True,
         latency_wait=None,
+        keep_metadata=True,
     ):
         if assume_shared_fs:
             if not error and handle_touch:
@@ -995,7 +989,9 @@ class Job(AbstractJob):
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self)
+                self.dag.workflow.persistence.finished(
+                    self, keep_metadata=keep_metadata
+                )
             except IOError as e:
                 logger.warning(
                     "Error recording metadata for finished job "
@@ -1047,7 +1043,24 @@ class Job(AbstractJob):
         return 1
 
 
+class GroupJobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(self, id, jobs):
+        jobs = frozenset(jobs)
+        key = (id, jobs)
+        try:
+            obj = self.cache[key]
+        except KeyError:
+            obj = GroupJob(id, jobs)
+            self.cache[key] = obj
+        return obj
+
+
 class GroupJob(AbstractJob):
+
+    obj_cache = dict()
 
     __slots__ = [
         "groupid",
@@ -1064,7 +1077,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = frozenset(jobs)
+        self.jobs = jobs
         self.toposorted = None
         self._resources = None
         self._input = None
@@ -1386,6 +1399,8 @@ class GroupJob(AbstractJob):
         return hash(self.jobs)
 
     def __eq__(self, other):
+        if not isinstance(other, AbstractJob):
+            return False
         if other.is_group():
             return self.jobs == other.jobs
         else:
@@ -1404,6 +1419,7 @@ class Reason:
         "nooutput",
         "derived",
         "pipe",
+        "target",
     ]
 
     def __init__(self):
@@ -1473,7 +1489,7 @@ class Reason:
         return s
 
     def __bool__(self):
-        return bool(
+        v = bool(
             self.updated_input
             or self.missing_output
             or self.forced
@@ -1482,3 +1498,4 @@ class Reason:
             or self.nooutput
             or self.pipe
         )
+        return v

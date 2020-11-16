@@ -14,13 +14,14 @@ jobs:
       - uses: actions/checkout@v1
 
       - name: Setup black environment
-        run: conda create --quiet --name black black
+        run: |
+          conda create -c conda-forge -y -q --name black black
 
       - name: Check formatting
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests/*.py
+          black --check --diff snakemake tests/tests.py tests/test_tes.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
@@ -34,14 +35,44 @@ jobs:
     needs: formatting
     env:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v1
       
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yml
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba env create -q --name snakemake --file test-environment.yml
 
       - name: Setup apt dependencies
-        run: sudo apt install -y singularity-container stress
+        run: |
+          sudo apt install -y stress \
+            build-essential \
+            libssl-dev \
+            uuid-dev \
+            libgpgme11-dev \
+            squashfs-tools \
+            libseccomp-dev \
+            wget \
+            pkg-config \
+            git \
+            cryptsetup
+
+      - name: Setup Golang
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.13'
+
+      - name: Setup singularity
+        run: |
+          export VERSION=3.6.2
+          wget https://github.com/sylabs/singularity/releases/download/v${VERSION}/singularity-${VERSION}.tar.gz
+          tar -xzf singularity-${VERSION}.tar.gz
+          cd singularity
+          ./mconfig
+          make -C builddir
+          sudo make -C builddir install
         
       - name: Setup iRODS
         run: |
@@ -51,17 +82,16 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
-      - name: Run tests
-        env:
-          CI: true
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          
-          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
+      - name: Setup Gcloud
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        if: env.GCP_AVAILABLE
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
 
-      - name: Configure AWS Credentials
+      - name: Setup AWS
         uses: aws-actions/configure-aws-credentials@v1
         if: env.AWS_AVAILABLE
         with:
@@ -69,8 +99,43 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+
+          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
+
+      - name: Build and publish docker image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        uses: elgohr/Publish-Docker-Github-Action@2.16
+        with:
+          name: snakemake/snakemake
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+          tags: ${{ env.GITHUB_SHA }}
+      
+      - name: Set container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        run: |
+          echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
+
+      - name: Test Kubernetes execution
+        if: env.GCP_AVAILABLE
+        env:
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+
+          pytest -s -v -x tests/test_kubernetes.py
+
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && success()
+        if: env.AWS_AVAILABLE && (success() || failure())
         env: 
           CI: true
         run: |
@@ -80,5 +145,65 @@ jobs:
 
           pytest -v -x tests/test_tibanna.py
 
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE && (success() || failure())
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
+      - name: Test GA4GH TES executor
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_tes.py
+        
+      - name: Delete container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
+        run: |
+          docker run --rm lumir/remove-dockerhub-tag \
+          --user ${{ secrets.DOCKER_USERNAME }} \
+          --password ${{ secrets.DOCKER_TOKEN }} \
+          snakemake/snakemake:${{ env.GITHUB_SHA }}
+
       - name: Build container image
+        if: "!contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: docker build .
+
+
+  testing-windows:
+    runs-on: windows-latest
+    needs: formatting
+
+    steps:
+      - uses: actions/checkout@v1
+
+      # No win conda package exist for pygraphviz yet
+      - name: Remove unix-only dependencies
+        shell: python
+        run: |
+          import fileinput
+          excluded_on_win = ["pygraphviz", "environment-modules","pandoc","tibanna"]
+          for line in fileinput.input("test-environment.yml", inplace=True):
+              if all(pkg not in line for pkg in excluded_on_win):
+                  print(line)
+
+      - name: Setup mini-conda
+        uses: goanpeca/setup-miniconda@v1
+        with:
+          activate-environment: snakemake
+          python-version: 3.8
+          channels: conda-forge, bioconda
+
+      - name: Setup Snakemake environment
+        run: |
+          conda install -q --name base mamba
+          mamba env update -q --file test-environment.yml
+
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          python -m pytest -v -x tests/tests.py

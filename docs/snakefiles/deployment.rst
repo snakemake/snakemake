@@ -13,22 +13,35 @@ following structure:
     ├── README.md
     ├── LICENSE.md
     ├── workflow
-    │   ├── scripts
-    |   │   ├── script1.py
-    |   │   └── script2.R
     │   ├── rules
     |   │   ├── module1.smk
     |   │   └── module2.smk
+    │   ├── envs
+    |   │   ├── tool1.yaml
+    |   │   └── tool2.yaml
+    │   ├── scripts
+    |   │   ├── script1.py
+    |   │   └── script2.R
+    │   ├── notebooks
+    |   │   ├── notebook1.py.ipynb
+    |   │   └── notebook2.r.ipynb
     │   ├── report
-    |   │   ├── plot1.smk
-    |   │   └── plot2.smk
-    │   └── envs
-    |   │   ├── tool1.smk
-    |   │   └── tool2.smk
+    |   │   ├── plot1.rst
+    |   │   └── plot2.rst
+    |   └── Snakefile
     ├── config
     │   ├── config.yaml
     │   └── some-sheet.tsv
-    └── Snakefile
+    ├── results
+    └── resources
+
+In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``. 
+Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure. 
+In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``. Such modules should end with ``.smk`` the recommended file extension of Snakemake.
+Further, :ref:`scripts <snakefiles-external_scripts>` should be stored in a subfolder ``workflow/scripts`` and notebooks in a subfolder ``workflow/notebooks``.
+Conda environments (see :ref:`integrated_package_management`) should be stored in a subfolder ``workflow/envs`` (make sure to keep them as finegrained as possible to improve transparency and maintainability).
+Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
+All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
 Then, a workflow can be deployed to a new system via the following steps
 
@@ -53,6 +66,61 @@ Given that cookiecutter is installed, you can use it via:
     cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
 
 Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
+
+----------------------------------
+Uploading workflows to WorkflowHub
+----------------------------------
+
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+
+To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
+
+- Code of Conduct
+- Contribution instructions
+- Workflow rule graph
+- Workflow documentation
+- Test directory
+
+A code of conduct for the repository developers as well as instruction on how to contribute to the project should be placed in the top-level files: ``CODE_OF_CONDUCT.md`` and ``CONTRIBUTING.md``, respectively. Each *snakemake* workflow repository needs to contain an SVG-formatted rule graph placed in a subdirectory ``images/rulegraph.svg``. Additionally, the workflow should be annotated with a technical documentation of all of its subsequent steps, described in ``workflow/documentation.md``. Finally, the repository should contain a ``.tests`` directory with two subdirectories: ``.tests/integration`` and ``.tests/unit``. The former has to contain all the input data, configuration specifications and shell commands required to run an integration test of the whole workflow. The latter shall contain subdirectories dedicated to testing each of the separate workflow steps independently. To simplify the testing procedure *snakemake* can automatically generate unit tests from a successful workflow execution (see :ref:`snakefiles-testing`).
+
+Therefore, the repository structure should comply with:
+
+.. code-block:: none
+
+    ├── .gitignore
+    ├── README.md
+    ├── LICENSE.md
+    ├── CODE_OF_CONDUCT.md
+    ├── CONTRIBUTING.md
+    ├── .tests
+    │   ├── integration
+    │   └── unit
+    ├── images
+    │   └── rulegraph.svg
+    ├── workflow
+    │   ├── rules
+    |   │   ├── module1.smk
+    |   │   └── module2.smk
+    │   ├── envs
+    |   │   ├── tool1.yaml
+    |   │   └── tool2.yaml
+    │   ├── scripts
+    |   │   ├── script1.py
+    |   │   └── script2.R
+    │   ├── notebooks
+    |   │   ├── notebook1.py.ipynb
+    |   │   └── notebook2.r.ipynb
+    │   ├── report
+    |   │   ├── plot1.rst
+    |   │   └── plot2.rst
+    │   ├── Snakefile
+    |   └── documentation.md
+    ├── config
+    │   ├── config.yaml
+    │   └── some-sheet.tsv
+    ├── results
+    └── resources
+
 
 .. _integrated_package_management:
 
@@ -99,7 +167,7 @@ The path to the environment definition is interpreted as **relative to the Snake
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
-Conda deployment also works well for offline or air-gapped environments. Running ``snakemake -n --use-conda --create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
+Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
 .. _singularity:
 
@@ -116,7 +184,7 @@ As an alternative to using Conda (see above), it is possible to define, for each
             "table.txt"
         output:
             "plots/myplot.pdf"
-        containers:
+        container:
             "docker://joseespinosa/docker-r-ggplot2"
         script:
             "scripts/plot-stuff.R"
@@ -209,10 +277,10 @@ Snakemake allows to define environment modules per rule:
         shell:
             "bwa mem {input} | samtools view -Sbh - > {output}"
 
-Here, when Snakemake is executed with `snakemake --use-envmodules`, it will load the defined modules in the given order, instead of using the also defined conda environment.
+Here, when Snakemake is executed with ``snakemake --use-envmodules``, it will load the defined modules in the given order, instead of using the also defined conda environment.
 Note that although not mandatory, one should always provide either a conda environment or a container (see above), along with environment module definitions.
 The reason is that environment modules are often highly platform specific, and cannot be assumed to be available somewhere else, thereby limiting reproducibility.
-By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running `snakemake --use-conda` instead of `snakemake --use-envmodules`.
+By definition an equivalent conda environment or container as a fallback, people outside of the HPC system where the workflow has been designed can still execute it, e.g. by running ``snakemake --use-conda`` instead of ``snakemake --use-envmodules``.
 
 --------------------------------------
 Sustainable and reproducible archiving

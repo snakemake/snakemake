@@ -39,8 +39,8 @@ rule b:
 rule d:
     output:
         report("test.csv", caption="report/table.rst")
-    shell:
-        "curl http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv > {output}"
+    run:
+        shell("curl http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv > {output}")
 
 rule e:
     output:

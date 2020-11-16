@@ -70,8 +70,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with NCBI / GenBank.
-    """
+    """This is a class to interact with NCBI / GenBank."""
 
     def __init__(
         self,
@@ -442,8 +441,8 @@ class NCBIHelper(object):
 
     def parse_accession_str(self, id_str):
         """
-            This tries to match an NCBI accession as defined here:
-                https://www.ncbi.nlm.nih.gov/Sequin/acc.html
+        This tries to match an NCBI accession as defined here:
+            https://www.ncbi.nlm.nih.gov/Sequin/acc.html
         """
         m = re.search(
             r"(?P<accession>(?:[a-zA-Z]{1,6}|NW_|NC_|NM_|NR_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*",
@@ -546,9 +545,9 @@ class NCBIHelper(object):
         **kwargs
     ):
         """
-            This function downloads and saves files from NCBI.
-            Adapted in part from the BSD-licensed code here:
-              https://github.com/broadinstitute/viral-ngs/blob/master/util/genbank.py
+        This function downloads and saves files from NCBI.
+        Adapted in part from the BSD-licensed code here:
+          https://github.com/broadinstitute/viral-ngs/blob/master/util/genbank.py
         """
 
         max_chunk_size = 500

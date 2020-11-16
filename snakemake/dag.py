@@ -9,15 +9,15 @@ import shutil
 import textwrap
 import time
 import tarfile
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, deque, namedtuple
 from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
 import uuid
 import math
 
-from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged
-from snakemake.jobs import Job, Reason, GroupJob
+from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
+from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
@@ -26,10 +26,13 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
+
+
+PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
 
 class Batch:
@@ -44,7 +47,7 @@ class Batch:
 
     def get_batch(self, items: list):
         """Return the defined batch of the given items.
-           Items are usually input files."""
+        Items are usually input files."""
         # make sure that we always consider items in the same order
         if len(items) < self.batches:
             raise WorkflowError(
@@ -123,6 +126,10 @@ class DAG:
         self.container_imgs = dict()
         self._progress = 0
         self._group = dict()
+        self._n_until_ready = defaultdict(int)
+
+        self.job_factory = JobFactory()
+        self.group_job_factory = GroupJobFactory()
 
         self.forcerules = set()
         self.forcefiles = set()
@@ -146,6 +153,8 @@ class DAG:
         if omitfiles:
             self.omitfiles.update(omitfiles)
 
+        self.has_dynamic_rules = any(rule.dynamic_output for rule in self.rules)
+
         self.omitforce = set()
 
         self.batch = batch
@@ -165,16 +174,21 @@ class DAG:
     def init(self, progress=False):
         """ Initialise the DAG. """
         for job in map(self.rule2job, self.targetrules):
-            job = self.update([job], progress=progress)
+            job = self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
 
         for file in self.targetfiles:
-            job = self.update(self.file2jobs(file), file=file, progress=progress)
+            job = self.update(
+                self.file2jobs(file),
+                file=file,
+                progress=progress,
+                create_inventory=True,
+            )
             self.targetjobs.add(job)
 
         self.cleanup()
 
-        self.update_needrun()
+        self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
         self.update_jobids()
@@ -189,20 +203,20 @@ class DAG:
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
             {
-                path(f)
+                (path(f), job)
                 for job in self.jobs
                 for f in job.output
                 for path in (os.path.abspath, os.path.realpath)
             }
         )
         for i in range(len(outputs) - 1):
-            a, b = outputs[i : i + 2]
+            (a, job_a), (b, job_b) = outputs[i : i + 2]
             try:
                 common = os.path.commonpath([a, b])
             except ValueError:
                 # commonpath raises error if windows drives are different.
                 continue
-            if common == os.path.commonpath([a]):
+            if a != b and common == os.path.commonpath([a]) and job_a != job_b:
                 raise ChildIOException(parent=outputs[i], child=outputs[i + 1])
 
     @property
@@ -221,11 +235,25 @@ class DAG:
             if job not in self._jobid:
                 self._jobid[job] = len(self._jobid)
 
+    def cleanup_workdir(self):
+        for io_dir in set(
+            os.path.dirname(io_file)
+            for job in self.jobs
+            for io_file in chain(job.output, job.input)
+            if not os.path.exists(io_file)
+        ):
+            if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
+                os.removedirs(io_dir)
+
     def cleanup(self):
         self.job_cache.clear()
-        final_jobs = set(self.jobs)
+        final_jobs = set(self.bfs(self.dependencies, *self.targetjobs))
         todelete = [job for job in self.dependencies if job not in final_jobs]
         for job in todelete:
+            try:
+                self._needrun.remove(job)
+            except KeyError:
+                pass
             del self.dependencies[job]
             try:
                 del self.depending[job]
@@ -313,11 +341,13 @@ class DAG:
 
     def check_dynamic(self):
         """Check dynamic output and update downstream rules if necessary."""
-        for job in filter(
-            lambda job: (job.dynamic_output and not self.needrun(job)), self.jobs
-        ):
-            self.update_dynamic(job)
-        self.postprocess()
+        if self.has_dynamic_rules:
+            for job in filter(
+                lambda job: (job.dynamic_output and not self.needrun(job)),
+                list(self.jobs),
+            ):
+                self.update_dynamic(job)
+            self.postprocess()
 
     def is_edit_notebook_job(self, job):
         return self.workflow.edit_notebook and job.targetfile in self.targetfiles
@@ -330,17 +360,12 @@ class DAG:
     @property
     def jobs(self):
         """ All jobs in the DAG. """
-        for job in self.bfs(self.dependencies, *self.targetjobs):
-            yield job
+        return self.dependencies.keys()
 
     @property
     def needrun_jobs(self):
         """ Jobs that need to be executed. """
-        for job in filter(
-            self.needrun,
-            self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished),
-        ):
-            yield job
+        return filterfalse(self.finished, self._needrun)
 
     @property
     def local_needrun_jobs(self):
@@ -350,8 +375,7 @@ class DAG:
     @property
     def finished_jobs(self):
         """ Iterate over all jobs that have been finished."""
-        for job in filter(self.finished, self.bfs(self.dependencies, *self.targetjobs)):
-            yield job
+        return filter(self.finished, self.jobs)
 
     @property
     def ready_jobs(self):
@@ -463,13 +487,14 @@ class DAG:
                     "filesystem latency. If that is the case, consider to increase the "
                     "wait time with --latency-wait." + f"\nJob id: {job.jobid}",
                     rule=job.rule,
+                    jobid=self.jobid(job),
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa).
+        # are directories and not files and vice versa). We can't check for remote objects
         for f in expanded_output:
-            if (f.is_directory and not os.path.isdir(f)) or (
-                os.path.isdir(f) and not f.is_directory
+            if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
+                not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
                 raise ImproperOutputException(job.rule, [f])
 
@@ -514,8 +539,8 @@ class DAG:
         shutil.rmtree(job.shadow_dir)
 
     def check_periodic_wildcards(self, job):
-        """ Raise an exception if a wildcard of the given job appears to be periodic,
-        indicating a cyclic dependency. """
+        """Raise an exception if a wildcard of the given job appears to be periodic,
+        indicating a cyclic dependency."""
         for wildcard, value in job.wildcards_dict.items():
             periodic_substring = self.periodic_wildcard_detector.is_periodic(value)
             if periodic_substring is not None:
@@ -608,13 +633,13 @@ class DAG:
         """ Remove local files if they are no longer needed and upload. """
         if upload:
             # handle output files
-            files = list(job.expanded_output)
+            files = job.expanded_output
             if job.benchmark:
-                files.append(job.benchmark)
+                files = chain(job.expanded_output, (job.benchmark,))
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
-                    remote_mtime = f.mtime
+                    remote_mtime = f.mtime.remote()
                     # immediately force local mtime to match remote,
                     # since conversions from S3 headers are not 100% reliable
                     # without this, newness comparisons may fail down the line
@@ -628,6 +653,9 @@ class DAG:
                         )
 
         if not self.keep_remote_local:
+            if not any(f.is_remote for f in job.input):
+                return
+
             # handle input files
             needed = lambda job_, f: any(
                 f in files
@@ -641,6 +669,7 @@ class DAG:
                     and not f.protected
                     and not f.should_keep_local
                 )
+
                 generated_input = set()
                 for job_, files in self.dependencies[job].items():
                     generated_input |= files
@@ -661,10 +690,8 @@ class DAG:
 
             for f in unneeded_files():
                 if f.exists_local:
-                    logger.info("Removing local output file: {}".format(f))
+                    logger.info("Removing local copy of remote file: {}".format(f))
                     f.remove()
-
-            job.rmdir_empty_remote_dirs()
 
     def jobid(self, job):
         """Return job id of given job."""
@@ -674,11 +701,20 @@ class DAG:
             return self._jobid[job]
 
     def update(
-        self, jobs, file=None, visited=None, skip_until_dynamic=False, progress=False
+        self,
+        jobs,
+        file=None,
+        visited=None,
+        known_producers=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
     ):
         """ Update the DAG by adding given jobs and their dependencies. """
         if visited is None:
             visited = set()
+        if known_producers is None:
+            known_producers = dict()
         producer = None
         exceptions = list()
         jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
@@ -697,8 +733,10 @@ class DAG:
                 self.update_(
                     job,
                     visited=set(visited),
+                    known_producers=known_producers,
                     skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
+                    create_inventory=create_inventory,
                 )
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
@@ -712,6 +750,7 @@ class DAG:
                 MissingInputException,
                 CyclicGraphException,
                 PeriodicWildcardError,
+                WorkflowError,
             ) as ex:
                 exceptions.append(ex)
             except RecursionError as e:
@@ -732,10 +771,19 @@ class DAG:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
-            if exceptions:
+            if len(exceptions) > 1:
+                raise WorkflowError(*exceptions)
+            elif len(exceptions) == 1:
                 raise exceptions[0]
         else:
             logger.dag_debug(dict(status="selected", job=producer))
+            logger.dag_debug(
+                dict(
+                    file=file,
+                    msg="Producer found, hence exceptions are ignored.",
+                    exception=WorkflowError(*exceptions),
+                )
+            )
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
@@ -744,47 +792,83 @@ class DAG:
 
         return producer
 
-    def update_(self, job, visited=None, skip_until_dynamic=False, progress=False):
+    def update_(
+        self,
+        job,
+        visited=None,
+        known_producers=None,
+        skip_until_dynamic=False,
+        progress=False,
+        create_inventory=False,
+    ):
         """ Update the DAG by adding the given job and its dependencies. """
         if job in self.dependencies:
             return
         if visited is None:
             visited = set()
+        if known_producers is None:
+            known_producers = dict()
         visited.add(job)
         dependencies = self.dependencies[job]
-        potential_dependencies = self.collect_potential_dependencies(job)
+        potential_dependencies = self.collect_potential_dependencies(
+            job, known_producers=known_producers
+        )
 
         skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
         missing_input = set()
         producer = dict()
         exceptions = dict()
-        for file, jobs in potential_dependencies.items():
-            if not jobs:
+        for res in potential_dependencies:
+            if create_inventory:
+                # If possible, obtain inventory information starting from
+                # given file and store it in the IOCache.
+                # This should provide faster access to existence and mtime information
+                # than querying file by file. If the file type does not support inventory
+                # information, this call is a no-op.
+                res.file.inventory()
+
+            if not res.jobs:
                 # no producing job found
-                if not file.exists:
+                if not res.file.exists:
                     # file not found, hence missing input
-                    missing_input.add(file)
+                    missing_input.add(res.file)
+                known_producers[res.file] = None
                 # file found, no problem
                 continue
 
-            try:
-                selected_job = self.update(
-                    jobs,
-                    file=file,
-                    visited=visited,
-                    skip_until_dynamic=skip_until_dynamic or file in job.dynamic_input,
-                    progress=progress,
-                )
-                producer[file] = selected_job
-            except (
-                MissingInputException,
-                CyclicGraphException,
-                PeriodicWildcardError,
-            ) as ex:
-                if not file.exists:
-                    self.delete_job(job, recursive=False)  # delete job from tree
-                    raise ex
+            if res.known:
+                producer[res.file] = res.jobs[0]
+            else:
+                try:
+                    selected_job = self.update(
+                        res.jobs,
+                        file=res.file,
+                        visited=visited,
+                        known_producers=known_producers,
+                        skip_until_dynamic=skip_until_dynamic
+                        or res.file in job.dynamic_input,
+                        progress=progress,
+                    )
+                    producer[res.file] = selected_job
+                except (
+                    MissingInputException,
+                    CyclicGraphException,
+                    PeriodicWildcardError,
+                    WorkflowError,
+                ) as ex:
+                    if not res.file.exists:
+                        self.delete_job(job, recursive=False)  # delete job from tree
+                        raise ex
+                    else:
+                        logger.dag_debug(
+                            dict(
+                                file=res.file,
+                                msg="No producers found, but file is present on disk.",
+                                exception=ex,
+                            )
+                        )
+                        known_producers[res.file] = None
 
         for file, job_ in producer.items():
             dependencies[job_].add(file)
@@ -793,9 +877,7 @@ class DAG:
         if self.is_batch_rule(job.rule) and self.batch.is_final:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
-            if any(
-                f for f in job.input if f not in potential_dependencies and not f.exists
-            ):
+            if any((f not in producer and not f.exists) for f in job.input):
                 raise WorkflowError(
                     "Unable to execute batch {} because not all previous batches "
                     "have been completed before or files have been deleted.".format(
@@ -810,16 +892,30 @@ class DAG:
         if skip_until_dynamic:
             self._dynamic.add(job)
 
-    def update_needrun(self):
+    def update_needrun(self, create_inventory=False):
         """ Update the information whether a job needs to be executed. """
 
-        def output_mintime(job):
-            for job_ in self.bfs(self.depending, job):
-                t = job_.output_mintime
-                if t:
-                    return t
+        if create_inventory:
+            # Concurrently collect mtimes of all existing files.
+            self.workflow.iocache.mtime_inventory(self.jobs)
 
-        def needrun(job):
+        output_mintime = dict()
+
+        def update_output_mintime(job):
+            try:
+                return output_mintime[job]
+            except KeyError:
+                for job_ in chain([job], self.depending[job]):
+                    try:
+                        t = output_mintime[job_]
+                    except KeyError:
+                        t = job_.output_mintime
+                    if t is not None:
+                        output_mintime[job] = t
+                        return
+                output_mintime[job] = None
+
+        def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
             updated_subworkflow_input = self.updated_subworkflow_files.intersection(
@@ -840,7 +936,7 @@ class DAG:
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                [f for f in job.input if not f.exists]
+                                f for f in job.input if not f.exists
                             )
                         else:
                             reason.nooutput = True
@@ -848,15 +944,22 @@ class DAG:
                         reason.noio = True
                 else:
                     if job.rule in self.targetrules:
-                        missing_output = job.missing_output()
+                        files = set(job.output)
+                        if job.benchmark:
+                            files.add(job.benchmark)
                     else:
-                        missing_output = job.missing_output(
-                            requested=set(chain(*self.depending[job].values()))
-                            | self.targetfiles
-                        )
-                    reason.missing_output.update(missing_output)
+                        files = set(chain(*self.depending[job].values()))
+                        if self.targetfiles:
+                            files.update(
+                                f
+                                for f in chain(job.output, job.log)
+                                if f in self.targetfiles
+                            )
+                            if job.benchmark and job.benchmark in self.targetfiles:
+                                files.add(job.benchmark)
+                    reason.missing_output.update(job.missing_output(files))
             if not reason:
-                output_mintime_ = output_mintime(job)
+                output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
                     updated_input = [
                         f for f in job.input if f.exists and f.is_newer(output_mintime_)
@@ -864,35 +967,56 @@ class DAG:
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
                 reason.derived = False
-            return job
 
         reason = self.reason
         _needrun = self._needrun
         dependencies = self.dependencies
         depending = self.depending
+        _n_until_ready = self._n_until_ready
 
         _needrun.clear()
-        candidates = set(self.jobs)
+        _n_until_ready.clear()
+        candidates = list(self.jobs)
 
-        queue = list(filter(reason, map(needrun, candidates)))
+        # Update the output mintime of all jobs.
+        # We traverse them in BFS (level order) starting from target jobs.
+        # Then, we check output mintime of job itself and all direct descendants,
+        # which have already been visited in the level before.
+        # This way, we achieve a linear runtime.
+        for job in candidates:
+            update_output_mintime(job)
+
+        # update prior reason for all candidate jobs
+        for job in candidates:
+            update_needrun(job)
+
+        queue = deque(filter(reason, candidates))
         visited = set(queue)
+        candidates_set = set(candidates)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             _needrun.add(job)
 
             for job_, files in dependencies[job].items():
-                missing_output = job_.missing_output(requested=files)
+                missing_output = list(job_.missing_output(files))
                 reason(job_).missing_output.update(missing_output)
-                if missing_output and not job_ in visited:
+                if missing_output and job_ not in visited:
                     visited.add(job_)
                     queue.append(job_)
 
             for job_, files in depending[job].items():
-                if job_ in candidates:
-                    reason(job_).updated_input_run.update(files)
-                    if not job_ in visited:
+                if job_ in candidates_set:
+                    if job_ not in visited:
+                        # TODO may it happen that order determines whether
+                        # _n_until_ready is incremented for this job?
+                        if all(f.is_ancient for f in files):
+                            # No other reason to run job_.
+                            # Since all files are ancient, we do not trigger it.
+                            continue
                         visited.add(job_)
                         queue.append(job_)
+                    _n_until_ready[job_] += 1
+                    reason(job_).updated_input_run.update(files)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
@@ -961,7 +1085,7 @@ class DAG:
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
-            group = GroupJob(
+            group = self.group_job_factory.new(
                 job.group,
                 (
                     job
@@ -978,12 +1102,31 @@ class DAG:
                     group = other
             # update assignment
             for j in group:
-                if j not in groups:
-                    groups[j] = group
+                # Since groups might have been merged, we need
+                # to update each job j in group.
+                groups[j] = group
+
         self._group = groups
 
+        self._update_group_components()
+
+    def _update_group_components(self):
+        # span connected components if requested
+        for groupid, conn_components in groupby(
+            set(self._group.values()), key=lambda group: group.groupid
+        ):
+            n_components = self.workflow.group_components.get(groupid, 1)
+            if n_components > 1:
+                for chunk in group_into_chunks(n_components, conn_components):
+                    if len(chunk) > 1:
+                        primary = chunk[0]
+                        for secondary in chunk[1:]:
+                            primary.merge(secondary)
+                        for j in primary:
+                            self._group[j] = primary
+
     def update_ready(self, jobs=None):
-        """ Update information whether a job is ready to execute.
+        """Update information whether a job is ready to execute.
 
         Given jobs must be needrun jobs!
         """
@@ -991,9 +1134,14 @@ class DAG:
         if jobs is None:
             jobs = self.needrun_jobs
 
+        potential_new_ready_jobs = False
         candidate_groups = set()
         for job in jobs:
+            if job in self._ready_jobs:
+                # job has been seen before, no need to process again
+                continue
             if not self.finished(job) and self._ready(job):
+                potential_new_ready_jobs = True
                 if job.group is None:
                     self._ready_jobs.add(job)
                 else:
@@ -1006,6 +1154,7 @@ class DAG:
             for group in candidate_groups
             if all(self._ready(job) for job in group)
         )
+        return potential_new_ready_jobs
 
     def get_jobs_or_groups(self):
         visited_groups = set()
@@ -1025,11 +1174,13 @@ class DAG:
             if not self.needrun(job):
                 job.close_remote()
 
-    def postprocess(self):
+    def postprocess(self, update_needrun=True):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
+        self.cleanup()
         self.update_jobids()
-        self.update_needrun()
+        if update_needrun:
+            self.update_needrun()
         self.update_priority()
         self.handle_pipes()
         self.update_groups()
@@ -1039,7 +1190,7 @@ class DAG:
 
     def handle_pipes(self):
         """Use pipes to determine job groups. Check if every pipe has exactly
-           one consumer"""
+        one consumer"""
         for job in self.needrun_jobs:
             candidate_groups = set()
             if job.group is not None:
@@ -1120,16 +1271,14 @@ class DAG:
         """Return whether the given job is ready to execute."""
         group = self._group.get(job, None)
         if group is None:
-            is_external_needrun_dep = self.needrun
+            return self._n_until_ready[job] == 0
         else:
-
-            def is_external_needrun_dep(j):
-                g = self._group.get(j, None)
-                return self.needrun(j) and (g is None or g != group)
-
-        return self._finished.issuperset(
-            filter(is_external_needrun_dep, self.dependencies[job])
-        )
+            n_internal_deps = lambda job: sum(
+                self._group.get(dep) == group for dep in self.dependencies[job]
+            )
+            return all(
+                (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
+            )
 
     def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
@@ -1146,10 +1295,8 @@ class DAG:
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
-                if updated:
-                    # This has to be done for each checkpoint,
-                    # otherwise, jobs may be missing in the end.
-                    self.postprocess()
+        if updated:
+            self.postprocess()
         return updated
 
     def finish(self, job, update_dynamic=True):
@@ -1173,12 +1320,16 @@ class DAG:
 
         # mark depending jobs as ready
         # skip jobs that are marked as until jobs
-        self.update_ready(
+        depending = [
             j
             for job in jobs
             for j in self.depending[job]
             if not self.in_until(job) and self.needrun(j)
-        )
+        ]
+        for job in depending:
+            self._n_until_ready[job] -= 1
+
+        potential_new_ready_jobs = self.update_ready(depending)
 
         for job in jobs:
             if update_dynamic and job.dynamic_output:
@@ -1202,6 +1353,9 @@ class DAG:
                 self.pull_container_imgs()
             if self.workflow.use_conda:
                 self.create_conda_envs()
+            potential_new_ready_jobs = True
+
+        return potential_new_ready_jobs
 
     def new_job(self, rule, targetfile=None, format_wildcards=None):
         """Create new job for given rule and (optional) targetfile.
@@ -1211,7 +1365,7 @@ class DAG:
             assert targetfile is not None
             return self.job_cache[key]
         wildcards_dict = rule.get_wildcards(targetfile)
-        job = Job(
+        job = self.job_factory.new(
             rule,
             self,
             wildcards_dict=wildcards_dict,
@@ -1341,10 +1495,9 @@ class DAG:
         """Return True if the underlying rule is to be used for batching the DAG."""
         return self.batch is not None and rule.name == self.batch.rulename
 
-    def collect_potential_dependencies(self, job):
+    def collect_potential_dependencies(self, job, known_producers):
         """Collect all potential dependencies of a job. These might contain
         ambiguities. The keys of the returned dict represent the files to be considered."""
-        dependencies = defaultdict(list)
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
@@ -1366,29 +1519,34 @@ class DAG:
             # omit the file if it comes from a subworkflow
             if file in job.subworkflow_input:
                 continue
-            try:
-                if file in job.dependencies:
-                    jobs = [self.new_job(job.dependencies[file], targetfile=file)]
-                else:
-                    jobs = file2jobs(file)
-                dependencies[file].extend(jobs)
-            except MissingRuleException as ex:
-                # no dependency found
-                dependencies[file] = []
 
-        return dependencies
+            try:
+                yield PotentialDependency(file, known_producers[file], True)
+            except KeyError:
+                try:
+                    if file in job.dependencies:
+                        yield PotentialDependency(
+                            file,
+                            [self.new_job(job.dependencies[file], targetfile=file)],
+                            False,
+                        )
+                    else:
+                        yield PotentialDependency(file, file2jobs(file), False)
+                except MissingRuleException as ex:
+                    # no dependency found
+                    yield PotentialDependency(file, None, False)
 
     def bfs(self, direction, *jobs, stop=lambda job: False):
         """Perform a breadth-first traversal of the DAG."""
-        queue = list(jobs)
+        queue = deque(jobs)
         visited = set(queue)
         while queue:
-            job = queue.pop(0)
+            job = queue.popleft()
             if stop(job):
                 # stop criterion reached for this node
                 continue
             yield job
-            for job_, _ in direction[job].items():
+            for job_ in direction[job].keys():
                 if not job_ in visited:
                     queue.append(job_)
                     visited.add(job_)
@@ -1739,7 +1897,7 @@ class DAG:
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
 
-                date = time.ctime(f.mtime) if f.exists else "-"
+                date = time.ctime(f.mtime.local_or_remote()) if f.exists else "-"
 
                 pending = "update pending" if self.reason(job) else "no update"
 
@@ -1847,8 +2005,7 @@ class DAG:
             raise e
 
     def clean(self, only_temp=False, dryrun=False):
-        """Removes files generated by the workflow.
-        """
+        """Removes files generated by the workflow."""
         for job in self.jobs:
             for f in job.output:
                 if not only_temp or is_flagged(f, "temp"):
@@ -1865,8 +2022,7 @@ class DAG:
                                 f.remove(remove_non_empty_dir=only_temp)
 
     def list_untracked(self):
-        """List files in the workdir that are not in the dag.
-        """
+        """List files in the workdir that are not in the dag."""
         used_files = set()
         files_in_cwd = set()
         for job in self.jobs:

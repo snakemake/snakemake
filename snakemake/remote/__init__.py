@@ -42,8 +42,8 @@ class StaticRemoteObjectProxy(ObjectProxy):
 
 
 class AbstractRemoteProvider:
-    """ This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
-        and are then passed to RemoteObjects.
+    """This is an abstract class to be used to derive remote provider classes. These might be used to hold common credentials,
+    and are then passed to RemoteObjects.
     """
 
     __metaclass__ = ABCMeta
@@ -140,9 +140,9 @@ class AbstractRemoteProvider:
 
 
 class AbstractRemoteObject:
-    """ This is an abstract class to be used to derive remote object classes for
-        different cloud storage providers. For example, there could be classes for interacting with
-        Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
+    """This is an abstract class to be used to derive remote object classes for
+    different cloud storage providers. For example, there could be classes for interacting with
+    Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
     """
 
     __metaclass__ = ABCMeta
@@ -166,6 +166,18 @@ class AbstractRemoteObject:
         self.stay_on_remote = stay_on_remote
         self.provider = provider
         self.protocol = protocol
+
+    async def inventory(self, cache: snakemake.io.IOCache):
+        """From this file, try to find as much existence and modification date
+        information as possible.
+        """
+        # If this is implemented in a remote object, results have to be stored in
+        # the given IOCache object.
+        pass
+
+    @abstractmethod
+    def get_inventory_parent(self):
+        pass
 
     @property
     def _file(self):
@@ -231,8 +243,8 @@ class AbstractRemoteObject:
 
 class DomainObject(AbstractRemoteObject):
     """This is a mixin related to parsing components
-        out of a location path specified as
-        (host|IP):port/remote/location
+    out of a location path specified as
+    (host|IP):port/remote/location
     """
 
     def __init__(self, *args, **kwargs):
@@ -241,7 +253,7 @@ class DomainObject(AbstractRemoteObject):
     @property
     def _matched_address(self):
         return re.search(
-            "^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
+            r"^(?P<protocol>[a-zA-Z]+\://)?(?P<host>[A-Za-z0-9\-\.]+)(?:\:(?P<port>[0-9]+))?(?P<path_remainder>.*)$",
             self.local_file(),
         )
 

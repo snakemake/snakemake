@@ -9,7 +9,7 @@ import sys
 import signal
 import json
 import urllib
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
 from functools import partial
 from operator import attrgetter
@@ -17,6 +17,7 @@ import copy
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import pathname2url, url2pathname
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -60,7 +61,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode
+from snakemake.common import Mode, bytesto, ON_WINDOWS
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -74,21 +75,27 @@ class Workflow:
         snakefile=None,
         jobscript=None,
         overwrite_shellcmd=None,
-        overwrite_config=dict(),
+        overwrite_config=None,
         overwrite_workdir=None,
         overwrite_configfiles=None,
-        overwrite_clusterconfig=dict(),
-        overwrite_threads=dict(),
+        overwrite_clusterconfig=None,
+        overwrite_threads=None,
+        overwrite_scatter=None,
+        overwrite_groups=None,
+        group_components=None,
         config_args=None,
         debug=False,
         verbose=False,
         use_conda=False,
+        conda_frontend=None,
         conda_prefix=None,
         use_singularity=False,
         use_env_modules=False,
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
+        scheduler_type="ilp",
+        scheduler_ilp_solver=None,
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
@@ -105,6 +112,7 @@ class Workflow:
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
+        max_inventory_wait_time=20,
     ):
         """
         Create the controller.
@@ -132,10 +140,10 @@ class Workflow:
         self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
-        self.overwrite_config = overwrite_config
+        self.overwrite_config = overwrite_config or dict()
         self.overwrite_configfiles = overwrite_configfiles
-        self.overwrite_clusterconfig = overwrite_clusterconfig
-        self.overwrite_threads = overwrite_threads
+        self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
+        self.overwrite_threads = overwrite_threads or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -146,12 +154,15 @@ class Workflow:
         self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
+        self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
         self.singularity_args = singularity_args
         self.shadow_prefix = shadow_prefix
+        self.scheduler_type = scheduler_type
+        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
@@ -168,6 +179,10 @@ class Workflow:
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self.envvars = set()
+        self.overwrite_groups = overwrite_groups or dict()
+        self.group_components = group_components or dict()
+        self._scatter = dict(overwrite_scatter or dict())
+        self.overwrite_scatter = overwrite_scatter or dict()
 
         self.enable_cache = False
         if cache is not None:
@@ -189,7 +204,7 @@ class Workflow:
             # only _cores and _nodes
             self.default_resources = DefaultResources()
 
-        self.iocache = snakemake.io.IOCache()
+        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         global config
         config = copy.deepcopy(self.overwrite_config)
@@ -201,6 +216,10 @@ class Workflow:
         rules = Rules()
         global checkpoints
         checkpoints = Checkpoints()
+        global scatter
+        scatter = Scatter()
+        global gather
+        gather = Gather()
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -237,9 +256,15 @@ class Workflow:
         files = set()
 
         def local_path(f):
+            if ON_WINDOWS:
+                try:
+                    f = pathname2url(f)
+                except OSError:
+                    pass  # f isn't changed if it wasn't a path
+
             url = urlparse(f)
             if url.scheme == "file" or url.scheme == "":
-                return url.path
+                return url2pathname(url.path)
             return None
 
         def norm_rule_relpath(f, rule):
@@ -251,7 +276,14 @@ class Workflow:
         for f in self.included:
             f = local_path(f)
             if f:
-                files.add(os.path.relpath(f))
+                try:
+                    f = os.path.relpath(f)
+                except ValueError:
+                    if ON_WINDOWS:
+                        pass  # relpath doesn't work on win if files are on different drive
+                    else:
+                        raise
+                files.add(f)
         for rule in self.rules:
             script_path = rule.script or rule.notebook
             if script_path:
@@ -294,6 +326,21 @@ class Workflow:
                 )
 
         return files
+
+    def check_source_sizes(self, filename, warning_size_gb=0.2):
+        """A helper function to check the filesize, and return the file
+        to the calling function Additionally, given that we encourage these
+        packages to be small, we set a warning at 200MB (0.2GB).
+        """
+        gb = bytesto(os.stat(filename).st_size, "g")
+        if gb > warning_size_gb:
+            logger.warning(
+                "File {} (size {} GB) is greater than the {} GB suggested size "
+                "Consider uploading larger files to storage first.".format(
+                    filename, gb, warning_size_gb
+                )
+            )
+        return filename
 
     @property
     def subworkflows(self):
@@ -414,15 +461,25 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.default_remote_prefix, path)
-        path = os.path.normpath(path)
-        return self.default_remote_provider.remote(path)
+
+        # This will convert any AnnotatedString to str
+        fullpath = "{}/{}".format(self.default_remote_prefix, path)
+        fullpath = os.path.normpath(fullpath)
+        remote = self.default_remote_provider.remote(fullpath)
+
+        # Important, update with previous flags in case of AnnotatedString #596
+        if hasattr(path, "flags"):
+            remote.flags.update(path.flags)
+        return remote
 
     def execute(
         self,
         targets=None,
         dryrun=False,
+        generate_unit_tests=None,
         touch=False,
+        scheduler_type=None,
+        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -448,7 +505,14 @@ class Workflow:
         kubernetes=None,
         tibanna=None,
         tibanna_sfn=None,
+        google_lifesciences=None,
+        google_lifesciences_regions=None,
+        google_lifesciences_location=None,
+        google_lifesciences_cache=False,
+        tes=None,
         precommand="",
+        preemption_default=None,
+        preemptible_rules=None,
         tibanna_config=False,
         container_image=None,
         stats=None,
@@ -494,6 +558,8 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        keepmetadata=True,
+        executesubworkflows=True,
     ):
 
         self.check_localrules()
@@ -511,7 +577,11 @@ class Workflow:
         else:
 
             def files(items):
-                relpath = lambda f: f if os.path.isabs(f) else os.path.relpath(f)
+                relpath = (
+                    lambda f: f
+                    if os.path.isabs(f) or f.startswith("root://")
+                    else os.path.relpath(f)
+                )
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
@@ -612,13 +682,6 @@ class Workflow:
                 self.persistence.cleanup_metadata(f)
             return True
 
-        logger.info("Building DAG of jobs...")
-        dag.init()
-        dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
-        dag.check_dynamic()
-
         if unlock:
             try:
                 self.persistence.cleanup_locks()
@@ -630,6 +693,14 @@ class Workflow:
                     "you don't have the permissions?"
                 )
                 return False
+
+        logger.info("Building DAG of jobs...")
+        dag.init()
+        dag.update_checkpoint_dependencies()
+        # check incomplete has to run BEFORE any call to postprocess
+        dag.check_incomplete()
+        dag.check_dynamic()
+
         try:
             self.persistence.lock()
         except IOError:
@@ -651,6 +722,7 @@ class Workflow:
 
         if (
             self.subworkflows
+            and executesubworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -672,6 +744,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
+                        cores=self.cores,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
@@ -690,14 +763,15 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.postprocess()
-        # deactivate IOCache such that from now on we always get updated
-        # size, existence and mtime information
-        # ATTENTION: this may never be removed without really good reason.
-        # Otherwise weird things may happen.
-        self.iocache.deactivate()
-        # clear and deactivate persistence cache, from now on we want to see updates
-        self.persistence.deactivate_cache()
+        dag.postprocess(update_needrun=False)
+        if not dryrun:
+            # deactivate IOCache such that from now on we always get updated
+            # size, existence and mtime information
+            # ATTENTION: this may never be removed without really good reason.
+            # Otherwise weird things may happen.
+            self.iocache.deactivate()
+            # clear and deactivate persistence cache, from now on we want to see updates
+            self.persistence.deactivate_cache()
 
         if nodeps:
             missing_input = [
@@ -720,7 +794,20 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if export_cwl:
+        if generate_unit_tests:
+            from snakemake import unit_tests
+
+            path = generate_unit_tests
+            deploy = []
+            if self.use_conda:
+                deploy.append("conda")
+            if self.use_singularity:
+                deploy.append("singularity")
+            unit_tests.generate(
+                dag, path, deploy, configfiles=self.overwrite_configfiles
+            )
+            return True
+        elif export_cwl:
             from snakemake.cwl import dag_to_cwl
             import json
 
@@ -836,6 +923,13 @@ class Workflow:
             kubernetes=kubernetes,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            google_lifesciences=google_lifesciences,
+            google_lifesciences_regions=google_lifesciences_regions,
+            google_lifesciences_location=google_lifesciences_location,
+            google_lifesciences_cache=google_lifesciences_cache,
+            tes=tes,
+            preemption_default=preemption_default,
+            preemptible_rules=preemptible_rules,
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
@@ -846,6 +940,9 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
+            scheduler_type=scheduler_type,
+            scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:
@@ -907,6 +1004,9 @@ class Workflow:
 
         success = scheduler.schedule()
 
+        if not immediate_submit and not dryrun:
+            dag.cleanup_workdir()
+
         if success:
             if dryrun:
                 if len(dag):
@@ -959,6 +1059,9 @@ class Workflow:
         """
         Include a snakefile.
         """
+        if isinstance(snakefile, Path):
+            snakefile = str(snakefile)
+
         # check if snakefile is a path to the filesystem
         if not urllib.parse.urlparse(snakefile).scheme:
             if not os.path.isabs(snakefile) and self.included_stack:
@@ -1019,6 +1122,18 @@ class Workflow:
         for rule in self.rules:
             rule.update_wildcard_constraints()
 
+    def scattergather(self, **content):
+        """Register scattergather defaults."""
+        self._scatter.update(content)
+        self._scatter.update(self.overwrite_scatter)
+
+        def func(*args, **wildcards):
+            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+
+        for key in content:
+            setattr(scatter, key, func)
+            setattr(gather, key, func)
+
     def workdir(self, workdir):
         """Register workdir."""
         if self.overwrite_workdir is None:
@@ -1033,6 +1148,32 @@ class Workflow:
         c = snakemake.io.load_configfile(fp)
         update_config(config, c)
         update_config(config, self.overwrite_config)
+
+    def pepfile(self, path):
+        global pep
+
+        try:
+            import peppy
+        except ImportError:
+            raise WorkflowError("For PEP support, please install peppy.")
+
+        self.pepfile = path
+        pep = peppy.Project(self.pepfile)
+
+    def pepschema(self, schema):
+        global pep
+
+        try:
+            import eido
+        except ImportError:
+            raise WorkflowError("For PEP schema support, please install eido.")
+
+        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+            # schema is relative to current Snakefile
+            schema = os.path.join(self.current_basedir, schema)
+        if self.pepfile is None:
+            raise WorkflowError("Please specify a PEP with the pepfile directive.")
+        eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """ Define a global report description in .rst format."""
@@ -1143,8 +1284,10 @@ class Workflow:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
                 rule.benchmark = ruleinfo.benchmark
-            if not self.run_local and ruleinfo.group is not None:
-                rule.group = ruleinfo.group
+            if not self.run_local:
+                group = self.overwrite_groups.get(name) or ruleinfo.group
+                if group is not None:
+                    rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix
@@ -1487,7 +1630,11 @@ class Subworkflow:
     def target(self, paths):
         if not_iterable(paths):
             path = paths
-            path = path if os.path.isabs(path) else os.path.join(self.workdir, path)
+            path = (
+                path
+                if os.path.isabs(path) or path.startswith("root://")
+                else os.path.join(self.workdir, path)
+            )
             return flag(path, "subworkflow", self)
         return [self.target(path) for path in paths]
 
@@ -1508,6 +1655,18 @@ class Subworkflow:
 
 class Rules:
     """ A namespace for rules so that they can be accessed via dot notation. """
+
+    pass
+
+
+class Scatter:
+    """ A namespace for scatter to allow items to be accessed via dot notation."""
+
+    pass
+
+
+class Gather:
+    """ A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
 

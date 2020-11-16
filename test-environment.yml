@@ -6,6 +6,7 @@ dependencies:
   - datrie
   - boto3
   - moto
+  - junit-xml  # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
@@ -28,8 +29,9 @@ dependencies:
   - xorg-libsm
   - psutil
   - google-cloud-storage
-  - azure-storage
-  - azure-storage-common
+  - google-api-python-client
+  - oauth2client
+  - azure-storage-blob
   - ratelimiter
   - configargparse
   - appdirs
@@ -41,7 +43,16 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp >=2.0
   - tibanna
   - environment-modules
   - nbformat
   - toposort
+  - mamba
+  - crc32c
+  - pip:
+    - py-tes
+  - requests-mock
+  - peppy
+  - eido
+  - glpk

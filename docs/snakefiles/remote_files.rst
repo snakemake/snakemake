@@ -14,7 +14,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 
 * Amazon Simple Storage Service (AWS S3): ``snakemake.remote.S3``
 * Google Cloud Storage (GS): ``snakemake.remote.GS``
-* Microsoft Azure Storage: ``snakemake.remote.AzureStorage``
+* Microsoft Azure Blob Storage: ``snakemake.remote.AzBlob``
 * File transfer over SSH (SFTP): ``snakemake.remote.SFTP``
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
@@ -139,26 +139,35 @@ In the Snakefile, no additional authentication information has to be provided:
             GS.remote("bucket-name/file.txt")
 
 
-Microsoft Azure Storage
-=======================
+Microsoft Azure Blob Storage
+=============================
 
-Usage of the Azure Storage provider is similar to the S3 provider.
-For authentication, one needs to provide an account name and a key
-or SAS token (without leading question mark), which can for example
-be read from environment variables.
+Usage of the Azure Blob Storage provider is similar to the S3 provider. For
+authentication, an account name and shared access signature (SAS) or key can be used. If these
+variables are not passed directly to AzureRemoteProvider (see
+[BlobServiceClient
+class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
+for naming), they will be read from environment variables, named
+`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
+`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
+a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+the storage account key.
+
+When using AzBlob as default remote provider you will almost always want to
+pass these environment variables on to the remote execution environment (e.g.
+Kubernetes) with `--envvars`, e.g
+`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
 
 .. code-block:: python
 
-    from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
-    account_name=os.environ['AZURE_ACCOUNT']
-    account_key=os.environ.get('AZURE_KEY')
-    sas_token=os.environ.get('SAS_TOKEN')
-    assert account_key or sas_token
-    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key, sas_token=sas_token)
+    from snakemake.remote.AzBlob import RemoteProvider as AzureRemoteProvider
+    AS = AzureRemoteProvider()# assumes env vars AZ_BLOB_ACCOUNT_URL and possibly AZ_BLOB_CREDENTIAL are set
 
     rule a:
         input:
             AS.remote("path/to/file.txt")
+
+
 
 
 File transfer over SSH (SFTP)
