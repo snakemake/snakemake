@@ -1514,18 +1514,24 @@ class KubernetesExecutor(ClusterExecutor):
     def unregister_secret(self):
         import kubernetes.client
 
-        func = lambda : self.kubeapi.delete_namespaced_secret(
+        safe_delete_secret = lambda: self.kubeapi.delete_namespaced_secret(
             self.run_namespace, self.namespace, body=kubernetes.client.V1DeleteOptions()
         )
+        self._kubernetes_retry(safe_delete_secret)
 
+    # In rare cases, deleting a pod may rais 404 NotFound error.
+    def safe_delete_pod(self, jobid, ignore_not_found=True):
+        body = kubernetes.client.V1DeleteOptions()
         try:
-            func()
+            self.kubeapi.delete_namespaced_pod(jobid, self.namespace, body=body)
         except kubernetes.client.rest.ApiException as e:
-            if e.status == 401:
-                # Unauthorized.
-                # Reload config in order to ensure token is
-                # refreshed. Then try again.
-                self._reauthenticate(func)
+            if e.status == 404 and ignore_not_found:
+                # Can't find the pod. Maybe it's already been
+                # detroyed. Proceed with a warning message.
+                logger.warning(
+                    f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
+                    "[WARNING] Ignore this error\n"
+                    )
             else:
                 raise
 
@@ -1539,20 +1545,9 @@ class KubernetesExecutor(ClusterExecutor):
         body = kubernetes.client.V1DeleteOptions()
         with self.lock:
             for j in self.active_jobs:
-                func = lambda : self.kubeapi.delete_namespaced_pod(
-                    j.jobid, self.namespace, body=body)
+                func = lambda: self.safe_delete_pod(j.jobid, ignore_not_found=True)
+                self._kubernetes_retry(func)
 
-                try:
-                    func()
-                except kubernetes.client.rest.ApiException as e:
-                    if e.status == 401:
-                        # Unauthorized.
-                        # Reload config in order to ensure token is
-                        # refreshed. Then try again.
-                        self._reauthenticate(func)
-                    else:
-                        raise
-                
         self.shutdown()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -1574,7 +1569,8 @@ class KubernetesExecutor(ClusterExecutor):
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta(labels={
             "app": "snakemake", "rule": job.rule.name, "job_id": str(job.jobid), "attempt": str(job.attempt)
-            })
+        })
+
         body.metadata.name = jobid
 
         # container
@@ -1593,18 +1589,6 @@ class KubernetesExecutor(ClusterExecutor):
         body.spec = kubernetes.client.V1PodSpec(containers=[container])
         # fail on first error
         body.spec.restart_policy = "Never"
-
-        # Add pod affinity: prefer nodes with label: app=snakemake
-        from kubernetes.client.models import V1NodeAffinity, V1PreferredSchedulingTerm, \
-            V1Affinity, V1NodeSelector, V1NodeSelectorTerm, V1NodeSelectorRequirement
-        
-
-        requirements = [V1NodeSelectorRequirement(key="app", operator="In", values=["snakemake"])]
-        selector_term = V1NodeSelectorTerm(match_expressions=requirements)
-        node_required_affinity = V1NodeAffinity(required_during_scheduling_ignored_during_execution=V1NodeSelector(node_selector_terms=[selector_term]))
-        preferred_term = V1PreferredSchedulingTerm(preference=selector_term, weight=100)
-        node_preferred_affinity = V1NodeAffinity(preferred_during_scheduling_ignored_during_execution=[preferred_term])
-        body.spec.affinity = V1Affinity(node_affinity=node_required_affinity)
 
         # source files as a secret volume
         # we copy these files to the workdir before executing Snakemake
@@ -1684,10 +1668,21 @@ class KubernetesExecutor(ClusterExecutor):
             KubernetesJob(job, jobid, callback, error_callback, pod, None)
         )
 
-    def _reauthenticate(self, func=None):
+    # Sometimes, certain k8s requests throw kubernetes.client.rest.ApiException
+    # Solving this issue requires reauthentication, as _kubernetes_retry shows
+    # However, reauthentication itself, under rare conditions, may also throw
+    # errors such as:
+    #   kubernetes.client.exceptions.ApiException: (409), Reason: Conflict
+    #
+    # This error doesn't mean anything wrong with the k8s cluster, and users can safely
+    # ignore it.
+    def _reauthenticate_and_retry(self, func=None):
         import kubernetes
         
-        logger.info("trying to reauthenticate")
+        # Unauthorized.
+        # Reload config in order to ensure token is
+        # refreshed. Then try again.
+        logger.info("Trying to reauthenticate")
         kubernetes.config.load_kube_config()
         subprocess.run(["kubectl", "get", "nodes"])
 
@@ -1698,7 +1693,7 @@ class KubernetesExecutor(ClusterExecutor):
             self.register_secret()
         except kubernetes.client.rest.ApiException as e:
             if e.status == 409 and e.reason == "Conflict":
-                logger.warning("409 conflict ApiException during secret registration")
+                logger.warning("409 conflict ApiException when registering secrets")
                 logger.warning(e)
             else:
                 raise WorkflowError(
@@ -1708,15 +1703,7 @@ class KubernetesExecutor(ClusterExecutor):
                 )
 
         if func:
-            try:
-                return func()
-            except kubernetes.client.rest.ApiException as e:
-                # Both attempts failed, raise error.
-                raise WorkflowError(
-                    e,
-                    "This is likely a bug in "
-                    "https://github.com/kubernetes-client/python.",
-                )
+            return func()
 
     def _kubernetes_retry(self, func):
         import kubernetes
@@ -1730,9 +1717,7 @@ class KubernetesExecutor(ClusterExecutor):
                     # Unauthorized.
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
-                    return self._reauthenticate(func)
-                else:
-                    raise
+                    return self._reauthenticate_and_retry(func)
             # Handling timeout that may occur in case of GKE master upgrade
             except urllib3.exceptions.MaxRetryError as e:
                 logger.info(
@@ -1803,34 +1788,9 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
-                        
-                        def func(ignore_not_found=False):
-                            body = kubernetes.client.V1DeleteOptions()
-                            try:
-                                self.kubeapi.delete_namespaced_pod(
-                                    j.jobid, self.namespace, body=body
-                                )
-                            except kubernetes.client.rest.ApiException as e:
-                                if e.status == 404 and ignore_not_found:
-                                    # Can't find the pod. Maybe it's already been
-                                    # detroyed. Proceed with a warning message.
-                                    logger.warning(
-                                        f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
-                                        "[WARNING] Ignore this error\n"
-                                        )
-                                else:
-                                    raise
 
-                        try:
-                            func()
-                        except kubernetes.client.rest.ApiException as e:
-                            if e.status == 401 or e.status == 404:
-                                # Unauthorized.
-                                # Reload config in order to ensure token is
-                                # refreshed. Then try again.
-                                self._reauthenticate(lambda : func(ignore_not_found=True))
-                            else:
-                                raise
+                        func = lambda: self.safe_delete_pod(j.jobid, ignore_not_found=True)
+                        self._kubernetes_retry(func)
                     else:
                         # still active
                         still_running.append(j)
