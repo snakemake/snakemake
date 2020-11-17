@@ -1487,7 +1487,7 @@ class KubernetesExecutor(ClusterExecutor):
 
             # The kubernetes API can't create secret files larger than 1MB.
             source_file_size = os.path.getsize(f)
-            max_file_size = 1000000
+            max_file_size = 1048576
             if source_file_size > max_file_size:
                 logger.warning(
                     "Skipping the source file {f}. Its size {source_file_size} exceeds "
@@ -1500,8 +1500,25 @@ class KubernetesExecutor(ClusterExecutor):
 
             with open(f, "br") as content:
                 key = "f{}".format(i)
+                
+                # Some files are smaller than 1MB, but grows larger after being base64 encoded
+                # We should exclude them as well, otherwise Kubernetes APIs will complain
+                encoded_contents = base64.b64encode(content.read()).decode()
+                encoded_size = len(encoded_contents)
+                if (encoded_size > 1048576):
+                    logger.warning(
+                        f"Skipping the source file {f} for secret key {key}. "
+                        f"Its base64 encoded size {encoded_size} exceeds "
+                        "the maximum file size (1MB) that can be passed "
+                        "from host to kubernetes.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                    continue
+                
                 self.secret_files[key] = f
-                secret.data[key] = base64.b64encode(content.read()).decode()
+                secret.data[key] = encoded_contents
+
         for e in self.envvars:
             try:
                 key = e.lower()
