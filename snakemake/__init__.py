@@ -873,12 +873,20 @@ def parse_key_value_arg(arg, errmsg):
     return key, val
 
 
+def _bool_parser(value):
+    if value == "True":
+        return True
+    elif value == "False":
+        return False
+    raise ValueError
+
+
 def parse_config(args):
     """Parse config from args."""
     import yaml
 
     yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
-    parsers = [int, float, yaml_base_load, str]
+    parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
