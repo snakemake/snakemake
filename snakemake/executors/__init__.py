@@ -1521,6 +1521,8 @@ class KubernetesExecutor(ClusterExecutor):
 
     # In rare cases, deleting a pod may rais 404 NotFound error.
     def safe_delete_pod(self, jobid, ignore_not_found=True):
+        import kubernetes.client
+
         body = kubernetes.client.V1DeleteOptions()
         try:
             self.kubeapi.delete_namespaced_pod(jobid, self.namespace, body=body)
