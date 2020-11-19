@@ -1526,9 +1526,11 @@ class KubernetesExecutor(ClusterExecutor):
                 self.secret_envvars[key] = e
             except KeyError:
                 continue
-        
+
         # Test if the total size of the configMap exceeds 1MB
-        config_map_size = sum([len(base64.b64decode(v)) for k,v in secret.data.items()])
+        config_map_size = sum(
+            [len(base64.b64decode(v)) for k, v in secret.data.items()]
+        )
         if config_map_size > 1048576:
             logger.warning(
                 "The total size of the included files and other Kubernetes secrets "
@@ -1539,12 +1541,15 @@ class KubernetesExecutor(ClusterExecutor):
                 f"(you need remove at least {config_map_size - 1048576} bytes):"
             )
 
-            entry_sizes = {self.secret_files[k]: len(base64.b64decode(v)) for k, v in secret.data.items() if k in self.secret_files}
-            for k, v in sorted(entry_sizes.items(), key = lambda item: item[1])[:-6:-1]:
+            entry_sizes = {
+                self.secret_files[k]: len(base64.b64decode(v))
+                for k, v in secret.data.items()
+                if k in self.secret_files
+            }
+            for k, v in sorted(entry_sizes.items(), key=lambda item: item[1])[:-6:-1]:
                 logger.warning(f"  * File: {k}, original size: {v}")
 
             raise WorkflowError("ConfigMap too large")
-        
 
         self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
