@@ -25,5 +25,3 @@ dist/
 tests/test*/*
 playground/*
 tutorial/*
-
-.vscode/

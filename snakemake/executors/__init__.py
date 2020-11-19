@@ -1611,14 +1611,7 @@ class KubernetesExecutor(ClusterExecutor):
         )
 
         body = kubernetes.client.V1Pod()
-        body.metadata = kubernetes.client.V1ObjectMeta(
-            labels={
-                "app": "snakemake",
-                "rule": job.rule.name,
-                "job_id": str(job.jobid),
-                "attempt": str(job.attempt),
-            }
-        )
+        body.metadata = kubernetes.client.V1ObjectMeta(labels={"app": "snakemake"})
 
         body.metadata.name = jobid
 
