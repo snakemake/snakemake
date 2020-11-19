@@ -345,7 +345,7 @@ class RealExecutor(AbstractExecutor):
             benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
             target=target,
             rules=rules,
-            **kwargs
+            **kwargs,
         )
         return cmd
 
@@ -748,7 +748,7 @@ class ClusterExecutor(RealExecutor):
             latency_wait=self.latency_wait,
             wait_for_files=wait_for_files,
             path=path,
-            **kwargs
+            **kwargs,
         )
         try:
             return format_p(pattern)
@@ -773,7 +773,7 @@ class ClusterExecutor(RealExecutor):
             _quote_all=True,
             use_threads=use_threads,
             envvars=envvars,
-            **kwargs
+            **kwargs,
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
@@ -1533,7 +1533,7 @@ class KubernetesExecutor(ClusterExecutor):
                 logger.warning(
                     f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
                     "[WARNING] Ignore this error\n"
-                    )
+                )
             else:
                 raise
 
@@ -1569,9 +1569,14 @@ class KubernetesExecutor(ClusterExecutor):
         )
 
         body = kubernetes.client.V1Pod()
-        body.metadata = kubernetes.client.V1ObjectMeta(labels={
-            "app": "snakemake", "rule": job.rule.name, "job_id": str(job.jobid), "attempt": str(job.attempt)
-        })
+        body.metadata = kubernetes.client.V1ObjectMeta(
+            labels={
+                "app": "snakemake",
+                "rule": job.rule.name,
+                "job_id": str(job.jobid),
+                "attempt": str(job.attempt),
+            }
+        )
 
         body.metadata.name = jobid
 
@@ -1680,7 +1685,7 @@ class KubernetesExecutor(ClusterExecutor):
     # ignore it.
     def _reauthenticate_and_retry(self, func=None):
         import kubernetes
-        
+
         # Unauthorized.
         # Reload config in order to ensure token is
         # refreshed. Then try again.
@@ -1791,7 +1796,9 @@ class KubernetesExecutor(ClusterExecutor):
                         # finished
                         j.callback(j.job)
 
-                        func = lambda: self.safe_delete_pod(j.jobid, ignore_not_found=True)
+                        func = lambda: self.safe_delete_pod(
+                            j.jobid, ignore_not_found=True
+                        )
                         self._kubernetes_retry(func)
                     else:
                         # still active
