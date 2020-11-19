@@ -617,6 +617,7 @@ class JobScheduler:
         """
         import pulp
         from pulp import lpSum
+
         logger.info("Select jobs to execute...")
 
         # assert self.resources["_cores"] > 0
@@ -734,7 +735,9 @@ class JobScheduler:
         )
 
         if not selected_jobs:
-            logger.warning("Failed to solve scheduling problem with ILP solver. Falling back to greedy solver.")
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver."
+            )
             return self.job_selector_greedy(jobs)
 
         for name in self.workflow.global_resources:
