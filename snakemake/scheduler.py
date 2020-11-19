@@ -618,6 +618,8 @@ class JobScheduler:
         import pulp
         from pulp import lpSum
 
+        logger.info("Select jobs to execute...")
+
         # assert self.resources["_cores"] > 0
         scheduled_jobs = {
             job: pulp.LpVariable(
@@ -628,6 +630,8 @@ class JobScheduler:
             )
             for idx, job in enumerate(jobs)
         }
+
+        size_gb = lambda f: f.size / 1e9
 
         temp_files = {
             temp_file for job in jobs for temp_file in self.dag.temp_input(job)
@@ -651,7 +655,7 @@ class JobScheduler:
         }
         prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
-        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
+        total_temp_size = max(sum([size_gb(temp_file) for temp_file in temp_files]), 1)
         total_core_requirement = sum(
             [max(job.resources.get("_cores", 1), 1) for job in jobs]
         )
@@ -676,13 +680,13 @@ class JobScheduler:
             + total_temp_size
             * lpSum(
                 [
-                    temp_file_deletable[temp_file] * temp_file.size
+                    temp_file_deletable[temp_file] * size_gb(temp_file)
                     for temp_file in temp_files
                 ]
             )
             + lpSum(
                 [
-                    temp_job_improvement[temp_file] * temp_file.size
+                    temp_job_improvement[temp_file] * size_gb(temp_file)
                     for temp_file in temp_files
                 ]
             )
@@ -729,6 +733,13 @@ class JobScheduler:
         selected_jobs = set(
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
         )
+
+        if not selected_jobs:
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver."
+            )
+            return self.job_selector_greedy(jobs)
+
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
                 [job.resources.get(name, 0) for job in selected_jobs]

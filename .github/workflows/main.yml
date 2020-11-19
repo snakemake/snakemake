@@ -190,8 +190,8 @@ jobs:
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
 
-      - name: Setup mini-conda
-        uses: goanpeca/setup-miniconda@v1
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
           python-version: 3.8
