@@ -1,4 +1,12 @@
 
+[5.29.0] - 2020-11-19
+=====================
+Changed
+-------
+- Fixed several bugs in reports and scheduler.
+- Remove automatic (but buggy) encoding of csv/tsv files into HTML tables in the report (we will soon have a better alternative).
+- Fixed bug in kubernetes executor occurring with large source files.
+
 [5.28.0] - 2020-11-12
 =====================
 Added
