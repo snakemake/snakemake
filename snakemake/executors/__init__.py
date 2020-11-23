@@ -1577,7 +1577,7 @@ class KubernetesExecutor(ClusterExecutor):
                     "[WARNING] Ignore this error\n"
                 )
             else:
-                raise
+                raise e
 
     def shutdown(self):
         self.unregister_secret()
