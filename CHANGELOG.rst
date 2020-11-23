@@ -1,4 +1,14 @@
 
+[5.30.0] - 2020-11-23
+=====================
+Added
+-----
+- Benchmarks now also report CPU time (@natir).
+
+Changed
+-------
+- Fixed a reauthentication bug in Kubernetes support (@haizi-zh).
+
 [5.29.0] - 2020-11-19
 =====================
 Changed
