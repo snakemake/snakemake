@@ -1571,7 +1571,7 @@ class KubernetesExecutor(ClusterExecutor):
         except kubernetes.client.rest.ApiException as e:
             if e.status == 404 and ignore_not_found:
                 # Can't find the pod. Maybe it's already been
-                # detroyed. Proceed with a warning message.
+                # destroyed. Proceed with a warning message.
                 logger.warning(
                     f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
                     "[WARNING] Ignore this error\n"
