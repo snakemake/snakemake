@@ -485,7 +485,7 @@ class DAG:
                 raise MissingOutputException(
                     str(e) + "\nThis might be due to "
                     "filesystem latency. If that is the case, consider to increase the "
-                    "wait time with --latency-wait.",
+                    "wait time with --latency-wait." + f"\nJob id: {job.jobid}",
                     rule=job.rule,
                     jobid=self.jobid(job),
                 )
