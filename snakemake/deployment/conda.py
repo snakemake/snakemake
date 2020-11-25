@@ -60,6 +60,7 @@ class Env:
     def __init__(self, env_file, dag, container_img=None, cleanup=None):
         self.file = env_file
 
+        self.subdir = dag.workflow.conda_subdir
         self.frontend = dag.workflow.conda_frontend
         self._env_dir = dag.workflow.persistence.conda_env_path
         self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
@@ -306,6 +307,9 @@ class Env:
                     logger.info("Downloading and installing remote packages.")
                     cmd = " ".join(
                         [
+                            "CONDA_SUBDIR={}".format(self.subdir)
+                            if self.subdir
+                            else "",
                             self.frontend,
                             "env",
                             "create",

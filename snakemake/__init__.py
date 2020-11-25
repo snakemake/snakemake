@@ -134,6 +134,7 @@ def snakemake(
     use_singularity=False,
     use_env_modules=False,
     singularity_args="",
+    conda_subdir=None,
     conda_frontend="conda",
     conda_prefix=None,
     conda_cleanup_pkgs=None,
@@ -558,6 +559,7 @@ def snakemake(
             use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
             use_singularity=use_singularity,
             use_env_modules=use_env_modules,
+            conda_subdir=conda_subdir,
             conda_frontend=conda_frontend,
             conda_prefix=conda_prefix,
             conda_cleanup_pkgs=conda_cleanup_pkgs,
@@ -2180,6 +2182,11 @@ def get_argument_parser(profile=None):
         "flag must also be set.",
     )
     group_conda.add_argument(
+        "--conda-subdir",
+        default=None,
+        help="Choose the conda subdir for installing environments.",
+    )
+    group_conda.add_argument(
         "--conda-frontend",
         default="conda",
         choices=["conda", "mamba"],
@@ -2648,6 +2655,7 @@ def main(argv=None):
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
+            conda_subdir=args.conda_subdir,
             conda_frontend=args.conda_frontend,
             conda_prefix=args.conda_prefix,
             conda_cleanup_pkgs=args.conda_cleanup_pkgs,
