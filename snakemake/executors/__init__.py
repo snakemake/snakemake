@@ -779,7 +779,7 @@ class ClusterExecutor(RealExecutor):
         logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
     def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
