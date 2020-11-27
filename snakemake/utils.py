@@ -564,3 +564,19 @@ def _find_bash_on_windows():
         except FileNotFoundError:
             bashcmd = ""
     return bashcmd if os.path.exists(bashcmd) else None
+
+
+class Paramspace:
+    def __init__(self, dataframe):
+        self.dataframe = dataframe
+    
+    @property
+    def wildcard_pattern(self):
+        return "/".join(map("{0}~{{{0}}}".format, self.dataframe.columns))
+    
+    @property
+    def instance_patterns(self):
+        return ("/".join("{}~{}".format(name, value) for name, value in row.items()) for index, row in self.dataframe.iterrows())
+    
+    def instance(self, wildcards):
+        return {name: value for name, value in wildcards.items() if name in self.dataframe.columns}
