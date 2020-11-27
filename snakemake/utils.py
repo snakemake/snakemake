@@ -569,6 +569,8 @@ def _find_bash_on_windows():
 class Paramspace:
     """A wrapper for pandas dataframes that provides helpers for using them as a parameter
     space in Snakemake.
+
+    This is heavily inspired by @soumitrakp work on JUDI (https://github.com/ncbi/JUDI).
     """
 
     def __init__(self, dataframe):
