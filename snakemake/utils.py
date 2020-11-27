@@ -567,23 +567,44 @@ def _find_bash_on_windows():
 
 
 class Paramspace:
+    """A wrapper for pandas dataframes that provides helpers for using them as a parameter
+    space in Snakemake.
+    """
+
     def __init__(self, dataframe):
         self.dataframe = dataframe
 
     @property
     def wildcard_pattern(self):
+        """Wildcard pattern over all columns of the underlying dataframe of the form
+        column1~{column1}/column2~{column2}/***
+        """
         return "/".join(map("{0}~{{{0}}}".format, self.dataframe.columns))
 
     @property
     def instance_patterns(self):
+        """Iterator over all instances of the parameter space (dataframe rows),
+        formatted as file patterns of the form column1~{value1}/column2~{value2}/...
+        """
         return (
             "/".join("{}~{}".format(name, value) for name, value in row.items())
             for index, row in self.dataframe.iterrows()
         )
 
     def instance(self, wildcards):
+        """Obtain instance (dataframe row) with the given wildcard values."""
+        import pandas as pd
+
         return {
-            name: value
-            for name, value in wildcards.items()
+            name: pd.Series([value]).astype(self.dataframe.dtypes[name])
+            for name in wildcards.items()
             if name in self.dataframe.columns
         }
+
+    def filter(self, **kwargs):
+        """Apply pandas.DataFrame.filter (see pandas docs for args)"""
+        return Paramspace(self.dataframe.filter(**kwargs))
+
+    def query(self, *args, **kwargs):
+        """Apply pandas.DataFrame.query (see pandas docs for args)"""
+        return Paramspace(self.dataframe.query(*args, **kwargs))
