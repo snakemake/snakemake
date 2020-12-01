@@ -603,10 +603,18 @@ class Paramspace:
             if name in self.dataframe.columns
         }
 
-    def filter(self, **kwargs):
-        """Apply pandas.DataFrame.filter (see pandas docs for args)"""
-        return Paramspace(self.dataframe.filter(**kwargs))
+    def __getattr__(self, name):
+        import pandas as pd
 
-    def query(self, *args, **kwargs):
-        """Apply pandas.DataFrame.query (see pandas docs for args)"""
-        return Paramspace(self.dataframe.query(*args, **kwargs))
+        ret = getattr(self.dataframe, name)
+        if isinstance(ret, pd.DataFrame):
+            return Paramspace(ret)
+        return ret
+
+    def __getitem__(self, key):
+        import pandas as pd
+
+        ret = self.dataframe[key]
+        if isinstance(ref, pd.DataFrame):
+            return Paramspace(ret)
+        return ret
