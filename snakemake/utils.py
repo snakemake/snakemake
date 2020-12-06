@@ -601,7 +601,9 @@ class Paramspace:
         or of the provided custom pattern.
         """
         return (
-            self.pattern.format(*("{}~{}".format(name, value) for name, value in row.items()))
+            self.pattern.format(
+                *("{}~{}".format(name, value) for name, value in row.items())
+            )
             for index, row in self.dataframe.iterrows()
         )
 
