@@ -1,7 +1,7 @@
 from snakemake.utils import Paramspace
 import pandas as pd
 
-paramspace = Paramspace(pd.read_csv("params.tsv", sep="\t", pattern="{}/{}_{}"))
+paramspace = Paramspace(pd.read_csv("params.tsv", sep="\t"), pattern="{}/{}_{}")
 
 
 rule all:
