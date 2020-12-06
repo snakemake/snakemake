@@ -24,6 +24,8 @@ Setup
 .. _Matplotlib: https://matplotlib.org
 .. _Pysam: https://pysam.readthedocs.io
 .. _Bioconda: https://bioconda.github.io
+.. _WSL: https://docs.microsoft.com/en-us/windows/wsl/about
+.. _WSL Documentation: https://docs.microsoft.com/en-us/windows/wsl/install-win10
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
 .. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
@@ -48,11 +50,22 @@ The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 d
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Miniconda work also under Windows, but the Windows shell is too different to be able to provide generic examples.
 
-Setup a Linux VM with Vagrant under Windows
-:::::::::::::::::::::::::::::::::::::::::::
+Setup on Windows
+::::::::::::::::
 
 If you already use Linux or MacOS X, go on with **Step 1**.
-If you use Windows, you can setup a Linux virtual machine (VM) with Vagrant_.
+
+Windows Subsystem for Linux
+"""""""""""""""""""""""""""
+
+If you use Windows 10, you can setup the Windows Subsystem for Linux (`WSL`_) to natively run linux applications.
+Install the WSL following the instructions in the `WSL Documentation`_. You can chose any Linux distribution available for the WSL, but the most popular and accessible one is Ubuntu.
+Start the WSL and setup your account; now, you can follow the steps of our tutorial from within your Linux environment in the WSL.
+
+Vagrant virtual machine
+"""""""""""""""""""""""
+
+If you are using a version of Windows older than 10 or if you do not wish to install the WSL, you can instead setup a Linux virtual machine (VM) with Vagrant_.
 First, install Vagrant following the installation instructions in the `Vagrant Documentation`_.
 Then, create a reasonable new directory you want to share with your Linux VM, e.g., create a folder ``vagrant-linux`` somewhere.
 Open a command line prompt, and change into that directory.
