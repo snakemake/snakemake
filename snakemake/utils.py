@@ -571,25 +571,37 @@ class Paramspace:
     space in Snakemake.
 
     This is heavily inspired by @soumitrakp work on JUDI (https://github.com/ncbi/JUDI).
+
+    By default, a directory structure with on folder level per parameter is created
+    (e.g. column1~{column1}/column2~{column2}/***).
+    A custom pattern like `"{}/{}_{}"` can be supplied via the `pattern` parameter.
+    This pattern must have the same amount of formatting slots as there are parameters.
     """
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, pattern=None):
         self.dataframe = dataframe
+        if pattern is None:
+            # create a pattern of the form {}/{}/{} with one entry for each
+            # column in the dataframe
+            self.pattern = "/".join([r"{}"] * len(self.dataframe.columns))
+        else:
+            self.pattern = pattern
 
     @property
     def wildcard_pattern(self):
         """Wildcard pattern over all columns of the underlying dataframe of the form
-        column1~{column1}/column2~{column2}/***
+        column1~{column1}/column2~{column2}/*** or of the provided custom pattern.
         """
-        return "/".join(map("{0}~{{{0}}}".format, self.dataframe.columns))
+        return self.pattern.format(*map("{0}~{{{0}}}".format, self.dataframe.columns))
 
     @property
     def instance_patterns(self):
         """Iterator over all instances of the parameter space (dataframe rows),
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
+        or of the provided custom pattern.
         """
         return (
-            "/".join("{}~{}".format(name, value) for name, value in row.items())
+            self.pattern.format(*("{}~{}".format(name, value) for name, value in row.items()))
             for index, row in self.dataframe.iterrows()
         )
 
