@@ -611,6 +611,21 @@ class Notebook(Script):
         )
 
 
+class Subworkflow(Script):
+    start_func = "@workflow.subworkflow"
+    end_func = "subworkflow"
+
+    def args(self):
+        # basedir
+        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
+        # other args
+        yield (
+            ", input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
+        )
+
+
 class Wrapper(Script):
     start_func = "@workflow.wrapper"
     end_func = "wrapper"
@@ -661,6 +676,7 @@ class Rule(GlobalKeywordState):
         shell=Shell,
         script=Script,
         notebook=Notebook,
+        subworkflow=Subworkflow,
         wrapper=Wrapper,
         cwl=CWL,
         cache=Cache,

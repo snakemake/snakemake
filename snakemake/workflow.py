@@ -1364,6 +1364,7 @@ class Workflow:
             rule.shellcmd = ruleinfo.shellcmd
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook
+            rule.subworkflow = ruleinfo.subworkflow
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
@@ -1546,6 +1547,13 @@ class Workflow:
 
         return decorate
 
+    def subworkflow(self, subworkflow):
+        def decorate(ruleinfo):
+            ruleinfo.subworkflow = subworkflow
+            return ruleinfo
+
+        return decorate
+
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
@@ -1599,6 +1607,7 @@ class RuleInfo:
         self.group = None
         self.script = None
         self.notebook = None
+        self.subworkflow = None
         self.wrapper = None
         self.cwl = None
         self.cache = False

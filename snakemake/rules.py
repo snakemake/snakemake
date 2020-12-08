@@ -96,6 +96,7 @@ class Rule:
             self.shellcmd = None
             self.script = None
             self.notebook = None
+            self.subworkflow = None
             self.wrapper = None
             self.cwl = None
             self.norun = False
@@ -141,6 +142,7 @@ class Rule:
             self.shellcmd = other.shellcmd
             self.script = other.script
             self.notebook = other.notebook
+            self.subworkflow = other.subworkflow
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
@@ -251,6 +253,10 @@ class Rule:
         return self.notebook is not None
 
     @property
+    def is_subworkflow(self):
+        return self.subworkflow is not None
+
+    @property
     def is_wrapper(self):
         return self.wrapper is not None
 
@@ -265,6 +271,7 @@ class Rule:
             or self.norun
             or self.is_script
             or self.is_notebook
+            or self.is_subworkflow
             or self.is_wrapper
             or self.is_cwl
         )

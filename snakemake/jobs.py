@@ -431,6 +431,10 @@ class Job(AbstractJob):
         return self.rule.wrapper is not None
 
     @property
+    def is_subworkflow(self):
+        return self.rule.subworkflow is not None
+
+    @property
     def is_cwl(self):
         return self.rule.cwl is not None
 
@@ -441,6 +445,7 @@ class Job(AbstractJob):
             or self.is_norun
             or self.is_script
             or self.is_notebook
+            or self.is_subworkflow
             or self.is_wrapper
             or self.is_cwl
         )
