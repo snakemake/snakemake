@@ -753,10 +753,11 @@ class Rule:
                     item = [item]
                     is_iterable = False
                 for item_ in item:
-                    if (check_return_type
-                            and not isinstance(item_, str)
-                            and not isinstance(item_, Path)
-                            ):
+                    if (
+                        check_return_type
+                        and not isinstance(item_, str)
+                        and not isinstance(item_, PurePath)
+                    ):
                         raise WorkflowError(
                             "Function did not return str or list " "of str.", rule=self
                         )
