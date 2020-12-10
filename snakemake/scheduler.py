@@ -718,7 +718,7 @@ class JobScheduler:
             if self.scheduler_ilp_solver
             else pulp.apis.LpSolverDefault
         )
-        solver.msg = False
+        solver.msg = self.workflow.verbose
         # disable extensive logging
         try:
             prob.solve(solver)
