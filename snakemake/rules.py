@@ -756,7 +756,7 @@ class Rule:
                     if (
                         check_return_type
                         and not isinstance(item_, str)
-                        and not isinstance(item_, PurePath)
+                        and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
                             "Function did not return str or list " "of str.", rule=self
