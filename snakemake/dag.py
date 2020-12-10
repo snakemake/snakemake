@@ -1138,6 +1138,7 @@ class DAG:
         candidate_groups = set()
         for job in jobs:
             if job in self._ready_jobs:
+                potential_new_ready_jobs = True
                 # job has been seen before, no need to process again
                 continue
             if not self.finished(job) and self._ready(job):
