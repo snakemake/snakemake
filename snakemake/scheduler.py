@@ -723,12 +723,11 @@ class JobScheduler:
         try:
             prob.solve(solver)
         except pulp.apis.core.PulpSolverError as e:
-            raise WorkflowError(
-                "Failed to solve the job scheduling problem with pulp. "
-                "Please report a bug and use --scheduler greedy as a workaround:\n{}".format(
-                    e
-                )
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
+                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
             )
+            return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
@@ -737,6 +736,7 @@ class JobScheduler:
         if not selected_jobs:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver."
+                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
             )
             return self.job_selector_greedy(jobs)
 
