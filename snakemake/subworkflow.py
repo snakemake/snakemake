@@ -1,6 +1,5 @@
 import os
 
-from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 
@@ -26,17 +25,14 @@ def subworkflow(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
+    workflow
 ):
-    # TODO: use `subsnakemake` instead?
-
     # extract (and normalize) parameters
     basedir = os.path.normpath(basedir)
     sub_workdir = os.path.normpath(
         params.get("workdir", f"subworkflow_{rulename}")
     )
     sub_configfile = params.get("configfile", "")
-
-    snakemake_params = params.get("snakemake_params", "")
 
     # the sub-workflow needs to run in a different directory than the
     # main-workflow. This is necessary due to Snakemake's locking mechanism
@@ -58,22 +54,16 @@ def subworkflow(
         fname_rel = os.path.relpath(fname, start=sub_workdir)
         output_normalized.append(fname_rel)
 
-    # prepare parameters
-    configfile_arg = ""
-    if len(sub_configfile) > 0:
-        configfile_arg = f"--configfile {sub_configfile}"
-
     # execute sub-workflow
     logger.info("Executing sub-workflow")
 
-    shell(
-        "snakemake"
-        "  --snakefile {path}"
-        "  --directory {sub_workdir}"
-        "  --cores {threads}"
-        "  {configfile_arg}"
-        "  -F {snakemake_params}"
-        "  {output_normalized}"
+    workflow.subsnakemake(
+        path,
+        workdir=sub_workdir,
+        targets=output_normalized,
+        cores=threads,
+        configfiles=[sub_configfile] if sub_configfile else None,
+        forceall=True,
     )
 
     logger.info("Finished execution of sub-workflow")

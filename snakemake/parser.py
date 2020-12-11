@@ -622,7 +622,8 @@ class Subworkflow_RuleLike(Script):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir,"
+            "workflow"
         )
 
 

@@ -184,6 +184,7 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.subsnakemake = None
 
         self.enable_cache = False
         if cache is not None:
@@ -566,6 +567,7 @@ class Workflow:
         self.check_localrules()
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
+        self.subsnakemake = subsnakemake
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -741,7 +743,7 @@ class Workflow:
                 updated = list()
                 if subworkflow_targets:
                     logger.info("Executing subworkflow {}.".format(subworkflow.name))
-                    if not subsnakemake(
+                    if not self.subsnakemake(
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
