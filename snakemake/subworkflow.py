@@ -25,13 +25,11 @@ def subworkflow(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
-    workflow
+    workflow,
 ):
     # extract (and normalize) parameters
     basedir = os.path.normpath(basedir)
-    sub_workdir = os.path.normpath(
-        params.get("workdir", f"subworkflow_{rulename}")
-    )
+    sub_workdir = os.path.normpath(params.get("workdir", f"subworkflow_{rulename}"))
     sub_configfile = params.get("configfile", "")
 
     # the sub-workflow needs to run in a different directory than the
