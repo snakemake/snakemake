@@ -570,12 +570,8 @@ class JobScheduler:
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
-            elif (
-                not self.running
-                or potential_new_ready_jobs
-                or self.workflow.immediate_submit
-            ):
-                # go on scheduling if open jobs are ready or no job is running
+            else:
+                # go on scheduling
                 self._open_jobs.release()
 
     def _error(self, job):
