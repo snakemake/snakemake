@@ -610,6 +610,7 @@ def snakemake(
                     overwrite_scatter=overwrite_scatter,
                     default_resources=default_resources,
                     dryrun=dryrun,
+                    forceall=forceall,
                     touch=touch,
                     printreason=printreason,
                     printshellcmds=printshellcmds,

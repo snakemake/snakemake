@@ -61,7 +61,6 @@ def subworkflow(
         targets=output_normalized,
         cores=threads,
         configfiles=[sub_configfile] if sub_configfile else None,
-        forceall=True,
     )
 
     logger.info("Finished execution of sub-workflow")
