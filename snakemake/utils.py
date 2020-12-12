@@ -585,15 +585,25 @@ class Paramspace:
             self.ordered_columns = self.dataframe.columns
         else:
             if any((param not in dataframe.columns for param in filename_params)):
-                raise KeyError("One or more entries of filename_params are not valid coulumn names for the param file.")
+                raise KeyError(
+                    "One or more entries of filename_params are not valid coulumn names for the param file."
+                )
             elif len(set(filename_params)) != len(filename_params):
                 raise ValueError("filename_params must be unique")
             # create a pattern of the form {}/{}_{} with one entry for each
             # column in the dataframe. The number of underscore-separated
             # fields is equal to the number filename_params
-            self.pattern = "/".join([r"{}"] * (len(self.dataframe.columns) - len(filename_params) + 1))
-            self.pattern = "_".join([self.pattern] + [r"{}"] * (len(filename_params) - 1))
-            self.ordered_columns = [param for param in self.dataframe.columns if param not in filename_params]
+            self.pattern = "/".join(
+                [r"{}"] * (len(self.dataframe.columns) - len(filename_params) + 1)
+            )
+            self.pattern = "_".join(
+                [self.pattern] + [r"{}"] * (len(filename_params) - 1)
+            )
+            self.ordered_columns = [
+                param
+                for param in self.dataframe.columns
+                if param not in filename_params
+            ]
             self.ordered_columns.extend(list(filename_params))
         self.dataframe = self.dataframe[self.ordered_columns]
 
