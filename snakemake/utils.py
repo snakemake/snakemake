@@ -574,25 +574,35 @@ class Paramspace:
 
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
-    A custom pattern like `"{}/{}_{}"` can be supplied via the `pattern` parameter.
-    This pattern must have the same amount of formatting slots as there are parameters.
     """
 
-    def __init__(self, dataframe, pattern=None):
+    def __init__(self, dataframe, filename_params=None):
         self.dataframe = dataframe
-        if pattern is None:
+        if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
             self.pattern = "/".join([r"{}"] * len(self.dataframe.columns))
+            self.ordered_columns = self.dataframe.columns
         else:
-            self.pattern = pattern
+            if any((param not in dataframe.columns for param in filename_params)):
+                raise KeyError("One or more entries of filename_params are not valid coulumn names for the param file.")
+            elif len(set(filename_params)) != len(filename_params):
+                raise ValueError("filename_params must be unique")
+            # create a pattern of the form {}/{}_{} with one entry for each
+            # column in the dataframe. The number of underscore-separated
+            # fields is equal to the number filename_params
+            self.pattern = "/".join([r"{}"] * (len(self.dataframe.columns) - len(filename_params) + 1))
+            self.pattern = "_".join([self.pattern] + [r"{}"] * (len(filename_params) - 1))
+            self.ordered_columns = [param for param in self.dataframe.columns if param not in filename_params]
+            self.ordered_columns.extend(list(filename_params))
+        self.dataframe = self.dataframe[self.ordered_columns]
 
     @property
     def wildcard_pattern(self):
         """Wildcard pattern over all columns of the underlying dataframe of the form
         column1~{column1}/column2~{column2}/*** or of the provided custom pattern.
         """
-        return self.pattern.format(*map("{0}~{{{0}}}".format, self.dataframe.columns))
+        return self.pattern.format(*map("{0}~{{{0}}}".format, self.ordered_columns))
 
     @property
     def instance_patterns(self):
@@ -614,7 +624,7 @@ class Paramspace:
         return {
             name: pd.Series([value]).astype(self.dataframe.dtypes[name])
             for name in wildcards.items()
-            if name in self.dataframe.columns
+            if name in self.ordered_columns
         }
 
     def __getattr__(self, name):
