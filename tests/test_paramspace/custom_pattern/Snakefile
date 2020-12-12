@@ -1,27 +1,56 @@
 from snakemake.utils import Paramspace
 import pandas as pd
 
-paramspace = Paramspace(pd.read_csv("params.tsv", sep="\t"), pattern="{}/{}_{}")
+
+
+paramspace_empty = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=[])
+paramspace_one = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta"])
+paramspace_two = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma"])
+paramspace_full = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["alpha", "beta", "gamma"])
+paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["alpha", "beta", "gamma"])
 
 
 rule all:
     input:
-        expand("results/plots/{params}.pdf", params=paramspace.instance_patterns)
+        # expand("results/empty/plots/{params}.pdf", params=paramspace_empty.instance_patterns),
+        # expand("results/one/plots/{params}.pdf", params=paramspace_one.instance_patterns),
+        expand("results/two/plots/{params}.pdf", params=paramspace_two.instance_patterns),
+        # expand("results/full/plots/{params}.pdf", params=paramspace_full.instance_patterns),
+        # expand("results/full_reorder/plots/{params}.pdf", params=paramspace_full_reorder.instance_patterns),
+        
 
 
-rule simulate:
+rule simulate_two:
     output:
-        f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        f"results/two/simulations/{paramspace_two.wildcard_pattern}.tsv"
     params:
         simulation=paramspace.instance
     script:
         "scripts/simulate.py"
 
 
-rule plot:
+rule plot_two:
     input:
-        f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        f"results/two/simulations/{paramspace_two.wildcard_pattern}.tsv"
     output:
-        f"results/plots/{paramspace.wildcard_pattern}.pdf"
+        f"results/two/plots/{paramspace_two.wildcard_pattern}.pdf"
     shell:
         "touch {output}"
+
+
+# rule simulate_one:
+#     output:
+#         f"results/empty/simulations/{paramspace.wildcard_pattern}.tsv"
+#     params:
+#         simulation=paramspace.instance
+#     script:
+#         "scripts/simulate.py"
+
+
+# rule plot:
+#     input:
+#         f"results/empty/simulations/{paramspace.wildcard_pattern}.tsv"
+#     output:
+#         f"results/empty/plots/{paramspace.wildcard_pattern}.pdf"
+#     shell:
+#         "touch {output}"
