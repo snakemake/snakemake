@@ -570,12 +570,8 @@ class JobScheduler:
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
-            elif (
-                not self.running
-                or potential_new_ready_jobs
-                or self.workflow.immediate_submit
-            ):
-                # go on scheduling if open jobs are ready or no job is running
+            else:
+                # go on scheduling
                 self._open_jobs.release()
 
     def _error(self, job):
@@ -718,17 +714,16 @@ class JobScheduler:
             if self.scheduler_ilp_solver
             else pulp.apis.LpSolverDefault
         )
-        solver.msg = False
+        solver.msg = self.workflow.verbose
         # disable extensive logging
         try:
             prob.solve(solver)
         except pulp.apis.core.PulpSolverError as e:
-            raise WorkflowError(
-                "Failed to solve the job scheduling problem with pulp. "
-                "Please report a bug and use --scheduler greedy as a workaround:\n{}".format(
-                    e
-                )
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
+                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
             )
+            return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
@@ -737,6 +732,7 @@ class JobScheduler:
         if not selected_jobs:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver."
+                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
             )
             return self.job_selector_greedy(jobs)
 
