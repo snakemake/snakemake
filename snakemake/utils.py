@@ -574,6 +574,27 @@ class Paramspace:
 
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
+
+    The exact behavior can be tweeked with two parameters:
+
+      - `filename_params` takes a list of column names of the passed dataframe.
+        These names are used to build the filename (separated by '_') in the order
+        in which they are passed.
+        All remaining parameters will be used to generate a directoty structure.
+        Example for a data frame with four columns named column1 to column4:
+
+        ```
+        Paramspace(df, filename_params=["column3", "column2"])
+        -> column1~{value1}/column4~{value4}/column3~{value3}_column2~{value2}
+        ```
+
+      - `param_sep` takes a string which is used to join the column name and
+        column value in the genrated paths (Default: '~'). Example:
+
+        ```
+        Paramspace(df, param_sep=":")
+        -> column1:{value1}/column2:{value2}/column3:{value3}/column4:{value4}
+        ```
     """
 
     def __init__(self, dataframe, filename_params=None, param_sep="~"):
