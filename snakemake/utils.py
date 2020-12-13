@@ -576,8 +576,9 @@ class Paramspace:
     (e.g. column1~{column1}/column2~{column2}/***).
     """
 
-    def __init__(self, dataframe, filename_params=None):
+    def __init__(self, dataframe, filename_params=None, param_sep="~"):
         self.dataframe = dataframe
+        self.param_sep = param_sep
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -612,7 +613,9 @@ class Paramspace:
         """Wildcard pattern over all columns of the underlying dataframe of the form
         column1~{column1}/column2~{column2}/*** or of the provided custom pattern.
         """
-        return self.pattern.format(*map("{0}~{{{0}}}".format, self.ordered_columns))
+        return self.pattern.format(
+            *map(self.param_sep.join(("{0}", "{{{0}}}")).format, self.ordered_columns)
+        )
 
     @property
     def instance_patterns(self):
@@ -622,7 +625,10 @@ class Paramspace:
         """
         return (
             self.pattern.format(
-                *("{}~{}".format(name, value) for name, value in row.items())
+                *(
+                    self.param_sep.join(("{}", "{}")).format(name, value)
+                    for name, value in row.items()
+                )
             )
             for index, row in self.dataframe.iterrows()
         )
