@@ -284,6 +284,7 @@ def test_yaml_config():
 
 
 @skip_on_windows
+@pytest.mark.skip(reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\"")
 def test_remote():
     run(dpath("test_remote"), cores=1)
 
