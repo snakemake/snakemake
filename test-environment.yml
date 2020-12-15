@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python >=3.5
   - datrie
-  - boto3
+  - boto3 <=1.16.30 # try to ensure compatibility with moto
   - moto
   - junit-xml  # needed for S3Mocked
   - httpretty
