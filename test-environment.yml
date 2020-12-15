@@ -14,7 +14,8 @@ dependencies:
   - pytest-cov
   - ftputil
   - pysftp
-  - requests <=2.24  # requests 2.25.0 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
+  - requests
+  - responses <0.12.1 # responses 0.12.1 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
   - dropbox
   - numpy
   - appdirs
