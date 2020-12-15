@@ -1302,6 +1302,10 @@ class DAG:
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
+
+        # turn off this job's Reason
+        self.reason(job).mark_finished()
+
         try:
             self._ready_jobs.remove(job)
         except KeyError:
