@@ -284,7 +284,7 @@ def test_yaml_config():
 
 
 @skip_on_windows
-@pytest.mark.skip(
+@pytest.mark.xfail(
     reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
 )
 def test_remote():
@@ -998,6 +998,9 @@ def test_output_file_cache():
 
 
 @skip_on_windows
+@pytest.mark.xfail(
+    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
+)
 def test_output_file_cache_remote():
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
