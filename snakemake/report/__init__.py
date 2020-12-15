@@ -719,8 +719,16 @@ def auto_report(dag, path, stylesheet=None):
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
                 rec.job = job
-                rec.starttime = min(rec.starttime, meta.get("starttime", rec.starttime))
-                rec.endtime = max(rec.endtime, meta.get("endtime", rec.endtime))
+                rec.starttime = min(
+                    start_time 
+                    for start_time in [rec.starttime, meta.get("starttime", None)]
+                    if start_time is not None
+                )
+                rec.endtime = max(
+                    end_time 
+                    for end_time in [rec.endtime, meta.get("endtime", None)]
+                    if end_time is not None
+                )
                 rec.conda_env_file = None
                 rec.conda_env = meta["conda_env"]
                 rec.container_img_url = meta["container_img_url"]
