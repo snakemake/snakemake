@@ -1506,4 +1506,4 @@ class Reason:
             or self.nooutput
             or self.pipe
         )
-        return v and not self.finished  
+        return v and not self.finished
