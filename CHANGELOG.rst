@@ -1,3 +1,202 @@
+[5.30.2] - 2020-12-16
+=====================
+Changed
+-------
+- Fix permission issues with jobscripts on some systems (@Phhere).
+- Added notes on WSL to the tutorial (@RomainFeron).
+- Scheduler fixes (@johanneskoester).
+- Fixed a bug in checkpoint handling that led to hanging workflow execution (@jmeppley).
+- Pass cluster nodes to subworkflows (@votti).
+- Fix start time recording in metadata (@lparsons).
+- Fix time retrieval in reports (@johanneskoester).
+- Fix error when returning a Path from an input function (@sappjw).
+- Extending monitoring docs with some notes about future api changes (@vsoch).
+
+
+
+[5.30.0] - 2020-11-23
+=====================
+Added
+-----
+- Benchmarks now also report CPU time (@natir).
+
+Changed
+-------
+- Fixed a reauthentication bug in Kubernetes support (@haizi-zh).
+
+[5.29.0] - 2020-11-19
+=====================
+Changed
+-------
+- Fixed several bugs in reports and scheduler.
+- Remove automatic (but buggy) encoding of csv/tsv files into HTML tables in the report (we will soon have a better alternative).
+- Fixed bug in kubernetes executor occurring with large source files.
+
+[5.28.0] - 2020-11-12
+=====================
+Added
+-----
+- Execution backend for GA4GH TES (task execution scheduler) an abstraction layer for various cluster and cloud queuing systems (@svedziok, @uniqueg).
+- script, notebook, wrapper and cwl directives now permit to use wildcards and params for composing paths (@johanneskoester).
+
+Changed
+-------
+- Restored compatibility with Python 3.5 and 3.6 (@cclienti).
+- Various usability bug fixes (@goi43, @johanneskoester, @dcroote).
+- Better and more secure parsing of values when using --config (@bingxiao).
+
+[5.27.4] - 2020-11-03
+=====================
+Changed
+-------
+- Further speed improvements for DAG computation.
+- Fixed metadata migration errors occuring with long output file paths.
+- Add WorkflowHub specifications to the docs.
+- Fix group assignments.
+
+[5.27.3] - 2020-10-30
+=====================
+Changed
+-------
+- Added missing files to source distribution.
+
+[5.27.2] - 2020-10-30
+=====================
+Changed
+-------
+- DAG computation runtime has been improved by orders of magnitude, it is linear in the number of jobs now (@mhulsmann, @johanneskoester).
+- Stat calls have been dramatically reduced and are now performed in parallel (@johanneskoester).
+- Scheduler fixes (@FelixMoelder).
+- Directory support and other fixes for Google Life Sciences backend (@vsoch, @millerdz).
+- Support for panoptes monitor server (@fgypas).
+- Extended pathlib support (@mbhall88).
+- Vim plugin improvements (@troycomi).
+- Prevent jobs being rerun when input files are marked as ancient and another job in the DAG creates them.
+- Fixed --list-code-changes for included rules (@jbloom).
+
+Added
+-----
+- Syntax highlighting for nano (@baileythegreen).
+
+[5.26.1] - 2020-10-01
+=====================
+Changed
+-------
+- Use coin ILP solver for scheduling by default (GLPK has bugs that can cause it to fail in certain situations).
+- If coin is not available, fall back to greedy scheduler.
+
+[5.26.0] - 2020-09-30
+=====================
+Added
+-----
+- Flag --max-inventory-time for setting maximum time spend on creating file inventory.
+- Flag --scheduler-ilp-solver for defining which solver to use for the ILP scheduler.
+
+Changed
+-------
+- Fixed various bugs with the new scheduler (@FelixMoelder).
+- Fixed bug causing certain parameters not to be passed to the cluster (--set-scatter, --scheduler, --set-threads).
+- Updated docs and fixed of google backend (@vsoch).
+- Display jupyter notebook code in reports.
+- Improved scheduler behavior in order to directly remove temporary files if possible.
+
+[5.25.0] - 2020-09-18
+=====================
+Added
+-----
+- Simplified and more configurable support for scatter-gather processes (see docs).
+- Fully configurable DAG partitioning by grouping jobs at the command line. This should provide a vast additional improvement to scalability in cluster and cloud settings.
+
+Changed
+-------
+- Depend on latest pulp, thereby enable Python >=3.8 compatibility again.
+- Fixes for snakefile handling in google life sciences backend (@vsoch).
+
+[5.24.2] - 2020-09-15
+=====================
+Changed
+-------
+- Fixed a bug in the linter that caused a false warning when using resources in shell commands.
+
+[5.24.1] - 2020-09-13
+=====================
+Changed
+-------
+- Depend on pulp < 2.0, which includes the default coin cbc solver for all platforms.
+
+[5.24.0] - 2020-09-09
+=====================
+Added
+-----
+- Preemtion support for google cloud backend (@vsoch).
+
+Changed
+-------
+- Fixed compatibility issues in new scheduler code (@dtrodrigues and @johanneskoester).
+- Improved error messages (@Sam-Tygier, @terrycojones)
+- Various small bug fixes.
+- Improved profile documentation (@johanneskoester).
+
+
+[5.23.0] - 2020-08-24
+=====================
+Added
+-----
+- Support for workflow configuration via portable encapsulated projects (PEPs, https://pep.databio.org).
+- A new ILP based default scheduler now ensures that temporary files are deleted as fast as possible (@FelixMoelder, @johanneskoester).
+
+Changed
+-------
+- Fixed bug in modification date comparison for files in google storage (@vsoch).
+- Various small documentation improvements (@dcroote, @erjel, @dlaehnemann, @goi42).
+
+
+[5.22.1] - 2020-08-14
+=====================
+Changed
+-------
+- Fixed a missing dependency for google storage in cloud execution.
+
+[5.22.0] - 2020-08-13
+=====================
+Added
+-----
+- Added short option ``-T`` for CLI parameter ``--restart-times`` (@mbhall88).
+
+Changed
+-------
+- Various small fixes for google storage and life sciences backends (@vsoch).
+
+
+[5.21.0] - 2020-08-11
+=====================
+
+Changed
+-------
+- Added default-remote-provider support for Azure storage (@andreas-wilm).
+- Various small bug fixes and documentation improvements.
+
+
+[5.20.1] - 2020-07-08
+=====================
+Changed
+-------
+- Fixed a bug that caused singularity args to be not passed on correctly when using script or conda.
+
+[5.20.0] - 2020-07-08
+=====================
+Changed
+-------
+- Exceptions in input functions are now handled in a smarter way, by choosing alternative paths in the DAG if available.
+- Debugging dag creation (--debug-dag) now gives more hints if alternative DAG paths are chosen.
+- Fixes for XRootD remote file implementation.
+- Improved CLI documentation.
+- Improved docs.
+- Various minor bug fixes.
+- Restored Python 3.5 compatibility.
+- Speed improvements for workdir cleanup.
+- Allow Path objects to be passed to expand.
+
 [5.19.3] - 2020-06-16
 =====================
 Changed
@@ -151,10 +350,11 @@ Changed
 - --cores is now a mandatory argument!
 - Automatic checksum validation for google storage.
 
+
 Added
 -----
 - Azure storage authentication via SAS
-- A generic cintainer directive that will in the future allow for other backends than just singularity.
+- A generic container directive that will in the future allow for other backends than just singularity. This deprecates the singularity directive, which will however stay functional at least until the next major release.
 - envvars directive for asserting environment variable existence. See docs.
 - support for AWS spot instances via --tibanna-config spot=true.
 - Automatic code quality linting via --lint.
@@ -370,7 +570,7 @@ Added
 -----
 
 -  Snakemake workflows can now be exported to CWL via the flag
-   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executable.html>`_.
+   --export-cwl, see `the docs <https://snakemake.readthedocs.io/en/stable/executing/interoperability.html>`_.
 
 Changed
 -------

@@ -119,6 +119,7 @@ Finally, you can also define global wildcard constraints that apply for all rule
 
 See the `Python documentation on regular expressions <https://docs.python.org/py3k/library/re.html>`_ for detailed information on regular expression syntax.
 
+.. _snakefiles_aggregation:
 
 Aggregation
 -----------
@@ -136,6 +137,8 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
             ...
 
 The above expression can be simplified in two ways.
+
+.. _snakefiles_expand:
 
 The expand function
 ~~~~~~~~~~~~~~~~~~~
@@ -263,7 +266,11 @@ In particular, it should be noted that the specified threads have to be seen as 
 
 Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
-If it is certain that no such maximum exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
+Also, setting a ``threads:`` maximum is required to achieve parallelism in tools that (often implicitly and without the user knowing) rely on an environment variable for the maximum of cores to use.
+For example, this is the case for many linear algebra libraries and for OpenMP.
+Snakemake limits the respective environment variables to one core by default, to avoid unexpected and unlimited core-grabbing, but will override this with the ``threads:`` you specify in a rule (the parameters set to ``threads:``, or defaulting to ``1``, are: ``OMP_NUM_THREADS``, ``GOTO_NUM_THREADS``, ``OPENBLAS_NUM_THREADS``, ``MKL_NUM_THREADS``, ``VECLIB_MAXIMUM_THREADS``, ``NUMEXPR_NUM_THREADS``).
+
+If it is certain that no maximum for efficient parallelism exists for a tool, one can instead define threads as a function of the number of cores given to Snakemake:
 
 .. code-block:: python
 
@@ -303,13 +310,17 @@ If limits for the resources are given via the command line, e.g.
 
     $ snakemake --resources mem_mb=100
 
+
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` or ``str`` values.
+Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
-Note that you are free to choose any names for the given resources.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
 There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
@@ -338,6 +349,62 @@ This can be used to adjust the required memory as follows
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+
+Preemptible Virtual Machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
+several ways to go about doing this. This first example will use preemptible instances for all rules, with 10 repeats (restarts
+of the instance if it stops unexpectedly).
+
+.. code-block:: console
+
+    snakemake --preemption-default 10
+
+
+If your preference is to set a default but then overwrite some rules with a custom value, this is where you can use ``--preemtible-rules``:
+
+.. code-block:: console
+
+    snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0
+
+
+The above statement says that we want to use preemtible instances for all steps, defaulting to 10 retries,
+but for the steps "map_reads" and "call_variants" we want to apply 3 and 0 retries, respectively. The final
+option is to not use preemptible instances by default, but only for a particular rule:
+
+
+.. code-block:: console
+
+    snakemake --preemptible-rules map_reads=10
+
+
+Note that this is currently implemented for the Google Life Sciences API.
+
+
+GPU Resources
+~~~~~~~~~~~~~
+
+The Google Life Sciences API currently has support for 
+`NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
+
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        resources:
+            nvidia_gpu=1
+        shell:
+            "somecommand ..."
+
+
+A specific `gpu model <https://cloud.google.com/compute/docs/gpus#introduction>`_ can be requested using ``gpu_model`` and lowercase identifiers like ``nvidia-tesla-p100`` or ``nvidia-tesla-p4``, for example: ``gpu_model="nvidia-tesla-p100"``. If you don't specify ``gpu`` or ``nvidia_gpu`` with a count, but you do specify a ``gpu_model``, the count will default to 1.
+
+
 
 Messages
 --------
@@ -479,6 +546,10 @@ A rule can also point to an external script instead of a shell command or inline
         script:
             "scripts/script.py"
 
+.. note::
+
+    It is possible to refer to wildcards and params in the script path, e.g. by specifying ``"scripts/{params.scriptname}.py"`` or ``"scripts/{wildcards.scriptname}.py"``.
+
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
@@ -615,7 +686,7 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
             # optional path to the processed notebook
             notebook="logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "hello.py.ipynb"
+            "notebooks/hello.py.ipynb"
 
 .. note:
 
@@ -628,6 +699,10 @@ In the notebook, a snakemake object is available, which can be accessed in the s
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+.. note::
+
+    It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.
@@ -1112,6 +1187,68 @@ The resulting tsv file can be used as input for other rules, just like any other
     When using ``shell(..., bench_record=bench_record)``, the maximum of all measurements of all ``shell()`` calls will be used but the running time of the rule execution including any Python code.
 
 
+.. _snakefiles-scattergather:
+
+Defining scatter-gather processes
+---------------------------------
+
+Via Snakemake's powerful and abitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows well supported.
+Nevertheless, it can sometimes be handy to use Snakemake's specific scatter-gather support, which allows to avoid boilerplate and offers additional configuration options.
+Scatter-gather processes can be defined via a global ``scattergather`` directive:
+
+.. code-block:: python
+
+    scattergather:
+        split=8
+
+Each process thereby defines a name (here e.g. ``split``) and a default number of scatter items.
+Then, scattering and gathering can be implemented by using globally available ``scatter`` and ``gather`` objects:
+
+.. code-block:: python
+
+
+    rule all:
+        input:
+            "gathered/all.txt"
+
+
+    rule split:
+        output:
+            scatter.split("splitted/{scatteritem}.txt")
+        shell:
+            "touch {output}"
+
+
+    rule intermediate:
+        input:
+            "splitted/{scatteritem}.txt"
+        output:
+            "splitted/{scatteritem}.post.txt"
+        shell:
+            "cp {input} {output}"
+
+
+    rule gather:
+        input:
+            gather.split("splitted/{scatteritem}.post.txt")
+        output:
+            "gathered/all.txt"
+        shell:
+            "cat {input} > {output}"
+
+Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/0.txt"``, ``"splitted/1.txt"``, ..., depending on the number of scatter items defined.
+Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.pos.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
+
+The default number of scatter items can be overwritten via the command line interface.
+For example
+
+.. code-block:: bash
+
+    snakemake --set-scatter split=2
+
+would set the number of scatter items for the split process defined above to 2 instead of 8. 
+This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution
@@ -1119,10 +1256,10 @@ Defining groups for execution
 
 From Snakemake 5.0 on, it is possible to assign rules to groups.
 Such groups will be executed together in **cluster** or **cloud mode**, as a so-called **group job**, i.e., all jobs of a particular group will be submitted at once, to the same computing node.
-This way, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 When executing locally, group definitions are ignored.
 
-Groups can be defined via the ``group`` keyword, e.g.,
+Groups can be defined via the ``group`` keyword.
+This way, queueing and execution time can be saved, in particular if one or several short-running rules are involved.
 
 .. code-block:: python
 
@@ -1164,6 +1301,9 @@ Here, jobs from rule ``a`` and ``b`` end up in one group ``mygroup``, whereas jo
 Note that Snakemake always determines a **connected subgraph** with the same group id to be a **group job**.
 Here, this means that, e.g., the jobs creating ``a/1.out`` and ``b/1.out`` will be in one group, and the jobs creating ``a/2.out`` and ``b/2.out`` will be in a separate group.
 However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end up in a single group, including the one spawned from rule ``c``, because ``c`` connects all the other jobs.
+
+Alternatively, groups can be defined via the command line interface.
+This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
 
 Piped output
 ------------

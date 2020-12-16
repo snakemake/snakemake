@@ -1,0 +1,56 @@
+INPUT_FILE = 'Snakefile'
+OUTPUT_ROOT = 'checkpoint-test'
+
+BINS_DIR                    = Path(OUTPUT_ROOT) / 'bins'
+BIN_DIR_TEMPLATE            = BINS_DIR / '{bin_id}'
+BIN_FILE_TEMPLATE           = BINS_DIR / '{bin_id}' / 'read_list.txt'
+BIN_FILE2_TEMPLATE          = OUTPUT_ROOT + '.bin.{bin_id}.clust.info.csv'
+
+rule all:
+    input: OUTPUT_ROOT + '.final_file'
+
+rule rule1:
+    input: INPUT_FILE
+    output: OUTPUT_ROOT + '.file1'
+    shell:
+        'touch {output}'
+
+checkpoint checkpoint1:
+    " defines some bins "
+    input: OUTPUT_ROOT + '.file1'
+    output:
+        bins_dir=directory(BINS_DIR)
+    run:
+        # 20 bins
+        for bin_id in range(1,20):
+            # create bin specific subdir of BINS_DIR
+            bin_dir = str(BIN_DIR_TEMPLATE).format(bin_id=bin_id)
+            os.makedirs(bin_dir, exist_ok=True)
+
+            # create a bin specific output file
+            rlist_fn = str(BIN_FILE_TEMPLATE).format(bin_id=bin_id)
+            with open(rlist_fn, 'w') as fh:
+                fh.write(str(bin_id) + '\n')
+
+def expand_template_from_bins(wildcards, template):
+    # get dir through checkpoints to throw Exception if checkpoint is pending
+    checkpoint_dir = checkpoints.checkpoint1.get(**wildcards).output
+    # get bins from files
+    bins, = glob_wildcards(BIN_FILE_TEMPLATE)
+    # expand template
+    return expand(str(template), bin_id=bins)
+
+# the second input is key here
+rule rule2:
+    input:
+        bin_file=BIN_FILE_TEMPLATE,
+        other=OUTPUT_ROOT + '.file1'
+    output: BIN_FILE2_TEMPLATE
+    shell:
+        'touch {output}'
+
+rule final_rule:
+    """ access all bin files """
+    input: lambda w: expand_template_from_bins(w, BIN_FILE2_TEMPLATE)
+    output: OUTPUT_ROOT + '.final_file'
+    shell: 'touch {output}'

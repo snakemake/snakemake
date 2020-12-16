@@ -45,7 +45,9 @@ class shell:
     def check_output(cls, cmd, **kwargs):
         executable = cls.get_executable()
         if ON_WINDOWS and executable:
-            cmd = f'"{executable}" {cls._win_command_prefix} {argvquote(cmd)}'
+            cmd = '"{}" {} {}'.format(
+                executable, cls._win_command_prefix, argvquote(cmd)
+            )
             return sp.check_output(cmd, shell=False, executable=executable, **kwargs)
         else:
             return sp.check_output(cmd, shell=True, executable=executable, **kwargs)
@@ -76,11 +78,11 @@ class shell:
 
     @classmethod
     def win_command_prefix(cls, cmd):
-        """ The command prefix used on windows when specifing a explicit 
-            shell executable. This would be "-c" for bash and "/C" for cmd.exe
-            Note: that if no explicit executable is set commands are executed 
-            with Popen(..., shell=True) which uses COMSPEC on windows where this
-            is not needed.
+        """The command prefix used on windows when specifing a explicit
+        shell executable. This would be "-c" for bash and "/C" for cmd.exe
+        Note: that if no explicit executable is set commands are executed
+        with Popen(..., shell=True) which uses COMSPEC on windows where this
+        is not needed.
         """
         cls._win_command_prefix = cmd
 

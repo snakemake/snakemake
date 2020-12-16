@@ -12,7 +12,7 @@ import versioneer
 
 
 if sys.version_info < (3, 5):
-    print("At least Python 3.5 is required.\n", file=sys.stderr)
+    print("At least Python 3.5 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
@@ -45,6 +45,8 @@ setup(
         "snakemake.deployment",
         "snakemake.linting",
         "snakemake.executors",
+        "snakemake.unit_tests",
+        "snakemake.unit_tests.templates"
     ],
     entry_points={
         "console_scripts": [
@@ -52,7 +54,7 @@ setup(
             "snakemake-bash-completion = snakemake:bash_completion",
         ]
     },
-    package_data={"": ["*.css", "*.sh", "*.html"]},
+    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2"]},
     install_requires=[
         "wrapt",
         "requests",
@@ -67,16 +69,21 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "pulp >=2.0",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
         "messaging": ["slacker"],
         "google-cloud": [
-            "crc32c",
             "oauth2client",
+            "google-crc32c",
             "google-api-python-client",
             "google-cloud-storage",
         ],
+        "pep": [
+            "peppy",
+            "eido",
+        ]
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",

@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import traceback
+import textwrap
 from tokenize import TokenError
 from snakemake.logging import logger
 
@@ -131,6 +132,21 @@ class WorkflowError(Exception):
     def format_arg(arg):
         if isinstance(arg, str):
             return arg
+        elif isinstance(arg, WorkflowError):
+            spec = ""
+            if arg.rule is not None:
+                spec += "rule {}".format(arg.rule)
+            if arg.snakefile is not None:
+                if spec:
+                    spec += ", "
+                spec += "line {}, {}".format(arg.lineno, arg.snakefile)
+
+            if spec:
+                spec = " ({})".format(spec)
+
+            return "{}{}:\n{}".format(
+                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
+            )
         else:
             return "{}: {}".format(arg.__class__.__name__, str(arg))
 
@@ -192,11 +208,14 @@ class RuleException(Exception):
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
         msg = (
-            self.format_arg(msg)
+            "Error:\n  "
+            + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(
-                "{}={}".format(name, value) for name, value in wildcards.items()
+                "  {}={}".format(name, value) for name, value in wildcards.items()
             )
+            + "\nTraceback:\n"
+            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
@@ -235,10 +254,16 @@ class IOException(RuleException):
 
 class MissingOutputException(RuleException):
     def __init__(
-        self, message=None, include=None, lineno=None, snakefile=None, rule=None
+        self,
+        message=None,
+        include=None,
+        lineno=None,
+        snakefile=None,
+        rule=None,
+        jobid="",
     ):
-        message = "Job completed successfully, but some output files are missing. {}".format(
-            message
+        message = "Job {} completed successfully, but some output files are missing. {}".format(
+            message, jobid
         )
         super().__init__(message, include, lineno, snakefile, rule)
 
@@ -469,8 +494,8 @@ class SpawnedJobError(Exception):
 
 
 class CheckSumMismatchException(WorkflowError):
-    """"should be called to indicate that checksum of a file compared to known
-        hash does not match, typically done with large downloads, etc.
+    """ "should be called to indicate that checksum of a file compared to known
+    hash does not match, typically done with large downloads, etc.
     """
 
     pass

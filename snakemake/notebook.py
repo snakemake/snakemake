@@ -19,6 +19,14 @@ class Listen:
         self.ip, self.port = arg.split(":")
 
 
+def get_cell_sources(source):
+    import nbformat
+
+    nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
+
+    return [cell["source"] for cell in nb["cells"]]
+
+
 class JupyterNotebook(ScriptBase):
 
     editable = True
@@ -44,7 +52,7 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
+        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
@@ -237,7 +245,7 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir)
+        path, source, language = get_source(path, basedir, wildcards, params)
     else:
         source = None
 

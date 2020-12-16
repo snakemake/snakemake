@@ -26,7 +26,6 @@ from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 
-PY_VER_RE = re.compile(r"Python (?P<ver_min>\d+\.\d+).*")
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -351,6 +350,7 @@ class ScriptBase(ABC):
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
+            singularity_args=self.singularity_args,
             **kwargs
         )
 
@@ -422,8 +422,10 @@ class PythonScript(ScriptBase):
 
     def get_preamble(self):
         wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
-        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
-            file_override=repr(os.path.realpath(wrapper_path))
+        preamble_addendum = (
+            "__real_file__ = __file__; __file__ = {file_override};".format(
+                file_override=repr(os.path.realpath(wrapper_path))
+            )
         )
 
         return PythonScript.generate_preamble(
@@ -465,8 +467,11 @@ class PythonScript(ScriptBase):
         return os.path.exists(os.path.join(prefix, "python"))
 
     def _get_python_version(self):
-        out = self._execute_cmd("python --version", read=True).strip()
-        return tuple(map(int, PY_VER_RE.match(out).group("ver_min").split(".")))
+        out = self._execute_cmd(
+            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            read=True,
+        )
+        return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
@@ -807,7 +812,7 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
-def get_source(path, basedir="."):
+def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
@@ -817,8 +822,9 @@ def get_source(path, basedir="."):
         if not os.path.isabs(path):
             path = os.path.abspath(os.path.join(basedir, path))
         path = "file://" + path
-    # TODO this should probably be removed again. It does not work for report and hash!
-    path = format(path, stepout=1)
+    if wildcards is not None and params is not None:
+        # Format path if wildcards are given.
+        path = format(path, wildcards=wildcards, params=params)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
@@ -855,7 +861,13 @@ def get_language(path, source):
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
         nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
-        kernel_language = nb["metadata"]["language_info"]["name"]
+        try:
+            kernel_language = nb["metadata"]["language_info"]["name"]
+        except KeyError as e:
+            raise WorkflowError(
+                "Notebook metadata is corrupt. Please delete notebook "
+                "and recreate it via --edit-notebook."
+            )
 
         language += "_" + kernel_language.lower()
 
@@ -887,7 +899,7 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir)
+    path, source, language = get_source(path, basedir, wildcards, params)
 
     exec_class = {
         "python": PythonScript,

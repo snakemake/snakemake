@@ -24,6 +24,8 @@ Setup
 .. _Matplotlib: https://matplotlib.org
 .. _Pysam: https://pysam.readthedocs.io
 .. _Bioconda: https://bioconda.github.io
+.. _WSL: https://docs.microsoft.com/en-us/windows/wsl/about
+.. _WSL Documentation: https://docs.microsoft.com/en-us/windows/wsl/install-win10
 .. _Vagrant: https://www.vagrantup.com
 .. _Vagrant Documentation: https://docs.vagrantup.com
 .. _Blogpost: https://blog.osteel.me/posts/2015/01/25/how-to-use-vagrant-on-windows.html
@@ -34,25 +36,36 @@ Requirements
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.5
-* Snakemake_ 5.2.3
-* BWA_ 0.7.12
-* SAMtools_ 1.3.1
-* Pysam_ 0.15.0
-* BCFtools_ 1.3.1
-* Graphviz_ 2.38.0
-* Jinja2_ 2.10
-* NetworkX_ 2.1
-* Matplotlib_ 2.2.3
+* Snakemake_ ≥5.24.1
+* BWA_ 0.7
+* SAMtools_ 1.9
+* Pysam_ 0.15
+* BCFtools_ 1.9
+* Graphviz_ 2.42
+* Jinja2_ 2.11
+* NetworkX_ 2.5
+* Matplotlib_ 3.3
 
 The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Miniconda work also under Windows, but the Windows shell is too different to be able to provide generic examples.
 
-Setup a Linux VM with Vagrant under Windows
-:::::::::::::::::::::::::::::::::::::::::::
+Setup on Windows
+::::::::::::::::
 
 If you already use Linux or MacOS X, go on with **Step 1**.
-If you use Windows, you can setup a Linux virtual machine (VM) with Vagrant_.
+
+Windows Subsystem for Linux
+"""""""""""""""""""""""""""
+
+If you use Windows 10, you can setup the Windows Subsystem for Linux (`WSL`_) to natively run linux applications.
+Install the WSL following the instructions in the `WSL Documentation`_. You can chose any Linux distribution available for the WSL, but the most popular and accessible one is Ubuntu.
+Start the WSL and setup your account; now, you can follow the steps of our tutorial from within your Linux environment in the WSL.
+
+Vagrant virtual machine
+"""""""""""""""""""""""
+
+If you are using a version of Windows older than 10 or if you do not wish to install the WSL, you can instead setup a Linux virtual machine (VM) with Vagrant_.
 First, install Vagrant following the installation instructions in the `Vagrant Documentation`_.
 Then, create a reasonable new directory you want to share with your Linux VM, e.g., create a folder ``vagrant-linux`` somewhere.
 Open a command line prompt, and change into that directory.
@@ -83,14 +96,14 @@ Assuming that you have a 64-bit system, on Linux, download and install Miniconda
 
 .. code:: console
 
-    $ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    $ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     $ bash Miniconda3-latest-Linux-x86_64.sh
 
 On MacOS X, download and install with
 
 .. code:: console
 
-    $ curl https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
+    $ curl https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -o Miniconda3-latest-MacOSX-x86_64.sh
     $ bash Miniconda3-latest-MacOSX-x86_64.sh
 
 For a 32-bit system, URLs and file names are analogous but without the ``_64``.
@@ -122,8 +135,8 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.4.5.tar.gz
-    $ tar -xf v5.4.5.tar.gz --strip 1
+    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz
+    $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
 

@@ -22,7 +22,7 @@ try:
 except ImportError as e:
     raise WorkflowError(
         "The Python 3 package 'ftputil' "
-        + "must be installed to use SFTP remote() file functionality. %s" % e.msg
+        + "must be installed to use FTP remote() file functionality. %s" % e.msg
     )
 
 
@@ -108,8 +108,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with an FTP server.
-    """
+    """This is a class to interact with an FTP server."""
 
     def __init__(
         self,

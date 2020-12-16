@@ -133,8 +133,11 @@ Nevertheless, we can **execute our workflow** with
 
 .. code:: console
 
-    $ snakemake mapped_reads/A.bam
+    $ snakemake --cores 1 mapped_reads/A.bam
 
+Whenever executing a workflow, you need to specify the number of cores to use.
+For this tutorial, we will use a single core for now. 
+Later you will see how parallelization works.
 Note that, after completion of above command, Snakemake will not try to create ``mapped_reads/A.bam`` again, because it is already present in the file system.
 Snakemake **only re-runs jobs if one of the input files is newer than one of the output files or one of the input files will be updated by another job**.
 
@@ -371,7 +374,7 @@ Step 6: Using custom scripts
 ::::::::::::::::::::::::::::
 
 Usually, a workflow not only consists of invoking various tools, but also contains custom code to e.g. calculate summary statistics or create plots.
-While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`_, it is usually reasonable to move such logic into separate scripts.
+While Snakemake also allows you to directly :ref:`write Python code inside a rule <.. _snakefiles-rules>`, it is usually reasonable to move such logic into separate scripts.
 For this purpose, Snakemake offers the ``script`` directive.
 Add the following rule to your Snakefile:
 

@@ -140,7 +140,7 @@ When Snakemake is executed with
 
 .. code:: console
 
-  snakemake --use-conda
+  snakemake --use-conda --cores 1
 
 it will automatically create required environments and
 activate them before a job is executed.
@@ -268,7 +268,7 @@ To use this script call snakemake similar to below, where ``status.py`` is the s
 
 .. code:: console
 
-    $ snakemake all --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
+    $ snakemake all --jobs 100 --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
 
 
 Constraining wildcards

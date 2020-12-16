@@ -48,7 +48,7 @@ def kubernetes_cluster():
 
         def reset(self):
             print("Resetting bucket...", file=sys.stderr)
-            shell("gsutil rm -r gs://{self.bucket_name}/* || true")
+            shell("gsutil -m rm -r gs://{self.bucket_name}/* || true")
 
     cluster = Cluster()
     yield cluster

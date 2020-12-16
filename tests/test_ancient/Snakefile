@@ -25,7 +25,6 @@ rule b:
     shell:
         "echo \"C recreated\" > {output}"
 
-#Will be executed because C was updated in rule b
 rule c:
     input:
         ancient("C")
