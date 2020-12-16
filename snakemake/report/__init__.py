@@ -717,7 +717,7 @@ def auto_report(dag, path, stylesheet=None):
             def get_time(rectime, metatime, sel_func):
                 if metatime is None:
                     return rectime
-                return selfunc(metatime, rectime)
+                return sel_func(metatime, rectime)
 
             try:
                 job_hash = meta["job_hash"]
