@@ -1,3 +1,18 @@
+[5.30.2] - 2020-12-16
+=====================
+Changed
+-------
+- Fix permission issues with jobscripts on some systems (@Phhere).
+- Added notes on WSL to the tutorial (@RomainFeron).
+- Scheduler fixes (@johanneskoester).
+- Fixed a bug in checkpoint handling that led to hanging workflow execution (@jmeppley).
+- Pass cluster nodes to subworkflows (@votti).
+- Fix start time recording in metadata (@lparsons).
+- Fix time retrieval in reports (@johanneskoester).
+- Fix error when returning a Path from an input function (@sappjw).
+- Extending monitoring docs with some notes about future api changes (@vsoch).
+
+
 
 [5.30.0] - 2020-11-23
 =====================
