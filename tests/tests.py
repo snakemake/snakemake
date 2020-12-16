@@ -990,6 +990,10 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue727():
+    run(dpath("test_github_issue727"))
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
