@@ -753,7 +753,11 @@ class Rule:
                     item = [item]
                     is_iterable = False
                 for item_ in item:
-                    if check_return_type and not isinstance(item_, str):
+                    if (
+                        check_return_type
+                        and not isinstance(item_, str)
+                        and not isinstance(item_, Path)
+                    ):
                         raise WorkflowError(
                             "Function did not return str or list " "of str.", rule=self
                         )
@@ -772,7 +776,7 @@ class Rule:
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
                 if isinstance(f, Path):
-                    f = str(Path)
+                    f = str(f)
                 return IOFile(f, rule=self).apply_wildcards(
                     wildcards,
                     fill_missing=f in self.dynamic_input,
