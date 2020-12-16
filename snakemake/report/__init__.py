@@ -713,14 +713,20 @@ def auto_report(dag, path, stylesheet=None):
                     "warning.".format(f)
                 )
                 continue
+
+            def get_time(rectime, metatime, sel_func):
+                if metatime is None:
+                    return rectime
+                return sel_func(metatime, rectime)
+
             try:
                 job_hash = meta["job_hash"]
                 rule = meta["rule"]
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
                 rec.job = job
-                rec.starttime = min(rec.starttime, meta["starttime"])
-                rec.endtime = max(rec.endtime, meta["endtime"])
+                rec.starttime = get_time(rec.starttime, meta["starttime"], min)
+                rec.endtime = get_time(rec.endtime, meta["endtime"], max)
                 rec.conda_env_file = None
                 rec.conda_env = meta["conda_env"]
                 rec.container_img_url = meta["container_img_url"]
@@ -742,12 +748,18 @@ def auto_report(dag, path, stylesheet=None):
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
 
+    def get_datetime(rectime):
+        try:
+            return datetime.datetime.fromtimestamp(rectime).isoformat()
+        except OSError:
+            return None
+
     # prepare end times
     timeline = [
         {
             "rule": rec.rule,
-            "starttime": datetime.datetime.fromtimestamp(rec.starttime).isoformat(),
-            "endtime": datetime.datetime.fromtimestamp(rec.endtime).isoformat(),
+            "starttime": get_datetime(rec.starttime),
+            "endtime": get_datetime(rec.endtime),
         }
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
