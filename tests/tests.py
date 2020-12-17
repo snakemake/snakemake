@@ -1057,6 +1057,16 @@ def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
 
+def test_github_issue413():
+    # the bug appears on the second run when the symlink output already exists
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+
+    # running with no_tmpdir leaves the output in the test folder
+    os.unlink('tests/test_github_issue413/test.txt')
+    os.unlink('tests/test_github_issue413/test.link')
+    os.unlink('tests/test_github_issue413/output.txt')
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 

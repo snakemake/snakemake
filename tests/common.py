@@ -93,6 +93,9 @@ def run(
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
     clean it up.
+
+    Set no_tmpdir=True to run in the original test_subfolder (warining: no cleanup is
+    done in this case)
     """
     if set_pythonpath:
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
@@ -102,16 +105,22 @@ def run(
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
-    original_snakefile = join(path, snakefile)
-    assert os.path.exists(original_snakefile)
+
+    # make sure the teste supplied a snakefile and reults
+    snakefile = join(path, snakefile)
+    assert os.path.exists(snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir
     ), "{} does not exist".format(results_dir)
 
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
+    # set up the tmpdir unless explicitly skipped
+    if no_tmpdir:
+        wf_run_dir = path
+    else:
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
+        os.mkdir(tmpdir)
+        wf_run_dir = tmpdir
 
     config = {}
 
@@ -130,19 +139,20 @@ def run(
             copy(os.path.join(subpath, f), subworkdir)
         config["subworkdir"] = subworkdir
 
-    # copy files
-    for f in os.listdir(path):
-        print(f)
-        copy(os.path.join(path, f), tmpdir)
+    if not no_tmpdir:
+        # copy files to tmpdir
+        for f in os.listdir(path):
+            print(f)
+            copy(os.path.join(path, f), tmpdir)
 
-    # Snakefile is now in temporary directory
-    snakefile = join(tmpdir, snakefile)
+    # get path to Snakefile in run dir (either tmpdir or path)
+    snakefile = join(wf_run_dir, snakefile)
 
     # run snakemake
     success = snakemake(
-        snakefile=original_snakefile if no_tmpdir else snakefile,
+        snakefile=snakefile,
         cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
+        workdir=wf_run_dir,
         stats="stats.txt",
         config=config,
         verbose=True,
@@ -161,14 +171,14 @@ def run(
             ):
                 # this means tests cannot use directories as output files
                 continue
-            targetfile = join(tmpdir, resultfile)
+            targetfile = join(wf_run_dir, resultfile)
             expectedfile = join(results_dir, resultfile)
 
             if ON_WINDOWS:
                 if os.path.exists(join(results_dir, resultfile + "_WIN")):
                     continue  # Skip test if a Windows specific file exists
                 if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
+                    targetfile = join(wf_run_dir, resultfile[:-4])
             elif resultfile.endswith("_WIN"):
                 # Skip win specific result files on Posix platforms
                 continue
@@ -187,6 +197,9 @@ def run(
                         resultfile, content
                     )
 
-    if not cleanup:
-        return tmpdir
-    shutil.rmtree(tmpdir)
+
+    if not no_tmpdir:
+        # If we need to further check results, we won't cleanup tmpdir
+        if not cleanup:
+            return tmpdir
+        shutil.rmtree(tmpdir)
