@@ -1115,3 +1115,7 @@ def test_metadata_migration():
     # run workflow, incomplete v1 metadata should be migrated and trigger rerun of the rule,
     # which will save different data than the output contained in the git repo.
     run(dpath("test_metadata_migration"), force_incomplete=True)
+
+
+def test_github_issue806():
+    run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
