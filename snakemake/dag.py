@@ -1492,7 +1492,6 @@ class DAG:
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
-        dependencies = list(self.dependencies[job].items())
 
         self.delete_job(job, recursive=recursive)
         self._jobid[newjob] = jobid
