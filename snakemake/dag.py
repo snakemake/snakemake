@@ -1458,6 +1458,8 @@ class DAG:
             self._dynamic.remove(job)
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
+        if job in self._n_until_ready:
+            del self._n_until_ready[job]
         # remove from cache
         for f in job.output:
             try:
