@@ -197,7 +197,6 @@ def run(
                         resultfile, content
                     )
 
-
     if not no_tmpdir:
         # If we need to further check results, we won't cleanup tmpdir
         if not cleanup:
