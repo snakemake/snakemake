@@ -84,6 +84,7 @@ def run(
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
+    config=dict(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     **params
 ):
@@ -113,7 +114,7 @@ def run(
     tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
     os.mkdir(tmpdir)
 
-    config = {}
+    config = dict(config)
 
     # handle subworkflow
     if subpath is not None:
