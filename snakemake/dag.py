@@ -1299,6 +1299,15 @@ class DAG:
             self.postprocess()
         return updated
 
+    def register_running(self, jobs):
+        self._ready_jobs -= jobs
+        for job in jobs:
+            try:
+                del self._n_until_ready[job]
+            except KeyError:
+                # already gone
+                pass
+
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""

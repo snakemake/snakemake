@@ -479,8 +479,8 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
-                    # remove from read_jobs
-                    self.dag._ready_jobs -= run
+                    # remove from ready_jobs
+                    self.dag.register_running(run)
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
