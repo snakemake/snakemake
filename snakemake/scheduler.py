@@ -654,7 +654,9 @@ class JobScheduler:
             }
             prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
-            total_temp_size = max(sum([size_gb(temp_file) for temp_file in temp_files]), 1)
+            total_temp_size = max(
+                sum([size_gb(temp_file) for temp_file in temp_files]), 1
+            )
             total_core_requirement = sum(
                 [max(job.resources.get("_cores", 1), 1) for job in jobs]
             )
@@ -695,7 +697,10 @@ class JobScheduler:
             for name in self.workflow.global_resources:
                 prob += (
                     lpSum(
-                        [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
+                        [
+                            scheduled_jobs[job] * job.resources.get(name, 0)
+                            for job in jobs
+                        ]
                     )
                     <= self.resources[name]
                 )
@@ -708,9 +713,13 @@ class JobScheduler:
                         scheduled_jobs[job] * self.required_by_job(temp_file, job)
                         for job in jobs
                     ]
-                ) / lpSum([self.required_by_job(temp_file, job) for job in remaining_jobs])
+                ) / lpSum(
+                    [self.required_by_job(temp_file, job) for job in remaining_jobs]
+                )
 
-                prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
+                prob += (
+                    temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
+                )
 
         solver = (
             pulp.get_solver(self.scheduler_ilp_solver)
