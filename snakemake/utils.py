@@ -672,6 +672,6 @@ class Paramspace:
         import pandas as pd
 
         ret = self.dataframe[key]
-        if isinstance(ref, pd.DataFrame):
+        if isinstance(ret, pd.DataFrame):
             return Paramspace(ret)
         return ret
