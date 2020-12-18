@@ -953,7 +953,11 @@ class Job(AbstractJob):
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
-        if self.dag.workflow.use_conda and self.conda_env:
+        if (
+            self.dag.workflow.use_conda
+            and self.conda_env
+            and os.path.isfile(self.conda_env.file)
+        ):
             wait_for_files.append(self.conda_env_path)
         return wait_for_files
 
@@ -1183,7 +1187,11 @@ class GroupJob(AbstractJob):
         for job in self.jobs:
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
-            if self.dag.workflow.use_conda and job.conda_env:
+            if (
+                self.dag.workflow.use_conda
+                and job.conda_env
+                and os.path.isfile(job.conda_env.file)
+            ):
                 wait_for_files.append(job.conda_env_path)
         return wait_for_files
 
