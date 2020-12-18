@@ -54,7 +54,7 @@ def subworkflow(
         output_normalized.append(fname_rel)
 
     # execute sub-workflow
-    logger.info("Executing sub-workflow")
+    logger.debug(f"Executing sub-workflow: {rulename}")
 
     workflow.subsnakemake(
         path,
@@ -64,4 +64,4 @@ def subworkflow(
         configfiles=[sub_configfile] if sub_configfile is not None else None,
     )
 
-    logger.info("Finished execution of sub-workflow")
+    logger.debug(f"Finished execution of sub-workflow: {rulename}")
