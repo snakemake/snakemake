@@ -26,6 +26,7 @@ from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
+from snakemake.utils import is_file_or_url
 
 
 def format_files(job, io, dynamicio):
@@ -326,9 +327,10 @@ class Job(AbstractJob):
     def conda_env_path(self):
         if self.conda_env is None:
             return None
-        elif os.path.isfile(self.conda_env.file):
+        elif is_file_or_url(self.conda_env.file):
             return self.conda_env.path
         else:
+            # just a named conda environment
             return self.conda_env.file
 
     def archive_conda_env(self):
@@ -956,7 +958,7 @@ class Job(AbstractJob):
         if (
             self.dag.workflow.use_conda
             and self.conda_env
-            and os.path.isfile(self.conda_env.file)
+            and is_file_or_url(self.conda_env.file)
         ):
             wait_for_files.append(self.conda_env_path)
         return wait_for_files
@@ -1190,7 +1192,7 @@ class GroupJob(AbstractJob):
             if (
                 self.dag.workflow.use_conda
                 and job.conda_env
-                and os.path.isfile(job.conda_env.file)
+                and is_file_or_url(job.conda_env.file)
             ):
                 wait_for_files.append(job.conda_env_path)
         return wait_for_files

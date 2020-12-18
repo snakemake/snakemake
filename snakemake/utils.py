@@ -16,6 +16,7 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
+import urllib
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
@@ -198,6 +199,11 @@ def makedirs(dirnames):
         dirnames = [dirnames]
     for dirname in dirnames:
         os.makedirs(dirname, exist_ok=True)
+
+
+def is_file_or_url(path):
+    """Returns true if the path is a file or a URL"""
+    return urllib.parse.urlparse(path).scheme or os.path.exists(path)
 
 
 def report(

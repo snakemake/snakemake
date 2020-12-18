@@ -214,6 +214,10 @@ class Env:
                 env_file = tmp.name
                 tmp_file = tmp.name
 
+        # If the environment file is really just the name of a conda environment
+        if not os.path.isfile(env_file):
+            return None
+
         env_hash = self.hash
         env_path = self.path
 

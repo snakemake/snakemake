@@ -18,6 +18,7 @@ from pathlib import Path
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
+from snakemake.utils import is_file_or_url
 
 
 class Persistence:
@@ -365,7 +366,7 @@ class Persistence:
 
     @lru_cache()
     def _conda_env(self, job):
-        if job.conda_env and os.path.exists(job.conda_env.file):
+        if job.conda_env and is_file_or_url(job.conda_env.file):
             return b64encode(job.conda_env.content).decode()
 
     @lru_cache()
