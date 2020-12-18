@@ -113,6 +113,7 @@ class Workflow:
         edit_notebook=False,
         envvars=None,
         max_inventory_wait_time=20,
+        conda_not_block_search_path_envvars=False,
     ):
         """
         Create the controller.
@@ -183,6 +184,7 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
 
         self.enable_cache = False
         if cache is not None:
