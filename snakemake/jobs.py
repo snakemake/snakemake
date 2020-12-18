@@ -1425,9 +1425,11 @@ class Reason:
         "derived",
         "pipe",
         "target",
+        "finished",
     ]
 
     def __init__(self):
+        self.finished = False
         self._updated_input = None
         self._updated_input_run = None
         self._missing_output = None
@@ -1453,6 +1455,10 @@ class Reason:
     @lazy_property
     def incomplete_output(self):
         return set()
+
+    def mark_finished(self):
+        " called if the job has been run "
+        self.finished = True
 
     def __str__(self):
         s = list()
@@ -1491,6 +1497,8 @@ class Reason:
                         )
                     )
         s = "; ".join(s)
+        if self.finished:
+            return f"Finished (was: {s})"
         return s
 
     def __bool__(self):
@@ -1503,4 +1511,4 @@ class Reason:
             or self.nooutput
             or self.pipe
         )
-        return v
+        return v and not self.finished

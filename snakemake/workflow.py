@@ -748,6 +748,7 @@ class Workflow:
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
                         cores=self.cores,
+                        nodes=self.nodes,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,

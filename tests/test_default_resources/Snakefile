@@ -1,10 +1,7 @@
-from snakemake.remote.S3Mocked import RemoteProvider as S3RemoteProvider
-
-s3 = S3RemoteProvider()
 
 rule a:
     input:
-        s3.remote("test-remote-bucket/test.in")
+        "test-remote-bucket/test.in"
     output:
         "test.out"
     group: "test"
@@ -13,7 +10,7 @@ rule a:
 
 rule b:
     output:
-        s3.remote("test-remote-bucket/test.in")
+        "test-remote-bucket/test.in"
     group: "test"
     shell:
         "[[ '{resources.mem_mb}' == '1000' ]] && touch {output}"
