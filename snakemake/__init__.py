@@ -173,7 +173,7 @@ def snakemake(
     group_components=None,
     max_inventory_wait_time=20,
     execute_subworkflows=True,
-    conda_not_block_search_path_envvars=True,
+    conda_not_block_search_path_envvars=False,
 ):
     """Run snakemake on a given snakefile.
 
