@@ -21,7 +21,7 @@ paramspace_full = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_param
 paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma", "alpha"])
 
 # shold result in alpha:{alpha}/beta:{beta}/gamma:{gamma}
-paramspace_sep = Paramspace(pd.read_csv("params.tsv", sep="\t"), param_sep=":")
+paramspace_sep = Paramspace(pd.read_csv("params.tsv", sep="\t"), param_sep="_is_")
 
 # shold result in beta={beta}_gamma={gamma}_alpha={alpha}
 paramspace_sep_and_pattern = Paramspace(
