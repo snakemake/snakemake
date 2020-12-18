@@ -290,7 +290,7 @@ class DAG:
 
         if not init_only:
             for env in self.conda_envs.values():
-                if not dryrun or not quiet:
+                if os.path.isfile(env.file) and (not dryrun or not quiet):
                     env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):

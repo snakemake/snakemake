@@ -1330,13 +1330,33 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
+                # 1. URL (remote)
+                # 2. YAML (local)
+                # 3. DIR (local)
+                if urllib.parse.urlparse(ruleinfo.conda_env).scheme:
+                    logger.debug("Remote conda environment found: {}".format(ruleinfo.conda_env))
+                elif os.path.exists(ruleinfo.conda_env):
+                    logger.debug("Local conda environment found: {}".format(ruleinfo.conda_env))
+                    if not os.path.isabs(ruleinfo.conda_env):
+                        ruleinfo.conda_env = os.path.join(
+                            self.current_basedir, ruleinfo.conda_env
+                        )
+                else:
+                    conda_prefix = (
+                        os.environ["CONDA_PREFIX"] if self.conda_prefix is None
+                        else self.conda_prefix
                     )
+                    path = os.path.join(conda_prefix, ruleinfo.conda_env)
+                    if os.path.exists(path) and os.path.isdir(path):
+                        raise RuleException(
+                            "Conda environment named '{}' not found at: {}".format(
+                                ruleinfo.conda_env,
+                                path
+                            ),
+                            rule=rule,
+                        )
+                    # do not set the full path, so persistence doesn't remove the conda environment
+                    #ruleinfo.conda_env = path
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (

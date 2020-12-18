@@ -324,7 +324,12 @@ class Job(AbstractJob):
 
     @property
     def conda_env_path(self):
-        return self.conda_env.path if self.conda_env else None
+        if self.conda_env is None:
+            return None
+        elif os.path.isfile(self.conda_env.file):
+            return self.conda_env.path
+        else:
+            return self.conda_env.file
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""

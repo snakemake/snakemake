@@ -365,7 +365,7 @@ class Persistence:
 
     @lru_cache()
     def _conda_env(self, job):
-        if job.conda_env:
+        if job.conda_env and os.path.exists(job.conda_env.file):
             return b64encode(job.conda_env.content).decode()
 
     @lru_cache()
