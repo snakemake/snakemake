@@ -23,6 +23,13 @@ paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filena
 # shold result in alpha:{alpha}/beta:{beta}/gamma:{gamma}
 paramspace_sep = Paramspace(pd.read_csv("params.tsv", sep="\t"), param_sep=":")
 
+# shold result in beta={beta}_gamma={gamma}_alpha={alpha}
+paramspace_sep_and_pattern = Paramspace(
+    pd.read_csv("params.tsv", sep="\t"),
+    filename_params=["beta", "gamma", "alpha"],
+    param_sep="=",
+)
+
 
 rule all:
     input:
@@ -33,6 +40,7 @@ rule all:
         expand("results/full/plots/{params}.pdf", params=paramspace_full.instance_patterns),
         expand("results/full_reorder/plots/{params}.pdf", params=paramspace_full_reorder.instance_patterns),
         expand("results/sep/plots/{params}.pdf", params=paramspace_sep.instance_patterns),
+        expand("results/sep_and_pattern/plots/{params}.pdf", params=paramspace_sep_and_pattern.instance_patterns),
 
 
 rule simulate_default:
@@ -157,5 +165,23 @@ rule plot_sep:
         f"results/sep/simulations/{paramspace_sep.wildcard_pattern}.tsv"
     output:
         f"results/sep/plots/{paramspace_sep.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_sep_and_pattern:
+    output:
+        f"results/sep_and_pattern/simulations/{paramspace_sep_and_pattern.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_sep_and_pattern.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_sep_and_pattern:
+    input:
+        f"results/sep_and_pattern/simulations/{paramspace_sep_and_pattern.wildcard_pattern}.tsv"
+    output:
+        f"results/sep_and_pattern/plots/{paramspace_sep_and_pattern.wildcard_pattern}.pdf"
     shell:
         "touch {output}"
