@@ -990,6 +990,10 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue727():
+    run(dpath("test_github_issue727"))
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
@@ -1115,3 +1119,6 @@ def test_metadata_migration():
 
 def test_paramspace():
     run(dpath("test_paramspace"), cleanup=False)
+
+def test_github_issue806():
+    run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
