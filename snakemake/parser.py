@@ -611,7 +611,7 @@ class Notebook(Script):
         )
 
 
-class Subworkflow_RuleLike(Script):
+class SubworkflowRuleLike(Script):
     start_func = "@workflow.subworkflow"
     end_func = "subworkflow"
 
@@ -677,7 +677,7 @@ class Rule(GlobalKeywordState):
         shell=Shell,
         script=Script,
         notebook=Notebook,
-        subworkflow=Subworkflow_RuleLike,
+        subworkflow=SubworkflowRuleLike,
         wrapper=Wrapper,
         cwl=CWL,
         cache=Cache,
