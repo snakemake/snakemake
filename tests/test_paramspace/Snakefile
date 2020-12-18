@@ -3,6 +3,9 @@ import pandas as pd
 
 
 # shold result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
+paramspace_default = Paramspace(pd.read_csv("params.tsv", sep="\t"))
+
+# shold result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
 paramspace_empty = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=[])
 
 # shold result in alpha~{alpha}/gamma~{gamma}/beta~{beta}
@@ -20,18 +23,38 @@ paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filena
 
 rule all:
     input:
+        expand("results/default/plots/{params}.pdf", params=paramspace_default.instance_patterns),
         expand("results/empty/plots/{params}.pdf", params=paramspace_empty.instance_patterns),
         expand("results/one/plots/{params}.pdf", params=paramspace_one.instance_patterns),
         expand("results/two/plots/{params}.pdf", params=paramspace_two.instance_patterns),
         expand("results/full/plots/{params}.pdf", params=paramspace_full.instance_patterns),
         expand("results/full_reorder/plots/{params}.pdf", params=paramspace_full_reorder.instance_patterns),
+        # expand("results/sep/plots/{params}.pdf", params=paramspace_sep.instance_patterns),
+
+
+rule simulate_default:
+    output:
+        f"results/default/simulations/{paramspace_default.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_default.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_default:
+    input:
+        f"results/default/simulations/{paramspace_default.wildcard_pattern}.tsv"
+    output:
+        f"results/default/plots/{paramspace_default.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
 
 
 rule simulate_empty:
     output:
         f"results/empty/simulations/{paramspace_empty.wildcard_pattern}.tsv"
     params:
-        simulation=paramspace.instance
+        simulation=paramspace_empty.instance
     script:
         "scripts/simulate.py"
 
@@ -49,7 +72,7 @@ rule simulate_one:
     output:
         f"results/one/simulations/{paramspace_one.wildcard_pattern}.tsv"
     params:
-        simulation=paramspace.instance
+        simulation=paramspace_one.instance
     script:
         "scripts/simulate.py"
 
@@ -67,7 +90,7 @@ rule simulate_two:
     output:
         f"results/two/simulations/{paramspace_two.wildcard_pattern}.tsv"
     params:
-        simulation=paramspace.instance
+        simulation=paramspace_two.instance
     script:
         "scripts/simulate.py"
 
@@ -85,7 +108,7 @@ rule simulate_full:
     output:
         f"results/full/simulations/{paramspace_full.wildcard_pattern}.tsv"
     params:
-        simulation=paramspace.instance
+        simulation=paramspace_full.instance
     script:
         "scripts/simulate.py"
 
@@ -103,7 +126,7 @@ rule simulate_full_reorder:
     output:
         f"results/full_reorder/simulations/{paramspace_full_reorder.wildcard_pattern}.tsv"
     params:
-        simulation=paramspace.instance
+        simulation=paramspace_full_reorder.instance
     script:
         "scripts/simulate.py"
 

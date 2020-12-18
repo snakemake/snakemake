@@ -1114,5 +1114,6 @@ def test_metadata_migration():
 
 
 def test_paramspace():
-    run(dpath("test_paramspace/automatic_pattern"))
-    run(dpath("test_paramspace/custom_pattern"))
+    run(dpath("test_paramspace"), cleanup=False)
+    # run(dpath("test_paramspace/automatic_pattern"), cleanup=False)
+    # run(dpath("test_paramspace/custom_pattern"), cleanup=False)
