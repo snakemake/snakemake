@@ -1,10 +1,17 @@
 rule all:
     input:
-        txt = 'out.txt'
+        txt = 'out2.txt'
 
 some_var = 'generate_out'
 
 rule:
     name_override: some_var
-    output: 'out.txt'
-    shell: '''echo hi > {output.txt}'''
+    output: 'out1.txt'
+    shell: '''echo {rule} > {output}'''
+
+
+rule name1:
+    name_override: "name2"
+    input: 'out1.txt'
+    output: 'out2.txt'
+    shell: '''echo {rule} > {output}'''
