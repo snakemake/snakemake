@@ -1206,11 +1206,17 @@ class Workflow:
         rule.is_checkpoint = checkpoint
 
         def decorate(ruleinfo):
+            nonlocal name
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1]
                 )
+            if ruleinfo.name_override:
+                rule.name = ruleinfo.name_override
+                del self._rules[name]
+                self._rules[ruleinfo.name_override] = rule
+                name = rule.name
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -1360,6 +1366,7 @@ class Workflow:
                     rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
+            rule.name_override = ruleinfo.name_override  # FIXME
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
@@ -1568,6 +1575,13 @@ class Workflow:
 
         return decorate
 
+    def name_override(self, name):
+        def decorate(ruleinfo):
+            ruleinfo.name_override = name
+            return ruleinfo
+
+        return decorate
+
     def run(self, func):
         return RuleInfo(func)
 
@@ -1580,6 +1594,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
+        self.name_override = None
         self.norun = False
         self.input = None
         self.output = None

@@ -396,6 +396,12 @@ class Localrules(GlobalKeywordState):
 # Rule keyword states
 
 
+class NameOverride(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "name_override"
+
+
 class Input(RuleKeywordState):
     pass
 
@@ -640,6 +646,7 @@ class CWL(Script):
 
 class Rule(GlobalKeywordState):
     subautomata = dict(
+        name_override=NameOverride,
         input=Input,
         output=Output,
         params=Params,

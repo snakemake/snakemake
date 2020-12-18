@@ -4,8 +4,7 @@
 Rules
 =====
 
-Most importantly, a rule can consist of a name (the name is optional and can be left out, creating an anonymous rule), input files, output files, and a shell command to generate the output from the input, i.e.
-
+Most importantly, a rule can consist of a name, input files, output files, and a shell command to generate the output from the input, i.e.
 
 .. code-block:: python
 
@@ -13,6 +12,8 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         input: "path/to/inputfile", "path/to/other/inputfile"
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
+
+The name is optional and can be left out, creating an anonymous rule, and can be overridden with ``name_override``.
 
 Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.

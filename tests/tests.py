@@ -279,6 +279,10 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_name_override():
+    run(dpath("test_name_override"))
+
+
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 

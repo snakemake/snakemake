@@ -1,0 +1,10 @@
+rule all:
+    input:
+        txt = 'out.txt'
+
+some_var = 'generate_out'
+
+rule:
+    name_override: some_var
+    output: 'out.txt'
+    shell: '''echo hi > {output.txt}'''
