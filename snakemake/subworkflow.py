@@ -30,7 +30,7 @@ def subworkflow(
     # extract (and normalize) parameters
     basedir = os.path.normpath(basedir)
     sub_workdir = os.path.normpath(params.get("workdir", f"subworkflow/{rulename}"))
-    sub_configfile = params.get("configfile", "")
+    sub_configfile = params.get("configfile")
 
     # the sub-workflow needs to run in a different directory than the
     # main-workflow. This is necessary due to Snakemake's locking mechanism
@@ -60,7 +60,7 @@ def subworkflow(
         workdir=sub_workdir,
         targets=output_normalized,
         cores=threads,
-        configfiles=[sub_configfile] if sub_configfile else None,
+        configfiles=[sub_configfile] if sub_configfile is not None else None,
     )
 
     logger.info("Finished execution of sub-workflow")
