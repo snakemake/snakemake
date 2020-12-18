@@ -36,7 +36,8 @@ def subworkflow(
     # main-workflow. This is necessary due to Snakemake's locking mechanism
     if basedir == sub_workdir:
         raise WorkflowError(
-            "Sub-workflow workdir must be different from main-workflow workdir"
+            f"Sub-workflow workdir ({sub_workdir}) must be different "
+            f"from main-workflow workdir ({basedir})"
         )
 
     # all output files must use the sub-workflow's workdir as their prefix
