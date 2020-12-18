@@ -36,6 +36,7 @@ class shell:
     _lock = threading.Lock()
     _processes = {}
     _win_command_prefix = ""
+    conda_block_conflicting_envvars = True
 
     @classmethod
     def get_executable(cls):
@@ -157,6 +158,13 @@ class shell:
         envvars["MKL_NUM_THREADS"] = threads
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
+        if conda_env and cls.conda_block_conflicting_envvars:
+            # remove envvars that conflict with conda
+            for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
+                try:
+                    del envvars[var]
+                except KeyError:
+                    pass
 
         use_shell = True
 
