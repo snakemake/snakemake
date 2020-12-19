@@ -1118,7 +1118,7 @@ def test_metadata_migration():
 
 
 def test_paramspace():
-    run(dpath("test_paramspace"), cleanup=False)
+    run(dpath("test_paramspace"))
 
 
 def test_github_issue806():
