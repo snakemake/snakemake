@@ -120,6 +120,11 @@ class AbstractExecutor:
             return args
         return ""
 
+    def get_behavior_args(self):
+        if self.workflow.conda_not_block_search_path_envvars:
+            return " --conda-not-block-search-path-envvars "
+        return ""
+
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
 
@@ -411,6 +416,7 @@ class CPUExecutor(RealExecutor):
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_behavior_args(),
                 self.get_set_scatter_args(),
                 self.get_set_threads_args(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
@@ -655,8 +661,6 @@ class ClusterExecutor(RealExecutor):
                     "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
-                    self.get_set_scatter_args(),
-                    self.get_set_threads_args(),
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
                     "--nocolor --notemp --no-hooks --nolock ",
@@ -671,6 +675,9 @@ class ClusterExecutor(RealExecutor):
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
             self.exec_job += self.get_default_resources_args()
+        self.exec_job += self.get_behavior_args()
+        self.exec_job += self.get_set_scatter_args()
+        self.exec_job += self.get_set_threads_args()
 
         self.jobname = jobname
         self._tmpdir = None
@@ -779,7 +786,7 @@ class ClusterExecutor(RealExecutor):
         logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
     def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
@@ -1414,18 +1421,14 @@ class KubernetesExecutor(ClusterExecutor):
         self.workflow = workflow
 
         exec_job = (
-            (
-                "cp -rf /source/. . && "
-                "snakemake {target} --snakefile {snakefile} "
-                "--force -j{cores} --keep-target-files  --keep-remote "
-                "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-                " --attempt {attempt} {use_threads} --max-inventory-time 0 "
-                "--wrapper-prefix {workflow.wrapper_prefix} "
-                "{overwrite_config} {printshellcmds} {rules} --nocolor "
-                "--notemp --no-hooks --nolock "
-            )
-            + self.get_set_scatter_args()
-            + self.get_set_threads_args()
+            "cp -rf /source/. . && "
+            "snakemake {target} --snakefile {snakefile} "
+            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
+            " --attempt {attempt} {use_threads} --max-inventory-time 0 "
+            "--wrapper-prefix {workflow.wrapper_prefix} "
+            "{overwrite_config} {printshellcmds} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
         )
 
         super().__init__(
@@ -1901,16 +1904,12 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("subdir=" + self.s3_subdir)
         self.quiet = quiet
         exec_job = (
-            (
-                "snakemake {target} --snakefile {snakefile} "
-                "--force -j{cores} --keep-target-files  --keep-remote "
-                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} --max-inventory-time 0 "
-                "{overwrite_config} {rules} --nocolor "
-                "--notemp --no-hooks --nolock "
-            )
-            + self.get_set_threads_args()
-            + self.get_set_scatter_args()
+            "snakemake {target} --snakefile {snakefile} "
+            "--force -j{cores} --keep-target-files  --keep-remote "
+            "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+            "--attempt 1 {use_threads} --max-inventory-time 0 "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
         )
 
         super().__init__(

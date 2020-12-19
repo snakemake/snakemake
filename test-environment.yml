@@ -10,11 +10,12 @@ dependencies:
   - httpretty
   - wrapt
   - pyyaml
-  - pytest
+  - pytest ==6.1.2
   - pytest-cov
   - ftputil
   - pysftp
   - requests
+  - responses <0.12.1 # responses 0.12.1 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
   - dropbox
   - numpy
   - appdirs

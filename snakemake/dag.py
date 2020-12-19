@@ -127,6 +127,7 @@ class DAG:
         self._progress = 0
         self._group = dict()
         self._n_until_ready = defaultdict(int)
+        self._running = set()
 
         self.job_factory = JobFactory()
         self.group_job_factory = GroupJobFactory()
@@ -976,6 +977,7 @@ class DAG:
 
         _needrun.clear()
         _n_until_ready.clear()
+        self._ready_jobs.clear()
         candidates = list(self.jobs)
 
         # Update the output mintime of all jobs.
@@ -1137,8 +1139,8 @@ class DAG:
         potential_new_ready_jobs = False
         candidate_groups = set()
         for job in jobs:
-            if job in self._ready_jobs:
-                # job has been seen before, no need to process again
+            if job in self._ready_jobs or job in self._running:
+                # job has been seen before or is running, no need to process again
                 continue
             if not self.finished(job) and self._ready(job):
                 potential_new_ready_jobs = True
@@ -1299,9 +1301,25 @@ class DAG:
             self.postprocess()
         return updated
 
+    def register_running(self, jobs):
+        self._running.update(jobs)
+        self._ready_jobs -= jobs
+        for job in jobs:
+            try:
+                del self._n_until_ready[job]
+            except KeyError:
+                # already gone
+                pass
+
     def finish(self, job, update_dynamic=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
+
+        self._running.remove(job)
+
+        # turn off this job's Reason
+        self.reason(job).mark_finished()
+
         try:
             self._ready_jobs.remove(job)
         except KeyError:
@@ -1318,16 +1336,19 @@ class DAG:
         if update_dynamic:
             updated_dag = self.update_checkpoint_dependencies(jobs)
 
-        # mark depending jobs as ready
-        # skip jobs that are marked as until jobs
         depending = [
             j
             for job in jobs
             for j in self.depending[job]
             if not self.in_until(job) and self.needrun(j)
         ]
-        for job in depending:
-            self._n_until_ready[job] -= 1
+
+        if not updated_dag:
+            # Mark depending jobs as ready.
+            # Skip jobs that are marked as until jobs.
+            # This is not necessary if the DAG has been fully updated above.
+            for job in depending:
+                self._n_until_ready[job] -= 1
 
         potential_new_ready_jobs = self.update_ready(depending)
 
@@ -1454,6 +1475,8 @@ class DAG:
             self._dynamic.remove(job)
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
+        if job in self._n_until_ready:
+            del self._n_until_ready[job]
         # remove from cache
         for f in job.output:
             try:
@@ -1464,12 +1487,14 @@ class DAG:
     def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
         add_to_targetjobs = job in self.targetjobs
+        jobid = self.jobid(job)
 
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
 
         self.delete_job(job, recursive=recursive)
+        self._jobid[newjob] = jobid
 
         if add_to_targetjobs:
             self.targetjobs.add(newjob)
