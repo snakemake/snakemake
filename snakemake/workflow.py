@@ -1212,10 +1212,10 @@ class Workflow:
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1]
                 )
-            if ruleinfo.name_override:
-                rule.name = ruleinfo.name_override
+            if ruleinfo.name:
+                rule.name = ruleinfo.name
                 del self._rules[name]
-                self._rules[ruleinfo.name_override] = rule
+                self._rules[ruleinfo.name] = rule
                 name = rule.name
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
@@ -1366,7 +1366,8 @@ class Workflow:
                     rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
-            rule.name_override = ruleinfo.name_override  # FIXME
+            if ruleinfo.name is not None:
+                rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
@@ -1575,9 +1576,9 @@ class Workflow:
 
         return decorate
 
-    def name_override(self, name):
+    def name(self, name):
         def decorate(ruleinfo):
-            ruleinfo.name_override = name
+            ruleinfo.name = name
             return ruleinfo
 
         return decorate
@@ -1594,7 +1595,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
-        self.name_override = None
+        self.name = None
         self.norun = False
         self.input = None
         self.output = None

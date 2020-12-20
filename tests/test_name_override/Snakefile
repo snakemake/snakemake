@@ -2,16 +2,16 @@ rule all:
     input:
         txt = 'out2.txt'
 
-some_var = 'generate_out'
+some_var: str = 'generate_out'
 
 rule:
-    name_override: some_var
+    name: some_var
     output: 'out1.txt'
     shell: '''echo {rule} > {output}'''
 
 
 rule name1:
-    name_override: "name2"
+    name: "name2"
     input: 'out1.txt'
     output: 'out2.txt'
     shell: '''echo {rule} > {output}'''
