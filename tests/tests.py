@@ -279,6 +279,10 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_name_override():
+    run(dpath("test_name_override"))
+
+
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
@@ -1115,6 +1119,10 @@ def test_metadata_migration():
     # run workflow, incomplete v1 metadata should be migrated and trigger rerun of the rule,
     # which will save different data than the output contained in the git repo.
     run(dpath("test_metadata_migration"), force_incomplete=True)
+
+
+def test_paramspace():
+    run(dpath("test_paramspace"))
 
 
 def test_github_issue806():

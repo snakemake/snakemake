@@ -4,8 +4,7 @@
 Rules
 =====
 
-Most importantly, a rule can consist of a name (the name is optional and can be left out, creating an anonymous rule), input files, output files, and a shell command to generate the output from the input, i.e.
-
+Most importantly, a rule can consist of a name, input files, output files, and a shell command to generate the output from the input, i.e.
 
 .. code-block:: python
 
@@ -13,6 +12,8 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         input: "path/to/inputfile", "path/to/other/inputfile"
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
+
+The name is optional and can be left out, creating an anonymous rule, and can be overridden with ``name``.
 
 Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
@@ -1338,6 +1339,102 @@ Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
+
+.. _snakefiles-paramspace:
+
+Parameter space exploration
+---------------------------
+
+The basic Snakemake functionality already provides everything to handle parameter spaces in any way (sub-spacing for certain rules and even depending on wildcard values, the ability to read or generate spaces on the fly or from files via pandas, etc.).
+However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands. 
+From Snakemake 5.31 on, this is solved via the new Paramspace helper, which can be used as follows:
+
+.. code-block:: python
+
+    from snakemake.utils import Paramspace
+    import pandas as pd
+
+    # declare a dataframe to be a paramspace
+    paramspace = Paramspace(pd.read_csv("params.tsv", sep="\t"))
+
+
+    rule all:
+        input:
+            # Aggregate over entire parameter space (or a subset thereof if needed)
+            # of course, something like this can happen anywhere in the workflow (not 
+            # only at the end).
+            expand("results/plots/{params}.pdf", params=paramspace.instance_patterns)
+
+
+    rule simulate:
+        output:
+            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}" 
+            # into a file path, with alpha, beta, gamma being the columns of the data frame
+            f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        params:
+            # automatically translate the wildcard values into an instance of the param space
+            # in the form of a dict (here: {"alpha": ..., "beta": ..., "gamma": ...})
+            simulation=paramspace.instance
+        script:
+            "scripts/simulate.py"
+
+
+    rule plot:
+        input:
+            f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        output:
+            f"results/plots/{paramspace.wildcard_pattern}.pdf"
+        shell:
+            "touch {output}"
+
+Given that `params.tsv` contains:
+
+.. code-block:: none
+    alpha	beta	gamma
+    1.0	0.1	0.99
+    2.0	0.0	3.9
+
+
+This workflow will run as follows:
+
+.. code-block:: none
+
+[Fri Nov 27 20:57:27 2020]
+rule simulate:
+    output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
+    jobid: 4                                                                                                                                                                               
+    wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+
+[Fri Nov 27 20:57:27 2020]
+rule simulate:
+    output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
+    jobid: 2                                                                                                                                                                               
+    wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+
+[Fri Nov 27 20:57:27 2020]
+rule plot:
+    input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
+    output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
+    jobid: 3                                                                                                                                                                               
+    wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+
+
+[Fri Nov 27 20:57:27 2020]
+rule plot:
+    input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
+    output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
+    jobid: 1                                                                                                                                                                               
+    wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+
+
+[Fri Nov 27 20:57:27 2020]
+localrule all:
+    input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
+    jobid: 0
+
+
+Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
+Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` constructor (see :ref:`utils-api`).
 
 .. _snakefiles-checkpoints:
 
