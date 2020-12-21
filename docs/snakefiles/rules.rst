@@ -1390,6 +1390,7 @@ From Snakemake 5.31 on, this is solved via the new Paramspace helper, which can 
 Given that `params.tsv` contains:
 
 .. code-block:: none
+
     alpha	beta	gamma
     1.0	0.1	0.99
     2.0	0.0	3.9
@@ -1399,38 +1400,38 @@ This workflow will run as follows:
 
 .. code-block:: none
 
-[Fri Nov 27 20:57:27 2020]
-rule simulate:
-    output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
-    jobid: 4                                                                                                                                                                               
-    wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+    [Fri Nov 27 20:57:27 2020]
+    rule simulate:
+        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
+        jobid: 4                                                                                                                                                                               
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
 
-[Fri Nov 27 20:57:27 2020]
-rule simulate:
-    output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
-    jobid: 2                                                                                                                                                                               
-    wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+    [Fri Nov 27 20:57:27 2020]
+    rule simulate:
+        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
+        jobid: 2                                                                                                                                                                               
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
 
-[Fri Nov 27 20:57:27 2020]
-rule plot:
-    input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
-    output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
-    jobid: 3                                                                                                                                                                               
-    wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
-
-
-[Fri Nov 27 20:57:27 2020]
-rule plot:
-    input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
-    output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
-    jobid: 1                                                                                                                                                                               
-    wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+    [Fri Nov 27 20:57:27 2020]
+    rule plot:
+        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
+        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
+        jobid: 3                                                                                                                                                                               
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
 
 
-[Fri Nov 27 20:57:27 2020]
-localrule all:
-    input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
-    jobid: 0
+    [Fri Nov 27 20:57:27 2020]
+    rule plot:
+        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
+        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
+        jobid: 1                                                                                                                                                                               
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+
+
+    [Fri Nov 27 20:57:27 2020]
+    localrule all:
+        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
+        jobid: 0
 
 
 Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
