@@ -25,7 +25,7 @@ from snakemake.logging import setup_logger, logger, SlackLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import Mode, __version__
+from snakemake.common import Mode, __version__, MIN_PY_VERSION
 from snakemake.resources import parse_resources, DefaultResources
 
 
@@ -44,6 +44,7 @@ def snakemake(
     report=None,
     report_stylesheet=None,
     lint=None,
+    generate_unit_tests=None,
     listrules=False,
     list_target_rules=False,
     cores=1,
@@ -152,6 +153,7 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
+    tes=None,
     preemption_default=None,
     preemptible_rules=None,
     precommand="",
@@ -163,12 +165,15 @@ def snakemake(
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
+    keep_metadata=True,
     messaging=None,
     edit_notebook=None,
     envvars=None,
     overwrite_groups=None,
     group_components=None,
     max_inventory_wait_time=20,
+    execute_subworkflows=True,
+    conda_not_block_search_path_envvars=False,
 ):
     """Run snakemake on a given snakefile.
 
@@ -194,6 +199,7 @@ def snakemake(
         forcetargets (bool):        force given targets to be re-created (default False)
         forceall (bool):            force all output files to be re-created (default False)
         forcerun (list):            list of files and rules that shall be re-created/re-executed (default [])
+        execute_subworkflows (bool):   execute subworkflows if present (default True)
         prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
         stats (str):                path to file that shall contain stats about the workflow execution (default None)
         printreason (bool):         print the reason for the execution of each job (default false)
@@ -218,6 +224,7 @@ def snakemake(
         lock (bool):                lock the working directory when executing the workflow (default True)
         unlock (bool):              just unlock the working directory (default False)
         cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
+        drop_metadata (bool):       drop metadata file tracking information after job finishes (--report and --list_x_changes information will be incomplete) (default False)
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
@@ -277,6 +284,7 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
+        tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
@@ -291,6 +299,7 @@ def snakemake(
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
+        conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -381,7 +390,15 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if cluster or cluster_sync or drmaa or tibanna or kubernetes or google_lifesciences:
+    if (
+        cluster
+        or cluster_sync
+        or drmaa
+        or tibanna
+        or kubernetes
+        or google_lifesciences
+        or tes
+    ):
         cores = None
     else:
         nodes = None
@@ -402,7 +419,13 @@ def snakemake(
         cluster_config_content = dict()
 
     run_local = not (
-        cluster or cluster_sync or drmaa or kubernetes or tibanna or google_lifesciences
+        cluster
+        or cluster_sync
+        or drmaa
+        or kubernetes
+        or tibanna
+        or google_lifesciences
+        or tes
     )
     if run_local:
         if not dryrun:
@@ -413,6 +436,8 @@ def snakemake(
             raise WorkflowError(
                 "Notebook edit mode is only allowed with local execution."
             )
+
+    shell.conda_block_conflicting_envvars = not conda_not_block_search_path_envvars
 
     # force thread use for any kind of cluster
     use_threads = (
@@ -561,6 +586,7 @@ def snakemake(
             edit_notebook=edit_notebook,
             envvars=envvars,
             max_inventory_wait_time=max_inventory_wait_time,
+            conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
         )
         success = True
 
@@ -650,6 +676,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -661,10 +688,12 @@ def snakemake(
                     overwrite_groups=overwrite_groups,
                     group_components=group_components,
                     max_inventory_wait_time=max_inventory_wait_time,
+                    conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
                 )
                 success = workflow.execute(
                     targets=targets,
                     dryrun=dryrun,
+                    generate_unit_tests=generate_unit_tests,
                     touch=touch,
                     scheduler_type=scheduler,
                     scheduler_ilp_solver=scheduler_ilp_solver,
@@ -695,6 +724,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -744,6 +774,8 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    keepmetadata=keep_metadata,
+                    executesubworkflows=execute_subworkflows,
                 )
 
     except BrokenPipeError:
@@ -847,9 +879,20 @@ def parse_key_value_arg(arg, errmsg):
     return key, val
 
 
+def _bool_parser(value):
+    if value == "True":
+        return True
+    elif value == "False":
+        return False
+    raise ValueError
+
+
 def parse_config(args):
     """Parse config from args."""
-    parsers = [int, float, eval, str]
+    import yaml
+
+    yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
+    parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
@@ -1268,9 +1311,14 @@ def get_argument_parser(profile=None):
         ),
     )
 
-    import pulp
+    try:
+        import pulp
 
-    lp_solvers = pulp.list_solvers(onlyAvailable=True)
+        lp_solvers = pulp.list_solvers(onlyAvailable=True)
+    except ImportError:
+        # Dummy list for the case that pulp is not available
+        # This only happend when building docs.
+        lp_solvers = ["COIN_CMD"]
     recommended_lp_solver = "COIN_CMD"
 
     group_exec.add_argument(
@@ -1297,6 +1345,13 @@ def get_argument_parser(profile=None):
         default=recommended_lp_solver,
         choices=lp_solvers,
         help=("Specifies solver to be utilized when selecting ilp-scheduler."),
+    )
+
+    group_exec.add_argument(
+        "--no-subworkflows",
+        "--nosw",
+        action="store_true",
+        help=("Do not evaluate or execute subworkflows."),
     )
 
     # TODO add group_partitioning, allowing to define --group rulename=groupname.
@@ -1376,7 +1431,19 @@ def get_argument_parser(profile=None):
         "specific suggestions to improve code quality (work in progress, more lints "
         "to be added in the future). If no argument is provided, plain text output is used.",
     )
-
+    group_utils.add_argument(
+        "--generate-unit-tests",
+        nargs="?",
+        const=".tests/unit",
+        metavar="TESTPATH",
+        help="Automatically generate unit tests for each workflow rule. "
+        "This assumes that all input files of each job are already present. "
+        "Rules without a job with present input files will be skipped (a warning will be issued). "
+        "For each rule, one test case will be "
+        "created in the specified test folder (.tests/unit by default). After "
+        "successfull execution, tests can be run with "
+        "'pytest TESTPATH'.",
+    )
     group_utils.add_argument(
         "--export-cwl",
         action="store",
@@ -1566,6 +1633,13 @@ def get_argument_parser(profile=None):
         "--keep-incomplete",
         action="store_true",
         help="Do not remove incomplete output files by failed jobs.",
+    )
+    group_utils.add_argument(
+        "--drop-metadata",
+        action="store_true",
+        help="Drop metadata file tracking information after job finishes. "
+        "Provenance-information based reports (e.g. --report and the "
+        "--list_x_changes functions) will be empty or incomplete.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -1834,7 +1908,6 @@ def get_argument_parser(profile=None):
         "Snakemake will call this function for every logging output (given as a dictionary msg)"
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
-
     group_behavior.add_argument(
         "--log-service",
         default=None,
@@ -1959,6 +2032,7 @@ def get_argument_parser(profile=None):
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_tes = parser.add_argument_group("TES")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2054,6 +2128,12 @@ def get_argument_parser(profile=None):
         "are deleted at the shutdown step of the workflow.",
     )
 
+    group_tes.add_argument(
+        "--tes",
+        metavar="URL",
+        help="Send workflow tasks to GA4GH TES server specified by url.",
+    )
+
     group_conda = parser.add_argument_group("CONDA")
 
     group_conda.add_argument(
@@ -2061,6 +2141,12 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="If defined in the rule, run job in a conda environment. "
         "If this flag is not set, the conda directive is ignored.",
+    )
+    group_conda.add_argument(
+        "--conda-not-block-search-path-envvars",
+        action="store_true",
+        help="Do not block environment variables that modify the search path "
+        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using conda environments.",
     )
     group_conda.add_argument(
         "--list-conda-envs",
@@ -2153,6 +2239,14 @@ def get_argument_parser(profile=None):
 
 def main(argv=None):
     """Main entry point."""
+
+    if sys.version_info < MIN_PY_VERSION:
+        print(
+            "Snakemake requires at least Python {}.".format(MIN_PY_VERSION),
+            file=sys.stderr,
+        )
+        exit(1)
+
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
@@ -2226,6 +2320,7 @@ def main(argv=None):
         or args.google_lifesciences
         or args.kubernetes
         or args.tibanna
+        or args.tes
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2235,6 +2330,7 @@ def main(argv=None):
         or args.list_untracked
         or args.list_version_changes
         or args.export_cwl
+        or args.generate_unit_tests
         or args.dag
         or args.d3dag
         or args.filegraph
@@ -2243,6 +2339,7 @@ def main(argv=None):
         or args.lint
         or args.report
         or args.gui
+        or args.archive
     )
 
     if args.cores is not None:
@@ -2269,7 +2366,7 @@ def main(argv=None):
                 )
                 sys.exit(1)
     elif args.cores is None:
-        if local_exec and not args.dryrun:
+        if local_exec and not (args.dryrun or args.unlock):
             print(
                 "Error: you need to specify the maximum number of CPU cores to "
                 "be used at the same time. If you want to use N cores, say --cores N or "
@@ -2469,6 +2566,7 @@ def main(argv=None):
             report=args.report,
             report_stylesheet=args.report_stylesheet,
             lint=args.lint,
+            generate_unit_tests=args.generate_unit_tests,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
             cores=args.cores,
@@ -2515,6 +2613,7 @@ def main(argv=None):
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
+            tes=args.tes,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,
@@ -2582,19 +2681,31 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
+            keep_metadata=not args.drop_metadata,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
             group_components=group_components,
             max_inventory_wait_time=args.max_inventory_time,
             log_handler=log_handler,
+            execute_subworkflows=not args.no_subworkflows,
+            conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
         )
 
     if args.runtime_profile:
         with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
             profile.sort("totaltime")
-            profile.print_all(out=out)
+            profile.print_all(
+                out=out,
+                columns={
+                    0: ("name", 120),
+                    1: ("ncall", 10),
+                    2: ("tsub", 8),
+                    3: ("ttot", 8),
+                    4: ("tavg", 8),
+                },
+            )
 
     sys.exit(0 if success else 1)
 

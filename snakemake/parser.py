@@ -396,6 +396,10 @@ class Localrules(GlobalKeywordState):
 # Rule keyword states
 
 
+class Name(RuleKeywordState):
+    pass
+
+
 class Input(RuleKeywordState):
     pass
 
@@ -640,6 +644,7 @@ class CWL(Script):
 
 class Rule(GlobalKeywordState):
     subautomata = dict(
+        name=Name,
         input=Input,
         output=Output,
         params=Params,

@@ -1,0 +1,56 @@
+import os
+import sys
+
+import subprocess as sp
+from tempfile import TemporaryDirectory
+import shutil
+from pathlib import Path, PurePosixPath
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+import common
+
+
+def test_{{ ruletest.name }}():
+
+    with TemporaryDirectory() as tmpdir:
+        workdir = Path(tmpdir) / "workdir"
+        data_path = PurePosixPath("{{ ruletest.data_path.as_posix() }}")
+        expected_path = PurePosixPath("{{ ruletest.expected_path.as_posix() }}")
+
+        # Copy data to the temporary workdir.
+        shutil.copytree(data_path, workdir)
+
+        # dbg
+        print("{{ ruletest.target }}", file=sys.stderr)
+
+        # Run the test job.
+        sp.check_output([
+            "python",
+            "-m",
+            "snakemake", 
+            "{{ ruletest.target }}",
+            "-F", 
+            "-j1",
+            "--keep-target-files",
+            {% if configfiles %}
+            "--configfile",
+            {% for configfile in configfiles %}
+            {{ configfile }}
+            {% endfor %}
+            {% endif %}    
+            {% if "conda" in deploy %}
+            "--use-conda",
+            {% endif %}
+            {% if "singularity" in deploy %}
+            "--use-singularity",
+            {% endif %}
+            "--directory",
+            workdir,
+        ])
+
+        # Check the output byte by byte using cmp.
+        # To modify this behavior, you can inherit from common.OutputChecker in here
+        # and overwrite the method `compare_files(generated_file, expected_file), 
+        # also see common.py.
+        common.OutputChecker(data_path, expected_path, workdir).check()

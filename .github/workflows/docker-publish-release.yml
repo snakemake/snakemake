@@ -11,10 +11,9 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Get release version
-      id: get_version
-      run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:10})
+      run: echo "RELEASE_VERSION=$(echo ${GITHUB_REF:10})" >> $GITHUB_ENV
     - name: Publish to Registry
-      uses: elgohr/Publish-Docker-Github-Action@2.16
+      uses: elgohr/Publish-Docker-Github-Action@3.01
       with:
         name: snakemake/snakemake
         username: ${{ secrets.DOCKER_USERNAME }}

@@ -39,6 +39,7 @@ from snakemake.io import (
     glob_wildcards,
     Wildcards,
     apply_wildcards,
+    contains_wildcard,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
@@ -257,13 +258,15 @@ class RuleRecord:
         if self._rule.shellcmd is not None:
             sources = [self._rule.shellcmd]
             language = "bash"
-        elif self._rule.script is not None:
+        elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
             sources = [source.decode()]
-        elif self._rule.wrapper is not None:
+        elif self._rule.wrapper is not None and not contains_wildcard(
+            self._rule.wrapper
+        ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 wrapper.get_script(
@@ -271,12 +274,19 @@ class RuleRecord:
                 )
             )
             sources = [source.decode()]
-        elif self._rule.notebook is not None:
+        elif self._rule.notebook is not None and not contains_wildcard(
+            self._rule.notebook
+        ):
             _, source, language = script.get_source(
                 self._rule.notebook, self._rule.basedir
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
+        else:
+            # A run directive. There is no easy way yet to obtain
+            # the actual uncompiled source code.
+            sources = []
+            language = "python"
 
         try:
             lexer = get_lexer_by_name(language)
@@ -397,44 +407,6 @@ class FileRecord:
 
         self.aux_files = aux_files or []
 
-        self.table_content = None
-        if self.is_table:
-            if self.size > 1e6:
-                logger.warning(
-                    "Table {} >1MB. Rendering as generic file.".format(self.path)
-                )
-            else:
-                with open(self.path) as table:
-                    dialect = None
-                    for prefix in range(10, 17):
-                        try:
-                            table.seek(0)
-                            dialect = csv.Sniffer().sniff(table.read(prefix))
-                            break
-                        except csv.Error:
-                            pass
-                        except UnicodeDecodeError:
-                            # table is not readable as UTF-8
-                            break
-                    if dialect is None:
-                        logger.warning(
-                            "Failed to infer CSV/TSV dialect from table {}. "
-                            "Rendering as generic file.".format(self.path)
-                        )
-                    else:
-                        table.seek(0)
-                        reader = csv.reader(table, dialect)
-                        columns = next(reader)
-                        table = map(lambda row: list(map(num_if_possible, row)), reader)
-                        template = env.get_template("table.html")
-                        html = template.render(
-                            columns=columns, table=table, name=self.name
-                        ).encode()
-
-                        self.table_content = html
-                        self.mime = "text/html"
-                        self.path = os.path.basename(self.path) + ".html"
-
         self.data_uri = self._data_uri()
         self.png_uri = self._png_uri()
 
@@ -483,10 +455,7 @@ class FileRecord:
 
     def _data_uri(self):
         if self.mode_embedded:
-            if self.table_content is not None:
-                return data_uri(self.table_content, self.path, self.mime)
-            else:
-                return data_uri_from_file(self.path)
+            return data_uri_from_file(self.path)
         else:
             return os.path.join("data/raw", self.id, self.name)
 
@@ -744,14 +713,20 @@ def auto_report(dag, path, stylesheet=None):
                     "warning.".format(f)
                 )
                 continue
+
+            def get_time(rectime, metatime, sel_func):
+                if metatime is None:
+                    return rectime
+                return sel_func(metatime, rectime)
+
             try:
                 job_hash = meta["job_hash"]
                 rule = meta["rule"]
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
                 rec.job = job
-                rec.starttime = min(rec.starttime, meta["starttime"])
-                rec.endtime = max(rec.endtime, meta["endtime"])
+                rec.starttime = get_time(rec.starttime, meta["starttime"], min)
+                rec.endtime = get_time(rec.endtime, meta["endtime"], max)
                 rec.conda_env_file = None
                 rec.conda_env = meta["conda_env"]
                 rec.container_img_url = meta["container_img_url"]
@@ -773,12 +748,18 @@ def auto_report(dag, path, stylesheet=None):
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
 
+    def get_datetime(rectime):
+        try:
+            return datetime.datetime.fromtimestamp(rectime).isoformat()
+        except OSError:
+            return None
+
     # prepare end times
     timeline = [
         {
             "rule": rec.rule,
-            "starttime": datetime.datetime.fromtimestamp(rec.starttime).isoformat(),
-            "endtime": datetime.datetime.fromtimestamp(rec.endtime).isoformat(),
+            "starttime": get_datetime(rec.starttime),
+            "endtime": get_datetime(rec.endtime),
         }
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
@@ -864,7 +845,7 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    template = env.get_template("report.html")
+    template = env.get_template("report.html.jinja2")
 
     logger.info("Downloading resources and rendering HTML.")
 
@@ -897,15 +878,7 @@ def auto_report(dag, path, stylesheet=None):
                 for catresults in subcats.values():
                     for result in catresults:
                         # write raw data
-                        if result.table_content is not None:
-                            zipout.writestr(
-                                str(folder.joinpath(result.data_uri)),
-                                result.table_content,
-                            )
-                        else:
-                            zipout.write(
-                                result.path, str(folder.joinpath(result.data_uri))
-                            )
+                        zipout.write(result.path, str(folder.joinpath(result.data_uri)))
                         # write thumbnail
                         if result.is_img and result.png_content:
                             zipout.writestr(
@@ -913,14 +886,14 @@ def auto_report(dag, path, stylesheet=None):
                             )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
-                        for path in result.aux_files:
-                            # print(path, parent, str(folder.joinpath(os.path.relpath(path, parent))))
+                        for aux_path in result.aux_files:
+                            # print(aux_path, parent, str(parent.joinpath(os.path.relpath(aux_path, os.path.dirname(result.path)))))
                             zipout.write(
-                                path,
+                                aux_path,
                                 str(
                                     parent.joinpath(
                                         os.path.relpath(
-                                            path, os.path.dirname(result.path)
+                                            aux_path, os.path.dirname(result.path)
                                         )
                                     )
                                 ),

@@ -70,18 +70,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        exec_job = (
-            exec_job
-            or (
-                "snakemake {target} --snakefile %s "
-                "--force -j{cores} --keep-target-files --keep-remote "
-                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} --max-inventory-time 0 "
-                "{overwrite_config} {rules} --nocolor "
-                "--notemp --no-hooks --nolock " % self.snakefile
-            )
-            + self.get_set_threads_args()
-            + self.get_set_scatter_args()
+        exec_job = exec_job or (
+            "snakemake {target} --snakefile %s "
+            "--force -j{cores} --keep-target-files --keep-remote "
+            "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
+            "--attempt 1 {use_threads} --max-inventory-time 0 "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock " % self.snakefile
         )
 
         # Set preemptible instances
@@ -709,7 +704,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://gist.githubusercontent.com/vsoch/f5a6a6d1894be1e67aa4156c5b40c8e9/raw/a4e9ddbeba20996ca62745fcd4d9ecd7bfa3b311/gls.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
             % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 

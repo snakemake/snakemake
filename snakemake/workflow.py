@@ -113,6 +113,7 @@ class Workflow:
         edit_notebook=False,
         envvars=None,
         max_inventory_wait_time=20,
+        conda_not_block_search_path_envvars=False,
     ):
         """
         Create the controller.
@@ -183,6 +184,7 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
 
         self.enable_cache = False
         if cache is not None:
@@ -461,14 +463,22 @@ class Workflow:
         assert (
             self.default_remote_provider is not None
         ), "No default remote provider is defined, calling this anyway is a bug"
-        path = "{}/{}".format(self.default_remote_prefix, path)
-        path = os.path.normpath(path)
-        return self.default_remote_provider.remote(path)
+
+        # This will convert any AnnotatedString to str
+        fullpath = "{}/{}".format(self.default_remote_prefix, path)
+        fullpath = os.path.normpath(fullpath)
+        remote = self.default_remote_provider.remote(fullpath)
+
+        # Important, update with previous flags in case of AnnotatedString #596
+        if hasattr(path, "flags"):
+            remote.flags.update(path.flags)
+        return remote
 
     def execute(
         self,
         targets=None,
         dryrun=False,
+        generate_unit_tests=None,
         touch=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
@@ -501,6 +511,7 @@ class Workflow:
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        tes=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -549,6 +560,8 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        keepmetadata=True,
+        executesubworkflows=True,
     ):
 
         self.check_localrules()
@@ -711,6 +724,7 @@ class Workflow:
 
         if (
             self.subworkflows
+            and executesubworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -732,6 +746,8 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
+                        cores=self.cores,
+                        nodes=self.nodes,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
@@ -750,7 +766,7 @@ class Workflow:
             # rescue globals
             self.globals.update(globals_backup)
 
-        dag.postprocess()
+        dag.postprocess(update_needrun=False)
         if not dryrun:
             # deactivate IOCache such that from now on we always get updated
             # size, existence and mtime information
@@ -781,7 +797,20 @@ class Workflow:
 
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
-        if export_cwl:
+        if generate_unit_tests:
+            from snakemake import unit_tests
+
+            path = generate_unit_tests
+            deploy = []
+            if self.use_conda:
+                deploy.append("conda")
+            if self.use_singularity:
+                deploy.append("singularity")
+            unit_tests.generate(
+                dag, path, deploy, configfiles=self.overwrite_configfiles
+            )
+            return True
+        elif export_cwl:
             from snakemake.cwl import dag_to_cwl
             import json
 
@@ -901,6 +930,7 @@ class Workflow:
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
+            tes=tes,
             preemption_default=preemption_default,
             preemptible_rules=preemptible_rules,
             precommand=precommand,
@@ -913,6 +943,7 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
+            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )
@@ -1177,11 +1208,17 @@ class Workflow:
         rule.is_checkpoint = checkpoint
 
         def decorate(ruleinfo):
+            nonlocal name
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1]
                 )
+            if ruleinfo.name:
+                rule.name = ruleinfo.name
+                del self._rules[name]
+                self._rules[ruleinfo.name] = rule
+                name = rule.name
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -1331,6 +1368,8 @@ class Workflow:
                     rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
+            if ruleinfo.name is not None:
+                rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
@@ -1539,6 +1578,13 @@ class Workflow:
 
         return decorate
 
+    def name(self, name):
+        def decorate(ruleinfo):
+            ruleinfo.name = name
+            return ruleinfo
+
+        return decorate
+
     def run(self, func):
         return RuleInfo(func)
 
@@ -1551,6 +1597,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
+        self.name = None
         self.norun = False
         self.input = None
         self.output = None

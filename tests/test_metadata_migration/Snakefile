@@ -1,0 +1,5 @@
+rule a:
+    output:
+        "some/veryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryverylong/path.txt"
+    shell:
+        "echo updated > {output}"
