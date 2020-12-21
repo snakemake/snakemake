@@ -76,6 +76,7 @@ If the output of a rule is a directory with an HTML file hierarchy, it is also p
 This works as follows:
 
 .. code-block:: python
+
     rule generate_html_hierarchy:
         output:
             report(directory("test"), caption="report/caption.rst", htmlindex="test.html")
