@@ -1347,7 +1347,7 @@ Parameter space exploration
 
 The basic Snakemake functionality already provides everything to handle parameter spaces in any way (sub-spacing for certain rules and even depending on wildcard values, the ability to read or generate spaces on the fly or from files via pandas, etc.).
 However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands. 
-From Snakemake 5.31 on, this is solved via the new Paramspace helper, which can be used as follows:
+From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), this is solved via the Paramspace helper, which can be used as follows:
 
 .. code-block:: python
 
