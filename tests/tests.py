@@ -1117,5 +1117,9 @@ def test_metadata_migration():
     run(dpath("test_metadata_migration"), force_incomplete=True)
 
 
+def test_paramspace():
+    run(dpath("test_paramspace"))
+
+
 def test_github_issue806():
     run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
