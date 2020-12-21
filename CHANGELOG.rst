@@ -1,3 +1,17 @@
+[5.31.0] - 2020-12-21
+=====================
+Added
+-----
+- The ``Paramspace`` helper for automatically exploring parameter spaces given as Pandas dataframes.
+- A new directive ``name:`` for setting rule names from variables.
+
+Changed
+-------
+- Various small bug fixes for scheduling and checkpoint handling.
+- Automatically block R_LIBS, PYTHONPATH, PERL5LIB, and PERLLIB when using conda with --use-conda. This behavior can be deactivated with --conda-not-block-envvars.
+- Update container image to latest singularity.
+
+
 [5.30.2] - 2020-12-16
 =====================
 Changed
