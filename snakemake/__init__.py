@@ -173,6 +173,7 @@ def snakemake(
     group_components=None,
     max_inventory_wait_time=20,
     execute_subworkflows=True,
+    conda_not_block_search_path_envvars=False,
 ):
     """Run snakemake on a given snakefile.
 
@@ -298,6 +299,7 @@ def snakemake(
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
+        conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -434,6 +436,8 @@ def snakemake(
             raise WorkflowError(
                 "Notebook edit mode is only allowed with local execution."
             )
+
+    shell.conda_block_conflicting_envvars = not conda_not_block_search_path_envvars
 
     # force thread use for any kind of cluster
     use_threads = (
@@ -582,6 +586,7 @@ def snakemake(
             edit_notebook=edit_notebook,
             envvars=envvars,
             max_inventory_wait_time=max_inventory_wait_time,
+            conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
         )
         success = True
 
@@ -683,6 +688,7 @@ def snakemake(
                     overwrite_groups=overwrite_groups,
                     group_components=group_components,
                     max_inventory_wait_time=max_inventory_wait_time,
+                    conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -1902,7 +1908,6 @@ def get_argument_parser(profile=None):
         "Snakemake will call this function for every logging output (given as a dictionary msg)"
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
-
     group_behavior.add_argument(
         "--log-service",
         default=None,
@@ -2136,6 +2141,12 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="If defined in the rule, run job in a conda environment. "
         "If this flag is not set, the conda directive is ignored.",
+    )
+    group_conda.add_argument(
+        "--conda-not-block-search-path-envvars",
+        action="store_true",
+        help="Do not block environment variables that modify the search path "
+        "(R_LIBS, PYTHONPATH, PERL5LIB, PERLLIB) when using conda environments.",
     )
     group_conda.add_argument(
         "--list-conda-envs",
@@ -2678,6 +2689,7 @@ def main(argv=None):
             max_inventory_wait_time=args.max_inventory_time,
             log_handler=log_handler,
             execute_subworkflows=not args.no_subworkflows,
+            conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
         )
 
     if args.runtime_profile:
