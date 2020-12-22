@@ -232,9 +232,16 @@ class DAG:
         )
 
     def update_jobids(self):
+        logger.debug("running DAG.update_jobids()")
         for job in self.jobs:
             if job not in self._jobid:
-                self._jobid[job] = len(self._jobid)
+                self.assign_jobid(job)
+
+    def assign_jobid(self, job):
+        jobid = len(self._jobid)
+        logger.debug(f"assigning jobid {jobid} to {job}")
+        self._jobid[job] = jobid
+        return jobid
 
     def cleanup_workdir(self):
         for io_dir in set(
@@ -699,7 +706,11 @@ class DAG:
         if job.is_group():
             return job.jobid
         else:
-            return self._jobid[job]
+            try:
+                return self._jobid[job]
+            except KeyError:
+                logger.debug("Job {job} has no id yet")
+                return self.assign_jobid(job)
 
     def update(
         self,
@@ -1286,6 +1297,7 @@ class DAG:
         """Update dependencies of checkpoints."""
         updated = False
         self.update_checkpoint_outputs()
+
         if jobs is None:
             jobs = [job for job in self.jobs if not self.needrun(job)]
         for job in jobs:
