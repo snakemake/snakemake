@@ -33,7 +33,7 @@ from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable, makedirs
-from snakemake.io import get_wildcard_names, Wildcards
+from snakemake.io import get_wildcard_names, Wildcards, AnnotatedString
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import (
@@ -2019,14 +2019,15 @@ class TibannaExecutor(ClusterExecutor):
         tibanna_args.snakemake_child_filenames = list(set(snakemake_child_fnames))
 
     def adjust_filepath(self, f):
-        if not hasattr(f, "remote_object"):
-            rel = self.remove_prefix(f)  # log/benchmark
-        elif (
+        rel = f
+        if not hasattr(f, "remote_object") or (
             hasattr(f.remote_object, "provider") and f.remote_object.provider.is_default
         ):
-            rel = self.remove_prefix(f)
-        else:
-            rel = f
+            rel = AnnotatedString(self.remove_prefix(f))  # log/benchmark
+
+        # Update with previous flags in case of AnnotatedString #596, #815
+        if hasattr(f, "flags"):
+            rel.flags.update(f.flags)
         return rel
 
     def make_tibanna_input(self, job):
