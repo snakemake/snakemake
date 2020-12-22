@@ -54,7 +54,7 @@ dependencies:
   - pip
   - pip:
     - py-tes
-    - connection_pool
+  - connection_pool
   - requests-mock
   - peppy
   - eido
