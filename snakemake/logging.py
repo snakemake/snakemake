@@ -10,7 +10,6 @@ import datetime
 import sys
 import os
 import json
-import requests
 import threading
 import tempfile
 from functools import partial
@@ -148,6 +147,7 @@ class WMSLogger:
         """Service Info ensures that the server is running. We exit on error
         if this isn't the case, so the function can be called in init.
         """
+        import requests
 
         # We first ensure that the server is running, period
         response = requests.get(
@@ -173,6 +173,8 @@ class WMSLogger:
         if providing an argument for an existing workflow, ensuring that
         it exists and receiving back the same identifier.
         """
+        import requests
+
         response = requests.get(
             self.address + "/create_workflow", headers=self._headers, params=self.args
         )
@@ -233,6 +235,8 @@ class WMSLogger:
         Args:
             msg (dict):     the log message dictionary
         """
+        import requests
+
         url = self.server["url"] + "/update_workflow_status"
         server_info = {
             "msg": repr(msg),
