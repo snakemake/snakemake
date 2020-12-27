@@ -10,6 +10,7 @@ import datetime
 import sys
 import os
 import json
+import requests
 import threading
 import tempfile
 from functools import partial
@@ -115,6 +116,131 @@ class SlackLogger:
             self.slack.chat.post_message(
                 self.own_id, text="Workflow complete.", username="snakemake"
             )
+
+
+class WMSLogger:
+    def __init__(self, address=None, args=None):
+        """A WMS monitor is a workflow management system logger to enable
+        monitoring with something like Panoptes. The address corresponds to
+        the --wms-monitor argument, and args should be a list of key/value
+        pairs with extra arguments to send to identify the workflow. We require
+        the logging server to exist and receive creating a workflow to start
+        the run, but we don't exit with error if any updates fail, as the
+        workflow will already be running and it would not be worth stopping it.
+        """
+
+        from snakemake.resources import parse_resources
+
+        self.address = address or "http:127.0.0.1:5000"
+        self.args = parse_resources(args) or []
+
+        # A token is suggested but not required, depends on server
+        self.token = os.getenv("WMS_MONITOR_TOKEN")
+        self.service_info()
+
+        # Add the wms_server_handler to the logger's handlers
+        # logger.log_handler.append(logger.wms_server_handler)
+
+        # Create or retrieve the existing workflow
+        self.create_workflow()
+
+    def service_info(self):
+        """Service Info ensures that the server is running. We exit on error
+        if this isn't the case, so the function can be called in init.
+        """
+
+        # We first ensure that the server is running, period
+        response = requests.get(
+            self.address + "/api/service-info", headers=self._headers
+        )
+        if response.status_code != 200:
+            sys.stderr.write(
+                "Problem with server: {} {}".format(self.address, os.linesep)
+            )
+            sys.exit(-1)
+
+        # And then that it's ready to be interacted with
+        if response.json().get("status") != "running":
+            sys.stderr.write(
+                "The status of the server {} is not in 'running' mode {}".format(
+                    self.address, os.linesep
+                )
+            )
+            sys.exit(-1)
+
+    def create_workflow(self):
+        """Creating a workflow means pinging the wms server for a new id, or
+        if providing an argument for an existing workflow, ensuring that
+        it exists and receiving back the same identifier.
+        """
+        response = requests.get(
+            self.address + "/create_workflow", headers=self._headers, params=self.args
+        )
+
+        # Check the response, will exit on any error
+        self.check_response(response, "/create_workflow")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": response.json()["id"]}
+
+    def check_response(self, response, endpoint="wms monitor request"):
+        """A helper function to take a response and check for an expected set of
+        error codes, 404 (not found), 401 (requires authorization), 403 (permission
+        denied), 500 (server error) and 200 (success).
+        """
+        status_code = response.status_code
+
+        # Cut out early on success
+        if status_code == 200:
+            return
+
+        if status_code == 404:
+            sys.stderr.write("The wms %s endpoint was not found" % endpoint)
+            sys.exit(-1)
+        elif status_code == 401:
+            sys.stderr.write(
+                "Authorization is required with a WMS_MONITOR_TOKEN in the environment"
+            )
+            sys.exit(-1)
+        elif status_code == 500:
+            sys.stderr.write(
+                "There was a server error when trying to access %s" % endpoint
+            )
+            sys.exit(-1)
+        elif status_code == 403:
+            sys.stderr.write("Permission is denied to %s." % endpoint)
+            sys.exit(-1)
+
+        # Any other response code is not acceptable
+        sys.stderr.write(
+            "The %s response code %s is not recognized."
+            % (endpoint, response.status_code)
+        )
+
+    @property
+    def _headers(self):
+        """return authenticated headers if the user has provided a token"""
+        headers = None
+        if self.token:
+            headers = {"Authorization": "Bearer %s" % self.token}
+        return headers
+
+    def log_handler(self, msg):
+        """Custom wms server log handler.
+
+        Sends the log to the server.
+
+        Args:
+            msg (dict):     the log message dictionary
+        """
+        url = self.server["url"] + "/update_workflow_status"
+        server_info = {
+            "msg": repr(msg),
+            "timestamp": time.asctime(),
+            "id": self.server["id"],
+        }
+        response = requests.post(url, data=server_info, headers=self._headers)
+        self.check_response(response, "/update_workflow_status")
 
 
 class Logger:
@@ -246,30 +372,6 @@ class Logger:
     def d3dag(self, **msg):
         msg["level"] = "d3dag"
         self.handler(msg)
-
-    def custom_server_handler(self, msg):
-        """Custom server log handler.
-
-        Sends the log to the server.
-
-        Args:
-            msg (dict):     the log message dictionary
-        """
-        import requests
-
-        server_info = {
-            "msg": repr(msg),
-            "timestamp": time.asctime(),
-            "id": self.server["id"],
-        }
-
-        try:
-            requests.post(
-                self.server["url"] + "/update_workflow_status", data=server_info
-            )
-        except:
-            traceback.print_exc()
-            pass
 
     def text_handler(self, msg):
         """The default snakemake log handler.
@@ -493,10 +595,7 @@ def setup_logger(
     use_threads=False,
     mode=Mode.default,
     show_failed_logs=False,
-    wms_monitor=None,
 ):
-    import requests
-
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified
@@ -507,33 +606,6 @@ def setup_logger(
         mode=mode,
     )
     logger.set_stream_handler(stream_handler)
-
-    if wms_monitor is not None:
-        try:
-            r = requests.get(wms_monitor + "/api/service-info")
-        except:
-            sys.stderr.write(
-                "Problem with server: {} {}".format(wms_monitor, os.linesep)
-            )
-            sys.exit(-1)
-        else:
-            if r.json()["status"] != "running":
-                sys.stderr.write(
-                    "The status of the server {} is not in 'running' mode {}".format(
-                        wms_monitor, os.linesep
-                    )
-                )
-                sys.exit(-1)
-        logger.log_handler.append(logger.custom_server_handler)
-
-        try:
-            r = requests.get(wms_monitor + "/create_workflow")
-        except:
-            traceback.print_exc()
-            pass
-        else:
-            logger.server = {"url": wms_monitor, "id": r.json()["id"]}
-
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds
