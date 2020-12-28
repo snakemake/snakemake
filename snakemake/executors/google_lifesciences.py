@@ -789,9 +789,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # capabilities - this won't currently work (Singularity in Docker)
         # We either need to add CAPS or run in privileged mode (ehh)
         if job.needs_singularity and self.workflow.use_singularity:
-            logger.warning(
+            raise WorkflowError(
                 "Singularity requires additional capabilities that "
-                "aren't yet supported for standard Docker runs."
+                "aren't yet supported for standard Docker runs, and "
+                "is not supported for the Google Life Sciences executor."
             )
 
         # location looks like: "projects/<project>/locations/<location>"
