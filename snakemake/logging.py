@@ -227,6 +227,32 @@ class WMSLogger:
             headers = {"Authorization": "Bearer %s" % self.token}
         return headers
 
+    def _parse_message(self, msg):
+        """Given a message dictionary, we want to loop through the key, value
+        pairs and convert some attributes to strings (e.g., jobs are fine to be
+        represnted as names) and return a dictionary.
+        """
+        result = {}
+        for key, value in msg.items():
+
+            # For a job, the name is sufficient
+            if key == "job":
+                result[key] = str(value)
+
+            # For an exception, return the name and a message
+            elif key == "exception":
+                result[key] = "%s: %s" % (
+                    msg["exception"].__class__.__name__,
+                    msg["exception"] or "Exception",
+                )
+
+            # All other fields are json serializable
+            else:
+                result[key] = value
+
+        # Return a json dumped string
+        return json.dumps(result)
+
     def log_handler(self, msg):
         """Custom wms server log handler.
 
@@ -239,10 +265,11 @@ class WMSLogger:
 
         url = self.server["url"] + "/update_workflow_status"
         server_info = {
-            "msg": repr(msg),
+            "msg": self._parse_message(msg),
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
+        print(server_info)
         response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
