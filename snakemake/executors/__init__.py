@@ -292,6 +292,8 @@ class RealExecutor(AbstractExecutor):
                 additional += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+        if not self.workflow.execute_subworkflows:
+            additional += " --no-subworkflows"
 
         if self.workflow.use_env_modules:
             additional += " --use-envmodules"

@@ -587,6 +587,7 @@ def snakemake(
             envvars=envvars,
             max_inventory_wait_time=max_inventory_wait_time,
             conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
+            execute_subworkflows=execute_subworkflows,
         )
         success = True
 
@@ -775,7 +776,6 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     keepmetadata=keep_metadata,
-                    executesubworkflows=execute_subworkflows,
                 )
 
     except BrokenPipeError:
