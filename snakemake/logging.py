@@ -118,7 +118,7 @@ class SlackLogger:
 
 
 class WMSLogger:
-    def __init__(self, address=None, args=None):
+    def __init__(self, address=None, args=None, metadata=None):
         """A WMS monitor is a workflow management system logger to enable
         monitoring with something like Panoptes. The address corresponds to
         the --wms-monitor argument, and args should be a list of key/value
@@ -132,13 +132,11 @@ class WMSLogger:
 
         self.address = address or "http:127.0.0.1:5000"
         self.args = parse_resources(args) or []
+        self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
         self.token = os.getenv("WMS_MONITOR_TOKEN")
         self.service_info()
-
-        # Add the wms_server_handler to the logger's handlers
-        # logger.log_handler.append(logger.wms_server_handler)
 
         # Create or retrieve the existing workflow
         self.create_workflow()
@@ -175,8 +173,25 @@ class WMSLogger:
         """
         import requests
 
+        # Send the working directory to the server
+        workdir = (
+            os.getcwd()
+            if not self.metadata.get("directory")
+            else os.path.abspath(self.metadata["directory"])
+        )
+
+        # Prepare a request that has metadata about the job
+        metadata = {
+            "snakefile": os.path.join(workdir, self.metadata.get("snakefile")),
+            "command": self.metadata.get("command"),
+            "workdir": workdir,
+        }
+
         response = requests.get(
-            self.address + "/create_workflow", headers=self._headers, params=self.args
+            self.address + "/create_workflow",
+            headers=self._headers,
+            params=self.args,
+            data=metadata,
         )
 
         # Check the response, will exit on any error
@@ -269,7 +284,6 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        print(server_info)
         response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 

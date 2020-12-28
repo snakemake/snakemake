@@ -2246,6 +2246,19 @@ def get_argument_parser(profile=None):
     return parser
 
 
+def generate_parser_metadata(parser, args):
+    """Given a populated parser, generate the original command along with
+    metadata that can be handed to a logger to use as needed.
+    """
+    command = "snakemake %s" % " ".join(
+        parser._source_to_settings["command_line"][""][1]
+    )
+    workdir = os.getcwd()
+    metadata = args.__dict__
+    metadata.update({"command": command})
+    return metadata
+
+
 def main(argv=None):
     """Main entry point."""
 
@@ -2562,7 +2575,11 @@ def main(argv=None):
             log_handler.append(slack_logger.log_handler)
 
         elif args.wms_monitor or args.log_service == "wms":
-            wms_logger = logging.WMSLogger(args.wms_monitor, args.wms_monitor_arg)
+            # Generate additional metadata for server
+            metadata = generate_parser_metadata(parser, args)
+            wms_logger = logging.WMSLogger(
+                args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+            )
             log_handler.append(wms_logger.log_handler)
 
         if args.edit_notebook:
