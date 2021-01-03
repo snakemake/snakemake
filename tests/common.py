@@ -3,18 +3,13 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import sys
 import os
 import shutil
 from os.path import join
-from subprocess import call
 import tempfile
 import hashlib
 import urllib
-from shutil import rmtree, which
-from shlex import quote
 import pytest
-import subprocess
 import glob
 
 from snakemake import snakemake
