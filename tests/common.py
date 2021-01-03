@@ -15,6 +15,7 @@ from shutil import rmtree, which
 from shlex import quote
 import pytest
 import subprocess
+import glob
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -71,6 +72,16 @@ def copy(src, dst):
         shutil.copytree(src, os.path.join(dst, os.path.basename(src)))
     else:
         shutil.copy(src, dst)
+
+
+def get_expected_files(results_dir):
+    """Recursively walk through the expected-results directory to enumerate
+    all excpected files."""
+    return [
+        os.path.relpath(f, results_dir)
+        for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
+        if not os.path.isdir(f)
+    ]
 
 
 def run(
@@ -156,7 +167,7 @@ def run(
         assert not success, "expected error on execution"
     else:
         assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
+        for resultfile in get_expected_files(results_dir):
             if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
