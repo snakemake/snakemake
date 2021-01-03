@@ -122,7 +122,7 @@ def test_coin_solver():
 def test_directory():
     run(
         dpath("test_directory"),
-        targets=["downstream", "symlinked_input", "child_to_input"],
+        targets=["downstream", "symlinked_input", "child_to_input", "not_child_to_other"],
     )
     run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
     run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
