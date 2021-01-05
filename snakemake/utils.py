@@ -656,7 +656,7 @@ class Paramspace:
 
         return {
             name: pd.Series([value]).astype(self.dataframe.dtypes[name])
-            for name in wildcards.items()
+            for name, value in wildcards.items()
             if name in self.ordered_columns
         }
 
