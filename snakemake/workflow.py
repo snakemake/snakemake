@@ -113,6 +113,7 @@ class Workflow:
         edit_notebook=False,
         envvars=None,
         max_inventory_wait_time=20,
+        conda_not_block_search_path_envvars=False,
     ):
         """
         Create the controller.
@@ -183,6 +184,7 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
 
         self.enable_cache = False
         if cache is not None:
@@ -1206,11 +1208,17 @@ class Workflow:
         rule.is_checkpoint = checkpoint
 
         def decorate(ruleinfo):
+            nonlocal name
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
                     **ruleinfo.wildcard_constraints[1]
                 )
+            if ruleinfo.name:
+                rule.name = ruleinfo.name
+                del self._rules[name]
+                self._rules[ruleinfo.name] = rule
+                name = rule.name
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -1360,6 +1368,8 @@ class Workflow:
                     rule.container_img = self.global_container_img
 
             rule.norun = ruleinfo.norun
+            if ruleinfo.name is not None:
+                rule.name = ruleinfo.name
             rule.docstring = ruleinfo.docstring
             rule.run_func = ruleinfo.func
             rule.shellcmd = ruleinfo.shellcmd
@@ -1568,6 +1578,13 @@ class Workflow:
 
         return decorate
 
+    def name(self, name):
+        def decorate(ruleinfo):
+            ruleinfo.name = name
+            return ruleinfo
+
+        return decorate
+
     def run(self, func):
         return RuleInfo(func)
 
@@ -1580,6 +1597,7 @@ class RuleInfo:
     def __init__(self, func):
         self.func = func
         self.shellcmd = None
+        self.name = None
         self.norun = False
         self.input = None
         self.output = None
