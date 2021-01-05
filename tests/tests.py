@@ -1000,7 +1000,7 @@ def test_github_issue727():
 
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
