@@ -11,6 +11,7 @@ import hashlib
 import urllib
 import pytest
 import glob
+import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
