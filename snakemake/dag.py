@@ -203,7 +203,12 @@ class DAG:
     def check_directory_outputs(self):
         """Check that no output file is contained in a directory output of the same or another rule."""
         outputs = sorted(
-            {(os.path.abspath(f), job) for job in self.jobs for f in job.output}
+            {
+                (path(f), job)
+                for job in self.jobs
+                for f in job.output
+                for path in (os.path.abspath, os.path.realpath)
+            }
         )
         for i in range(len(outputs) - 1):
             (a, job_a), (b, job_b) = outputs[i : i + 2]

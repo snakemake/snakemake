@@ -994,6 +994,10 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue413():
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+
+
 def test_github_issue727():
     run(dpath("test_github_issue727"))
 

@@ -1,0 +1,32 @@
+"""
+Issue 413:
+ When an output file was a link to a previous output,
+ AND the output link already exists, there would be a 
+ false ChildIOException thrown.
+
+ So test.txt and test.link already exist and we have a third
+ output to trigger a build
+ """
+
+rule all:
+    input:
+        "test_dir/other_file"
+
+rule make_test_dir_and_test_file:
+    output:
+        directory("test_dir/subdir"),
+    shell:
+        """
+        mkdir -p {output[0]}/
+        echo "test" > {output[0]}/test_file
+        """
+        
+rule make_other_file:
+    input:
+        "test_dir/subdir"
+    output:
+        "test_dir/other_file"
+    shell:
+        """
+        ln -s subdir/test_file {output[0]}
+        """
