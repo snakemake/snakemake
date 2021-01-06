@@ -10,23 +10,20 @@ Issue 413:
 
 rule all:
     input:
-        "test_dir/other_file"
-
-rule make_test_dir_and_test_file:
-    output:
-        directory("test_dir/subdir"),
-    shell:
-        """
-        mkdir -p {output[0]}/
-        echo "test" > {output[0]}/test_file
-        """
+        'test.link',
+        'test.txt',
+        "output.txt"
         
-rule make_other_file:
-    input:
-        "test_dir/subdir"
-    output:
-        "test_dir/other_file"
-    shell:
-        """
-        ln -s subdir/test_file {output[0]}
-        """
+rule link_file:
+    input: 'test.txt'
+    output: 'test.link'
+    shell: 'ln -s test.txt {output}'
+
+rule first_rule:
+    output: 'test.txt'
+    shell: 'echo TEST > {output}'
+
+# under issue 413 the DAG would fail before this could run
+rule output:
+    output: 'output.txt'
+    shell: 'echo OUTPUT > {output}'
