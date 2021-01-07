@@ -31,12 +31,16 @@ rule intermediate:
 # for a given sample. E.g. for sample b:
 # ['post/b/1.txt', 'post/b/3.txt', 'post/b/2.txt']
 def aggregate_input(wildcards):
-    return expand(
-        "post/{sample}/{i}.txt",
-        sample=wildcards.sample,
-        i=glob_wildcards(
-            os.path.join(checkpoints.clustering.get(**wildcards).output[0], "{i}.txt")
-        ).i,
+    return sorted(
+        expand(
+            "post/{sample}/{i}.txt",
+            sample=wildcards.sample,
+            i=glob_wildcards(
+                os.path.join(
+                    checkpoints.clustering.get(**wildcards).output[0], "{i}.txt"
+                )
+            ).i,
+        )
     )
 
 
