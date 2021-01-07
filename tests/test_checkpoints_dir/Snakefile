@@ -30,6 +30,9 @@ rule intermediate:
 # input function collecting all txt files (all i's)
 # for a given sample. E.g. for sample b:
 # ['post/b/1.txt', 'post/b/3.txt', 'post/b/2.txt']
+# To avoid different order based on different architectures,
+# this input file list is sorted. For details see
+# https://github.com/snakemake/snakemake/pull/826#issue-550400376
 def aggregate_input(wildcards):
     return sorted(
         expand(
