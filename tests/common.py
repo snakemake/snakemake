@@ -93,7 +93,7 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
-    **params
+    **params,
 ):
     """
     Test the Snakefile in path.
@@ -156,7 +156,7 @@ def run(
         verbose=True,
         conda_frontend=conda_frontend,
         container_image=container_image,
-        **params
+        **params,
     )
 
     if shouldfail:
@@ -193,9 +193,9 @@ def run(
                         expected_content = expected.read()
                     with open(targetfile) as target:
                         content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n-----{}\n-----expected:-----\n{}\n-----'.format(
-                        resultfile, content, expected_content
-                    )
+                    assert (
+                        False
+                    ), f"wrong result produced for file '{resultfile}':\n-----\n{content}\n-----expected:-----\n{expected_content}\n-----"
 
     if not cleanup:
         return tmpdir
