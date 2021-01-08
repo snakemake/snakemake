@@ -189,10 +189,12 @@ def run(
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
                     # import pdb; pdb.set_trace()
+                    with open(expectedfile) as expected:
+                        expected_content = expected.read()
                     with open(targetfile) as target:
                         content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
+                    assert False, 'wrong result produced for file "{}":\n-----{}\n-----expected:-----\n{}\n-----'.format(
+                        resultfile, content, expected_content
                     )
 
     if not cleanup:
