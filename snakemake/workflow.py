@@ -1406,8 +1406,8 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule:
-                    # skip rules with run directive
+                if not invalid_rule and ruleinfo.container_img is not None:
+                    # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
