@@ -1133,8 +1133,8 @@ class Workflow:
         def func(*args, **wildcards):
             n = self._scatter[key]
             return expand(
-                *args, 
-                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)), 
+                *args,
+                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
                 **wildcards
             )
 
