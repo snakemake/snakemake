@@ -10,6 +10,7 @@ import re
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 import copy
+from urllib.parse import urlparse
 
 # module-specific
 import snakemake.io
@@ -104,7 +105,7 @@ class AbstractRemoteProvider:
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=self,
-            **kwargs
+            **kwargs,
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
@@ -154,7 +155,7 @@ class AbstractRemoteObject:
         keep_local=False,
         stay_on_remote=False,
         provider=None,
-        **kwargs
+        **kwargs,
     ):
         assert protocol is not None
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
@@ -294,3 +295,46 @@ class DomainObject(AbstractRemoteObject):
     @property
     def remote_path(self):
         return self.path_remainder
+
+
+class AutoRemoteProvider:
+    def __init__(self, *args, **kwargs):
+        self.constructor_args = args
+        self.constructor_kwargs = kwargs
+
+    @property
+    def protocol_mapping(self):
+        # TODO: how to include all providers automatically (AbstractRemoteProvider.__subclasses__)?
+        from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+        from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+
+        provider_list = [HTTPRemoteProvider, FTPRemoteProvider]
+
+        protocol_dict = {}
+        for Provider in provider_list:
+            for protocol in Provider().available_protocols:
+                protocol_short = protocol[:-3]  # remove "://" suffix
+                protocol_dict[protocol_short] = Provider
+
+        return protocol_dict
+
+    def remote(self, value, *args, **kwargs):
+        # TODO: support iterables
+        if isinstance(value, str):
+            pass
+        else:
+            raise TypeError(
+                "Invalid type ({}) passed to remote: {}".format(type(value), value)
+            )
+
+        # select provider
+        o = urlparse(value)
+        Provider = self.protocol_mapping.get(o.scheme)
+
+        if Provider is None:
+            raise TypeError("Could not find remote provider for: {}".format(value))
+
+        # use provider's remote
+        return Provider(*self.constructor_args, **self.constructor_kwargs).remote(
+            value, *args, **kwargs
+        )
