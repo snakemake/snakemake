@@ -21,7 +21,7 @@ from importlib.machinery import SourceFileLoader
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
-from snakemake.logging import setup_logger, logger, SlackLogger
+from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
@@ -123,7 +123,6 @@ def snakemake(
     updated_files=None,
     log_handler=[],
     keep_logger=False,
-    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -269,7 +268,6 @@ def snakemake(
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
-        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -471,7 +469,6 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
-            wms_monitor=wms_monitor,
         )
 
     if greediness is None:
@@ -1336,10 +1333,22 @@ def get_argument_parser(profile=None):
         action="store",
         nargs="?",
         help=(
-            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000)"
+            " Note that if your service requires an authorization token, you must export WMS_MONITOR_TOKEN in the environment."
         ),
     )
-
+    group_exec.add_argument(
+        "--wms-monitor-arg",
+        nargs="*",
+        metavar="NAME=VALUE",
+        help=(
+            "If the workflow management service accepts extra arguments, provide."
+            " them in key value pairs with --wms-monitor-arg. For example, to run"
+            " an existing workflow using a wms monitor, you can provide the pair "
+            " id=12345 and the arguments will be provided to the endpoint to "
+            " first interact with the workflow"
+        ),
+    )
     group_exec.add_argument(
         "--scheduler-ilp-solver",
         default=recommended_lp_solver,
@@ -1911,10 +1920,10 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--log-service",
         default=None,
-        choices=["none", "slack"],
+        choices=["none", "slack", "wms"],
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
-        "Currently only slack is supported.",
+        "Currently slack and workflow management system (wms) are supported.",
     )
 
     group_cluster = parser.add_argument_group("CLUSTER")
@@ -2237,6 +2246,19 @@ def get_argument_parser(profile=None):
     return parser
 
 
+def generate_parser_metadata(parser, args):
+    """Given a populated parser, generate the original command along with
+    metadata that can be handed to a logger to use as needed.
+    """
+    command = "snakemake %s" % " ".join(
+        parser._source_to_settings["command_line"][""][1]
+    )
+    workdir = os.getcwd()
+    metadata = args.__dict__
+    metadata.update({"command": command})
+    return metadata
+
+
 def main(argv=None):
     """Main entry point."""
 
@@ -2552,6 +2574,14 @@ def main(argv=None):
             slack_logger = logging.SlackLogger()
             log_handler.append(slack_logger.log_handler)
 
+        elif args.wms_monitor or args.log_service == "wms":
+            # Generate additional metadata for server
+            metadata = generate_parser_metadata(parser, args)
+            wms_logger = logging.WMSLogger(
+                args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+            )
+            log_handler.append(wms_logger.log_handler)
+
         if args.edit_notebook:
             from snakemake import notebook
 
@@ -2679,7 +2709,6 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
-            wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
             edit_notebook=args.edit_notebook,
