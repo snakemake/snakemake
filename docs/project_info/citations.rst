@@ -47,5 +47,5 @@ The markdown syntax is
 
     [![Snakemake](https://img.shields.io/badge/snakemake-≥5.6.0-brightgreen.svg?style=flat)](https://snakemake.readthedocs.io)
 
-Replace the ``3.5.2`` with the minimum required Snakemake version.
+Replace the ``5.6.0`` with the minimum required Snakemake version.
 You can also `change the style <https://shields.io/#styles>`_.
