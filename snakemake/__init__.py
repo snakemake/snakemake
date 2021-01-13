@@ -148,6 +148,11 @@ def snakemake(
     container_image=None,
     tibanna=False,
     tibanna_sfn=None,
+    tibanna_config=False,
+    precommand="",
+    default_remote_provider=None,
+    default_remote_prefix="",
+    spot_rules=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
@@ -155,10 +160,6 @@ def snakemake(
     tes=None,
     preemption_default=None,
     preemptible_rules=None,
-    precommand="",
-    default_remote_provider=None,
-    default_remote_prefix="",
-    tibanna_config=False,
     assume_shared_fs=True,
     cluster_status=None,
     export_cwl=None,
@@ -278,15 +279,17 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
+        spot_rules (list):          define custom spot instance retries for specific rules (for Tibanna only)
+        precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
+        preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
-        precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
-        tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
@@ -383,6 +386,11 @@ def snakemake(
     if preemption_default or preemptible_rules and not google_lifesciences:
         logger.warning(
             "Preemptible instances are only available for the Google Life Sciences Executor."
+        )
+
+    if spot_rules and not tibanna:
+        logger.warning(
+            "Spot-rules are only available for Tibanna Executor."
         )
 
     if updated_files is None:
@@ -669,15 +677,16 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    precommand=precommand,
+                    tibanna_config=tibanna_config,
+                    spot_rules=spot_rules,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
-                    tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     max_jobs_per_second=max_jobs_per_second,
@@ -717,15 +726,16 @@ def snakemake(
                     container_image=container_image,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    tibanna_config=tibanna_config,
+                    precommand=precommand,
+                    spot_rules=spot_rules,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
-                    tibanna_config=tibanna_config,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
@@ -2102,6 +2112,19 @@ def get_argument_parser(profile=None):
         help="Additional tibanna config e.g. --tibanna-config spot_instance=true subnet="
         "<subnet_id> security group=<security_group_id>",
     )
+    group_tibanna.add_argument(
+        "--spot-rules",
+        nargs="+",
+        default=None,
+        help=(
+            "To use spot instances for a subset of your rules, you can use --spot-rules and "
+            "then specify a list of rule and integer pairs, where each integer indicates the "
+            "number of restarts to use for the rule's instance in the case that the instance is "
+            "terminated unexpectedly. Alternatively, spot instance can be used for all rules by "
+            "using the --tibanna-config. "
+        ),
+    )
+
     group_google_life_science.add_argument(
         "--google-lifesciences",
         action="store_true",
@@ -2639,15 +2662,16 @@ def main(argv=None):
             container_image=args.container_image,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            precommand=args.precommand,
+            tibanna_config=args.tibanna_config,
+            spot_rules=args.spot_rules,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             tes=args.tes,
-            precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,
-            tibanna_config=args.tibanna_config,
             jobname=args.jobname,
             immediate_submit=args.immediate_submit,
             standalone=True,

@@ -1870,6 +1870,7 @@ class TibannaExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         keepincomplete=False,
         keepmetadata=True,
+        spot_rules=None
     ):
         self.workflow = workflow
         self.workflow_sources = []

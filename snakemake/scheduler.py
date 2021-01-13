@@ -69,15 +69,16 @@ class JobScheduler:
         container_image=None,
         tibanna=None,
         tibanna_sfn=None,
+        tibanna_config=False,
+        precommand="",
+        spot_rules=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         tes=None,
-        precommand="",
         preemption_default=None,
         preemptible_rules=None,
-        tibanna_config=False,
         jobname=None,
         quiet=False,
         printreason=False,
@@ -284,6 +285,7 @@ class JobScheduler:
                 latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
+                spot_rules=spot_rules,
             )
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
