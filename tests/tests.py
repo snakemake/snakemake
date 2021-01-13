@@ -1114,7 +1114,7 @@ def test_metadata_migration():
     # generate artificial incomplete metadata in v1 format for migration
     with open(
         metapath
-        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ\=",
+        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ=",
         "w",
     ) as meta:
         print('{"incomplete": true, "external_jobid": null}', file=meta)
