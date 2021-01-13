@@ -1131,7 +1131,12 @@ class Workflow:
         self._scatter.update(self.overwrite_scatter)
 
         def func(*args, **wildcards):
-            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+            n = self._scatter[key]
+            return expand(
+                *args,
+                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
+                **wildcards
+            )
 
         for key in content:
             setattr(scatter, key, func)
