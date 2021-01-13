@@ -212,7 +212,7 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 .. code-block:: console
 
-    $ conda env create -f environment.yml -n snakemake-testing
+    $ conda env create -f test-environment.yml -n snakemake-testing
     $ conda activate snakemake-testing
     $ pip install -e .
 
@@ -294,7 +294,7 @@ Snakemake development environment via
 
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
-    $ conda env create -f environment.yml -n snakemake
+    $ conda env create -f doc-environment.yml -n snakemake
 
 Then, the docs can be built with
 
