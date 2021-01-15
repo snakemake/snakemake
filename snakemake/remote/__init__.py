@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 
 # module-specific
 import snakemake.io
+from snakemake.logging import logger
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
@@ -304,12 +305,31 @@ class AutoRemoteProvider:
 
     @property
     def protocol_mapping(self):
-        # TODO: how to include all providers automatically (AbstractRemoteProvider.__subclasses__)?
-        from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-        from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+        # automatically gather all RemoteProviders
+        import pkgutil
+        import importlib.util
 
-        provider_list = [HTTPRemoteProvider, FTPRemoteProvider]
+        provider_list = []
+        for remote_submodule in pkgutil.iter_modules(snakemake.remote.__path__):
+            path = (
+                os.path.join(remote_submodule.module_finder.path, remote_submodule.name)
+                + ".py"
+            )
 
+            module_name = remote_submodule.name
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+
+            try:
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception as e:
+                logger.debug(f"Autoloading {module_name} failed: {e}")
+                continue
+
+            provider_list.append(module.RemoteProvider)
+
+        # assemble scheme mapping
         protocol_dict = {}
         for Provider in provider_list:
             for protocol in Provider().available_protocols:
