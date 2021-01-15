@@ -189,6 +189,8 @@ class DAG:
 
         self.cleanup()
 
+        self.check_incomplete()
+
         self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()

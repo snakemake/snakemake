@@ -699,8 +699,6 @@ class Workflow:
         logger.info("Building DAG of jobs...")
         dag.init()
         dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
         dag.check_dynamic()
 
         try:
