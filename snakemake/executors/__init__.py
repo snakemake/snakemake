@@ -412,7 +412,7 @@ class CPUExecutor(RealExecutor):
                 "--force -j{cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
-                "--max-inventory-time 0 ",
+                "--max-inventory-time 0 --ignore-incomplete ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
