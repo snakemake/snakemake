@@ -342,7 +342,7 @@ class AutoRemoteProvider:
             values = value
         else:
             raise TypeError(
-                "Invalid type ({}) passed to remote: {}".format(type(value), value)
+                f"Invalid type ({type(value)}) passed to remote: {value}"
             )
 
         provider_remote_list = []
@@ -352,7 +352,7 @@ class AutoRemoteProvider:
             Provider = self.protocol_mapping.get(o.scheme)
 
             if Provider is None:
-                raise TypeError("Could not find remote provider for: {}".format(value))
+                raise TypeError(f"Could not find remote provider for: {value}")
 
             # use provider's remote
             provider_kws = {} if provider_kws is None else provider_kws.copy()
