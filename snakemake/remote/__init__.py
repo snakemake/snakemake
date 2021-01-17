@@ -299,10 +299,6 @@ class DomainObject(AbstractRemoteObject):
 
 
 class AutoRemoteProvider:
-    def __init__(self, *args, **kwargs):
-        self.constructor_args = args
-        self.constructor_kwargs = kwargs
-
     @property
     def protocol_mapping(self):
         # automatically gather all RemoteProviders
@@ -338,7 +334,7 @@ class AutoRemoteProvider:
 
         return protocol_dict
 
-    def remote(self, value, *args, **kwargs):
+    def remote(self, value, *args, provider_kws=None, **kwargs):
         # TODO: support iterables
         if isinstance(value, str):
             pass
@@ -355,6 +351,9 @@ class AutoRemoteProvider:
             raise TypeError("Could not find remote provider for: {}".format(value))
 
         # use provider's remote
-        return Provider(*self.constructor_args, **self.constructor_kwargs).remote(
-            value, *args, **kwargs
-        )
+        provider_kws = {} if provider_kws is None else provider_kws.copy()
+
+        return Provider(**provider_kws).remote(value, *args, **kwargs)
+
+
+AUTO = AutoRemoteProvider()
