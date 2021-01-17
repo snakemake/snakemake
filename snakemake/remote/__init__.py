@@ -341,9 +341,7 @@ class AutoRemoteProvider:
         elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
-            raise TypeError(
-                f"Invalid type ({type(value)}) passed to remote: {value}"
-            )
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
 
         provider_remote_list = []
         for value in values:
