@@ -11,6 +11,7 @@ from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 import copy
 from urllib.parse import urlparse
+import collections
 
 # module-specific
 import snakemake.io
@@ -335,25 +336,36 @@ class AutoRemoteProvider:
         return protocol_dict
 
     def remote(self, value, *args, provider_kws=None, **kwargs):
-        # TODO: support iterables
         if isinstance(value, str):
-            pass
+            values = [value]
+        elif isinstance(value, collections.abc.Iterable):
+            values = value
         else:
             raise TypeError(
                 "Invalid type ({}) passed to remote: {}".format(type(value), value)
             )
 
-        # select provider
-        o = urlparse(value)
-        Provider = self.protocol_mapping.get(o.scheme)
+        provider_remote_list = []
+        for value in values:
+            # select provider
+            o = urlparse(value)
+            Provider = self.protocol_mapping.get(o.scheme)
 
-        if Provider is None:
-            raise TypeError("Could not find remote provider for: {}".format(value))
+            if Provider is None:
+                raise TypeError("Could not find remote provider for: {}".format(value))
 
-        # use provider's remote
-        provider_kws = {} if provider_kws is None else provider_kws.copy()
+            # use provider's remote
+            provider_kws = {} if provider_kws is None else provider_kws.copy()
 
-        return Provider(**provider_kws).remote(value, *args, **kwargs)
+            provider_remote_list.append(
+                Provider(**provider_kws).remote(value, *args, **kwargs)
+            )
+
+        return (
+            provider_remote_list[0]
+            if len(provider_remote_list) == 1
+            else provider_remote_list
+        )
 
 
 AUTO = AutoRemoteProvider()
