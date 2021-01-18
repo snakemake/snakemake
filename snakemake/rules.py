@@ -525,7 +525,7 @@ class Rule:
                     contains_wildcard_constraints(item)
                     and self.workflow.mode != Mode.subprocess
                 ):
-                    logger.warning("Wildcard constraints in inputs are ignored.")
+                    logger.warning("Wildcard constraints in inputs are ignored. (rule: {})".format(self))
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
             if is_flagged(item, "temp"):
