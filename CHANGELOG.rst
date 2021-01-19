@@ -1,3 +1,9 @@
+Unreleased
+==========
+Fixed
+-----
+- f-strings in runtime code were replaced with `format` syntax as we still support python 3.5 (@mbhall88)
+
 [5.32.0] - 2021-01-15
 =====================
 Changed

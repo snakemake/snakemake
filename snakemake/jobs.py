@@ -1493,7 +1493,7 @@ class Reason:
                     )
         s = "; ".join(s)
         if self.finished:
-            return f"Finished (was: {s})"
+            return "Finished (was: {s})".format(s=s)
         return s
 
     def __bool__(self):
