@@ -292,6 +292,8 @@ class RealExecutor(AbstractExecutor):
                 additional += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+        if not self.workflow.execute_subworkflows:
+            additional += " --no-subworkflows"
 
         if self.workflow.use_env_modules:
             additional += " --use-envmodules"
@@ -412,7 +414,7 @@ class CPUExecutor(RealExecutor):
                 "--force -j{cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
-                "--max-inventory-time 0 ",
+                "--max-inventory-time 0 --ignore-incomplete ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
@@ -1510,11 +1512,14 @@ class KubernetesExecutor(ClusterExecutor):
                 encoded_size = len(encoded_contents)
                 if encoded_size > 1048576:
                     logger.warning(
-                        f"Skipping the source file {f} for secret key {key}. "
-                        f"Its base64 encoded size {encoded_size} exceeds "
+                        "Skipping the source file {f} for secret key {key}. "
+                        "Its base64 encoded size {encoded_size} exceeds "
                         "the maximum file size (1MB) that can be passed "
                         "from host to kubernetes.".format(
-                            f=f, source_file_size=source_file_size
+                            f=f,
+                            source_file_size=source_file_size,
+                            key=key,
+                            encoded_size=encoded_size,
                         )
                     )
                     continue
@@ -1537,11 +1542,11 @@ class KubernetesExecutor(ClusterExecutor):
         if config_map_size > 1048576:
             logger.warning(
                 "The total size of the included files and other Kubernetes secrets "
-                f"is {config_map_size}, exceeding the 1MB limit.\n"
+                "is {}, exceeding the 1MB limit.\n".format(config_map_size)
             )
             logger.warning(
                 "The following are the largest files. Consider removing some of them "
-                f"(you need remove at least {config_map_size - 1048576} bytes):"
+                "(you need remove at least {} bytes):".format(config_map_size - 1048576)
             )
 
             entry_sizes = {
@@ -1576,8 +1581,8 @@ class KubernetesExecutor(ClusterExecutor):
                 # Can't find the pod. Maybe it's already been
                 # destroyed. Proceed with a warning message.
                 logger.warning(
-                    f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
-                    "[WARNING] Ignore this error\n"
+                    "[WARNING] 404 not found when trying to delete the pod: {jobid}\n"
+                    "[WARNING] Ignore this error\n".format(jobid=jobid)
                 )
             else:
                 raise e

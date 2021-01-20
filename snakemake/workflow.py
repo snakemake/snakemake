@@ -114,6 +114,7 @@ class Workflow:
         envvars=None,
         max_inventory_wait_time=20,
         conda_not_block_search_path_envvars=False,
+        execute_subworkflows=True,
     ):
         """
         Create the controller.
@@ -185,6 +186,7 @@ class Workflow:
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
+        self.execute_subworkflows = execute_subworkflows
 
         self.enable_cache = False
         if cache is not None:
@@ -561,7 +563,6 @@ class Workflow:
         batch=None,
         keepincomplete=False,
         keepmetadata=True,
-        executesubworkflows=True,
     ):
 
         self.check_localrules()
@@ -699,8 +700,6 @@ class Workflow:
         logger.info("Building DAG of jobs...")
         dag.init()
         dag.update_checkpoint_dependencies()
-        # check incomplete has to run BEFORE any call to postprocess
-        dag.check_incomplete()
         dag.check_dynamic()
 
         try:
@@ -724,7 +723,7 @@ class Workflow:
 
         if (
             self.subworkflows
-            and executesubworkflows
+            and self.execute_subworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -1131,7 +1130,12 @@ class Workflow:
         self._scatter.update(self.overwrite_scatter)
 
         def func(*args, **wildcards):
-            return expand(*args, scatteritem=range(self._scatter[key]), **wildcards)
+            n = self._scatter[key]
+            return expand(
+                *args,
+                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
+                **wildcards
+            )
 
         for key in content:
             setattr(scatter, key, func)

@@ -3,17 +3,14 @@ __copyright__ = "Copyright 2015-2019, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import sys
 import os
 import shutil
 from os.path import join
-from subprocess import call
 import tempfile
 import hashlib
 import urllib
-from shutil import rmtree, which
-from shlex import quote
 import pytest
+import glob
 import subprocess
 
 from snakemake import snakemake
@@ -73,6 +70,16 @@ def copy(src, dst):
         shutil.copy(src, dst)
 
 
+def get_expected_files(results_dir):
+    """Recursively walk through the expected-results directory to enumerate
+    all excpected files."""
+    return [
+        os.path.relpath(f, results_dir)
+        for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
+        if not os.path.isdir(f)
+    ]
+
+
 def run(
     path,
     shouldfail=False,
@@ -86,7 +93,7 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
-    **params
+    **params,
 ):
     """
     Test the Snakefile in path.
@@ -149,14 +156,14 @@ def run(
         verbose=True,
         conda_frontend=conda_frontend,
         container_image=container_image,
-        **params
+        **params,
     )
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
         assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
+        for resultfile in get_expected_files(results_dir):
             if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
@@ -182,11 +189,13 @@ def run(
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
                     # import pdb; pdb.set_trace()
+                    with open(expectedfile) as expected:
+                        expected_content = expected.read()
                     with open(targetfile) as target:
                         content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
-                    )
+                    assert (
+                        False
+                    ), f"wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------"
 
     if not cleanup:
         return tmpdir

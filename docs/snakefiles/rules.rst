@@ -1238,7 +1238,7 @@ Then, scattering and gathering can be implemented by using globally available ``
         shell:
             "cat {input} > {output}"
 
-Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/0.txt"``, ``"splitted/1.txt"``, ..., depending on the number of scatter items defined.
+Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/1-of-n.txt"``, ``"splitted/2-of-n.txt"``, ..., depending on the number ``n`` of scatter items defined.
 Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.pos.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
 
 The default number of scatter items can be overwritten via the command line interface.
