@@ -742,10 +742,8 @@ class JobScheduler:
         )
 
         if not selected_jobs:
-            logger.warning(
-                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver."
-                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
-            )
+            # No selected jobs. This could be due to insufficient resources or a failure in the ILP solver
+            # Hence, we silently fall back to the greedy solver to make sure that we don't miss anything.
             return self.job_selector_greedy(jobs)
 
         for name in self.workflow.global_resources:
