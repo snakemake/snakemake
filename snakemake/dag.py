@@ -13,6 +13,7 @@ from collections import defaultdict, Counter, deque, namedtuple
 from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
+from urllib.parse import urlparse
 import uuid
 import math
 
@@ -1526,6 +1527,12 @@ class DAG:
         file2jobs = self.file2jobs
 
         input_files = list(job.unique_input)
+
+        # Add dependency on local Singularity image files
+        if self.workflow.use_singularity and job.container_img_url:
+            scheme = urlparse(job.container_img_url).scheme
+            if not scheme or scheme == "file":
+                input_files.append(IOFile(job.container_img_url, job.rule))
 
         if self.is_batch_rule(job.rule):
             # only consider the defined partition of the input files
