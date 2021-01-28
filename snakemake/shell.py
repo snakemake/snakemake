@@ -19,7 +19,6 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
-import snakemake
 
 
 __author__ = "Johannes Köster"
@@ -127,7 +126,6 @@ class shell:
         if not context.get("is_shell"):
             logger.shellcmd(cmd)
 
-        env_prefix = ""
         conda_env = context.get("conda_env", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
