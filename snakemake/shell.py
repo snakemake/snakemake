@@ -190,9 +190,12 @@ class shell:
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
-            cmd = '"{}" {} {}'.format(
-                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
-            )
+            if tmpdir:
+                cmd = '"{}" {}'.format(cls.get_executable(), argvquote(cmd))
+            else:
+                cmd = '"{}" {} {}'.format(
+                    cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+                )
 
         proc = sp.Popen(
             cmd,
