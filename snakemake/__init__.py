@@ -43,6 +43,7 @@ def snakemake(
     cache=None,
     report=None,
     report_stylesheet=None,
+    containerize=False,
     lint=None,
     generate_unit_tests=None,
     listrules=False,
@@ -596,6 +597,8 @@ def snakemake(
         if not print_compilation:
             if lint:
                 success = not workflow.lint(json=lint == "json")
+            elif containerize:
+                workflow.containerize()
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -1454,6 +1457,12 @@ def get_argument_parser(profile=None):
         "'pytest TESTPATH'.",
     )
     group_utils.add_argument(
+        "--containerize",
+        action="store_true",
+        help="Print a Dockerfile that provides an execution environment for the workflow, including all "
+        "conda environments.",
+    )
+    group_utils.add_argument(
         "--export-cwl",
         action="store",
         metavar="FILE",
@@ -2165,13 +2174,15 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--conda-prefix",
         metavar="DIR",
+        default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
         help="Specify a directory in which the 'conda' and 'conda-archive' "
         "directories are created. These are used to store conda environments "
         "and their archives, respectively. If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. The value can also be "
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -2204,7 +2215,7 @@ def get_argument_parser(profile=None):
         default="conda",
         choices=["conda", "mamba"],
         help="Choose the conda frontend for installing environments. "
-        "Caution: mamba is much faster, but still in beta test.",
+        "Mamba is much faster and highly recommended.",
     )
 
     group_singularity = parser.add_argument_group("SINGULARITY")
@@ -2359,6 +2370,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.containerize
         or args.report
         or args.gui
         or args.archive
@@ -2596,6 +2608,7 @@ def main(argv=None):
             report=args.report,
             report_stylesheet=args.report_stylesheet,
             lint=args.lint,
+            containerize=args.containerize,
             generate_unit_tests=args.generate_unit_tests,
             listrules=args.list,
             list_target_rules=args.list_target_rules,

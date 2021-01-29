@@ -57,13 +57,15 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, container_img=None, cleanup=None):
+    def __init__(
+        self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
+    ):
         self.file = env_file
 
-        self.frontend = dag.workflow.conda_frontend
-        self._env_dir = dag.workflow.persistence.conda_env_path
-        self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
+        self.frontend = workflow.conda_frontend
+        self.workflow = workflow
 
+        self._env_dir = env_dir or workflow.persistence.conda_env_path
         self._hash = None
         self._content_hash = None
         self._content = None
@@ -71,7 +73,11 @@ class Env:
         self._archive_file = None
         self._container_img = container_img
         self._cleanup = cleanup
-        self._singularity_args = dag.workflow.singularity_args
+        self._singularity_args = workflow.singularity_args
+
+    @property
+    def _env_archive_dir(self):
+        return self.workflow.persistence.conda_env_archive_path
 
     @property
     def container_img_url(self):
@@ -84,7 +90,7 @@ class Env:
         return self._content
 
     @property
-    def hash(self):
+    def hash(self, include_env_dir=True):
         if self._hash is None:
             md5hash = hashlib.md5()
             # Include the absolute path of the target env dir into the hash.

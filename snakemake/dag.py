@@ -279,7 +279,7 @@ class DAG:
                 simg = self.container_imgs[simg_url]
             env = conda.Env(
                 env_file,
-                self,
+                self.workflow,
                 container_img=simg,
                 cleanup=self.workflow.conda_cleanup_pkgs,
             )

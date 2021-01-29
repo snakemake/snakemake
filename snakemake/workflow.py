@@ -1051,6 +1051,11 @@ class Workflow:
             )
         self.envvars.update(envvars)
 
+    def containerize(self):
+        from snakemake.deployment.containerize import containerize
+
+        containerize(self)
+
     def include(
         self,
         snakefile,
