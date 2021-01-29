@@ -134,6 +134,7 @@ class shell:
         cmd = "{} {} {}".format(
             cls._process_prefix, cmd.strip(), cls._process_suffix
         ).strip()
+        use_shell = True
 
         if env_modules:
             cmd = env_modules.shellcmd(cmd)
@@ -150,6 +151,7 @@ class shell:
                 print(cmd, file=script_fd)
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
             cmd = "{} {}".format(cls.get_executable() or "/bin/sh", script)
+            use_shell = False
 
         if container_img:
             args = context.get("singularity_args", "")
@@ -157,6 +159,7 @@ class shell:
                 container_img,
                 cmd,
                 args,
+                envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
             )
@@ -182,8 +185,6 @@ class shell:
                     del envvars[var]
                 except KeyError:
                     pass
-
-        use_shell = True
 
         if ON_WINDOWS and cls.get_executable():
             # If executable is set on Windows shell mode can not be used
