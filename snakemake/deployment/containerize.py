@@ -38,9 +38,6 @@ def containerize(workflow):
     print("FROM condaforge/mambaforge:latest")
     print('LABEL io.github.snakemake.containerized="true"')
     print('LABEL io.github.snakemake.conda_env_hash="{}"'.format(envhash.hexdigest()))
-    print(
-        "RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*"
-    )
 
     generated = set()
     get_env_cmds = []
@@ -52,7 +49,7 @@ def containerize(workflow):
         prefix = Path("/conda-envs") / env.hash
         env_source_path = relfile(env)
         env_target_path = prefix / "environment.yaml"
-        get_env_cmds.append("\n# Conda environment:".format(env_source_path, prefix))
+        get_env_cmds.append("\n# Conda environment:")
         get_env_cmds.append("#   source: {}".format(env_source_path))
         get_env_cmds.append("#   prefix: {}".format(prefix))
         get_env_cmds.append(
