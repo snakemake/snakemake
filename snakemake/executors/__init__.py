@@ -835,6 +835,10 @@ class ClusterExecutor(RealExecutor):
         # By removing it again, we make sure that it is gone on the host FS.
         if not self.keepincomplete:
             self.workflow.persistence.cleanup(job)
+            # Also cleanup the jobs output files, in case the remote job
+            # was not able to, due to e.g. timeout.
+            logger.debug("Cleanup failed jobs output files.")
+            job.cleanup()
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
