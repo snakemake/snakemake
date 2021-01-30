@@ -131,7 +131,7 @@ class shell:
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
-        cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix))
+        cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
         if env_modules:
             cmd = env_modules.shellcmd(cmd)
