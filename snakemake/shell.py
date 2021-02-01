@@ -147,7 +147,7 @@ class shell:
             with open(script, "w") as script_fd:
                 print(cmd, file=script_fd)
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
-            cmd = "{} {}".format(cls.get_executable() or "/bin/sh", script)
+            cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
         if container_img:
             args = context.get("singularity_args", "")
@@ -188,12 +188,9 @@ class shell:
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
-            if tmpdir:
-                cmd = '"{}" {}'.format(cls.get_executable(), argvquote(cmd))
-            else:
-                cmd = '"{}" {} {}'.format(
-                    cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
-                )
+            cmd = '"{}" {} {}'.format(
+                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+            )
 
         proc = sp.Popen(
             cmd,
