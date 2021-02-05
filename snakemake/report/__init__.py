@@ -21,7 +21,7 @@ from collections import namedtuple, defaultdict
 from itertools import accumulate, chain
 import urllib.parse
 import hashlib
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 
 import requests
@@ -871,7 +871,7 @@ def auto_report(dag, path, stylesheet=None):
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)
 
     if not mode_embedded:
-        with ZipFile(path, mode="w") as zipout:
+        with ZipFile(path, compression=ZIP_DEFLATED, mode="w") as zipout:
             folder = Path(Path(path).stem)
             # store results in data folder
             for subcats in results.values():
