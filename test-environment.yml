@@ -37,7 +37,7 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
-  - cwltool
+  - cwltool <=3.0.20201203173111 # TODO remove once schema-salad has been updated in conda-forge
   - jsonschema
   - pandas
   - networkx
