@@ -1003,6 +1003,11 @@ def test_github_issue413():
     run(dpath("test_github_issue413"), no_tmpdir=True)
 
 
+@skip_on_windows
+def test_github_issue627():
+    run(dpath("test_github_issue627"))
+
+
 def test_github_issue727():
     run(dpath("test_github_issue727"))
 
