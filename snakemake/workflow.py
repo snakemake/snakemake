@@ -1129,6 +1129,9 @@ class Workflow:
         self._scatter.update(content)
         self._scatter.update(self.overwrite_scatter)
 
+        # add corresponding wildcard constraint
+        self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
+
         def func(*args, **wildcards):
             n = self._scatter[key]
             return expand(
