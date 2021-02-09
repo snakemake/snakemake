@@ -742,16 +742,12 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
-# TODO remove skip
-@pytest.mark.skip(reason="Temporarily disable")
 @skip_on_windows
 @connected
 def test_cwl():
     run(dpath("test_cwl"))
 
 
-# TODO remove skip
-@pytest.mark.skip(reason="Temporarily disable")
 @skip_on_windows
 @connected
 def test_cwl_singularity():
