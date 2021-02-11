@@ -1,3 +1,10 @@
+[5.32.2] - 2021-02-11
+=====================
+Changed
+-------
+- Fixed infinite loading of results in Snakemake reports (@FelixMoelder)
+
+
 [5.32.1] - 2021-02-08
 =====================
 Changed
