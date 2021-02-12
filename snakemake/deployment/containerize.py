@@ -9,6 +9,9 @@ from snakemake.deployment import conda
 from snakemake.logging import logger
 
 
+CONDA_ENV_PATH = "/conda-envs"
+
+
 def containerize(workflow):
     if any(
         contains_wildcard(rule.conda_env)
@@ -23,7 +26,7 @@ def containerize(workflow):
 
     envs = sorted(
         set(
-            conda.Env(rule.conda_env, workflow, env_dir="/conda-envs")
+            conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
             for rule in workflow.rules
             if rule.conda_env is not None
         ),
@@ -43,10 +46,10 @@ def containerize(workflow):
     get_env_cmds = []
     generate_env_cmds = []
     for env in envs:
-        if env.hash in generated:
+        if env.content_hash in generated:
             # another conda env with the same content was generated before
             continue
-        prefix = Path("/conda-envs") / env.hash
+        prefix = Path(CONDA_ENV_PATH) / env.content_hash
         env_source_path = relfile(env)
         env_target_path = prefix / "environment.yaml"
         get_env_cmds.append("\n# Conda environment:")
@@ -65,7 +68,7 @@ def containerize(workflow):
         generate_env_cmds.append(
             "mamba env create --prefix {} --file {} &&".format(prefix, env_target_path)
         )
-        generated.add(env.hash)
+        generated.add(env.content_hash)
 
     print("\n# Step 1: Retrieve conda environments")
     for cmd in get_env_cmds:

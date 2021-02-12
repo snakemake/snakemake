@@ -24,7 +24,7 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
-from snakemake.deployment import singularity
+from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
 
 
@@ -65,7 +65,7 @@ class Env:
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
 
-        self._env_dir = env_dir or workflow.persistence.conda_env_path
+        self._env_dir = env_dir or (containerize.CONDA_ENV_PATH if self.is_containerized else workflow.persistence.conda_env_path)
         self._hash = None
         self._content_hash = None
         self._content = None
@@ -90,19 +90,22 @@ class Env:
         return self._content
 
     @property
-    def hash(self, include_env_dir=True):
+    def hash(self):
         if self._hash is None:
-            md5hash = hashlib.md5()
-            # Include the absolute path of the target env dir into the hash.
-            # By this, moving the working directory around automatically
-            # invalidates all environments. This is necessary, because binaries
-            # in conda environments can contain hardcoded absolute RPATHs.
-            env_dir = os.path.realpath(self._env_dir)
-            md5hash.update(env_dir.encode())
-            if self._container_img:
-                md5hash.update(self._container_img.url.encode())
-            md5hash.update(self.content)
-            self._hash = md5hash.hexdigest()
+            if self.is_containerized:
+                self._hash = self.content_hash
+            else:
+                md5hash = hashlib.md5()
+                # Include the absolute path of the target env dir into the hash.
+                # By this, moving the working directory around automatically
+                # invalidates all environments. This is necessary, because binaries
+                # in conda environments can contain hardcoded absolute RPATHs.
+                env_dir = os.path.realpath(self._env_dir)
+                md5hash.update(env_dir.encode())
+                if self._container_img:
+                    md5hash.update(self._container_img.url.encode())
+                md5hash.update(self.content)
+                self._hash = md5hash.hexdigest()
         return self._hash
 
     @property
@@ -112,6 +115,18 @@ class Env:
             md5hash.update(self.content)
             self._content_hash = md5hash.hexdigest()
         return self._content_hash
+
+    @property
+    def is_containerized(self):
+        import yaml
+        from snakemake.shell import shell
+        if not self._container_img:
+            return False
+        out = shell.check_output(
+            "singularity inspect {}".format(self._container_img.path), stderr=subprocess.STDOUT, universal_newlines=True
+        )
+        labels = yaml.load(out)
+        return labels.get("io.github.snakemake.containerized", False)
 
     @property
     def path(self):
