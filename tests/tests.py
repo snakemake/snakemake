@@ -1141,3 +1141,7 @@ def test_paramspace():
 
 def test_github_issue806():
     run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
+
+
+def test_long_shell():
+    run(dpath("test_long_shell"))
