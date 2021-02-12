@@ -21,7 +21,7 @@ SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
 
 class Image:
-    def __init__(self, url, dag):
+    def __init__(self, url, dag, is_containerized):
         if " " in url:
             raise WorkflowError(
                 "Invalid singularity image URL containing " "whitespace."
@@ -49,6 +49,7 @@ class Image:
 
         self.url = url
         self._img_dir = dag.workflow.persistence.container_img_path
+        self.is_containerized = is_containerized
 
     @property
     def is_local(self):
@@ -102,7 +103,13 @@ class Image:
 
 
 def shellcmd(
-    img_path, cmd, args="", envvars=None, shell_executable=None, container_workdir=None
+    img_path,
+    cmd,
+    args="",
+    quiet=False,
+    envvars=None,
+    shell_executable=None,
+    container_workdir=None,
 ):
     """Execute shell command inside singularity container given optional args
     and environment variables to be passed."""
@@ -127,8 +134,9 @@ def shellcmd(
     if container_workdir:
         args += " --pwd {}".format(container_workdir)
 
-    cmd = "{} singularity exec --home {} {} {} {} -c '{}'".format(
+    cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
+        "--quiet --silent" if quiet else "",
         os.getcwd(),
         args,
         img_path,

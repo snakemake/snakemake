@@ -65,13 +65,17 @@ class Env:
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
 
-        self._env_dir = env_dir or (containerize.CONDA_ENV_PATH if self.is_containerized else workflow.persistence.conda_env_path)
+        self._container_img = container_img
+        self._env_dir = env_dir or (
+            containerize.CONDA_ENV_PATH
+            if self.is_containerized
+            else workflow.persistence.conda_env_path
+        )
         self._hash = None
         self._content_hash = None
         self._content = None
         self._path = None
         self._archive_file = None
-        self._container_img = container_img
         self._cleanup = cleanup
         self._singularity_args = workflow.singularity_args
 
@@ -119,14 +123,10 @@ class Env:
     @property
     def is_containerized(self):
         import yaml
-        from snakemake.shell import shell
+
         if not self._container_img:
             return False
-        out = shell.check_output(
-            "singularity inspect {}".format(self._container_img.path), stderr=subprocess.STDOUT, universal_newlines=True
-        )
-        labels = yaml.load(out)
-        return labels.get("io.github.snakemake.containerized", False)
+        return self._container_img.is_containerized
 
     @property
     def path(self):
@@ -140,7 +140,7 @@ class Env:
         env_dir = self._env_dir
         for h in [hash, hash[:8]]:
             path = os.path.join(env_dir, h)
-            if os.path.exists(path):
+            if self.is_containerized or os.path.exists(path):
                 return path
         return path
 
@@ -237,6 +237,32 @@ class Env:
 
         env_hash = self.hash
         env_path = self.path
+
+        if self.is_containerized:
+            if not dryrun:
+                try:
+                    shell.check_output(
+                        singularity.shellcmd(
+                            self._container_img.path,
+                            "[ -d '{}' ]".format(env_path),
+                            args=self._singularity_args,
+                            envvars=self.get_singularity_envvars(),
+                            quiet=True,
+                        ),
+                        stderr=subprocess.PIPE,
+                    )
+                except subprocess.CalledProcessError as e:
+                    raise WorkflowError(
+                        "Unable to find environment in container image. "
+                        "Maybe a conda environment was modified without containerizing again "
+                        "(see snakemake --containerize)?\nDetails:\n{}\n{}".format(
+                            e, e.stderr.decode()
+                        )
+                    )
+                return env_path
+            else:
+                # env should be present in the container
+                return env_path
 
         # Check for broken environment
         if os.path.exists(
@@ -398,26 +424,29 @@ class Conda:
 
     def __new__(cls, container_img=None):
         if container_img not in cls.instances:
+            from snakemake.shell import shell
+
             inst = super().__new__(cls)
             inst.__init__(container_img=container_img)
             cls.instances[container_img] = inst
+            inst._check()
+            inst.info = json.loads(
+                shell.check_output(inst._get_cmd("conda info --json"))
+            )
             return inst
         else:
             return cls.instances[container_img]
 
     def __init__(self, container_img=None):
-        from snakemake.shell import shell
         from snakemake.deployment import singularity
 
         if isinstance(container_img, singularity.Image):
             container_img = container_img.path
         self.container_img = container_img
-        self._check()
-        self.info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
 
     def _get_cmd(self, cmd):
         if self.container_img:
-            return singularity.shellcmd(self.container_img, cmd)
+            return singularity.shellcmd(self.container_img, cmd, quiet=True)
         return cmd
 
     def _check(self):
@@ -465,6 +494,15 @@ class Conda:
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
             )
+            if self.container_img:
+                version = "\n".join(
+                    filter(
+                        lambda line: not line.startswith("WARNING:")
+                        and not line.startswith("ERROR:"),
+                        version.splitlines(),
+                    )
+                )
+
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(

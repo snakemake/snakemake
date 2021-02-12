@@ -1,4 +1,4 @@
-container: "docker://quay.io/snakemake/containerize-testimage:1.0"
+containerized: "docker://quay.io/snakemake/containerize-testimage:1.0"
 
 rule a:
     output:
@@ -6,4 +6,4 @@ rule a:
     conda:
         "env.yaml"
     shell:
-        "bcftools > {output}"
+        "bcftools 2> {output} || true"
