@@ -1,4 +1,4 @@
-.. _grouping:
+.. _job_grouping:
 
 ============
 Job Grouping
