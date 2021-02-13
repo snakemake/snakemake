@@ -522,8 +522,6 @@ class Conda:
         return os.path.join(self.prefix_path(), "bin")
 
     def shellcmd(self, env_path, cmd):
-        from snakemake.shell import shell
-
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
         return "source {} '{}'; {}".format(activate, env_path, cmd)

@@ -1003,6 +1003,11 @@ def test_github_issue413():
     run(dpath("test_github_issue413"), no_tmpdir=True)
 
 
+@skip_on_windows
+def test_github_issue627():
+    run(dpath("test_github_issue627"))
+
+
 def test_github_issue727():
     run(dpath("test_github_issue727"))
 
@@ -1140,3 +1145,7 @@ def test_github_issue806():
 
 def test_containerized():
     run(dpath("test_containerized"), use_conda=True, use_singularity=True)
+
+
+def test_long_shell():
+    run(dpath("test_long_shell"))

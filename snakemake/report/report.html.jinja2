@@ -587,7 +587,7 @@
               name: "{{ res.name }}",
               path: "{{ res.path }}",
               size: "{{ res.size|filesizeformat }}",
-              caption: {{ res.caption }},
+              caption: {{ res.caption|default('""', true) }},
               job_properties: {
                 rule: "{{ res.job.rule.name }}",
                 wildcards: "{{ res.wildcards }}",

@@ -1,8 +1,22 @@
-Unreleased
-==========
-Fixed
------
-- f-strings in runtime code were replaced with `format` syntax as we still support python 3.5 (@mbhall88)
+[5.32.2] - 2021-02-11
+=====================
+Changed
+-------
+- Fixed infinite loading of results in Snakemake reports (@FelixMoelder)
+
+
+[5.32.1] - 2021-02-08
+=====================
+Changed
+-------
+- Improved warning on wildcard constraints (@jheuel)
+- Improved logging from the new scheduler implementation (@johanneskoester)
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
+- Snakemake now automatically adds a global wildcard constraint for {scatteritem}, when scatter/gather support is used.
+- The zip variant of Snakemake reports is now compressed (@FelixMoelder).
+- Improved docs (@ctb).
+- Make output file removal in cluster mode more robust (@sebschmi).
+
 
 [5.32.0] - 2021-01-15
 =====================
