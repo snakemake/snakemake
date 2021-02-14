@@ -1488,7 +1488,7 @@ class Workflow:
     def container(self, container_img):
         def decorate(ruleinfo):
             ruleinfo.container_img = container_img
-            ruleinfo.containerized = False
+            ruleinfo.is_containerized = False
             return ruleinfo
 
         return decorate
@@ -1496,7 +1496,7 @@ class Workflow:
     def containerized(self, container_img):
         def decorate(ruleinfo):
             ruleinfo.container_img = container_img
-            ruleinfo.containerized = True
+            ruleinfo.is_containerized = True
             return ruleinfo
 
         return decorate
