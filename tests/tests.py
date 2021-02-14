@@ -1143,6 +1143,7 @@ def test_github_issue806():
     run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
 
 
+@skip_on_windows
 def test_containerized():
     run(dpath("test_containerized"), use_conda=True, use_singularity=True)
 
