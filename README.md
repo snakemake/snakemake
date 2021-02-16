@@ -18,6 +18,4 @@ Finally, Snakemake workflows can entail a description of required software, whic
 
 **Homepage: https://snakemake.readthedocs.io**
 
-**Note: Snakemake has just (Oct 4 2019) moved from bitbucket.org/snakemake/snakemake to Github. Forks and stars are not yet insightful here!**
-
 Copyright (c) 2012-2019 Johannes Köster <johannes.koester@uni-due.com> (see LICENSE)
