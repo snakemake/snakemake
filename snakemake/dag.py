@@ -279,7 +279,7 @@ class DAG:
                 simg = self.container_imgs[simg_url]
             env = conda.Env(
                 env_file,
-                self,
+                self.workflow,
                 container_img=simg,
                 cleanup=self.workflow.conda_cleanup_pkgs,
             )
@@ -293,10 +293,14 @@ class DAG:
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
-        img_set = {job.container_img_url for job in jobs if job.container_img_url}
+        img_set = {
+            (job.container_img_url, job.is_containerized)
+            for job in jobs
+            if job.container_img_url
+        }
 
-        for img_url in img_set:
-            img = singularity.Image(img_url, self)
+        for img_url, is_containerized in img_set:
+            img = singularity.Image(img_url, self, is_containerized)
             if not dryrun or not quiet:
                 img.pull(dryrun)
             self.container_imgs[img_url] = img

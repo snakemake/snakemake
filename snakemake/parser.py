@@ -293,6 +293,12 @@ class GlobalContainer(GlobalKeywordState):
         return "global_container"
 
 
+class GlobalContainerized(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_containerized"
+
+
 # subworkflows
 
 
@@ -455,6 +461,10 @@ class Singularity(RuleKeywordState):
 
 
 class Container(RuleKeywordState):
+    pass
+
+
+class Containerized(RuleKeywordState):
     pass
 
 
@@ -658,6 +668,7 @@ class Rule(GlobalKeywordState):
         conda=Conda,
         singularity=Singularity,
         container=Container,
+        containerized=Containerized,
         envmodules=EnvModules,
         wildcard_constraints=WildcardConstraints,
         shadow=Shadow,
@@ -813,6 +824,7 @@ class Python(TokenAutomaton):
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
         container=GlobalContainer,
+        containerized=GlobalContainerized,
         scattergather=Scattergather,
     )
 

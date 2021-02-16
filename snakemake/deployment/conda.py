@@ -24,7 +24,7 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
-from snakemake.deployment import singularity
+from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
 
 
@@ -57,21 +57,31 @@ class Env:
 
     """Conda environment from a given specification file."""
 
-    def __init__(self, env_file, dag, container_img=None, cleanup=None):
+    def __init__(
+        self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
+    ):
         self.file = env_file
 
-        self.frontend = dag.workflow.conda_frontend
-        self._env_dir = dag.workflow.persistence.conda_env_path
-        self._env_archive_dir = dag.workflow.persistence.conda_env_archive_path
+        self.frontend = workflow.conda_frontend
+        self.workflow = workflow
 
+        self._container_img = container_img
+        self._env_dir = env_dir or (
+            containerize.CONDA_ENV_PATH
+            if self.is_containerized
+            else workflow.persistence.conda_env_path
+        )
         self._hash = None
         self._content_hash = None
         self._content = None
         self._path = None
         self._archive_file = None
-        self._container_img = container_img
         self._cleanup = cleanup
-        self._singularity_args = dag.workflow.singularity_args
+        self._singularity_args = workflow.singularity_args
+
+    @property
+    def _env_archive_dir(self):
+        return self.workflow.persistence.conda_env_archive_path
 
     @property
     def container_img_url(self):
@@ -86,17 +96,20 @@ class Env:
     @property
     def hash(self):
         if self._hash is None:
-            md5hash = hashlib.md5()
-            # Include the absolute path of the target env dir into the hash.
-            # By this, moving the working directory around automatically
-            # invalidates all environments. This is necessary, because binaries
-            # in conda environments can contain hardcoded absolute RPATHs.
-            env_dir = os.path.realpath(self._env_dir)
-            md5hash.update(env_dir.encode())
-            if self._container_img:
-                md5hash.update(self._container_img.url.encode())
-            md5hash.update(self.content)
-            self._hash = md5hash.hexdigest()
+            if self.is_containerized:
+                self._hash = self.content_hash
+            else:
+                md5hash = hashlib.md5()
+                # Include the absolute path of the target env dir into the hash.
+                # By this, moving the working directory around automatically
+                # invalidates all environments. This is necessary, because binaries
+                # in conda environments can contain hardcoded absolute RPATHs.
+                env_dir = os.path.realpath(self._env_dir)
+                md5hash.update(env_dir.encode())
+                if self._container_img:
+                    md5hash.update(self._container_img.url.encode())
+                md5hash.update(self.content)
+                self._hash = md5hash.hexdigest()
         return self._hash
 
     @property
@@ -106,6 +119,14 @@ class Env:
             md5hash.update(self.content)
             self._content_hash = md5hash.hexdigest()
         return self._content_hash
+
+    @property
+    def is_containerized(self):
+        import yaml
+
+        if not self._container_img:
+            return False
+        return self._container_img.is_containerized
 
     @property
     def path(self):
@@ -119,7 +140,7 @@ class Env:
         env_dir = self._env_dir
         for h in [hash, hash[:8]]:
             path = os.path.join(env_dir, h)
-            if os.path.exists(path):
+            if self.is_containerized or os.path.exists(path):
                 return path
         return path
 
@@ -216,6 +237,32 @@ class Env:
 
         env_hash = self.hash
         env_path = self.path
+
+        if self.is_containerized:
+            if not dryrun:
+                try:
+                    shell.check_output(
+                        singularity.shellcmd(
+                            self._container_img.path,
+                            "[ -d '{}' ]".format(env_path),
+                            args=self._singularity_args,
+                            envvars=self.get_singularity_envvars(),
+                            quiet=True,
+                        ),
+                        stderr=subprocess.PIPE,
+                    )
+                except subprocess.CalledProcessError as e:
+                    raise WorkflowError(
+                        "Unable to find environment in container image. "
+                        "Maybe a conda environment was modified without containerizing again "
+                        "(see snakemake --containerize)?\nDetails:\n{}\n{}".format(
+                            e, e.stderr.decode()
+                        )
+                    )
+                return env_path
+            else:
+                # env should be present in the container
+                return env_path
 
         # Check for broken environment
         if os.path.exists(
@@ -377,26 +424,29 @@ class Conda:
 
     def __new__(cls, container_img=None):
         if container_img not in cls.instances:
+            from snakemake.shell import shell
+
             inst = super().__new__(cls)
             inst.__init__(container_img=container_img)
             cls.instances[container_img] = inst
+            inst._check()
+            inst.info = json.loads(
+                shell.check_output(inst._get_cmd("conda info --json"))
+            )
             return inst
         else:
             return cls.instances[container_img]
 
     def __init__(self, container_img=None):
-        from snakemake.shell import shell
         from snakemake.deployment import singularity
 
         if isinstance(container_img, singularity.Image):
             container_img = container_img.path
         self.container_img = container_img
-        self._check()
-        self.info = json.loads(shell.check_output(self._get_cmd("conda info --json")))
 
     def _get_cmd(self, cmd):
         if self.container_img:
-            return singularity.shellcmd(self.container_img, cmd)
+            return singularity.shellcmd(self.container_img, cmd, quiet=True)
         return cmd
 
     def _check(self):
@@ -444,6 +494,15 @@ class Conda:
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
             )
+            if self.container_img:
+                version = "\n".join(
+                    filter(
+                        lambda line: not line.startswith("WARNING:")
+                        and not line.startswith("ERROR:"),
+                        version.splitlines(),
+                    )
+                )
+
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(

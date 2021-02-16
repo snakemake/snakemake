@@ -341,6 +341,10 @@ class Job(AbstractJob):
         return self.rule.container_img
 
     @property
+    def is_containerized(self):
+        return self.rule.is_containerized
+
+    @property
     def container_img(self):
         if self.dag.workflow.use_singularity and self.container_img_url:
             return self.dag.container_imgs[self.container_img_url]

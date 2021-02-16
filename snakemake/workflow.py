@@ -166,6 +166,7 @@ class Workflow:
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
+        self.global_is_containerized = False
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
@@ -1051,6 +1052,11 @@ class Workflow:
             )
         self.envvars.update(envvars)
 
+    def containerize(self):
+        from snakemake.deployment.containerize import containerize
+
+        containerize(self)
+
     def include(
         self,
         snakefile,
@@ -1369,10 +1375,12 @@ class Workflow:
                         rule=rule,
                     )
                 rule.container_img = ruleinfo.container_img
+                rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
                 if not invalid_rule:
                     # skip rules with run directive
                     rule.container_img = self.global_container_img
+                    rule.is_containerized = self.global_is_containerized
 
             rule.norun = ruleinfo.norun
             if ruleinfo.name is not None:
@@ -1480,6 +1488,15 @@ class Workflow:
     def container(self, container_img):
         def decorate(ruleinfo):
             ruleinfo.container_img = container_img
+            ruleinfo.is_containerized = False
+            return ruleinfo
+
+        return decorate
+
+    def containerized(self, container_img):
+        def decorate(ruleinfo):
+            ruleinfo.container_img = container_img
+            ruleinfo.is_containerized = True
             return ruleinfo
 
         return decorate
@@ -1493,6 +1510,11 @@ class Workflow:
 
     def global_container(self, container_img):
         self.global_container_img = container_img
+        self.global_is_containerized = False
+
+    def global_containerized(self, container_img):
+        self.global_container_img = container_img
+        self.global_is_containerized = True
 
     def threads(self, threads):
         def decorate(ruleinfo):
@@ -1613,6 +1635,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.container_img = None
+        self.is_containerized = False
         self.env_modules = None
         self.wildcard_constraints = None
         self.threads = None

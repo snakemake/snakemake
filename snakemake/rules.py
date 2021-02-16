@@ -87,6 +87,7 @@ class Rule:
             self._benchmark = None
             self._conda_env = None
             self._container_img = None
+            self.is_containerized = False
             self.env_modules = None
             self.group = None
             self._wildcard_names = None
@@ -128,6 +129,7 @@ class Rule:
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._container_img = other._container_img
+            self.is_containerized = other.is_containerized
             self.env_modules = other.env_modules
             self.group = other.group
             self._wildcard_names = (
