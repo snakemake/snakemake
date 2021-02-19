@@ -1116,11 +1116,13 @@ class DAG:
 
     def _update_group_components(self):
         # span connected components if requested
-        for groupid, conn_components in groupby(
-            set(self._group.values()), key=lambda group: group.groupid
-        ):
+        groups_by_id = defaultdict(set)
+        for group in self._group.values():
+            groups_by_id[group.groupid].add(group)
+        for groupid, conn_components in groups_by_id.items():
             n_components = self.workflow.group_components.get(groupid, 1)
             if n_components > 1:
+                print(n_components)
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
                         primary = chunk[0]
