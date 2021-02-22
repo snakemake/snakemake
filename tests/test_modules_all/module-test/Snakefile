@@ -1,0 +1,8 @@
+configfile: "config.yaml" # does not exist, but this statement should be ignored on module import
+
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo {config[test]} > {output}"

@@ -385,6 +385,185 @@ class Subworkflow(GlobalKeywordState):
             )
 
 
+# modules
+
+
+class ModuleKeywordState(SectionKeywordState):
+    pass
+
+
+class ModuleSnakefile(ModuleKeywordState):
+    pass
+
+
+class ModuleMetaWrapper(ModuleKeywordState):
+    pass
+
+
+class Module(GlobalKeywordState):
+    subautomata = dict(
+        snakefile=ModuleSnakefile,
+        meta_wrapper=ModuleMetaWrapper,
+    )
+
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        self.state = self.name
+        self.has_snakefile = False
+        self.has_meta_wrapper = False
+        self.has_name = False
+        self.primary_token = None
+
+    def end(self):
+        if not (self.has_snakefile or self.has_meta_wrapper):
+            self.error(
+                "A module needs either a path to a Snakefile or a meta wrapper URL.",
+                self.primary_token,
+            )
+        yield ")"
+
+    def name(self, token):
+        if is_name(token):
+            yield "workflow.module({name!r}".format(name=token.string), token
+            self.has_name = True
+        elif is_colon(token) and self.has_name:
+            self.primary_token = token
+            self.state = self.block
+        else:
+            self.error("Expected name after module keyword.", token)
+
+    def block_content(self, token):
+        if is_name(token):
+            try:
+                if token.string == "snakefile":
+                    self.has_snakefile = True
+                if token.string == "meta_wrapper":
+                    self.has_meta_wrapper = True
+                for t in self.subautomaton(token.string).consume():
+                    yield t
+            except KeyError:
+                self.error(
+                    "Unexpected keyword {} in "
+                    "module definition".format(token.string),
+                    token,
+                )
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                for t in self.block(e.token):
+                    yield t
+        elif is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_string(token):
+            # ignore docstring
+            pass
+        else:
+            self.error(
+                "Expecting module keyword, comment or docstrings "
+                "inside a module definition.",
+                token,
+            )
+
+
+class UseRule(GlobalKeywordState):
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        self.state = self.keyword_rule
+        self.rules = []
+        self.has_with = False
+        self.has_as = False
+
+    def state_keyword_rule(self, token):
+        if is_name(token) and token.string == "rule":
+            self.state = self.state_rules
+            yield "workflow.use(rules=", token
+        else:
+            self.error("Expecting keyword 'rule' after keyword 'use'", token)
+
+    def state_rules(self, token):
+        if is_name(token):
+            if token.string == "from":
+                if not self.rules:
+                    self.error(
+                        "Expecting rule names after 'use rule' statement.", token
+                    )
+                self.state = self.state_from
+            self.rules.append(token.string)
+            yield "{!r},".format(token.string), token
+        elif is_comma(token):
+            yield ",", token
+        else:
+            self.error(
+                "Expecting rule listing (comma separated) after 'use rule' statement.",
+                token,
+            )
+        # TODO newline and parentheses handling
+
+    def state_from(self, token):
+        if is_name(token):
+            self.state = self.state_modifier
+            yield "from={!r},".format(token.string), token
+        else:
+            self.error(
+                "Expecting module name after 'from' keyword in 'use rule' statement.",
+                token,
+            )
+
+    def state_modifier(self, token):
+        if is_name(token):
+            if token.string == "as" and not self.has_as:
+                self.state = self.state_as
+                return
+            elif token.string == "with":
+                if "*" in self.rules:
+                    self.error(
+                        "Keyword 'with' in 'use rule' statement is not allowed in combination with rule pattern '*'.",
+                        token,
+                    )
+                self.has_with = True
+                self.state = self.state_with
+                return
+            else:
+                self.error(
+                    "Expecting at most one 'as' or 'with' statement, or the end of the line.",
+                    token,
+                )
+        if is_newline(token) and not self.has_with:
+            yield ")", token
+
+    def state_as(self, token):
+        if is_name(token):
+            self.state = self.state_modifier
+            yield "name_modifier={!r}".format(token.string), token
+        else:
+            self.error(
+                "Expecting rulename modifying pattern (e.g. modulename_*) after 'as' keyword.",
+                token,
+            )
+
+    def state_with(self, token):
+        if is_colon(token):
+            self.state = self.block
+        else:
+            self.error(
+                "Expecting colon after 'with' keyword in 'use rule' statement.", token
+            )
+
+    def block_content(self, token):
+        if is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_name(token):
+            for t in self.subautomaton(token).consume():
+                yield t
+        else:
+            self.error(
+                "Expecting a keyword or comment "
+                "inside a 'use rule ... with:' statement.",
+                token,
+            )
+
+
 class Localrules(GlobalKeywordState):
     def block_content(self, token):
         if is_comma(token):

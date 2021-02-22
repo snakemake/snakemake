@@ -1,0 +1,8 @@
+configfile: "config/config.yaml"
+
+
+module test:
+    snakefile: "module-test"
+
+
+use rule * from test
