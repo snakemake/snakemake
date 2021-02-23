@@ -1672,7 +1672,6 @@ class Workflow:
                         from_module
                     )
                 )
-            ruleinfo = RuleInfo()
             module.use_rules(
                 rules,
                 name_modifier,

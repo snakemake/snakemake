@@ -939,11 +939,8 @@ class UseRule(GlobalKeywordState):
 
     def state_rules_rule(self, token):
         if is_name(token):
-            if token.string == "from":
-                if not self.rules:
-                    self.error(
-                        "Expecting rule names after 'use rule' statement.", token
-                    )
+            if token.string == "from" and not self.rules:
+                self.error("Expecting rule names after 'use rule' statement.", token)
 
             self.rules.append(token.string)
             self.state = self.state_rules_comma_or_end
@@ -967,10 +964,6 @@ class UseRule(GlobalKeywordState):
     def state_rules_end(self, token):
         if is_name(token):
             if token.string == "from":
-                if not self.rules:
-                    self.error(
-                        "Expecting rule names after 'use rule' statement.", token
-                    )
                 self.state = self.state_from
                 yield from ()
                 return
