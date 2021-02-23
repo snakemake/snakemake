@@ -828,11 +828,16 @@ class ModuleConfig(ModuleKeywordState):
     pass
 
 
+class ModuleSkipValidation(ModuleKeywordState):
+    pass
+
+
 class Module(GlobalKeywordState):
     subautomata = dict(
         snakefile=ModuleSnakefile,
         meta_wrapper=ModuleMetaWrapper,
         config=ModuleConfig,
+        skip_validation=ModuleSkipValidation,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
