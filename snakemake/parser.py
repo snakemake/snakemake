@@ -822,6 +822,7 @@ class ModuleSnakefile(ModuleKeywordState):
 class ModuleMetaWrapper(ModuleKeywordState):
     pass
 
+
 class ModuleConfig(ModuleKeywordState):
     pass
 

@@ -57,11 +57,12 @@ class ModuleInfo:
     def get_rule_whitelist(self, rules):
         if "*" in rules:
             if len(rules) != 1:
-                raise SyntaxError("The 'use rule' statement uses a wildcard '*' but lists multiple additional rules.")
+                raise SyntaxError(
+                    "The 'use rule' statement uses a wildcard '*' but lists multiple additional rules."
+                )
             else:
                 return None
         return set(rules)
-
 
 
 class WorkflowModifier:
