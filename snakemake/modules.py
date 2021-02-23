@@ -1,3 +1,5 @@
+import types
+
 from snakemake.exceptions import WorkflowError
 
 
@@ -12,6 +14,7 @@ class ModuleInfo:
         skip_validation=False,
     ):
         self.workflow = workflow
+        self.name = name
         self.snakefile = snakefile
         self.meta_wrapper = meta_wrapper
         self.config = config
@@ -95,6 +98,7 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
+        self.namespace = namespace
 
     def skip_rule(self, rulename):
         return self.rule_whitelist is not None and rulename not in self.rule_whitelist
@@ -112,4 +116,6 @@ class WorkflowModifier:
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
         if self.namespace:
-            self.workflow.globals[self.namespace] = self.globals
+            namespace = types.ModuleType(self.namespace)
+            namespace.__dict__.update(self.globals)
+            self.workflow.globals[self.namespace] = namespace

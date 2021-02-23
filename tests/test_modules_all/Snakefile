@@ -8,5 +8,4 @@ module test:
 
 use rule * from test
 
-
 assert test.some_func() == 15
