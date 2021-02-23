@@ -24,19 +24,19 @@ class ModuleInfo:
             skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
             rule_whitelist=self.get_rule_whitelist(rules),
-            rulename_modifier=self.get_name_modifier_func(name_modifier),
+            rulename_modifier=self.get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
 
-    def get_name_modifier_func(self, name_modifier=None):
+    def get_name_modifier_func(self, rules=None, name_modifier=None):
         if name_modifier is None:
             return None
         else:
             if "*" in name_modifier:
                 return lambda rulename: name_modifier.replace("*", rulename)
-            else:
+            elif name_modifier is not None:
                 if len(rules) > 1:
                     raise SyntaxError(
                         "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."

@@ -8,6 +8,7 @@ import os
 import sys
 import signal
 import json
+from tokenize import maybe
 import urllib
 from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
@@ -407,13 +408,15 @@ class Workflow:
         """
         if name is None:
             name = str(len(self._rules) + 1)
-        if not allow_overwrite and self.is_rule(name):
+        is_overwrite = self.is_rule(name)
+        if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
                 "The name {} is already used by another rule".format(name)
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
-        self.rule_count += 1
+        if not is_overwrite:
+            self.rule_count += 1
         if not self.first_rule:
             self.first_rule = rule.name
         return name
@@ -1101,8 +1104,8 @@ class Workflow:
         # else it could be an url.
         # at least we don't want to modify the path for clarity.
 
-        if snakefile in self.included:
-            logger.info("Multiple include of {} ignored".format(snakefile))
+        if not self.modifier.allow_rule_overwrite and snakefile in self.included:
+            logger.info("Multiple includes of {} ignored".format(snakefile))
             return
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
@@ -1669,6 +1672,7 @@ class Workflow:
                         from_module
                     )
                 )
+            ruleinfo = RuleInfo()
             module.use_rules(
                 rules,
                 name_modifier,
@@ -1683,7 +1687,7 @@ class Workflow:
 
 
 class RuleInfo:
-    def __init__(self, func):
+    def __init__(self, func=None):
         self.func = func
         self.shellcmd = None
         self.name = None
@@ -1713,9 +1717,9 @@ class RuleInfo:
         self.cache = False
 
     def update(self, ruleinfo):
-        """Update this ruleinfo with the given one."""
+        """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
         for key, value in ruleinfo.__dict__.items():
-            if value is not None:
+            if key != "func" and value is not None:
                 self.__dict__[key] = value
 
 

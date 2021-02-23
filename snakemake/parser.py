@@ -144,7 +144,10 @@ class KeywordState(TokenAutomaton):
 
     def decorate_end(self, token):
         for t in self.end():
-            yield t, token
+            if isinstance(t, tuple):
+                yield t
+            else:
+                yield t, token
 
     def colon(self, token):
         if is_colon(token):
@@ -162,8 +165,7 @@ class KeywordState(TokenAutomaton):
             # ignore lines containing only comments
             self.line -= 1
         if self.is_block_end(token):
-            for t, token_ in self.decorate_end(token):
-                yield t, token_
+            yield from self.decorate_end(token)
             yield "\n", token
             raise StopAutomaton(token)
 
@@ -174,8 +176,7 @@ class KeywordState(TokenAutomaton):
             if is_comment(token):
                 yield token.string, token
             else:
-                for t in self.block_content(token):
-                    yield t
+                yield from self.block_content(token)
 
     def yield_indent(self, token):
         return token.string, token
@@ -901,14 +902,23 @@ class UseRule(GlobalKeywordState):
         self.state = self.state_keyword_rule
         self.rules = []
         self.has_with = False
-        self.name_modifier = None
+        self.name_modifier = []
         self.from_module = None
+        self._with_block = []
 
     def end(self):
+        name_modifier = "".join(self.name_modifier) if self.name_modifier else None
         yield "@workflow.userule(rules={!r}, from_module={!r}, name_modifier={!r})".format(
-            self.rules, self.from_module, self.name_modifier
+            self.rules, self.from_module, name_modifier
         )
         yield "\n"
+
+        # yield with block
+        yield from self._with_block
+
+        yield "@workflow.run"
+        yield "\n"
+
         rulename = self.rules[0]
         if rulename == "*":
             rulename = "__allrules__"
@@ -1004,18 +1014,11 @@ class UseRule(GlobalKeywordState):
 
     def state_modifier(self, token):
         if is_name(token):
-            if token.string == "as" and not self.has_as:
+            if token.string == "as" and not self.name_modifier:
                 self.state = self.state_as
                 yield from ()
             elif token.string == "with":
-                if "*" in self.rules:
-                    self.error(
-                        "Keyword 'with' in 'use rule' statement is not allowed in combination with rule pattern '*'.",
-                        token,
-                    )
-                self.has_with = True
-                self.state = self.state_with
-                yield from ()
+                yield from self.handle_with(token)
             else:
                 self.error(
                     "Expecting at most one 'as' or 'with' statement, or the end of the line.",
@@ -1030,11 +1033,29 @@ class UseRule(GlobalKeywordState):
                 token,
             )
 
+    def handle_with(self, token):
+        if "*" in self.rules:
+            self.error(
+                "Keyword 'with' in 'use rule' statement is not allowed in combination with rule pattern '*'.",
+                token,
+            )
+        self.has_with = True
+        self.state = self.state_with
+        yield from ()
+
     def state_as(self, token):
         if is_name(token):
-            self.state = self.state_modifier
-            self.name_modifier = token.string
+            if token.string != "with":
+                self.name_modifier.append(token.string)
+                yield from ()
+            else:
+                yield from self.handle_with(token)
+        elif is_op(token) and token.string == "*":
+            self.name_modifier.append(token.string)
             yield from ()
+        elif is_newline(token) or is_comment(token) or is_eof(token):
+            # end of the statement, close block manually
+            yield from self.block(token)
         else:
             self.error(
                 "Expecting rulename modifying pattern (e.g. modulename_*) after 'as' keyword.",
@@ -1055,14 +1076,27 @@ class UseRule(GlobalKeywordState):
             yield "\n", token
             yield token.string, token
         elif is_name(token):
-            for t in self.subautomaton(token).consume():
-                yield t
+            try:
+                self._with_block.extend(self.subautomaton(token.string).consume())
+                yield from ()
+            except KeyError:
+                self.error(
+                    "Unexpected keyword {} in rule definition".format(token.string),
+                    token,
+                )
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                self.block(e.token)
         else:
             self.error(
                 "Expecting a keyword or comment "
                 "inside a 'use rule ... with:' statement.",
                 token,
             )
+
+    @property
+    def dedent(self):
+        return self.indent
 
 
 class Python(TokenAutomaton):
