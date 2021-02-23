@@ -967,15 +967,14 @@ class UseRule(GlobalKeywordState):
         # TODO newline and parentheses handling
 
     def state_rules_end(self, token):
-        if is_name(token):
-            if token.string == "from":
-                self.state = self.state_from
-                yield from ()
-                return
-        self.error(
-            "Expecting list of rules in 'use rule' statement to end with keyword 'from'.",
-            token,
-        )
+        if is_name(token) and token.string == "from":
+            self.state = self.state_from
+            yield from ()
+        else:
+            self.error(
+                "Expecting list of rules in 'use rule' statement to end with keyword 'from'.",
+                token,
+            )
 
     def state_rules_comma_or_end(self, token):
         if is_name(token):
