@@ -57,3 +57,4 @@ dependencies:
   - peppy
   - eido
   - glpk
+  - singularity
