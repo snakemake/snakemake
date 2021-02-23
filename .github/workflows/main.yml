@@ -8,6 +8,15 @@ on:
     branches_ignore: []
 
 jobs:
+  cancel-previous:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: khan/pull-request-workflow-cancel@1.0.0
+        with:
+          workflows: "main.yml"
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
   formatting:
     runs-on: ubuntu-latest
     steps:
