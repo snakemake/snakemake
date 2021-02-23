@@ -5,6 +5,7 @@ class ModuleInfo:
     def __init__(
         self,
         workflow,
+        name,
         snakefile=None,
         meta_wrapper=None,
         config=None,
@@ -27,6 +28,7 @@ class ModuleInfo:
             rulename_modifier=self.get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
+            namespace=self.name,
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
 
@@ -77,6 +79,7 @@ class WorkflowModifier:
         rule_whitelist=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
+        namespace=None,
     ):
         self.workflow = workflow
 
@@ -108,3 +111,5 @@ class WorkflowModifier:
     def __exit__(self, type, value, traceback):
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
+        if self.namespace:
+            self.workflow.globals[self.namespace] = self.globals

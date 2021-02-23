@@ -1659,7 +1659,7 @@ class Workflow:
 
     def module(self, name, snakefile=None, meta_wrapper=None, config=None, skip_validation=False):
         self.modules[name] = ModuleInfo(
-            self, snakefile=snakefile, meta_wrapper=meta_wrapper, config=config, skip_validation=skip_validation
+            self, name, snakefile=snakefile, meta_wrapper=meta_wrapper, config=config, skip_validation=skip_validation
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None):

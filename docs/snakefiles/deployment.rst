@@ -67,6 +67,54 @@ Given that cookiecutter is installed, you can use it via:
 
 Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
+-------------------------------------
+Using and combining pre-exising workflows
+-------------------------------------
+
+Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 5.33, it is very easy to deploy existing workflows for new projects.
+This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
+
+Consider the following example:
+
+.. code-block:: python
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile"
+        config: config
+
+    use rule * from dna_seq
+
+First, we load a local configuration file.
+Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile``, while using the contents of the local configuration file.
+Finally we declare all rules of the dna_seq module to be used.
+This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
+However, the advantage here is that we are (a) able to easily extend of modify the workflow, while making the changes transparent, and (b) we can store this workflow in a separate (e.g. private) git repository, along with for example configuration and meta data, without the need to duplicate the workflow code.
+Finally, we are always able to later combine another module into the current workflow, e.g. when further kinds of analyses are needed.
+The ability to modify rules upon using them (see :ref:`snakefiles-modules`) allows for arbitrary rewiring and configuration of the combined modules.
+
+For example, we can easily add another rule to extend the given workflow:
+
+.. code-block:: python
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile"
+        config: config
+
+    use rule * from dna_seq
+
+    # easily extend the workflow
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
 ----------------------------------
 Uploading workflows to WorkflowHub
 ----------------------------------
