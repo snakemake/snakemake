@@ -2,7 +2,8 @@ configfile: "config/config.yaml"
 
 
 module test:
-    snakefile: "module-test"
+    snakefile: "module-test/Snakefile"
+    config: config
 
 
 use rule * from test

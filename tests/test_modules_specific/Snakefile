@@ -1,5 +1,5 @@
 module test:
-    snakefile: "module-test"
+    snakefile: "module-test/Snakefile"
 
 
 use rule * from test as test_*

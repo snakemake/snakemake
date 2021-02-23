@@ -67,6 +67,7 @@ from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
+from snakemake.modules import ModuleInfo, WorkflowModifier
 
 
 class Workflow:
@@ -139,7 +140,6 @@ class Workflow:
         self.included_stack = []
         self.jobscript = jobscript
         self.persistence = None
-        self.globals = globals()
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config or dict()
@@ -188,6 +188,12 @@ class Workflow:
         self.overwrite_scatter = overwrite_scatter or dict()
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
         self.execute_subworkflows = execute_subworkflows
+        self.modules = dict()
+
+        _globals = globals()
+        _globals["workflow"] = self
+        self.vanilla_globals = dict(_globals)
+        self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
         self.enable_cache = False
         if cache is not None:
@@ -228,6 +234,14 @@ class Workflow:
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def modifier(self):
+        return self.modifier_stack[-1]
+
+    @property
+    def globals(self):
+        return self.modifier.globals
 
     def lint(self, json=False):
         from snakemake.linting.rules import RuleLinter
@@ -380,13 +394,20 @@ class Workflow:
                         rulename, prefix="Error in ruleorder definition."
                     )
 
-    def add_rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+    def add_rule(
+        self,
+        name=None,
+        lineno=None,
+        snakefile=None,
+        checkpoint=False,
+        allow_overwrite=False,
+    ):
         """
         Add a rule.
         """
         if name is None:
             name = str(len(self._rules) + 1)
-        if self.is_rule(name):
+        if not allow_overwrite and self.is_rule(name):
             raise CreateRuleException(
                 "The name {} is already used by another rule".format(name)
             )
@@ -1086,10 +1107,6 @@ class Workflow:
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
 
-        global workflow
-
-        workflow = self
-
         first_rule = self.first_rule
         code, linemap, rulecount = parse(
             snakefile,
@@ -1106,7 +1123,9 @@ class Workflow:
         sys.path.insert(0, os.path.dirname(snakefile))
 
         self.linemaps[snakefile] = linemap
+
         exec(compile(code, snakefile, "exec"), self.globals)
+
         if not overwrite_first_rule:
             self.first_rule = first_rule
         self.included_stack.pop()
@@ -1160,10 +1179,11 @@ class Workflow:
     def configfile(self, fp):
         """ Update the global config with data from the given file. """
         global config
-        self.configfiles.append(fp)
-        c = snakemake.io.load_configfile(fp)
-        update_config(config, c)
-        update_config(config, self.overwrite_config)
+        if not self.modifier.skip_configfile:
+            self.configfiles.append(fp)
+            c = snakemake.io.load_configfile(fp)
+            update_config(config, c)
+            update_config(config, self.overwrite_config)
 
     def pepfile(self, path):
         global pep
@@ -1216,12 +1236,29 @@ class Workflow:
         self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
-        name = self.add_rule(name, lineno, snakefile, checkpoint)
+        if self.modifier.skip_rule(name):
+            return
+
+        # Optionally let the modifier change the rulename.
+        name = self.modifier.modify_rulename(name)
+
+        name = self.add_rule(
+            name,
+            lineno,
+            snakefile,
+            checkpoint,
+            allow_overwrite=self.modifier.allow_rule_overwrite,
+        )
         rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
 
         def decorate(ruleinfo):
             nonlocal name
+
+            # If requested, overwrite ruleinfo via the modifier.
+            if self.modifier.ruleinfo_overwrite:
+                ruleinfo.update(self.modifier.ruleinfo_overwrite)
+
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
@@ -1617,6 +1654,29 @@ class Workflow:
     def run(self, func):
         return RuleInfo(func)
 
+    def module(self, name, snakefile=None, meta_wrapper=None, config=None):
+        self.modules[name] = ModuleInfo(
+            self, snakefile=snakefile, meta_wrapper=meta_wrapper, config=config
+        )
+
+    def userule(self, rules=None, from_module=None, name_modifier=None):
+        def decorate(maybe_ruleinfo):
+            try:
+                module = self.modules[from_module]
+            except KeyError:
+                raise WorkflowError(
+                    "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                        from_module
+                    )
+                )
+            module.use_rules(
+                rules,
+                name_modifier,
+                ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+            )
+
+        return decorate
+
     @staticmethod
     def _empty_decorator(f):
         return f
@@ -1651,6 +1711,12 @@ class RuleInfo:
         self.wrapper = None
         self.cwl = None
         self.cache = False
+
+    def update(self, ruleinfo):
+        """Update this ruleinfo with the given one."""
+        for key, value in ruleinfo.__dict__.items():
+            if value is not None:
+                self.__dict__[key] = value
 
 
 class Subworkflow:
