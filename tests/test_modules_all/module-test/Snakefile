@@ -7,6 +7,6 @@ def some_func():
 
 rule a:
     output:
-        "test.out"
+        "results/test.out"
     shell:
         "echo {config[test]} > {output}"

@@ -69,6 +69,7 @@ from snakemake.resources import DefaultResources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier
+from snakemake.ruleinfo import RuleInfo
 
 
 class Workflow:
@@ -1258,9 +1259,8 @@ class Workflow:
         def decorate(ruleinfo):
             nonlocal name
 
-            # If requested, overwrite ruleinfo via the modifier.
-            if self.modifier.ruleinfo_overwrite:
-                ruleinfo.update(self.modifier.ruleinfo_overwrite)
+            # If requested, modify ruleinfo via the modifier.
+            ruleinfo.apply_modifier(self.modifier)
 
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
@@ -1272,6 +1272,7 @@ class Workflow:
                 del self._rules[name]
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
+            rule.path_modifier = ruleinfo.path_modifier
             if ruleinfo.input:
                 rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
             if ruleinfo.output:
@@ -1664,6 +1665,7 @@ class Workflow:
         meta_wrapper=None,
         config=None,
         skip_validation=False,
+        replace_prefix=None,
     ):
         self.modules[name] = ModuleInfo(
             self,
@@ -1672,6 +1674,7 @@ class Workflow:
             meta_wrapper=meta_wrapper,
             config=config,
             skip_validation=skip_validation,
+            replace_prefix=replace_prefix,
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None):
@@ -1695,43 +1698,6 @@ class Workflow:
     @staticmethod
     def _empty_decorator(f):
         return f
-
-
-class RuleInfo:
-    def __init__(self, func=None):
-        self.func = func
-        self.shellcmd = None
-        self.name = None
-        self.norun = False
-        self.input = None
-        self.output = None
-        self.params = None
-        self.message = None
-        self.benchmark = None
-        self.conda_env = None
-        self.container_img = None
-        self.is_containerized = False
-        self.env_modules = None
-        self.wildcard_constraints = None
-        self.threads = None
-        self.shadow_depth = None
-        self.resources = None
-        self.priority = None
-        self.version = None
-        self.log = None
-        self.docstring = None
-        self.group = None
-        self.script = None
-        self.notebook = None
-        self.wrapper = None
-        self.cwl = None
-        self.cache = False
-
-    def update(self, ruleinfo):
-        """Update this ruleinfo with the given one (used for 'use rule' overrides)."""
-        for key, value in ruleinfo.__dict__.items():
-            if key != "func" and value is not None:
-                self.__dict__[key] = value
 
 
 class Subworkflow:

@@ -12,6 +12,7 @@ class ModuleInfo:
         meta_wrapper=None,
         config=None,
         skip_validation=False,
+        replace_prefix=None,
     ):
         self.workflow = workflow
         self.name = name
@@ -19,6 +20,7 @@ class ModuleInfo:
         self.meta_wrapper = meta_wrapper
         self.config = config
         self.skip_validation = skip_validation
+        self.replace_prefix = replace_prefix
 
     def use_rules(self, rules=None, name_modifier=None, ruleinfo=None):
         snakefile = self.get_snakefile()
@@ -32,6 +34,7 @@ class ModuleInfo:
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
             namespace=self.name,
+            replace_prefix=self.replace_prefix,
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
 
@@ -82,6 +85,7 @@ class WorkflowModifier:
         rule_whitelist=None,
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
+        replace_prefix=None,
         namespace=None,
     ):
         self.workflow = workflow
@@ -98,6 +102,7 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
+        self.path_modifier = PathModifier(replace_prefix) if replace_prefix else None
         self.namespace = namespace
 
     def skip_rule(self, rulename):
@@ -119,3 +124,28 @@ class WorkflowModifier:
             namespace = types.ModuleType(self.namespace)
             namespace.__dict__.update(self.globals)
             self.workflow.globals[self.namespace] = namespace
+
+
+class PathModifier:
+    def __init__(self, replace_prefix: dict):
+        self.skip_properties = set()
+
+        import datrie
+        self.trie = datrie.Trie("".join(set(char for prefix in replace_prefix for char in prefix)))
+        for prefix, replacement in replace_prefix.items():
+            self.trie[prefix] = replacement
+    
+    def modify(self, path: str, property: str):
+        if property in self.skip_properties:
+            return path
+        prefixes = self.trie.prefix_items(path)
+        if len(prefixes) > 1:
+            # ambiguous prefixes
+            raise WorkflowError("Multiple prefixes ({}) match the path {}. Make sure that the replace_prefix statement ""in your module definition does not yield ambiguous matches.".format(", ".join(prefix[0] for prefix in prefixes), path))
+        elif prefixes:
+            # replace prefix
+            prefix, replacement = prefixes[0]
+            return replacement + path[len(prefix):]
+        else:
+            # no matching prefix
+            return path
