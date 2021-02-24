@@ -44,6 +44,8 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
           mamba env create -q --name snakemake --file test-environment.yml
+          # additionally add singularity
+          mamba install -c conda-forge -n snakemake singularity
       
       - name: Setup apt dependencies
         run: |
