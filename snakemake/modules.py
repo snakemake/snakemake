@@ -1,6 +1,7 @@
 import types
 
 from snakemake.exceptions import WorkflowError
+from snakemake.path_modifier import PathModifier
 
 
 class ModuleInfo:
@@ -102,7 +103,7 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = PathModifier(replace_prefix) if replace_prefix else None
+        self.path_modifier = PathModifier(replace_prefix, workflow)
         self.namespace = namespace
 
     def skip_rule(self, rulename):
@@ -112,6 +113,9 @@ class WorkflowModifier:
         if self.rulename_modifier is not None:
             return self.rulename_modifier(rulename)
         return rulename
+
+    def modify_path(self, path, property=None):
+        return self.path_modifier.modify(path, property)
 
     def __enter__(self):
         # put this modifier on the stack, it becomes the currently valid modifier
@@ -124,28 +128,3 @@ class WorkflowModifier:
             namespace = types.ModuleType(self.namespace)
             namespace.__dict__.update(self.globals)
             self.workflow.globals[self.namespace] = namespace
-
-
-class PathModifier:
-    def __init__(self, replace_prefix: dict):
-        self.skip_properties = set()
-
-        import datrie
-        self.trie = datrie.Trie("".join(set(char for prefix in replace_prefix for char in prefix)))
-        for prefix, replacement in replace_prefix.items():
-            self.trie[prefix] = replacement
-    
-    def modify(self, path: str, property: str):
-        if property in self.skip_properties:
-            return path
-        prefixes = self.trie.prefix_items(path)
-        if len(prefixes) > 1:
-            # ambiguous prefixes
-            raise WorkflowError("Multiple prefixes ({}) match the path {}. Make sure that the replace_prefix statement ""in your module definition does not yield ambiguous matches.".format(", ".join(prefix[0] for prefix in prefixes), path))
-        elif prefixes:
-            # replace prefix
-            prefix, replacement = prefixes[0]
-            return replacement + path[len(prefix):]
-        else:
-            # no matching prefix
-            return path

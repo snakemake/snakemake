@@ -481,26 +481,8 @@ class Workflow:
         if isinstance(path, Path):
             path = str(path)
         if self.default_remote_provider is not None:
-            path = self.apply_default_remote(path)
+            path = self.modifier.modify_path(path)
         return IOFile(path)
-
-    def apply_default_remote(self, path):
-        """Apply the defined default remote provider to the given path and return the updated _IOFile.
-        Asserts that default remote provider is defined.
-        """
-        assert (
-            self.default_remote_provider is not None
-        ), "No default remote provider is defined, calling this anyway is a bug"
-
-        # This will convert any AnnotatedString to str
-        fullpath = "{}/{}".format(self.default_remote_prefix, path)
-        fullpath = os.path.normpath(fullpath)
-        remote = self.default_remote_provider.remote(fullpath)
-
-        # Important, update with previous flags in case of AnnotatedString #596
-        if hasattr(path, "flags"):
-            remote.flags.update(path.flags)
-        return remote
 
     def execute(
         self,
