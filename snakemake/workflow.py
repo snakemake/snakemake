@@ -1224,6 +1224,7 @@ class Workflow:
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
         if self.modifier.skip_rule(name):
+
             def decorate(ruleinfo):
                 # do nothing, ignore rule
                 return ruleinfo.func

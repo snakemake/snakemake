@@ -57,18 +57,22 @@ class ModuleInfo:
 
     def get_snakefile(self):
         if self.meta_wrapper:
-            return wrapper.get_path(self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix)
+            return wrapper.get_path(
+                self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix
+            )
         elif self.snakefile:
             return self.snakefile
         else:
             raise WorkflowError(
                 "Module statement must either define snakefile or meta_wrapper to use."
             )
-    
+
     def get_wrapper_tag(self):
         if self.meta_wrapper:
             if wrapper.is_url(self.meta_wrapper):
-                raise WorkflowError("meta_wrapper directive of module statement currently does not support full URLs.")
+                raise WorkflowError(
+                    "meta_wrapper directive of module statement currently does not support full URLs."
+                )
             return self.meta_wrapper.split("/", 1)[0]
         return None
 
@@ -127,7 +131,7 @@ class WorkflowModifier:
 
     def modify_path(self, path, property=None):
         return self.path_modifier.modify(path, property)
-    
+
     def modify_wrapper_uri(self, wrapper_uri, pattern=re.compile("^master/")):
         if self.replace_wrapper_tag is None or wrapper.is_url(wrapper_uri):
             return wrapper_uri
