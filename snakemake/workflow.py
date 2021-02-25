@@ -62,7 +62,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto, ON_WINDOWS
+from snakemake.common import Mode, bytesto, ON_WINDOWS, is_local_file
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -70,6 +70,7 @@ from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier
 from snakemake.ruleinfo import RuleInfo
+from snakemake.sourcecache import SourceCache
 
 
 class Workflow:
@@ -191,6 +192,7 @@ class Workflow:
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
+        self.sourcecache = SourceCache()
 
         _globals = globals()
         _globals["workflow"] = self
@@ -1078,14 +1080,12 @@ class Workflow:
             snakefile = str(snakefile)
 
         # check if snakefile is a path to the filesystem
-        if not urllib.parse.urlparse(snakefile).scheme:
+        if is_local_file(snakefile):
             if not os.path.isabs(snakefile) and self.included_stack:
                 snakefile = os.path.join(self.current_basedir, snakefile)
-            # Could still be an url if relative import was used
-            if not urllib.parse.urlparse(snakefile).scheme:
+            # Could still be a url if relative import was used
+            if is_local_file(snakefile):
                 snakefile = os.path.abspath(snakefile)
-        # else it could be an url.
-        # at least we don't want to modify the path for clarity.
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
@@ -1096,6 +1096,7 @@ class Workflow:
         first_rule = self.first_rule
         code, linemap, rulecount = parse(
             snakefile,
+            self,
             overwrite_shellcmd=self.overwrite_shellcmd,
             rulecount=self._rulecount,
         )

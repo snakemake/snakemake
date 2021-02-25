@@ -1151,18 +1151,9 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path, rulecount=0):
+    def __init__(self, path, workflow, rulecount=0):
         self.path = path
-        try:
-            self.file = open(self.path, encoding="utf-8")
-        except (FileNotFoundError, OSError) as e:
-            try:
-                self.file = TextIOWrapper(
-                    urllib.request.urlopen(self.path), encoding="utf-8"
-                )
-            except (HTTPError, URLError, ContentTooShortError, ValueError):
-                raise WorkflowError("Failed to open {}.".format(path))
-
+        self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount
         self.lines = 0
@@ -1189,9 +1180,9 @@ def format_tokens(tokens):
         t_ = t
 
 
-def parse(path, overwrite_shellcmd=None, rulecount=0):
+def parse(path, workflow, overwrite_shellcmd=None, rulecount=0):
     Shell.overwrite_cmd = overwrite_shellcmd
-    with Snakefile(path, rulecount=rulecount) as snakefile:
+    with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         linemap = dict()
         compilation = list()

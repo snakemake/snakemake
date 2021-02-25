@@ -49,6 +49,24 @@ class TBDInt(int):
 TBDString = "<TBD>"
 
 
+APPDIRS = None
+
+
+def get_appdirs():
+    global APPDIRS
+    if APPDIRS is None:
+        from appdirs import AppDirs
+
+        APPDIRS = AppDirs("snakemake", "snakemake")
+    return APPDIRS
+
+
+def is_local_file(path_or_uri):
+    from smart_open import parse_uri
+
+    return parse_uri(path_or_uri).scheme == "file"
+
+
 def num_if_possible(s):
     """Convert string to number if possible, otherwise return string."""
     try:

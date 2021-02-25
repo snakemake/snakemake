@@ -46,6 +46,8 @@ class Persistence:
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
 
+        self.source_cache = os.path.join(self.path, "source_cache")
+
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
