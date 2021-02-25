@@ -78,6 +78,9 @@ Consider the following example:
 
 .. code-block:: python
 
+    from snakemake.utils import min_version
+    min_version("6.0")
+
     configfile: "config/config.yaml"
 
     module dna_seq:
@@ -97,6 +100,9 @@ The ability to modify rules upon using them (see :ref:`snakefiles-modules`) allo
 For example, we can easily add another rule to extend the given workflow:
 
 .. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
 
     configfile: "config/config.yaml"
 

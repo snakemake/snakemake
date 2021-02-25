@@ -118,6 +118,9 @@ With Snakemake 6.0 and later, it is possible to define external workflows as mod
 
 .. code-block::python
 
+    from snakemake.utils import min_version
+    min_version("6.0")
+
     module other_workflow:
         snakefile: "other_workflow/Snakefile"
     
@@ -136,6 +139,9 @@ It is possible to overwrite the global config dictionary for the module, which i
 
 .. code-block::python
 
+    from snakemake.utils import min_version
+    min_version("6.0")
+
     configfile: "config/config.yaml"
 
     module other_workflow:
@@ -152,6 +158,9 @@ Specific rules may even be modified before using them, via a final ``with:`` fol
 This modification can be performed after a general import, and will overwrite any unmodified import of the same rule.
 
 .. code-block::python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
 
     module other_workflow:
         snakefile: "other_workflow/Snakefile"
@@ -179,6 +188,9 @@ Both wrappers and meta-wrappers are continously tested.
 The module statement also allows to easily use meta-wrappers, for example:
 
 .. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
 
     configfile: "config.yaml"
 
