@@ -48,6 +48,8 @@ This ensures reproducibility since changes in the wrapper implementation won't b
 Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository`_.
 
+In addition, the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which can be used as modules, see :ref:`snakefiles-meta-wrappers`.
+
 The `Snakemake Wrapper Repository`_ is meant as a collaborative project and pull requests are very welcome.
 
 
@@ -112,7 +114,7 @@ For example, if above Snakefile resides in the directory ``my/dir``, then Snakem
 Modules
 -------
 
-With Snakemake 5.33 and later, it is possible to define external workflows as modules, from which rules can be used by explicitly "importing" them.
+With Snakemake 6.0 and later, it is possible to define external workflows as modules, from which rules can be used by explicitly "importing" them.
 
 .. code-block::python
 
@@ -122,7 +124,7 @@ With Snakemake 5.33 and later, it is possible to define external workflows as mo
     use rule * from other_workflow as other_*
 
 The first statement registers the external workflow as a module, by defining the path to the main snakefile.
-The snakefile property of the module can either take a local path or an HTTPS url.
+The snakefile property of the module can either take a local path or a HTTP/HTTPS url.
 The second statement declares all rules of that module to be used in the current one.
 Thereby, the ``as other_*`` at the end renames all those rule with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
@@ -164,6 +166,42 @@ This modification can be performed after a general import, and will overwrite an
 By such a modifying use statement, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be overwritten, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
 
 Of course, it is possible to combine the use of rules from multiple modules, and via modifying statements they can be rewired and reconfigured in an arbitrary way.
+
+..  _snakefiles-meta-wrappers:
+
+~~~~~~~~~~~~~
+Meta-Wrappers
+~~~~~~~~~~~~~
+
+Snakemake wrappers offer a simple way to include commonly used tools in Snakemake workflows.
+In addition the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which are combinations of wrappers, meant to perform common tasks.
+Both wrappers and meta-wrappers are continously tested.
+The module statement also allows to easily use meta-wrappers, for example:
+
+.. code-block:: python
+
+    configfile: "config.yaml"
+
+
+    module bwa_mapping:
+        meta_wrapper: "0.72.0/meta/bio/bwa_mapping"
+
+
+    use rule * from bwa_mapping
+
+
+    def get_input(wildcards):
+        return config["samples"][wildcards.sample]
+
+
+    use rule bwa_mem from bwa_mapping with:
+        input:
+            get_input
+
+
+First, we define the meta-wrapper as a module.
+Next, we declare all rules from the module to be used.
+And finally, we overwrite the input directive of the rule ``bwa_mem`` such that the raw data is taken from the place where our workflow configures it via it's config file.
 
 .. _snakefiles-sub_workflows:
 

@@ -71,7 +71,7 @@ Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/d
 Using and combining pre-exising workflows
 -------------------------------------
 
-Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 5.33, it is very easy to deploy existing workflows for new projects.
+Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
 This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
 
 Consider the following example:
