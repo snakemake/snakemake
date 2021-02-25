@@ -11,6 +11,20 @@ from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
 
 
+def get_name_modifier_func(self, rules=None, name_modifier=None):
+    if name_modifier is None:
+        return None
+    else:
+        if "*" in name_modifier:
+            return lambda rulename: name_modifier.replace("*", rulename)
+        elif name_modifier is not None:
+            if len(rules) > 1:
+                raise SyntaxError(
+                    "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
+                )
+            return lambda rulename: name_modifier
+
+
 class ModuleInfo:
     def __init__(
         self,
@@ -38,7 +52,7 @@ class ModuleInfo:
             skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
             rule_whitelist=self.get_rule_whitelist(rules),
-            rulename_modifier=self.get_name_modifier_func(rules, name_modifier),
+            rulename_modifier=get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
             namespace=self.name,
@@ -46,19 +60,6 @@ class ModuleInfo:
             replace_wrapper_tag=self.get_wrapper_tag(),
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
-
-    def get_name_modifier_func(self, rules=None, name_modifier=None):
-        if name_modifier is None:
-            return None
-        else:
-            if "*" in name_modifier:
-                return lambda rulename: name_modifier.replace("*", rulename)
-            elif name_modifier is not None:
-                if len(rules) > 1:
-                    raise SyntaxError(
-                        "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
-                    )
-                return lambda rulename: name_modifier
 
     def get_snakefile(self):
         if self.meta_wrapper:

@@ -919,11 +919,12 @@ class UseRule(GlobalKeywordState):
         self.name_modifier = []
         self.from_module = None
         self._with_block = []
+        self.lineno = self.snakefile.lines + 1
 
     def end(self):
         name_modifier = "".join(self.name_modifier) if self.name_modifier else None
-        yield "@workflow.userule(rules={!r}, from_module={!r}, name_modifier={!r})".format(
-            self.rules, self.from_module, name_modifier
+        yield "@workflow.userule(rules={!r}, from_module={!r}, name_modifier={!r}, lineno={})".format(
+            self.rules, self.from_module, name_modifier, self.lineno
         )
         yield "\n"
 
@@ -953,7 +954,7 @@ class UseRule(GlobalKeywordState):
 
     def state_rules_rule(self, token):
         if is_name(token):
-            if token.string == "from" and not self.rules:
+            if token.string == "from" or token.string == "as" and not self.rules:
                 self.error("Expecting rule names after 'use rule' statement.", token)
 
             self.rules.append(token.string)
@@ -987,12 +988,15 @@ class UseRule(GlobalKeywordState):
 
     def state_rules_comma_or_end(self, token):
         if is_name(token):
-            if token.string == "from":
+            if token.string == "from" or token.string == "as":
                 if not self.rules:
                     self.error(
                         "Expecting rule names after 'use rule' statement.", token
                     )
-                self.state = self.state_from
+                if token.string == "from":
+                    self.state = self.state_from
+                else:
+                    self.state = self.state_as
                 yield from ()
             else:
                 self.error(

@@ -68,7 +68,7 @@ from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
-from snakemake.modules import ModuleInfo, WorkflowModifier
+from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
 from snakemake.sourcecache import SourceCache
 
@@ -1444,6 +1444,7 @@ class Workflow:
             setattr(rules, rule.name, RuleProxy(rule))
             if checkpoint:
                 checkpoints.register(rule)
+            rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
         return decorate
@@ -1665,21 +1666,40 @@ class Workflow:
             replace_prefix=replace_prefix,
         )
 
-    def userule(self, rules=None, from_module=None, name_modifier=None):
+    def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):
         def decorate(maybe_ruleinfo):
-            try:
-                module = self.modules[from_module]
-            except KeyError:
-                raise WorkflowError(
-                    "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
-                        from_module
+            if from_module is not None:
+                try:
+                    module = self.modules[from_module]
+                except KeyError:
+                    raise WorkflowError(
+                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                            from_module
+                        )
                     )
+                module.use_rules(
+                    rules,
+                    name_modifier,
+                    ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                 )
-            module.use_rules(
-                rules,
-                name_modifier,
-                ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
-            )
+            else:
+                # local inheritance
+                if len(rules) > 1:
+                    raise WorkflowError(
+                        "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
+                    )
+                orig_rule = self._rules[rules[0]]
+                ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
+                with WorkflowModifier(
+                    self,
+                    rulename_modifier=get_name_modifier_func(rules, name_modifier),
+                    ruleinfo_overwrite=ruleinfo,
+                ):
+                    self.rule(
+                        name=name_modifier,
+                        lineno=lineno,
+                        snakefile=self.included_stack[-1],
+                    )(orig_rule.ruleinfo)
 
         return decorate
 

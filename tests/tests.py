@@ -1163,3 +1163,7 @@ def test_modules_specific():
 @skip_on_windows  # works in principle but the test framework modifies the target path separator
 def test_modules_meta_wrapper():
     run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)
+
+
+def test_use_rule_same_module():
+    run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
