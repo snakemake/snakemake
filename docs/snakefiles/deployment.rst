@@ -67,9 +67,9 @@ Given that cookiecutter is installed, you can use it via:
 
 Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
 
--------------------------------------
+-----------------------------------------
 Using and combining pre-exising workflows
--------------------------------------
+-----------------------------------------
 
 Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
 This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
@@ -81,7 +81,7 @@ Consider the following example:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile"
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
         config: config
 
     use rule * from dna_seq
@@ -101,7 +101,7 @@ For example, we can easily add another rule to extend the given workflow:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile"
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
         config: config
 
     use rule * from dna_seq
