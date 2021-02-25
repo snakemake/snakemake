@@ -1,3 +1,8 @@
+__authors__ = "Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
+
 import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_flagged, AnnotatedString

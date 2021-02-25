@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2015, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import sys
