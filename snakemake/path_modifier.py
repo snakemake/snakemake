@@ -1,3 +1,4 @@
+import os
 from snakemake.exceptions import WorkflowError
 from snakemake.io import is_flagged, AnnotatedString
 

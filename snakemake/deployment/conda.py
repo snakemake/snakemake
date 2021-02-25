@@ -63,7 +63,7 @@ class Env:
         self._singularity_args = workflow.singularity_args
 
     def _get_content(self):
-        return self.workflow.sourcecache.open("rb").read()
+        return self.workflow.sourcecache.open(self.file, "rb").read()
 
     @property
     def _env_archive_dir(self):
@@ -76,7 +76,7 @@ class Env:
     @property
     def content(self):
         if self._content is None:
-            self._content = self._get_content(self.file)
+            self._content = self._get_content()
         return self._content
 
     @property
