@@ -39,11 +39,12 @@ class RuleInfo:
         path_modifier = modifier.path_modifier
         skips = set()
 
-        for key, value in modifier.ruleinfo_overwrite.__dict__.items():
-            if key != "func" and value is not None:
-                self.__dict__[key] = value
-                if key in prefix_replacables:
-                    skips.add(key)
+        if modifier.ruleinfo_overwrite:
+            for key, value in modifier.ruleinfo_overwrite.__dict__.items():
+                if key != "func" and value is not None:
+                    self.__dict__[key] = value
+                    if key in prefix_replacables:
+                        skips.add(key)
 
         if path_modifier.modifies_prefixes and skips:
             # use a specialized copy of the path modifier
