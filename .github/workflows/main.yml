@@ -53,35 +53,12 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
           mamba env create -q --name snakemake --file test-environment.yml
-
+          # additionally add singularity
+          mamba install -c conda-forge -n snakemake singularity
+      
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y stress \
-            build-essential \
-            libssl-dev \
-            uuid-dev \
-            libgpgme11-dev \
-            squashfs-tools \
-            libseccomp-dev \
-            wget \
-            pkg-config \
-            git \
-            cryptsetup
-
-      - name: Setup Golang
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.13'
-
-      - name: Setup singularity
-        run: |
-          export VERSION=3.6.2
-          wget https://github.com/sylabs/singularity/releases/download/v${VERSION}/singularity-${VERSION}.tar.gz
-          tar -xzf singularity-${VERSION}.tar.gz
-          cd singularity
-          ./mconfig
-          make -C builddir
-          sudo make -C builddir install
+          sudo apt install -y stress git wget
         
       - name: Setup iRODS
         run: |
