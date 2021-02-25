@@ -25,7 +25,7 @@ class SourceCache:
     def lock_cache(self, entry):
         from filelock import FileLock
 
-        return Filelock(entry.with_suffix(".lock")
+        return Filelock(entry.with_suffix(".lock"))
 
     def is_cacheable(self, path_or_uri):
         # TODO remove special git url handling once included in smart_open
