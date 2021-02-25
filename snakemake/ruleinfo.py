@@ -52,3 +52,6 @@ class RuleInfo:
             path_modifier.skip_properties = skips
         # add path modifier
         self.path_modifier = path_modifier
+
+        # modify wrapper if requested
+        self.wrapper = modifier.modify_wrapper_uri(self.wrapper)

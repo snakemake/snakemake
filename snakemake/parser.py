@@ -821,7 +821,9 @@ class ModuleSnakefile(ModuleKeywordState):
 
 
 class ModuleMetaWrapper(ModuleKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "meta_wrapper"
 
 
 class ModuleConfig(ModuleKeywordState):

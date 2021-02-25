@@ -1158,3 +1158,7 @@ def test_modules_all():
 
 def test_modules_specific():
     run(dpath("test_modules_specific"), targets=["test_a"])
+
+
+def test_modules_meta_wrapper():
+    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)

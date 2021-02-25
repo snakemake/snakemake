@@ -1,7 +1,9 @@
 import types
+import re
 
 from snakemake.exceptions import WorkflowError
 from snakemake.path_modifier import PathModifier
+from snakemake import wrapper
 
 
 class ModuleInfo:
@@ -36,6 +38,7 @@ class ModuleInfo:
             allow_rule_overwrite=True,
             namespace=self.name,
             replace_prefix=self.replace_prefix,
+            replace_wrapper_tag=self.get_wrapper_tag(),
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
 
@@ -54,14 +57,20 @@ class ModuleInfo:
 
     def get_snakefile(self):
         if self.meta_wrapper:
-            # TODO add code to retrieve wrapper snakefile
-            pass
+            return wrapper.get_path(self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix)
         elif self.snakefile:
             return self.snakefile
         else:
             raise WorkflowError(
                 "Module statement must either define snakefile or meta_wrapper to use."
             )
+    
+    def get_wrapper_tag(self):
+        if self.meta_wrapper:
+            if wrapper.is_url(self.meta_wrapper):
+                raise WorkflowError("meta_wrapper directive of module statement currently does not support full URLs.")
+            return self.meta_wrapper.split("/", 1)[0]
+        return None
 
     def get_rule_whitelist(self, rules):
         if "*" in rules:
@@ -87,6 +96,7 @@ class WorkflowModifier:
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
         replace_prefix=None,
+        replace_wrapper_tag=None,
         namespace=None,
     ):
         self.workflow = workflow
@@ -104,6 +114,7 @@ class WorkflowModifier:
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
         self.path_modifier = PathModifier(replace_prefix, workflow)
+        self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
     def skip_rule(self, rulename):
@@ -116,6 +127,12 @@ class WorkflowModifier:
 
     def modify_path(self, path, property=None):
         return self.path_modifier.modify(path, property)
+    
+    def modify_wrapper_uri(self, wrapper_uri, pattern=re.compile("^master/")):
+        if self.replace_wrapper_tag is None or wrapper.is_url(wrapper_uri):
+            return wrapper_uri
+        else:
+            return pattern.sub(self.replace_wrapper_tag + "/", wrapper_uri)
 
     def __enter__(self):
         # put this modifier on the stack, it becomes the currently valid modifier

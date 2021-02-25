@@ -14,6 +14,9 @@ from snakemake.exceptions import WorkflowError
 from snakemake.script import script
 
 
+PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
+
+
 def is_script(path):
     return (
         path.endswith("wrapper.py")
@@ -23,18 +26,22 @@ def is_script(path):
 
 
 def get_path(path, prefix=None):
-    if not (
-        path.startswith("http")
-        or path.startswith("file:")
-        or path.startswith("git+file")
-    ):
+    if not is_url(path):
         if prefix is None:
-            prefix = "https://github.com/snakemake/snakemake-wrappers/raw/"
+            prefix = PREFIX
         elif prefix.startswith("git+file"):
             parts = path.split("/")
             path = "/" + "/".join(parts[1:]) + "@" + parts[0]
         path = prefix + path
     return path
+
+
+def is_url(path):
+    return (
+        path.startswith("http")
+        or path.startswith("file:")
+        or path.startswith("git+file")
+    )
 
 
 def is_local(path):
