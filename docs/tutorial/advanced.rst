@@ -59,7 +59,7 @@ If no ``threads`` directive is given, a rule is assumed to need 1 thread.
 
 When a workflow is executed, **the number of threads the jobs need is considered by the Snakemake scheduler**.
 In particular, the scheduler ensures that the sum of the threads of all running jobs does not exceed a given number of available CPU cores.
-This number can be given with the ``--cores`` command line argument (per default, Snakemake uses only 1 CPU core).
+This number is given with the ``--cores`` command line argument, which is required.
 For example
 
 .. code:: console
@@ -75,6 +75,8 @@ For example
 would execute the workflow with 10 cores.
 Since the rule ``bwa_map`` needs 8 threads, only one job of the rule can run at a time, and the Snakemake scheduler will try to saturate the remaining cores with other jobs like, e.g., ``samtools_sort``.
 The threads directive in a rule is interpreted as a maximum: when **less cores than threads** are provided, the number of threads a rule uses will be **reduced to the number of given cores**.
+
+If ``--cores`` is given without a number, all available cores are used.
 
 Exercise
 ........
