@@ -10,11 +10,9 @@ on:
 jobs:
   cancel-previous:
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
     steps:
-      - run: |
-          echo ${{ github.ref }}
       - uses: khan/pull-request-workflow-cancel@1.0.0
-        if: ${{ github.ref != 'ref/head/master' }}
         with:
           workflows: "main.yml"
         env:
