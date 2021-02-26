@@ -2014,6 +2014,7 @@ def get_argument_parser(profile=None):
     )
     group_cluster.add_argument(
         "--cluster-status",
+        default=os.environ.get("SNAKEMAKE_CLUSTER_STATUS", None),
         help="Status command for cluster execution. This is only considered "
         "in combination with the --cluster flag. If provided, Snakemake will "
         "use the status command to determine if a job has finished successfully "
