@@ -1797,10 +1797,11 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--max-status-checks-per-second",
-        default=10,
+        default=os.environ.get("SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND", 10),
         type=float,
         help="Maximal number of job status checks per second, default is 10, "
-        "fractions allowed.",
+        "fractions allowed. The value can also be provided via the environment "
+        "variable $SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND.",
     )
     group_behavior.add_argument(
         "-T",

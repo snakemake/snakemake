@@ -270,6 +270,10 @@ To use this script call snakemake similar to below, where ``status.py`` is the s
 
     $ snakemake all --jobs 100 --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
 
+By default, Snakemake will query the script at most 10 times per second. This rate can be configured using the ``--max-status-checks-per-second`` argument,
+or the environment variable ``SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND``. It might be reasonable to choose higher numbers when more concurrent jobs are allowed
+to prevent any job checks from starving, while choosing lower rates for lower numbers of concurrent jobs.
+
 
 Constraining wildcards
 ::::::::::::::::::::::
