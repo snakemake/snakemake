@@ -57,3 +57,5 @@ dependencies:
   - peppy
   - eido
   - glpk
+  - smart_open
+  - filelock

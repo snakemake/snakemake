@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -379,6 +379,7 @@ class FileRecord:
         caption,
         env,
         category,
+        workflow,
         wildcards_overwrite=None,
         mode_embedded=True,
         aux_files=None,
@@ -390,6 +391,7 @@ class FileRecord:
         logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
+        self.workflow = workflow
 
         h = hashlib.sha256()
         h.update(path.encode())
@@ -483,7 +485,9 @@ class FileRecord:
             )
 
             try:
-                caption = open(self.raw_caption).read() + rst_links
+                caption = (
+                    self.workflow.sourcecache.open(self.raw_caption).read() + rst_links
+                )
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
@@ -640,6 +644,7 @@ def auto_report(dag, path, stylesheet=None):
                             report_obj.caption,
                             env,
                             category,
+                            dag.workflow,
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,

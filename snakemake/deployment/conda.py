@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -36,23 +36,6 @@ class CondaCleanupMode(Enum):
         return self.value
 
 
-def content(env_file):
-    if env_file.startswith("git+file:"):
-        return git_content(env_file).encode("utf-8")
-    elif urlparse(env_file).netloc:
-        try:
-            return urlopen(env_file).read()
-        except URLError as e:
-            raise WorkflowError(
-                "Failed to open environment file {}:".format(env_file), e
-            )
-    else:
-        if not os.path.exists(env_file):
-            raise WorkflowError("Conda env file does not " "exist: {}".format(env_file))
-        with open(env_file, "rb") as f:
-            return f.read()
-
-
 class Env:
 
     """Conda environment from a given specification file."""
@@ -79,6 +62,9 @@ class Env:
         self._cleanup = cleanup
         self._singularity_args = workflow.singularity_args
 
+    def _get_content(self):
+        return self.workflow.sourcecache.open(self.file, "rb").read()
+
     @property
     def _env_archive_dir(self):
         return self.workflow.persistence.conda_env_archive_path
@@ -90,7 +76,7 @@ class Env:
     @property
     def content(self):
         if self._content is None:
-            self._content = content(self.file)
+            self._content = self._get_content()
         return self._content
 
     @property

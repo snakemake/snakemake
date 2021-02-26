@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    params:
+        test=1
+    shell:
+        "echo {params.test} > {output}"

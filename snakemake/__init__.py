@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -25,7 +25,7 @@ from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import Mode, __version__, MIN_PY_VERSION
+from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
 from snakemake.resources import parse_resources, DefaultResources
 
 
@@ -929,18 +929,6 @@ def unparse_config(config):
         encoded = "'{}'".format(value) if isinstance(value, str) else value
         items.append("{}={}".format(key, encoded))
     return items
-
-
-APPDIRS = None
-
-
-def get_appdirs():
-    global APPDIRS
-    if APPDIRS is None:
-        from appdirs import AppDirs
-
-        APPDIRS = AppDirs("snakemake", "snakemake")
-    return APPDIRS
 
 
 def get_profile_file(profile, file, return_default=False):

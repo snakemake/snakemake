@@ -100,6 +100,8 @@ Instead, for data provenance and reproducibility reasons, you are required to pa
             "echo {params.x} > {output}"
 
 
+.. _snakefiles_config_validation:
+
 ----------
 Validation
 ----------

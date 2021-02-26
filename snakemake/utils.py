@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -38,6 +38,10 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
+    # skip if a corresponding modifier has been defined
+    if "workflow" in globals() and globals()["workflow"].modifier.skip_validation:
+        return
+
     try:
         import jsonschema
         from jsonschema import validators, RefResolver

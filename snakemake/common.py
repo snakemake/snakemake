@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2016-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
@@ -47,6 +47,24 @@ class TBDInt(int):
 
 # A string that prints as TBD
 TBDString = "<TBD>"
+
+
+APPDIRS = None
+
+
+def get_appdirs():
+    global APPDIRS
+    if APPDIRS is None:
+        from appdirs import AppDirs
+
+        APPDIRS = AppDirs("snakemake", "snakemake")
+    return APPDIRS
+
+
+def is_local_file(path_or_uri):
+    from smart_open import parse_uri
+
+    return parse_uri(path_or_uri).scheme == "file"
 
 
 def num_if_possible(s):

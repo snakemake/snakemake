@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -12,6 +12,7 @@ import collections
 from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
+from functools import partial
 
 from snakemake.io import (
     IOFile,
@@ -104,6 +105,8 @@ class Rule:
             self.is_checkpoint = False
             self.restart_times = 0
             self.basedir = None
+            self.path_modifer = None
+            self.ruleinfo = None
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -150,6 +153,8 @@ class Rule:
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
             self.basedir = other.basedir
+            self.path_modifier = other.path_modifier
+            self.ruleinfo = other.ruleinfo
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
@@ -319,7 +324,7 @@ class Rule:
         if isinstance(benchmark, Path):
             benchmark = str(benchmark)
         if not callable(benchmark):
-            benchmark = self.apply_default_remote(benchmark)
+            benchmark = self.apply_path_modifier(benchmark, property="benchmark")
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
@@ -433,21 +438,9 @@ class Rule:
                 )
             seen[value] = name or idx
 
-    def apply_default_remote(self, item):
-        def is_annotated_callable(value):
-            if isinstance(value, AnnotatedString):
-                return bool(value.callable)
-
-        def apply(value):
-            if (
-                not is_flagged(value, "remote_object")
-                and not is_flagged(value, "local")
-                and not is_annotated_callable(value)
-                and self.workflow.default_remote_provider is not None
-            ):
-                return self.workflow.apply_default_remote(value)
-            else:
-                return value
+    def apply_path_modifier(self, item, property=None):
+        assert self.path_modifier is not None
+        apply = partial(self.path_modifier.modify, property=property)
 
         assert not callable(item)
         if isinstance(item, dict):
@@ -491,7 +484,9 @@ class Rule:
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
-            item = self.apply_default_remote(item)
+            item = self.apply_path_modifier(
+                item, property="output" if output else "input"
+            )
 
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
@@ -638,7 +633,7 @@ class Rule:
             item = str(item)
         if isinstance(item, str) or callable(item):
             if not callable(item):
-                item = self.apply_default_remote(item)
+                item = self.apply_path_modifier(item, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
             self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
@@ -704,7 +699,8 @@ class Rule:
         mapping=None,
         no_flattening=False,
         aux_params=None,
-        apply_default_remote=True,
+        apply_path_modifier=True,
+        property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
     ):
@@ -725,8 +721,8 @@ class Rule:
                     is_unpack=is_unpack,
                     **aux_params
                 )
-                if apply_default_remote:
-                    item = self.apply_default_remote(item)
+                if apply_path_modifier:
+                    item = self.apply_path_modifier(item, property=property)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
@@ -810,6 +806,7 @@ class Rule:
                 concretize=concretize_iofile,
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
+                property="input",
             )
         except WildcardError as e:
             raise WildcardError(
@@ -859,7 +856,8 @@ class Rule:
                 omit_callable=omit_callable,
                 allow_unpack=False,
                 no_flattening=True,
-                apply_default_remote=False,
+                apply_path_modifier=False,
+                property="params",
                 aux_params={
                     "input": input._plainstrings(),
                     "resources": resources,
@@ -907,7 +905,7 @@ class Rule:
 
         try:
             self._apply_wildcards(
-                log, self.log, wildcards, concretize=concretize_logfile
+                log, self.log, wildcards, concretize=concretize_logfile, property="log"
             )
         except WildcardError as e:
             raise WildcardError(

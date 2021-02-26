@@ -1611,3 +1611,32 @@ Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i
 These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
 This mechanism can be used to replace the use of the :ref:`dynamic-flag <snakefiles-dynamic_files>` which will be deprecated in Snakemake 6.0.
+
+
+.. _snakefiles-rule-inheritance:
+
+Rule inheritance
+----------------
+
+With Snakemake 6.0 and later, it is possible to inherit from previously defined rules, or in other words, reuse an existing rule in a modified way.
+This works via the ``use rule`` statement that also allows to declare the usage of rules from external modules (see :ref:`snakefiles-modules`).
+Consider the following example:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        shell:
+            "echo test > {output}"
+
+
+    use rule a as b with:
+        output:
+            "test2.out"
+
+
+As can be seen, we first declare a rule a, and then we reuse the rule a as rule b, while changing only the output file and keeping everything else the same.
+In reality, one will often change more.
+Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+All unmodified properties are inherited from the parent rule.

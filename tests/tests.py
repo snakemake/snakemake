@@ -1,6 +1,6 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2020, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -1150,3 +1150,20 @@ def test_containerized():
 
 def test_long_shell():
     run(dpath("test_long_shell"))
+
+
+def test_modules_all():
+    run(dpath("test_modules_all"), targets=["a"])
+
+
+def test_modules_specific():
+    run(dpath("test_modules_specific"), targets=["test_a"])
+
+
+@skip_on_windows  # works in principle but the test framework modifies the target path separator
+def test_modules_meta_wrapper():
+    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)
+
+
+def test_use_rule_same_module():
+    run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
