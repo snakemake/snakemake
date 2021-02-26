@@ -1,3 +1,8 @@
+
+[6.0.1] - 2021-02-26
+====================
+- Fix rendering issue in the docs.
+
 [6.0.0] - 2021-02-26
 ====================
 - Introduced a new module system, see https://snakemake.readthedocs.io/en/stable/snakefiles/modularization.html#modules (@johanneskoester).

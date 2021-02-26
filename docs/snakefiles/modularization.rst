@@ -116,7 +116,7 @@ Modules
 
 With Snakemake 6.0 and later, it is possible to define external workflows as modules, from which rules can be used by explicitly "importing" them.
 
-.. code-block::python
+.. code-block:: python
 
     from snakemake.utils import min_version
     min_version("6.0")
@@ -137,7 +137,7 @@ They are available in the module-defining workflow under the name of the module 
 
 It is possible to overwrite the global config dictionary for the module, which is usually filled by the ``configfile`` statement (see :ref:`snakefiles_standard_configuration`):
 
-.. code-block::python
+.. code-block:: python
 
     from snakemake.utils import min_version
     min_version("6.0")
@@ -157,7 +157,7 @@ Instead of using all rules, it is possible to import specific rules.
 Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.
 This modification can be performed after a general import, and will overwrite any unmodified import of the same rule.
 
-.. code-block::python
+.. code-block:: python
 
     from snakemake.utils import min_version
     min_version("6.0")
