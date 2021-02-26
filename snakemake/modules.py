@@ -11,7 +11,7 @@ from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
 
 
-def get_name_modifier_func(self, rules=None, name_modifier=None):
+def get_name_modifier_func(rules=None, name_modifier=None):
     if name_modifier is None:
         return None
     else:
