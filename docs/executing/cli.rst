@@ -18,7 +18,7 @@ If called with the number of cores to use, i.e.
 
 .. code-block:: console
 
-    $ snakemake -j 1
+    $ snakemake --cores 1
 
 Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
 
