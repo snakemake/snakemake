@@ -264,7 +264,7 @@ The following (simplified) script detects the job status on a given SLURM cluste
     else:
       print("failed")
 
-To use this script call snakemake similar to below, where ``status.py`` is the script above.
+To use this script call snakemake similar to below, where ``status.py`` is the script above, or set the environment variable ``SNAKEMAKE_CLUSTER_STATUS``.
 
 .. code:: console
 

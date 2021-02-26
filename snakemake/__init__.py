@@ -2022,7 +2022,8 @@ def get_argument_parser(profile=None):
         "to --cluster returns the cluster job id. Then, the status command "
         "will be invoked with the job id. Snakemake expects it to return "
         "'success' if the job was successfull, 'failed' if the job failed and "
-        "'running' if the job still runs.",
+        "'running' if the job still runs. The value can also be provided via "
+        "the environment variable $SNAKEMAKE_CLUSTER_STATUS.",
     )
     group_cluster.add_argument(
         "--drmaa-log-dir",
