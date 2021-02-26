@@ -1,3 +1,13 @@
+[6.0.0] - 2021-02-26
+====================
+- Introduced a new module system, see https://snakemake.readthedocs.io/en/stable/snakefiles/modularization.html#modules (@johanneskoester).
+- Introduced a rule inheritance mechanism, see https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#rule-inheritance (@johanneskoester).
+- Automatically containerize a conda-based pipeline with ``--containerize``, see https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html#containerization-of-conda-based-workflows (@johanneskoester).
+- Use temporary files for long shell commands (@epruesse).
+- Various fixes in the documentation (@ctb, @SilasK, @EthanHolleman).
+- Fixed a bug in job grouping that led to non-deterministic behavior (@johanneskoester).
+
+
 [5.32.2] - 2021-02-11
 =====================
 Changed
