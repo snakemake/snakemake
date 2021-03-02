@@ -4,6 +4,9 @@
 Snakemake
 =========
 
+.. image:: https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod
+    :target: https://gitpod.io/#https://github.com/snakemake/snakemake
+
 .. image:: https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda
     :target: https://bioconda.github.io/recipes/snakemake/README.html
 
