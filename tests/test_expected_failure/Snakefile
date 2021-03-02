@@ -1,0 +1,15 @@
+def is_accepted_failure(log):
+    with open(log[0]) as log:
+        if "test" in log.read():
+            return True
+    return False
+
+
+checkpoint mayfail:
+    output:
+        optional("test.out", if=is_accepted_failure)
+    log:
+        "logs/test.log"
+    expected_failure
+    shell:
+        "echo test > {log}; exit 1"
