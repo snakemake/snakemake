@@ -18,4 +18,4 @@ jobs:
         name: snakemake/snakemake
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_TOKEN }}
-        tags: "${{ env.RELEASE_VERSION }}"
+        tags: "${{ env.RELEASE_VERSION }},stable"
