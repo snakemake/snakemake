@@ -46,6 +46,17 @@ To go through this tutorial, you need the following software installed:
 * NetworkX_ 2.5
 * Matplotlib_ 3.3
 
+Run tutorial for free in the cloud via Gitpod
+:::::::::::::::::::::::::::::::::::::::::::::
+
+The easiest way to run this tutorial is to use Gitpod, which allows to perform the required excercises for free in the cloud, via the browser.
+In order to do this, simply open the predefined `snakemake-tutorial Gitpod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser and go on directy with :ref:`tutorial-basics`.
+
+Running the tutorial on your local machine
+::::::::::::::::::::::::::::::::::::::::::
+
+If you prefer to run the tutorial on your local machine, please follow the steps below.
+
 The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Miniconda work also under Windows, but the Windows shell is too different to be able to provide generic examples.
