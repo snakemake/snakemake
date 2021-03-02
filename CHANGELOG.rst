@@ -1,3 +1,6 @@
+unreleased
+==========
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
 
 [6.0.1] - 2021-02-26
 ====================
