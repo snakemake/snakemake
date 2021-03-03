@@ -1,10 +1,8 @@
-unreleased
-==========
-- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
-
-[6.0.1] - 2021-02-26
+[6.0.1] - 2021-03-03
 ====================
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
 - Fix rendering issue in the docs.
+- Add gitpod dev environment and gitpod environment for the tutorial.
 
 [6.0.0] - 2021-02-26
 ====================
