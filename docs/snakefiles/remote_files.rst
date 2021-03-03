@@ -26,6 +26,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
 ==================================
@@ -796,3 +797,36 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
             "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
+
+
+AUTO
+====
+
+A remote wrapper which automatically selects an appropriate remote based on the url's scheme.
+It removes some of the boilerplate code required to download remote files from various providers:
+
+.. code-block:: python
+
+    from snakemake.remote import AUTO
+
+
+    rule all:
+        input:
+            'foo'
+
+
+    rule download:
+        input:
+            ftp_file_list=AUTO.remote([
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxcat.tar.gz',
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
+            ], keep_local=True),
+            http_file=AUTO.remote(
+                'https://github.com/hetio/hetionet/raw/master/hetnet/tsv/hetionet-v1.0-nodes.tsv'
+            )
+        output:
+            touch('foo')
+        shell:
+            """
+            head {input.http_file}
+            """
