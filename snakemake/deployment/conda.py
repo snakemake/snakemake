@@ -19,6 +19,7 @@ import tarfile
 import zipfile
 import uuid
 from enum import Enum
+import threading
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -407,21 +408,23 @@ class Env:
 
 class Conda:
     instances = dict()
+    lock = threading.Lock()
 
     def __new__(cls, container_img=None):
-        if container_img not in cls.instances:
-            from snakemake.shell import shell
+        with cls.lock:
+            if container_img not in cls.instances:
+                from snakemake.shell import shell
 
-            inst = super().__new__(cls)
-            inst.__init__(container_img=container_img)
-            cls.instances[container_img] = inst
-            inst._check()
-            inst.info = json.loads(
-                shell.check_output(inst._get_cmd("conda info --json"))
-            )
-            return inst
-        else:
-            return cls.instances[container_img]
+                inst = super().__new__(cls)
+                inst.__init__(container_img=container_img)
+                cls.instances[container_img] = inst
+                inst._check()
+                inst.info = json.loads(
+                    shell.check_output(inst._get_cmd("conda info --json"))
+                )
+                return inst
+            else:
+                return cls.instances[container_img]
 
     def __init__(self, container_img=None):
         from snakemake.deployment import singularity
