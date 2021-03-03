@@ -122,7 +122,12 @@ def test_coin_solver():
 def test_directory():
     run(
         dpath("test_directory"),
-        targets=["downstream", "symlinked_input", "child_to_input"],
+        targets=[
+            "downstream",
+            "symlinked_input",
+            "child_to_input",
+            "not_child_to_other",
+        ],
     )
     run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
     run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
@@ -994,13 +999,17 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue413():
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+
+
 def test_github_issue727():
     run(dpath("test_github_issue727"))
 
 
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
@@ -1109,7 +1118,7 @@ def test_metadata_migration():
     # generate artificial incomplete metadata in v1 format for migration
     with open(
         metapath
-        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ\=",
+        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ=",
         "w",
     ) as meta:
         print('{"incomplete": true, "external_jobid": null}', file=meta)

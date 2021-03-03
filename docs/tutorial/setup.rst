@@ -139,6 +139,7 @@ First, we download some example data on which the workflow shall be executed:
     $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
+If your tar command does not provide a ``--wildcards`` flag, you can also just unpack the file without it (which will just leave some more not needed files in the working directory).
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

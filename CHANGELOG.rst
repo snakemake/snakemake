@@ -1,3 +1,20 @@
+Unreleased
+==========
+Fixed
+-----
+- f-strings in runtime code were replaced with `format` syntax as we still support python 3.5 (@mbhall88)
+
+[5.32.0] - 2021-01-15
+=====================
+Changed
+-------
+- Handle accidental use of GLS backend with singularity (@vsoch).
+- Improved and extended WMS-monitor implementation (@vsoch).
+- Display index and total count in ``{scatteritem}`` when using the scatter-gather helper (@johanneskoester).
+- Fixed problems with jobid display when handling checkpoint updates (@johanneskoester, @jmeppley).
+- Fixed bug when checking for directory containment of output files (@jmeppley).
+- Implement --no-subworkflows treatment in combination with --cluster (@goi42).
+
 [5.31.1] - 2020-12-21
 =====================
 Changed
