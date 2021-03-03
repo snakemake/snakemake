@@ -1,3 +1,7 @@
+[6.0.2] - 2021-03-03
+====================
+- Fix race condition in conda checking code (@johanneskoester).
+
 [6.0.1] - 2021-03-03
 ====================
 - Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
