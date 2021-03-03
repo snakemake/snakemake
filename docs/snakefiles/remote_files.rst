@@ -802,7 +802,7 @@ Upon download, Snakemake will automatically decrypt the file and check the MD5 h
 AUTO
 ====
 
-A remote wrapper which automatically selects an appropriate remote based on the url's scheme.
+A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
 It removes some of the boilerplate code required to download remote files from various providers:
 
 .. code-block:: python
