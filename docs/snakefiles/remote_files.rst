@@ -782,17 +782,17 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 .. code-block:: python
 
-  import snakemake.remote.EGA as EGA
+    import snakemake.remote.EGA as EGA
 
-  ega = EGA.RemoteProvider()
+    ega = EGA.RemoteProvider()
 
 
-  rule a:
-    input:
-        ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
-    output:
-        "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
-    shell:
-        "cp {input} {output}"
+    rule a:
+        input:
+            ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
+        output:
+            "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
+        shell:
+            "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
