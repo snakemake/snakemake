@@ -566,7 +566,9 @@ class Logger:
                     self.logger.warning(indent(msg["msg"]))
             elif level == "job_finished" and not self.quiet:
                 timestamp()
-                self.logger.info("Finished job {}.".format(msg["jobid"]))
+                self.logger.info(
+                    "Finished job {}: {}.".format(msg["jobid"], msg["name"])
+                )
                 pass
             elif level == "rule_info":
                 self.logger.info(msg["name"])
