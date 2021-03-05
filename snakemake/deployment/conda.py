@@ -125,11 +125,14 @@ class Env:
         """
         hash = self.hash
         env_dir = self._env_dir
-        for h in [hash, hash[:8]]:
-            path = os.path.join(env_dir, h)
-            if self.is_containerized or os.path.exists(path):
-                return path
-        return path
+        get_path = lambda h: os.path.join(env_dir, h)
+        hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
+        exists = [os.path.exists(get_path(h)) for h in hash_candidates]
+        if self.is_containerized or exists[1] or (not exists[0]):
+            # containerizes, full hash exists or fallback hash does not exist: use full hash
+            return get_path(hash_candidates[1])
+        # use fallback hash
+        return get_path(hash_candidates[0])
 
     @property
     def archive_file(self):
