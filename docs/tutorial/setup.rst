@@ -46,10 +46,12 @@ To go through this tutorial, you need the following software installed:
 * NetworkX_ 2.5
 * Matplotlib_ 3.3
 
+However, don't install any of these this manually now, we guide you through better ways below.
+
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
-The easiest way to run this tutorial is to use Gitpod, which allows to perform the required excercises for free in the cloud, via the browser.
+The easiest way to run this tutorial is to use Gitpod, which allows to perform the required excercises for free in the cloud, including all required software, via the browser.
 In order to do this, simply open the predefined `snakemake-tutorial Gitpod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser and go on directy with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
