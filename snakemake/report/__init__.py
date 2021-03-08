@@ -385,6 +385,7 @@ class FileRecord:
         aux_files=None,
         name_overwrite=None,
     ):
+        self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
@@ -412,8 +413,6 @@ class FileRecord:
 
         self.data_uri = self._data_uri()
         self.png_uri = self._png_uri()
-
-        self.name_overwrite = name_overwrite
 
     @lazy_property
     def png_content(self):
