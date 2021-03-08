@@ -383,6 +383,7 @@ class FileRecord:
         wildcards_overwrite=None,
         mode_embedded=True,
         aux_files=None,
+        name_overwrite=None,
     ):
         self.mode_embedded = mode_embedded
         self.path = path
@@ -411,6 +412,8 @@ class FileRecord:
 
         self.data_uri = self._data_uri()
         self.png_uri = self._png_uri()
+
+        self.name_overwrite = name_overwrite
 
     @lazy_property
     def png_content(self):
@@ -537,6 +540,8 @@ class FileRecord:
 
     @property
     def name(self):
+        if self.name_overwrite:
+            return self.name_overwrite
         return os.path.basename(self.path)
 
 
@@ -628,7 +633,9 @@ def auto_report(dag, path, stylesheet=None):
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(f, wildcards_overwrite=None, aux_files=None):
+                def register_file(
+                    f, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category, wildcards=wildcards, job=job
@@ -648,6 +655,7 @@ def auto_report(dag, path, stylesheet=None):
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
+                            name_overwrite=name_overwrite,
                         )
                     )
                     recorded_files.add(f)
@@ -681,7 +689,9 @@ def auto_report(dag, path, stylesheet=None):
                                 "marked for report".format(report_obj.htmlindex)
                             )
                         register_file(
-                            os.path.join(f, report_obj.htmlindex), aux_files=aux_files
+                            os.path.join(f, report_obj.htmlindex),
+                            aux_files=aux_files,
+                            name_overwrite=os.path.basename(f),
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
