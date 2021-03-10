@@ -54,10 +54,11 @@ For an introduction, please visit https://snakemake.github.io.
 Getting started
 ---------------
 
-To get a first impression, please visit https://snakemake.github.io.
-News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
-To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
-For more advanced usage on various platforms, see the :ref:`executor_tutorial`.
+* To get a first impression, please visit https://snakemake.github.io.
+* To properly understand what Snakemake can do for you please read our `"rolling" paper <https://doi.org/10.12688/f1000research.29032.1>`_.
+* News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
+* To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+* For more advanced usage on various platforms, see the :ref:`executor_tutorial`.
 
 .. _main-support:
 
@@ -68,16 +69,18 @@ Support
 * For releases, see :ref:`Changelog <changelog>`.
 * Check :ref:`frequently asked questions (FAQ) <project_info-faq>`.
 * In case of **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/snakemake>`_.
-* To **discuss** with other Snakemake users, you can use the `mailing list <https://groups.google.com/forum/#!forum/snakemake>`_. **Please do not post questions there. Use stack overflow for questions.**
+* To **discuss** with other Snakemake users, use the `discord server <https://discord.gg/kHvtG6N>`_. **Please do not post questions there. Use stack overflow for questions.**
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/snakemake/snakemake/issues>`_.
 * For **contributions**, visit Snakemake on `Github <https://github.com/snakemake/snakemake>`_ and read the :ref:`guidelines <project_info-contributing>`.
 
 --------
 Citation
 --------
+When using Snakemake, please cite our "rolling" paper
 
-`Köster, Johannes and Rahmann, Sven. "Snakemake - A scalable bioinformatics workflow engine". Bioinformatics 2012. <https://bioinformatics.oxfordjournals.org/content/28/19/2520>`_
+`Mölder, F., Jablonski, K.P., Letcher, B., Hall, M.B., Tomkins-Tinch, C.H., Sochat, V., Forster, J., Lee, S., Twardziok, S.O., Kanitz, A., Wilm, A., Holtgrewe, M., Rahmann, S., Nahnsen, S., Köster, J., 2021. Sustainable data analysis with Snakemake. F1000Res 10, 33. <https://doi.org/10.12688/f1000research.29032.1>`_
 
+This paper will also be regularly updated when Snakemake receives new features.
 See :doc:`Citations <project_info/citations>` for more information.
 
 ---------
@@ -86,6 +89,9 @@ Resources
 
 `Snakemake Wrappers Repository <https://snakemake-wrappers.readthedocs.org>`_
     The Snakemake Wrapper Repository is a collection of reusable wrappers that allow to quickly use popular tools from Snakemake rules and workflows.
+
+`Snakemake Workflow Catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_
+    An automatically scraped catalog of publicly available Snakemake workflows for any kind of data analysis.
 
 `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_
     This project provides a collection of high quality modularized and re-usable workflows.
@@ -96,8 +102,12 @@ Resources
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
+`Conda-Forge <https://conda-forge.org>`_
+    Conda-Forge is a community driven distribution of Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
+
 `Bioconda <https://bioconda.github.io/>`_
-    Bioconda can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
+    Bioconda, a partner project of conda-forge, is a community driven distribution of bioinformatics-related Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
+
 
 .. toctree::
    :caption: Getting started

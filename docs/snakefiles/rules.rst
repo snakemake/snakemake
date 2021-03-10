@@ -735,6 +735,33 @@ An demo of the entire interactive editing process can be found by clicking below
     :alt: Notebook integration demo
     :align: center
 
+Finally, it is advisable to combine the ``notebook`` directive with the ``conda`` directive in order to define a software stack to use.
+At least, this software stack should contain jupyter and the language to use (e.g. Python or R).
+For the above case, this means
+
+.. code-block:: python
+
+    rule hello:
+        output:
+            "test.txt"
+        conda:
+            "envs/hello.yaml"
+        notebook:
+            "notebooks/hello.py.ipynb"
+
+with
+
+.. code-block:: yaml
+
+    channels:
+      - conda-forge
+    dependencies:
+      - python =3.8
+      - jupyter =1.0
+      - jupyterlab_code_formatter =1.4
+
+The last dependency is advisable in order to enable autoformatting of notebook cells when editing.
+When using other languages than Python in the notebook, one needs to additionally add the respective kernel, e.g. ``r-irkernel`` for R support.
 
 Protected and Temporary Files
 -----------------------------

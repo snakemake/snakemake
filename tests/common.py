@@ -195,7 +195,11 @@ def run(
                         content = target.read()
                     assert (
                         False
-                    ), f"wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------"
+                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                        resultfile=resultfile,
+                        content=content,
+                        expected_content=expected_content,
+                    )
 
     if not cleanup:
         return tmpdir

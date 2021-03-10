@@ -1,7 +1,17 @@
-
-[6.0.1] - 2021-02-26
+[6.0.3] - 2021-03-08
 ====================
+- No longer use a shortened hash for naming conda environments in .snakemake/conda (@johanneskoester).
+- Various little updates to the docs (@johanneskoester).
+
+[6.0.2] - 2021-03-03
+====================
+- Fix race condition in conda checking code (@johanneskoester).
+
+[6.0.1] - 2021-03-03
+====================
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
 - Fix rendering issue in the docs.
+- Add gitpod dev environment and gitpod environment for the tutorial.
 
 [6.0.0] - 2021-02-26
 ====================
