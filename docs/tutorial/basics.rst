@@ -189,7 +189,7 @@ Some Bash_ magic can make this particularly handy. For example, you can alternat
     $ snakemake -np mapped_reads/{A,B}.bam
 
 Note that this is not a special Snakemake syntax.
-Bash_ is just applying its `brace expansion <https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html>` to the set ``{A,B}``, creating the given path for each element and separating the resulting paths by a whitespace.
+Bash_ is just applying its `brace expansion <https://tldp.org/LDP/Bash-Beginners-Guide/html/sect_03_04.html>`_ to the set ``{A,B}``, creating the given path for each element and separating the resulting paths by a whitespace.
 
 In both cases, you will see that Snakemake only proposes to create the output file ``mapped_reads/B.bam``.
 This is because you already executed the workflow before (see the previous step) and no input file is newer than the output file ``mapped_reads/A.bam``.
@@ -262,7 +262,7 @@ This can be done with the following rule:
 
 .. sidebar:: Note
 
-  Snakemake uses the `Python format mini language <https://docs.python.org/3/library/string.html#formatexamples>` to format shell commands.
+  Snakemake uses the `Python format mini language <https://docs.python.org/3/library/string.html#formatexamples>`_ to format shell commands.
   Sometimes you have to use braces (``{}``) for something else in a shell command.
   In that case, you have to escape them by doubling, for example when relying on the bash brace expansion we mentioned above:
   ``ls {{A,B}}.txt``.
@@ -275,7 +275,7 @@ By executing
     $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
 
 we create a **visualization of the DAG** using the ``dot`` command provided by Graphviz_.
-For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into `SVG format <https://en.wikipedia.org/wiki/Scalable_Vector_Graphics>`.
+For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into `SVG format <https://en.wikipedia.org/wiki/Scalable_Vector_Graphics>`_.
 The rendered DAG is piped into the file ``dag.svg`` and will look similar to this:
 
 .. image:: workflow/dag_index.png
