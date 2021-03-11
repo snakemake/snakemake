@@ -51,7 +51,7 @@ However, don't install any of these this manually now, we guide you through bett
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
-The easiest way to run this tutorial is to use Gitpod, which allows to perform the required excercises for free in the cloud, including all required software, via the browser.
+The easiest way to run this tutorial is to use Gitpod, which enables performing the excercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial Gitpod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser and go on directy with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
@@ -59,7 +59,7 @@ Running the tutorial on your local machine
 
 If you prefer to run the tutorial on your local machine, please follow the steps below.
 
-The easiest way to setup these prerequisites is to use the Miniconda_ Python 3 distribution.
+The easiest way to set these prerequisites up, is to use the Miniconda_ Python 3 distribution.
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Miniconda work also under Windows, but the Windows shell is too different to be able to provide generic examples.
 
@@ -71,16 +71,16 @@ If you already use Linux or MacOS X, go on with **Step 1**.
 Windows Subsystem for Linux
 """""""""""""""""""""""""""
 
-If you use Windows 10, you can setup the Windows Subsystem for Linux (`WSL`_) to natively run linux applications.
+If you use Windows 10, you can set up the Windows Subsystem for Linux (`WSL`_) to natively run linux applications.
 Install the WSL following the instructions in the `WSL Documentation`_. You can chose any Linux distribution available for the WSL, but the most popular and accessible one is Ubuntu.
-Start the WSL and setup your account; now, you can follow the steps of our tutorial from within your Linux environment in the WSL.
+Start the WSL and set up your account; now, you can follow the steps of our tutorial from within your Linux environment in the WSL.
 
 Vagrant virtual machine
 """""""""""""""""""""""
 
 If you are using a version of Windows older than 10 or if you do not wish to install the WSL, you can instead setup a Linux virtual machine (VM) with Vagrant_.
 First, install Vagrant following the installation instructions in the `Vagrant Documentation`_.
-Then, create a reasonable new directory you want to share with your Linux VM, e.g., create a folder ``vagrant-linux`` somewhere.
+Then, create a new directory you want to share with your Linux VM, for example, create a folder named ``vagrant-linux`` somewhere.
 Open a command line prompt, and change into that directory.
 Here, you create a 64-bit Ubuntu Linux environment with
 
@@ -128,13 +128,13 @@ When you are asked the question
 
 answer with **yes**.
 Along with a minimal Python 3 environment, Miniconda contains the package manager Conda_.
-After opening a **new terminal**, you can use the new ``conda`` command to install software packages and create isolated environments to, e.g., use different versions of the same package.
-We will later use Conda_ to create an isolated environment with all required software for this tutorial.
+After closing your current terminal and opening a **new terminal**, you can use the new ``conda`` command to install software packages and create isolated environments to, for example, use different versions of the same package.
+We will later use Conda_ to create an isolated environment with all the required software for this tutorial.
 
 Step 2: Preparing a working directory
 :::::::::::::::::::::::::::::::::::::
 
-First, **create a new directory** ``snakemake-tutorial`` at a **reasonable place** and change into that directory in your terminal:
+First, **create a new directory** ``snakemake-tutorial`` at a **place you can easily remember** and change into that directory in your terminal:
 
 .. code:: console
 
@@ -152,7 +152,7 @@ First, we download some example data on which the workflow shall be executed:
     $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
-If your tar command does not provide a ``--wildcards`` flag, you can also just unpack the file without it (which will just leave some more not needed files in the working directory).
+If your tar command does not provide a ``--wildcards`` flag, you can also just unpack the file without it (which will just leave some more unneeded files in the working directory).
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
