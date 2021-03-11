@@ -694,7 +694,7 @@ def auto_report(dag, path, stylesheet=None):
                         register_file(
                             os.path.join(f, report_obj.htmlindex),
                             aux_files=aux_files,
-                            name_overwrite=os.path.basename(f),
+                            name_overwrite="{}.html".format(os.path.basename(f)),
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
