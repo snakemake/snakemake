@@ -461,7 +461,7 @@ class FileRecord:
         if self.mode_embedded:
             return data_uri_from_file(self.path)
         else:
-            return os.path.join("data/raw", self.id, self.name)
+            return os.path.join("data/raw", self.id, self.filename)
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -541,6 +541,10 @@ class FileRecord:
     def name(self):
         if self.name_overwrite:
             return self.name_overwrite
+        return os.path.basename(self.path)
+
+    @property
+    def filename(self):
         return os.path.basename(self.path)
 
 

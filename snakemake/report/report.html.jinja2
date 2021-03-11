@@ -585,6 +585,7 @@
           {% for res in catresults %}
             "{{ res.path|safe }}": {
               name: "{{ res.name }}",
+              filename: "{{ res.filename }}",
               path: "{{ res.path }}",
               size: "{{ res.size|filesizeformat }}",
               caption: {{ res.caption|default('""', true) }},
@@ -672,7 +673,7 @@
                 title: "File",
                 render: function(data, type, row) {
                   var link = $("<a>", {
-                    download: row.name,
+                    download: row.filename,
                     {% if mode_embedded %}
                     href: `javascript:download_result("${row.path}")`
                     {% else %}
