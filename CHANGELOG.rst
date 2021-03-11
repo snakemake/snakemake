@@ -1,11 +1,10 @@
+[6.0.5] - 2021-03-11
+====================
+- Fix bug (introduced with 6.0) when handling of HTML directories in report (@johanneskoester).
+
 [6.0.4] - 2021-03-11
 ====================
 - Various textual improvements in the tutorial (@dlaehnemann).
-
-[6.0.3] - 2021-03-08
-====================
-- No longer use a shortened hash for naming conda environments in .snakemake/conda (@johanneskoester).
-- Various little updates to the docs (@johanneskoester).
 
 [6.0.3] - 2021-03-08
 ====================
