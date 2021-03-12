@@ -143,10 +143,13 @@ For the rule ``bwa_map`` this works as follows:
 
 .. code:: python
 
+    def get_bwa_map_input_fastqs(wildcards):
+        return config["samples"][wildcards.sample]
+    
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             "mapped_reads/{sample}.bam"
         threads: 8
@@ -164,7 +167,6 @@ For the rule ``bwa_map`` this works as follows:
 
     snakemake -n --forcerun $(snakemake --list-input-changes)
 
-Here, we use an anonymous function, also called `lambda expression <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_.
 Any normal function would work as well.
 Input functions take as **single argument** a ``wildcards`` object, that allows to access the wildcards values via attributes (here ``wildcards.sample``).
 They have to **return a string or a list of strings**, that are interpreted as paths to input files (here, we return the path that is stored for the sample in the config file).
