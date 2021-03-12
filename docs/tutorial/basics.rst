@@ -274,6 +274,12 @@ By executing
 
     $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
 
+
+.. sidebar:: Note
+
+  If you went with: `Run tutorial for free in the cloud via Gitpod`_, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
+
+
 we create a **visualization of the DAG** using the ``dot`` command provided by Graphviz_.
 For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into `SVG format <https://en.wikipedia.org/wiki/Scalable_Vector_Graphics>`_.
 The rendered DAG is piped into the file ``dag.svg`` and will look similar to this:
