@@ -88,7 +88,7 @@ Step 2: Config files
 
 So far, we specified which samples to consider by providing a Python list in the Snakefile.
 However, often you want your workflow to be customizable, so that it can easily be adapted to new data.
-For this purpose, Snakemake provides a config file mechanism.
+For this purpose, Snakemake provides a `config file mechanism <https://snakemake.readthedocs.io/en/latest/snakefiles/configuration.html>`_.
 Config files can be written in JSON_ or YAML_, and are used with the ``configfile`` directive.
 In our example workflow, we add the line
 
@@ -227,7 +227,7 @@ We modify our rule ``bwa_map`` as follows:
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             "mapped_reads/{sample}.bam"
         params:
@@ -271,7 +271,7 @@ We use this mechanism for the output file of the rule ``bwa_map``:
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             temp("mapped_reads/{sample}.bam")
         params:
@@ -310,7 +310,18 @@ Exercise
 Summary
 :::::::
 
-The final version of our workflow looks like this:
+For this advanced part of the tutorial, we have now created a ``config.yaml`` configuration file:
+
+.. code:: yaml
+
+    samples:
+        A: data/samples/A.fastq
+        B: data/samples/B.fastq
+    
+    prior_mutation_rate: 0.001
+
+
+With this, the final version of our workflow in the ``Snakefile`` looks like this:
 
 .. code:: python
 
@@ -325,7 +336,7 @@ The final version of our workflow looks like this:
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             temp("mapped_reads/{sample}.bam")
         params:
