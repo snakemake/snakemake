@@ -53,13 +53,13 @@ Run tutorial for free in the cloud via Gitpod
 
 .. sidebar:: Note
 
-    A common thing to happen while using Visual Studio Code, the development environment use in GitPod, is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
+    A common thing to happen while using the development environment in GitPod is to hit ``Ctrl-s`` while in the terminal window, because you wanted to save a file in the editor window.
     This will freeze up you terminal.
     To get it back, make sure you selected the terminal window by clicking on it and then hit ``Ctrl-q``.
 
 The easiest way to run this tutorial is to use Gitpod, which enables performing the excercises via your browser---including all required software, for free and in the cloud.
 In order to do this, simply open the predefined `snakemake-tutorial GitPod workspace <https://gitpod.io/#https://github.com/snakemake/snakemake-tutorial-data>`_ in your browser.
-GitPod provides you with a `Visual Studio Code development environment <https://code.visualstudio.com/docs/getstarted/userinterface>`_, which you can learn about in the linked documentation.
+GitPod provides you with a `Theia development environment <https://theia-ide.org/docs>`_, which you can learn about in the linked documentation.
 Once you have a basic understanding of this environment, you can go on directy with :ref:`tutorial-basics`.
 
 Running the tutorial on your local machine
