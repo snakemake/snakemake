@@ -529,8 +529,8 @@ class Logger:
             for item in msg["aux"].items():
                 self.logger.error(indent("    {}: {}".format(*item)))
 
-            if self.show_failed_logs and msg["log"]:
-                for f in msg["log"]:
+            for f in msg["log"] or []:
+                if self.show_failed_logs or f.display_log:
                     try:
                         self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
                     except FileNotFoundError:

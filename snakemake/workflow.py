@@ -42,6 +42,7 @@ from snakemake.io import (
     ancient,
     directory,
     expand,
+    display,
     dynamic,
     glob_wildcards,
     flag,

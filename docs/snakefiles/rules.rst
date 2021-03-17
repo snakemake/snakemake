@@ -482,6 +482,15 @@ Note that it is also supported to have multiple (named) log files being specifie
         log: log1="logs/abc.log", log2="logs/xyz.log"
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
 
+A log marked as ``display`` will be printed out if the job fails on that rule.
+
+.. code-block:: python
+
+    log: log1=display("logs/primary-info.log"), log="logs/extra-debug-info.log"
+
+While specifying ``--show-failed-logs`` on the command line helps show debug info to the operator,
+the ``display`` flag allows you to craft the right selection of output to inform the operator just
+what has failed.
 
 
 Non-file parameters for rules
