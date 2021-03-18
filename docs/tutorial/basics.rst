@@ -247,6 +247,13 @@ as mentioned before, the dependencies are resolved automatically by matching fil
 Step 4: Indexing read alignments and visualizing the DAG of jobs
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
+.. sidebar:: Note
+
+  Snakemake uses the `Python format mini language <https://docs.python.org/3/library/string.html#formatexamples>`_ to format shell commands.
+  Sometimes you have to use braces (``{}``) for something else in a shell command.
+  In that case, you have to escape them by doubling, for example when relying on the bash brace expansion we mentioned above:
+  ``ls {{A,B}}.txt``.
+
 Next, we need to use samtools_ again to index the sorted read alignments so that we can quickly access reads by the genomic location they were mapped to.
 This can be done with the following rule:
 
@@ -260,19 +267,18 @@ This can be done with the following rule:
         shell:
             "samtools index {input}"
 
-.. sidebar:: Note
-
-  Snakemake uses the `Python format mini language <https://docs.python.org/3/library/string.html#formatexamples>`_ to format shell commands.
-  Sometimes you have to use braces (``{}``) for something else in a shell command.
-  In that case, you have to escape them by doubling, for example when relying on the bash brace expansion we mentioned above:
-  ``ls {{A,B}}.txt``.
-
 Having three steps already, it is a good time to take a closer look at the resulting directed acyclic graph (DAG) of jobs.
 By executing
 
 .. code:: console
 
     $ snakemake --dag sorted_reads/{A,B}.bam.bai | dot -Tsvg > dag.svg
+
+
+.. sidebar:: Note
+
+  If you went with: `Run tutorial for free in the cloud via Gitpod`_, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
+
 
 we create a **visualization of the DAG** using the ``dot`` command provided by Graphviz_.
 For the given target files, Snakemake specifies the DAG in the dot language and pipes it into the ``dot`` command, which renders the definition into `SVG format <https://en.wikipedia.org/wiki/Scalable_Vector_Graphics>`_.
@@ -332,6 +338,12 @@ Hence, we can define the list of samples ad-hoc in plain Python at the top of th
 
     SAMPLES = ["A", "B"]
 
+
+.. sidebar:: Note
+
+  If you name input or output files like above, their order won't be preserved when referring to them as ``{input}``.
+  Further, note that named and unnamed (i.e., positional) input and output files can be combined, but the positional ones must come first, equivalent to Python functions with keyword arguments.
+
 Later, we will learn about more sophisticated ways like **config files**.
 But for now, this is enough so that we can add the following rule to our Snakefile:
 
@@ -348,18 +360,6 @@ But for now, this is enough so that we can add the following rule to our Snakefi
             "samtools mpileup -g -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
-.. sidebar:: Note
-
-  If you name input or output files like above, their order won't be preserved when referring to them as ``{input}``.
-  Further, note that named and unnamed (i.e., positional) input and output files can be combined, but the positional ones must come first, equivalent to Python functions with keyword arguments.
-
-With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
-This can be done by **specifying names for input or output files**, for example with ``fa=...``.
-The files can then be referred to in the shell command by name, for example with ``{input.fa}``.
-For **long shell commands** like this one, it is advisable to **split the string over multiple indented lines**.
-Python will automatically merge it into one.
-Further, you will notice that the **input or output file lists can contain arbitrary Python statements**, as long as it returns a string, or a list of strings.
-Here, we invoke our ``expand`` function to aggregate over the aligned reads of all samples.
 
 .. sidebar:: Note
 
@@ -373,6 +373,15 @@ Here, we invoke our ``expand`` function to aggregate over the aligned reads of a
       "-g -f {input.fa} {input.bam}"
 
   This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
+
+
+With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
+This can be done by **specifying names for input or output files**, for example with ``fa=...``.
+The files can then be referred to in the shell command by name, for example with ``{input.fa}``.
+For **long shell commands** like this one, it is advisable to **split the string over multiple indented lines**.
+Python will automatically merge it into one.
+Further, you will notice that the **input or output file lists can contain arbitrary Python statements**, as long as it returns a string, or a list of strings.
+Here, we invoke our ``expand`` function to aggregate over the aligned reads of all samples.
 
 
 Exercise
@@ -404,17 +413,18 @@ Add the following rule to your Snakefile:
         script:
             "scripts/plot-quals.py"
 
-With this rule, we will eventually generate a histogram of the quality scores that have been assigned to the variant calls in the file ``calls/all.vcf``.
-The actual Python code to generate the plot is hidden in the script ``scripts/plot-quals.py``.
-Script paths are always relative to the referring Snakefile.
-In the script, all properties of the rule like ``input``, ``output``, ``wildcards``, etc. are available as attributes of a global ``snakemake`` object.
-Create the file ``scripts/plot-quals.py``, with the following content:
 
 .. sidebar:: Note
 
   ``snakemake.input`` and ``snakemake.output`` always contain a list of file names, even if the lists each contain only one file name.
   Therefore, to refer to a particular file name, you have to index into that list.
   ``snakemake.output[0]`` will give you the first element of the output file name list, something that always has to be there.
+
+With this rule, we will eventually generate a histogram of the quality scores that have been assigned to the variant calls in the file ``calls/all.vcf``.
+The actual Python code to generate the plot is hidden in the script ``scripts/plot-quals.py``.
+Script paths are always relative to the referring Snakefile.
+In the script, all properties of the rule like ``input``, ``output``, ``wildcards``, etc. are available as attributes of a global ``snakemake`` object.
+Create the file ``scripts/plot-quals.py``, with the following content:
 
 .. code:: python
 

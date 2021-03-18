@@ -18,7 +18,7 @@ A configuration is provided as a JSON or YAML file and can be loaded with:
 
 .. code-block:: python
 
-    configfile: "path/to/config.json"
+    configfile: "path/to/config.yaml"
 
 The config file can be used to define a dictionary of configuration parameters and their values.
 In the workflow, the configuration is accessible via the global variable `config`, e.g.
