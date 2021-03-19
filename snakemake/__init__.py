@@ -22,7 +22,7 @@ from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
-from snakemake.io import load_configfile
+from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
@@ -2599,6 +2599,8 @@ def main(argv=None):
 
         aggregated_wait_for_files = args.wait_for_files
         if args.wait_for_files_file is not None:
+            wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
+
             with open(args.wait_for_files_file) as fd:
                 extra_wait_files = [line.strip() for line in fd.readlines()]
 
