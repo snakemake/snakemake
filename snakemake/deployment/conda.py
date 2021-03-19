@@ -109,7 +109,6 @@ class Env:
 
     @property
     def is_containerized(self):
-        import yaml
 
         if not self._container_img:
             return False
