@@ -750,9 +750,9 @@ class ClusterExecutor(RealExecutor):
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
             path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
 
-        wait_for_files_file = self.get_jobscript(job) + '.waitforfilesfile.txt'
-        with open(wait_for_files_file, 'w') as fd:
-            fd.write('\n'.join(wait_for_files))
+        wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
+        with open(wait_for_files_file, "w") as fd:
+            fd.write("\n".join(wait_for_files))
 
         format_p = partial(
             self.format_job_pattern,
