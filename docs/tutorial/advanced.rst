@@ -378,10 +378,10 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
         params:
             rate=config["prior_mutation_rate"]
         log:
-            "logs/bcftools_call/{sample}.log"
+            "logs/bcftools_call/all.log"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
-            "bcftools call -mv -P {params.rate} - > {output}"
+            "(samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools call -mv -P {params.rate} - > {output}) 2> {log}"
 
 
     rule plot_quals:
