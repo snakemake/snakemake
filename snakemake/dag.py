@@ -1491,14 +1491,20 @@ class DAG:
     def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
         add_to_targetjobs = job in self.targetjobs
-        jobid = self.jobid(job)
+        try:
+            jobid = self.jobid(job)
+        except KeyError:
+            # Job has been added while updating another checkpoint,
+            # jobid is not yet known.
+            jobid = None
 
         depending = list(self.depending[job].items())
         if self.finished(job):
             self._finished.add(newjob)
 
         self.delete_job(job, recursive=recursive)
-        self._jobid[newjob] = jobid
+        if jobid is not None:
+            self._jobid[newjob] = jobid
 
         if add_to_targetjobs:
             self.targetjobs.add(newjob)
