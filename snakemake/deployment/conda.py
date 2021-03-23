@@ -20,6 +20,7 @@ import zipfile
 import uuid
 from enum import Enum
 import threading
+import shutil
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -517,3 +518,7 @@ class Conda:
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
         return "source {} '{}'; {}".format(activate, env_path, cmd)
+
+
+def is_mamba_available():
+    return shutil.which("mamba") is not None

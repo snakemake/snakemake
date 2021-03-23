@@ -128,6 +128,7 @@ with ``envs/samtools.yaml`` defined as
 
   channels:
     - bioconda
+    - conda-forge
   dependencies:
     - samtools =1.9
 
