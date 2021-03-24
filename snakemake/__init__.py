@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+import shlex
 from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
