@@ -4,7 +4,6 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-from snakemake.deployment.conda import is_mamba_available
 import subprocess
 import glob
 from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
@@ -2427,6 +2426,8 @@ def main(argv=None):
         sys.exit(1)
 
     if args.use_conda and args.conda_frontend == "mamba":
+        from snakemake.deployment.conda import is_mamba_available
+
         if not is_mamba_available():
             print(
                 "Error: mamba package manager is not available. "
