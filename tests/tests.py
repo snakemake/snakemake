@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from common import *
 from .conftest import skip_on_windows, ON_WINDOWS
 
+def has_zenodo_token():
+    return "ZENODO_SANDBOX_PAT" in os.environ
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
@@ -1032,6 +1034,12 @@ def test_output_file_cache_remote():
         default_remote_provider="S3Mocked",
         default_remote_prefix="test-remote-bucket",
     )
+
+
+@connected
+@has_zenodo_token
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
 
 
 def test_multiext():
