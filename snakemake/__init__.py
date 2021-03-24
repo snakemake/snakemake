@@ -948,7 +948,7 @@ def get_profile_file(profile, file, return_default=False):
         # script. We check for both, in case the path contains spaces or some
         # other thing that would cause shlex.split() to mangle the path
         # inaccurately.
-        if os.path.exists(p) or os.path.exist(shlex.split(p)[0]):
+        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
             return p
 
     if return_default:
