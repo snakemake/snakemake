@@ -934,7 +934,7 @@ def unparse_config(config):
 
 def get_profile_file(profile, file, return_default=False):
     dirs = get_appdirs()
-    if os.path.isabs(profile):
+    if os.path.exists(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
@@ -2295,6 +2295,11 @@ def main(argv=None):
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
             args.cluster = adjust_path(args.cluster)
+        if args.cluster_config:
+            if isinstance(args.cluster_config, list):
+                args.cluster_config = [adjust_path(cfg) for cfg in args.cluster_config]
+            else:
+                args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
