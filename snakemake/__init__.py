@@ -941,7 +941,13 @@ def get_profile_file(profile, file, return_default=False):
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
-        if os.path.exists(p):
+        # "file" can actually be a full command. If so, `p` won't exist as the
+        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
+        # exists. To fix this, we use shlex.split() to get the path to the
+        # script. We check for both, in case the path contains spaces or some
+        # other thing that would cause shlex.split() to mangle the path
+        # inaccurately.
+        if os.path.exists(p) or os.path.exist(shlex.split(p)[0]):
             return p
 
     if return_default:
