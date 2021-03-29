@@ -22,6 +22,8 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
+    SlurmExecutor,
+    SlurmJobstepExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
@@ -177,6 +179,35 @@ class JobScheduler:
                     keepincomplete=keepincomplete,
                     keepmetadata=keepmetadata,
                 )
+            if slurm:
+                self._executor = SlurmExecutor(workflow,
+                              dag,
+                              cores=None,
+                              restart_times=restart_times,
+                              printreason=printreason,
+                              quiet=quiet,
+                              printshellcmds=printshellcmds,
+                              latency_wait=latency_wait,
+                              assume_shared_fs=True,
+                              keepincomplete=keepincomplete,
+                              keepmetadata=keepmetadata,
+                              max_status_checks_per_second=max_status_checks_per_seconds,
+                              )
+            if slurm_jobstep:
+                self._executor = SlurmJobstepExecutor(workflow,
+                              dag,
+                              cores=None,
+                              restart_times=restart_times,
+                              printreason=printreason,
+                              quiet=quiet,
+                              printshellcmds=printshellcmds,
+                              latency_wait=latency_wait,
+                              assume_shared_fs=True,
+                              keepincomplete=keepincomplete,
+                              keepmetadata=keepmetadata,
+                              max_status_checks_per_second=max_status_checks_per_seconds,
+                              )
+
             if cluster or cluster_sync:
                 if cluster_sync:
                     constructor = SynchronousClusterExecutor
