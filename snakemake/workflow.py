@@ -60,7 +60,8 @@ from snakemake.utils import update_config
 from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
+from snakemake.foreign_pipelines.cwl import cwl
+from snakemake.foreign_pipelines.nextflow import nextflow
 import snakemake.wrapper
 from snakemake.common import Mode, bytesto, ON_WINDOWS, is_local_file
 from snakemake.utils import simplify_path
@@ -1702,6 +1703,50 @@ class Workflow:
                     )(orig_rule.ruleinfo)
 
         return decorate
+    
+    def nextflow_pipeline(self, lineno=None):
+        def decorate(ruleinfo):
+            ruleinfo.foreign_pipeline = "nextflow"
+            self.rule(
+                name=,
+                lineno=lineno,
+                snakefile=self.included_stack[-1],
+            )
+            if from_module is not None:
+                try:
+                    module = self.modules[from_module]
+                except KeyError:
+                    raise WorkflowError(
+                        "Module {} has not been registered with 'module' statement before using it in 'use rule' statement.".format(
+                            from_module
+                        )
+                    )
+                module.use_rules(
+                    rules,
+                    name_modifier,
+                    ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+                )
+            else:
+                # local inheritance
+                if len(rules) > 1:
+                    raise WorkflowError(
+                        "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
+                    )
+                orig_rule = self._rules[rules[0]]
+                ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
+                with WorkflowModifier(
+                    self,
+                    rulename_modifier=get_name_modifier_func(rules, name_modifier),
+                    ruleinfo_overwrite=ruleinfo,
+                ):
+                    self.rule(
+                        name=name_modifier,
+                        lineno=lineno,
+                        snakefile=self.included_stack[-1],
+                    )(orig_rule.ruleinfo)
+
+        return decorate
+
 
     @staticmethod
     def _empty_decorator(f):

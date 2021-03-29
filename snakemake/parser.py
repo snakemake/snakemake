@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import tokenize
 import textwrap
 import os
@@ -653,6 +654,18 @@ class CWL(Script):
         )
 
 
+class Nextflow(Script):
+    start_func = "@workflow.nextflow"
+    end_func = "nextflow"
+
+    def args(self):
+        # other args
+        yield (
+            ", input, params, threads, resources, log, "
+            "use_singularity, use_conda, bench_record, False"
+        )
+
+
 rule_property_subautomata = dict(
     name=Name,
     input=Input,
@@ -1109,6 +1122,116 @@ class UseRule(GlobalKeywordState):
         return self.indent
 
 
+class ForeignPipelineKeywordState(SectionKeywordState):
+    prefix = "ForeignPipeline"
+
+
+class ForeignPipelineSource(ModuleKeywordState):
+    @property
+    def keyword(self):
+        return "pipeline"
+
+
+class ForeignPipelineRelease(ModuleKeywordState):
+    pass
+
+
+class ForeignPipeline(GlobalKeywordState):
+    subautomata = dict(
+        pipeline=ForeignPipelineSource,
+        release=ForeignPipelineRelease,
+    ) | rule_property_subautomata
+
+    pipeline_type = None
+
+    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
+        self.state = self.colon
+        self.has_pipeline = False
+        self._block = []
+        self.primary_token = None
+
+    @property
+    def keyword(self):
+        return "{}_pipeline".format(self.pipeline_type)
+
+    def end(self):
+        yield "@workflow.{}(lineno={})".format(
+            self.keyword, self.lineno
+        )
+        yield "\n"
+
+        # yield block
+        yield from self._block
+
+        yield "@workflow.run"
+        yield "\n"
+
+        yield "def __foreign_pipeline_{}_{}():".format(self.pipeline_type, uuid.uuid4().replace("-", "_"))
+        # the end is detected.
+        # So we can savely reset the indent to zero here
+        self.indent = 0
+        yield "\n"
+        yield INDENT * (self.effective_indent + 1)
+        yield self.get_pipeline_call()
+    
+    @abstractmethod
+    def get_pipeline_call(self):
+        pass
+
+    def end(self):
+        if not self.has_pipeline:
+            self.error(
+                "A {} pipeline needs a URL or path to a pipeline definition.".format(self.pipeline_type),
+                self.primary_token,
+            )
+        yield ")"
+
+    def colon(self, token):
+        if is_colon(token):
+            self.primary_token = token
+            yield "workflow.foreign_pipeline(", token
+            self.state = self.block
+        else:
+            self.error("Expected colon after {} keyword.".format(self.pipeline_type), token)
+
+    def block_content(self, token):
+        if is_name(token):
+            try:
+                if token.string == "pipeline":
+                    self.has_pipeline = True
+                self._block.extend(self.subautomaton(token.string).consume())
+                yield from ()
+            except KeyError:
+                self.error(
+                    "Unexpected keyword {} in "
+                    "module definition".format(token.string),
+                    token,
+                )
+            except StopAutomaton as e:
+                self.indentation(e.token)
+                self.block(e.token)
+        elif is_comment(token):
+            yield "\n", token
+            yield token.string, token
+        elif is_string(token):
+            # ignore docstring
+            pass
+        else:
+            self.error(
+                ("Expecting {} pipeline keyword, comment or docstrings "
+                "inside a module definition.").format(self.pipeline_type),
+                token,
+            )
+
+
+class NextflowPipeline(ForeignPipeline):
+    pipeline_type = "nextflow"
+
+    def get_pipeline_call(self):
+        return "nextflow({pipeline!r}, input, params, threads, resources, log, use_singularity, use_conda, bench_record, True)"
+
+
 class Python(TokenAutomaton):
 
     subautomata = dict(
@@ -1134,6 +1257,7 @@ class Python(TokenAutomaton):
         scattergather=Scattergather,
         module=Module,
         use=UseRule,
+        nextflow=Nextflow,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
