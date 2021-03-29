@@ -51,8 +51,10 @@ dependencies:
   - toposort
   - mamba
   - crc32c
+  - pip
   - pip:
     - py-tes
+  - connection_pool
   - requests-mock
   - peppy
   - eido

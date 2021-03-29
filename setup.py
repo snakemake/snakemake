@@ -69,6 +69,7 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "connection_pool >=0.0.3",
         "pulp >=2.0",
         "smart_open",
         "filelock",
