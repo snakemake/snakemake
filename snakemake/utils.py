@@ -62,7 +62,8 @@ def validate(data, schema, set_default=True):
         if workflow:
             schemafile = os.path.join(workflow.current_basedir, schemafile)
 
-    schema = _load_configfile(workflow.sourcecache.open(schemafile), filetype="Schema")
+    source = workflow.sourcecache.open(schemafile) if workflow else schemafile
+    schema = _load_configfile(source, filetype="Schema")
     if is_local_file(schemafile):
         resolver = RefResolver(
             urljoin("file:", schemafile),
