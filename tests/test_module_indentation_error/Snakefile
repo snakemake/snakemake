@@ -23,7 +23,6 @@ module basic:
         }
     config:
         config
-    skip_validation: True
 
 
 use rule * from basic as basic_*
