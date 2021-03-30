@@ -1045,7 +1045,11 @@ class Workflow:
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
-        return os.path.abspath(os.path.dirname(self.included_stack[-1]))
+        basedir = os.path.dirname(self.included_stack[-1])
+        if is_local_file(basedir):
+            return os.path.abspath(basedir)
+        else:
+            return basedir
 
     def register_envvars(self, *envvars):
         """

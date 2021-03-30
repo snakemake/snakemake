@@ -49,6 +49,7 @@ class ModuleInfo:
         with WorkflowModifier(
             self.workflow,
             config=self.config,
+            base_snakefile=snakefile,
             skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
             rule_whitelist=self.get_rule_whitelist(rules),
@@ -99,6 +100,7 @@ class WorkflowModifier:
         workflow,
         globals=None,
         config=None,
+        base_snakefile=None,
         skip_configfile=False,
         skip_validation=False,
         rulename_modifier=None,
@@ -110,11 +112,12 @@ class WorkflowModifier:
         namespace=None,
     ):
         self.workflow = workflow
+        self.base_snakefile = base_snakefile
 
         self.globals = (
             globals if globals is not None else dict(workflow.vanilla_globals)
         )
-        if config:
+        if config is not None:
             self.globals["config"] = config
 
         self.skip_configfile = skip_configfile
