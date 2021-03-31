@@ -1167,3 +1167,7 @@ def test_modules_meta_wrapper():
 
 def test_use_rule_same_module():
     run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
+
+
+def test_module_complex():
+    run(dpath("test_module_indentation_error"), dryrun=True)

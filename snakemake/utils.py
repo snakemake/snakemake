@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS
+from snakemake.common import ON_WINDOWS, is_local_file, smart_join
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -38,8 +38,11 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
-    # skip if a corresponding modifier has been defined
-    if "workflow" in globals() and globals()["workflow"].modifier.skip_validation:
+    frame = inspect.currentframe().f_back
+    workflow = frame.f_globals.get("workflow")
+
+    if workflow and workflow.modifier.skip_validation:
+        # skip if a corresponding modifier has been defined
         return
 
     try:
@@ -51,20 +54,29 @@ def validate(data, schema, set_default=True):
             "in order to use the validate directive."
         )
 
-    if not os.path.isabs(schema):
+    schemafile = schema
+
+    if not os.path.isabs(schemafile):
         frame = inspect.currentframe().f_back
         # if workflow object is not available this has not been started from a workflow
-        if "workflow" in frame.f_globals:
-            workflow = frame.f_globals["workflow"]
-            schema = os.path.join(workflow.current_basedir, schema)
+        if workflow:
+            schemafile = smart_join(workflow.current_basedir, schemafile)
 
-    schemafile = schema
-    schema = _load_configfile(schema, filetype="Schema")
-    resolver = RefResolver(
-        urljoin("file:", schemafile),
-        schema,
-        handlers={"file": lambda uri: _load_configfile(re.sub("^file://", "", uri))},
-    )
+    source = workflow.sourcecache.open(schemafile) if workflow else schemafile
+    schema = _load_configfile(source, filetype="Schema")
+    if is_local_file(schemafile):
+        resolver = RefResolver(
+            urljoin("file:", schemafile),
+            schema,
+            handlers={
+                "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
+            },
+        )
+    else:
+        resolver = RefResolver(
+            schemafile,
+            schema,
+        )
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):

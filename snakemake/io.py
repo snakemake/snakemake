@@ -1556,12 +1556,17 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath, filetype="Config"):
+def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
 
+    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+        obj = open(configpath_or_obj)
+    else:
+        obj = configpath_or_obj
+
     try:
-        with open(configpath) as f:
+        with obj as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
