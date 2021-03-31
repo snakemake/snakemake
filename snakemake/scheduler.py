@@ -22,9 +22,9 @@ from snakemake.executors import (
     DRMAAExecutor,
     KubernetesExecutor,
     TibannaExecutor,
-    SlurmExecutor,
-    SlurmJobstepExecutor,
-)
+    )
+from snakemake.executors.slurm.slurm_submit import SlurmExecutor
+from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
