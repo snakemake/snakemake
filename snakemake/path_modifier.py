@@ -36,7 +36,7 @@ class PathModifier:
         if self.trie is None or property in self.skip_properties:
             # no replacement
             return path
-        prefixes = self.trie.prefix_items(path)
+        prefixes = self.trie.prefix_items(str(path))
         if len(prefixes) > 1:
             # ambiguous prefixes
             raise WorkflowError(

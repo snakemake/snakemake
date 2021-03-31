@@ -62,7 +62,15 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto, ON_WINDOWS, is_local_file
+from snakemake.common import (
+    Mode,
+    bytesto,
+    ON_WINDOWS,
+    is_local_file,
+    Rules,
+    Scatter,
+    Gather,
+)
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -196,6 +204,12 @@ class Workflow:
 
         _globals = globals()
         _globals["workflow"] = self
+        _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
+        _globals["rules"] = Rules()
+        _globals["checkpoints"] = Checkpoints()
+        _globals["scatter"] = Scatter()
+        _globals["gather"] = Gather()
+
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
@@ -221,20 +235,7 @@ class Workflow:
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
-        global config
-        config = copy.deepcopy(self.overwrite_config)
-
-        global cluster_config
-        cluster_config = copy.deepcopy(self.overwrite_clusterconfig)
-
-        global rules
-        rules = Rules()
-        global checkpoints
-        checkpoints = Checkpoints()
-        global scatter
-        scatter = Scatter()
-        global gather
-        gather = Gather()
+        self.globals["config"] = copy.deepcopy(self.overwrite_config)
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -1157,8 +1158,8 @@ class Workflow:
             )
 
         for key in content:
-            setattr(scatter, key, func)
-            setattr(gather, key, func)
+            setattr(self.globals["scatter"], key, func)
+            setattr(self.globals["gather"], key, func)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1208,11 +1209,10 @@ class Workflow:
 
     @property
     def config(self):
-        global config
-        return config
+        return self.globals["config"]
 
     def ruleorder(self, *rulenames):
-        self._ruleorder.add(*rulenames)
+        self._ruleorder.add(*map(self.modifier.modify_rulename, rulenames))
 
     def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
         # Take absolute path of config file, because it is relative to current
@@ -1236,6 +1236,7 @@ class Workflow:
             return decorate
 
         # Optionally let the modifier change the rulename.
+        orig_name = name
         name = self.modifier.modify_rulename(name)
 
         name = self.add_rule(
@@ -1445,9 +1446,13 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, rule.name, RuleProxy(rule))
+
+            rule_proxy = RuleProxy(rule)
+            setattr(self.globals["rules"], orig_name, rule_proxy)
+            setattr(self.globals["rules"], rule.name, rule_proxy)
+
             if checkpoint:
-                checkpoints.register(rule)
+                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
             rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
@@ -1759,24 +1764,6 @@ class Subworkflow:
             for f in job.subworkflow_input
             if job.subworkflow_input[f] is self
         ]
-
-
-class Rules:
-    """ A namespace for rules so that they can be accessed via dot notation. """
-
-    pass
-
-
-class Scatter:
-    """ A namespace for scatter to allow items to be accessed via dot notation."""
-
-    pass
-
-
-class Gather:
-    """ A namespace for gather to allow items to be accessed via dot notation."""
-
-    pass
 
 
 def srcdir(path):

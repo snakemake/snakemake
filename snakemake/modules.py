@@ -9,6 +9,8 @@ import re
 from snakemake.exceptions import WorkflowError
 from snakemake.path_modifier import PathModifier
 from snakemake import wrapper
+from snakemake.checkpoints import Checkpoints
+from snakemake.common import Rules, Scatter, Gather
 
 
 def get_name_modifier_func(rules=None, name_modifier=None):

@@ -8,7 +8,10 @@ class Checkpoints:
     def __init__(self):
         self.future_output = None
 
-    def register(self, rule):
+    def register(self, rule, fallback_name=None):
+        checkpoint = Checkpoint(rule, self)
+        if fallback_name:
+            setattr(self, fallback_name, checkpoint)
         setattr(self, rule.name, Checkpoint(rule, self))
 
 

@@ -74,7 +74,7 @@ calling:
   freebayes:
     activate: true
   # See https://varlociraptor.github.io/docs/calling/#generic-variant-calling
-  scenario: config/scenario.yaml
+  scenario: scenario.yaml
   filter:
     # Filter candidate variants (this filter helps to keep the number of evaluated candidates small).
     # It should ideally generate a superset of all other filters defined below.
