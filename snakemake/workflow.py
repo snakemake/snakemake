@@ -70,6 +70,7 @@ from snakemake.common import (
     Rules,
     Scatter,
     Gather,
+    smart_join,
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
@@ -1087,7 +1088,7 @@ class Workflow:
         # check if snakefile is a path to the filesystem
         if is_local_file(snakefile):
             if not os.path.isabs(snakefile) and self.included_stack:
-                snakefile = os.path.join(self.current_basedir, snakefile)
+                snakefile = smart_join(self.current_basedir, snakefile)
             # Could still be a url if relative import was used
             if is_local_file(snakefile):
                 snakefile = os.path.abspath(snakefile)

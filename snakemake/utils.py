@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS, is_local_file
+from snakemake.common import ON_WINDOWS, is_local_file, smart_join
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -60,7 +60,7 @@ def validate(data, schema, set_default=True):
         frame = inspect.currentframe().f_back
         # if workflow object is not available this has not been started from a workflow
         if workflow:
-            schemafile = os.path.join(workflow.current_basedir, schemafile)
+            schemafile = smart_join(workflow.current_basedir, schemafile)
 
     source = workflow.sourcecache.open(schemafile) if workflow else schemafile
     schema = _load_configfile(source, filetype="Schema")

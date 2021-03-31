@@ -67,6 +67,13 @@ def is_local_file(path_or_uri):
     return parse_uri(path_or_uri).scheme == "file"
 
 
+def smart_join(base, path):
+    if is_local_file(base):
+        return os.path.join(base, path)
+    else:
+        return "{}/{}".format(base, path)
+
+
 def num_if_possible(s):
     """Convert string to number if possible, otherwise return string."""
     try:
