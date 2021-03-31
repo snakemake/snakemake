@@ -1449,7 +1449,8 @@ class Workflow:
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
             rule_proxy = RuleProxy(rule)
-            setattr(self.globals["rules"], orig_name, rule_proxy)
+            if orig_name is not None:
+                setattr(self.globals["rules"], orig_name, rule_proxy)
             setattr(self.globals["rules"], rule.name, rule_proxy)
 
             if checkpoint:
