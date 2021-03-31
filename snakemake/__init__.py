@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+import shlex
 from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
@@ -933,7 +934,7 @@ def unparse_config(config):
 
 def get_profile_file(profile, file, return_default=False):
     dirs = get_appdirs()
-    if os.path.isabs(profile):
+    if os.path.exists(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
@@ -941,7 +942,13 @@ def get_profile_file(profile, file, return_default=False):
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
-        if os.path.exists(p):
+        # "file" can actually be a full command. If so, `p` won't exist as the
+        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
+        # exists. To fix this, we use shlex.split() to get the path to the
+        # script. We check for both, in case the path contains spaces or some
+        # other thing that would cause shlex.split() to mangle the path
+        # inaccurately.
+        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
             return p
 
     if return_default:
@@ -2288,6 +2295,11 @@ def main(argv=None):
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
             args.cluster = adjust_path(args.cluster)
+        if args.cluster_config:
+            if isinstance(args.cluster_config, list):
+                args.cluster_config = [adjust_path(cfg) for cfg in args.cluster_config]
+            else:
+                args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
