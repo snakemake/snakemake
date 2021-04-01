@@ -52,7 +52,7 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDInt
+from snakemake.common import Mode, lazy_property, TBDString
 
 
 class Rule:
@@ -684,10 +684,9 @@ class Rule:
         except FileNotFoundError as e:
             # Function evaluation can depend on input files. Since expansion can happen during dryrun,
             # where input files are not yet present, we need to skip such cases and
-            # mark them as [TBD].
+            # mark them as <TBD>.
             if e.filename in aux_params["input"]:
-                # use zero for resource if it cannot yet be determined
-                value = TBDInt(0)
+                value = TBDString
             else:
                 raise e
         except (Exception, BaseException) as e:
