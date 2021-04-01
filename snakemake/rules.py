@@ -682,8 +682,8 @@ class Rule:
             value = incomplete_checkpoint_func(e)
             incomplete = True
         except FileNotFoundError as e:
-            # Resources can depend on input files. Since expansion can happen during dryrun,
-            # where input files are not yet present, we need to skip such resources and
+            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+            # where input files are not yet present, we need to skip such cases and
             # mark them as [TBD].
             if e.filename in aux_params["input"]:
                 # use zero for resource if it cannot yet be determined
