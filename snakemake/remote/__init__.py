@@ -10,9 +10,12 @@ import re
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
 import copy
+from urllib.parse import urlparse
+import collections
 
 # module-specific
 import snakemake.io
+from snakemake.logging import logger
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
@@ -104,7 +107,7 @@ class AbstractRemoteProvider:
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=self,
-            **kwargs
+            **kwargs,
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
@@ -154,7 +157,7 @@ class AbstractRemoteObject:
         keep_local=False,
         stay_on_remote=False,
         provider=None,
-        **kwargs
+        **kwargs,
     ):
         assert protocol is not None
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
@@ -294,3 +297,73 @@ class DomainObject(AbstractRemoteObject):
     @property
     def remote_path(self):
         return self.path_remainder
+
+
+class AutoRemoteProvider:
+    @property
+    def protocol_mapping(self):
+        # automatically gather all RemoteProviders
+        import pkgutil
+        import importlib.util
+
+        provider_list = []
+        for remote_submodule in pkgutil.iter_modules(snakemake.remote.__path__):
+            path = (
+                os.path.join(remote_submodule.module_finder.path, remote_submodule.name)
+                + ".py"
+            )
+
+            module_name = remote_submodule.name
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+
+            try:
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception as e:
+                logger.debug(f"Autoloading {module_name} failed: {e}")
+                continue
+
+            provider_list.append(module.RemoteProvider)
+
+        # assemble scheme mapping
+        protocol_dict = {}
+        for Provider in provider_list:
+            for protocol in Provider().available_protocols:
+                protocol_short = protocol[:-3]  # remove "://" suffix
+                protocol_dict[protocol_short] = Provider
+
+        return protocol_dict
+
+    def remote(self, value, *args, provider_kws=None, **kwargs):
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, collections.abc.Iterable):
+            values = value
+        else:
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
+
+        provider_remote_list = []
+        for value in values:
+            # select provider
+            o = urlparse(value)
+            Provider = self.protocol_mapping.get(o.scheme)
+
+            if Provider is None:
+                raise TypeError(f"Could not find remote provider for: {value}")
+
+            # use provider's remote
+            provider_kws = {} if provider_kws is None else provider_kws.copy()
+
+            provider_remote_list.append(
+                Provider(**provider_kws).remote(value, *args, **kwargs)
+            )
+
+        return (
+            provider_remote_list[0]
+            if len(provider_remote_list) == 1
+            else provider_remote_list
+        )
+
+
+AUTO = AutoRemoteProvider()

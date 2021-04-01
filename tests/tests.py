@@ -719,6 +719,24 @@ def test_singularity_conda():
     )
 
 
+@skip_on_windows
+@connected
+def test_singularity_none():
+    run(
+        dpath("test_singularity_none"),
+        use_singularity=True,
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_global():
+    run(
+        dpath("test_singularity_global"),
+        use_singularity=True,
+    )
+
+
 def test_issue612():
     run(dpath("test_issue612"), dryrun=True)
 
@@ -1093,6 +1111,7 @@ def test_github_issue640():
     )
 
 
+@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
@@ -1167,3 +1186,7 @@ def test_modules_meta_wrapper():
 
 def test_use_rule_same_module():
     run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
+
+
+def test_module_complex():
+    run(dpath("test_module_indentation_error"), dryrun=True)

@@ -16,6 +16,7 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+import shlex
 from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
@@ -933,7 +934,7 @@ def unparse_config(config):
 
 def get_profile_file(profile, file, return_default=False):
     dirs = get_appdirs()
-    if os.path.isabs(profile):
+    if os.path.exists(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
@@ -941,7 +942,13 @@ def get_profile_file(profile, file, return_default=False):
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
-        if os.path.exists(p):
+        # "file" can actually be a full command. If so, `p` won't exist as the
+        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
+        # exists. To fix this, we use shlex.split() to get the path to the
+        # script. We check for both, in case the path contains spaces or some
+        # other thing that would cause shlex.split() to mangle the path
+        # inaccurately.
+        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
             return p
 
     if return_default:
@@ -2200,7 +2207,7 @@ def get_argument_parser(profile=None):
     )
     group_conda.add_argument(
         "--conda-frontend",
-        default="conda",
+        default="mamba",
         choices=["conda", "mamba"],
         help="Choose the conda frontend for installing environments. "
         "Mamba is much faster and highly recommended.",
@@ -2288,6 +2295,11 @@ def main(argv=None):
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
             args.cluster = adjust_path(args.cluster)
+        if args.cluster_config:
+            if isinstance(args.cluster_config, list):
+                args.cluster_config = [adjust_path(cfg) for cfg in args.cluster_config]
+            else:
+                args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
@@ -2424,6 +2436,22 @@ def main(argv=None):
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if args.use_conda and args.conda_frontend == "mamba":
+        from snakemake.deployment.conda import is_mamba_available
+
+        if not is_mamba_available():
+            print(
+                "Error: mamba package manager is not available. "
+                "The mamba package manager (https://github.com/mamba-org/mamba) is an "
+                "extremely fast and robust conda replacement. "
+                "It is the recommended way of using Snakemake's conda integration. "
+                "It can be installed with `conda install -n base -c conda-forge mamba."
+                "If you still prefer to use conda, you can enforce that by setting "
+                "`--conda-frontend conda`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(

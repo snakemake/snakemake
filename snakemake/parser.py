@@ -831,7 +831,9 @@ class ModuleConfig(ModuleKeywordState):
 
 
 class ModuleSkipValidation(ModuleKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "skip_validation"
 
 
 class ModuleReplacePrefix(ModuleKeywordState):

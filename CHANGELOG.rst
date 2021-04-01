@@ -1,3 +1,13 @@
+[6.1.0] - 2021-04-01
+====================
+- Snakemake now uses **mamba** as the default conda frontend (which can be overwritten by specifying to use conda via the --conda-frontend flag) (@johanneskoester).
+- Profiles using --cluster option can now handle relative submit script paths in combination with arguments (@kdm9).
+- New AutoRemoteProvider, which infers the type of remote file protocol from the given URL (@kpj).
+- When using global container directive, container usage can be deactivated on a per rule base (@bilke).
+- Bugfixes for checkpoint handling (@johanneskoester).
+- Bugfixes for the module system (@johanneskoester, @dlaehnemann).
+- Various improvements for the tutorial.
+
 [6.0.5] - 2021-03-11
 ====================
 - Fix bug (introduced with 6.0) when handling of HTML directories in report (@johanneskoester).
