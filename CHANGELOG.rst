@@ -1,6 +1,6 @@
 [6.1.0] - 2021-04-01
 ====================
-- Snakemake now uses **mamba** as the default conda frontent (which can be overwritten by specifying to use conda via the --conda-frontend flag) (@johanneskoester).
+- Snakemake now uses **mamba** as the default conda frontend (which can be overwritten by specifying to use conda via the --conda-frontend flag) (@johanneskoester).
 - Profiles using --cluster option can now handle relative submit script paths in combination with arguments (@kdm9).
 - New AutoRemoteProvider, which infers the type of remote file protocol from the given URL (@kpj).
 - When using global container directive, container usage can be deactivated on a per rule base (@bilke).
