@@ -744,11 +744,13 @@ class ClusterExecutor(RealExecutor):
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
-            # Prepend PATH of current python executable to PATH.
+            # Append PATH of current python executable to PATH.
             # This way, we ensure that the snakemake process in the cluster node runs
-            # in the same environment as the current process.
-            # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
+            # with the pulp solver backends (e.g. coincbc) available on the PATH.
+            # Appending ensures that Snakemake's Python cannot supersede Python
+            # from a job's environment (conda activate replaces the first PATH
+            # corresponding to the current environment rather than prepending)
+            path = "PATH=${{PATH}}:'{}'".format(os.path.dirname(sys.executable))
 
         format_p = partial(
             self.format_job_pattern,
