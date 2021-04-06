@@ -21,7 +21,12 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS, smart_join
+from snakemake.common import (
+    MIN_PY_VERSION,
+    SNAKEMAKE_SEARCHPATH,
+    ON_WINDOWS,
+    smart_join,
+)
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
