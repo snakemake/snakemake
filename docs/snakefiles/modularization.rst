@@ -168,11 +168,15 @@ This modification can be performed after a general import, and will overwrite an
 
     use rule * from other_workflow as other_*
 
-    use rule some_task from other_workflow as other_task with:
+    use rule some_task from other_workflow as other_some_task with:
         output:
             "results/some-result.txt"
 
 By such a modifying use statement, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be overwritten, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+
+Note that the second use statement has to use the original rule name, not the one that has been prefixed with ``other_`` via the first use statement (there is no rule ``other_some_task`` in the module ``other_workflow``).
+In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
+Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
 Of course, it is possible to combine the use of rules from multiple modules, and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 

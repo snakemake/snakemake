@@ -21,7 +21,12 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
+from snakemake.common import (
+    MIN_PY_VERSION,
+    SNAKEMAKE_SEARCHPATH,
+    ON_WINDOWS,
+    smart_join,
+)
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
@@ -327,7 +332,7 @@ class ScriptBase(ABC):
     def local_path(self):
         path = self.path[7:]
         if not os.path.isabs(path):
-            return os.path.join(self.basedir, path)
+            return smart_join(self.basedir, path)
         return path
 
     @abstractmethod
@@ -820,7 +825,7 @@ def get_source(path, basedir=".", wildcards=None, params=None):
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
-            path = os.path.abspath(os.path.join(basedir, path))
+            path = smart_join(basedir, path, abspath=True)
         path = "file://" + path
     if wildcards is not None and params is not None:
         # Format path if wildcards are given.
