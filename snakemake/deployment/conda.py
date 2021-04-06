@@ -316,11 +316,12 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
-                            "--copy",
+                            "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
                         + packages
                     )
+                    print(cmd)
                     if self._container_img:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
