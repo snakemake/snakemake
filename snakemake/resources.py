@@ -1,5 +1,15 @@
 import re
 
+supported_keys = {'account': str,
+                  'partition': str,
+                  'walltime_minutes': int,
+                  'constraint': str,
+                  'mpi': bool,
+                  'mem_mb': int,
+                  'mem_mb_per_cpu': int,
+                  'ntasks': int,
+                  'cpus_per_task': int,
+                  'nodes': int)
 
 class DefaultResources:
     def __init__(self, args=None):
@@ -37,6 +47,11 @@ def parse_resources(resources_args, fallback=None):
                 raise ValueError(
                     "Resource definition must start with a valid identifier."
                 )
+
+            # translate into supported type
+            if val in supported_keys:
+                val = supported_keys[val]()
+            # else fall back to ints
             try:
                 val = int(val)
             except ValueError:
