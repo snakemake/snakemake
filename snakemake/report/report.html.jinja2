@@ -639,7 +639,7 @@
 
         modal.find(".modal-title").text(res.name);
         modal.find(".modal-body img").attr("src", res.thumbnail_uri());
-        modal.find(".modal-footer a.btn-download")
+        var link = modal.find(".modal-footer a.btn-download")
           .attr(
             "href", 
             {% if mode_embedded %}
@@ -647,8 +647,10 @@
             {% else %}
             res.data_uri
             {% endif %}
-          )
-          .attr("download", res.name);
+          ).attr("target", "_blank");
+        if(!res.name.endsWith(".html")) {
+          link.attr("download", res.name);
+        }
         modal.modal('handleUpdate');
         modal.modal("show");
       }
@@ -673,13 +675,17 @@
                 title: "File",
                 render: function(data, type, row) {
                   var link = $("<a>", {
-                    download: row.filename,
+                    target: "_blank",
                     {% if mode_embedded %}
                     href: `javascript:download_result("${row.path}")`
                     {% else %}
                     href: row.data_uri
                     {% endif %}
-                  }).text(row.name)
+                  }).text(row.name);
+                  if(!row.filename.endsWith(".html")) {
+                    link.attr("download", row.filename);
+                  };
+
                   return link.wrap("<span>").parent().html();
                 }
               },
