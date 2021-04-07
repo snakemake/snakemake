@@ -9,7 +9,7 @@ supported_keys = {'account': str,
                   'mem_mb_per_cpu': int,
                   'ntasks': int,
                   'cpus_per_task': int,
-                  'nodes': int)
+                  'nodes': int}
 
 class DefaultResources:
     def __init__(self, args=None):
