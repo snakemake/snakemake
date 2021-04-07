@@ -50,7 +50,12 @@ def parse_resources(resources_args, fallback=None):
 
             # translate into supported type
             if val in supported_keys:
-                val = supported_keys[val]()
+                try:
+                    val = supported_keys[val]()
+                except ValueError:
+                    raise ValueError(
+                       "Resource definition for '{}' requires an '{}'".format(val, supported_keys[val])
+                    )
             # else fall back to ints
             try:
                 val = int(val)
