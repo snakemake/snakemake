@@ -1,3 +1,9 @@
+[6.1.1] - 2021-04-07
+====================
+- Fixed several small bugs of the new module system (@johanneskoester, @dlaehnemann).
+- Fixed archive based conda deployment (@johanneskoester).
+- Better handling of download and target attributed in the interactive report (@johanneskoester).
+
 [6.1.0] - 2021-04-01
 ====================
 - Snakemake now uses **mamba** as the default conda frontend (which can be overwritten by specifying to use conda via the --conda-frontend flag) (@johanneskoester).
