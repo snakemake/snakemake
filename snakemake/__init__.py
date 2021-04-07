@@ -1923,6 +1923,21 @@ def get_argument_parser(profile=None):
         "Currently slack and workflow management system (wms) are supported.",
     )
 
+    group_slurm = parser.add_argument_group("SLURM")
+    slurm_mode_group = group_slurm.add_mutually_exclusive_group()
+    
+    slurm_mode_group.add_argument('--slurm', action = 'store_true',
+        help=(
+            "Execute snakemake rules as SLURM batch jobs according"
+            "to their 'resources' definition. SLRUM resources as"
+            "'partition', 'ntasks', 'cpus', etc. need to be defined"
+            "within the 'resources' definition. Note, that memory can only"
+            "be defined as 'mem_mb' or 'mem_mb_per_cpu' as analogues to"
+            "the SLURM 'mem' and 'mem-per-cpu', respectivey. Here, the"
+            "unit is always 'MiB'. In addition '--default_resources'"
+            "should contain the SLURM account."),
+        ),
+
     group_cluster = parser.add_argument_group("CLUSTER")
 
     # TODO extend below description to explain the wildcards that can be used
