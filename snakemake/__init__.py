@@ -1926,16 +1926,17 @@ def get_argument_parser(profile=None):
     group_slurm = parser.add_argument_group("SLURM")
     slurm_mode_group = group_slurm.add_mutually_exclusive_group()
     
-    slurm_mode_group.add_argument('--slurm', action = 'store_true',
+    slurm_mode_group.add_argument('--slurm', action = "store_true",
         help=(
             "Execute snakemake rules as SLURM batch jobs according"
-            "to their 'resources' definition. SLRUM resources as"
-            "'partition', 'ntasks', 'cpus', etc. need to be defined"
-            "within the 'resources' definition. Note, that memory can only"
-            "be defined as 'mem_mb' or 'mem_mb_per_cpu' as analogues to"
-            "the SLURM 'mem' and 'mem-per-cpu', respectivey. Here, the"
-            "unit is always 'MiB'. In addition '--default_resources'"
-            "should contain the SLURM account."),
+            " to their 'resources' definition. SLRUM resources as "
+            " 'partition', 'ntasks', 'cpus', etc. need to be defined"
+            " per rule within the 'resources' definition. Note, that"
+            " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
+            " as analoguous to the SLURM 'mem' and 'mem-per-cpu' flags"
+            " to sbatch, respectively. Here, the unit is always 'MiB'."
+            " In addition '--default_resources' should contain the"
+            " SLURM account."),
         ),
 
     group_cluster = parser.add_argument_group("CLUSTER")
@@ -2391,6 +2392,11 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
+    if args.slurm:
+        args.use_envmodules = True
+        if args.cores is None:
+            args.cores = 1 # TODO: check - is this ok?
+
     if args.cluster or args.cluster_sync or args.drmaa:
         if args.cores is None:
             if args.dryrun:
