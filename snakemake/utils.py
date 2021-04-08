@@ -670,8 +670,16 @@ class Paramspace:
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
 
+        def convert_value_dtype(name, value):
+            if value == 'False':
+                # handle problematic case when boolean False is returned as
+                # boolean True because the string "False" is misinterpreted
+                return pd.Series([False])
+            else:
+                return pd.Series([value]).astype(self.dataframe.dtypes[name])
+
         return {
-            name: pd.Series([value]).astype(self.dataframe.dtypes[name])
+            name: convert_value_dtype(name, value)
             for name, value in wildcards.items()
             if name in self.ordered_columns
         }
