@@ -127,7 +127,7 @@ def snakemake(
     keep_logger=False,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
-    restart_times=0,
+    workflow_restart_times=0,
     attempt=1,
     verbose=False,
     force_use_threads=False,
@@ -258,7 +258,8 @@ def snakemake(
         updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
         verbose (bool):             show additional debug output (default False)
         max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
-        restart_times (int):        number of times to restart failing jobs (default 0)
+        workflow_restart_times (int):
+                                    number of times to restart failing jobs (default 0)
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
         force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
@@ -572,7 +573,7 @@ def snakemake(
             mode=mode,
             wrapper_prefix=wrapper_prefix,
             printshellcmds=printshellcmds,
-            restart_times=restart_times,
+            workflow_restart_times=workflow_restart_times,
             attempt=attempt,
             default_remote_provider=_default_remote_provider,
             default_remote_prefix=default_remote_prefix,
@@ -632,7 +633,7 @@ def snakemake(
                     immediate_submit=immediate_submit,
                     standalone=standalone,
                     ignore_ambiguity=ignore_ambiguity,
-                    restart_times=restart_times,
+                    workflow_restart_times=workflow_restart_times,
                     attempt=attempt,
                     lock=lock,
                     unlock=unlock,
@@ -2714,7 +2715,7 @@ def main(argv=None):
             allowed_rules=args.allowed_rules,
             max_jobs_per_second=args.max_jobs_per_second,
             max_status_checks_per_second=args.max_status_checks_per_second,
-            restart_times=args.restart_times,
+            workflow_restart_times=args.restart_times,
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,

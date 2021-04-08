@@ -36,6 +36,7 @@ class RuleInfo:
         self.cwl = None
         self.cache = False
         self.path_modifier = None
+        self.restart_times = None
 
     def apply_modifier(
         self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}

@@ -107,6 +107,7 @@ class Rule:
             self.basedir = None
             self.path_modifer = None
             self.ruleinfo = None
+            self.restart_times = None
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -155,6 +156,7 @@ class Rule:
             self.basedir = other.basedir
             self.path_modifier = other.path_modifier
             self.ruleinfo = other.ruleinfo
+            self.restart_times = other.restart_times
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):

@@ -112,7 +112,7 @@ class Workflow:
         mode=Mode.default,
         wrapper_prefix=None,
         printshellcmds=False,
-        restart_times=None,
+        workflow_restart_times=None,
         attempt=1,
         default_remote_provider=None,
         default_remote_prefix="",
@@ -182,7 +182,7 @@ class Workflow:
         self.mode = mode
         self.wrapper_prefix = wrapper_prefix
         self.printshellcmds = printshellcmds
-        self.restart_times = restart_times
+        self.workflow_restart_times = workflow_restart_times
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
@@ -1427,7 +1427,7 @@ class Workflow:
             rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
             rule.cwl = ruleinfo.cwl
-            rule.restart_times = self.restart_times
+            rule.restart_times = self.workflow_restart_times if ruleinfo.restart_times is None else ruleinfo.restart_times
             rule.basedir = self.current_basedir
 
             if ruleinfo.cache is True:
@@ -1651,6 +1651,13 @@ class Workflow:
     def name(self, name):
         def decorate(ruleinfo):
             ruleinfo.name = name
+            return ruleinfo
+
+        return decorate
+
+    def restart_times(self, restart_times):
+        def decorate(ruleinfo):
+            ruleinfo.restart_times = restart_times
             return ruleinfo
 
         return decorate
