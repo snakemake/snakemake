@@ -671,7 +671,7 @@ class Paramspace:
         import pandas as pd
 
         def convert_value_dtype(name, value):
-            if value == 'False':
+            if self.dataframe.dtypes[name] == bool and value == "False":
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return pd.Series([False])
