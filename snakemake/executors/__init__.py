@@ -661,7 +661,7 @@ class ClusterExecutor(RealExecutor):
                     "{path:u} {sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
-                    "--wait-for-files-file {wait_for_files_file} --latency-wait {latency_wait} ",
+                    "{waitfiles_parameter} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
@@ -750,16 +750,27 @@ class ClusterExecutor(RealExecutor):
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
             path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
 
-        wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
-        with open(wait_for_files_file, "w") as fd:
-            fd.write("\n".join(wait_for_files))
+        # Only create extra file if we have more than 20 input files.
+        # This should not require the file creation in most cases.
+        if len(wait_for_files) > 20:
+            wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
+            with open(wait_for_files_file, "w") as fd:
+                fd.write("\n".join(wait_for_files))
+
+            waitfiles_parameter = format("--wait-for-files-file {wait_for_files_file}",
+                wait_for_files_file=wait_for_files_file
+            )
+        else:
+            waitfiles_parameter = format("--wait-for-files {wait_for_files}",
+                wait_for_files=wait_for_files
+            )
 
         format_p = partial(
             self.format_job_pattern,
             job=job,
             properties=job.properties(cluster=self.cluster_params(job)),
             latency_wait=self.latency_wait,
-            wait_for_files_file=wait_for_files_file,
+            waitfiles_parameter=waitfiles_parameter,
             path=path,
             **kwargs,
         )
