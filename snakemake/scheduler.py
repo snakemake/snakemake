@@ -61,6 +61,8 @@ class JobScheduler:
         local_cores=1,
         dryrun=False,
         touch=False,
+        slurm=None,
+        slurm_jobstep=None,
         cluster=None,
         cluster_status=None,
         cluster_config=None,
