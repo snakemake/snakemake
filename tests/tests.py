@@ -1190,3 +1190,6 @@ def test_use_rule_same_module():
 
 def test_module_complex():
     run(dpath("test_module_indentation_error"), dryrun=True)
+
+def test_module_ruleorder():
+    run(dpath("test_module_ruleorder_error"), dryrun=True)
