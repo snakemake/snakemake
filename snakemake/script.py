@@ -496,7 +496,7 @@ class PythonScript(ScriptBase):
                         logger.warning(
                             "Environment defines Python "
                             "version < {0}.{1}. Using Python of the "
-                            "master process to execute "
+                            "main process to execute "
                             "script. Note that this cannot be avoided, "
                             "because the script uses data structures from "
                             "Snakemake which are Python >={0}.{1} "

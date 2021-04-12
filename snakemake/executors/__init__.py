@@ -1048,7 +1048,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # Ctrl-C on the main process or sending killall to
                         # snakemake.
                         # Snakemake will handle the signal in
-                        # the master process.
+                        # the main process.
                         pass
                     else:
                         raise WorkflowError(
