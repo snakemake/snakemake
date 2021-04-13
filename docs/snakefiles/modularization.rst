@@ -50,6 +50,7 @@ Examples for each wrapper can be found in the READMEs located in the wrapper sub
 Alternatively, for example during development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
 Such a URL will have to point to the folder containing the ``wrapper.*`` and ``environment.yaml`` files.
 In the above example, the full GitHub URL could for example be provided with ``wrapper: https://github.com/snakemake/snakemake-wrappers/raw/0.0.8/bio/samtools/sort``.
+Note that it needs to point to the ``/raw/`` version of the folder, not the rendered HTML version.
 
 In addition, the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which can be used as modules, see :ref:`snakefiles-meta-wrappers`.
 
