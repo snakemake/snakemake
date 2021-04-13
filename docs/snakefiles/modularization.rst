@@ -43,10 +43,13 @@ For example
 
 Refers to the wrapper ``"0.0.8/bio/samtools/sort"`` to create the output from the input.
 Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository`_.
-Thereby, 0.0.8 can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
-This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
-Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Thereby, ``0.0.8`` can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
+This ensures reproducibility since changes in the wrapper implementation will only be propagated to your workflow once you update the version tag.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository`_.
+
+Alternatively, for example during development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Such a URL will have to point to the folder containing the ``wrapper.*`` and ``environment.yaml`` files.
+In the above example, the full GitHub URL could for example be provided with ``wrapper: https://github.com/snakemake/snakemake-wrappers/raw/0.0.8/bio/samtools/sort``.
 
 In addition, the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which can be used as modules, see :ref:`snakefiles-meta-wrappers`.
 
