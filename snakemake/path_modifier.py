@@ -32,6 +32,9 @@ class PathModifier:
             return path
 
         modified_path = self.apply_default_remote(self.replace_prefix(path, property))
+        if modified_path == path:
+            # nothing has changed
+            return path
 
         # Important, update with previous flags in case of AnnotatedString #596
         if hasattr(path, "flags"):
@@ -39,7 +42,8 @@ class PathModifier:
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
         # Flag the path as modified and return.
-        return flag(modified_path, PATH_MODIFIER_FLAG, self)
+        modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
+        return modified_path
 
     def replace_prefix(self, path, property=None):
         if self.trie is None or property in self.skip_properties:

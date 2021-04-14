@@ -488,6 +488,10 @@ class Rule:
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            rule_dependency = None
+            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
+                rule_dependency = item.rule
+
             item = self.apply_path_modifier(
                 item, property="output" if output else "input"
             )
@@ -517,8 +521,8 @@ class Rule:
                         )
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                self.dependencies[item] = item.rule
+            if rule_dependency is not None:
+                self.dependencies[item] = rule_dependency
             if output:
                 item = self._update_item_wildcard_constraints(item)
             else:
@@ -1178,7 +1182,7 @@ class RuleProxy:
                 cleaned.clone_remote_object(f)
 
             if modified_by is not None:
-                cleaned = flag(cleaned, PATH_MODIFIER_FLAG, modified_by)
+                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
 
             return cleaned
 
