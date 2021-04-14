@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
 import sre_constants
@@ -24,6 +25,8 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard_constraints,
     update_wildcard_constraints,
+    flag,
+    get_flag_value,
 )
 from snakemake.io import (
     expand,
@@ -480,6 +483,7 @@ class Rule:
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item)
@@ -1159,6 +1163,9 @@ class RuleProxy:
             prefix = self.rule.workflow.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
+
+            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
+
             if (
                 self.rule.workflow.default_remote_provider is not None
                 and f.startswith(prefix)
@@ -1169,6 +1176,9 @@ class RuleProxy:
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_remote_object(f)
+
+            if modified_by is not None:
+                cleaned = flag(cleaned, PATH_MODIFIER_FLAG, modified_by)
 
             return cleaned
 
