@@ -72,6 +72,7 @@ setup(
         "pulp >=2.0",
         "smart_open",
         "filelock",
+        "stopit",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],

@@ -2,7 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python >=3.5.3
+  - stopit
   - datrie
   - boto3
   - moto
