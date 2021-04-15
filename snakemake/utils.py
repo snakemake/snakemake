@@ -674,7 +674,7 @@ class Paramspace:
             if self.dataframe.dtypes[name] == bool and value == "False":
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
-                return pd.Series([False])
+                return False
             else:
                 return pd.Series([value]).astype(self.dataframe.dtypes[name])
 
