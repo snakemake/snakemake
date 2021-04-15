@@ -676,7 +676,7 @@ class Paramspace:
                 # boolean True because the string "False" is misinterpreted
                 return False
             else:
-                return pd.Series([value]).astype(self.dataframe.dtypes[name])
+                return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
 
         return {
             name: convert_value_dtype(name, value)
