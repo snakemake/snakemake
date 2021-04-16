@@ -181,7 +181,7 @@ class JobScheduler:
                 self._executor = SlurmExecutor(workflow,
                               dag,
                               cores=None,
-                              restart_times='restart_times',
+                              restart_times=restart_times,
                               printreason=printreason,
                               quiet=quiet,
                               printshellcmds=printshellcmds,
