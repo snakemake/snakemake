@@ -1194,3 +1194,7 @@ def test_module_complex():
 
 def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
+
+
+def test_module_with_script():
+    run(dpath("test_module_with_script"))
