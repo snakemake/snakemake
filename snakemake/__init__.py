@@ -79,6 +79,9 @@ def snakemake(
     nocolor=False,
     quiet=False,
     keepgoing=False,
+    slurm=None,
+    #TODO: not ready
+    #slurm_jobstep=None,
     cluster=None,
     cluster_config=None,
     cluster_sync=None,
@@ -712,6 +715,7 @@ def snakemake(
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
+                    slurm=slurm,
                     cluster=cluster,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
@@ -2351,6 +2355,7 @@ def main(argv=None):
 
     local_exec = not (
         args.print_compilation
+        or args.slurm
         or args.cluster
         or args.cluster_sync
         or args.drmaa
@@ -2668,6 +2673,9 @@ def main(argv=None):
             nocolor=args.nocolor,
             quiet=args.quiet,
             keepgoing=args.keep_going,
+            slurm=args.slurm,
+            #TODO: not ready
+            #slurm_jobstep=args.slurmjobstep, 
             cluster=args.cluster,
             cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,

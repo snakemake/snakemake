@@ -165,6 +165,47 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
             )
+        elif slurm:
+                self._local_executor = CPUExecutor(
+                    workflow,
+                    dag,
+                    local_cores,
+                    printreason=printreason,
+                    quiet=quiet,
+                    printshellcmds=printshellcmds,
+                    latency_wait=latency_wait,
+                    cores=local_cores,
+                    keepincomplete=keepincomplete,
+                    keepmetadata=keepmetadata,
+                    )
+                self._executor = SlurmExecutor(workflow,
+                              dag,
+                              cores=None,
+                              restart_times='restart_times',
+                              printreason=printreason,
+                              quiet=quiet,
+                              printshellcmds=printshellcmds,
+                              latency_wait=latency_wait,
+                              assume_shared_fs=True,
+                              keepincomplete=keepincomplete,
+                              keepmetadata=keepmetadata,
+                              max_status_checks_per_second=max_status_checks_per_seconds,
+                              )
+                if slurm_jobstep:
+                    self._executor = SlurmJobstepExecutor(workflow,
+                              dag,
+                              cores=None,
+                              restart_times=restart_times,
+                              printreason=printreason,
+                              quiet=quiet,
+                              printshellcmds=printshellcmds,
+                              latency_wait=latency_wait,
+                              assume_shared_fs=True,
+                              keepincomplete=keepincomplete,
+                              keepmetadata=keepmetadata,
+                              max_status_checks_per_second=max_status_checks_per_seconds,
+                              )
+
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
                 # No local jobs when using immediate submit!
@@ -181,34 +222,6 @@ class JobScheduler:
                     keepincomplete=keepincomplete,
                     keepmetadata=keepmetadata,
                 )
-            if slurm:
-                self._executor = SlurmExecutor(workflow,
-                              dag,
-                              cores=None,
-                              restart_times=restart_times,
-                              printreason=printreason,
-                              quiet=quiet,
-                              printshellcmds=printshellcmds,
-                              latency_wait=latency_wait,
-                              assume_shared_fs=True,
-                              keepincomplete=keepincomplete,
-                              keepmetadata=keepmetadata,
-                              max_status_checks_per_second=max_status_checks_per_seconds,
-                              )
-            if slurm_jobstep:
-                self._executor = SlurmJobstepExecutor(workflow,
-                              dag,
-                              cores=None,
-                              restart_times=restart_times,
-                              printreason=printreason,
-                              quiet=quiet,
-                              printshellcmds=printshellcmds,
-                              latency_wait=latency_wait,
-                              assume_shared_fs=True,
-                              keepincomplete=keepincomplete,
-                              keepmetadata=keepmetadata,
-                              max_status_checks_per_second=max_status_checks_per_seconds,
-                              )
 
             if cluster or cluster_sync:
                 if cluster_sync:
