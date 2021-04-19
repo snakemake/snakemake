@@ -502,7 +502,7 @@ class Run(RuleKeywordState):
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook):".format(
+            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, basedir):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount
@@ -600,11 +600,8 @@ class Script(AbstractCmd):
     end_func = "script"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
         )
@@ -615,11 +612,8 @@ class Notebook(Script):
     end_func = "notebook"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
             "edit_notebook"
@@ -644,11 +638,8 @@ class CWL(Script):
     end_func = "cwl"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, use_singularity, bench_record, jobid"
         )
 
