@@ -38,14 +38,14 @@ class SlurmExecutor(ClusterExecutor):
         quiet=False,
         printshellcmds=False,
         latency_wait=3,
-        container_image=None,
         regions=None,
         location=None,
         cache=False,
         local_input=None,
-        restart_times=None,
+        restart_times=0,
         exec_job=None,
         max_status_checks_per_second=60,
+        cluster_config=None,
     ):
 
         super().__init__(
@@ -59,7 +59,7 @@ class SlurmExecutor(ClusterExecutor):
             latency_wait=latency_wait,
             cluster_config=cluster_config,
             restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
+            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
         self.exec_job += " --slurm-jobstep"
@@ -78,9 +78,9 @@ class SlurmExecutor(ClusterExecutor):
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
-                subprocess.run('scancel {job.jobid}', timeout = 60)
+                subprocess.run("scancel {job.jobid}", timeout=60)
             except TimeoutExpired:
-                pass # shell we ignore the timeout, here?
+                pass  # shell we ignore the timeout, here?
         self.shutdown()
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -135,7 +135,7 @@ class SlurmExecutor(ClusterExecutor):
 
             jobid = out.split(" ")[-1]
             self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
-        else: # job.is_group:
+        else:  # job.is_group:
             pass
 
     def job_status(self):

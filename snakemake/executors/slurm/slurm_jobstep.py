@@ -26,7 +26,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self,
         workflow,
         dag,
-        cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -36,8 +35,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         local_input=None,
         restart_times=None,
         exec_job=None,
-        assume_shared_fs=True,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=10,
     ):
 
         # overwrite the command to execute a single snakemake job if necessary
@@ -57,7 +55,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             restart_times=restart_times,
             exec_job=exec_job,
             assume_shared_fs=False,
-            max_status_checks_per_second=10,
+            max_status_checks_per_second=max_status_checks_per_second,
         )
         self.mem_per_node = os.getenv("SLURM_MEM_PER_NODE")
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")

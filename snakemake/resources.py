@@ -47,18 +47,20 @@ def parse_resources(resources_args, fallback=None):
             except ValueError:
                 raise ValueError("Resources have to be defined as name=value pairs.")
             if not valid.match(res):
-                raise ValueError("Resource definition must start with a valid identifier.")
+                raise ValueError(
+                    "Resource definition must start with a valid identifier."
+                )
 
             # translate into supported type
             if res in supported_keys:
                 try:
-                   val = supported_keys[res](val)
+                    val = supported_keys[res](val)
                 except ValueError:
                     raise ValueError(
                         "Resource definition for '{}' requires an '{}'".format(
                             val, supported_keys[val]
+                        )
                     )
-                )
             else:  # fall back to ints
                 try:
                     val = int(val)
@@ -68,7 +70,7 @@ def parse_resources(resources_args, fallback=None):
                     else:
                         raise ValueError(
                             "Resource definiton must contain an integer after the identifier."
-                    )
+                        )
             if res == "_cores":
                 raise ValueError(
                     "Resource _cores is already defined internally. Use a different name."
