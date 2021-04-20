@@ -411,8 +411,6 @@ class Workflow:
         """
         Add a rule.
         """
-        if name is None:
-            name = str(len(self._rules) + 1)
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
@@ -1228,6 +1226,10 @@ class Workflow:
         self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+        # choose a name for an unnamed rule
+        if name is None:
+            name = str(len(self._rules) + 1)
+
         if self.modifier.skip_rule(name):
 
             def decorate(ruleinfo):
