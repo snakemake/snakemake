@@ -1,10 +1,32 @@
+
+rule all:
+    input:
+        "multiqc/multiqc_report.html"
+
+
+rule get_genome:
+    output:
+        "data/genome.fasta"
+    shell:
+        "curl -L https://raw.githubusercontent.com/nf-core/test-datasets/atacseq/reference/genome.fa > {output}"
+
+
+rule get_annotation:
+    output:
+        "data/genome.gtf"
+    shell:
+        "curl -L https://raw.githubusercontent.com/nf-core/test-datasets/atacseq/reference/genes.gtf > {output}"
+
+
 nextflow:
     pipeline:
-        "nf-core/sarek"
+        "nf-core/chipseq"
     release:
-        "2.7"
+        "1.2.1"
     input:
-        "test.tsv"
+        input="test.tsv",
+        fasta="data/genome.fasta",
+        gtf="data/genome.gtf"
     output:
-        "results/multiqc/multiqc_report.html"
+        "multiqc/multiqc_report.html"
   

@@ -59,3 +59,4 @@ dependencies:
   - glpk
   - smart_open
   - filelock
+  - nextflow
