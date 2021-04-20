@@ -1,0 +1,2 @@
+subject	sex	status	sample	lane	fastq1	fastq2
+a	XX	0	a	1	data/test.1.fastq	data/test.2.fastq

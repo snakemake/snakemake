@@ -1,0 +1,10 @@
+nextflow:
+    pipeline:
+        "nf-core/sarek"
+    release:
+        "2.7"
+    input:
+        "test.tsv"
+    output:
+        "results/multiqc/multiqc_report.html"
+  
