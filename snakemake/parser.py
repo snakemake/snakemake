@@ -489,6 +489,12 @@ class WildcardConstraints(RuleKeywordState):
         return "wildcard_constraints"
 
 
+class RestartTimes(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "restart_times"
+
+
 class Run(RuleKeywordState):
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -603,7 +609,8 @@ class Script(AbstractCmd):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
+            "restart_times"
         )
 
 
@@ -616,7 +623,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook"
+            "edit_notebook, restart_times"
         )
 
 
@@ -629,7 +636,7 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir"
+            "cleanup_scripts, shadow_dir, restart_times"
         )
 
 
@@ -665,6 +672,7 @@ rule_property_subautomata = dict(
     shadow=Shadow,
     group=Group,
     cache=Cache,
+    restart_times=RestartTimes,
 )
 
 
