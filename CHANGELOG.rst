@@ -1,3 +1,9 @@
+[6.1.2] - 2021-04-20
+====================
+- Fixed several glitches in paramspace implementation (handling of bools, returning scalar values) (@kpj).
+- Fixed bugs in module implementation (@dlaehnemann, @johanneskoester).
+- Fall back to greedy scheduling solver if ILP solver needs more than 10 sec (@johanneskoester).
+
 [6.1.1] - 2021-04-07
 ====================
 - Fixed several small bugs of the new module system (@johanneskoester, @dlaehnemann).
