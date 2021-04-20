@@ -656,13 +656,13 @@ class CWL(Script):
 
 class Nextflow(Script):
     start_func = "@workflow.nextflow"
-    end_func = "nextflow"
+    end_func = "NextflowModule"
 
     def args(self):
         # other args
         yield (
             ", input, params, threads, resources, log, "
-            "use_singularity, use_conda, bench_record, False"
+            "use_singularity, use_conda, bench_record"
         )
 
 
@@ -1229,7 +1229,7 @@ class NextflowPipeline(ForeignPipeline):
     pipeline_type = "nextflow"
 
     def get_pipeline_call(self):
-        return "nextflow({pipeline!r}, input, params, threads, resources, log, use_singularity, use_conda, bench_record, True)"
+        return "NextflowPipeline({pipeline!r}, input, params, threads, resources, log, use_singularity, use_conda, bench_record).run()"
 
 
 class Python(TokenAutomaton):
