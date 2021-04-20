@@ -176,7 +176,7 @@ however if you do so, your container must meet the following requirements:
 
 If you use any Snakemake container as a base, you should be good to go. If you'd
 like to get a reference for requirements, it's helpful to look at the
-`Dockerfile <https://github.com/snakemake/snakemake/blob/master/Dockerfile>`_
+`Dockerfile <https://github.com/snakemake/snakemake/blob/main/Dockerfile>`_
 for Snakemake.
 
 Requesting GPUs

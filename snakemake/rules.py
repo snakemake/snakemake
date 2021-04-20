@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
 import sre_constants
@@ -24,6 +25,8 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard_constraints,
     update_wildcard_constraints,
+    flag,
+    get_flag_value,
 )
 from snakemake.io import (
     expand,
@@ -480,10 +483,15 @@ class Rule:
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            rule_dependency = None
+            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
+                rule_dependency = item.rule
+
             item = self.apply_path_modifier(
                 item, property="output" if output else "input"
             )
@@ -513,8 +521,8 @@ class Rule:
                         )
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                self.dependencies[item] = item.rule
+            if rule_dependency is not None:
+                self.dependencies[item] = rule_dependency
             if output:
                 item = self._update_item_wildcard_constraints(item)
             else:
@@ -1159,6 +1167,9 @@ class RuleProxy:
             prefix = self.rule.workflow.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
+
+            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
+
             if (
                 self.rule.workflow.default_remote_provider is not None
                 and f.startswith(prefix)
@@ -1169,6 +1180,9 @@ class RuleProxy:
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_remote_object(f)
+
+            if modified_by is not None:
+                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
 
             return cleaned
 

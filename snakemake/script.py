@@ -26,6 +26,7 @@ from snakemake.common import (
     SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
     smart_join,
+    is_local_file,
 )
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
@@ -496,7 +497,7 @@ class PythonScript(ScriptBase):
                         logger.warning(
                             "Environment defines Python "
                             "version < {0}.{1}. Using Python of the "
-                            "master process to execute "
+                            "main process to execute "
                             "script. Note that this cannot be avoided, "
                             "because the script uses data structures from "
                             "Snakemake which are Python >={0}.{1} "
@@ -826,7 +827,8 @@ def get_source(path, basedir=".", wildcards=None, params=None):
             path = path[5:]
         if not os.path.isabs(path):
             path = smart_join(basedir, path, abspath=True)
-        path = "file://" + path
+        if is_local_file(path):
+            path = "file://" + path
     if wildcards is not None and params is not None:
         # Format path if wildcards are given.
         path = format(path, wildcards=wildcards, params=params)

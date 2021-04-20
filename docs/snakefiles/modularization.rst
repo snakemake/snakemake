@@ -9,7 +9,7 @@ Modularization
 Modularization in Snakemake comes at four different levels.
 
 1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
-2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a master Snakefile via the include statement. In such a setup, all rules share a common config file.
+2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a main Snakefile via the include statement. In such a setup, all rules share a common config file.
 3. The third level is provided via the :ref:`module statement <snakefiles-modules>`, which enables arbitrary combination and reuse of rules.
 4. Finally, Snakemake provides a syntax for defining :ref:`subworkflows <snakefiles-sub_workflows>`, which is however deprecated in favor of the module statement.
 
@@ -43,10 +43,14 @@ For example
 
 Refers to the wrapper ``"0.0.8/bio/samtools/sort"`` to create the output from the input.
 Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository`_.
-Thereby, 0.0.8 can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
-This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
-Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Thereby, ``0.0.8`` can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
+This ensures reproducibility since changes in the wrapper implementation will only be propagated to your workflow once you update the version tag.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository`_.
+
+Alternatively, for example during development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Such a URL will have to point to the folder containing the ``wrapper.*`` and ``environment.yaml`` files.
+In the above example, the full GitHub URL could for example be provided with ``wrapper: https://github.com/snakemake/snakemake-wrappers/raw/0.0.8/bio/samtools/sort``.
+Note that it needs to point to the ``/raw/`` version of the folder, not the rendered HTML version.
 
 In addition, the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which can be used as modules, see :ref:`snakefiles-meta-wrappers`.
 

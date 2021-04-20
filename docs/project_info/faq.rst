@@ -270,7 +270,7 @@ How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
 
 Instructions for doing this are located `here
-<https://github.com/snakemake/snakemake/tree/master/misc/vim>`_.
+<https://github.com/snakemake/snakemake/tree/main/misc/vim>`_.
 
 Note that you can also format Snakefiles in Vim using :ref:`snakefmt
 <How should Snakefiles be formatted?>`, with instructions located `here

@@ -491,6 +491,7 @@ class CPUExecutor(RealExecutor):
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook,
+            job.rule.basedir,
         )
 
     def run_single_job(self, job):
@@ -1048,7 +1049,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # Ctrl-C on the main process or sending killall to
                         # snakemake.
                         # Snakemake will handle the signal in
-                        # the master process.
+                        # the main process.
                         pass
                     else:
                         raise WorkflowError(
@@ -2213,6 +2214,7 @@ def run_wrapper(
     shadow_dir,
     jobid,
     edit_notebook,
+    basedir,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2291,6 +2293,7 @@ def run_wrapper(
                             cleanup_scripts,
                             passed_shadow_dir,
                             edit_notebook,
+                            basedir,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2319,6 +2322,7 @@ def run_wrapper(
                                 cleanup_scripts,
                                 passed_shadow_dir,
                                 edit_notebook,
+                                basedir,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2345,6 +2349,7 @@ def run_wrapper(
                     cleanup_scripts,
                     passed_shadow_dir,
                     edit_notebook,
+                    basedir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

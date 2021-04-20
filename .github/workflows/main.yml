@@ -3,14 +3,14 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches_ignore: []
 
 jobs:
   cancel-previous:
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/master'
+    if: github.ref != 'refs/heads/main'
     steps:
       - uses: khan/pull-request-workflow-cancel@1.0.0
         with:
