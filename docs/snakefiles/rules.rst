@@ -1148,6 +1148,8 @@ Another (quick and dirty) possiblity is to tell snakemake to allow ambiguity via
 
 such that similar to GNU Make always the first matching rule is used. Here, a warning that summarizes the decision of snakemake is provided at the terminal.
 
+.. _snakefiles-local-rules:
+
 Local Rules
 -----------
 

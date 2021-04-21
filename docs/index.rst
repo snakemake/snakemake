@@ -149,6 +149,7 @@ Resources
     snakefiles/deployment
     snakefiles/reporting
     snakefiles/testing
+    snakefiles/foreign_wms
 
 
 .. toctree::
