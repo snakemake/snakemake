@@ -34,7 +34,7 @@ class Checkpoint:
             for iofile in output:
                 if iofile in self.checkpoints.future_output:
                     break
-                if not iofile.exists and not "temp" in iofile.flags:
+                if not iofile.exists and not iofile.is_temp:
                     break
             else:
                 return CheckpointJob(self.rule, output)
