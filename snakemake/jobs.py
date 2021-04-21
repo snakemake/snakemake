@@ -916,6 +916,7 @@ class Job(AbstractJob):
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,
             printshellcmd=printshellcmd,
+            is_handover=self.rule.is_handover,
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 

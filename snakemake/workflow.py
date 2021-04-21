@@ -1446,6 +1446,7 @@ class Workflow:
                 # This becomes a local rule, which might spawn jobs to a cluster,
                 # depending on its configuration (e.g. nextflow config).
                 self._localrules.add(rule.name)
+                rule.is_handover = True
 
             if ruleinfo.cache is True:
                 if not self.enable_cache:
