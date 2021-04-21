@@ -490,7 +490,7 @@ class Logger:
                     indent("Downstream jobs will be updated " "after completion.")
                 )
             if msg["is_handover"]:
-                self.logger.info("Handing over execution to foreign system...")
+                self.logger.warning("Handing over execution to foreign system...")
             self.logger.info("")
 
             self.last_msg_was_job_info = True
