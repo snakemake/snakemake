@@ -1327,6 +1327,7 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
                     ruleinfo.priority, float
@@ -1431,6 +1432,20 @@ class Workflow:
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
+
+            if ruleinfo.handover:
+                if not ruleinfo.resources:
+                    # give all available resources to the rule
+                    rule.resources.update(
+                        {
+                            name: val
+                            for name, val in self.global_resources.items()
+                            if val is not None
+                        }
+                    )
+                # This becomes a local rule, which might spawn jobs to a cluster,
+                # depending on its configuration (e.g. nextflow config).
+                self._localrules.add(rule.name)
 
             if ruleinfo.cache is True:
                 if not self.enable_cache:
@@ -1604,6 +1619,13 @@ class Workflow:
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
+            return ruleinfo
+
+        return decorate
+
+    def handover(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.handover = value
             return ruleinfo
 
         return decorate

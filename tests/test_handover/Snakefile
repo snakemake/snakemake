@@ -1,0 +1,6 @@
+rule a:
+    output:
+        "test.out"
+    handover: True
+    script:
+        "script.py"

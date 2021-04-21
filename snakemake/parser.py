@@ -483,6 +483,10 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class Handover(RuleKeywordState):
+    pass
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -665,6 +669,7 @@ rule_property_subautomata = dict(
     shadow=Shadow,
     group=Group,
     cache=Cache,
+    handover=Handover,
 )
 
 

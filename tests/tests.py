@@ -1198,3 +1198,7 @@ def test_module_complex2():
 
 def test_module_with_script():
     run(dpath("test_module_with_script"))
+
+
+def test_handover():
+    run(dpath("test_handover"), resources={"mem_mb": 20})
