@@ -1,3 +1,9 @@
+[6.2.0] - 2021-04-22
+====================
+- Support for integration of foreign workflow management systems by introducing a ``handover`` directive that passes on all resources to a particular rule (which can then invoke another workflow management system). See the docs ("Integrating foreign workflow management systems") (@johanneskoester).
+- Behavior improvement for temp handling of checkpoint rules (@epruesse).
+- Several improvements in the docs (@johanneskoester).
+
 [6.1.2] - 2021-04-20
 ====================
 - Fixed several glitches in paramspace implementation (handling of bools, returning scalar values) (@kpj).

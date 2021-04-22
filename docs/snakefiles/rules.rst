@@ -1417,6 +1417,10 @@ From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), th
         shell:
             "touch {output}"
 
+
+In above example, **please note** the Python ``f``-string formatting (the ``f`` before the initial quotes) applied to the input and output file strings that contain ``paramspace.wildcard_pattern``.
+This means that the file that is registered as input or output file by Snakemake does not contain a wildcard ``{paramspace.wildcard_pattern}``, but instead this item is replaced by a pattern of multiple wildcards derived from the columns of the paramter space dataframe.
+This is done by the Python ``f``-string formatting before the string is registered in the rule.
 Given that `params.tsv` contains:
 
 .. code-block:: none

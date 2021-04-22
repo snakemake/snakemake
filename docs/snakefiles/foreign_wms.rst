@@ -18,7 +18,7 @@ Consider the following example:
             fasta="data/genome.fasta",
             gtf="data/genome.gtf",
         output:
-            "multiqc/multiqc_report.html",
+            "multiqc/broadPeaks/multiqc_report.html",
         params:
             pipeline="nf-core/chipseq",
             revision="1.2.1",
