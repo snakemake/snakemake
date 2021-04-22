@@ -365,6 +365,10 @@ class _IOFile(str):
         return is_flagged(self._file, "directory")
 
     @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
+
+    @property
     def is_multiext(self):
         return is_flagged(self._file, "multiext")
 

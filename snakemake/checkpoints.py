@@ -30,12 +30,16 @@ class Checkpoint:
             )
 
         output, _ = self.rule.expand_output(wildcards)
-        if self.checkpoints.future_output is None or any(
-            (not f.exists or f in self.checkpoints.future_output) for f in output
-        ):
-            raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
+        if self.checkpoints.future_output is not None:
+            for iofile in output:
+                if iofile in self.checkpoints.future_output:
+                    break
+                if not iofile.exists and not iofile.is_temp:
+                    break
+            else:
+                return CheckpointJob(self.rule, output)
 
-        return CheckpointJob(self.rule, output)
+        raise IncompleteCheckpointException(self.rule, checkpoint_target(output[0]))
 
 
 class CheckpointJob:
