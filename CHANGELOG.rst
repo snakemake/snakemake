@@ -4,7 +4,11 @@
 - Behavior improvement for temp handling of checkpoint rules (@epruesse).
 - Several improvements in the docs (@johanneskoester).
 
-[6.1.2] - 2021-04-20
+[6.2.1] - 2021-04-20
+====================
+- Fixed a minor bug in the linter.
+
+[6.2.0] - 2021-04-20
 ====================
 - Fixed several glitches in paramspace implementation (handling of bools, returning scalar values) (@kpj).
 - Fixed bugs in module implementation (@dlaehnemann, @johanneskoester).
