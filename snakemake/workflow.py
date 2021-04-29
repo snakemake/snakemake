@@ -147,7 +147,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
-        self.snakefile = os.path.abspath(snakefile)
+        self.main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
         self.jobscript = jobscript
@@ -1050,6 +1050,13 @@ class Workflow:
             return os.path.abspath(basedir)
         else:
             return basedir
+
+    @property
+    def snakefile(self):
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        return frame.f_code.co_filename
 
     def register_envvars(self, *envvars):
         """

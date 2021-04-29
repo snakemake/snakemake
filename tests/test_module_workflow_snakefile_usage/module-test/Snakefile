@@ -9,6 +9,7 @@ rule a:
     output:
         "results/test.out"
     params:
-        some_resource=params_func("some_file.txt")
+        some_resource=params_func("some_file.txt"),
+        other_resource=lambda w: params_func("some_file.txt")
     shell:
-        "cat {params.some_resource} > {output}"
+        "cat {params.some_resource} {params.other_resource} > {output}"
