@@ -105,6 +105,6 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         if not written:
             logger.warning(
                 "No job with all input files present for rule {}. "
-                "Consider re-executing the workflow with --no-temp in order "
+                "Consider re-executing the workflow with --notemp in order "
                 "have all input files present before generating unit tests."
             )
