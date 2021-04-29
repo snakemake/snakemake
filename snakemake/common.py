@@ -197,18 +197,18 @@ def group_into_chunks(n, iterable):
 
 
 class Rules:
-    """ A namespace for rules so that they can be accessed via dot notation. """
+    """A namespace for rules so that they can be accessed via dot notation."""
 
     pass
 
 
 class Scatter:
-    """ A namespace for scatter to allow items to be accessed via dot notation."""
+    """A namespace for scatter to allow items to be accessed via dot notation."""
 
     pass
 
 
 class Gather:
-    """ A namespace for gather to allow items to be accessed via dot notation."""
+    """A namespace for gather to allow items to be accessed via dot notation."""
 
     pass

@@ -1175,7 +1175,7 @@ class Workflow:
             os.chdir(workdir)
 
     def configfile(self, fp):
-        """ Update the global config with data from the given file. """
+        """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
             self.configfiles.append(fp)
@@ -1210,7 +1210,7 @@ class Workflow:
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
-        """ Define a global report description in .rst format."""
+        """Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)
 
     @property

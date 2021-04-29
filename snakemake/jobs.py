@@ -384,7 +384,7 @@ class Job(AbstractJob):
 
     @property
     def message(self):
-        """ Return the message for this job. """
+        """Return the message for this job."""
         try:
             return (
                 self.format_wildcards(self.rule.message) if self.rule.message else None
@@ -399,7 +399,7 @@ class Job(AbstractJob):
 
     @property
     def shellcmd(self):
-        """ Return the shell command. """
+        """Return the shell command."""
         try:
             return (
                 self.format_wildcards(self.rule.shellcmd)
@@ -455,7 +455,7 @@ class Job(AbstractJob):
 
     @property
     def expanded_output(self):
-        """ Iterate over output files while dynamic output is expanded. """
+        """Iterate over output files while dynamic output is expanded."""
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
                 expansion = self.expand_dynamic(f_)
@@ -469,7 +469,7 @@ class Job(AbstractJob):
                 yield f
 
     def shadowed_path(self, f):
-        """ Get the shadowed path of IOFile f. """
+        """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
             return f
         f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
@@ -478,7 +478,7 @@ class Job(AbstractJob):
 
     @property
     def dynamic_wildcards(self):
-        """ Return all wildcard values determined from dynamic output. """
+        """Return all wildcard values determined from dynamic output."""
         combinations = set()
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
@@ -492,7 +492,7 @@ class Job(AbstractJob):
 
     @property
     def missing_input(self):
-        """ Return missing input files. """
+        """Return missing input files."""
         # omit file if it comes from a subworkflow
         return set(
             f for f in self.input if not f.exists and not f in self.subworkflow_input
@@ -527,7 +527,7 @@ class Job(AbstractJob):
 
     @property
     def output_mintime(self):
-        """ Return oldest output file. """
+        """Return oldest output file."""
         try:
             mintime = min(
                 f.mtime.local_or_remote() for f in self.expanded_output if f.exists
@@ -792,7 +792,7 @@ class Job(AbstractJob):
                 f.remote_object.close()
 
     def cleanup(self):
-        """ Cleanup output files. """
+        """Cleanup output files."""
         to_remove = [f for f in self.expanded_output if f.exists]
 
         to_remove.extend(
@@ -815,7 +815,7 @@ class Job(AbstractJob):
                 f.remove()
 
     def format_wildcards(self, string, **variables):
-        """ Format a string with variables from the job. """
+        """Format a string with variables from the job."""
         _variables = dict()
         _variables.update(self.rule.workflow.globals)
         _variables.update(
@@ -885,7 +885,7 @@ class Job(AbstractJob):
         return self.rule.__gt__(other.rule)
 
     def expand_dynamic(self, pattern):
-        """ Expand dynamic files. """
+        """Expand dynamic files."""
         return list(
             listfiles(pattern, restriction=self.wildcards, omit_value=DYNAMIC_FILL)
         )
@@ -1328,7 +1328,7 @@ class GroupJob(AbstractJob):
         return all(job.is_local for job in self.jobs)
 
     def format_wildcards(self, string, **variables):
-        """ Format a string with variables from the job. """
+        """Format a string with variables from the job."""
         _variables = dict()
         _variables.update(self.dag.workflow.globals)
         _variables.update(
@@ -1457,7 +1457,7 @@ class Reason:
         return set()
 
     def mark_finished(self):
-        " called if the job has been run "
+        "called if the job has been run"
         self.finished = True
 
     def __str__(self):

@@ -1389,7 +1389,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 @contextlib.contextmanager
 def change_working_directory(directory=None):
-    """ Change working directory in execution context if provided. """
+    """Change working directory in execution context if provided."""
     if directory:
         try:
             saved_directory = os.getcwd()

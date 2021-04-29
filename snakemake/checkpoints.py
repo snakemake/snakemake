@@ -3,7 +3,7 @@ from snakemake.io import checkpoint_target
 
 
 class Checkpoints:
-    """ A namespace for checkpoints so that they can be accessed via dot notation. """
+    """A namespace for checkpoints so that they can be accessed via dot notation."""
 
     def __init__(self):
         self.future_output = None
