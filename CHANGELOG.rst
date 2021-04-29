@@ -1,3 +1,8 @@
+[6.3.0] - 2021-04-29
+====================
+- Changed behavior of ``workflow.snakefile`` to always point to the current file instead of the main Snakefile (also in case of includes and modules) (@johanneskoester).
+- Fixed a typo in an error message (@nikostr).
+
 [6.2.0] - 2021-04-22
 ====================
 - Support for integration of foreign workflow management systems by introducing a ``handover`` directive that passes on all resources to a particular rule (which can then invoke another workflow management system). See the docs ("Integrating foreign workflow management systems") (@johanneskoester).
