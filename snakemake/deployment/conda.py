@@ -209,7 +209,7 @@ class Env:
         return env_archive
 
     def create(self, dryrun=False):
-        """ Create the conda enviroment."""
+        """Create the conda enviroment."""
         from snakemake.shell import shell
 
         # Read env file and create hash.

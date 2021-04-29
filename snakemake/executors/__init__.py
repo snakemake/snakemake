@@ -221,7 +221,7 @@ class RealExecutor(AbstractExecutor):
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
 
     def register_job(self, job):
         job.register()
@@ -637,7 +637,7 @@ class ClusterExecutor(RealExecutor):
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
-            self.snakefile = os.path.relpath(workflow.snakefile)
+            self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -1389,7 +1389,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 @contextlib.contextmanager
 def change_working_directory(directory=None):
-    """ Change working directory in execution context if provided. """
+    """Change working directory in execution context if provided."""
     if directory:
         try:
             saved_directory = os.getcwd()
@@ -1455,7 +1455,7 @@ class KubernetesExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
         # use relative path to Snakefile
-        self.snakefile = os.path.relpath(workflow.snakefile)
+        self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         try:
             from kubernetes import config
@@ -1896,7 +1896,7 @@ class TibannaExecutor(ClusterExecutor):
         for f in self.workflow_sources:
             log += f
         logger.debug(log)
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
         self.envvars = {e: os.environ[e] for e in workflow.envvars}
         if self.envvars:
             logger.debug("envvars = %s" % str(self.envvars))

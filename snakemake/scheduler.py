@@ -95,7 +95,7 @@ class JobScheduler:
         scheduler_type=None,
         scheduler_ilp_solver=None,
     ):
-        """ Create a new instance of KnapsackJobScheduler. """
+        """Create a new instance of KnapsackJobScheduler."""
         from ratelimiter import RateLimiter
 
         self.cluster = cluster
@@ -394,7 +394,7 @@ class JobScheduler:
 
     @property
     def open_jobs(self):
-        """ Return open jobs. """
+        """Return open jobs."""
         jobs = self.dag.ready_jobs
 
         if not self.dryrun:
@@ -407,7 +407,7 @@ class JobScheduler:
 
     @property
     def remaining_jobs(self):
-        """ Return jobs to be scheduled including not yet ready ones. """
+        """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
             for job in self.dag.needrun_jobs
@@ -415,7 +415,7 @@ class JobScheduler:
         ]
 
     def schedule(self):
-        """ Schedule jobs that are ready, maximizing cpu usage. """
+        """Schedule jobs that are ready, maximizing cpu usage."""
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -526,7 +526,7 @@ class JobScheduler:
         update_resources=True,
         handle_job_success=True,
     ):
-        """ Do stuff after job is finished. """
+        """Do stuff after job is finished."""
         with self._lock:
             if handle_job_success:
                 # by calling this behind the lock, we avoid race conditions
@@ -882,5 +882,5 @@ class JobScheduler:
         return (job.priority, temp_size, input_size)
 
     def progress(self):
-        """ Display the progress. """
+        """Display the progress."""
         logger.progress(done=self.finished_jobs, total=len(self.dag))

@@ -147,7 +147,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
-        self.snakefile = os.path.abspath(snakefile)
+        self.main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
         self.jobscript = jobscript
@@ -1051,6 +1051,13 @@ class Workflow:
         else:
             return basedir
 
+    @property
+    def snakefile(self):
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        return frame.f_code.co_filename
+
     def register_envvars(self, *envvars):
         """
         Register environment variables that shall be passed to jobs.
@@ -1168,7 +1175,7 @@ class Workflow:
             os.chdir(workdir)
 
     def configfile(self, fp):
-        """ Update the global config with data from the given file. """
+        """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
             self.configfiles.append(fp)
@@ -1203,7 +1210,7 @@ class Workflow:
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
-        """ Define a global report description in .rst format."""
+        """Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)
 
     @property

@@ -1200,5 +1200,9 @@ def test_module_with_script():
     run(dpath("test_module_with_script"))
 
 
+def test_module_worfklow_namespacing():
+    run(dpath("test_module_workflow_snakefile_usage"))
+
+
 def test_handover():
     run(dpath("test_handover"), resources={"mem_mb": 20})

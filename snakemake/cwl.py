@@ -220,7 +220,7 @@ def dag_to_cwl(dag):
                 "type": "File",
                 "default": {
                     "class": "File",
-                    "location": os.path.relpath(dag.workflow.snakefile),
+                    "location": os.path.relpath(dag.workflow.main_snakefile),
                 },
                 "inputBinding": {"prefix": "--snakefile"},
             },

@@ -578,10 +578,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which should be derived
-        from the self.workflow.snakefile.
+        from the self.workflow.main_snakefile.
         """
-        assert os.path.exists(self.workflow.snakefile)
-        self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(os.sep)
+        assert os.path.exists(self.workflow.main_snakefile)
+        self.snakefile = self.workflow.main_snakefile.replace(self.workdir, "").strip(
+            os.sep
+        )
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
