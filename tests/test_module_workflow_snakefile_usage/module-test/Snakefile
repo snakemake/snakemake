@@ -2,7 +2,7 @@ configfile: "config.yaml" # does not exist, but this statement should be ignored
 
 
 def params_func(filename):
-    return str((Path(workflow.snakefile).parent / filename))
+    return str((Path(workflow.snakefile).parent / filename).as_posix())
 
 
 rule a:
