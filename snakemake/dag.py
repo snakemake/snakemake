@@ -30,7 +30,7 @@ from snakemake.common import DYNAMIC_FILL, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
-
+from snakemake.utils import is_file_or_url
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -287,7 +287,7 @@ class DAG:
 
         if not init_only:
             for env in self.conda_envs.values():
-                if not dryrun or not quiet:
+                if is_file_or_url(env.file) and (not dryrun or not quiet):
                     env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
