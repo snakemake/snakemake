@@ -1805,6 +1805,7 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--max-status-checks-per-second",
         default=10,
+        env_var='SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND',
         type=float,
         help="Maximal number of job status checks per second, default is 10, "
         "fractions allowed.",
@@ -2021,6 +2022,7 @@ def get_argument_parser(profile=None):
     )
     group_cluster.add_argument(
         "--cluster-status",
+        env_var='SNAKEMAKE_CLUSTER_STATUS',
         help="Status command for cluster execution. This is only considered "
         "in combination with the --cluster flag. If provided, Snakemake will "
         "use the status command to determine if a job has finished successfully "
@@ -2169,15 +2171,14 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--conda-prefix",
         metavar="DIR",
-        default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
+        env_var='SNAKEMAKE_CONDA_PREFIX',
         help="Specify a directory in which the 'conda' and 'conda-archive' "
         "directories are created. These are used to store conda environments "
         "and their archives, respectively. If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path. The value can also be "
-        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
+        "invocation directory, or as an absolute path.",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
