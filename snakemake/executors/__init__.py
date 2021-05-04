@@ -1084,7 +1084,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 try:
                     # this command shall return "success", "failed" or "running"
                     ret = subprocess.check_output(
-                        "{statuscmd} {jobid}".format(
+                        "{statuscmd} '{jobid}'".format(
                             jobid=job.jobid, statuscmd=self.statuscmd
                         ),
                         shell=True,
