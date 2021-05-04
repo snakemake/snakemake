@@ -1215,7 +1215,7 @@ class GenericClusterExecutor(ClusterExecutor):
                     if self.sidecar_vars:
                         env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
                     ret = subprocess.check_output(
-                        "{statuscmd} {jobid}".format(
+                        "{statuscmd} '{jobid}'".format(
                             jobid=job.jobid, statuscmd=self.statuscmd
                         ),
                         shell=True,
