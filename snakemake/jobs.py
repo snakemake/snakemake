@@ -25,7 +25,7 @@ from snakemake.io import (
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
+from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid, TBDString
 
 
 def format_files(job, io, dynamicio):
@@ -35,7 +35,7 @@ def format_files(job, io, dynamicio):
         elif is_flagged(f, "pipe"):
             yield "{} (pipe)".format(f)
         elif is_flagged(f, "checkpoint_target"):
-            yield "<TBD>"
+            yield TBDString
         else:
             yield f
 
