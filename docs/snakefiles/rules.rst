@@ -298,7 +298,7 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
 
 .. code-block:: python
 
-    rule:
+    rule a:
         input:     ...
         output:    ...
         resources:
@@ -314,6 +314,10 @@ If limits for the resources are given via the command line, e.g.
 
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
+Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
+
+In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check whether a job exceeds a certain resource.
+However, resources are used to determine which jobs can be executed at a time while not exceeding the given limits at the command line.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
@@ -323,7 +327,7 @@ Resources must be ``int`` or ``str`` values. Note that you are free to choose an
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
+There are two **standard resources** for total memory and disk usage of a job though: ``mem_mb`` and ``disk_mb``.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
