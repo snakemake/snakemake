@@ -324,17 +324,7 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
 
-Standard Resources
-~~~~~~~~~~~~~~~~~~
-
-There are two **standard resources** for total memory and disk usage of a job though: ``mem_mb`` and ``disk_mb``.
-When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
-Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
-This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
-If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
-Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-
-Resources can also be callables that return ``int`` values.
+Resources can also be callables that return ``int`` or ``str`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
@@ -345,16 +335,48 @@ This can be used to adjust the required memory as follows
 
 .. code-block:: python
 
+    def get_mem_mb(wildcards, attempt):
+        return attempt * 100
+
     rule:
         input:    ...
         output:   ...
         resources:
-            mem_mb=lambda wildcards, attempt: attempt * 100
+            mem_mb=get_mem_mb
         shell:
             "..."
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
+
+Another application of callables as resources is when memory usage depends on the number of threads:
+
+.. code-block:: python
+
+    def get_mem_mb(wildcards, threads):
+        return threads * 150
+
+    rule b:
+        input:     ...
+        output:    ...
+        threads: 8
+        resources:
+            mem_mb=get_mem_mb
+        shell:
+            "..."
+
+Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
+Of course, any other arithmetic could be performed in that function.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
+There are two **standard resources** for total memory and disk usage of a job though: ``mem_mb`` and ``disk_mb``.
+When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
+This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
+Any resource definitions inside a rule override what has been defined with ``--default-resources``.
 
 
 Preemptible Virtual Machine
@@ -485,8 +507,6 @@ Note that it is also supported to have multiple (named) log files being specifie
         output: "output.txt"
         log: log1="logs/abc.log", log2="logs/xyz.log"
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
-
-
 
 Non-file parameters for rules
 -----------------------------
