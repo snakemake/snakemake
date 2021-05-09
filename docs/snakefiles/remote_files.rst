@@ -489,11 +489,11 @@ This flag can be overridden on a file by file basis as described in the S3 remot
     from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
     XRootD = XRootDRemoteProvider(stay_on_remote=True)
-    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root").n
 
     rule all:
         input:
-            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
+            expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers)
 
     rule make_data:
         input:
