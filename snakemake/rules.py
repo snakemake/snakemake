@@ -90,6 +90,7 @@ class Rule:
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
+            self._spack_env = None
             self._container_img = None
             self.is_containerized = False
             self.env_modules = None
@@ -135,6 +136,7 @@ class Rule:
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
+            self._spack_env = other._spack_env
             self._container_img = other._container_img
             self.is_containerized = other.is_containerized
             self.env_modules = other.env_modules
@@ -247,6 +249,7 @@ class Rule:
             branch._log = branch.expand_log(non_dynamic_wildcards)
             branch._benchmark = branch.expand_benchmark(non_dynamic_wildcards)
             branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
+            branch._spack_env = branch.expand_spack_env(non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
 
@@ -342,6 +345,14 @@ class Rule:
     @conda_env.setter
     def conda_env(self, conda_env):
         self._conda_env = IOFile(conda_env, rule=self)
+
+    @property
+    def spack_env(self):
+        return self._spack_env
+
+    @spack_env.setter
+    def spack_env(self, spack_env):
+        self._spack_env = IOFile(spack_env, rule=self)
 
     @property
     def container_img(self):
@@ -1024,6 +1035,25 @@ class Rule:
             conda_env.check()
 
         return conda_env
+
+    def expand_spack_env(self, wildcards):
+        """It might be possible to reduce this to a general function to expand"""
+        try:
+            spack_env = (
+                self.spack_env.apply_wildcards(wildcards) if self.spack_env else None
+            )
+        except WildcardError as e:
+            raise WildcardError(
+                "Wildcards in conda environment file cannot be "
+                "determined from output files:",
+                str(e),
+                rule=self,
+            )
+
+        if spack_env is not None:
+            spack_env.check()
+
+        return spack_env
 
     def is_producer(self, requested_output):
         """

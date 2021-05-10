@@ -399,6 +399,11 @@ def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
+@skip_on_windows
+def test_spack():
+    run(dpath("test_spack"), use_spack=True)
+
+
 @skip_on_windows  # test uses bwa which is non windows
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")

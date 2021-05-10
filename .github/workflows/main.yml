@@ -47,7 +47,7 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       
       - name: Setup Snakemake environment
         run: |
@@ -56,7 +56,12 @@ jobs:
           mamba env create -q --name snakemake --file test-environment.yml
           # additionally add singularity
           mamba install -c conda-forge -n snakemake singularity
-      
+
+      - name: Install spack
+        run: |
+          apt-get update && apt-get install -y curl build-essential gcc
+          git clone --depth 1 https://github.com/spack/spack /opt/spack
+               
       - name: Setup apt dependencies
         run: |
           sudo apt install -y stress git wget
@@ -91,8 +96,9 @@ jobs:
           CI: true
         run: |
           # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
+          export PATH="/usr/share/miniconda/bin:/opt/spack/bin:$PATH"
           source activate snakemake
+          source /opt/spack/share/spack/setup-env.sh
 
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 

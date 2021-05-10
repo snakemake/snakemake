@@ -28,6 +28,7 @@ from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
+from .base import EnvBase
 
 
 class CondaCleanupMode(Enum):
@@ -38,7 +39,7 @@ class CondaCleanupMode(Enum):
         return self.value
 
 
-class Env:
+class Env(EnvBase):
 
     """Conda environment from a given specification file."""
 
@@ -64,9 +65,6 @@ class Env:
         self._cleanup = cleanup
         self._singularity_args = workflow.singularity_args
 
-    def _get_content(self):
-        return self.workflow.sourcecache.open(self.file, "rb").read()
-
     @property
     def _env_archive_dir(self):
         return self.workflow.persistence.conda_env_archive_path
@@ -74,12 +72,6 @@ class Env:
     @property
     def container_img_url(self):
         return self._container_img.url if self._container_img else None
-
-    @property
-    def content(self):
-        if self._content is None:
-            self._content = self._get_content()
-        return self._content
 
     @property
     def hash(self):
@@ -99,14 +91,6 @@ class Env:
                 md5hash.update(self.content)
                 self._hash = md5hash.hexdigest()
         return self._hash
-
-    @property
-    def content_hash(self):
-        if self._content_hash is None:
-            md5hash = hashlib.md5()
-            md5hash.update(self.content)
-            self._content_hash = md5hash.hexdigest()
-        return self._content_hash
 
     @property
     def is_containerized(self):
@@ -133,13 +117,6 @@ class Env:
             return get_path(hash_candidates[1])
         # use fallback hash
         return get_path(hash_candidates[0])
-
-    @property
-    def archive_file(self):
-        """Path to archive of the conda environment, which may or may not exist."""
-        if self._archive_file is None:
-            self._archive_file = os.path.join(self._env_archive_dir, self.content_hash)
-        return self._archive_file
 
     def create_archive(self):
         """Create self-contained archive of environment."""
@@ -255,22 +232,7 @@ class Env:
                 return env_path
 
         # Check for broken environment
-        if os.path.exists(
-            os.path.join(env_path, "env_setup_start")
-        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
-            if dryrun:
-                logger.info(
-                    "Incomplete Conda environment {} will be recreated.".format(
-                        utils.simplify_path(self.file)
-                    )
-                )
-            else:
-                logger.info(
-                    "Removing incomplete Conda environment {}...".format(
-                        utils.simplify_path(self.file)
-                    )
-                )
-                shutil.rmtree(env_path, ignore_errors=True)
+        self.check_broken_environment(env_path, dryrun)
 
         # Create environment if not already present.
         if not os.path.exists(env_path):

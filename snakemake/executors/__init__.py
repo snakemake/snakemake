@@ -460,6 +460,7 @@ class CPUExecutor(RealExecutor):
         job.prepare()
 
         conda_env = job.conda_env_path if self.workflow.use_conda else None
+        spack_env = job.spack_env_path if self.workflow.use_spack else None
         container_img = (
             job.container_img_path if self.workflow.use_singularity else None
         )
@@ -481,6 +482,7 @@ class CPUExecutor(RealExecutor):
             benchmark,
             benchmark_repeats,
             conda_env,
+            spack_env,
             container_img,
             self.workflow.singularity_args,
             env_modules,
@@ -2204,6 +2206,7 @@ def run_wrapper(
     benchmark,
     benchmark_repeats,
     conda_env,
+    spack_env,
     container_img,
     singularity_args,
     env_modules,
@@ -2282,6 +2285,7 @@ def run_wrapper(
                             version,
                             rule,
                             conda_env,
+                            spack_env,
                             container_img,
                             singularity_args,
                             use_singularity,
@@ -2311,6 +2315,7 @@ def run_wrapper(
                                 version,
                                 rule,
                                 conda_env,
+                                spack_env,
                                 container_img,
                                 singularity_args,
                                 use_singularity,
@@ -2338,6 +2343,7 @@ def run_wrapper(
                     version,
                     rule,
                     conda_env,
+                    spack_env,
                     container_img,
                     singularity_args,
                     use_singularity,

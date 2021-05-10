@@ -18,6 +18,7 @@ from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
+from snakemake.deployment.spack import Spack
 from snakemake.exceptions import WorkflowError
 
 
@@ -127,6 +128,7 @@ class shell:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
+        spack_env = context.get("spack_env", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
@@ -139,6 +141,8 @@ class shell:
 
         if conda_env:
             cmd = Conda(container_img).shellcmd(conda_env, cmd)
+        elif spack_env:
+            cmd = Spack().shellcmd(spack_env, cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

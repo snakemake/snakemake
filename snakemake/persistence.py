@@ -26,6 +26,7 @@ class Persistence:
         nolock=False,
         dag=None,
         conda_prefix=None,
+        spack_prefix=None,
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
@@ -44,6 +45,7 @@ class Persistence:
         self._incomplete_path = os.path.join(self.path, "incomplete")
 
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
+        self.spack_env_archive_path = os.path.join(self.path, "spack-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
 
         self.source_cache = os.path.join(self.path, "source_cache")
@@ -52,6 +54,12 @@ class Persistence:
             self.conda_env_path = os.path.join(self.path, "conda")
         else:
             self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
+
+        if spack_prefix is None:
+            self.spack_env_path = os.path.join(self.path, "spack")
+        else:
+            self.spack_env_path = os.path.abspath(os.path.expanduser(spack_prefix))
+
         if singularity_prefix is None:
             self.container_img_path = os.path.join(self.path, "singularity")
         else:
@@ -90,6 +98,8 @@ class Persistence:
             self.shadow_path,
             self.conda_env_archive_path,
             self.conda_env_path,
+            self.spack_env_archive_path,
+            self.spack_env_path,
             self.container_img_path,
             self.aux_path,
         ):
@@ -193,21 +203,32 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
-    def conda_cleanup_envs(self):
+    def _cleanup_envs(self, env_lookup, env_path, archive_path):
+        """A common function to clean up conda or spack environments."""
         # cleanup envs
-        in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_path):
+        in_use = set(env.hash[:8] for env in env_lookup.values())
+        for d in os.listdir(env_path):
             if len(d) >= 8 and d[:8] not in in_use:
-                if os.path.isdir(os.path.join(self.conda_env_path, d)):
-                    shutil.rmtree(os.path.join(self.conda_env_path, d))
+                if os.path.isdir(os.path.join(env_path, d)):
+                    shutil.rmtree(os.path.join(env_path, d))
                 else:
-                    os.remove(os.path.join(self.conda_env_path, d))
+                    os.remove(os.path.join(env_path, d))
 
         # cleanup env archives
-        in_use = set(env.content_hash for env in self.dag.conda_envs.values())
-        for d in os.listdir(self.conda_env_archive_path):
+        in_use = set(env.content_hash for env in env_lookup.values())
+        for d in os.listdir(archive_path):
             if d not in in_use:
-                shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
+                shutil.rmtree(os.path.join(archive_path, d))
+
+    def conda_cleanup_envs(self):
+        return self._cleanup_envs(
+            self.dag.conda_envs, self.conda_env_path, self.dag.conda_env_archive_path
+        )
+
+    def spack_cleanup_envs(self):
+        return self._cleanup_envs(
+            self.dag.spack_envs, self.spack_env_path, self.dag.spack_env_archive_path
+        )
 
     def started(self, job, external_jobid=None):
         for f in job.output:
@@ -230,6 +251,7 @@ class Persistence:
         params = self._params(job)
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
+        spack_env = self._spack_env(job)
         fallback_time = time.time()
         for f in job.expanded_output:
             rec_path = self._record_path(self._incomplete_path, f)
@@ -255,6 +277,7 @@ class Persistence:
                     "endtime": endtime,
                     "job_hash": hash(job),
                     "conda_env": conda_env,
+                    "spack_env": spack_env,
                     "container_img_url": job.container_img_url,
                 },
                 f,
@@ -369,6 +392,11 @@ class Persistence:
     def _conda_env(self, job):
         if job.conda_env:
             return b64encode(job.conda_env.content).decode()
+
+    @lru_cache()
+    def _spack_env(self, job):
+        if job.spack_env:
+            return b64encode(job.spack_env.content).decode()
 
     @lru_cache()
     def _input(self, job):

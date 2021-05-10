@@ -102,8 +102,10 @@ class Workflow:
         use_conda=False,
         conda_frontend=None,
         conda_prefix=None,
+        spack_prefix=None,
         use_singularity=False,
         use_env_modules=False,
+        use_spack=False,
         singularity_prefix=None,
         singularity_args="",
         shadow_prefix=None,
@@ -123,6 +125,7 @@ class Workflow:
         cores=1,
         resources=None,
         conda_cleanup_pkgs=None,
+        spack_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
         max_inventory_wait_time=20,
@@ -168,8 +171,10 @@ class Workflow:
         self.verbose = verbose
         self._rulecount = 0
         self.use_conda = use_conda
+        self.use_spack = use_spack
         self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
+        self.spack_prefix = spack_prefix
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
@@ -190,6 +195,7 @@ class Workflow:
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
+        self.spack_cleanup_pkgs = spack_cleanup_pkgs
         self.edit_notebook = edit_notebook
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
@@ -551,6 +557,7 @@ class Workflow:
         nodeps=False,
         cleanup_metadata=None,
         conda_cleanup_envs=False,
+        spack_cleanup_envs=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -565,6 +572,7 @@ class Workflow:
         no_hooks=False,
         force_use_threads=False,
         conda_create_envs_only=False,
+        spack_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
         report=None,
@@ -673,6 +681,7 @@ class Workflow:
             nolock=nolock,
             dag=dag,
             conda_prefix=self.conda_prefix,
+            spack_prefix=self.spack_prefix,
             singularity_prefix=self.singularity_prefix,
             shadow_prefix=self.shadow_prefix,
             warn_only=dryrun
@@ -813,6 +822,8 @@ class Workflow:
             deploy = []
             if self.use_conda:
                 deploy.append("conda")
+            elif self.use_spack:
+                deploy.append("spack")
             if self.use_singularity:
                 deploy.append("singularity")
             unit_tests.generate(
@@ -898,6 +909,12 @@ class Workflow:
             if conda_create_envs_only:
                 return True
 
+        if self.use_spack:
+            if assume_shared_fs:
+                dag.create_spack_envs(dryrun=dryrun)
+            if spack_create_envs_only:
+                return True
+
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
             for env in set(job.conda_env for job in dag.jobs):
@@ -912,6 +929,10 @@ class Workflow:
 
         if conda_cleanup_envs:
             self.persistence.conda_cleanup_envs()
+            return True
+
+        if spack_cleanup_envs:
+            self.persistence.spack_cleanup_envs()
             return True
 
         scheduler = JobScheduler(
@@ -991,6 +1012,9 @@ class Workflow:
 
                 if not self.use_conda and any(rule.conda_env for rule in self.rules):
                     logger.info("Conda environments: ignored")
+
+                if not self.use_spack and any(rule.spack_env for rule in self.rules):
+                    logger.info("Spack environments: ignored")
 
                 if not self.use_singularity and any(
                     rule.container_img for rule in self.rules
@@ -1376,7 +1400,13 @@ class Workflow:
 
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
-            if ruleinfo.conda_env:
+            if ruleinfo.conda_env and ruleinfo.spack_env:
+                raise RuleException(
+                    "You can only set one environment, both Spack and Conda " " found ",
+                    rule=rule,
+                )
+
+            if ruleinfo.conda_env or ruleinfo.spack_env:
                 if not (
                     ruleinfo.script
                     or ruleinfo.wrapper
@@ -1384,19 +1414,31 @@ class Workflow:
                     or ruleinfo.notebook
                 ):
                     raise RuleException(
-                        "Conda environments are only allowed "
+                        "Conda and Spack environments are only allowed "
                         "with shell, script, notebook, or wrapper directives "
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
-                rule.conda_env = ruleinfo.conda_env
+
+                if ruleinfo.conda_env:
+                    if not (
+                        urllib.parse.urlparse(ruleinfo.conda_env).scheme
+                        or os.path.isabs(ruleinfo.conda_env)
+                    ):
+                        ruleinfo.conda_env = os.path.join(
+                            self.current_basedir, ruleinfo.conda_env
+                        )
+                    rule.conda_env = ruleinfo.conda_env
+
+                if ruleinfo.spack_env:
+                    if not (
+                        urllib.parse.urlparse(ruleinfo.spack_env).scheme
+                        or os.path.isabs(ruleinfo.spack_env)
+                    ):
+                        ruleinfo.spack_env = os.path.join(
+                            self.current_basedir, ruleinfo.spack_env
+                        )
+                    rule.spack_env = ruleinfo.spack_env
 
             invalid_rule = not (
                 ruleinfo.script
@@ -1540,6 +1582,13 @@ class Workflow:
     def conda(self, conda_env):
         def decorate(ruleinfo):
             ruleinfo.conda_env = conda_env
+            return ruleinfo
+
+        return decorate
+
+    def spack(self, spack_env):
+        def decorate(ruleinfo):
+            ruleinfo.spack_env = spack_env
             return ruleinfo
 
         return decorate

@@ -266,6 +266,7 @@ class ScriptBase(ABC):
         config,
         rulename,
         conda_env,
+        spack_env,
         container_img,
         singularity_args,
         env_modules,
@@ -289,6 +290,7 @@ class ScriptBase(ABC):
         self.config = config
         self.rulename = rulename
         self.conda_env = conda_env
+        self.spack_env = spack_env
         self.container_img = container_img
         self.singularity_args = singularity_args
         self.env_modules = env_modules
@@ -353,6 +355,7 @@ class ScriptBase(ABC):
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
+            spack_env=self.spack_env,
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
@@ -377,6 +380,7 @@ class PythonScript(ScriptBase):
         config,
         rulename,
         conda_env,
+        spack_env,
         container_img,
         singularity_args,
         env_modules,
@@ -448,6 +452,7 @@ class PythonScript(ScriptBase):
             self.config,
             self.rulename,
             self.conda_env,
+            self.spack_env,
             self.container_img,
             self.singularity_args,
             self.env_modules,
@@ -466,6 +471,8 @@ class PythonScript(ScriptBase):
     def _is_python_env(self):
         if self.conda_env is not None:
             prefix = os.path.join(self.conda_env, "bin")
+        elif self.spack_env is not None:
+            prefix = os.path.join(self.spack_env, ".spack-env", "view", "bin")
         elif self.env_modules is not None:
             prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
@@ -480,11 +487,15 @@ class PythonScript(ScriptBase):
         return tuple(map(int, out.strip().split(".")))
 
     def execute_script(self, fname, edit=False):
+        # Are we operating in a spack or conda environment?
+        is_env = self.conda_env is not None or self.spack_env is not None
+
         py_exec = sys.executable
         if self.container_img is not None:
             # use python from image
             py_exec = "python"
-        elif self.conda_env is not None or self.env_modules is not None:
+
+        elif is_env or self.env_modules is not None:
             if self._is_python_env():
                 py_version = self._get_python_version()
                 # If version is None, all fine, because host python usage is intended.
@@ -508,6 +519,7 @@ class PythonScript(ScriptBase):
             # use forward slashes so script command still works even if
             # bash is configured as executable on Windows
             py_exec = py_exec.replace("\\", "/")
+
         # use the same Python as the running process or the one from the environment
         self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
 
@@ -528,6 +540,7 @@ class RScript(ScriptBase):
         config,
         rulename,
         conda_env,
+        spack_env,
         container_img,
         singularity_args,
         env_modules,
@@ -622,6 +635,7 @@ class RScript(ScriptBase):
             self.config,
             self.rulename,
             self.conda_env,
+            self.spack_env,
             self.container_img,
             self.singularity_args,
             self.env_modules,
@@ -894,6 +908,7 @@ def script(
     config,
     rulename,
     conda_env,
+    spack_env,
     container_img,
     singularity_args,
     env_modules,
@@ -933,6 +948,7 @@ def script(
         config,
         rulename,
         conda_env,
+        spack_env,
         container_img,
         singularity_args,
         env_modules,

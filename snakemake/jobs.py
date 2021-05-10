@@ -121,6 +121,8 @@ class Job(AbstractJob):
         "_resources",
         "_conda_env_file",
         "_conda_env",
+        "_spack_env_file",
+        "_spack_env",
         "shadow_dir",
         "_inputsize",
         "dynamic_output",
@@ -166,7 +168,9 @@ class Job(AbstractJob):
         self._benchmark = None
         self._resources = None
         self._conda_env_file = None
+        self._spack_env_file = None
         self._conda_env = None
+        self._spack_env = None
         self._group = None
 
         self.shadow_dir = None
@@ -326,10 +330,41 @@ class Job(AbstractJob):
     def conda_env_path(self):
         return self.conda_env.path if self.conda_env else None
 
+    @property
+    def spack_env_file(self):
+        if self._spack_env_file is None:
+            expanded_env = self.rule.expand_spack_env(self.wildcards_dict)
+            if expanded_env is not None:
+                scheme, _, path, *_ = urlparse(expanded_env)
+                # Normalize 'file:///my/path.yml' to '/my/path.yml'
+                if scheme == "file" or not scheme:
+                    self._spack_env_file = path
+                else:
+                    self._spack_env_file = expanded_env
+        return self._spack_env_file
+
+    @property
+    def spack_env(self):
+        if self.spack_env_file:
+            if self._spack_env is None:
+                self._spack_env = self.dag.spack_envs.get(self.spack_env_file)
+            return self._spack_env
+        return None
+
+    @property
+    def spack_env_path(self):
+        return self.spack_env.path if self.spack_env else None
+
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_file:
             return self.conda_env.create_archive()
+        return None
+
+    def archive_spack_env(self):
+        """Archive a spack environment into a custom local channel."""
+        if self.spack_env_file:
+            return self.spack_env.create_archive()
         return None
 
     @property
@@ -955,6 +990,8 @@ class Job(AbstractJob):
             wait_for_files.append(self.shadow_dir)
         if self.dag.workflow.use_conda and self.conda_env:
             wait_for_files.append(self.conda_env_path)
+        if self.dag.workflow.use_spack and self.spack_env:
+            wait_for_files.append(self.spack_env_path)
         return wait_for_files
 
     @property
