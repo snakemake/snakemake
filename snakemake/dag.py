@@ -1461,7 +1461,10 @@ class DAG:
             for _job in self.dependencies[job]:
                 self.targetjobs.add(_job)
         for job_ in self.depending[job]:
-            del self.dependencies[job_][job]
+            try:
+                del self.dependencies[job_][job]
+            except KeyError:
+                pass
         del self.depending[job]
         for job_ in self.dependencies[job]:
             depending = self.depending[job_]
