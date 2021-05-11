@@ -1030,6 +1030,7 @@ def test_github_issue727():
     run(dpath("test_github_issue727"))
 
 
+@skip_on_windows
 def test_github_issue988():
     run(dpath("test_github_issue988"))
 
