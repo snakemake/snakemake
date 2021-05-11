@@ -70,7 +70,7 @@ setup(
         "nbformat",
         "toposort",
         "pulp >=2.0",
-        "smart_open",
+        "smart_open >=3.0",
         "filelock",
         "stopit",
     ],
