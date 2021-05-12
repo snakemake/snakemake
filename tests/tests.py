@@ -1206,3 +1206,7 @@ def test_module_worfklow_namespacing():
 
 def test_handover():
     run(dpath("test_handover"), resources={"mem_mb": 20})
+
+
+def test_source_path():
+    run(dpath("test_source_path"))
