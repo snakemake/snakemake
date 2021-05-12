@@ -1209,4 +1209,4 @@ def test_handover():
 
 
 def test_source_path():
-    run(dpath("test_source_path"))
+    run(dpath("test_source_path"), snakefile="workflow/Snakefile")
