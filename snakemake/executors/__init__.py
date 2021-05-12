@@ -2145,6 +2145,7 @@ class TibannaExecutor(ClusterExecutor):
             sfn=self.tibanna_sfn,
             verbose=not self.quiet,
             jobid=jobid,
+            open_browser=False,
             sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
