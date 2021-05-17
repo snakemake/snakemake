@@ -64,7 +64,7 @@ class RemoteObject(PooledDomainObject):
         )
 
     def get_default_kwargs(self, **defaults):
-        """ define defaults beyond those set in PooledDomainObject """
+        """define defaults beyond those set in PooledDomainObject"""
         return super().get_default_kwargs(
             **{
                 "port": 22,
@@ -72,11 +72,11 @@ class RemoteObject(PooledDomainObject):
         )
 
     def create_connection(self, *args_to_use, **kwargs_to_use):
-        """ open an SFTP connection """
+        """open an SFTP connection"""
         return pysftp.Connection(*args_to_use, **kwargs_to_use)
 
     def close_connection(self, connection):
-        """ close an SFTP connection """
+        """close an SFTP connection"""
         connection.close()
 
     # === Implementations of abstract class members ===

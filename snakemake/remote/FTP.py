@@ -112,18 +112,18 @@ class RemoteObject(PooledDomainObject):
     # === Implementations of abstract class members ===
 
     def get_default_kwargs(self, **defaults):
-        """ define defaults beyond thos set in PooledDomainObject """
+        """define defaults beyond thos set in PooledDomainObject"""
         return super().get_default_kwargs(
             **{"port": 21, "password": None, "username": None}
         )
 
     @property
     def conn_keywords(self):
-        """ returns list of keywords relevant to a unique connection """
+        """returns list of keywords relevant to a unique connection"""
         return ["host", "port", "username", "encrypt_data_channel"]
 
     def create_connection(self, *args_to_use, **kwargs_to_use):
-        """ create a connection to the FTP server using the saved arguments """
+        """create a connection to the FTP server using the saved arguments"""
         ftp_base_class = (
             ftplib.FTP_TLS if kwargs_to_use["encrypt_data_channel"] else ftplib.FTP
         )
@@ -143,7 +143,7 @@ class RemoteObject(PooledDomainObject):
         )
 
     def close_connection(self, connection):
-        """ close an FTP connection """
+        """close an FTP connection"""
         connection.keep_alive()
         connection.close()
 

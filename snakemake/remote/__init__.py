@@ -352,7 +352,7 @@ class PooledDomainObject(DomainObject):
 
     @contextmanager
     def get_connection(self):
-        """ get a connection from a pool or create a new one """
+        """get a connection from a pool or create a new one"""
         if not self.immediate_close and "connection_pool" in sys.modules:
             # if we can (and the user doesn't override) use a pool
             with self.connection_pool.item() as conn:
@@ -368,12 +368,12 @@ class PooledDomainObject(DomainObject):
 
     @property
     def conn_keywords(self):
-        """ returns list of keywords relevant to a unique connection """
+        """returns list of keywords relevant to a unique connection"""
         return ["host", "port", "username"]
 
     @property
     def connection_pool(self):
-        """ set up a pool of re-usable active connections """
+        """set up a pool of re-usable active connections"""
         # merge this object's values with those of its parent provider
         args_to_use, kwargs_to_use = self.get_args_to_use()
 
@@ -397,12 +397,12 @@ class PooledDomainObject(DomainObject):
 
     @abstractmethod
     def create_connection(self):
-        """ handle the protocol specific job of creating a connection """
+        """handle the protocol specific job of creating a connection"""
         pass
 
     @abstractmethod
     def close_connection(self, connection):
-        """ handle the protocol specific job of closing a connection """
+        """handle the protocol specific job of closing a connection"""
         pass
 
 
