@@ -1,0 +1,18 @@
+rule:
+    shell:
+        """
+        set +e
+        python -m snakemake --cores 1 -p --profile . -s Snakefile.internal
+        RETVAL=$?
+        set -e
+
+        if [ "$RETVAL" == 0 ]; then
+            echo "Snakemake did not correctly discover that the job failed"
+            exit 1
+        fi
+
+        if [ -f "./job.txt" ]; then
+            echo "Output file of failed job exists"
+            exit 1
+        fi
+        """

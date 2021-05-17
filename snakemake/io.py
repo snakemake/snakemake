@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
@@ -365,6 +365,10 @@ class _IOFile(str):
         return is_flagged(self._file, "directory")
 
     @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
+
+    @property
     def is_multiext(self):
         return is_flagged(self._file, "multiext")
 
@@ -562,7 +566,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
-        """ Raise WorkflowError if file is a broken symlink. """
+        """Raise WorkflowError if file is a broken symlink."""
         if not self.exists_local and os.lstat(self.file):
             raise WorkflowError(
                 "File {} seems to be a broken symlink.".format(self.file)
@@ -627,7 +631,7 @@ class _IOFile(str):
             remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
-        """ times must be 2-tuple: (atime, mtime) """
+        """times must be 2-tuple: (atime, mtime)"""
         try:
             if self.is_directory:
                 file = os.path.join(self.file, ".snakemake_timestamp")
@@ -1001,12 +1005,12 @@ def pipe(value):
 
 
 def temporary(value):
-    """ An alias for temp. """
+    """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """ A flag for a file that shall be write protected after creation. """
+    """A flag for a file that shall be write protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1556,12 +1560,17 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath, filetype="Config"):
+def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
 
+    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+        obj = open(configpath_or_obj)
+    else:
+        obj = configpath_or_obj
+
     try:
-        with open(configpath) as f:
+        with obj as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:

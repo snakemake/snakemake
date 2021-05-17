@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -16,16 +16,17 @@ import webbrowser
 from functools import partial
 import importlib
 import shutil
+import shlex
 from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
-from snakemake.logging import setup_logger, logger, SlackLogger
+from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import Mode, __version__, MIN_PY_VERSION
+from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
 from snakemake.resources import parse_resources, DefaultResources
 
 
@@ -43,6 +44,7 @@ def snakemake(
     cache=None,
     report=None,
     report_stylesheet=None,
+    containerize=False,
     lint=None,
     generate_unit_tests=None,
     listrules=False,
@@ -123,7 +125,6 @@ def snakemake(
     updated_files=None,
     log_handler=[],
     keep_logger=False,
-    wms_monitor=None,
     max_jobs_per_second=None,
     max_status_checks_per_second=100,
     restart_times=0,
@@ -269,7 +270,6 @@ def snakemake(
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
         shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
-        wms-monitor (str):          workflow management system monitor. Send post requests to the specified (server/IP). (default None)
         conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
@@ -471,7 +471,6 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
-            wms_monitor=wms_monitor,
         )
 
     if greediness is None:
@@ -587,6 +586,7 @@ def snakemake(
             envvars=envvars,
             max_inventory_wait_time=max_inventory_wait_time,
             conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
+            execute_subworkflows=execute_subworkflows,
         )
         success = True
 
@@ -598,6 +598,8 @@ def snakemake(
         if not print_compilation:
             if lint:
                 success = not workflow.lint(json=lint == "json")
+            elif containerize:
+                workflow.containerize()
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -775,7 +777,6 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     keepmetadata=keep_metadata,
-                    executesubworkflows=execute_subworkflows,
                 )
 
     except BrokenPipeError:
@@ -931,21 +932,9 @@ def unparse_config(config):
     return items
 
 
-APPDIRS = None
-
-
-def get_appdirs():
-    global APPDIRS
-    if APPDIRS is None:
-        from appdirs import AppDirs
-
-        APPDIRS = AppDirs("snakemake", "snakemake")
-    return APPDIRS
-
-
 def get_profile_file(profile, file, return_default=False):
     dirs = get_appdirs()
-    if os.path.isabs(profile):
+    if os.path.exists(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
@@ -953,7 +942,13 @@ def get_profile_file(profile, file, return_default=False):
     get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
         p = get_path(d)
-        if os.path.exists(p):
+        # "file" can actually be a full command. If so, `p` won't exist as the
+        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
+        # exists. To fix this, we use shlex.split() to get the path to the
+        # script. We check for both, in case the path contains spaces or some
+        # other thing that would cause shlex.split() to mangle the path
+        # inaccurately.
+        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
             return p
 
     if return_default:
@@ -1336,10 +1331,22 @@ def get_argument_parser(profile=None):
         action="store",
         nargs="?",
         help=(
-            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000"
+            "IP and port of workflow management system to monitor the execution of snakemake (e.g. http://127.0.0.1:5000)"
+            " Note that if your service requires an authorization token, you must export WMS_MONITOR_TOKEN in the environment."
         ),
     )
-
+    group_exec.add_argument(
+        "--wms-monitor-arg",
+        nargs="*",
+        metavar="NAME=VALUE",
+        help=(
+            "If the workflow management service accepts extra arguments, provide."
+            " them in key value pairs with --wms-monitor-arg. For example, to run"
+            " an existing workflow using a wms monitor, you can provide the pair "
+            " id=12345 and the arguments will be provided to the endpoint to "
+            " first interact with the workflow"
+        ),
+    )
     group_exec.add_argument(
         "--scheduler-ilp-solver",
         default=recommended_lp_solver,
@@ -1443,6 +1450,12 @@ def get_argument_parser(profile=None):
         "created in the specified test folder (.tests/unit by default). After "
         "successfull execution, tests can be run with "
         "'pytest TESTPATH'.",
+    )
+    group_utils.add_argument(
+        "--containerize",
+        action="store_true",
+        help="Print a Dockerfile that provides an execution environment for the workflow, including all "
+        "conda environments.",
     )
     group_utils.add_argument(
         "--export-cwl",
@@ -1911,10 +1924,10 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--log-service",
         default=None,
-        choices=["none", "slack"],
+        choices=["none", "slack", "wms"],
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
-        "Currently only slack is supported.",
+        "Currently slack and workflow management system (wms) are supported.",
     )
 
     group_cluster = parser.add_argument_group("CLUSTER")
@@ -2156,13 +2169,15 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--conda-prefix",
         metavar="DIR",
+        default=os.environ.get("SNAKEMAKE_CONDA_PREFIX", None),
         help="Specify a directory in which the 'conda' and 'conda-archive' "
         "directories are created. These are used to store conda environments "
         "and their archives, respectively. If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. The value can also be "
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
@@ -2192,10 +2207,10 @@ def get_argument_parser(profile=None):
     )
     group_conda.add_argument(
         "--conda-frontend",
-        default="conda",
+        default="mamba",
         choices=["conda", "mamba"],
         help="Choose the conda frontend for installing environments. "
-        "Caution: mamba is much faster, but still in beta test.",
+        "Mamba is much faster and highly recommended.",
     )
 
     group_singularity = parser.add_argument_group("SINGULARITY")
@@ -2237,6 +2252,19 @@ def get_argument_parser(profile=None):
     return parser
 
 
+def generate_parser_metadata(parser, args):
+    """Given a populated parser, generate the original command along with
+    metadata that can be handed to a logger to use as needed.
+    """
+    command = "snakemake %s" % " ".join(
+        parser._source_to_settings["command_line"][""][1]
+    )
+    workdir = os.getcwd()
+    metadata = args.__dict__
+    metadata.update({"command": command})
+    return metadata
+
+
 def main(argv=None):
     """Main entry point."""
 
@@ -2267,6 +2295,11 @@ def main(argv=None):
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
             args.cluster = adjust_path(args.cluster)
+        if args.cluster_config:
+            if isinstance(args.cluster_config, list):
+                args.cluster_config = [adjust_path(cfg) for cfg in args.cluster_config]
+            else:
+                args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
         if args.cluster_status:
@@ -2337,6 +2370,7 @@ def main(argv=None):
         or args.rulegraph
         or args.summary
         or args.lint
+        or args.containerize
         or args.report
         or args.gui
         or args.archive
@@ -2402,6 +2436,22 @@ def main(argv=None):
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if args.use_conda and args.conda_frontend == "mamba":
+        from snakemake.deployment.conda import is_mamba_available
+
+        if not is_mamba_available():
+            print(
+                "Error: mamba package manager is not available. "
+                "The mamba package manager (https://github.com/mamba-org/mamba) is an "
+                "extremely fast and robust conda replacement. "
+                "It is the recommended way of using Snakemake's conda integration. "
+                "It can be installed with `conda install -n base -c conda-forge mamba."
+                "If you still prefer to use conda, you can enforce that by setting "
+                "`--conda-frontend conda`.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(
@@ -2552,6 +2602,14 @@ def main(argv=None):
             slack_logger = logging.SlackLogger()
             log_handler.append(slack_logger.log_handler)
 
+        elif args.wms_monitor or args.log_service == "wms":
+            # Generate additional metadata for server
+            metadata = generate_parser_metadata(parser, args)
+            wms_logger = logging.WMSLogger(
+                args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+            )
+            log_handler.append(wms_logger.log_handler)
+
         if args.edit_notebook:
             from snakemake import notebook
 
@@ -2566,6 +2624,7 @@ def main(argv=None):
             report=args.report,
             report_stylesheet=args.report_stylesheet,
             lint=args.lint,
+            containerize=args.containerize,
             generate_unit_tests=args.generate_unit_tests,
             listrules=args.list,
             list_target_rules=args.list_target_rules,
@@ -2679,7 +2738,6 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
-            wms_monitor=args.wms_monitor,
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
             edit_notebook=args.edit_notebook,

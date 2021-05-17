@@ -13,7 +13,7 @@ In this case, Snakemake simply needs to be given a submit command that accepts a
     $ snakemake --cluster qsub -j 32
 
 
-Here, ``-j`` denotes the number of jobs submitted being submitted to the cluster at the same time (here 32).
+Here, ``-j`` denotes the number of jobs submitted to the cluster at the same time (here 32).
 The cluster command can be decorated with job specific information, e.g.
 
 .. sidebar:: Note
@@ -26,7 +26,7 @@ The cluster command can be decorated with job specific information, e.g.
     $ snakemake --cluster "qsub {threads}"
 
 Thereby, all keywords of a rule are allowed (e.g. rulename, params, input, output, threads, priority, resources, ...).
-For example, you could encode the expected running time into resources:
+For example, you could encode the expected running time in minutes into a :ref:`resource <snakefiles-resources>` ``runtime_min``:
 
 .. code-block:: python
 
@@ -47,6 +47,7 @@ and forward it to the cluster scheduler:
     $ snakemake --cluster "qsub --runtime {resources.runtime}"
 
 In order to avoid specifying ``runtime_min`` for each rule, you can make use of the ``--default-resources`` flag, see ``snakemake --help``.
+
 If your cluster system supports `DRMAA <https://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
 E.g. jobs can be cancelled upon pressing ``Ctrl+C``, which is not possible with the generic ``--cluster`` support.
 With DRMAA, no ``qsub`` command needs to be provided, but system specific arguments can still be given as a string, e.g.

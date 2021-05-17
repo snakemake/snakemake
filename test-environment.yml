@@ -2,7 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python >=3.5.3
+  - stopit
   - datrie
   - boto3
   - moto
@@ -37,7 +38,7 @@ dependencies:
   - configargparse
   - appdirs
   - python-irodsclient
-  - cwltool
+  - cwltool <=3.0.20201203173111 # TODO remove once schema-salad has been updated in conda-forge
   - jsonschema
   - pandas
   - networkx
@@ -52,10 +53,11 @@ dependencies:
   - mamba
   - crc32c
   - pip
-  - pip:
-    - py-tes
   - connection_pool
+  - py-tes
   - requests-mock
   - peppy
   - eido
   - glpk
+  - smart_open
+  - filelock

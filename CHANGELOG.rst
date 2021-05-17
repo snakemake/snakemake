@@ -1,3 +1,110 @@
+[6.3.0] - 2021-04-29
+====================
+- Changed behavior of ``workflow.snakefile`` to always point to the current file instead of the main Snakefile (also in case of includes and modules) (@johanneskoester).
+- Fixed a typo in an error message (@nikostr).
+
+[6.2.0] - 2021-04-22
+====================
+- Support for integration of foreign workflow management systems by introducing a ``handover`` directive that passes on all resources to a particular rule (which can then invoke another workflow management system). See the docs ("Integrating foreign workflow management systems") (@johanneskoester).
+- Behavior improvement for temp handling of checkpoint rules (@epruesse).
+- Several improvements in the docs (@johanneskoester).
+
+[6.2.1] - 2021-04-20
+====================
+- Fixed a minor bug in the linter.
+
+[6.2.0] - 2021-04-20
+====================
+- Fixed several glitches in paramspace implementation (handling of bools, returning scalar values) (@kpj).
+- Fixed bugs in module implementation (@dlaehnemann, @johanneskoester).
+- Fall back to greedy scheduling solver if ILP solver needs more than 10 sec (@johanneskoester).
+
+[6.1.1] - 2021-04-07
+====================
+- Fixed several small bugs of the new module system (@johanneskoester, @dlaehnemann).
+- Fixed archive based conda deployment (@johanneskoester).
+- Better handling of download and target attributed in the interactive report (@johanneskoester).
+
+[6.1.0] - 2021-04-01
+====================
+- Snakemake now uses **mamba** as the default conda frontend (which can be overwritten by specifying to use conda via the --conda-frontend flag) (@johanneskoester).
+- Profiles using --cluster option can now handle relative submit script paths in combination with arguments (@kdm9).
+- New AutoRemoteProvider, which infers the type of remote file protocol from the given URL (@kpj).
+- When using global container directive, container usage can be deactivated on a per rule base (@bilke).
+- Bugfixes for checkpoint handling (@johanneskoester).
+- Bugfixes for the module system (@johanneskoester, @dlaehnemann).
+- Various improvements for the tutorial.
+
+[6.0.5] - 2021-03-11
+====================
+- Fix bug (introduced with 6.0) when handling of HTML directories in report (@johanneskoester).
+
+[6.0.4] - 2021-03-11
+====================
+- Various textual improvements in the tutorial (@dlaehnemann).
+
+[6.0.3] - 2021-03-08
+====================
+- No longer use a shortened hash for naming conda environments in .snakemake/conda (@johanneskoester).
+- Various little updates to the docs (@johanneskoester).
+
+[6.0.2] - 2021-03-03
+====================
+- Fix race condition in conda checking code (@johanneskoester).
+
+[6.0.1] - 2021-03-03
+====================
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
+- Fix rendering issue in the docs.
+- Add gitpod dev environment and gitpod environment for the tutorial.
+
+[6.0.0] - 2021-02-26
+====================
+- Introduced a new module system, see https://snakemake.readthedocs.io/en/stable/snakefiles/modularization.html#modules (@johanneskoester).
+- Introduced a rule inheritance mechanism, see https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#rule-inheritance (@johanneskoester).
+- Automatically containerize a conda-based pipeline with ``--containerize``, see https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html#containerization-of-conda-based-workflows (@johanneskoester).
+- Use temporary files for long shell commands (@epruesse).
+- Various fixes in the documentation (@ctb, @SilasK, @EthanHolleman).
+- Fixed a bug in job grouping that led to non-deterministic behavior (@johanneskoester).
+
+
+[5.32.2] - 2021-02-11
+=====================
+Changed
+-------
+- Fixed infinite loading of results in Snakemake reports (@FelixMoelder)
+
+
+[5.32.1] - 2021-02-08
+=====================
+Changed
+-------
+- Improved warning on wildcard constraints (@jheuel)
+- Improved logging from the new scheduler implementation (@johanneskoester)
+- Restored Python 3.5 compatibility by removing f-strings (@mbhall88)
+- Snakemake now automatically adds a global wildcard constraint for {scatteritem}, when scatter/gather support is used.
+- The zip variant of Snakemake reports is now compressed (@FelixMoelder).
+- Improved docs (@ctb).
+- Make output file removal in cluster mode more robust (@sebschmi).
+
+
+[5.32.0] - 2021-01-15
+=====================
+Changed
+-------
+- Handle accidental use of GLS backend with singularity (@vsoch).
+- Improved and extended WMS-monitor implementation (@vsoch).
+- Display index and total count in ``{scatteritem}`` when using the scatter-gather helper (@johanneskoester).
+- Fixed problems with jobid display when handling checkpoint updates (@johanneskoester, @jmeppley).
+- Fixed bug when checking for directory containment of output files (@jmeppley).
+- Implement --no-subworkflows treatment in combination with --cluster (@goi42).
+
+[5.31.1] - 2020-12-21
+=====================
+Changed
+-------
+- added wget again to the container image
+
 [5.31.0] - 2020-12-21
 =====================
 Added

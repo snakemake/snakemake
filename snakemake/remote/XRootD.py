@@ -49,7 +49,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with XRootD servers."""
+    """This is a class to interact with XRootD servers."""
 
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs

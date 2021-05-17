@@ -6,6 +6,8 @@ rule all:
         "aggregated/b.txt"
 
 
+# create three txt files 1.txt to 3.txt containing
+# the numbers 1, 2, and 3 respectively.
 checkpoint clustering:
     input:
         "samples/{sample}.txt"
@@ -25,10 +27,24 @@ rule intermediate:
         "cp {input} {output}"
 
 
+# input function collecting all txt files (all i's)
+# for a given sample. E.g. for sample b:
+# ['post/b/1.txt', 'post/b/3.txt', 'post/b/2.txt']
+# To avoid different order based on different architectures,
+# this input file list is sorted. For details see
+# https://github.com/snakemake/snakemake/pull/826#issue-550400376
 def aggregate_input(wildcards):
-    return expand("post/{sample}/{i}.txt",
-           sample=wildcards.sample,
-           i=glob_wildcards(os.path.join(checkpoints.clustering.get(**wildcards).output[0], "{i}.txt")).i)
+    return sorted(
+        expand(
+            "post/{sample}/{i}.txt",
+            sample=wildcards.sample,
+            i=glob_wildcards(
+                os.path.join(
+                    checkpoints.clustering.get(**wildcards).output[0], "{i}.txt"
+                )
+            ).i,
+        )
+    )
 
 
 rule aggregate:

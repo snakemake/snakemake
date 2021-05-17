@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2020, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import logging
@@ -578,10 +578,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which should be derived
-        from the self.workflow.snakefile.
+        from the self.workflow.main_snakefile.
         """
-        assert os.path.exists(self.workflow.snakefile)
-        self.snakefile = self.workflow.snakefile.replace(self.workdir, "").strip(os.sep)
+        assert os.path.exists(self.workflow.main_snakefile)
+        self.snakefile = self.workflow.main_snakefile.replace(self.workdir, "").strip(
+            os.sep
+        )
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
@@ -664,13 +666,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
     def _generate_log_action(self, job):
         """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
-        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
+        # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
 
         # Save logs from /google/logs/output to source/logs in bucket
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
+            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
             % (self.bucket.name, self.gs_logs, job.name),
         ]
 
@@ -697,14 +699,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         exec_job += self.get_default_resources_args()
 
         # script should be changed to this when added to version control!
-        # https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py
+        # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
         # for custom images we must allow this to fail (hence || true)
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://raw.githubusercontent.com/snakemake/snakemake/master/snakemake/executors/google_lifesciences_helper.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
+            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
             % (self.bucket.name, self.pipeline_package, exec_job),
         ]
 
@@ -789,9 +791,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # capabilities - this won't currently work (Singularity in Docker)
         # We either need to add CAPS or run in privileged mode (ehh)
         if job.needs_singularity and self.workflow.use_singularity:
-            logger.warning(
+            raise WorkflowError(
                 "Singularity requires additional capabilities that "
-                "aren't yet supported for standard Docker runs."
+                "aren't yet supported for standard Docker runs, and "
+                "is not supported for the Google Life Sciences executor."
             )
 
         # location looks like: "projects/<project>/locations/<location>"

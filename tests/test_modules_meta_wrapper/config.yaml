@@ -1,0 +1,4 @@
+samples:
+  a:
+    - "test.1.fastq"
+    - "test.2.fastq"

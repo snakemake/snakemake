@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -221,7 +221,7 @@ class RealExecutor(AbstractExecutor):
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
 
     def register_job(self, job):
         job.register()
@@ -292,6 +292,8 @@ class RealExecutor(AbstractExecutor):
                 additional += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+        if not self.workflow.execute_subworkflows:
+            additional += " --no-subworkflows"
 
         if self.workflow.use_env_modules:
             additional += " --use-envmodules"
@@ -412,7 +414,7 @@ class CPUExecutor(RealExecutor):
                 "--force -j{cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
-                "--max-inventory-time 0 ",
+                "--max-inventory-time 0 --ignore-incomplete ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
@@ -489,6 +491,7 @@ class CPUExecutor(RealExecutor):
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook,
+            job.rule.basedir,
         )
 
     def run_single_job(self, job):
@@ -634,7 +637,7 @@ class ClusterExecutor(RealExecutor):
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
-            self.snakefile = os.path.relpath(workflow.snakefile)
+            self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -833,6 +836,10 @@ class ClusterExecutor(RealExecutor):
         # By removing it again, we make sure that it is gone on the host FS.
         if not self.keepincomplete:
             self.workflow.persistence.cleanup(job)
+            # Also cleanup the jobs output files, in case the remote job
+            # was not able to, due to e.g. timeout.
+            logger.debug("Cleanup failed jobs output files.")
+            job.cleanup()
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
@@ -1042,7 +1049,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # Ctrl-C on the main process or sending killall to
                         # snakemake.
                         # Snakemake will handle the signal in
-                        # the master process.
+                        # the main process.
                         pass
                     else:
                         raise WorkflowError(
@@ -1382,7 +1389,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 @contextlib.contextmanager
 def change_working_directory(directory=None):
-    """ Change working directory in execution context if provided. """
+    """Change working directory in execution context if provided."""
     if directory:
         try:
             saved_directory = os.getcwd()
@@ -1448,7 +1455,7 @@ class KubernetesExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
         # use relative path to Snakefile
-        self.snakefile = os.path.relpath(workflow.snakefile)
+        self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         try:
             from kubernetes import config
@@ -1510,11 +1517,14 @@ class KubernetesExecutor(ClusterExecutor):
                 encoded_size = len(encoded_contents)
                 if encoded_size > 1048576:
                     logger.warning(
-                        f"Skipping the source file {f} for secret key {key}. "
-                        f"Its base64 encoded size {encoded_size} exceeds "
+                        "Skipping the source file {f} for secret key {key}. "
+                        "Its base64 encoded size {encoded_size} exceeds "
                         "the maximum file size (1MB) that can be passed "
                         "from host to kubernetes.".format(
-                            f=f, source_file_size=source_file_size
+                            f=f,
+                            source_file_size=source_file_size,
+                            key=key,
+                            encoded_size=encoded_size,
                         )
                     )
                     continue
@@ -1537,11 +1547,11 @@ class KubernetesExecutor(ClusterExecutor):
         if config_map_size > 1048576:
             logger.warning(
                 "The total size of the included files and other Kubernetes secrets "
-                f"is {config_map_size}, exceeding the 1MB limit.\n"
+                "is {}, exceeding the 1MB limit.\n".format(config_map_size)
             )
             logger.warning(
                 "The following are the largest files. Consider removing some of them "
-                f"(you need remove at least {config_map_size - 1048576} bytes):"
+                "(you need remove at least {} bytes):".format(config_map_size - 1048576)
             )
 
             entry_sizes = {
@@ -1550,7 +1560,7 @@ class KubernetesExecutor(ClusterExecutor):
                 if k in self.secret_files
             }
             for k, v in sorted(entry_sizes.items(), key=lambda item: item[1])[:-6:-1]:
-                logger.warning(f"  * File: {k}, original size: {v}")
+                logger.warning("  * File: {k}, original size: {v}".format(k=k, v=v))
 
             raise WorkflowError("ConfigMap too large")
 
@@ -1576,8 +1586,8 @@ class KubernetesExecutor(ClusterExecutor):
                 # Can't find the pod. Maybe it's already been
                 # destroyed. Proceed with a warning message.
                 logger.warning(
-                    f"[WARNING] 404 not found when trying to delete the pod: {j.jobid}\n"
-                    "[WARNING] Ignore this error\n"
+                    "[WARNING] 404 not found when trying to delete the pod: {jobid}\n"
+                    "[WARNING] Ignore this error\n".format(jobid=jobid)
                 )
             else:
                 raise e
@@ -1886,7 +1896,7 @@ class TibannaExecutor(ClusterExecutor):
         for f in self.workflow_sources:
             log += f
         logger.debug(log)
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
         self.envvars = {e: os.environ[e] for e in workflow.envvars}
         if self.envvars:
             logger.debug("envvars = %s" % str(self.envvars))
@@ -2204,6 +2214,7 @@ def run_wrapper(
     shadow_dir,
     jobid,
     edit_notebook,
+    basedir,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2282,6 +2293,7 @@ def run_wrapper(
                             cleanup_scripts,
                             passed_shadow_dir,
                             edit_notebook,
+                            basedir,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2310,6 +2322,7 @@ def run_wrapper(
                                 cleanup_scripts,
                                 passed_shadow_dir,
                                 edit_notebook,
+                                basedir,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2336,6 +2349,7 @@ def run_wrapper(
                     cleanup_scripts,
                     passed_shadow_dir,
                     edit_notebook,
+                    basedir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

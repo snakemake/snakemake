@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import inspect
@@ -21,7 +21,13 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
+from snakemake.common import (
+    MIN_PY_VERSION,
+    SNAKEMAKE_SEARCHPATH,
+    ON_WINDOWS,
+    smart_join,
+    is_local_file,
+)
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
@@ -327,7 +333,7 @@ class ScriptBase(ABC):
     def local_path(self):
         path = self.path[7:]
         if not os.path.isabs(path):
-            return os.path.join(self.basedir, path)
+            return smart_join(self.basedir, path)
         return path
 
     @abstractmethod
@@ -491,7 +497,7 @@ class PythonScript(ScriptBase):
                         logger.warning(
                             "Environment defines Python "
                             "version < {0}.{1}. Using Python of the "
-                            "master process to execute "
+                            "main process to execute "
                             "script. Note that this cannot be avoided, "
                             "because the script uses data structures from "
                             "Snakemake which are Python >={0}.{1} "
@@ -820,8 +826,9 @@ def get_source(path, basedir=".", wildcards=None, params=None):
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
-            path = os.path.abspath(os.path.join(basedir, path))
-        path = "file://" + path
+            path = smart_join(basedir, path, abspath=True)
+        if is_local_file(path):
+            path = "file://" + path
     if wildcards is not None and params is not None:
         # Format path if wildcards are given.
         path = format(path, wildcards=wildcards, params=params)

@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -220,7 +220,7 @@ def dag_to_cwl(dag):
                 "type": "File",
                 "default": {
                     "class": "File",
-                    "location": os.path.relpath(dag.workflow.snakefile),
+                    "location": os.path.relpath(dag.workflow.main_snakefile),
                 },
                 "inputBinding": {"prefix": "--snakefile"},
             },

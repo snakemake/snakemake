@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import _io
@@ -9,6 +9,8 @@ import os
 import subprocess as sp
 import inspect
 import shutil
+import stat
+import tempfile
 import threading
 
 from snakemake.utils import format, argvquote, _find_bash_on_windows
@@ -17,7 +19,6 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
-import snakemake
 
 
 __author__ = "Johannes Köster"
@@ -27,6 +28,14 @@ if not isinstance(sys.stdout, _io.TextIOWrapper):
     # workaround for nosetest since it overwrites sys.stdout
     # in a strange way that does not work with Popen
     STDOUT = None
+
+
+# There is a max length for a command executed as well as a maximum
+# length for each argument passed to a command. The latter impacts us
+# especially when doing `sh -c 'long script from user'`. On Linux, it's
+# hardcoded in the kernel as 32 pages, or 128kB. On OSX it appears to be
+# close to `getconf ARG_MAX`, about 253kb.
+MAX_ARG_LEN = 16 * 4096 - 1
 
 
 class shell:
@@ -117,15 +126,12 @@ class shell:
         if not context.get("is_shell"):
             logger.shellcmd(cmd)
 
-        env_prefix = ""
         conda_env = context.get("conda_env", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
 
-        cmd = "{} {} {}".format(
-            cls._process_prefix, cmd.strip(), cls._process_suffix
-        ).strip()
+        cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
         if env_modules:
             cmd = env_modules.shellcmd(cmd)
@@ -134,12 +140,22 @@ class shell:
         if conda_env:
             cmd = Conda(container_img).shellcmd(conda_env, cmd)
 
+        tmpdir = None
+        if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
+            tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="shell_tmp.")
+            script = os.path.join(os.path.abspath(tmpdir), "script.sh")
+            with open(script, "w") as script_fd:
+                print(cmd, file=script_fd)
+            os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
+            cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
+
         if container_img:
             args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
                 container_img,
                 cmd,
                 args,
+                envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
             )
@@ -167,7 +183,6 @@ class shell:
                     pass
 
         use_shell = True
-
         if ON_WINDOWS and cls.get_executable():
             # If executable is set on Windows shell mode can not be used
             # and the executable should be prepended the command together
@@ -194,7 +209,7 @@ class shell:
 
         ret = None
         if iterable:
-            return cls.iter_stdout(proc, cmd)
+            return cls.iter_stdout(proc, cmd, tmpdir)
         if read:
             ret = proc.stdout.read()
         if bench_record is not None:
@@ -205,6 +220,9 @@ class shell:
         else:
             retcode = proc.wait()
 
+        if tmpdir:
+            shutil.rmtree(tmpdir)
+
         if jobid is not None:
             with cls._lock:
                 del cls._processes[jobid]
@@ -214,10 +232,12 @@ class shell:
         return ret
 
     @staticmethod
-    def iter_stdout(proc, cmd):
+    def iter_stdout(proc, cmd, tmpdir):
         for l in proc.stdout:
             yield l[:-1]
         retcode = proc.wait()
+        if tmpdir:
+            shutil.rmtree(tmpdir)
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
 

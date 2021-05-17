@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -21,7 +21,7 @@ from collections import namedtuple, defaultdict
 from itertools import accumulate, chain
 import urllib.parse
 import hashlib
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 
 import requests
@@ -379,10 +379,13 @@ class FileRecord:
         caption,
         env,
         category,
+        workflow,
         wildcards_overwrite=None,
         mode_embedded=True,
         aux_files=None,
+        name_overwrite=None,
     ):
+        self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
@@ -390,6 +393,7 @@ class FileRecord:
         logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
+        self.workflow = workflow
 
         h = hashlib.sha256()
         h.update(path.encode())
@@ -457,7 +461,7 @@ class FileRecord:
         if self.mode_embedded:
             return data_uri_from_file(self.path)
         else:
-            return os.path.join("data/raw", self.id, self.name)
+            return os.path.join("data/raw", self.id, self.filename)
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -483,7 +487,9 @@ class FileRecord:
             )
 
             try:
-                caption = open(self.raw_caption).read() + rst_links
+                caption = (
+                    self.workflow.sourcecache.open(self.raw_caption).read() + rst_links
+                )
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
@@ -533,6 +539,12 @@ class FileRecord:
 
     @property
     def name(self):
+        if self.name_overwrite:
+            return self.name_overwrite
+        return os.path.basename(self.path)
+
+    @property
+    def filename(self):
         return os.path.basename(self.path)
 
 
@@ -624,7 +636,9 @@ def auto_report(dag, path, stylesheet=None):
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(f, wildcards_overwrite=None, aux_files=None):
+                def register_file(
+                    f, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category, wildcards=wildcards, job=job
@@ -640,9 +654,11 @@ def auto_report(dag, path, stylesheet=None):
                             report_obj.caption,
                             env,
                             category,
+                            dag.workflow,
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
+                            name_overwrite=name_overwrite,
                         )
                     )
                     recorded_files.add(f)
@@ -676,7 +692,9 @@ def auto_report(dag, path, stylesheet=None):
                                 "marked for report".format(report_obj.htmlindex)
                             )
                         register_file(
-                            os.path.join(f, report_obj.htmlindex), aux_files=aux_files
+                            os.path.join(f, report_obj.htmlindex),
+                            aux_files=aux_files,
+                            name_overwrite="{}.html".format(os.path.basename(f)),
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
@@ -871,7 +889,7 @@ def auto_report(dag, path, stylesheet=None):
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)
 
     if not mode_embedded:
-        with ZipFile(path, mode="w") as zipout:
+        with ZipFile(path, compression=ZIP_DEFLATED, mode="w") as zipout:
             folder = Path(Path(path).stem)
             # store results in data folder
             for subcats in results.values():
