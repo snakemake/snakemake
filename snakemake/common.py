@@ -38,13 +38,6 @@ else:
     async_run = asyncio.run
 
 
-class TBDInt(int):
-    """An integer that prints into <TBD>"""
-
-    def __str__(self):
-        return "<TBD>"
-
-
 # A string that prints as TBD
 TBDString = "<TBD>"
 
