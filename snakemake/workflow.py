@@ -1051,6 +1051,16 @@ class Workflow:
         else:
             return basedir
 
+    def source_path(self, rel_path):
+        """Return path to source file from work dir derived from given path relative to snakefile"""
+        # TODO download to disk (use source cache) in case of remote file
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        calling_file = frame.f_code.co_filename
+
+        return self.sourcecache.get_path(str(Path(calling_file).parent / rel_path))
+
     @property
     def snakefile(self):
         import inspect
