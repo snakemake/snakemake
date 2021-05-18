@@ -246,7 +246,7 @@ class DAG:
     def cleanup(self):
         self.job_cache.clear()
         final_jobs = set(self.bfs(self.dependencies, *self.targetjobs))
-        todelete = set(job for job in self.dependencies if job not in final_jobs)
+        todelete = [job for job in self.dependencies if job not in final_jobs]
         for job in todelete:
             try:
                 self._needrun.remove(job)
