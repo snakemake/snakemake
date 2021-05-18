@@ -602,6 +602,9 @@ class Paramspace:
         | ``Paramspace(df, filename_params=["column3", "column2"])`` ->
         | column1~{value1}/column4~{value4}/column3~{value3}_column2~{value2}
 
+        If ``filename_params="*"``, all columns of the dataframe are encoded into
+        the filename instead of parent directories.
+
       - ``param_sep`` takes a string which is used to join the column name and
         column value in the genrated paths (Default: '~'). Example:
 
