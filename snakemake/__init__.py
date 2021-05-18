@@ -1945,6 +1945,13 @@ def get_argument_parser(profile=None):
             " SLURM account."
         ),
     ),
+    slurm_mode_group.add_argument(
+        "--slurm-jobstep",
+        action="store_true"
+        help=argparse.SUPPRESS, # this should be hidden and only be used
+                                # for snakemake to be working in jobscript-
+                                # mode
+    )
 
     group_cluster = parser.add_argument_group("CLUSTER")
 
