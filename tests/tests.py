@@ -1204,6 +1204,16 @@ def test_module_worfklow_namespacing():
     run(dpath("test_module_workflow_snakefile_usage"))
 
 
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_module_report():
+    run(
+        dpath("test_module_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
 def test_handover():
     run(dpath("test_handover"), resources={"mem_mb": 20})
 

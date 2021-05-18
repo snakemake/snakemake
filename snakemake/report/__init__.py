@@ -834,7 +834,7 @@ def auto_report(dag, path, stylesheet=None):
     # global description
     text = ""
     if dag.workflow.report_text:
-        with open(dag.workflow.report_text) as f:
+        with dag.workflow.sourcecache.open(dag.workflow.report_text) as f:
 
             class Snakemake:
                 config = dag.workflow.config
