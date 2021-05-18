@@ -128,6 +128,7 @@ class Workflow:
         max_inventory_wait_time=20,
         conda_not_block_search_path_envvars=False,
         execute_subworkflows=True,
+        scheduler_solver_path=None,
     ):
         """
         Create the controller.
@@ -202,6 +203,7 @@ class Workflow:
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
         self.sourcecache = SourceCache()
+        self.scheduler_solver_path = scheduler_solver_path
 
         _globals = globals()
         _globals["workflow"] = self

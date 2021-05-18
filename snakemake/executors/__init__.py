@@ -659,14 +659,14 @@ class ClusterExecutor(RealExecutor):
                     "{envvars} " "cd {workflow.workdir_init} && "
                     if assume_shared_fs
                     else "",
-                    "{path:u} {sys.executable} " if assume_shared_fs else "python ",
+                    "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
-                    "--nocolor --notemp --no-hooks --nolock ",
+                    "--nocolor --notemp --no-hooks --nolock {scheduler_solver_path:u} ",
                     "--mode {} ".format(Mode.cluster),
                 )
             )
@@ -741,7 +741,7 @@ class ClusterExecutor(RealExecutor):
 
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
-        path = ""
+        scheduler_solver_path = ""
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
@@ -749,7 +749,9 @@ class ClusterExecutor(RealExecutor):
             # This way, we ensure that the snakemake process in the cluster node runs
             # in the same environment as the current process.
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
+            scheduler_solver_path = "--scheduler-solver-path {}".format(
+                os.path.dirname(sys.executable)
+            )
 
         format_p = partial(
             self.format_job_pattern,
@@ -757,7 +759,7 @@ class ClusterExecutor(RealExecutor):
             properties=job.properties(cluster=self.cluster_params(job)),
             latency_wait=self.latency_wait,
             wait_for_files=wait_for_files,
-            path=path,
+            scheduler_solver_path=scheduler_solver_path,
             **kwargs,
         )
         try:
