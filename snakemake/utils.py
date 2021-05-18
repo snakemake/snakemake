@@ -618,6 +618,9 @@ class Paramspace:
             self.pattern = "/".join([r"{}"] * len(self.dataframe.columns))
             self.ordered_columns = self.dataframe.columns
         else:
+            if isinstance(filename_params, str) and filename_params == "*":
+                filename_params = dataframe.columns
+
             if any((param not in dataframe.columns for param in filename_params)):
                 raise KeyError(
                     "One or more entries of filename_params are not valid coulumn names for the param file."
