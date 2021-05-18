@@ -1,0 +1,58 @@
+"""
+A test case for this bug
+"""
+
+n_files = 4
+
+rule all:
+    input:
+        faa='all.faa',
+        fasta='all.fasta'
+
+checkpoint make_files:
+    output: 
+        files=directory('files')
+    run:
+        os.makedirs(output.files)
+        for i in range(n_files):
+            filename = f'{output.files}/f{i}.fasta'
+            with open(filename, 'wt') as fasta_out:
+                fasta_out.write('>blank\nACTGACTG\n')
+
+def get_report_files(wildcards):
+    " get the names of the faa files to be created "
+    files_dir = checkpoints.make_files.get().output.files
+    files, = glob_wildcards(f'{files_dir}/{{file}}.fasta')
+    return expand(f'{files_dir}/{{file}}.txt', file=files)
+    
+rule pattern:
+    input: "{any_file}.fasta"
+    output: "{any_file}.faa"
+    shell: "cp {input} {output}"
+        
+
+rule multiple:
+    """ in my original example,  compiled a bunch of sets of report, fasta and faa files
+    into a master file of each type.
+    
+    only the reports were the actual inputs. Neitheer the fasta or faa were listed 
+    """
+    input: 
+        reports=get_report_files
+    output:
+        fasta='all.fasta',
+        faa='all.faa'
+    shell:
+        "touch {output}"
+
+rule report:
+    input:
+        "f{n}.faa"
+    output:
+        "f{n}.txt"
+    shell: "wc {input} > {output}"
+        
+rule make_fasta:
+    " just create a placehlder"
+    output: "f{n}.fasta"
+    shell: "echo {wildcards.n} > {output}"

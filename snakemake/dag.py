@@ -252,8 +252,15 @@ class DAG:
                 self._needrun.remove(job)
             except KeyError:
                 pass
+
+            # delete all pointers from dependencies to this job
+            for dep in self.dependencies[job]:
+                del self.depending[dep][job]
+
+            # delete all dependencies
             del self.dependencies[job]
             try:
+                # delete all pointers to downstream dependencies
                 del self.depending[job]
             except KeyError:
                 pass

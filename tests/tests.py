@@ -1030,6 +1030,11 @@ def test_github_issue727():
     run(dpath("test_github_issue727"))
 
 
+@skip_on_windows
+def test_github_issue988():
+    run(dpath("test_github_issue988"))
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
