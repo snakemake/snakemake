@@ -246,14 +246,21 @@ class DAG:
     def cleanup(self):
         self.job_cache.clear()
         final_jobs = set(self.bfs(self.dependencies, *self.targetjobs))
-        todelete = [job for job in self.dependencies if job not in final_jobs]
+        todelete = set(job for job in self.dependencies if job not in final_jobs)
         for job in todelete:
             try:
                 self._needrun.remove(job)
             except KeyError:
                 pass
+
+            # delete all pointers from dependencies to this job
+            for dep in self.dependencies[job]:
+                del self.depending[dep][job]
+
+            # delete all dependencies
             del self.dependencies[job]
             try:
+                # delete all pointers to downstream dependencies
                 del self.depending[job]
             except KeyError:
                 pass
@@ -1461,10 +1468,7 @@ class DAG:
             for _job in self.dependencies[job]:
                 self.targetjobs.add(_job)
         for job_ in self.depending[job]:
-            try:
-                del self.dependencies[job_][job]
-            except KeyError:
-                pass
+            del self.dependencies[job_][job]
         del self.depending[job]
         for job_ in self.dependencies[job]:
             depending = self.depending[job_]
