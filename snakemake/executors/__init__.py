@@ -661,7 +661,7 @@ class ClusterExecutor(RealExecutor):
                     "{path:u} {sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
-                    "{waitfiles_parameter} --latency-wait {latency_wait} ",
+                    "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
