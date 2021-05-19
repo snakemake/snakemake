@@ -62,7 +62,16 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto, ON_WINDOWS, is_local_file
+from snakemake.common import (
+    Mode,
+    bytesto,
+    ON_WINDOWS,
+    is_local_file,
+    Rules,
+    Scatter,
+    Gather,
+    smart_join,
+)
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -119,6 +128,7 @@ class Workflow:
         max_inventory_wait_time=20,
         conda_not_block_search_path_envvars=False,
         execute_subworkflows=True,
+        scheduler_solver_path=None,
     ):
         """
         Create the controller.
@@ -138,7 +148,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
-        self.snakefile = os.path.abspath(snakefile)
+        self.main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
         self.jobscript = jobscript
@@ -193,9 +203,16 @@ class Workflow:
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
         self.sourcecache = SourceCache()
+        self.scheduler_solver_path = scheduler_solver_path
 
         _globals = globals()
         _globals["workflow"] = self
+        _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
+        _globals["rules"] = Rules()
+        _globals["checkpoints"] = Checkpoints()
+        _globals["scatter"] = Scatter()
+        _globals["gather"] = Gather()
+
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
@@ -221,20 +238,7 @@ class Workflow:
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
-        global config
-        config = copy.deepcopy(self.overwrite_config)
-
-        global cluster_config
-        cluster_config = copy.deepcopy(self.overwrite_clusterconfig)
-
-        global rules
-        rules = Rules()
-        global checkpoints
-        checkpoints = Checkpoints()
-        global scatter
-        scatter = Scatter()
-        global gather
-        gather = Gather()
+        self.globals["config"] = copy.deepcopy(self.overwrite_config)
 
         if envvars is not None:
             self.register_envvars(*envvars)
@@ -409,8 +413,6 @@ class Workflow:
         """
         Add a rule.
         """
-        if name is None:
-            name = str(len(self._rules) + 1)
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
@@ -1045,7 +1047,28 @@ class Workflow:
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
-        return os.path.abspath(os.path.dirname(self.included_stack[-1]))
+        basedir = os.path.dirname(self.included_stack[-1])
+        if is_local_file(basedir):
+            return os.path.abspath(basedir)
+        else:
+            return basedir
+
+    def source_path(self, rel_path):
+        """Return path to source file from work dir derived from given path relative to snakefile"""
+        # TODO download to disk (use source cache) in case of remote file
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        calling_file = frame.f_code.co_filename
+
+        return self.sourcecache.get_path(str(Path(calling_file).parent / rel_path))
+
+    @property
+    def snakefile(self):
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        return frame.f_code.co_filename
 
     def register_envvars(self, *envvars):
         """
@@ -1082,7 +1105,7 @@ class Workflow:
         # check if snakefile is a path to the filesystem
         if is_local_file(snakefile):
             if not os.path.isabs(snakefile) and self.included_stack:
-                snakefile = os.path.join(self.current_basedir, snakefile)
+                snakefile = smart_join(self.current_basedir, snakefile)
             # Could still be a url if relative import was used
             if is_local_file(snakefile):
                 snakefile = os.path.abspath(snakefile)
@@ -1153,8 +1176,8 @@ class Workflow:
             )
 
         for key in content:
-            setattr(scatter, key, func)
-            setattr(gather, key, func)
+            setattr(self.globals["scatter"], key, func)
+            setattr(self.globals["gather"], key, func)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1164,7 +1187,7 @@ class Workflow:
             os.chdir(workdir)
 
     def configfile(self, fp):
-        """ Update the global config with data from the given file. """
+        """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
             self.configfiles.append(fp)
@@ -1199,16 +1222,15 @@ class Workflow:
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
-        """ Define a global report description in .rst format."""
+        """Define a global report description in .rst format."""
         self.report_text = os.path.join(self.current_basedir, path)
 
     @property
     def config(self):
-        global config
-        return config
+        return self.globals["config"]
 
     def ruleorder(self, *rulenames):
-        self._ruleorder.add(*rulenames)
+        self._ruleorder.add(*map(self.modifier.modify_rulename, rulenames))
 
     def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
         # Take absolute path of config file, because it is relative to current
@@ -1223,6 +1245,10 @@ class Workflow:
         self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+        # choose a name for an unnamed rule
+        if name is None:
+            name = str(len(self._rules) + 1)
+
         if self.modifier.skip_rule(name):
 
             def decorate(ruleinfo):
@@ -1232,6 +1258,7 @@ class Workflow:
             return decorate
 
         # Optionally let the modifier change the rulename.
+        orig_name = name
         name = self.modifier.modify_rulename(name)
 
         name = self.add_rule(
@@ -1319,6 +1346,7 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
                     ruleinfo.priority, float
@@ -1406,8 +1434,8 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule:
-                    # skip rules with run directive
+                if not invalid_rule and ruleinfo.container_img is not None:
+                    # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
@@ -1423,6 +1451,21 @@ class Workflow:
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
+
+            if ruleinfo.handover:
+                if not ruleinfo.resources:
+                    # give all available resources to the rule
+                    rule.resources.update(
+                        {
+                            name: val
+                            for name, val in self.global_resources.items()
+                            if val is not None
+                        }
+                    )
+                # This becomes a local rule, which might spawn jobs to a cluster,
+                # depending on its configuration (e.g. nextflow config).
+                self._localrules.add(rule.name)
+                rule.is_handover = True
 
             if ruleinfo.cache is True:
                 if not self.enable_cache:
@@ -1441,9 +1484,14 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, rule.name, RuleProxy(rule))
+
+            rule_proxy = RuleProxy(rule)
+            if orig_name is not None:
+                setattr(self.globals["rules"], orig_name, rule_proxy)
+            setattr(self.globals["rules"], rule.name, rule_proxy)
+
             if checkpoint:
-                checkpoints.register(rule)
+                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
             rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
@@ -1591,6 +1639,13 @@ class Workflow:
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
             ruleinfo.log = (logs, kwlogs)
+            return ruleinfo
+
+        return decorate
+
+    def handover(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.handover = value
             return ruleinfo
 
         return decorate
@@ -1755,24 +1810,6 @@ class Subworkflow:
             for f in job.subworkflow_input
             if job.subworkflow_input[f] is self
         ]
-
-
-class Rules:
-    """ A namespace for rules so that they can be accessed via dot notation. """
-
-    pass
-
-
-class Scatter:
-    """ A namespace for scatter to allow items to be accessed via dot notation."""
-
-    pass
-
-
-class Gather:
-    """ A namespace for gather to allow items to be accessed via dot notation."""
-
-    pass
 
 
 def srcdir(path):

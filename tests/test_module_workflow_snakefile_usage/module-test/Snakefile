@@ -1,0 +1,15 @@
+configfile: "config.yaml" # does not exist, but this statement should be ignored on module import
+
+
+def params_func(filename):
+    return str((Path(workflow.snakefile).parent / filename).as_posix())
+
+
+rule a:
+    output:
+        "results/test.out"
+    params:
+        some_resource=params_func("some_file.txt"),
+        other_resource=lambda w: params_func("some_file.txt")
+    shell:
+        "cat {params.some_resource} {params.other_resource} > {output}"

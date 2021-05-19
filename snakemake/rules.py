@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
 import sre_constants
@@ -24,6 +25,8 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard_constraints,
     update_wildcard_constraints,
+    flag,
+    get_flag_value,
 )
 from snakemake.io import (
     expand,
@@ -52,7 +55,7 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDInt
+from snakemake.common import Mode, lazy_property, TBDString
 
 
 class Rule:
@@ -101,6 +104,7 @@ class Rule:
             self.wrapper = None
             self.cwl = None
             self.norun = False
+            self.is_handover = False
             self.is_branched = False
             self.is_checkpoint = False
             self.restart_times = 0
@@ -149,6 +153,7 @@ class Rule:
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
+            self.is_handover = other.is_handover
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
@@ -480,10 +485,15 @@ class Rule:
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            rule_dependency = None
+            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
+                rule_dependency = item.rule
+
             item = self.apply_path_modifier(
                 item, property="output" if output else "input"
             )
@@ -513,8 +523,8 @@ class Rule:
                         )
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                self.dependencies[item] = item.rule
+            if rule_dependency is not None:
+                self.dependencies[item] = rule_dependency
             if output:
                 item = self._update_item_wildcard_constraints(item)
             else:
@@ -681,6 +691,14 @@ class Rule:
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
+        except FileNotFoundError as e:
+            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+            # where input files are not yet present, we need to skip such cases and
+            # mark them as <TBD>.
+            if e.filename in aux_params["input"]:
+                value = TBDString
+            else:
+                raise e
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
@@ -946,25 +964,15 @@ class Rule:
                 if threads:
                     aux["threads"] = threads
                 try:
-                    try:
-                        res, _ = self.apply_input_function(
-                            res,
-                            wildcards,
-                            input=input,
-                            attempt=attempt,
-                            incomplete_checkpoint_func=lambda e: 0,
-                            raw_exceptions=True,
-                            **aux
-                        )
-                    except FileNotFoundError as e:
-                        # Resources can depend on input files. Since expansion can happen during dryrun,
-                        # where input files are not yet present, we need to skip such resources and
-                        # mark them as [TBD].
-                        if e.filename in input:
-                            # use zero for resource if it cannot yet be determined
-                            res = TBDInt(0)
-                        else:
-                            raise e
+                    res, _ = self.apply_input_function(
+                        res,
+                        wildcards,
+                        input=input,
+                        attempt=attempt,
+                        incomplete_checkpoint_func=lambda e: 0,
+                        raw_exceptions=True,
+                        **aux
+                    )
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
@@ -1159,6 +1167,9 @@ class RuleProxy:
             prefix = self.rule.workflow.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
+
+            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
+
             if (
                 self.rule.workflow.default_remote_provider is not None
                 and f.startswith(prefix)
@@ -1169,6 +1180,9 @@ class RuleProxy:
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_remote_object(f)
+
+            if modified_by is not None:
+                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
 
             return cleaned
 

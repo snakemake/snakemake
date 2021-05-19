@@ -217,15 +217,13 @@ The path to the environment definition is interpreted as **relative to the Snake
 
    Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+   
+   Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments. 
+   Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
+   If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
-Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
-
-.. sidebar:: Note
-
-    Search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments. 
-    Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
-    If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
+Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation. 
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
@@ -267,6 +265,25 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
+
+A global definition of a container image can be given:
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        ...
+
+In this case all jobs will be executed in a container. You can disable execution in container
+by setting the container directive of the rule to ``None``.
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        container: None
 
 -----------------------------------------
 Containerization of Conda based workflows

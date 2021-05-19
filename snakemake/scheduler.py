@@ -8,6 +8,7 @@ import threading
 import operator
 import time
 import math
+import asyncio
 
 from functools import partial
 from collections import defaultdict
@@ -27,7 +28,7 @@ from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
-
+from snakemake.common import async_run
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -94,7 +95,7 @@ class JobScheduler:
         scheduler_type=None,
         scheduler_ilp_solver=None,
     ):
-        """ Create a new instance of KnapsackJobScheduler. """
+        """Create a new instance of KnapsackJobScheduler."""
         from ratelimiter import RateLimiter
 
         self.cluster = cluster
@@ -393,7 +394,7 @@ class JobScheduler:
 
     @property
     def open_jobs(self):
-        """ Return open jobs. """
+        """Return open jobs."""
         jobs = self.dag.ready_jobs
 
         if not self.dryrun:
@@ -406,7 +407,7 @@ class JobScheduler:
 
     @property
     def remaining_jobs(self):
-        """ Return jobs to be scheduled including not yet ready ones. """
+        """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
             for job in self.dag.needrun_jobs
@@ -414,7 +415,7 @@ class JobScheduler:
         ]
 
     def schedule(self):
-        """ Schedule jobs that are ready, maximizing cpu usage. """
+        """Schedule jobs that are ready, maximizing cpu usage."""
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -525,7 +526,7 @@ class JobScheduler:
         update_resources=True,
         handle_job_success=True,
     ):
-        """ Do stuff after job is finished. """
+        """Do stuff after job is finished."""
         with self._lock:
             if handle_job_success:
                 # by calling this behind the lock, we avoid race conditions
@@ -612,6 +613,7 @@ class JobScheduler:
         """
         import pulp
         from pulp import lpSum
+        from stopit import ThreadingTimeout as Timeout, TimeoutException
 
         logger.info("Select jobs to execute...")
 
@@ -721,15 +723,15 @@ class JobScheduler:
                     temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
                 )
 
-        solver = (
-            pulp.get_solver(self.scheduler_ilp_solver)
-            if self.scheduler_ilp_solver
-            else pulp.apis.LpSolverDefault
-        )
-        solver.msg = self.workflow.verbose
-        # disable extensive logging
         try:
-            prob.solve(solver)
+            with Timeout(10, swallow_exc=False):
+                self._solve_ilp(prob)
+        except TimeoutException as e:
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver in time (10s). "
+                "Falling back to greedy solver."
+            )
+            return self.job_selector_greedy(jobs)
         except pulp.apis.core.PulpSolverError as e:
             logger.warning(
                 "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
@@ -751,6 +753,28 @@ class JobScheduler:
                 [job.resources.get(name, 0) for job in selected_jobs]
             )
         return selected_jobs
+
+    def _solve_ilp(self, prob):
+        import pulp
+
+        old_path = os.environ["PATH"]
+        if self.workflow.scheduler_solver_path is None:
+            # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
+            # This is needed for cluster envs, where the cluster job might have a different environment but
+            # still needs access to the solver binary.
+            os.environ["PATH"] = "{}:{}".format(
+                self.workflow.scheduler_solver_path, os.environ["PATH"]
+            )
+        try:
+            solver = (
+                pulp.get_solver(self.scheduler_ilp_solver)
+                if self.scheduler_ilp_solver
+                else pulp.apis.LpSolverDefault
+            )
+        finally:
+            os.environ["PATH"] = old_path
+        solver.msg = self.workflow.verbose
+        prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.dag.temp_input(job) else 0
@@ -869,5 +893,5 @@ class JobScheduler:
         return (job.priority, temp_size, input_size)
 
     def progress(self):
-        """ Display the progress. """
+        """Display the progress."""
         logger.progress(done=self.finished_jobs, total=len(self.dag))

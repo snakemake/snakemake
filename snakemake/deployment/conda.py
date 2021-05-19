@@ -20,6 +20,7 @@ import zipfile
 import uuid
 from enum import Enum
 import threading
+import shutil
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
@@ -109,7 +110,6 @@ class Env:
 
     @property
     def is_containerized(self):
-        import yaml
 
         if not self._container_img:
             return False
@@ -209,7 +209,7 @@ class Env:
         return env_archive
 
     def create(self, dryrun=False):
-        """ Create the conda enviroment."""
+        """Create the conda enviroment."""
         from snakemake.shell import shell
 
         # Read env file and create hash.
@@ -316,11 +316,12 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
-                            "--copy",
+                            "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
                         + packages
                     )
+                    print(cmd)
                     if self._container_img:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
@@ -517,3 +518,7 @@ class Conda:
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
         return "source {} '{}'; {}".format(activate, env_path, cmd)
+
+
+def is_mamba_available():
+    return shutil.which("mamba") is not None

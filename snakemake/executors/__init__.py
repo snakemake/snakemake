@@ -221,7 +221,7 @@ class RealExecutor(AbstractExecutor):
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
 
     def register_job(self, job):
         job.register()
@@ -491,6 +491,7 @@ class CPUExecutor(RealExecutor):
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook,
+            job.rule.basedir,
         )
 
     def run_single_job(self, job):
@@ -636,7 +637,7 @@ class ClusterExecutor(RealExecutor):
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
-            self.snakefile = os.path.relpath(workflow.snakefile)
+            self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -658,14 +659,14 @@ class ClusterExecutor(RealExecutor):
                     "{envvars} " "cd {workflow.workdir_init} && "
                     if assume_shared_fs
                     else "",
-                    "{path:u} {sys.executable} " if assume_shared_fs else "python ",
+                    "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
-                    "--nocolor --notemp --no-hooks --nolock ",
+                    "--nocolor --notemp --no-hooks --nolock {scheduler_solver_path:u} ",
                     "--mode {} ".format(Mode.cluster),
                 )
             )
@@ -740,7 +741,7 @@ class ClusterExecutor(RealExecutor):
 
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
-        path = ""
+        scheduler_solver_path = ""
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
@@ -748,7 +749,9 @@ class ClusterExecutor(RealExecutor):
             # This way, we ensure that the snakemake process in the cluster node runs
             # in the same environment as the current process.
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
+            scheduler_solver_path = "--scheduler-solver-path {}".format(
+                os.path.dirname(sys.executable)
+            )
 
         # Only create extra file if we have more than 20 input files.
         # This should not require the file creation in most cases.
@@ -771,7 +774,7 @@ class ClusterExecutor(RealExecutor):
             properties=job.properties(cluster=self.cluster_params(job)),
             latency_wait=self.latency_wait,
             waitfiles_parameter=waitfiles_parameter,
-            path=path,
+            scheduler_solver_path=scheduler_solver_path,
             **kwargs,
         )
         try:
@@ -1063,7 +1066,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # Ctrl-C on the main process or sending killall to
                         # snakemake.
                         # Snakemake will handle the signal in
-                        # the master process.
+                        # the main process.
                         pass
                     else:
                         raise WorkflowError(
@@ -1403,7 +1406,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 @contextlib.contextmanager
 def change_working_directory(directory=None):
-    """ Change working directory in execution context if provided. """
+    """Change working directory in execution context if provided."""
     if directory:
         try:
             saved_directory = os.getcwd()
@@ -1469,7 +1472,7 @@ class KubernetesExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
         # use relative path to Snakefile
-        self.snakefile = os.path.relpath(workflow.snakefile)
+        self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         try:
             from kubernetes import config
@@ -1910,7 +1913,7 @@ class TibannaExecutor(ClusterExecutor):
         for f in self.workflow_sources:
             log += f
         logger.debug(log)
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
         self.envvars = {e: os.environ[e] for e in workflow.envvars}
         if self.envvars:
             logger.debug("envvars = %s" % str(self.envvars))
@@ -2159,6 +2162,7 @@ class TibannaExecutor(ClusterExecutor):
             sfn=self.tibanna_sfn,
             verbose=not self.quiet,
             jobid=jobid,
+            open_browser=False,
             sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
@@ -2228,6 +2232,7 @@ def run_wrapper(
     shadow_dir,
     jobid,
     edit_notebook,
+    basedir,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2306,6 +2311,7 @@ def run_wrapper(
                             cleanup_scripts,
                             passed_shadow_dir,
                             edit_notebook,
+                            basedir,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2334,6 +2340,7 @@ def run_wrapper(
                                 cleanup_scripts,
                                 passed_shadow_dir,
                                 edit_notebook,
+                                basedir,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2360,6 +2367,7 @@ def run_wrapper(
                     cleanup_scripts,
                     passed_shadow_dir,
                     edit_notebook,
+                    basedir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

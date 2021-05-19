@@ -69,9 +69,11 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "connection_pool >=0.0.3",
         "pulp >=2.0",
-        "smart_open",
+        "smart_open >=3.0",
         "filelock",
+        "stopit",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],

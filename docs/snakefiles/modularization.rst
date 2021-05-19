@@ -9,7 +9,7 @@ Modularization
 Modularization in Snakemake comes at four different levels.
 
 1. The most fine-grained level are wrappers. They are available and can be published at the `Snakemake Wrapper Repository`_. These wrappers can then be composed and customized according to your needs, by copying skeleton rules into your workflow. In combination with conda integration, wrappers also automatically deploy the needed software dependencies into isolated environments.
-2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a master Snakefile via the include statement. In such a setup, all rules share a common config file.
+2. For larger, reusable parts that shall be integrated into a common workflow, it is recommended to write small Snakefiles and include them into a main Snakefile via the include statement. In such a setup, all rules share a common config file.
 3. The third level is provided via the :ref:`module statement <snakefiles-modules>`, which enables arbitrary combination and reuse of rules.
 4. Finally, Snakemake provides a syntax for defining :ref:`subworkflows <snakefiles-sub_workflows>`, which is however deprecated in favor of the module statement.
 
@@ -43,10 +43,14 @@ For example
 
 Refers to the wrapper ``"0.0.8/bio/samtools/sort"`` to create the output from the input.
 Snakemake will automatically download the wrapper from the `Snakemake Wrapper Repository`_.
-Thereby, 0.0.8 can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
-This ensures reproducibility since changes in the wrapper implementation won't be propagated automatically to your workflow.
-Alternatively, e.g., for development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Thereby, ``0.0.8`` can be replaced with the git `version tag <https://github.com/snakemake/snakemake-wrappers/releases>`_ you want to use, or a `commit id <https://github.com/snakemake/snakemake-wrappers/commits>`_.
+This ensures reproducibility since changes in the wrapper implementation will only be propagated to your workflow once you update the version tag.
 Examples for each wrapper can be found in the READMEs located in the wrapper subdirectories at the `Snakemake Wrapper Repository`_.
+
+Alternatively, for example during development, the wrapper directive can also point to full URLs, including URLs to local files with absolute paths ``file://`` or relative paths ``file:``.
+Such a URL will have to point to the folder containing the ``wrapper.*`` and ``environment.yaml`` files.
+In the above example, the full GitHub URL could for example be provided with ``wrapper: https://github.com/snakemake/snakemake-wrappers/raw/0.0.8/bio/samtools/sort``.
+Note that it needs to point to the ``/raw/`` version of the folder, not the rendered HTML version.
 
 In addition, the `Snakemake Wrapper Repository`_ offers so-called meta-wrappers, which can be used as modules, see :ref:`snakefiles-meta-wrappers`.
 
@@ -168,11 +172,15 @@ This modification can be performed after a general import, and will overwrite an
 
     use rule * from other_workflow as other_*
 
-    use rule some_task from other_workflow as other_task with:
+    use rule some_task from other_workflow as other_some_task with:
         output:
             "results/some-result.txt"
 
 By such a modifying use statement, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be overwritten, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+
+Note that the second use statement has to use the original rule name, not the one that has been prefixed with ``other_`` via the first use statement (there is no rule ``other_some_task`` in the module ``other_workflow``).
+In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
+Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
 Of course, it is possible to combine the use of rules from multiple modules, and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 

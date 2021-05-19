@@ -18,7 +18,7 @@ class RuleInfo:
         self.message = None
         self.benchmark = None
         self.conda_env = None
-        self.container_img = None
+        self.container_img = ""
         self.is_containerized = False
         self.env_modules = None
         self.wildcard_constraints = None
@@ -36,6 +36,7 @@ class RuleInfo:
         self.cwl = None
         self.cache = False
         self.path_modifier = None
+        self.handover = False
 
     def apply_modifier(
         self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}

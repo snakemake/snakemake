@@ -5,7 +5,10 @@ __license__ = "MIT"
 
 import os
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_flagged, AnnotatedString
+from snakemake.io import is_flagged, AnnotatedString, flag, get_flag_value
+
+
+PATH_MODIFIER_FLAG = "path_modified"
 
 
 class PathModifier:
@@ -24,19 +27,29 @@ class PathModifier:
                 self.trie[prefix] = replacement
 
     def modify(self, path, property=None):
+        if get_flag_value(path, PATH_MODIFIER_FLAG) is self:
+            # Path has been modified before and is reused now, no need to modify again.
+            return path
+
         modified_path = self.apply_default_remote(self.replace_prefix(path, property))
+        if modified_path == path:
+            # nothing has changed
+            return path
+
         # Important, update with previous flags in case of AnnotatedString #596
         if hasattr(path, "flags"):
             if not hasattr(modified_path, "flags"):
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
+        # Flag the path as modified and return.
+        modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
         return modified_path
 
     def replace_prefix(self, path, property=None):
         if self.trie is None or property in self.skip_properties:
             # no replacement
             return path
-        prefixes = self.trie.prefix_items(path)
+        prefixes = self.trie.prefix_items(str(path))
         if len(prefixes) > 1:
             # ambiguous prefixes
             raise WorkflowError(

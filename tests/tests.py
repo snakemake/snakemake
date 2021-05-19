@@ -719,6 +719,24 @@ def test_singularity_conda():
     )
 
 
+@skip_on_windows
+@connected
+def test_singularity_none():
+    run(
+        dpath("test_singularity_none"),
+        use_singularity=True,
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_global():
+    run(
+        dpath("test_singularity_global"),
+        use_singularity=True,
+    )
+
+
 def test_issue612():
     run(dpath("test_issue612"), dryrun=True)
 
@@ -1012,6 +1030,11 @@ def test_github_issue727():
     run(dpath("test_github_issue727"))
 
 
+@skip_on_windows
+def test_github_issue988():
+    run(dpath("test_github_issue988"))
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
@@ -1093,6 +1116,7 @@ def test_github_issue640():
     )
 
 
+@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
@@ -1167,3 +1191,38 @@ def test_modules_meta_wrapper():
 
 def test_use_rule_same_module():
     run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
+
+
+def test_module_complex():
+    run(dpath("test_module_complex"), dryrun=True)
+
+
+def test_module_complex2():
+    run(dpath("test_module_complex2"), dryrun=True)
+
+
+def test_module_with_script():
+    run(dpath("test_module_with_script"))
+
+
+def test_module_worfklow_namespacing():
+    run(dpath("test_module_workflow_snakefile_usage"))
+
+
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_module_report():
+    run(
+        dpath("test_module_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_handover():
+    run(dpath("test_handover"), resources={"mem_mb": 20})
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path():
+    run(dpath("test_source_path"), snakefile="workflow/Snakefile")

@@ -38,13 +38,6 @@ else:
     async_run = asyncio.run
 
 
-class TBDInt(int):
-    """An integer that prints into <TBD>"""
-
-    def __str__(self):
-        return "<TBD>"
-
-
 # A string that prints as TBD
 TBDString = "<TBD>"
 
@@ -65,6 +58,16 @@ def is_local_file(path_or_uri):
     from smart_open import parse_uri
 
     return parse_uri(path_or_uri).scheme == "file"
+
+
+def smart_join(base, path, abspath=False):
+    if is_local_file(base):
+        full = os.path.join(base, path)
+        if abspath:
+            return os.path.abspath(full)
+        return full
+    else:
+        return "{}/{}".format(base, path)
 
 
 def num_if_possible(s):
@@ -184,3 +187,21 @@ def group_into_chunks(n, iterable):
         if not chunk:
             return
         yield chunk
+
+
+class Rules:
+    """A namespace for rules so that they can be accessed via dot notation."""
+
+    pass
+
+
+class Scatter:
+    """A namespace for scatter to allow items to be accessed via dot notation."""
+
+    pass
+
+
+class Gather:
+    """A namespace for gather to allow items to be accessed via dot notation."""
+
+    pass

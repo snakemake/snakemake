@@ -16,11 +16,11 @@ Snakemake
 .. image:: https://img.shields.io/pypi/v/snakemake.svg
     :target: https://pypi.python.org/pypi/snakemake
 
-.. image:: https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container&branch=master
+.. image:: https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container&branch=main
     :target: https://hub.docker.com/r/snakemake/snakemake
 
-.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=master&label=tests
-    :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amaster+workflow%3ACI
+.. image:: https://github.com/snakemake/snakemake/workflows/CI/badge.svg?branch=main&label=tests
+    :target: https://github.com/snakemake/snakemake/actions?query=branch%3Amain+workflow%3ACI
 
 .. image:: https://img.shields.io/badge/stack-overflow-orange.svg
     :target: https://stackoverflow.com/questions/tagged/snakemake
@@ -149,6 +149,7 @@ Resources
     snakefiles/deployment
     snakefiles/reporting
     snakefiles/testing
+    snakefiles/foreign_wms
 
 
 .. toctree::
