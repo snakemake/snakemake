@@ -760,12 +760,13 @@ class ClusterExecutor(RealExecutor):
             with open(wait_for_files_file, "w") as fd:
                 fd.write("\n".join(wait_for_files))
 
-            waitfiles_parameter = format("--wait-for-files-file {wait_for_files_file}",
-                wait_for_files_file=wait_for_files_file
+            waitfiles_parameter = format(
+                "--wait-for-files-file {wait_for_files_file}",
+                wait_for_files_file=wait_for_files_file,
             )
         else:
-            waitfiles_parameter = format("--wait-for-files {wait_for_files}",
-                wait_for_files=wait_for_files
+            waitfiles_parameter = format(
+                "--wait-for-files {wait_for_files}", wait_for_files=wait_for_files
             )
 
         format_p = partial(
