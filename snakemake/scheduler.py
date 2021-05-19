@@ -186,10 +186,9 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 latency_wait=latency_wait,
-                assume_shared_fs=True,
-                keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
-                max_status_checks_per_second=max_status_checks_per_second,
+            #    assume_shared_fs=True,
+                #keepincomplete=keepincomplete,
+                #keepmetadata=keepmetadata,
                 cluster_config=cluster_config,
             )
             if slurm_jobstep:
@@ -201,10 +200,9 @@ class JobScheduler:
                     quiet=quiet,
                     printshellcmds=printshellcmds,
                     latency_wait=latency_wait,
-                    assume_shared_fs=True,
-                    keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
-                    max_status_checks_per_second=max_status_checks_per_second,
+                    #assume_shared_fs=True,
+                    #keepincomplete=keepincomplete,
+                    #keepmetadata=keepmetadata,
                 )
 
         elif cluster or cluster_sync or (drmaa is not None):
