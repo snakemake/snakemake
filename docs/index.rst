@@ -58,6 +58,7 @@ Getting started
 * To properly understand what Snakemake can do for you please read our `"rolling" paper <https://doi.org/10.12688/f1000research.29032.1>`_.
 * News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 * To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+* **Best practices** for writing Snakemake workflows can be found :ref:`here <snakefiles-best_practices>`.
 * For more advanced usage on various platforms, see the :ref:`executor_tutorial`.
 
 .. _main-support:

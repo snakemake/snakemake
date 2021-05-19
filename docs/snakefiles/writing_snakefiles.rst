@@ -85,3 +85,9 @@ The linter can be invoked with
 
 given that a ``Snakefile`` or ``workflow/Snakefile`` is accessible from your working directory.
 It is **highly recommended** to run the linter before publishing any workflow, asking questions on Stack Overflow or filing issues on Github.
+
+Further, there is an automatic formatter for Snakemake workflows, called `Snakefmt <https://github.com/snakemake/snakefmt>`_, which should be applied to any Snakemake workflow before publishing it.
+
+For publishing and distributing a Snakemake workflow, it is a good idea to stick to a :ref:`standardized structure <distribution_and_reproducibility>` that is expected by frequent users of Snakemake.
+Finally, the `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_ automatically lists Snakemake workflows hosted on `Github <https://github.com>`_ if they follow certain `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_.
+By complying to these `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ you can make your workflow more discoverable and even automate its usage documentation (see `"Standardized usage" <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_).
