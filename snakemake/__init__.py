@@ -80,8 +80,7 @@ def snakemake(
     quiet=False,
     keepgoing=False,
     slurm=None,
-    # TODO: not ready
-    # slurm_jobstep=None,
+    slurm_jobstep=None,
     cluster=None,
     cluster_config=None,
     cluster_sync=None,
@@ -716,6 +715,7 @@ def snakemake(
                     printfilegraph=printfilegraph,
                     printdag=printdag,
                     slurm=slurm,
+                    slurm_jobstep=slurm_jobstep,
                     cluster=cluster,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
@@ -1947,8 +1947,8 @@ def get_argument_parser(profile=None):
     ),
     slurm_mode_group.add_argument(
         "--slurm-jobstep",
-        action="store_true"
-        help=argparse.SUPPRESS, # this should be hidden and only be used
+        action="store_true",
+        help=configargparse.SUPPRESS, # this should be hidden and only be used
                                 # for snakemake to be working in jobscript-
                                 # mode
     )
@@ -2366,6 +2366,7 @@ def main(argv=None):
     local_exec = not (
         args.print_compilation
         or args.slurm
+        or args.slurm_jobstep
         or args.cluster
         or args.cluster_sync
         or args.drmaa
@@ -2684,8 +2685,7 @@ def main(argv=None):
             quiet=args.quiet,
             keepgoing=args.keep_going,
             slurm=args.slurm,
-            # TODO: not ready
-            # slurm_jobstep=args.slurmjobstep,
+            slurm_jobstep=args.slurm_jobstep,
             cluster=args.cluster,
             cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,
