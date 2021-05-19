@@ -37,7 +37,7 @@ class SlurmExecutor(ClusterExecutor):
         workflow,
         dag,
         cores,
-        jobname="snakejob.{name}.{jobid}.sh",
+        jobname="snakejob_{jobid}_", # name and SLURM_JOB_ID will be appended
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -54,6 +54,9 @@ class SlurmExecutor(ClusterExecutor):
         # needs to be set in either case for the submission string
         if not cores:
             cores = 1
+
+        # seems otherswise not in namespace, despite the super class init
+        self.max_status_checks_per_second = max_status_checks_per_second
 
         super().__init__(
             workflow,
@@ -197,9 +200,11 @@ class SlurmExecutor(ClusterExecutor):
         jobid = job.jobid
         # generic part of a submission string:
         # print(self.exec_job)
+        os.makedirs('.snakemake/slurm_logs', exist_ok=True)
+
         try:
             call = "sbatch -A {account} -p {partition} \
-                    -t {walltime_minutes} -J {jobname} \
+                    -J {jobname} \
                     -o .snakemake/slurm_logs/%x_%j.log \
                     --export=ALL".format(
                 **job.resources, jobname=self.jobname
@@ -211,6 +216,9 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
             sys.exit(1)
+        if not job.resources.get('walltime_minutes'):
+            logger.warning("No wall time limit is set, setting 'walltime_minutes' to 1.")
+        call += " -t {walltime_minutes}".format(walltime_minutes = job.resources.get('walltime_minutes', default_value=1))
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
         # TODO: implement when tempfs-resource is defined
@@ -233,7 +241,11 @@ class SlurmExecutor(ClusterExecutor):
         elif not job.resources.get("mpi") and not job.is_group():
             # TODO: this line will become longer
             # TODO: hence the single command, yet
-            call += " -n 1 -c {threads}".format(**job.resources)
+            if not job.resources.get("threads"):
+                logger.warning("No value for 'threads' is set, assuming 1.")
+                call += " -n 1 -c 1"
+            else:
+                call += " -n 1 -c {threads}".format(**job.resources)
         else:  # job.is_group:
             pass
 
@@ -264,12 +276,14 @@ class SlurmExecutor(ClusterExecutor):
         obtain SLURM job status of submitted jobs
         """
         STATUS_ATTEMPS = 10
+        res = None
+
         for i in range(STATUS_ATTEMPS):
             # use self.status_rate_limiter to avoid too many API calls.
             with self.status_rate_limiter:
                 try:
                     sacct_cmd = shlex.split("sacct -P -b -j {} -n".format(jobid))
-                    sacct_res = subprocess.check_output(sacct_cmd)
+                    sacct_res = subprocess.check_output(sacct_cmd, encoding="ascii")
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
@@ -284,8 +298,8 @@ class SlurmExecutor(ClusterExecutor):
                 if not res:
                     try:
                         sctrl_cmd = shlex.split("scontrol -o show job {}".format(jobid))
-                        sctrl_res = subprocess.check_output(sctrl_cmd)
-                        m = re.search("JobState=(\w+)", sctrl_res.decode())
+                        sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
+                        m = re.search("JobState=(\w+)", sctrl_res)
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
@@ -321,16 +335,15 @@ class SlurmExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
             for j in active_jobs:
-                status = self.job_status(j)
+                status = self.job_status(j.jobid)
                 if status == "COMPLETED":
                     j.callback(j.job)
                 elif status in fail_stati:
-                    self.print_job_error(j.job, msg="failed with status {status}")
+                    self.print_job_error(j.job, msg="failed with SLURM status '{status}'".format(status=status))
                     j.error_callback(j.job)
                 else:  # still running?
                     still_running.append(j)
 
             with self.lock:
                 self.active_jobs.extend(still_running)
-
             time.sleep(1 / self.max_status_checks_per_second)
