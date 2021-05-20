@@ -23,7 +23,7 @@ from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
-from snakemake.io import load_configfile
+from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
@@ -1778,6 +1778,14 @@ def get_argument_parser(profile=None):
         "environments.",
     )
     group_behavior.add_argument(
+        "--wait-for-files-file",
+        metavar="FILE",
+        help="Same behaviour as --wait-for-files, but file list is "
+        "stored in file instead of being passed on the commandline. "
+        "This is useful when the list of files is too long to be "
+        "passed on the commandline.",
+    )
+    group_behavior.add_argument(
         "--notemp",
         "--nt",
         action="store_true",
@@ -2624,6 +2632,18 @@ def main(argv=None):
             args.force = True
             args.edit_notebook = notebook.Listen(args.notebook_listen)
 
+        aggregated_wait_for_files = args.wait_for_files
+        if args.wait_for_files_file is not None:
+            wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
+
+            with open(args.wait_for_files_file) as fd:
+                extra_wait_files = [line.strip() for line in fd.readlines()]
+
+            if aggregated_wait_for_files is None:
+                aggregated_wait_for_files = extra_wait_files
+            else:
+                aggregated_wait_for_files.extend(extra_wait_files)
+
         success = snakemake(
             args.snakefile,
             batch=batch,
@@ -2716,7 +2736,7 @@ def main(argv=None):
             no_hooks=args.no_hooks,
             overwrite_shellcmd=args.overwrite_shellcmd,
             latency_wait=args.latency_wait,
-            wait_for_files=args.wait_for_files,
+            wait_for_files=aggregated_wait_for_files,
             keep_target_files=args.keep_target_files,
             allowed_rules=args.allowed_rules,
             max_jobs_per_second=args.max_jobs_per_second,
