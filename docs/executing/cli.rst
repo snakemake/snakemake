@@ -120,6 +120,7 @@ Under https://github.com/snakemake-profiles/doc, you can find publicly available
 Feel free to contribute your own.
 
 The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers.
+It can be supplied via the environment variable ``SNAKEMAKE_PROFILE`` as well.
 See https://github.com/snakemake-profiles/doc for examples.
 
 

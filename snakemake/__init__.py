@@ -1016,7 +1016,8 @@ def get_argument_parser(profile=None):
                         line options in YAML format. For example,
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles.
+                        https://github.com/snakemake-profiles. The value can also
+                        be provided by the environment variable SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
         ),
@@ -1802,7 +1803,8 @@ def get_argument_parser(profile=None):
         env_var='SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND',
         type=float,
         help="Maximal number of job status checks per second, default is 10, "
-        "fractions allowed.",
+        "fractions allowed. The value can also be provided by the environment "
+        "variable SNAKEMAKE_MAX_STATUS_CHECKS_PER_SECOND.",
     )
     group_behavior.add_argument(
         "-T",
@@ -2024,7 +2026,8 @@ def get_argument_parser(profile=None):
         "to --cluster returns the cluster job id. Then, the status command "
         "will be invoked with the job id. Snakemake expects it to return "
         "'success' if the job was successfull, 'failed' if the job failed and "
-        "'running' if the job still runs.",
+        "'running' if the job still runs. The value can also be provided by the "
+        "environment variable SNAKEMAKE_CLUSTER_STATUS.",
     )
     group_cluster.add_argument(
         "--drmaa-log-dir",
@@ -2172,7 +2175,8 @@ def get_argument_parser(profile=None):
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-conda` flag must also be set. The value may "
         "be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. The value can also be "
+        "provided via the environment variable $SNAKEMAKE_CONDA_PREFIX.",
     )
     group_conda.add_argument(
         "--conda-cleanup-envs",
