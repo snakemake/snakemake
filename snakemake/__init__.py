@@ -1005,6 +1005,7 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--profile",
+        env_var='SNAKEMAKE_PROFILE',
         help="""
                         Name of profile to use for configuring
                         Snakemake. Snakemake will search for a corresponding
