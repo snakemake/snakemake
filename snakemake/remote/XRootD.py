@@ -31,7 +31,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self._xrd = XRootDHelper()
@@ -61,7 +61,7 @@ class RemoteObject(AbstractRemoteObject):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
-            **kwargs
+            **kwargs,
         )
 
         if provider:
@@ -196,15 +196,21 @@ class XRootDHelper(object):
         # Prepare the source path for XRootD
         if not self._parse_url(source):
             source = abspath(source)
+        else:
+            domain, dirname, filename = self._parse_url(source)
+            source = f"{domain}/{dirname}/{filename}"
+
         # Prepare the destination path for XRootD
         assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
             domain, dirname, filename = self._parse_url(destination)
+            destination = f"{domain}/{dirname}/{filename}"
             self.makedirs(domain, dirname)
         else:
             destination = abspath(destination)
             if not os.path.isdir(os.path.dirname(destination)):
                 os.makedirs(os.path.dirname(destination))
+
         # Perform the copy operation
         process = client.CopyProcess()
         process.add_job(source, destination)
