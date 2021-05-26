@@ -133,6 +133,12 @@ class XRootDHelper(object):
         dirname, filename = os.path.split(match.group("path"))
         # We need a trailing / to keep XRootD happy
         dirname += "/"
+
+        # and also make sure we supply a non-relative path
+        # (snakemake removes double-slash // characters)
+        if not dirname.startswith("/"):
+            dirname = "/" + dirname
+
         return domain, dirname, filename
 
     def exists(self, url):
