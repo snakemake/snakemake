@@ -21,6 +21,8 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
+    supports_default = True
+
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
