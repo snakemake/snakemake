@@ -213,7 +213,7 @@ class XRootDHelper(object):
 
         # Perform the copy operation
         process = client.CopyProcess()
-        process.add_job(source, destination)
+        process.add_job(source, destination, force=True)
         process.prepare()
         status, returns = process.run()
         if not status.ok or not returns[0]["status"].ok:
