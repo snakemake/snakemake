@@ -1,3 +1,8 @@
+[6.4.1] - 2021-05-27
+====================
+- Fixed bug in ``workflow.source_path()`` that occurred with modules included from remote locations (@johanneskoester).
+- Inform cluster jobs about conda/mamba/activate path such that they don't need to determine this themselves (@johanneskoester).
+
 [6.4.0] - 2021-05-20
 ====================
 - Improvements in the docs (resource usage, best practices, remote files) (@johanneskoester, @admorris).
