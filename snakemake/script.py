@@ -266,6 +266,7 @@ class ScriptBase(ABC):
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,
@@ -289,6 +290,7 @@ class ScriptBase(ABC):
         self.config = config
         self.rulename = rulename
         self.conda_env = conda_env
+        self.conda_base_path = conda_base_path
         self.container_img = container_img
         self.singularity_args = singularity_args
         self.env_modules = env_modules
@@ -353,6 +355,7 @@ class ScriptBase(ABC):
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
+            conda_base_path=self.conda_base_path,
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
@@ -894,6 +897,7 @@ def script(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -933,6 +937,7 @@ def script(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,

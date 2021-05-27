@@ -282,6 +282,10 @@ class RealExecutor(AbstractExecutor):
             additional += " --use-conda "
             if self.workflow.conda_prefix:
                 additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
+            if self.workflow.conda_base_path:
+                additional += " --conda-base-path {} ".format(
+                    self.workflow.conda_base_path
+                )
         if self.workflow.use_singularity:
             additional += " --use-singularity "
             if self.workflow.singularity_prefix:
@@ -491,6 +495,7 @@ class CPUExecutor(RealExecutor):
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook,
+            self.workflow.conda_base_path,
             job.rule.basedir,
         )
 
@@ -2233,6 +2238,7 @@ def run_wrapper(
     shadow_dir,
     jobid,
     edit_notebook,
+    conda_base_path,
     basedir,
 ):
     """
@@ -2312,6 +2318,7 @@ def run_wrapper(
                             cleanup_scripts,
                             passed_shadow_dir,
                             edit_notebook,
+                            conda_base_path,
                             basedir,
                         )
                     else:
@@ -2341,6 +2348,7 @@ def run_wrapper(
                                 cleanup_scripts,
                                 passed_shadow_dir,
                                 edit_notebook,
+                                conda_base_path,
                                 basedir,
                             )
                     # Store benchmark record for this iteration
@@ -2368,6 +2376,7 @@ def run_wrapper(
                     cleanup_scripts,
                     passed_shadow_dir,
                     edit_notebook,
+                    conda_base_path,
                     basedir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:

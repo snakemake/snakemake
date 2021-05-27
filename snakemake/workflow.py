@@ -23,6 +23,7 @@ from urllib.request import pathname2url, url2pathname
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
+    CreateCondaEnvironmentException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -80,6 +81,7 @@ from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
 from snakemake.sourcecache import SourceCache
+from snakemake.deployment.conda import Conda
 
 
 class Workflow:
@@ -129,6 +131,7 @@ class Workflow:
         conda_not_block_search_path_envvars=False,
         execute_subworkflows=True,
         scheduler_solver_path=None,
+        conda_base_path=None,
     ):
         """
         Create the controller.
@@ -204,6 +207,7 @@ class Workflow:
         self.modules = dict()
         self.sourcecache = SourceCache()
         self.scheduler_solver_path = scheduler_solver_path
+        self._conda_base_path = conda_base_path
 
         _globals = globals()
         _globals["workflow"] = self
@@ -242,6 +246,19 @@ class Workflow:
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def conda_base_path(self):
+        if self._conda_base_path:
+            return self._conda_base_path
+        if self.use_conda:
+            try:
+                return Conda().prefix_path
+            except CreateCondaEnvironmentException as e:
+                # Return no preset conda base path now and report error later in jobs.
+                return None
+        else:
+            return None
 
     @property
     def modifier(self):

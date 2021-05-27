@@ -321,7 +321,6 @@ class Env:
                         ]
                         + packages
                     )
-                    print(cmd)
                     if self._container_img:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
@@ -414,7 +413,7 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None):
+    def __new__(cls, container_img=None, prefix_path=None):
         with cls.lock:
             if container_img not in cls.instances:
                 from snakemake.shell import shell
@@ -423,9 +422,12 @@ class Conda:
                 inst.__init__(container_img=container_img)
                 cls.instances[container_img] = inst
                 inst._check()
-                inst.info = json.loads(
-                    shell.check_output(inst._get_cmd("conda info --json"))
-                )
+                if prefix_path is None or container_img is not None:
+                    inst.prefix_path = json.loads(
+                        shell.check_output(inst._get_cmd("conda info --json"))
+                    )["conda_prefix"]
+                else:
+                    inst.prefix_path = prefix_path
                 return inst
             else:
                 return cls.instances[container_img]
@@ -508,11 +510,8 @@ class Conda:
                 "Unable to check conda version:\n" + e.output.decode()
             )
 
-    def prefix_path(self):
-        return self.info["conda_prefix"]
-
     def bin_path(self):
-        return os.path.join(self.prefix_path(), "bin")
+        return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_path, cmd):
         # get path to activate script
