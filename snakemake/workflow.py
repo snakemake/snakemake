@@ -1060,10 +1060,9 @@ class Workflow:
 
         frame = inspect.currentframe().f_back
         calling_file = frame.f_code.co_filename
-
-        return smart_join(
-            self.sourcecache.get_path(str(Path(calling_file).parent)), rel_path
-        )
+        calling_dir = os.path.dirname(calling_file)
+        path = smart_join(calling_dir, rel_path)
+        return self.sourcecache.get_path(path)
 
     @property
     def snakefile(self):
