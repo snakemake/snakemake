@@ -282,7 +282,7 @@ class RealExecutor(AbstractExecutor):
             additional += " --use-conda "
             if self.workflow.conda_prefix:
                 additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
-            if self.workflow.conda_base_path:
+            if self.workflow.conda_base_path and self.assume_shared_fs:
                 additional += " --conda-base-path {} ".format(
                     self.workflow.conda_base_path
                 )
