@@ -67,7 +67,12 @@ def smart_join(base, path, abspath=False):
             return os.path.abspath(full)
         return full
     else:
-        return "{}/{}".format(base, path)
+        from smart_open import parse_uri
+
+        uri = parse_uri("{}/{}".format(base, path))
+        return "{scheme}://{uri_path}".format(
+            scheme=uri.scheme, uri_path=os.path.normpath(uri.uri_path)
+        )
 
 
 def num_if_possible(s):
