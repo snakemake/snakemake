@@ -75,6 +75,8 @@ def smart_join(base, path, abspath=False):
             # which is invalid in an URL.
             assert uri.uri_path[0] == "/"
             uri_path = os.path.normpath(uri.uri_path)
+        else:
+            uri_path = uri.uri_path
         return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
 
 
