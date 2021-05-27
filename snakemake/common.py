@@ -70,10 +70,11 @@ def smart_join(base, path, abspath=False):
         from smart_open import parse_uri
 
         uri = parse_uri("{}/{}".format(base, path))
-        # Norm the path such that it does not contain any ../,
-        # which is invalid in an URL.
-        assert uri.uri_path[0] == "/"
-        uri_path = os.path.normpath(uri.uri_path)
+        if not ON_WINDOWS:
+            # Norm the path such that it does not contain any ../,
+            # which is invalid in an URL.
+            assert uri.uri_path[0] == "/"
+            uri_path = os.path.normpath(uri.uri_path)
         return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
 
 
