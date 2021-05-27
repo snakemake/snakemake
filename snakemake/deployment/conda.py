@@ -416,29 +416,28 @@ class Conda:
     def __new__(cls, container_img=None, prefix_path=None):
         with cls.lock:
             if container_img not in cls.instances:
-                from snakemake.shell import shell
-
                 inst = super().__new__(cls)
                 inst.__init__(container_img=container_img, prefix_path=prefix_path)
                 cls.instances[container_img] = inst
                 inst._check()
-                if prefix_path is None or container_img is not None:
-                    inst.prefix_path = json.loads(
-                        shell.check_output(inst._get_cmd("conda info --json"))
-                    )["conda_prefix"]
-                else:
-                    inst.prefix_path = prefix_path
                 return inst
             else:
                 return cls.instances[container_img]
 
     def __init__(self, container_img=None, prefix_path=None):
         from snakemake.deployment import singularity
+        from snakemake.shell import shell
 
         if isinstance(container_img, singularity.Image):
             container_img = container_img.path
         self.container_img = container_img
-        self.prefix_path = prefix_path
+
+        if prefix_path is None or container_img is not None:
+            self.prefix_path = json.loads(
+                shell.check_output(self._get_cmd("conda info --json"))
+            )["conda_prefix"]
+        else:
+            self.prefix_path = prefix_path
 
     def _get_cmd(self, cmd):
         if self.container_img:

@@ -188,7 +188,6 @@ def run(
                 md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
-                    # import pdb; pdb.set_trace()
                     with open(expectedfile) as expected:
                         expected_content = expected.read()
                     with open(targetfile) as target:
