@@ -76,7 +76,7 @@ def smart_join(base, path, abspath=False):
         print(uri)
         uri_path = os.path.normpath(uri.uri_path)
         print(uri_path)
-        return "{scheme}://{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
+        return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
 
 
 def num_if_possible(s):
