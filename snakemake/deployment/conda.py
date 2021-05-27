@@ -419,7 +419,7 @@ class Conda:
                 from snakemake.shell import shell
 
                 inst = super().__new__(cls)
-                inst.__init__(container_img=container_img)
+                inst.__init__(container_img=container_img, prefix_path=prefix_path)
                 cls.instances[container_img] = inst
                 inst._check()
                 if prefix_path is None or container_img is not None:
@@ -432,12 +432,13 @@ class Conda:
             else:
                 return cls.instances[container_img]
 
-    def __init__(self, container_img=None):
+    def __init__(self, container_img=None, prefix_path=None):
         from snakemake.deployment import singularity
 
         if isinstance(container_img, singularity.Image):
             container_img = container_img.path
         self.container_img = container_img
+        self.prefix_path = prefix_path
 
     def _get_cmd(self, cmd):
         if self.container_img:
