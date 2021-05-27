@@ -321,7 +321,6 @@ class Env:
                         ]
                         + packages
                     )
-                    print(cmd)
                     if self._container_img:
                         cmd = singularity.shellcmd(
                             self._container_img.path,
@@ -414,28 +413,31 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None):
+    def __new__(cls, container_img=None, prefix_path=None):
         with cls.lock:
             if container_img not in cls.instances:
-                from snakemake.shell import shell
-
                 inst = super().__new__(cls)
-                inst.__init__(container_img=container_img)
+                inst.__init__(container_img=container_img, prefix_path=prefix_path)
                 cls.instances[container_img] = inst
                 inst._check()
-                inst.info = json.loads(
-                    shell.check_output(inst._get_cmd("conda info --json"))
-                )
                 return inst
             else:
                 return cls.instances[container_img]
 
-    def __init__(self, container_img=None):
+    def __init__(self, container_img=None, prefix_path=None):
         from snakemake.deployment import singularity
+        from snakemake.shell import shell
 
         if isinstance(container_img, singularity.Image):
             container_img = container_img.path
         self.container_img = container_img
+
+        if prefix_path is None or container_img is not None:
+            self.prefix_path = json.loads(
+                shell.check_output(self._get_cmd("conda info --json"))
+            )["conda_prefix"]
+        else:
+            self.prefix_path = prefix_path
 
     def _get_cmd(self, cmd):
         if self.container_img:
@@ -508,11 +510,8 @@ class Conda:
                 "Unable to check conda version:\n" + e.output.decode()
             )
 
-    def prefix_path(self):
-        return self.info["conda_prefix"]
-
     def bin_path(self):
-        return os.path.join(self.prefix_path(), "bin")
+        return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_path, cmd):
         # get path to activate script

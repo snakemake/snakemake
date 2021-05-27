@@ -127,6 +127,7 @@ class shell:
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
+        conda_base_path = context.get("conda_base_path", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
@@ -138,7 +139,9 @@ class shell:
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
-            cmd = Conda(container_img).shellcmd(conda_env, cmd)
+            cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
+                conda_env, cmd
+            )
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
