@@ -720,8 +720,7 @@ def test_singularity_conda():
 @connected
 def test_singularity_none():
     run(
-        dpath("test_singularity_none"),
-        use_singularity=True,
+        dpath("test_singularity_none"), use_singularity=True,
     )
 
 
@@ -729,8 +728,7 @@ def test_singularity_none():
 @connected
 def test_singularity_global():
     run(
-        dpath("test_singularity_global"),
-        use_singularity=True,
+        dpath("test_singularity_global"), use_singularity=True,
     )
 
 
@@ -964,7 +962,7 @@ def test_filegraph():
 
     # make sure the calls work
     cmd_sep = "&&" if ON_WINDOWS else ";"
-    shell("cd {workdir}" + cmd_sep +"python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir}" + cmd_sep + "python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:

@@ -429,7 +429,8 @@ class FileRecord:
                 # '>' means only larger images scaled down to within max-dimensions
                 max_spec = max_width + "x" + max_height + ">"
                 png = sp.check_output(
-                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
+                    stderr=sp.PIPE,
                 )
                 return png
             except sp.CalledProcessError as e:
