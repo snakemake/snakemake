@@ -720,7 +720,8 @@ def test_singularity_conda():
 @connected
 def test_singularity_none():
     run(
-        dpath("test_singularity_none"), use_singularity=True,
+        dpath("test_singularity_none"),
+        use_singularity=True,
     )
 
 
@@ -728,7 +729,8 @@ def test_singularity_none():
 @connected
 def test_singularity_global():
     run(
-        dpath("test_singularity_global"), use_singularity=True,
+        dpath("test_singularity_global"),
+        use_singularity=True,
     )
 
 
