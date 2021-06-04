@@ -198,13 +198,13 @@ class XRootDHelper(object):
             source = abspath(source)
         else:
             domain, dirname, filename = self._parse_url(source)
-            source = f"{domain}//{dirname}/{filename}"
+            source = f"{domain}/{dirname}/{filename}"
 
         # Prepare the destination path for XRootD
         assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
             domain, dirname, filename = self._parse_url(destination)
-            destination = f"{domain}//{dirname}/{filename}"
+            destination = f"{domain}/{dirname}/{filename}"
             self.makedirs(domain, dirname)
         else:
             destination = abspath(destination)
