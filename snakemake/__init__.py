@@ -1858,7 +1858,7 @@ def get_argument_parser(profile=None):
             "gridftp",
             "iRODS",
             "AzBlob",
-            "XRootD"
+            "XRootD",
         ],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
