@@ -962,9 +962,13 @@ def test_filegraph():
     dot_path = os.path.join(workdir, "fg.dot")
     pdf_path = os.path.join(workdir, "fg.pdf")
 
+    if ON_WINDOWS:
+        shell.executable("bash")
+        workdir = workdir.replace("\\", "/")
+        dot_path = dot_path.replace("\\", "/")
+
     # make sure the calls work
-    cmd_sep = "&&" if ON_WINDOWS else ";"
-    shell("cd {workdir}" + cmd_sep + "python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
