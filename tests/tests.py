@@ -152,7 +152,6 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report():
     run(
         dpath("test_report"),
@@ -162,12 +161,10 @@ def test_report():
     )
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
@@ -960,14 +957,18 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
-@skip_on_windows  # Currently no workable pygraphviz package
 def test_filegraph():
     workdir = dpath("test_filegraph")
-    dot_path = os.path.abspath("fg.dot")
-    pdf_path = "fg.pdf"
+    dot_path = os.path.join(workdir, "fg.dot")
+    pdf_path = os.path.join(workdir, "fg.pdf")
+
+    if ON_WINDOWS:
+        shell.executable("bash")
+        workdir = workdir.replace("\\", "/")
+        dot_path = dot_path.replace("\\", "/")
 
     # make sure the calls work
-    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:

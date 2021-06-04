@@ -1,6 +1,6 @@
 
 report: "report/workflow.rst"
-
+shell.executable("bash")
 
 rule all:
     input:
