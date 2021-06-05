@@ -561,9 +561,14 @@ class _IOFile(str):
 
     @property
     def size_local(self):
-        # follow symlinks but throw error if invalid
-        self.check_broken_symlink()
-        return os.path.getsize(self.file)
+        if not self.exists_local and not os.path.islink(self.file):
+            # outputs marked as `temp` will be deleted and are not
+            # broken links, so ignore them.
+            return 0
+        else:
+            # follow symlinks but throw error if invalid
+            self.check_broken_symlink()
+            return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""

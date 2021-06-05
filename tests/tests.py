@@ -1227,3 +1227,8 @@ def test_handover():
 @skip_on_windows  # test shell command not properly working
 def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+def test_touch_pipeline_with_temp_dir():
+    # Issue #1028
+    run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, touch=True)
