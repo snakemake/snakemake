@@ -1565,7 +1565,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
     import yaml
 
     if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
-        obj = open(configpath_or_obj)
+        obj = open(configpath_or_obj, encoding="utf-8")
     else:
         obj = configpath_or_obj
 
