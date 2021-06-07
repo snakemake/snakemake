@@ -17,7 +17,6 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
 
 from snakemake.logging import logger, format_resources, format_resource_names
@@ -73,7 +72,7 @@ from snakemake.common import (
     Gather,
     smart_join,
 )
-from snakemake.utils import simplify_path
+from snakemake.utils import simplify_path, urlparse
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache

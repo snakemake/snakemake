@@ -19,12 +19,12 @@ except ImportError:
     #  Should there be a warning? Should there be a runtime flag?
     pass
 import copy
-from urllib.parse import urlparse
 import collections
 
 # module-specific
 import snakemake.io
 from snakemake.logging import logger
+from snakemake.utils import urlparse
 
 
 class StaticRemoteObjectProxy(ObjectProxy):

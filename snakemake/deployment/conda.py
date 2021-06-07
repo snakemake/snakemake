@@ -8,7 +8,6 @@ import re
 import subprocess
 import tempfile
 from urllib.request import urlopen
-from urllib.parse import urlparse
 from urllib.error import URLError
 import hashlib
 import shutil
@@ -178,7 +177,7 @@ class Env:
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
-                        parsed = urlparse(pkg_url)
+                        parsed = utils.urlparse(pkg_url)
                         pkg_name = os.path.basename(parsed.path)
                         # write package name to list
                         print(pkg_name, file=pkg_list)
@@ -216,7 +215,7 @@ class Env:
         env_file = self.file
         tmp_file = None
 
-        url_scheme, *_ = urlparse(env_file)
+        url_scheme, *_ = utils.urlparse(env_file)
         if (url_scheme and not url_scheme == "file") or (
             not url_scheme and env_file.startswith("git+file:/")
         ):

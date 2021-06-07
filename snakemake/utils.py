@@ -15,7 +15,8 @@ import multiprocessing
 import string
 import shlex
 import sys
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse as urllib_urlparse
+from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
@@ -705,3 +706,27 @@ class Paramspace:
         if isinstance(ret, pd.DataFrame):
             return Paramspace(ret)
         return ret
+
+
+def urlparse(uri):
+    """ Wraps urllib.urlparse with so it can also be used 
+    to distinguish between paths and uri on Windows.
+    
+    Snakemake exploits urlparse for the purpose of distinguishing
+    between paths and uris. That unintended functionality does not work 
+    on windows. See: https://bugs.python.org/issue42215
+    """
+
+    if ON_WINDOWS and uri[1:3] in (":\\", ":/"):
+        # Assume we have a normal windows path
+        import pathlib
+
+        uri = pathlib.Path(uri).as_uri()
+
+    result = urllib_urlparse(uri)
+
+    if ON_WINDOWS and result.scheme == "file":
+        result = result._replace(path=url2pathname(result.path))
+
+    return result
+

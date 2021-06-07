@@ -6,7 +6,6 @@ __license__ = "MIT"
 import subprocess
 import shutil
 import os
-from urllib.parse import urlparse
 import hashlib
 from distutils.version import LooseVersion
 
@@ -15,6 +14,7 @@ from snakemake.deployment.conda import Conda
 from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+from snakemake.utils import urlparse
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"

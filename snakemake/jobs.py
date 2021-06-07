@@ -12,7 +12,6 @@ import json
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
-from urllib.parse import urlparse
 
 from snakemake.io import (
     IOFile,
@@ -22,7 +21,7 @@ from snakemake.io import (
     is_flagged,
     get_flag_value,
 )
-from snakemake.utils import format, listfiles
+from snakemake.utils import format, listfiles, urlparse
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid, TBDString
