@@ -526,7 +526,7 @@ class Conda:
         return "source {} '{}'; {}".format(activate, env_path, cmd)
 
     def shellcmd_win(self, env_path, cmd):
-        """ Prepend the windows activate bat script. """
+        """Prepend the windows activate bat script."""
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
         env_path = env_path.replace("\\", "/")

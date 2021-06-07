@@ -555,8 +555,7 @@ def argvquote(arg, force=True):
 
 
 def cmd_exe_quote(arg):
-    """ Quotes an argument in a cmd.exe compliant way. 
-    """
+    """Quotes an argument in a cmd.exe compliant way."""
     arg = argvquote(arg)
     cmd_exe_metachars = '^()%!"<>&|'
     for char in cmd_exe_metachars:
@@ -719,11 +718,11 @@ class Paramspace:
 
 
 def urlparse(uri):
-    """ Wraps urllib.urlparse with so it can also be used 
+    """Wraps urllib.urlparse with so it can also be used
     to distinguish between paths and uri on Windows.
-    
+
     Snakemake exploits urlparse for the purpose of distinguishing
-    between paths and uris. That unintended functionality does not work 
+    between paths and uris. That unintended functionality does not work
     on windows. See: https://bugs.python.org/issue42215
     """
 
@@ -739,4 +738,3 @@ def urlparse(uri):
         result = result._replace(path=url2pathname(result.path))
 
     return result
-
