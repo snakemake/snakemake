@@ -132,6 +132,7 @@ class Workflow:
         execute_subworkflows=True,
         scheduler_solver_path=None,
         conda_base_path=None,
+        check_envvars=True,
     ):
         """
         Create the controller.
@@ -208,6 +209,7 @@ class Workflow:
         self.sourcecache = SourceCache()
         self.scheduler_solver_path = scheduler_solver_path
         self._conda_base_path = conda_base_path
+        self.check_envvars = check_envvars
 
         _globals = globals()
         _globals["workflow"] = self
@@ -1094,7 +1096,7 @@ class Workflow:
         If used multiple times, union is taken.
         """
         undefined = set(var for var in envvars if var not in os.environ)
-        if undefined:
+        if self.check_envvars and undefined:
             raise WorkflowError(
                 "The following environment variables are requested by the workflow but undefined. "
                 "Please make sure that they are correctly defined before running Snakemake:\n"

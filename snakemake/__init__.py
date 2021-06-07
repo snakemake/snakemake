@@ -593,6 +593,7 @@ def snakemake(
             execute_subworkflows=execute_subworkflows,
             scheduler_solver_path=scheduler_solver_path,
             conda_base_path=conda_base_path,
+            check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
         )
         success = True
 
