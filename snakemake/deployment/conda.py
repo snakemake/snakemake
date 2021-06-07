@@ -346,8 +346,8 @@ class Env:
                             "env",
                             "create",
                             "--quiet",
-                            "--file '{}'".format(target_env_file),
-                            "--prefix '{}'".format(env_path),
+                            '--file "{}"'.format(target_env_file),
+                            '--prefix "{}"'.format(env_path),
                         ]
                     )
                     if self._container_img:
@@ -510,12 +510,28 @@ class Conda:
             )
 
     def bin_path(self):
-        return os.path.join(self.prefix_path, "bin")
+        if ON_WINDOWS:
+            return os.path.join(self.prefix_path, "Scripts")
+        else:
+            return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_path, cmd):
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
+
+        if ON_WINDOWS:
+            activate = activate.replace("\\", "/")
+            env_path = env_path.replace("\\", "/")
+
         return "source {} '{}'; {}".format(activate, env_path, cmd)
+
+    def shellcmd_win(self, env_path, cmd):
+        """ Prepend the windows activate bat script. """
+        # get path to activate script
+        activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
+        env_path = env_path.replace("\\", "/")
+
+        return '"{}" "{}"&&{}'.format(activate, env_path, cmd)
 
 
 def is_mamba_available():
