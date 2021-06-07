@@ -255,7 +255,12 @@ class DAG:
 
             # delete all pointers from dependencies to this job
             for dep in self.dependencies[job]:
-                del self.depending[dep][job]
+                try:
+                    del self.depending[dep][job]
+                except KeyError:
+                    # In case the pointer has been deleted before or
+                    # never created, we can simply continue.
+                    pass
 
             # delete all dependencies
             del self.dependencies[job]
