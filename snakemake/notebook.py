@@ -9,6 +9,8 @@ from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
+from snakemake.common import ON_WINDOWS
+
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -83,6 +85,10 @@ class JupyterNotebook(ScriptBase):
                 )
             )
 
+        if ON_WINDOWS:
+            fname = fname.replace("\\", "/")
+            fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+
         self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
 
         if edit:
@@ -123,7 +129,7 @@ class JupyterNotebook(ScriptBase):
 
 class PythonJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "import os; os.chdir('{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = "import os; os.chdir(r'{cwd}');".format(cwd=os.getcwd())
 
         return PythonScript.generate_preamble(
             self.path,

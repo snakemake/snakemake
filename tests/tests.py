@@ -1098,7 +1098,7 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Please help fix.
+@skip_on_windows  # Fails with "Notebook validation failed". See #1032
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
