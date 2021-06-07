@@ -202,4 +202,4 @@ def run(
 
     if not cleanup:
         return tmpdir
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
