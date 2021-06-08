@@ -668,6 +668,7 @@ def snakemake(
                     use_env_modules=use_env_modules,
                     conda_prefix=conda_prefix,
                     conda_cleanup_pkgs=conda_cleanup_pkgs,
+                    conda_frontend=conda_frontend,
                     singularity_prefix=singularity_prefix,
                     shadow_prefix=shadow_prefix,
                     singularity_args=singularity_args,
