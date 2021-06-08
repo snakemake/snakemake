@@ -491,7 +491,10 @@ class Rule:
             item = str(item)
         if isinstance(item, str):
             if ON_WINDOWS:
-                item = type(item)(item.replace(os.sep, os.altsep))
+                if isinstance(item, (_IOFile, AnnotatedString)):
+                    item = item.new_from(item.replace(os.sep, os.altsep))
+                else:
+                    item = item.replace(os.sep, os.altsep)
 
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:

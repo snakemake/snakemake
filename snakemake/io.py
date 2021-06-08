@@ -228,6 +228,15 @@ class _IOFile(str):
 
         return obj
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
+
     def iocache(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -934,6 +943,12 @@ class AnnotatedString(str):
     def __init__(self, value):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
 
 
 def flag(value, flag_type, flag_value=True):
