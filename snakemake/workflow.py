@@ -642,6 +642,10 @@ class Workflow:
             )
         )
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
+
+        if ON_WINDOWS:
+            targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
+
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
