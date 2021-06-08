@@ -24,7 +24,7 @@ import collections
 # module-specific
 import snakemake.io
 from snakemake.logging import logger
-from snakemake.utils import urlparse
+from snakemake.common import parse_uri
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
@@ -453,7 +453,7 @@ class AutoRemoteProvider:
         provider_remote_list = []
         for value in values:
             # select provider
-            o = urlparse(value)
+            o = parse_uri(value)
             Provider = self.protocol_mapping.get(o.scheme)
 
             if Provider is None:

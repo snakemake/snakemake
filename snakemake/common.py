@@ -60,6 +60,12 @@ def is_local_file(path_or_uri):
     return parse_uri(path_or_uri).scheme == "file"
 
 
+def parse_uri(path_or_uri):
+    from smart_open import parse_uri
+
+    return parse_uri(path_or_uri)
+
+
 def smart_join(base, path, abspath=False):
     if is_local_file(base):
         full = os.path.join(base, path)

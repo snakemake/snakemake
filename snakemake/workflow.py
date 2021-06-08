@@ -19,6 +19,7 @@ import subprocess
 from pathlib import Path
 from urllib.request import pathname2url, url2pathname
 
+
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
@@ -67,12 +68,13 @@ from snakemake.common import (
     bytesto,
     ON_WINDOWS,
     is_local_file,
+    parse_uri,
     Rules,
     Scatter,
     Gather,
     smart_join,
 )
-from snakemake.utils import simplify_path, urlparse
+from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
@@ -301,16 +303,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if ON_WINDOWS:
-                try:
-                    f = pathname2url(f)
-                except OSError:
-                    pass  # f isn't changed if it wasn't a path
-
-            url = urlparse(f)
-            if url.scheme == "file" or url.scheme == "":
-                return url2pathname(url.path)
-            return None
+            if is_local_file(f):
+                return parse_uri(f).uri_path
+            else:
+                return None
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -1233,7 +1229,7 @@ class Workflow:
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
 
-        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+        if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
             schema = os.path.join(self.current_basedir, schema)
         if self.pepfile is None:
@@ -1427,9 +1423,8 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
+                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
+                    ruleinfo.conda_env
                 ):
                     ruleinfo.conda_env = os.path.join(
                         self.current_basedir, ruleinfo.conda_env

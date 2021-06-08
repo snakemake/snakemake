@@ -21,10 +21,17 @@ from snakemake.io import (
     is_flagged,
     get_flag_value,
 )
-from snakemake.utils import format, listfiles, urlparse
+from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid, TBDString
+from snakemake.common import (
+    DYNAMIC_FILL,
+    is_local_file,
+    parse_uri,
+    lazy_property,
+    get_uuid,
+    TBDString,
+)
 
 
 def format_files(job, io, dynamicio):
@@ -303,10 +310,9 @@ class Job(AbstractJob):
         if self._conda_env_file is None:
             expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
             if expanded_env is not None:
-                scheme, _, path, *_ = urlparse(expanded_env)
                 # Normalize 'file:///my/path.yml' to '/my/path.yml'
-                if scheme == "file" or not scheme:
-                    self._conda_env_file = path
+                if is_local_file(expanded_env):
+                    self._conda_env_file = parse_uri(expanded_env).uri_path
                 else:
                     self._conda_env_file = expanded_env
         return self._conda_env_file

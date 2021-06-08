@@ -21,9 +21,10 @@ from enum import Enum
 import threading
 import shutil
 
+
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import strip_prefix, ON_WINDOWS
+from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
@@ -177,8 +178,8 @@ class Env:
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
-                        parsed = utils.urlparse(pkg_url)
-                        pkg_name = os.path.basename(parsed.path)
+                        parsed = parse_uri(pkg_url)
+                        pkg_name = os.path.basename(parsed.uri_path)
                         # write package name to list
                         print(pkg_name, file=pkg_list)
                         # download package
@@ -215,10 +216,7 @@ class Env:
         env_file = self.file
         tmp_file = None
 
-        url_scheme, *_ = utils.urlparse(env_file)
-        if (url_scheme and not url_scheme == "file") or (
-            not url_scheme and env_file.startswith("git+file:/")
-        ):
+        if not is_local_file(env_file) or env_file.startswith("git+file:/"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
