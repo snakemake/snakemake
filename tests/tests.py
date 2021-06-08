@@ -23,9 +23,7 @@ xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
 
-# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
-# can't clean up the protected files generated in the test
-@xfail_permissionerror_on_win
+
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
