@@ -12,6 +12,7 @@ import uuid
 import os
 import asyncio
 import sys
+import collections
 
 from ._version import get_versions
 
@@ -55,15 +56,25 @@ def get_appdirs():
 
 
 def is_local_file(path_or_uri):
-    from smart_open import parse_uri
-
     return parse_uri(path_or_uri).scheme == "file"
 
 
 def parse_uri(path_or_uri):
     from smart_open import parse_uri
 
-    return parse_uri(path_or_uri)
+    try:
+        return parse_uri(path_or_uri)
+    except NotImplementedError as e:
+        # Snakemake sees a lot of URIs which are not supported by smart_open yet
+        # "docker", "git+file", "shub", "ncbi","root","roots","rootk", "gsiftp",
+        # "srm","ega","ab","dropbox"
+        # Fall back to a simple split if we encounter something which isn't supported.
+        scheme, _, uri_path = path_or_uri.partition("://")
+        if scheme and uri_path:
+            Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return Uri(scheme, uri_path)
+        else:
+            raise e
 
 
 def smart_join(base, path, abspath=False):
