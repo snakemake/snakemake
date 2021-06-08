@@ -1231,3 +1231,16 @@ def test_handover():
 @skip_on_windows  # test shell command not properly working
 def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+@only_on_windows
+def test_filesep_windows_targets():
+    run(
+        dpath("test_filesep_windows"),
+        targets=["subfolder/test2.out2", "subfolder/test1.out2"],
+    )
+
+
+@only_on_windows
+def test_filesep_on_windows():
+    run(dpath("test_filesep_windows"))
