@@ -1452,7 +1452,7 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img is not None:
+                if not invalid_rule and ruleinfo.container_img != False:
                     # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
@@ -1583,7 +1583,11 @@ class Workflow:
 
     def container(self, container_img):
         def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
+            # Explicitly set container_img to False if None is passed, indicating that
+            # no container image shall be used, also not a global one.
+            ruleinfo.container_img = (
+                container_img if container_img is not None else False
+            )
             ruleinfo.is_containerized = False
             return ruleinfo
 
