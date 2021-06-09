@@ -949,6 +949,10 @@ def test_default_resources():
     )
 
 
+def test_tmpdir():
+    run(dpath("test_tmpdir"))
+
+
 def test_issue1284():
     run(dpath("test_issue1284"))
 
