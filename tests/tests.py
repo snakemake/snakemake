@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from common import *
-from .conftest import skip_on_windows, ON_WINDOWS
+from .common import *
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 
 
 def test_list_untracked():
@@ -23,9 +23,7 @@ xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
 
-# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
-# can't clean up the protected files generated in the test
-@xfail_permissionerror_on_win
+
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
@@ -391,17 +389,14 @@ def test_issue328():
         pass
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
-@skip_on_windows  # Conda support is partly broken on Win
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -409,6 +404,13 @@ def test_conda_custom_prefix():
         conda_prefix="custom",
         set_pythonpath=False,
     )
+
+
+@only_on_windows
+def test_conda_cmd_exe():
+    # Tests the conda environment activation when cmd.exe
+    # is used as the shell
+    run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
 @skip_on_windows  # Conda support is partly broken on Win
@@ -706,6 +708,16 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
+def test_singularity_module_invalid():
+    run(
+        dpath("test_singularity_module"),
+        targets=["invalid.txt"],
+        use_singularity=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
 @connected
 def test_singularity_conda():
     run(
@@ -746,9 +758,6 @@ def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
 
-# Fails on Windows with PermissionError when test system tries to
-# clean the conda environment
-@xfail_permissionerror_on_win
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -1098,7 +1107,6 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Please help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
@@ -1231,3 +1239,20 @@ def test_handover():
 @skip_on_windows  # test shell command not properly working
 def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+@only_on_windows
+def test_filesep_windows_targets():
+    run(
+        dpath("test_filesep_windows"),
+        targets=["subfolder/test2.out2", "subfolder/test1.out2"],
+    )
+
+
+@only_on_windows
+def test_filesep_on_windows():
+    run(dpath("test_filesep_windows"))
+
+
+def test_set_resources():
+    run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})

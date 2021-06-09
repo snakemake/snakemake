@@ -17,8 +17,8 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
+
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -68,6 +68,7 @@ from snakemake.common import (
     bytesto,
     ON_WINDOWS,
     is_local_file,
+    parse_uri,
     Rules,
     Scatter,
     Gather,
@@ -97,6 +98,7 @@ class Workflow:
         overwrite_threads=None,
         overwrite_scatter=None,
         overwrite_groups=None,
+        overwrite_resources=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -163,6 +165,7 @@ class Workflow:
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
         self.overwrite_threads = overwrite_threads or dict()
+        self.overwrite_resources = overwrite_resources or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -302,16 +305,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if ON_WINDOWS:
-                try:
-                    f = pathname2url(f)
-                except OSError:
-                    pass  # f isn't changed if it wasn't a path
-
-            url = urlparse(f)
-            if url.scheme == "file" or url.scheme == "":
-                return url2pathname(url.path)
-            return None
+            if is_local_file(f):
+                return parse_uri(f).uri_path
+            else:
+                return None
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -647,6 +644,10 @@ class Workflow:
             )
         )
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
+
+        if ON_WINDOWS:
+            targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
+
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
@@ -1234,7 +1235,7 @@ class Workflow:
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
 
-        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+        if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
             schema = os.path.join(self.current_basedir, schema)
         if self.pepfile is None:
@@ -1366,6 +1367,8 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+            if name in self.overwrite_resources:
+                rule.resources.update(self.overwrite_resources[name])
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
@@ -1428,9 +1431,8 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
+                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
+                    ruleinfo.conda_env
                 ):
                     ruleinfo.conda_env = os.path.join(
                         self.current_basedir, ruleinfo.conda_env
@@ -1454,7 +1456,7 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img is not None:
+                if not invalid_rule and ruleinfo.container_img != False:
                     # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
@@ -1585,7 +1587,11 @@ class Workflow:
 
     def container(self, container_img):
         def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
+            # Explicitly set container_img to False if None is passed, indicating that
+            # no container image shall be used, also not a global one.
+            ruleinfo.container_img = (
+                container_img if container_img is not None else False
+            )
             ruleinfo.is_containerized = False
             return ruleinfo
 

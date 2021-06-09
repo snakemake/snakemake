@@ -1,5 +1,4 @@
 channels:
-  - bioconda
   - conda-forge
 dependencies:
-  - melt ==1.0.3
+  - make   ==4.3

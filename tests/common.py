@@ -92,6 +92,7 @@ def run(
     cleanup=True,
     conda_frontend="mamba",
     config=dict(),
+    targets=None,
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     **params,
 ):
@@ -154,6 +155,7 @@ def run(
         stats="stats.txt",
         config=config,
         verbose=True,
+        targets=targets,
         conda_frontend=conda_frontend,
         container_image=container_image,
         **params,
@@ -202,4 +204,4 @@ def run(
 
     if not cleanup:
         return tmpdir
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)

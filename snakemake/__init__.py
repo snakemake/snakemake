@@ -56,6 +56,7 @@ def snakemake(
     overwrite_threads=None,
     overwrite_scatter=None,
     default_resources=None,
+    overwrite_resources=None,
     config=dict(),
     configfiles=None,
     config_args=None,
@@ -558,6 +559,7 @@ def snakemake(
             overwrite_threads=overwrite_threads,
             overwrite_scatter=overwrite_scatter,
             overwrite_groups=overwrite_groups,
+            overwrite_resources=overwrite_resources,
             group_components=group_components,
             config_args=config_args,
             debug=debug,
@@ -622,6 +624,7 @@ def snakemake(
                     cache=cache,
                     overwrite_threads=overwrite_threads,
                     overwrite_scatter=overwrite_scatter,
+                    overwrite_resources=overwrite_resources,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -813,6 +816,31 @@ def parse_set_threads(args):
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
     )
+
+
+def parse_set_resources(args):
+    errmsg = (
+        "Invalid resource definition: entries have to be defined as RULE:RESOURCE=VALUE, with "
+        "VALUE being a positive integer or a string."
+    )
+
+    assignments = dict()
+    if args.set_resources is not None:
+        for entry in args.set_resources:
+            key, value = parse_key_value_arg(entry, errmsg=errmsg)
+            key = key.split(":")
+            if not len(key) == 2:
+                raise ValueError(errmsg)
+            rule, resource = key
+            try:
+                value = int(value)
+            except ValueError:
+                assignments[rule][resource] = value
+                continue
+            if value < 0:
+                raise ValueError(errmsg)
+            assignments[rule][resource] = value
+    return assignments
 
 
 def parse_set_scatter(args):
@@ -1109,6 +1137,16 @@ def get_argument_parser(profile=None):
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
         "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule.",
+    )
+    group_exec.add_argument(
+        "--set-resources",
+        metavar="RULE:RESOURCE=VALUE",
+        nargs="+",
+        help="Overwrite resource usage of rules. This allows to fine-tune workflow "
+        "resources. In particular, this is helpful to target certain cluster nodes "
+        "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
+        "Thereby, VALUE has to be a positive integer or a string, RULE has to be the name of the "
+        "rule, and RESOURCE has to be the name of the resource.",
     )
     group_exec.add_argument(
         "--set-scatter",
@@ -2355,6 +2393,7 @@ def main(argv=None):
 
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
+        overwrite_resources = parse_set_resources(args)
 
         overwrite_scatter = parse_set_scatter(args)
 
@@ -2667,6 +2706,7 @@ def main(argv=None):
             overwrite_threads=overwrite_threads,
             overwrite_scatter=overwrite_scatter,
             default_resources=default_resources,
+            overwrite_resources=overwrite_resources,
             config=config,
             configfiles=args.configfile,
             config_args=args.config,

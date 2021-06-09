@@ -228,6 +228,15 @@ class _IOFile(str):
 
         return obj
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
+
     def iocache(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -935,6 +944,12 @@ class AnnotatedString(str):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
 
 def flag(value, flag_type, flag_value=True):
     if isinstance(value, AnnotatedString):
@@ -1565,7 +1580,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
     import yaml
 
     if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
-        obj = open(configpath_or_obj)
+        obj = open(configpath_or_obj, encoding="utf-8")
     else:
         obj = configpath_or_obj
 
