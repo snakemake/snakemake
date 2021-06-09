@@ -1227,3 +1227,7 @@ def test_handover():
 @skip_on_windows  # test shell command not properly working
 def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+def test_set_resources():
+    run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
