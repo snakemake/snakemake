@@ -1,4 +1,3 @@
-shell.executable("bash")
 
 rule all:
     input:
@@ -10,7 +9,7 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "Tm -h > {output} || true"
+        'make --version > {output} || VER>NUL'
 
 
 rule b:
@@ -21,4 +20,4 @@ rule b:
     conda:
         "test-env.yaml"
     shell:
-        "Tm -h > {output} || true"
+        "make --version > {output} || VER>NUL"

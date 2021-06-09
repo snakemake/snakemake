@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from common import *
-from .conftest import skip_on_windows, ON_WINDOWS
+from .common import *
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 
 
 def test_list_untracked():
@@ -391,17 +391,14 @@ def test_issue328():
         pass
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
-@skip_on_windows  # Conda support is partly broken on Win
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -409,6 +406,13 @@ def test_conda_custom_prefix():
         conda_prefix="custom",
         set_pythonpath=False,
     )
+
+
+@only_on_windows
+def test_conda_cmd_exe():
+    # Tests the conda environment activation when cmd.exe
+    # is used as the shell
+    run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
 @skip_on_windows  # Conda support is partly broken on Win

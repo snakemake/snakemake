@@ -13,7 +13,7 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, _find_bash_on_windows
+from snakemake.utils import format, argvquote, cmd_exe_quote, _find_bash_on_windows
 from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -113,6 +113,11 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
+
+        if ON_WINDOWS and not cls.get_executable():
+            # If bash is not used on Windows quoting must be handled in a special way
+            kwargs["quote_func"] = cmd_exe_quote
+
         cmd = format(cmd, *args, stepout=2, **kwargs)
         context = inspect.currentframe().f_back.f_locals
         # add kwargs to context (overwriting the locals of the caller)
@@ -139,9 +144,15 @@ class shell:
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
-            cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
-                conda_env, cmd
-            )
+            if ON_WINDOWS and not cls.get_executable():
+                # If we use cmd.exe directly on winodws we need to prepend batch activation script.
+                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd_win(
+                    conda_env, cmd
+                )
+            else:
+                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
+                    conda_env, cmd
+                )
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

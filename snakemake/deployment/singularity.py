@@ -6,13 +6,17 @@ __license__ = "MIT"
 import subprocess
 import shutil
 import os
-from urllib.parse import urlparse
 import hashlib
 from distutils.version import LooseVersion
 
 import snakemake
 from snakemake.deployment.conda import Conda
-from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
+from snakemake.common import (
+    is_local_file,
+    parse_uri,
+    lazy_property,
+    SNAKEMAKE_SEARCHPATH,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
@@ -53,8 +57,7 @@ class Image:
 
     @property
     def is_local(self):
-        scheme = urlparse(self.url).scheme
-        return not scheme or scheme == "file"
+        return is_local_file(self.url)
 
     @lazy_property
     def hash(self):
@@ -92,7 +95,7 @@ class Image:
     @property
     def path(self):
         if self.is_local:
-            return urlparse(self.url).path
+            return parse_uri(self.url).uri_path
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
     def __hash__(self):

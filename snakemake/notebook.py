@@ -1,6 +1,5 @@
 import os, sys
 from urllib.error import URLError
-from urllib.parse import urlparse
 import tempfile
 import re
 import shutil
@@ -9,6 +8,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
+from snakemake.common import is_local_file
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -220,7 +220,7 @@ def notebook(
     """
     draft = False
     if edit is not None:
-        if urlparse(path).scheme == "":
+        if is_local_file(path):
             if not os.path.isabs(path):
                 local_path = os.path.join(basedir, path)
             else:

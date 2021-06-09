@@ -7,6 +7,7 @@ from snakemake.common import ON_WINDOWS
 from snakemake.utils import _find_bash_on_windows
 
 skip_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="Unix stuff")
+only_on_windows = pytest.mark.skipif(not ON_WINDOWS, reason="Windows stuff")
 
 
 @pytest.fixture(autouse=True)

@@ -8,7 +8,6 @@ import re
 import subprocess
 import tempfile
 from urllib.request import urlopen
-from urllib.parse import urlparse
 from urllib.error import URLError
 import hashlib
 import shutil
@@ -22,9 +21,10 @@ from enum import Enum
 import threading
 import shutil
 
+
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import strip_prefix, ON_WINDOWS
+from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
@@ -178,8 +178,8 @@ class Env:
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
-                        parsed = urlparse(pkg_url)
-                        pkg_name = os.path.basename(parsed.path)
+                        parsed = parse_uri(pkg_url)
+                        pkg_name = os.path.basename(parsed.uri_path)
                         # write package name to list
                         print(pkg_name, file=pkg_list)
                         # download package
@@ -216,10 +216,7 @@ class Env:
         env_file = self.file
         tmp_file = None
 
-        url_scheme, *_ = urlparse(env_file)
-        if (url_scheme and not url_scheme == "file") or (
-            not url_scheme and env_file.startswith("git+file:/")
-        ):
+        if not is_local_file(env_file) or env_file.startswith("git+file:/"):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
@@ -347,8 +344,8 @@ class Env:
                             "env",
                             "create",
                             "--quiet",
-                            "--file '{}'".format(target_env_file),
-                            "--prefix '{}'".format(env_path),
+                            '--file "{}"'.format(target_env_file),
+                            '--prefix "{}"'.format(env_path),
                         ]
                     )
                     if self._container_img:
@@ -511,12 +508,28 @@ class Conda:
             )
 
     def bin_path(self):
-        return os.path.join(self.prefix_path, "bin")
+        if ON_WINDOWS:
+            return os.path.join(self.prefix_path, "Scripts")
+        else:
+            return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_path, cmd):
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
+
+        if ON_WINDOWS:
+            activate = activate.replace("\\", "/")
+            env_path = env_path.replace("\\", "/")
+
         return "source {} '{}'; {}".format(activate, env_path, cmd)
+
+    def shellcmd_win(self, env_path, cmd):
+        """Prepend the windows activate bat script."""
+        # get path to activate script
+        activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
+        env_path = env_path.replace("\\", "/")
+
+        return '"{}" "{}"&&{}'.format(activate, env_path, cmd)
 
 
 def is_mamba_available():
