@@ -55,7 +55,7 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDString
+from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
 
 
 class Rule:
@@ -490,6 +490,12 @@ class Rule:
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            if ON_WINDOWS:
+                if isinstance(item, (_IOFile, AnnotatedString)):
+                    item = item.new_from(item.replace(os.sep, os.altsep))
+                else:
+                    item = item.replace(os.sep, os.altsep)
+
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
                 rule_dependency = item.rule

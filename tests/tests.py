@@ -23,9 +23,7 @@ xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
 
-# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
-# can't clean up the protected files generated in the test
-@xfail_permissionerror_on_win
+
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
@@ -1237,6 +1235,19 @@ def test_handover():
 @skip_on_windows  # test shell command not properly working
 def test_source_path():
     run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+@only_on_windows
+def test_filesep_windows_targets():
+    run(
+        dpath("test_filesep_windows"),
+        targets=["subfolder/test2.out2", "subfolder/test1.out2"],
+    )
+
+
+@only_on_windows
+def test_filesep_on_windows():
+    run(dpath("test_filesep_windows"))
 
 
 def test_set_resources():
