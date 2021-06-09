@@ -1252,3 +1252,7 @@ def test_filesep_windows_targets():
 @only_on_windows
 def test_filesep_on_windows():
     run(dpath("test_filesep_windows"))
+
+
+def test_set_resources():
+    run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
