@@ -55,7 +55,13 @@ This can be done by using the ``--set-threads`` argument, e.g.,
     $ snakemake --cores 4 --set-threads myrule=2
 
 would overwrite whatever number of threads has been defined for the rule ``myrule`` and use ``2`` instead.
-This can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
+Similarly, it is possible to overwrite other resource definitions in rules, via
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --set-resources myrule:partition="foo"
+
+Both mechanisms can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
 
 Dealing with very large workflows
 ---------------------------------
