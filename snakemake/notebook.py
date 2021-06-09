@@ -11,7 +11,6 @@ from snakemake.logging import logger
 from snakemake.common import is_local_file
 from snakemake.common import ON_WINDOWS
 
-
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
