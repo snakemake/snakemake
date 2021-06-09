@@ -710,6 +710,16 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
+def test_singularity_module_invalid():
+    run(
+        dpath("test_singularity_module"),
+        targets=["invalid.txt"],
+        use_singularity=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
 @connected
 def test_singularity_conda():
     run(
