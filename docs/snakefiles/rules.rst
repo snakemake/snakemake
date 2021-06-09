@@ -368,6 +368,8 @@ Another application of callables as resources is when memory usage depends on th
 Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
+Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
