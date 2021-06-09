@@ -959,7 +959,14 @@ def test_default_resources():
 
 
 def test_tmpdir():
-    run(dpath("test_tmpdir"))
+    # artificially set the tmpdir to an expected value
+    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
+
+
+def test_tmpdir_default():
+    # Do not check the content (OS and setup depdendent),
+    # just check whether everything runs smoothly with the default.
+    run(dpath("test_tmpdir"), check_md5=False)
 
 
 def test_issue1284():
