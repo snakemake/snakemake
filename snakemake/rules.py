@@ -961,7 +961,7 @@ class Rule:
         def apply(name, res, threads=None):
             if callable(res):
                 aux = dict(rulename=self.name)
-                if threads:
+                if threads is not None:
                     aux["threads"] = threads
                 try:
                     res, _ = self.apply_input_function(
