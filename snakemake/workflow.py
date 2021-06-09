@@ -97,6 +97,7 @@ class Workflow:
         overwrite_threads=None,
         overwrite_scatter=None,
         overwrite_groups=None,
+        overwrite_resources=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -163,6 +164,7 @@ class Workflow:
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
         self.overwrite_threads = overwrite_threads or dict()
+        self.overwrite_resources = overwrite_resources or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -1366,6 +1368,8 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+            if name in self.overwrite_resources:
+                rule.resources.update(self.overwrite_resources[name])
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
