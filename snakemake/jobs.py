@@ -1115,6 +1115,9 @@ class GroupJob(AbstractJob):
                     if dep in self.jobs:
                         yield dep
                         if any(is_flagged(f, "pipe") for f in files):
+                            # In case of a pipe, inherit the dependencies of the producer,
+                            # such that the two jobs end up on the same toposort level.
+                            # This is important because they are executed simulataneously.
                             yield from get_dependencies(dep)
 
             dag = {job: set(get_dependencies(job)) for job in self.jobs}
