@@ -131,7 +131,7 @@ class shell:
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
-        resources = context.get("resources", None)
+        resources = context.get("resources", {})
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
