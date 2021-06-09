@@ -61,7 +61,9 @@ def parse_resources(resources_args, fallback=None):
         for res, val in resources_args.items():
             if not valid.match(res):
                 raise ValueError(
-                    "Resource definition must start with a valid identifier, but found {}.".format(res)
+                    "Resource definition must start with a valid identifier, but found {}.".format(
+                        res
+                    )
                 )
             try:
                 val = int(val)
