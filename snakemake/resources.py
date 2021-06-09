@@ -12,7 +12,7 @@ class DefaultResources:
     @classmethod
     def decode_arg(cls, arg):
         try:
-            return res.split("=")
+            return arg.split("=")
         except ValueError:
             raise ValueError("Resources have to be defined as name=value pairs.")
 
