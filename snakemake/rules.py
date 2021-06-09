@@ -696,7 +696,7 @@ class Rule:
             # where input files are not yet present, we need to skip such cases and
             # mark them as <TBD>.
             if e.filename in aux_params["input"]:
-                value = TBDString
+                value = TBDString()
             else:
                 raise e
         except (Exception, BaseException) as e:
