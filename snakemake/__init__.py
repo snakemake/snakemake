@@ -52,6 +52,7 @@ def snakemake(
     cores=1,
     nodes=1,
     local_cores=1,
+    max_threads=None,
     resources=dict(),
     overwrite_threads=None,
     overwrite_scatter=None,
@@ -557,6 +558,7 @@ def snakemake(
             overwrite_configfiles=configfiles,
             overwrite_clusterconfig=cluster_config_content,
             overwrite_threads=overwrite_threads,
+            max_threads=max_threads,
             overwrite_scatter=overwrite_scatter,
             overwrite_groups=overwrite_groups,
             overwrite_resources=overwrite_resources,
@@ -621,6 +623,7 @@ def snakemake(
                 subsnakemake = partial(
                     snakemake,
                     local_cores=local_cores,
+                    max_threads=max_threads,
                     cache=cache,
                     overwrite_threads=overwrite_threads,
                     overwrite_scatter=overwrite_scatter,
@@ -1091,8 +1094,7 @@ def get_argument_parser(profile=None):
     )
     group_exec.add_argument(
         "--cores",
-        "--jobs",
-        "-j",
+        "-c",
         action="store",
         const=available_cpu_count(),
         nargs="?",
@@ -1100,7 +1102,18 @@ def get_argument_parser(profile=None):
         help=(
             "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
-            "available CPU cores."
+            "available CPU cores. "
+            "In case of cluster/cloud execution, this argument sets the number of "
+            "total cores used over all jobs (made available to rules via workflow.cores)."
+        ),
+    )
+    group_exec.add_argument(
+        "--jobs",
+        "-j",
+        metavar="N",
+        help=(
+            "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
+            "an alias for --cores."
         ),
     )
     group_exec.add_argument(
@@ -1110,9 +1123,9 @@ def get_argument_parser(profile=None):
         metavar="N",
         type=int,
         help=(
-            "In cluster mode, use at most N cores of the host machine in parallel "
-            " (default: number of CPU cores of the host). The cores are used to execute "
-            "local rules. This option is ignored when not in cluster mode."
+            "In cluster/cloud mode, use at most N cores of the host machine in parallel "
+            "(default: number of CPU cores of the host). The cores are used to execute "
+            "local rules. This option is ignored when not in cluster/cloud mode."
         ),
     )
     group_exec.add_argument(
@@ -1137,6 +1150,13 @@ def get_argument_parser(profile=None):
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
         "Thereby, THREADS has to be a positive integer, and RULE has to be the name of the rule.",
+    )
+    group_exec.add_argument(
+        "--max-threads",
+        type=int,
+        help="Define a global maximum number of threads for any job. This can be helpful in a cluster/cloud setting, "
+        "when you want to restrict the maximum number of requested threads without modifying the workflow definition "
+        "or overwriting them invidiually with --set-threads.",
     )
     group_exec.add_argument(
         "--set-resources",
@@ -1998,7 +2018,6 @@ def get_argument_parser(profile=None):
     cluster_mode_group = group_cluster.add_mutually_exclusive_group()
     cluster_mode_group.add_argument(
         "--cluster",
-        "-c",
         metavar="CMD",
         help=(
             "Execute snakemake rules with the given submit command, "
@@ -2408,15 +2427,18 @@ def main(argv=None):
         print("", file=sys.stderr)
         sys.exit(1)
 
+    non_local_exec = (
+        args.cluster
+        or args.cluster_sync
+        or args.tibanna
+        or args.kubernetes
+        or args.tes
+        or args.google_lifesciences
+        or args.drmaa
+    )
     local_exec = not (
         args.print_compilation
-        or args.cluster
-        or args.cluster_sync
-        or args.drmaa
-        or args.google_lifesciences
-        or args.kubernetes
-        or args.tibanna
-        or args.tes
+        or not non_local_exec
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2447,32 +2469,36 @@ def main(argv=None):
                 args.cores = int(args.cores)
             except ValueError:
                 print(
-                    "Error parsing number of cores (--cores, --jobs, -j): must be integer, empty, or 'all'.",
+                    "Error parsing number of cores (--cores, -c): must be integer, empty, or 'all'.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
-    if args.cluster or args.cluster_sync or args.drmaa:
-        if args.cores is None:
-            if args.dryrun:
-                args.cores = 1
+    else:
+        if local_exec:
+            if not (args.dryrun or args.unlock):
+                if args.jobs is not None:
+                    args.cores = args.jobs
+                else:
+                    print(
+                        "Error: you need to specify the maximum number of CPU cores to "
+                        "be used at the same time. If you want to use N cores, say --cores N or "
+                        "-cN. For all cores on your system (be sure that this is appropriate) "
+                        "use --cores all. For no parallelization use --cores 1 or -c1.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
             else:
-                print(
-                    "Error: you need to specify the maximum number of jobs to "
-                    "be queued or executed at the same time with --jobs.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-    elif args.cores is None:
-        if local_exec and not (args.dryrun or args.unlock):
+                args.cores = 1
+
+    if non_local_exec:
+        if args.jobs is None:
             print(
-                "Error: you need to specify the maximum number of CPU cores to "
-                "be used at the same time. If you want to use N cores, say --cores N or "
-                "-jN. For all cores on your system (be sure that this is appropriate) "
-                "use --cores all. For no parallelization use --cores 1 or -j1.",
+                "Error: you need to specify the maximum number of jobs to "
+                "be queued or executed at the same time with --jobs or -j.",
                 file=sys.stderr,
             )
             sys.exit(1)
-        else:
+        if args.dryrun or args.unlock:
             args.cores = 1
 
     if args.drmaa_log_dir is not None:
@@ -2705,9 +2731,10 @@ def main(argv=None):
             list_target_rules=args.list_target_rules,
             cores=args.cores,
             local_cores=args.local_cores,
-            nodes=args.cores,
+            nodes=args.jobs,
             resources=resources,
             overwrite_threads=overwrite_threads,
+            max_threads=args.max_threads,
             overwrite_scatter=overwrite_scatter,
             default_resources=default_resources,
             overwrite_resources=overwrite_resources,

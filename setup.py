@@ -41,6 +41,7 @@ setup(
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",

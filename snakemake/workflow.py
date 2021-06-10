@@ -135,6 +135,7 @@ class Workflow:
         scheduler_solver_path=None,
         conda_base_path=None,
         check_envvars=True,
+        max_threads=None,
     ):
         """
         Create the controller.
@@ -213,6 +214,7 @@ class Workflow:
         self.scheduler_solver_path = scheduler_solver_path
         self._conda_base_path = conda_base_path
         self.check_envvars = check_envvars
+        self.max_threads = max_threads
 
         _globals = globals()
         _globals["workflow"] = self
@@ -395,6 +397,14 @@ class Workflow:
 
     @property
     def cores(self):
+        if self.global_resources["_cores"] is None:
+            raise WorkflowError(
+                "Workflow requires a total number of cores to be defined. "
+                "Please set it with --cores N with N being the desired number of cores."
+                "Consider to use this in combination with --max-threads to avoid "
+                "jobs with too many threads for your setup. Also make sure to perform "
+                "a dryrun first."
+            )
         return self.global_resources["_cores"]
 
     @property

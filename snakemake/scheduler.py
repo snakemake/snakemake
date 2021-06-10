@@ -121,6 +121,10 @@ class JobScheduler:
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
+
+        if workflow.global_resources["_nodes"] is not None:
+            # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
+            self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
         use_threads = (
