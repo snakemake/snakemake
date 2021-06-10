@@ -125,7 +125,9 @@ class Env:
         """
         hash = self.hash
         env_dir = self._env_dir
-        get_path = lambda h: os.path.join(env_dir, h)
+        # The underscore prefix cause the conda to skip shortcut installation so
+        # no admin prevleges are needed for windows.
+        get_path = lambda h: os.path.join(env_dir, "_" + h)
         hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
         exists = [os.path.exists(get_path(h)) for h in hash_candidates]
         if self.is_containerized or exists[1] or (not exists[0]):
@@ -313,6 +315,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
+                            "--no-shortcuts",
                             "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
