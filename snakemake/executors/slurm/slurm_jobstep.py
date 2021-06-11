@@ -99,9 +99,14 @@ class SlurmJobstepExecutor(ClusterExecutor):
                 jobsteps[level_job] = subprocess.Popen(
                     get_call(level_job, level_id + 1, aux="--singleton"), shell=True
                 )
-        else:  # we combine smp and MPI jobs in one case
-            # TODO: if MPI-job append '--cpu_bind=rank'
-            call = "srun --cpu_bind=q {exec_job}".format(exec_job=self.format_job(job))
+        else:
+            if job.resources.get('mpi') and job.resources.get('bind_rank'):
+                call = "srun --cpu-bind=rank"
+            elif job.resources.get('mpi'):
+                call = "srun"
+            else:
+                call = "srun --cpu-bind=q --exclusive"
+            call += " {exec_job}".format(exec_job=self.format_job(job)
             jobsteps[job] = subprocess.Popen(call, shell=True)
 
         # wait until all steps are finished
