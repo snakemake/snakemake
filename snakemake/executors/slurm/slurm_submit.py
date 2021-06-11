@@ -113,16 +113,6 @@ class SlurmExecutor(ClusterExecutor):
             )
 
 
-    def get_jobscript(self, job):
-        f = job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
-
-        if os.path.sep in f:
-            raise WorkflowError(
-                "Path separator ({}) found in job name {}. "
-                "This is not supported.".format(os.path.sep, f)
-            )
-
-        return os.path.join(self.tmpdir, f)
 
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
