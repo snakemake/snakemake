@@ -396,19 +396,6 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if (
-        cluster
-        or cluster_sync
-        or drmaa
-        or tibanna
-        or kubernetes
-        or google_lifesciences
-        or tes
-    ):
-        cores = None
-    else:
-        nodes = None
-
     if isinstance(cluster_config, str):
         # Loading configuration from one file is still supported for
         # backward compatibility
@@ -1111,6 +1098,7 @@ def get_argument_parser(profile=None):
         "--jobs",
         "-j",
         metavar="N",
+        type=int,
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
             "an alias for --cores."
@@ -2487,8 +2475,10 @@ def main(argv=None):
                         file=sys.stderr,
                     )
                     sys.exit(1)
-            else:
+            elif not non_local_exec:
                 args.cores = 1
+        elif not non_local_exec:
+            args.cores = 1
 
     if non_local_exec:
         if args.jobs is None:
@@ -2498,7 +2488,7 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
-        if args.dryrun or args.unlock:
+        if args.unlock:
             args.cores = 1
 
     if args.drmaa_log_dir is not None:

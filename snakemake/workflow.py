@@ -399,8 +399,9 @@ class Workflow:
     def cores(self):
         if self.global_resources["_cores"] is None:
             raise WorkflowError(
-                "Workflow requires a total number of cores to be defined. "
-                "Please set it with --cores N with N being the desired number of cores."
+                "Workflow requires a total number of cores to be defined (e.g. because a "
+                "rule defines its number of threads as a fraction of a total number of cores). "
+                "Please set it with --cores N with N being the desired number of cores. "
                 "Consider to use this in combination with --max-threads to avoid "
                 "jobs with too many threads for your setup. Also make sure to perform "
                 "a dryrun first."
