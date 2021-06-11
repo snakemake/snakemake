@@ -13,7 +13,7 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, cmd_exe_quote, _find_bash_on_windows
+from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
 from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -75,9 +75,14 @@ class shell:
                 )
         if ON_WINDOWS:
             if cmd is None:
-                 cls._process_prefix = ""
-                 cls._win_command_prefix = ""
-            if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
+                cls._process_prefix = ""
+                cls._win_command_prefix = ""
+            elif os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
+                if cmd == r"C:\Windows\System32\bash.exe":
+                    raise WorkflowError(
+                        "Cannot use WSL bash.exe on Windows. Ensure that you have "
+                        "a usable bash.exe availble on your path."
+                    )
                 cls._process_prefix = "set -euo pipefail; "
                 cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd

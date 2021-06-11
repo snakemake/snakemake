@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 
 from snakemake.common import ON_WINDOWS
-from snakemake.utils import _find_bash_on_windows
+from snakemake.utils import find_bash_on_windows
 from snakemake import shell
 
 skip_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="Unix stuff")
@@ -19,7 +19,7 @@ def reset_paths_between_tests():
     sys.path = org_path
 
 
-bash_cmd = _find_bash_on_windows()
+bash_cmd = find_bash_on_windows()
 
 if ON_WINDOWS and bash_cmd:
 
