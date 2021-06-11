@@ -112,11 +112,6 @@ class SlurmExecutor(ClusterExecutor):
                 error_callback=error_callback,  #
             )
 
-    @property
-    def tmpdir(self):
-        if self._tmpdir is None:
-            self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
-        return os.path.abspath(self._tmpdir)
 
     def get_jobscript(self, job):
         f = job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
