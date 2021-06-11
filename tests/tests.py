@@ -952,8 +952,9 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
         default_resources=DefaultResources(
-            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+            ["mem_mb=max(2*input.size, 1000.1)", "disk_mb=max(2*input.size, 1000.2)"]
         ),
     )
 
