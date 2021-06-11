@@ -220,11 +220,10 @@ class SlurmExecutor(ClusterExecutor):
         elif not job.resources.get("mpi") and not job.is_group():
             # TODO: this line will become longer
             # TODO: hence the single command, yet
-            if not job.resources.get("threads"):
-                logger.warning("No value for 'threads' is set, assuming 1.")
+            if job.threads == 0:
                 call += " -n 1 -c 1"
             else:
-                call += " -n 1 -c {threads}".format(**job.resources)
+                call += " -n 1 -c {threads}".format(threads=job.threads)
         else:  # job.is_group:
             pass
 
