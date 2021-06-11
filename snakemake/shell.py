@@ -136,6 +136,7 @@ class shell:
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
+        resources = context.get("resources", {})
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
@@ -178,6 +179,7 @@ class shell:
             logger.info("Activating conda environment: {}".format(conda_env))
 
         threads = str(context.get("threads", 1))
+        tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
@@ -188,6 +190,13 @@ class shell:
         envvars["MKL_NUM_THREADS"] = threads
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
+
+        if tmpdir_resource:
+            envvars["TMPDIR"] = tmpdir_resource
+            envvars["TMP"] = tmpdir_resource
+            envvars["TEMPDIR"] = tmpdir_resource
+            envvars["TEMP"] = tmpdir_resource
+
         if conda_env and cls.conda_block_conflicting_envvars:
             # remove envvars that conflict with conda
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:

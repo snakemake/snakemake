@@ -242,7 +242,7 @@ class Workflow:
         if default_resources is not None:
             self.default_resources = default_resources
         else:
-            # only _cores and _nodes
+            # only _cores, _nodes, and _tmpdir
             self.default_resources = DefaultResources()
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)

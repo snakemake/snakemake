@@ -373,16 +373,22 @@ Both threads and resources can be overwritten upon invocation via `--set-threads
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are two **standard resources** for total memory and disk usage of a job though: ``mem_mb`` and ``disk_mb``.
+There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
+The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
-Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
+
+Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
+``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 
 
-Preemptible Virtual Machine
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Preemptible Jobs
+~~~~~~~~~~~~~~~~
 
 
 You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
