@@ -75,12 +75,6 @@ class SlurmExecutor(ClusterExecutor):
         self.exec_job += " --slurm-jobstep"
         print(self.exec_job)
 
-    def shutdown(self):
-        """
-        waiting for all jobs to be ready
-        """
-        super().shutdown()
-        # perform additional steps on shutdown if necessary
 
     def cancel(self):
         for job in self.active_jobs:
