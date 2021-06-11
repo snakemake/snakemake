@@ -273,18 +273,25 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """shutdown deletes build packages if the user didn't request to clean
         up the cache. At this point we've already cancelled running jobs.
         """
-        # Delete build source packages only if user regooglquested no cache
-        if self._save_storage_cache:
-            logger.debug("Requested to save workflow sources, skipping cleanup.")
-        else:
-            for package in self._build_packages:
-                blob = self.bucket.blob(package)
-                if blob.exists():
-                    logger.debug("Deleting blob %s" % package)
-                    blob.delete()
+        from google.api_core import retry
+        from snakemake.remote.GS import google_cloud_retry_predicate
 
-        # perform additional steps on shutdown if necessary
-        super().shutdown()
+        @retry.Retry(predicate=google_cloud_retry_predicate)
+        def _shutdown():
+            # Delete build source packages only if user regooglquested no cache
+            if self._save_storage_cache:
+                logger.debug("Requested to save workflow sources, skipping cleanup.")
+            else:
+                for package in self._build_packages:
+                    blob = self.bucket.blob(package)
+                    if blob.exists():
+                        logger.debug("Deleting blob %s" % package)
+                        blob.delete()
+
+            # perform additional steps on shutdown if necessary
+            super().shutdown()
+
+        _shutdown()
 
     def cancel(self):
         """cancel execution, usually by way of control+c. Cleanup is done in
@@ -656,12 +663,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """given a .tar.gz created for a workflow, upload it to source/cache
         of Google storage, only if the blob doesn't already exist.
         """
-        # Upload to temporary storage, only if doesn't exist
-        self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
-        blob = self.bucket.blob(self.pipeline_package)
-        logger.debug("build-package=%s" % self.pipeline_package)
-        if not blob.exists():
-            blob.upload_from_filename(targz, content_type="application/gzip")
+        from google.api_core import retry
+        from snakemake.remote.GS import google_cloud_retry_predicate
+
+        @retry.Retry(predicate=google_cloud_retry_predicate)
+        def _upload():
+            # Upload to temporary storage, only if doesn't exist
+            self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
+            blob = self.bucket.blob(self.pipeline_package)
+            logger.debug("build-package=%s" % self.pipeline_package)
+            if not blob.exists():
+                blob.upload_from_filename(targz, content_type="application/gzip")
+
+        _upload()
 
     def _generate_log_action(self, job):
         """generate an action to save the pipeline logs to storage."""
