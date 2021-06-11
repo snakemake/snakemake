@@ -2474,14 +2474,13 @@ def main(argv=None):
                 )
                 sys.exit(1)
 
-    if non_local_exec:
-        if args.jobs is None:
-            print(
-                "Error: you need to specify the maximum number of jobs to "
-                "be queued or executed at the same time with --jobs or -j.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    if non_local_exec and args.jobs is None:
+        print(
+            "Error: you need to specify the maximum number of jobs to "
+            "be queued or executed at the same time with --jobs or -j.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
