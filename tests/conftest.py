@@ -28,7 +28,6 @@ if ON_WINDOWS and bash_cmd:
         monkeypatch.setenv("PATH", os.path.dirname(bash_cmd), prepend=os.pathsep)
 
     @pytest.fixture(autouse=True)
-    def reset_shell_executable(monkeypatch):
-        shell._process_prefix = ""
-        shell._win_command_prefix = ""
-        shell._process_args["executable"] = None
+    def reset_shell_exec_on_windows(prepend_usable_bash_to_path):
+        shell.executable(None)
+
