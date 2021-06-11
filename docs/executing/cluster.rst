@@ -10,10 +10,10 @@ In this case, Snakemake simply needs to be given a submit command that accepts a
 
 .. code-block:: console
 
-    $ snakemake --cluster qsub -j 32
+    $ snakemake --cluster qsub --jobs 32
 
 
-Here, ``-j`` denotes the number of jobs submitted to the cluster at the same time (here 32).
+Here, ``--jobs`` denotes the number of jobs submitted to the cluster at the same time (here 32).
 The cluster command can be decorated with job specific information, e.g.
 
 .. sidebar:: Note
