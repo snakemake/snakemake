@@ -2424,9 +2424,8 @@ def main(argv=None):
         or args.google_lifesciences
         or args.drmaa
     )
-    local_exec = not (
+    no_exec = (
         args.print_compilation
-        or not non_local_exec
         or args.list_code_changes
         or args.list_conda_envs
         or args.list_input_changes
@@ -2447,7 +2446,9 @@ def main(argv=None):
         or args.report
         or args.gui
         or args.archive
+        or args.unlock
     )
+    local_exec = not (no_exec or non_local_exec)
 
     if args.cores is not None:
         if args.cores == "all":
@@ -2462,23 +2463,20 @@ def main(argv=None):
                 )
                 sys.exit(1)
     else:
-        if local_exec:
-            if not (args.dryrun or args.unlock):
-                if args.jobs is not None:
-                    args.cores = args.jobs
-                else:
-                    print(
-                        "Error: you need to specify the maximum number of CPU cores to "
-                        "be used at the same time. If you want to use N cores, say --cores N or "
-                        "-cN. For all cores on your system (be sure that this is appropriate) "
-                        "use --cores all. For no parallelization use --cores 1 or -c1.",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-            elif not non_local_exec:
-                args.cores = 1
-        elif not non_local_exec:
+        if no_exec:
             args.cores = 1
+        elif local_exec:
+            if args.jobs is not None:
+                args.cores = args.jobs
+            else:
+                print(
+                    "Error: you need to specify the maximum number of CPU cores to "
+                    "be used at the same time. If you want to use N cores, say --cores N or "
+                    "-cN. For all cores on your system (be sure that this is appropriate) "
+                    "use --cores all. For no parallelization use --cores 1 or -c1.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
     if non_local_exec:
         if args.jobs is None:
@@ -2488,8 +2486,6 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
-        if args.unlock:
-            args.cores = 1
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
