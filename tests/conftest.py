@@ -5,6 +5,7 @@ from pathlib import Path
 
 from snakemake.common import ON_WINDOWS
 from snakemake.utils import _find_bash_on_windows
+from snakemake import shell
 
 skip_on_windows = pytest.mark.skipif(ON_WINDOWS, reason="Unix stuff")
 only_on_windows = pytest.mark.skipif(not ON_WINDOWS, reason="Windows stuff")
@@ -25,3 +26,9 @@ if ON_WINDOWS and bash_cmd:
     @pytest.fixture(autouse=True)
     def prepend_usable_bash_to_path(monkeypatch):
         monkeypatch.setenv("PATH", os.path.dirname(bash_cmd), prepend=os.pathsep)
+
+    @pytest.fixture(autouse=True)
+    def reset_shell_executable(monkeypatch):
+        shell._process_prefix = ""
+        shell._win_command_prefix = ""
+        shell._process_args["executable"] = None
