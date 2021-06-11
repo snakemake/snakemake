@@ -1173,7 +1173,9 @@ def get_argument_parser(profile=None):
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
             "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
-            "'disk_mb=max(2*input.size_mb, 1000)', i.e., default disk and mem usage is twice the input file size but at least 1GB."
+            "'disk_mb=max(2*input.size_mb, 1000)' "
+            "i.e., default disk and mem usage is twice the input file size but at least 1GB."
+            "In addition, the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource."
         ),
     )
 
@@ -2391,17 +2393,11 @@ def main(argv=None):
         resources = parse_resources(args.resources)
         config = parse_config(args)
 
-        # Cloud executors should have default-resources flag
-        if (
-            (args.default_resources is not None and not args.default_resources)
-            or (args.tibanna and not args.default_resources)
-            or (args.google_lifesciences and not args.default_resources)
-        ):
-            args.default_resources = [
-                "mem_mb=max(2*input.size_mb, 1000)",
-                "disk_mb=max(2*input.size_mb, 1000)",
-            ]
-        default_resources = DefaultResources(args.default_resources)
+        if args.default_resources is not None:
+            default_resources = DefaultResources(args.default_resources)
+        else:
+            default_resources = None
+
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
         overwrite_resources = parse_set_resources(args)
