@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 configfile: "config/config.yaml"
 
 
