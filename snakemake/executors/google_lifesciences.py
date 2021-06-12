@@ -289,9 +289,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                         blob.delete()
 
             # perform additional steps on shutdown if necessary
-            super().shutdown()
 
         _shutdown()
+
+        super().shutdown()
 
     def cancel(self):
         """cancel execution, usually by way of control+c. Cleanup is done in
