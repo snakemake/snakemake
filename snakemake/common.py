@@ -40,7 +40,9 @@ else:
 
 
 # A string that prints as TBD
-TBDString = "<TBD>"
+class TBDString(str):
+    def __new__(cls):
+        return str.__new__(cls, "<TBD>")
 
 
 APPDIRS = None
