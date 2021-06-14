@@ -6,7 +6,8 @@ rule all:
         "test.out",
         "test.html",
         "rel_source.out",
-        "julia.out"
+        "julia.out",
+        "rust.out"
 
 rule:
     input:
@@ -56,3 +57,16 @@ rule:
         "envs/julia.yaml"
     script:
         "scripts/test.jl"
+
+rule:
+    input:
+        "test.in",
+        named_input="test.in",
+    output:
+        "rust.out",
+    params:
+        integer=123
+    conda:
+        "envs/rust.yaml"
+    script:
+        "scripts/test.rs"

@@ -31,7 +31,6 @@ from snakemake.common import (
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
-
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
 
@@ -821,6 +820,200 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
+class RustScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
+    ):
+        wrapper_path = path[7:] if path.startswith("file://") else path
+
+        if not log:
+            log = ""
+        else:
+            lookup = {
+                (True, True, True): " >> {0} 2>&1",
+                (True, False, True): " >> {0}",
+                (False, True, True): " 2>> {0}",
+                (True, True, False): " > {0} 2>&1",
+                (True, False, False): " > {0}",
+                (False, True, False): " 2> {0}",
+            }
+            log = lookup[(stdout, stderr, append)].format(self.log)
+
+        # if the namedlist can be interpreted as a dict, do that
+        # otherwise enumerate the values and have the keys be strings, e.g.
+        # ["some", "values"] → {"0": "some", "1": "values"}
+        # such that the key type is always String
+        def encode_namedlist(values):
+            try:
+                encoded = {
+                    key if key else str(i): value
+                    for i, (key, value) in enumerate(values)
+                }
+                return encoded
+            except:
+                encoded = {str(index): value for (index, value) in enumerate(values)}
+                return encoded
+
+        snakemake = dict(
+            input=encode_namedlist(input_._plainstrings()._allitems()),
+            output=encode_namedlist(output._plainstrings()._allitems()),
+            params=encode_namedlist(params.items()),
+            wildcards=encode_namedlist(wildcards.items()),
+            threads=threads,
+            resources=encode_namedlist(
+                {
+                    name: value
+                    for (name, value) in resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }.items()
+            ),
+            log=log,
+            config=encode_namedlist(config.items()),
+            rulename=rulename,
+            bench_iteration=bench_iteration,
+            scriptdir=os.path.dirname(wrapper_path),
+        )
+        snakemake_pickle_path = os.path.join(
+            os.path.dirname(wrapper_path), "snakemake.pickle"
+        )
+        # TODO use tempfile
+        pickle.dump(dict(snakemake), open(snakemake_pickle_path, "wb"), protocol=4)
+
+        # Obtain search path for current snakemake module.
+        # The module is needed for unpickling in the script.
+        # We append it at the end (as a fallback).
+        searchpath = SNAKEMAKE_SEARCHPATH
+        if container_img is not None:
+            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
+        searchpath = repr(searchpath)
+        # For local scripts, add their location to the path in case they use path-based imports
+        if path.startswith("file://"):
+            searchpath += ", " + repr(os.path.dirname(path[7:]))
+
+        # TODO write template for use with rust-script.
+        return textwrap.dedent(
+            """
+            use anyhow::Result;
+            use serde_derive::Deserialize;
+            use serde_pickle::Value;
+            use std::collections::HashMap;
+            
+            #[derive(Debug, Deserialize)]
+            pub struct Snakemake {{
+                input: HashMap<String, String>,
+                output: HashMap<String, String>,
+                params: HashMap<String, Value>,
+                wildcards: HashMap<String, Value>,
+                threads: u64,
+                log: Value,
+                resources: Value,
+                config: HashMap<String, Value>,
+                rulename: String,
+                bench_iteration: Option<usize>,
+                scriptdir: String,
+            }}
+            
+            impl Snakemake {{
+                fn load() -> Result<Self> {{
+                    let snakemake: Snakemake = serde_pickle::from_reader(std::fs::File::open(SNAKEMAKE_PICKLE_PATH)?)?;
+                    Ok(snakemake)
+                }}
+            }}
+            // TODO extend PATH with {searchpath}
+            // TODO configure logger with {printshellcmds}
+            // TODO include addendum, if any {preamble_addendum}
+            static SNAKEMAKE_PICKLE_PATH: &'static str = "{snakemake_pickle_path}";
+            """
+        ).format(
+            searchpath=searchpath,
+            snakemake_pickle_path=snakemake_pickle_path,
+            printshellcmds=logger.printshellcmds,
+            preamble_addendum=preamble_addendum,
+        )
+
+    def get_preamble(self):
+        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+        # preamble_addendum = (
+        #     "__real_file__ = __file__; __file__ = {file_override};".format(
+        #         file_override=repr(os.path.realpath(wrapper_path))
+        #     )
+        # )
+        preamble_addendum = ""
+
+        preamble = RustScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.container_img,
+            self.singularity_args,
+            self.env_modules,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            preamble_addendum=preamble_addendum,
+        )
+        return preamble
+
+    def write_script(self, preamble, fd):
+        # At the moment, Dependencies can only be specified via
+        # '// cargo-deps: dependency1, dependency2="version", …'
+        #
+        # Dependencies given in a doc comment code block such as:
+        # //! ```cargo
+        # //! [dependencies]
+        # //! thiserror = "*"
+        # //! ```
+        # are not supported yet.
+        cargo_deps_regex = re.compile(r"// cargo-deps: (.*)")
+        match = cargo_deps_regex.findall(self.source.decode())
+        if len(match) == 1:
+            preamble = "// cargo-deps: " + match[0] + "\n" + preamble
+        fd.write(preamble.encode())
+        fd.write(self.source)
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd(
+            "rust-script "
+            "-d serde_derive -d serde-pickle -d serde -d anyhow "  # default dependencies for now
+            "{fname:q}",
+            fname=fname,
+        )
+
+
 def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
@@ -867,6 +1060,8 @@ def get_language(path, source):
         language = "rmarkdown"
     elif path.endswith(".jl"):
         language = "julia"
+    elif path.endswith(".rs"):
+        language = "rust"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -917,6 +1112,7 @@ def script(
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
+        "rust": RustScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
