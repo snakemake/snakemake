@@ -793,7 +793,8 @@ class ClusterExecutor(RealExecutor):
 
         envvars = " ".join(
             # quotes values, as envvars values could have spaces
-            "{}='{}'".format(var, os.environ[var]) for var in self.workflow.envvars
+            "{}='{}'".format(var, os.environ[var])
+            for var in self.workflow.envvars
         )
 
         exec_job = self.format_job(
