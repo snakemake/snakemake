@@ -30,7 +30,7 @@ class SlurmExecutor(ClusterExecutor):
     clusters using snakemake resource string
     """
 
-    default_jobscript = "slurm_jobscript.py"
+    default_jobscript = "slurm_jobstep.py"
 
     def __init__(
         self,
@@ -112,8 +112,6 @@ class SlurmExecutor(ClusterExecutor):
                 error_callback=error_callback,  #
             )
 
-
-
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
         path = ""
@@ -133,6 +131,7 @@ class SlurmExecutor(ClusterExecutor):
             latency_wait=self.latency_wait,
             wait_for_files=wait_for_files,
             path=path,
+            #wildcards = self.cluster_wildcards(job),
             **kwargs,
         )
         try:
