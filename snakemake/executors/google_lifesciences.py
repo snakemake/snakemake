@@ -511,11 +511,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
 
+        # We add the size for the image itself (10 GB) to bootDiskSizeGb
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
-            "bootDiskSizeGb": disk_gb
-            + 10,  # need to add the size for the image itself here (10 GB)
+            "bootDiskSizeGb": disk_gb + 10,
             "preemptible": job.rule.name in self.preemptible_rules,
         }
 
