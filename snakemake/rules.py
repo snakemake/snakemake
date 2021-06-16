@@ -982,10 +982,16 @@ class Rule:
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int) and not isinstance(res, str):
-                    raise WorkflowError(
-                        "Resources function did not return int or str.", rule=self
-                    )
+            if isinstance(res, float):
+                # round to integer
+                res = int(round(res))
+
+            if not isinstance(res, int) and not isinstance(res, str):
+                raise WorkflowError(
+                    "Resources function did not return int, float (floats are "
+                    "rouded to the nearest integer), or str.",
+                    rule=self,
+                )
             if isinstance(res, int):
                 global_res = self.workflow.global_resources.get(name, res)
                 if global_res is not None:
