@@ -1109,10 +1109,18 @@ class GroupJob(AbstractJob):
         from toposort import toposort
 
         if self.toposorted is None:
-            dag = {
-                job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
-                for job in self.jobs
-            }
+
+            def get_dependencies(job):
+                for dep, files in self.dag.dependencies[job].items():
+                    if dep in self.jobs:
+                        yield dep
+                        if any(is_flagged(f, "pipe") for f in files):
+                            # In case of a pipe, inherit the dependencies of the producer,
+                            # such that the two jobs end up on the same toposort level.
+                            # This is important because they are executed simulataneously.
+                            yield from get_dependencies(dep)
+
+            dag = {job: set(get_dependencies(job)) for job in self.jobs}
 
             self.toposorted = list(toposort(dag))
 
