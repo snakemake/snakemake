@@ -20,37 +20,51 @@ class DefaultResources:
     def encode_arg(cls, name, value):
         return "{}={}".format(name, value)
 
-    def __init__(self, args=None):
-        if args is None:
-            args = []
+    def __init__(self, args=None, from_other=None):
         self._args = dict(DefaultResources.defaults)
-        self._args.update({name: value for name, value in map(self.decode_arg, args)})
+        if from_other is not None:
+            self._args = dict(from_other._args)
+            self.parsed = dict(from_other.parsed)
+        else:
+            if args is None:
+                args = []
 
-        def fallback(val):
-            def callable(wildcards, input, attempt, threads, rulename):
-                try:
-                    value = eval(
-                        val,
-                        {
-                            "input": input,
-                            "attempt": attempt,
-                            "threads": threads,
-                            "system_tmpdir": tempfile.gettempdir(),
-                        },
-                    )
-                # Triggers for string arguments like n1-standard-4
-                except NameError:
-                    return val
-                return value
+            self._args.update(
+                {name: value for name, value in map(self.decode_arg, args)}
+            )
 
-            return callable
+            def fallback(val):
+                def callable(wildcards, input, attempt, threads, rulename):
+                    try:
+                        value = eval(
+                            val,
+                            {
+                                "input": input,
+                                "attempt": attempt,
+                                "threads": threads,
+                                "system_tmpdir": tempfile.gettempdir(),
+                            },
+                        )
+                    # Triggers for string arguments like n1-standard-4
+                    except NameError:
+                        return val
+                    return value
 
-        self.parsed = dict(_cores=1, _nodes=1)
-        self.parsed.update(parse_resources(self._args, fallback=fallback))
+                return callable
+
+            self.parsed = dict(_cores=1, _nodes=1)
+            self.parsed.update(parse_resources(self._args, fallback=fallback))
+
+    def set_resource(self, name, value):
+        self._args[name] = "{}".format(value)
+        self.parsed[name] = value
 
     @property
     def args(self):
         return [self.encode_arg(name, value) for name, value in self._args.items()]
+
+    def __bool__(self):
+        return bool(self.parsed)
 
 
 def parse_resources(resources_args, fallback=None):
