@@ -629,6 +629,47 @@ Alternatively, it is possible to integrate Julia_ scripts, e.g.
 
 In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
 
+It is also possible to integrate Rust_ scripts, e.g.
+
+.. _Rust: https://www.rust-lang.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.rs"
+
+In the Rust_ script, an instance of a ``Snakemake`` struct can be obtained via ``let snakemake = Snakemake::load()?``, which is defined as follows:
+
+.. code-block:: rust
+
+    pub struct Snakemake {
+        input: HashMap<String, String>,
+        output: HashMap<String, String>,
+        params: HashMap<String, Value>,
+        wildcards: HashMap<String, Value>,
+        threads: u64,
+        log: Value,
+        resources: Value,
+        config: HashMap<String, Value>,
+        rulename: String,
+        bench_iteration: Option<usize>,
+        scriptdir: String,
+    }
+
+where the ``Value`` type is ``serde_pickle::Value``.
+The script has to be a valid rust-script_ script.
+TODO: describe how to access positional and named args/params.
+
+.. _rust-script: https://rust-script.org/
+
+
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 An example external Python script could look like this:
