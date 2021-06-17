@@ -1341,6 +1341,8 @@ However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end 
 Alternatively, groups can be defined via the command line interface.
 This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
 
+For execution on the cloud using Google Life Science API and preemptible instances, note than if any of the rules in a group is included in the subset of rules to be executed using preembtible instances (with command line option ``--preemptible-rules``), the group will be also scheduled to be executed on a preemptible instance.
+
 Piped output
 ------------
 
