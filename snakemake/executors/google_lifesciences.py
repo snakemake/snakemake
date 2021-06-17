@@ -511,12 +511,16 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
 
+        if job.is_group():
+            preemptible = any(rule in self.preemptible_rules for rule in job.rules)
+        else:
+            preemptible = job.rule.name in self.preemptible_rules
         # We add the size for the image itself (10 GB) to bootDiskSizeGb
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
             "bootDiskSizeGb": disk_gb + 10,
-            "preemptible": job.rule.name in self.preemptible_rules,
+            "preemptible": preemptible,
         }
 
         # If the user wants gpus, add accelerators here
