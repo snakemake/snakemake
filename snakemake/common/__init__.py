@@ -42,6 +42,7 @@ else:
 
 # A string that prints as TBD
 class TBDString(str):
+    # the second arg is necessary to avoid problems when pickling
     def __new__(cls, _=None):
         return str.__new__(cls, "<TBD>")
 
