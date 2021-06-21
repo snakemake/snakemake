@@ -117,8 +117,10 @@ class AbstractExecutor:
             "--set-scatter", self.workflow.overwrite_scatter
         )
 
-    def get_default_resources_args(self):
-        if self.workflow.default_resources.args is not None:
+    def get_default_resources_args(self, default_resources=None):
+        if default_resources is None:
+            default_resources = self.workflow.default_resources
+        if default_resources:
 
             def fmt(res):
                 if isinstance(res, str):

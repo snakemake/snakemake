@@ -20,4 +20,4 @@ Finally, Snakemake workflows can entail a description of required software, whic
 
 **Homepage: https://snakemake.github.io**
 
-Copyright (c) 2012-2019 Johannes Köster <johannes.koester@uni-due.com> (see LICENSE)
+Copyright (c) 2012-2021 Johannes Köster <johannes.koester@uni-due.com> (see LICENSE)

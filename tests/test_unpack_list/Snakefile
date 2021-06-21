@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input:
         'prefix.out1.txt',
