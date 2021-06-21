@@ -72,7 +72,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
+            "--force --cores {cores} --keep-target-files --keep-remote "
             "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
             "--attempt 1 {use_threads} --max-inventory-time 0 "
             "{overwrite_config} {rules} --nocolor "

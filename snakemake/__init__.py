@@ -1098,7 +1098,9 @@ def get_argument_parser(profile=None):
         "--jobs",
         "-j",
         metavar="N",
-        type=int,
+        nargs="?",
+        const=available_cpu_count(),
+        action="store",
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
             "an alias for --cores."
