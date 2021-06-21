@@ -305,6 +305,10 @@ class Job(AbstractJob):
             )
         return self._resources
 
+    def reset_params_and_resources(self):
+        self._resources = None
+        self._params = None
+
     @property
     def conda_env_file(self):
         if self._conda_env_file is None:
