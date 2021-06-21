@@ -487,8 +487,9 @@ class JobScheduler:
                     self.dag.register_running(run)
 
                 # reset params and resources because they might contain TBDs
-                for job in run:
-                    job.reset_params_and_resources()
+                if not self.dryrun:
+                    for job in run:
+                        job.reset_params_and_resources()
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
