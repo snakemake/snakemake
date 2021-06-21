@@ -17,7 +17,6 @@ from pathlib import Path
 import uuid
 import math
 
-from tabulate import tabulate
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
@@ -2125,6 +2124,8 @@ class DAG:
             )
 
     def stats(self):
+        from tabulate import tabulate
+
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs)
         rules.update(job.rule for job in self.finished_jobs)
