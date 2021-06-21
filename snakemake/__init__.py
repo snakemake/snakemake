@@ -1101,6 +1101,7 @@ def get_argument_parser(profile=None):
         nargs="?",
         const=available_cpu_count(),
         action="store",
+        type=int,
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
             "an alias for --cores."
