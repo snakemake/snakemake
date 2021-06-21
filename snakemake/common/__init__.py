@@ -13,6 +13,7 @@ import os
 import asyncio
 import sys
 import collections
+from pathlib import Path
 
 from snakemake._version import get_versions
 
@@ -22,7 +23,7 @@ del get_versions
 
 MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
-SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
+SNAKEMAKE_SEARCHPATH = Path(__file__).parent.parent.parent
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 ON_WINDOWS = platform.system() == "Windows"
