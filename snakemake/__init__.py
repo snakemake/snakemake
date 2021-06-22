@@ -1049,8 +1049,7 @@ def get_argument_parser(profile=None):
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
                         https://github.com/snakemake-profiles. 
-                        The profile can also be set via the environment variable 
-                        $SNAKEMAKE_PROFILE.
+                        The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
         ),
