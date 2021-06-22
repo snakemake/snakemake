@@ -1,3 +1,17 @@
+[6.5.0] - 2021-06-22
+====================
+- Allow to set the default profile via the environment variable $SNAKEMAKE_PROFILE.
+- There is a new default resource tmpdir (by default reflects the system setting), which is automatically used for temporary files by shell commands and scripts which properly consider the usual environment variables like $TMP, $TEMP, $TMPDIR (@johanneskoester).
+- The CLI flags --jobs and --cores are now separated, with --cores being responsible for local cores and global cores in the cluster case, and --jobs being responsible for number of jobs. Still -j and --jobs works as a fallback for local execution (@johanneskoester).
+- Added the ability to overwrite resources via --set-resources (@johanneskoester).
+- Various fixes for Windows execution (@melund).
+- Fixed a bug with fractional resources (@johanneskoester).
+- Fixed timeouts and other issues in google life science backend (@johanneskoester).
+- Fixed a bug with missing conda frontend definitions in subworkflows (@johanneskoester).
+- Skip envvar checking during linting (@johanneskoester).
+- Fixed a bug causing container images in modules to be ignored (@johanneskoester).
+
+
 [6.4.1] - 2021-05-27
 ====================
 - Fixed bug in ``workflow.source_path()`` that occurred with modules included from remote locations (@johanneskoester).
