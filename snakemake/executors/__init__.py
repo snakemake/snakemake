@@ -106,8 +106,8 @@ class AbstractExecutor:
             return " --set-resources {} ".format(
                 " ".join(
                     "{}:{}={}".format(rule, name, value)
-                    for rule, res in self.workflow.overwrite_resources
-                    for name, value in res
+                    for rule, res in self.workflow.overwrite_resources.items()
+                    for name, value in res.items()
                 ),
             )
         return ""
