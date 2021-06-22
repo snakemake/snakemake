@@ -1178,7 +1178,10 @@ def get_argument_parser(profile=None):
             "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
             "'disk_mb=max(2*input.size_mb, 1000)' "
             "i.e., default disk and mem usage is twice the input file size but at least 1GB."
-            "In addition, the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource."
+            "In addition, the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
+            "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
+            "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
+            "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
         ),
     )
 
