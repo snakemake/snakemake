@@ -121,6 +121,10 @@ class JobScheduler:
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
+
+        if workflow.global_resources["_nodes"] is not None:
+            # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
+            self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
         use_threads = (
@@ -481,6 +485,11 @@ class JobScheduler:
                     self.running.update(run)
                     # remove from ready_jobs
                     self.dag.register_running(run)
+
+                # reset params and resources because they might contain TBDs
+                if not self.dryrun:
+                    for job in run:
+                        job.reset_params_and_resources()
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]

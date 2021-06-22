@@ -69,6 +69,9 @@ class AbstractJob:
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         raise NotImplementedError()
 
+    def reset_params_and_resources(self):
+        raise NotImplementedError()
+
 
 class JobFactory:
     def __init__(self):
@@ -304,6 +307,10 @@ class Job(AbstractJob):
                 self.wildcards_dict, self.input, self.attempt
             )
         return self._resources
+
+    def reset_params_and_resources(self):
+        self._resources = None
+        self._params = None
 
     @property
     def conda_env_file(self):
@@ -1170,6 +1177,10 @@ class GroupJob(AbstractJob):
     def remove_existing_output(self):
         for job in self.jobs:
             job.remove_existing_output()
+
+    def reset_params_and_resources(self):
+        for job in self.jobs:
+            job.reset_params_and_resources()
 
     def download_remote_input(self):
         for job in self.jobs:

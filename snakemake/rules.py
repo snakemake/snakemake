@@ -999,6 +999,8 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if self.workflow.max_threads is not None:
+            threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
         for name, res in self.resources.items():
