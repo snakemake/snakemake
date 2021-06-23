@@ -1,3 +1,7 @@
+[unreleased]
+============
+- Extended best practices document (@johanneskoester)
+
 [6.5.0] - 2021-06-22
 ====================
 - Allow to set the default profile via the environment variable $SNAKEMAKE_PROFILE.
