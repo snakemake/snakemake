@@ -915,8 +915,9 @@ class RustScript(ScriptBase):
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
+            #![allow(non_snake_case)]
             use anyhow::Result;
-            use serde_derive::Deserialize;
+            use serde::Deserialize;
             use serde_pickle::Value;
             use std::collections::HashMap;
             
@@ -1008,7 +1009,7 @@ class RustScript(ScriptBase):
     def execute_script(self, fname, edit=False):
         self._execute_cmd(
             "rust-script "
-            "-d serde_derive -d serde-pickle -d serde -d anyhow "  # default dependencies for now
+            "-d serde-pickle=0.6 -d serde=1 -d anyhow=1 --features serde/derive "  # default dependencies for now
             "{fname:q}",
             fname=fname,
         )
