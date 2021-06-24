@@ -431,11 +431,11 @@ class JobScheduler:
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
+                    self._finish_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
                     user_kill = self._user_kill
-                    self._finish_jobs()
 
                 # handle errors
                 if user_kill or (not self.keepgoing and errors):
