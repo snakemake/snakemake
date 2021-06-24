@@ -1,6 +1,8 @@
-[unreleased]
-============
+[6.5.1] - 2021-06-24
+====================
 - Extended best practices document (@johanneskoester)
+- Restore ``-j all`` behavior for local execution as a (deprecated) way of running Snakemake on all cores. Recommended now: ``--cores all`` (@johanneskoester).
+- Improved handling and better error messages for checkpoints (@johanneskoester).
 
 [6.5.0] - 2021-06-22
 ====================
