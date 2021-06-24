@@ -397,7 +397,7 @@ class Workflow:
 
     @property
     def cores(self):
-        if self.global_resources["_cores"] is None:
+        if self._cores is None:
             raise WorkflowError(
                 "Workflow requires a total number of cores to be defined (e.g. because a "
                 "rule defines its number of threads as a fraction of a total number of cores). "
@@ -406,6 +406,10 @@ class Workflow:
                 "jobs with too many threads for your setup. Also make sure to perform "
                 "a dryrun first."
             )
+        return self._cores
+
+    @property
+    def _cores(self):
         return self.global_resources["_cores"]
 
     @property
@@ -788,7 +792,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
-                        cores=self.cores,
+                        cores=self._cores,
                         nodes=self.nodes,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
@@ -950,7 +954,6 @@ class Workflow:
         scheduler = JobScheduler(
             self,
             dag,
-            self.cores,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -999,17 +1002,17 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
-                elif kubernetes or tibanna:
+                elif kubernetes or tibanna or google_lifesciences:
                     logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
-                    if self.cores is not None:
+                    if self._cores is not None:
                         warning = (
                             ""
-                            if self.cores > 1
+                            if self._cores > 1
                             else " (use --cores to define parallelism)"
                         )
                         logger.resources_info(
-                            "Provided cores: {}{}".format(self.cores, warning)
+                            "Provided cores: {}{}".format(self._cores, warning)
                         )
                         logger.resources_info(
                             "Rules claiming more threads " "will be scaled down."
@@ -1030,7 +1033,8 @@ class Workflow:
                 ):
                     logger.info("Singularity containers: ignored")
 
-                logger.run_info("\n".join(dag.stats()))
+                if self.mode == Mode.default:
+                    logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
         else:

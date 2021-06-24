@@ -1103,7 +1103,6 @@ def get_argument_parser(profile=None):
         nargs="?",
         const=available_cpu_count(),
         action="store",
-        type=int,
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
             "an alias for --cores."
@@ -2454,24 +2453,31 @@ def main(argv=None):
     )
     local_exec = not (no_exec or non_local_exec)
 
-    if args.cores is not None:
-        if args.cores == "all":
-            args.cores = available_cpu_count()
+    def parse_cores(cores):
+        if cores == "all":
+            return available_cpu_count()
         else:
             try:
-                args.cores = int(args.cores)
+                return int(cores)
             except ValueError:
                 print(
-                    "Error parsing number of cores (--cores, -c): must be integer, empty, or 'all'.",
+                    "Error parsing number of cores (--cores, -c, -j): must be integer, empty, or 'all'.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
+
+    if args.cores is not None:
+        args.cores = parse_cores(args.cores)
+        if local_exec:
+            # avoid people accidentally setting jobs as well
+            args.jobs = None
     else:
         if no_exec:
             args.cores = 1
         elif local_exec:
             if args.jobs is not None:
-                args.cores = args.jobs
+                args.cores = parse_cores(args.jobs)
+                args.jobs = None
             else:
                 print(
                     "Error: you need to specify the maximum number of CPU cores to "
@@ -2482,13 +2488,23 @@ def main(argv=None):
                 )
                 sys.exit(1)
 
-    if non_local_exec and args.jobs is None:
-        print(
-            "Error: you need to specify the maximum number of jobs to "
-            "be queued or executed at the same time with --jobs or -j.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    if non_local_exec:
+        if args.jobs is None:
+            print(
+                "Error: you need to specify the maximum number of jobs to "
+                "be queued or executed at the same time with --jobs or -j.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        else:
+            try:
+                args.jobs = int(args.jobs)
+            except ValueError:
+                print(
+                    "Error parsing number of jobs (--jobs, -j): must be integer.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):

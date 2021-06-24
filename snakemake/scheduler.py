@@ -56,7 +56,6 @@ class JobScheduler:
         self,
         workflow,
         dag,
-        cores,
         local_cores=1,
         dryrun=False,
         touch=False,
@@ -97,6 +96,8 @@ class JobScheduler:
     ):
         """Create a new instance of KnapsackJobScheduler."""
         from ratelimiter import RateLimiter
+
+        cores = workflow.global_resources["_cores"]
 
         self.cluster = cluster
         self.cluster_config = cluster_config
