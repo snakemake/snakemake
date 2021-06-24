@@ -117,6 +117,7 @@ class JobScheduler:
         self.keepmetadata = keepmetadata
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
+        self._tofinish = []
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -434,6 +435,7 @@ class JobScheduler:
                     running = list(self.running)
                     errors = self._errors
                     user_kill = self._user_kill
+                    self._finish_jobs()
 
                 # handle errors
                 if user_kill or (not self.keepgoing and errors):
@@ -504,6 +506,12 @@ class JobScheduler:
             self._executor.cancel()
             return False
 
+    def _finish_jobs(self):
+        # must be called from within lock
+        for job, update_dynamic in self._tofinish:
+            self.dag.finish(job, update_dynamic=update_dynamic)
+        self._tofinish.clear()
+
     def run(self, jobs, executor=None):
         if executor is None:
             executor = self._executor
@@ -549,16 +557,7 @@ class JobScheduler:
                     self._handle_error(job)
                     return
 
-            try:
-                potential_new_ready_jobs = self.dag.finish(
-                    job, update_dynamic=update_dynamic
-                )
-            except (RuleException, WorkflowError) as e:
-                # if an error occurs while processing job output,
-                # we do the same as in case of errors during execution
-                print_exception(e, self.workflow.linemaps)
-                self._handle_error(job)
-                return
+            self._tofinish.append((job, update_dynamic))
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1
