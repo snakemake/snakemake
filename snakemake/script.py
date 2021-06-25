@@ -1080,7 +1080,6 @@ class RustScript(ScriptBase):
                 m = code_block_open_re.search(line)
                 if m:
                     found_code_block_open = True
-                    continue
             else:
                 m = code_block_close_re.search(line)
                 if m:
