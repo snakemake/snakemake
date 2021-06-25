@@ -7,7 +7,8 @@ rule all:
         "test.html",
         "rel_source.out",
         "julia.out",
-        "rust.out"
+        "rust.out",
+        "rust-manifest.out"
 
 rule:
     input:
@@ -70,3 +71,13 @@ rule:
         "envs/rust.yaml"
     script:
         "scripts/test.rs"
+
+rule:
+    output:
+        "rust-manifest.out"
+    params:
+        keep="-"
+    conda:
+        "envs/rust.yaml"
+    script:
+        "scripts/test-manifest.rs"
