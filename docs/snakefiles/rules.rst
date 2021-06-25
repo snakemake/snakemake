@@ -571,6 +571,9 @@ External scripts
 
 A rule can also point to an external script instead of a shell command or inline Python code, e.g.
 
+Python
+~~~~~~
+
 .. code-block:: python
 
     rule NAME:
@@ -591,6 +594,20 @@ The script path is always relative to the Snakefile containing the directive (in
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
+An example external Python script could look like this:
+
+.. code-block:: python
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
+
+R and R Markdown
+~~~~~~~~~~~~~~~~
+
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
@@ -610,79 +627,7 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analogous to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
-
-Alternatively, it is possible to integrate Julia_ scripts, e.g.
-
-.. _Julia: https://julialang.org
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
-        script:
-            "path/to/script.jl"
-
-In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
-
-It is also possible to integrate Rust_ scripts, e.g.
-
-.. _Rust: https://www.rust-lang.org/
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
-        script:
-            "path/to/script.rs"
-
-In the Rust_ script, an instance of a ``Snakemake`` struct can be obtained via ``let snakemake = Snakemake::load()?``, which is defined as follows:
-
-.. code-block:: rust
-
-    pub struct Snakemake {
-        input: HashMap<String, String>,
-        output: HashMap<String, String>,
-        params: HashMap<String, Value>,
-        wildcards: HashMap<String, Value>,
-        threads: u64,
-        log: Value,
-        resources: Value,
-        config: HashMap<String, Value>,
-        rulename: String,
-        bench_iteration: Option<usize>,
-        scriptdir: String,
-    }
-
-where the ``Value`` type is ``serde_pickle::Value``.
-The script has to be a valid rust-script_ script.
-TODO: describe how to access positional and named args/params.
-
-.. _rust-script: https://rust-script.org/
-
-
-For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
-
-An example external Python script could look like this:
-
-.. code-block:: python
-
-    def do_something(data_path, out_path, threads, myparam):
-        # python code
-
-    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
-
-You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
-An equivalent script written in R would look like this:
+An equivalent script (:ref:`to the Python one above <Python>`) written in R would look like this:
 
 .. code-block:: r
 
@@ -743,6 +688,98 @@ In the R Markdown file you can insert output from a R command, and access variab
 
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
 Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
+
+Julia_
+~~~~~~
+
+.. _Julia: https://julialang.org
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.jl"
+
+In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the :ref:`Python case <Python>`, with the only difference that you have to index from 1 instead of 0.
+
+Rust_
+~~~~~
+
+.. _Rust: https://www.rust-lang.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        params:
+            seed=4
+        script:
+            "path/to/script.rs"
+
+The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
+script must be a valid ``rust-script`` script.
+
+In the Rust script, an instance of a ``Snakemake`` struct can be obtained via
+
+.. code-block:: rust
+
+    let snakemake = Snakemake::load()?;
+
+where the ``Snakemake`` struct is defined as follows:
+
+.. code-block:: rust
+
+    pub struct Snakemake {
+        input: HashMap<String, String>,
+        output: HashMap<String, String>,
+        params: HashMap<String, Value>,
+        wildcards: HashMap<String, Value>,
+        threads: u64,
+        log: Value,
+        resources: Value,
+        config: HashMap<String, Value>,
+        rulename: String,
+        bench_iteration: Option<usize>,
+        scriptdir: String,
+    }
+
+where the ``Value`` type is a |serde_pickle_value|_.
+
+So, for the above example, to get the value of ``params.seed``, or use ``0`` if it
+isn't set we would do something like
+
+.. code-block:: rust
+
+    let seed = match snakemake.params.get("seed") {
+        Some(Value::I64(i)) => i,
+        _ => 0
+    };
+
+TODO: describe how to access positional and named args/params when the API is finalised
+
+TODO: discuss what default dependencies and use statements are already used and the two types of manifest
+
+TODO: add an example
+
+.. |rust-script| replace:: ``rust-script``
+.. _rust-script: https://rust-script.org/
+.. |serde_pickle_value| replace:: ``serde_pickle::Value``
+.. _serde_pickle_value: https://docs.rs/serde-pickle/0.6.2/serde_pickle/value/enum.Value.html
+
+----
+
+For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 .. _snakefiles_notebook-integration:
 
