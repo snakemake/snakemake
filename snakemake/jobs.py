@@ -720,6 +720,10 @@ class Job(AbstractJob):
 
         self.remove_existing_output()
 
+        # Create tmpdir if necessary
+        if self.resources.get("tmpdir"):
+            os.makedirs(self.resources.tmpdir, exist_ok=True)
+
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
