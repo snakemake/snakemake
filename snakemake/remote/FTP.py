@@ -66,7 +66,7 @@ class RemoteProvider(AbstractRemoteProvider):
             match = re.match("^(ftps?)://.+", file)
             if match:
                 (protocol,) = match.groups()
-                if protocol == "ftp" and encrypt_data_channel in [None, False]:
+                if protocol == "ftps" and encrypt_data_channel in [None, False]:
                     raise SyntaxError(
                         "encrypt_data_channel=False cannot be used with a ftps:// url"
                     )
