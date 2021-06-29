@@ -2478,6 +2478,9 @@ def main(argv=None):
             if args.jobs is not None:
                 args.cores = parse_cores(args.jobs)
                 args.jobs = None
+            elif args.dryrun:
+                # dryrun with single core if nothing specified
+                args.cores = 1
             else:
                 print(
                     "Error: you need to specify the maximum number of CPU cores to "
