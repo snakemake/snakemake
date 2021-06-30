@@ -6,7 +6,7 @@ rule all:
         "robots.txt"
 
 FTP_URL = \
-    "ftp://ftp.ensembl.org/pub/release-100/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+    "ftp://ftp.ensembl.org/robots.txt"
     
 rule get_fasta_ftp:    
     input:    
