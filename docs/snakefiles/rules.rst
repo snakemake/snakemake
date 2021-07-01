@@ -4,8 +4,8 @@
 Snakefiles and Rules
 ====================
 
-A Snakemake workflow defines a data analysis in terms of rules, that are listed in so-called Snakefiles.
-Most importantly, a rule can consist of a name, input files, output files, and a shell command to generate the output from the input, i.e.
+A Snakemake workflow defines a data analysis in terms of rules that are specified in the Snakefile.
+Most commonly, rules consist of a name, input files, output files, and a shell command to generate the output from the input:
 
 .. code-block:: python
 
@@ -14,7 +14,7 @@ Most importantly, a rule can consist of a name, input files, output files, and a
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-The name is optional and can be left out, creating an anonymous rule, and can be overridden with ``name``.
+The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
 
 .. sidebar:: Note
 
