@@ -1,3 +1,11 @@
+[6.5.2] - 2021-07-02
+====================
+- Create directory pointed to by tmpdir resource if it does not yet exist (@johanneskoester).
+- Use a single core again in dryrun if --cores is not specified (@johanneskoester).
+- Bugfix for FTP remote provider (@jmeppley).
+- Improved documentation (@cornerliusroemer).
+
+
 [6.5.1] - 2021-06-24
 ====================
 - Extended best practices document (@johanneskoester)
