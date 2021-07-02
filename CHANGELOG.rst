@@ -3,7 +3,7 @@
 - Create directory pointed to by tmpdir resource if it does not yet exist (@johanneskoester).
 - Use a single core again in dryrun if --cores is not specified (@johanneskoester).
 - Bugfix for FTP remote provider (@jmeppley).
-- Improved documentation (@cornerliusroemer).
+- Improved documentation (@corneliusroemer).
 
 
 [6.5.1] - 2021-06-24
