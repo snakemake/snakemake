@@ -1115,7 +1115,7 @@ class GenericClusterExecutor(ClusterExecutor):
                     try_remove(active_job.jobscript)
                     return success
                 if try_remove(active_job.jobfailed):
-                    try_remove(active_job.script)
+                    try_remove(active_job.jobscript)
                     return failed
                 return running
 
