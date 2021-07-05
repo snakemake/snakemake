@@ -1045,7 +1045,7 @@ class RustScript(ScriptBase):
 
     @staticmethod
     def default_features() -> str:
-        return " --features ".join(["serde/derive"])
+        return ",".join(["serde/derive", "indexmap/serde"])
 
     @staticmethod
     def extract_manifest(source: str) -> Tuple[str, str]:
