@@ -1099,15 +1099,31 @@ class GenericClusterExecutor(ClusterExecutor):
 
             def job_status(job):
                 if os.path.exists(active_job.jobfinished):
-                    os.remove(active_job.jobfinished)
-                    os.remove(active_job.jobscript)
+                    try:
+                        os.remove(active_job.jobfinished)
+                    except PermissionError:
+                        os.chmod(active_job.jobfinished, stat.S_IWRITE)
+                        os.remove(active_job.jobfinished)
+                    try:
+                        os.remove(active_job.jobscript)
+                    except PermissionError:
+                        os.chmod(active_job.jobscript, stat.S_IWRITE)
+                        os.remove(active_job.jobscript)
                     return success
+                
                 if os.path.exists(active_job.jobfailed):
-                    os.remove(active_job.jobfailed)
-                    os.remove(active_job.jobscript)
+                    try:
+                        os.remove(active_job.jobfailed)
+                    except PermissionError:
+                        os.chmod(active_job.jobfailed, stat.S_IWRITE)
+                        os.remove(active_job.jobfailed)
+                    try:
+                        os.remove(active_job.jobscript)
+                    except PermissionError:
+                        os.chmod(active_job.jobscript, stat.S_IWRITE)
+                        os.remove(active_job.jobscript)
                     return failed
                 return running
-
         while True:
             with self.lock:
                 if not self.wait:
