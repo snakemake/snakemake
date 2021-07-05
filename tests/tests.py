@@ -1273,4 +1273,7 @@ def test_set_resources():
 
 
 def test_github_issue1069():
-    run(dpath("test_github_issue1069"), shellcmd="snakemake -c1 --resources mem_mb=16423")
+    run(
+        dpath("test_github_issue1069"),
+        shellcmd="snakemake -c1 --resources mem_mb=16423",
+    )

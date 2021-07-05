@@ -151,7 +151,9 @@ def run(
     # run snakemake
     if shellcmd:
         try:
-            subprocess.check_output(shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True)
+            subprocess.check_output(
+                shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+            )
             success = True
         except subprocess.CalledProcessError as e:
             success = False
