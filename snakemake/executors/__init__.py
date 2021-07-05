@@ -1098,32 +1098,28 @@ class GenericClusterExecutor(ClusterExecutor):
         else:
 
             def job_status(job):
-                if os.path.exists(active_job.jobfinished):
-                    try:
-                        os.remove(active_job.jobfinished)
-                    except PermissionError:
-                        os.chmod(active_job.jobfinished, stat.S_IWRITE)
-                        os.remove(active_job.jobfinished)
-                    try:
-                        os.remove(active_job.jobscript)
-                    except PermissionError:
-                        os.chmod(active_job.jobscript, stat.S_IWRITE)
-                        os.remove(active_job.jobscript)
+
+                def try_remove(filename): 
+                    # shall return True if file existed and was
+                    # deleted, else return False
+                    if os.path.exists(filename):
+                        try:
+                            os.remove(filename)
+                        except PermissionError:
+                            os.chmod(filename, stat.S_IWRITE)
+                            os.remove(filename)
+                        return True
+                    else:
+                        return False
+
+                if try_remove(active_job.jobfinished):
+                    try_remove(active_job.jobscript)
                     return success
-                
-                if os.path.exists(active_job.jobfailed):
-                    try:
-                        os.remove(active_job.jobfailed)
-                    except PermissionError:
-                        os.chmod(active_job.jobfailed, stat.S_IWRITE)
-                        os.remove(active_job.jobfailed)
-                    try:
-                        os.remove(active_job.jobscript)
-                    except PermissionError:
-                        os.chmod(active_job.jobscript, stat.S_IWRITE)
-                        os.remove(active_job.jobscript)
+                if try_remove(active_job.jobfailed):
+                    try_remove(active_job.script)
                     return failed
                 return running
+                
         while True:
             with self.lock:
                 if not self.wait:
