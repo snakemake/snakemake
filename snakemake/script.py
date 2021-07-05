@@ -14,6 +14,7 @@ import subprocess
 import collections
 import re
 from abc import ABC, abstractmethod
+from typing import Tuple, Pattern
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
@@ -359,6 +360,8 @@ class ScriptBase(ABC):
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
             singularity_args=self.singularity_args,
+            resources=self.resources,
+            threads=self.threads,
             **kwargs
         )
 
@@ -895,10 +898,10 @@ class RustScript(ScriptBase):
             bench_iteration=bench_iteration,
             scriptdir=os.path.dirname(wrapper_path),
         )
+        # todo: needs improvement - there's probably a better solution
         snakemake_pickle_path = os.path.join(
-            os.path.dirname(wrapper_path), "snakemake.pickle"
+            os.path.dirname(wrapper_path), "jobid{}.pickle".format(jobid)
         )
-        # TODO use tempfile
         pickle.dump(dict(snakemake), open(snakemake_pickle_path, "wb"), protocol=4)
 
         # Obtain search path for current snakemake module.
@@ -915,9 +918,10 @@ class RustScript(ScriptBase):
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
+            #![allow(non_snake_case)] // otherwise we get cargo warning about tmp name
             use anyhow::Result;
             use indexmap::IndexMap;
-            use serde_derive::Deserialize;
+            use serde::Deserialize;
             use serde_pickle::Value;
             use std::collections::HashMap;
             use std::ops::Index;
@@ -1014,29 +1018,121 @@ class RustScript(ScriptBase):
         return preamble
 
     def write_script(self, preamble, fd):
-        # At the moment, Dependencies can only be specified via
-        # '// cargo-deps: dependency1, dependency2="version", …'
-        #
-        # Dependencies given in a doc comment code block such as:
-        # //! ```cargo
-        # //! [dependencies]
-        # //! thiserror = "*"
-        # //! ```
-        # are not supported yet.
-        cargo_deps_regex = re.compile(r"// cargo-deps: (.*)")
-        match = cargo_deps_regex.findall(self.source.decode())
-        if len(match) == 1:
-            preamble = "// cargo-deps: " + match[0] + "\n" + preamble
-        fd.write(preamble.encode())
-        fd.write(self.source)
+        content = self.combine_preamble_and_source(preamble)
+        fd.write(content.encode())
 
     def execute_script(self, fname, edit=False):
+        deps = self.default_dependencies()
+        ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script "
-            "-d serde_derive -d serde-pickle -d serde -d anyhow "  # default dependencies for now
-            "{fname:q}",
+            "rust-script -d {deps} --features {ftrs} {fname:q}",
             fname=fname,
+            deps=deps,
+            ftrs=ftrs,
         )
+
+    def combine_preamble_and_source(self, preamble: str) -> str:
+        """The manifest info needs to be moved to before the preamble.
+        Also, because rust-scipt relies on inner docs, there can't be an empty line
+        between the manifest and preamble.
+        """
+        manifest, src = RustScript.extract_manifest(self.source.decode())
+        return manifest + preamble.lstrip("\r\n") + src
+
+    @staticmethod
+    def default_dependencies() -> str:
+        return " -d ".join(["serde-pickle=0.6", "serde=1", "anyhow=1", "indexmap=1.7"])
+
+    @staticmethod
+    def default_features() -> str:
+        return " --features ".join(["serde/derive"])
+
+    @staticmethod
+    def extract_manifest(source: str) -> Tuple[str, str]:
+        # we have no need for the shebang for now given the way we run the script
+        _, src = RustScript._strip_shebang(source)
+        manifest, src = RustScript._strip_manifest(src)
+
+        return manifest, src
+
+    @staticmethod
+    def _strip_shebang(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L312-L320"""
+        rgx = re.compile(r"^#![^\[].*?(\r\n|\n)")
+        return strip_re(rgx, src)
+
+    @staticmethod
+    def _strip_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L405-L411"""
+        manifest, remainder = RustScript._strip_single_line_manifest(src)
+        if not manifest:
+            manifest, remainder = RustScript._strip_code_block_manifest(src)
+        return manifest, remainder
+
+    @staticmethod
+    def _strip_single_line_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L618-L632"""
+        rgx = re.compile(r"^\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)", flags=re.IGNORECASE)
+        return strip_re(rgx, src)
+
+    @staticmethod
+    def _strip_code_block_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L634-L664
+        We need to find the first `/*!` or `//!` that *isn't* preceeded by something
+        that would make it apply to anything other than the crate itself. Because we
+        can't do this accurately, we'll just require that the doc comment is the
+        *first* thing in the file (after the optional shebang, which should already
+        have been stripped).
+        """
+        crate_comment_re = re.compile(
+            r"^\s*(/\*!|//!)(.*?)(\r\n|\n)", flags=re.MULTILINE
+        )
+        # does src start with a crate comment?
+        match = crate_comment_re.match(src)
+        if not match:
+            return "", src
+        end_of_comment = match.end()
+        # find end of crate comment
+        while match is not None:
+            end_of_comment = match.end()
+            match = crate_comment_re.match(src, pos=end_of_comment)
+
+        crate_comment = src[:end_of_comment]
+        found_code_block_open = False
+        code_block_open_re = re.compile(r"```\s*cargo")
+        found_code_block_close = False
+        code_block_close_re = re.compile(r"```")
+        for line in crate_comment.splitlines():
+            if not found_code_block_open:
+                m = code_block_open_re.search(line)
+                if m:
+                    found_code_block_open = True
+            else:
+                m = code_block_close_re.search(line)
+                if m:
+                    found_code_block_close = True
+                    break
+
+        crate_comment_has_manifest = found_code_block_open and found_code_block_close
+        if crate_comment_has_manifest:
+            return crate_comment, src[end_of_comment:]
+        else:
+            return "", src
+
+
+def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
+    """Strip a substring matching a regex from a string and return the stripped part
+    and the remainder of the original string.
+    Returns an empty string and the original string if the regex is not found
+    """
+    rgx = re.compile(regex)
+    match = rgx.search(s)
+    if match:
+        head, tail = s[: match.end()], s[match.end() :]
+    else:
+        head, tail = "", s
+
+    return head, tail
 
 
 def get_source(path, basedir=".", wildcards=None, params=None):

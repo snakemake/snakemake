@@ -13,8 +13,9 @@ import os
 import asyncio
 import sys
 import collections
+from pathlib import Path
 
-from ._version import get_versions
+from snakemake._version import get_versions
 
 __version__ = get_versions()["version"]
 del get_versions
@@ -22,7 +23,7 @@ del get_versions
 
 MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
-SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
+SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 ON_WINDOWS = platform.system() == "Windows"
@@ -41,7 +42,8 @@ else:
 
 # A string that prints as TBD
 class TBDString(str):
-    def __new__(cls):
+    # the second arg is necessary to avoid problems when pickling
+    def __new__(cls, _=None):
         return str.__new__(cls, "<TBD>")
 
 
@@ -73,8 +75,8 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return Uri(scheme, uri_path)
+            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return uri(scheme, uri_path)
         else:
             raise e
 

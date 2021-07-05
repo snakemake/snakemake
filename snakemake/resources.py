@@ -9,6 +9,10 @@ class DefaultResources:
         "tmpdir": "system_tmpdir",
     }
 
+    bare_defaults = {
+        "tmpdir": "system_tmpdir",
+    }
+
     @classmethod
     def decode_arg(cls, arg):
         try:
@@ -20,8 +24,14 @@ class DefaultResources:
     def encode_arg(cls, name, value):
         return "{}={}".format(name, value)
 
-    def __init__(self, args=None, from_other=None):
-        self._args = dict(DefaultResources.defaults)
+    def __init__(self, args=None, from_other=None, mode="full"):
+        if mode == "full":
+            self._args = dict(DefaultResources.defaults)
+        elif mode == "bare":
+            self._args = dict(DefaultResources.bare_defaults)
+        else:
+            raise ValueError("Unexpected mode for DefaultResources: {}".format(mode))
+
         if from_other is not None:
             self._args = dict(from_other._args)
             self.parsed = dict(from_other.parsed)

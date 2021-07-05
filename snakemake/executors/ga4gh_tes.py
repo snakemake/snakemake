@@ -54,7 +54,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 "snakemake {target} ",
                 "--snakefile {snakefile} ",
                 "--verbose ",
-                "--force -j{cores} ",
+                "--force --cores {cores} ",
                 "--keep-target-files ",
                 "--keep-remote ",
                 "--latency-wait 10 ",
