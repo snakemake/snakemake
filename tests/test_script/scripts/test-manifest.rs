@@ -38,8 +38,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut ostream = BufWriter::new(f_out);
     println!("Loaded");
 
-    let keep_strand = match snakemake.params.get("keep") {
-        Some(Value::String(s)) if s.len() == 1 => Some(s.chars().next().unwrap() as char),
+    let keep_strand = match &snakemake.params["keep"] {
+        Value::String(s) if s.len() == 1 => Some(s.chars().next().unwrap() as char),
         _ => None,
     };
 
