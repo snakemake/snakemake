@@ -1098,8 +1098,7 @@ class GenericClusterExecutor(ClusterExecutor):
         else:
 
             def job_status(job):
-
-                def try_remove(filename): 
+                def try_remove(filename):
                     # shall return True if file existed and was
                     # deleted, else return False
                     if os.path.exists(filename):
@@ -1119,7 +1118,7 @@ class GenericClusterExecutor(ClusterExecutor):
                     try_remove(active_job.script)
                     return failed
                 return running
-                
+
         while True:
             with self.lock:
                 if not self.wait:
