@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import os
 import tempfile
+import io
 
 from snakemake.common import is_local_file, get_appdirs
 from snakemake.exceptions import WorkflowError
@@ -78,7 +79,7 @@ class SourceCache:
         from smart_open import open
 
         if str(path_or_uri).startswith("git+file:"):
-            return git_content(path_or_uri)
+            return io.BytesIO(git_content(path_or_uri).encode())
 
         try:
             return open(path_or_uri, mode)

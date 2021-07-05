@@ -120,7 +120,7 @@ For example, the file
 
 would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
 The profile can be used to set a default for each option of the Snakemake command line interface.
-For this, option ``--someoption`` becomes ``someoption: `` in the profile.
+For this, option ``--someoption`` becomes ``someoption:`` in the profile.
 If options accept multiple arguments these must be given as YAML list in the profile.
 Under https://github.com/snakemake-profiles/doc, you can find publicly available profiles.
 Feel free to contribute your own.
@@ -186,5 +186,5 @@ To enable it globally, just append
 
     `snakemake --bash-completion`
 
-including the accents to your ``.bashrc``.
+including the backticks to your ``.bashrc``.
 This only works if the ``snakemake`` command is in your path.

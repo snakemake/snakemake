@@ -120,6 +120,7 @@ Resources
    tutorial/tutorial
    tutorial/short
    executor_tutorial/tutorial
+   snakefiles/best_practices
 
 .. toctree::
   :caption: Executing workflows

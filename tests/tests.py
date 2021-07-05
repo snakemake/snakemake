@@ -1058,6 +1058,11 @@ def test_github_issue988():
     run(dpath("test_github_issue988"))
 
 
+def test_github_issue1062():
+    # old code failed in dry run
+    run(dpath("test_github_issue1062"), dryrun=True)
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"

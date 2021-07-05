@@ -61,3 +61,4 @@ dependencies:
   - glpk
   - smart_open
   - filelock
+  - tabulate
