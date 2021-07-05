@@ -82,7 +82,13 @@ def parse_resources(resources_args, fallback=None):
     resources = dict()
     if resources_args is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
-        for res, val in resources_args.items():
+
+        if isinstance(resources_args, list):
+            resources_args = map(DefaultResources.decode_arg, resources_args)
+        else:
+            resources_args = resources_args.items()
+
+        for res, val in resources_args:
             if not valid.match(res):
                 raise ValueError(
                     "Resource definition must start with a valid identifier, but found {}.".format(
