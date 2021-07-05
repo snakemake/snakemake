@@ -1270,3 +1270,7 @@ def test_filesep_on_windows():
 
 def test_set_resources():
     run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
+
+
+def test_github_issue1069():
+    run(dpath("test_github_issue1069"), shellcmd="snakemake -c1 --resources mem_mb=16423")

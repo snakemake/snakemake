@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import sys
 import shutil
 from os.path import join
 import tempfile
@@ -94,6 +95,7 @@ def run(
     config=dict(),
     targets=None,
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
+    shellcmd=None,
     **params,
 ):
     """
@@ -141,25 +143,32 @@ def run(
 
     # copy files
     for f in os.listdir(path):
-        print(f)
         copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     # run snakemake
-    success = snakemake(
-        snakefile=original_snakefile if no_tmpdir else snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        verbose=True,
-        targets=targets,
-        conda_frontend=conda_frontend,
-        container_image=container_image,
-        **params,
-    )
+    if shellcmd:
+        try:
+            subprocess.check_output(shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True)
+            success = True
+        except subprocess.CalledProcessError as e:
+            success = False
+            print(e.stderr, file=sys.stderr)
+    else:
+        success = snakemake(
+            snakefile=original_snakefile if no_tmpdir else snakefile,
+            cores=cores,
+            workdir=path if no_tmpdir else tmpdir,
+            stats="stats.txt",
+            config=config,
+            verbose=True,
+            targets=targets,
+            conda_frontend=conda_frontend,
+            container_image=container_image,
+            **params,
+        )
 
     if shouldfail:
         assert not success, "expected error on execution"
