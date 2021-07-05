@@ -916,16 +916,41 @@ class RustScript(ScriptBase):
         return textwrap.dedent(
             """
             use anyhow::Result;
+            use indexmap::IndexMap;
             use serde_derive::Deserialize;
             use serde_pickle::Value;
             use std::collections::HashMap;
-            
+            use std::ops::Index;
+
+            #[derive(Debug, Deserialize)]
+            struct NamedList<V>(pub IndexMap<String, V>);
+
+            impl<V> Index<usize> for NamedList<V> {{
+                type Output = V;
+
+                fn index(&self, index: usize) -> &Self::Output {{
+                    &self
+                        .0
+                        .get_index(index)
+                        .expect(&format!("index out of bounds: {{}}", index))
+                        .1
+                }}
+            }}
+
+            impl<V> Index<&str> for NamedList<V> {{
+                type Output = V;
+
+                fn index(&self, index: &str) -> &Self::Output {{
+                    &self.0.get(index).expect(&format!("No such key {{}}", &index))
+                }}
+            }}
+
             #[derive(Debug, Deserialize)]
             pub struct Snakemake {{
-                input: HashMap<String, String>,
-                output: HashMap<String, String>,
-                params: HashMap<String, Value>,
-                wildcards: HashMap<String, Value>,
+                input: NamedList<String>,
+                output: NamedList<String>,
+                params: NamedList<Value>,
+                wildcards: NamedList<Value>,
                 threads: u64,
                 log: Value,
                 resources: Value,
