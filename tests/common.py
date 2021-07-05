@@ -150,9 +150,14 @@ def run(
 
     # run snakemake
     if shellcmd:
+        if not shellcmd.startswith("snakemake"):
+            raise ValueError("shellcmd does not start with snakemake")
+        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             subprocess.check_output(
-                shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                shellcmd,
+                cwd=path if no_tmpdir else tmpdir,
+                shell=True,
             )
             success = True
         except subprocess.CalledProcessError as e:
