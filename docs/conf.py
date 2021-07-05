@@ -59,7 +59,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Snakemake'
-copyright = '2014-2016, Johannes Koester'
+copyright = '2014-2021, Johannes Koester'
 
 import snakemake
 # The version info for the project you're documenting, acts as replacement for
