@@ -1,3 +1,8 @@
+[6.5.3] - 2021-07-06
+====================
+- Fixed a bug occuring when using --resources in the command line interface (@johanneskoester).
+- Minor improvements in the docs (@johanneskoester).
+
 [6.5.2] - 2021-07-02
 ====================
 - Create directory pointed to by tmpdir resource if it does not yet exist (@johanneskoester).
