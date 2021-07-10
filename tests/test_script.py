@@ -512,3 +512,47 @@ fn main() {
         expected_remaining_src = source
 
         assert remaining_src == expected_remaining_src
+
+    def test_code_block_manifest_with_outer_line_doc_comment(self):
+        source = dedent(
+            """#!/usr/bin/env rust-script
+/// This is a regular crate doc comment, but it also contains a partial
+/// Cargo manifest.  Note the use of a *fenced* code block, and the
+/// `cargo` "language".
+///
+/// ```cargo
+/// [dependencies]
+/// time = "0.1.25"
+/// ```
+fn main() {
+    println!("{}", time::now().rfc822z());
+}
+
+"""
+        )
+
+        manifest, remaining_src = RustScript.extract_manifest(source)
+
+        expected_manifest = dedent(
+            """/// This is a regular crate doc comment, but it also contains a partial
+/// Cargo manifest.  Note the use of a *fenced* code block, and the
+/// `cargo` "language".
+///
+/// ```cargo
+/// [dependencies]
+/// time = "0.1.25"
+/// ```
+"""
+        )
+
+        assert manifest == expected_manifest
+
+        expected_remaining_src = dedent(
+            """fn main() {
+    println!("{}", time::now().rfc822z());
+}
+
+"""
+        )
+
+        assert remaining_src == expected_remaining_src

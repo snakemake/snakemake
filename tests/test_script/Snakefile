@@ -74,10 +74,20 @@ rule:
 
 rule:
     output:
-        "rust-manifest.out"
+        "rust-manifest.out",
     params:
         keep="-"
     conda:
         "envs/rust.yaml"
     script:
         "scripts/test-manifest.rs"
+
+rule:
+    output:
+        "rust-outer-line-doc.out",
+    params:
+        keep="-",
+    conda:
+        "envs/rust.yaml"
+    script:
+        "scripts/test-outer-line-doc.rs"

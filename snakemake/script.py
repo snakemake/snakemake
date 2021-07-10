@@ -1085,7 +1085,7 @@ class RustScript(ScriptBase):
         have been stripped).
         """
         crate_comment_re = re.compile(
-            r"^\s*(/\*!|//!)(.*?)(\r\n|\n)", flags=re.MULTILINE
+            r"^\s*(/\*!|//(!|/))(.*?)(\r\n|\n)", flags=re.MULTILINE
         )
         # does src start with a crate comment?
         match = crate_comment_re.match(src)
