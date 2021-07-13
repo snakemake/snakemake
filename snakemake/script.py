@@ -918,7 +918,6 @@ class RustScript(ScriptBase):
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
-            #![allow(non_snake_case)] // otherwise we get cargo warning about tmp name
             use anyhow::Result;
             use indexmap::IndexMap;
             use serde::Deserialize;

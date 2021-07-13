@@ -8,7 +8,8 @@ rule all:
         "rel_source.out",
         "julia.out",
         "rust.out",
-        "rust-manifest.out"
+        "rust-manifest.out",
+        "rust-outer-line-doc.out",
 
 rule:
     input:
