@@ -33,7 +33,7 @@ struct BedRecord {
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading snakemake configuration object...");
     let snakemake = Snakemake::load()?;
-    let f_out = File::create(&snakemake.output["0"])?;
+    let f_out = File::create(&snakemake.output[0])?;
 
     let mut ostream = BufWriter::new(f_out);
     println!("Loaded");
@@ -54,6 +54,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             write!(&mut ostream, "{}\t{}\n", record.chrom, l)?;
         }
     }
-    println!("Output written to {}", &snakemake.output["0"]);
+    println!("Output written to {}", &snakemake.output[0]);
     Ok(())
 }

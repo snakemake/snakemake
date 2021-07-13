@@ -14,7 +14,8 @@ import subprocess
 import collections
 import re
 from abc import ABC, abstractmethod
-from typing import Tuple, Pattern
+from pathlib import Path
+from typing import Tuple, Pattern, Union, Optional
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
@@ -34,6 +35,7 @@ from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
+PathLike = Union[str, Path, os.PathLike]
 
 
 class Snakemake:
@@ -102,17 +104,62 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        if not self.log:
-            return ""
-        lookup = {
-            (True, True, True): " >> {0} 2>&1",
-            (True, False, True): " >> {0}",
-            (False, True, True): " 2>> {0}",
-            (True, True, False): " > {0} 2>&1",
-            (True, False, False): " > {0}",
-            (False, True, False): " 2> {0}",
-        }
-        return lookup[(stdout, stderr, append)].format(self.log)
+        return _log_shell_redirect(self.log, stdout, stderr, append)
+
+
+def _log_shell_redirect(
+    log: Optional[PathLike],
+    stdout: bool = True,
+    stderr: bool = True,
+    append: bool = False,
+) -> str:
+    """
+    Return a shell redirection string to be used in `shell()` calls
+
+    This function allows scripts and wrappers support optional `log` files
+    specified in the calling rule.  If no `log` was specified, then an
+    empty string "" is returned, regardless of the values of `stdout`,
+    `stderr`, and `append`.
+
+    Parameters
+    ---------
+
+    stdout : bool
+        Send stdout to log
+
+    stderr : bool
+        Send stderr to log
+
+    append : bool
+        Do not overwrite the log file. Useful for sending output of
+        multiple commands to the same log. Note however that the log will
+        not be truncated at the start.
+
+    The following table describes the output:
+
+    -------- -------- -------- ----- -------------
+    stdout   stderr   append   log   return value
+    -------- -------- -------- ----- ------------
+    True     True     True     fn    >> fn 2>&1
+    True     False    True     fn    >> fn
+    False    True     True     fn    2>> fn
+    True     True     False    fn    > fn 2>&1
+    True     False    False    fn    > fn
+    False    True     False    fn    2> fn
+    any      any      any      None  ""
+    -------- -------- -------- ----- -----------
+    """
+    if not log:
+        return ""
+    lookup = {
+        (True, True, True): " >> {0} 2>&1",
+        (True, False, True): " >> {0}",
+        (False, True, True): " 2>> {0}",
+        (True, True, False): " > {0} 2>&1",
+        (True, False, False): " > {0}",
+        (False, True, False): " 2> {0}",
+    }
+    return lookup[(stdout, stderr, append)].format(str(log))
 
 
 class REncoder:
@@ -851,19 +898,6 @@ class RustScript(ScriptBase):
     ):
         wrapper_path = path[7:] if path.startswith("file://") else path
 
-        if not log:
-            log = ""
-        else:
-            lookup = {
-                (True, True, True): " >> {0} 2>&1",
-                (True, False, True): " >> {0}",
-                (False, True, True): " 2>> {0}",
-                (True, True, False): " > {0} 2>&1",
-                (True, False, False): " > {0}",
-                (False, True, False): " 2> {0}",
-            }
-            log = lookup[(stdout, stderr, append)].format(self.log)
-
         # if the namedlist can be interpreted as a dict, do that
         # otherwise enumerate the values and have the keys be strings, e.g.
         # ["some", "values"] → {"0": "some", "1": "values"}
@@ -892,7 +926,7 @@ class RustScript(ScriptBase):
                     if name != "_cores" and name != "_nodes"
                 }.items()
             ),
-            log=log,
+            log=encode_namedlist(log._plainstrings()._allitems()),
             config=encode_namedlist(config.items()),
             rulename=rulename,
             bench_iteration=bench_iteration,
@@ -955,7 +989,7 @@ class RustScript(ScriptBase):
                 params: NamedList<Value>,
                 wildcards: NamedList<Value>,
                 threads: u64,
-                log: Value,
+                log: NamedList<String>,
                 resources: Value,
                 config: HashMap<String, Value>,
                 rulename: String,
@@ -970,14 +1004,12 @@ class RustScript(ScriptBase):
                 }}
             }}
             // TODO extend PATH with {searchpath}
-            // TODO configure logger with {printshellcmds}
             // TODO include addendum, if any {preamble_addendum}
             static SNAKEMAKE_PICKLE_PATH: &'static str = "{snakemake_pickle_path}";
             """
         ).format(
             searchpath=searchpath,
             snakemake_pickle_path=snakemake_pickle_path,
-            printshellcmds=logger.printshellcmds,
             preamble_addendum=preamble_addendum,
         )
 
@@ -1021,13 +1053,17 @@ class RustScript(ScriptBase):
         fd.write(content.encode())
 
     def execute_script(self, fname, edit=False):
+        log_redirect = _log_shell_redirect(
+            self.log, stderr=True, stdout=True, append=False
+        )
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q}",
+            "rust-script -d {deps} --features {ftrs} {fname:q} {log}",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
+            log=log_redirect
         )
 
     def combine_preamble_and_source(self, preamble: str) -> str:
@@ -1084,7 +1120,7 @@ class RustScript(ScriptBase):
         have been stripped).
         """
         crate_comment_re = re.compile(
-            r"^\s*(/\*!|//(!|/))(.*?)(\r\n|\n)", flags=re.MULTILINE
+            r"^\s*(/\*!|//([!/]))(.*?)(\r\n|\n)", flags=re.MULTILINE
         )
         # does src start with a crate comment?
         match = crate_comment_re.match(src)

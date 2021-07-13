@@ -80,6 +80,8 @@ rule:
         keep="-"
     conda:
         "envs/rust.yaml"
+    log:
+        "rust-manifest.log"
     script:
         "scripts/test-manifest.rs"
 
