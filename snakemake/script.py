@@ -1063,7 +1063,7 @@ class RustScript(ScriptBase):
             fname=fname,
             deps=deps,
             ftrs=ftrs,
-            log=log_redirect
+            log=log_redirect,
         )
 
     def combine_preamble_and_source(self, preamble: str) -> str:
