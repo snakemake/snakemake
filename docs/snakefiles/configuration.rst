@@ -201,7 +201,7 @@ In other words, a PEP should describe everything needed about the data, while a 
 Validating PEPs
 ^^^^^^^^^^^^^^^
 
-Using the ``pepschema`` directive leads to an automatic parsing of the provided schema with the PEP validation tool -- `eido <http://eido.databio.org>`_. Eido schemas extend `JSON Schema <https://json-schema.org>`_ vocabulary to accommodate the powerful PEP features. Follow the `How to write a PEP schema <http://eido.databio.org/en/latest/writing-a-schema>`_ guide to learn more.
+Using the ``pepschema`` directive leads to an automatic parsing of the provided schema *and* PEP validation with the PEP validation tool -- `eido <http://eido.databio.org>`_. Eido schemas extend `JSON Schema <https://json-schema.org>`_ vocabulary to accommodate the powerful PEP features. Follow the `How to write a PEP schema <http://eido.databio.org/en/latest/writing-a-schema>`_ guide to learn more.
 
 .. _snakefiles-cluster_configuration:
 
