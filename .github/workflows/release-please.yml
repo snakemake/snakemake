@@ -39,6 +39,7 @@ jobs:
           password: ${{ secrets.PYPI_TOKEN }}
 
       - name: Publish to Registry
+        if: ${{ steps.release.outputs.release_created }}
         uses: elgohr/Publish-Docker-Github-Action@3.01
         with:
           name: snakemake/snakemake
