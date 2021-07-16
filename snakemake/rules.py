@@ -56,6 +56,7 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
+import snakemake.io
 
 
 class Rule:
@@ -543,12 +544,13 @@ class Rule:
                             self
                         )
                     )
-            # record rule if this is an output file output
-            _item = IOFile(item, rule=self)
 
             if self.workflow.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
-                item.flags["temp"] = True
+                item = snakemake.io.flag(item, "temp")
+
+            # record rule if this is an output file output
+            _item = IOFile(item, rule=self)
 
             if is_flagged(item, "temp"):
                 if output:

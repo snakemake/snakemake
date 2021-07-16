@@ -586,6 +586,7 @@ def snakemake(
             scheduler_solver_path=scheduler_solver_path,
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
+            all_temp=all_temp,
         )
         success = True
 
@@ -758,7 +759,6 @@ def snakemake(
                     nolock=not lock,
                     unlock=unlock,
                     notemp=notemp,
-                    all_temp=all_temp,
                     keep_remote_local=keep_remote_local,
                     nodeps=nodeps,
                     keep_target_files=keep_target_files,
