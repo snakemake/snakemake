@@ -97,6 +97,7 @@ class DAG:
         force_incomplete=False,
         ignore_incomplete=False,
         notemp=False,
+        all_temp=False,
         keep_remote_local=False,
         batch=None,
     ):
@@ -120,6 +121,7 @@ class DAG:
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
         self.notemp = notemp
+        self.all_temp = all_temp
         self.keep_remote_local = keep_remote_local
         self._jobid = dict()
         self.job_cache = dict()
@@ -601,7 +603,7 @@ class DAG:
         if self.notemp:
             return
 
-        is_temp = lambda f: is_flagged(f, "temp")
+        is_temp = lambda f: is_flagged(f, "temp") or self.all_temp
 
         # handle temp input
         needed = lambda job_, f: any(

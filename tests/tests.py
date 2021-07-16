@@ -1282,3 +1282,7 @@ def test_github_issue1069():
 def test_touch_pipeline_with_temp_dir():
     # Issue #1028
     run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, touch=True)
+
+
+def test_all_temp():
+    run(dpath("test_all_temp"), all_temp=True)
