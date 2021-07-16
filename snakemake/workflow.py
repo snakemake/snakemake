@@ -136,6 +136,7 @@ class Workflow:
         conda_base_path=None,
         check_envvars=True,
         max_threads=None,
+        all_temp=False,
     ):
         """
         Create the controller.
@@ -215,6 +216,7 @@ class Workflow:
         self._conda_base_path = conda_base_path
         self.check_envvars = check_envvars
         self.max_threads = max_threads
+        self.all_temp = all_temp
 
         _globals = globals()
         _globals["workflow"] = self
@@ -581,7 +583,6 @@ class Workflow:
         nolock=False,
         unlock=False,
         notemp=False,
-        all_temp=False,
         nodeps=False,
         cleanup_metadata=None,
         conda_cleanup_envs=False,
@@ -703,7 +704,6 @@ class Workflow:
             or printrulegraph
             or printfilegraph,
             notemp=notemp,
-            all_temp=all_temp,
             keep_remote_local=keep_remote_local,
             batch=batch,
         )

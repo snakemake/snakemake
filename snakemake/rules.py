@@ -545,6 +545,11 @@ class Rule:
                     )
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+
+            if self.workflow.all_temp and output:
+                # mark as temp if all output files shall be marked as temp
+                item.flags["temp"] = True
+
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
