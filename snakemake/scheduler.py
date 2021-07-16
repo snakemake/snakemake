@@ -641,7 +641,14 @@ class JobScheduler:
                 for idx, job in enumerate(jobs)
             }
 
-            size_gb = lambda f: f.size / 1e9
+            def size_gb(f):
+                if self.touch:
+                    # In case of touch mode, there is no need to prioritize based on size.
+                    # We cannot access it anyway, because the files might be temporary and
+                    # not present.
+                    return 0
+                else:
+                    return f.size / 1e9
 
             temp_files = {
                 temp_file for job in jobs for temp_file in self.dag.temp_input(job)
