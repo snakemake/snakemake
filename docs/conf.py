@@ -37,7 +37,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'sphinxarg.ext',
     'sphinx.ext.autosectionlabel'
 ]
@@ -280,4 +280,4 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 def setup(app):
-    app.add_css_file()('sphinx-argparse.css')
+    app.add_css_file('sphinx-argparse.css')
