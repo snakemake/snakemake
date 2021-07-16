@@ -952,10 +952,23 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
         default_resources=DefaultResources(
-            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+            ["mem_mb=max(2*input.size, 1000.1)", "disk_mb=max(2*input.size, 1000.2)"]
         ),
     )
+
+
+@skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
+def test_tmpdir():
+    # artificially set the tmpdir to an expected value
+    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
+
+
+def test_tmpdir_default():
+    # Do not check the content (OS and setup depdendent),
+    # just check whether everything runs smoothly with the default.
+    run(dpath("test_tmpdir"), check_md5=False)
 
 
 def test_issue1284():
@@ -1043,6 +1056,11 @@ def test_github_issue727():
 @skip_on_windows
 def test_github_issue988():
     run(dpath("test_github_issue988"))
+
+
+def test_github_issue1062():
+    # old code failed in dry run
+    run(dpath("test_github_issue1062"), dryrun=True)
 
 
 def test_output_file_cache():
@@ -1252,3 +1270,10 @@ def test_filesep_on_windows():
 
 def test_set_resources():
     run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
+
+
+def test_github_issue1069():
+    run(
+        dpath("test_github_issue1069"),
+        shellcmd="snakemake -c1 --resources mem_mb=16423",
+    )

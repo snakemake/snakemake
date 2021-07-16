@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 envvars:
     "TEST_ENV_VAR"
 

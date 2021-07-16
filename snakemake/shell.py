@@ -13,7 +13,7 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, cmd_exe_quote, _find_bash_on_windows
+from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
 from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 from snakemake.deployment import singularity
@@ -64,7 +64,7 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
-        if os.name in ("posix", "nt") and not os.path.isabs(cmd):
+        if cmd and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
             if not cmd:
@@ -73,9 +73,18 @@ class shell:
                     "is not available in your "
                     "PATH.".format(cmd)
                 )
-        if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
-            cls._process_prefix = "set -euo pipefail; "
-            cls._win_command_prefix = "-c"
+        if ON_WINDOWS:
+            if cmd is None:
+                cls._process_prefix = ""
+                cls._win_command_prefix = ""
+            elif os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
+                if cmd == r"C:\Windows\System32\bash.exe":
+                    raise WorkflowError(
+                        "Cannot use WSL bash.exe on Windows. Ensure that you have "
+                        "a usable bash.exe availble on your path."
+                    )
+                cls._process_prefix = "set -euo pipefail; "
+                cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -89,7 +98,7 @@ class shell:
     @classmethod
     def win_command_prefix(cls, cmd):
         """The command prefix used on windows when specifing a explicit
-        shell executable. This would be "-c" for bash and "/C" for cmd.exe
+        shell executable. This would be "-c" for bash.
         Note: that if no explicit executable is set commands are executed
         with Popen(..., shell=True) which uses COMSPEC on windows where this
         is not needed.
@@ -136,6 +145,7 @@ class shell:
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
+        resources = context.get("resources", {})
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
@@ -178,6 +188,7 @@ class shell:
             logger.info("Activating conda environment: {}".format(conda_env))
 
         threads = str(context.get("threads", 1))
+        tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
@@ -188,6 +199,13 @@ class shell:
         envvars["MKL_NUM_THREADS"] = threads
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
+
+        if tmpdir_resource:
+            envvars["TMPDIR"] = tmpdir_resource
+            envvars["TMP"] = tmpdir_resource
+            envvars["TEMPDIR"] = tmpdir_resource
+            envvars["TEMP"] = tmpdir_resource
+
         if conda_env and cls.conda_block_conflicting_envvars:
             # remove envvars that conflict with conda
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
@@ -273,3 +291,5 @@ if os.name == "posix":
             shell.executable("sh")
     else:
         shell.executable("bash")
+elif ON_WINDOWS:
+    shell.executable(None)

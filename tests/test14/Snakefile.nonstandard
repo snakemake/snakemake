@@ -22,6 +22,7 @@ rule compute2:
 	input: '{name}.{chromosome}.inter'
 	output: '{name}.{chromosome}.inter2'
 	params: test="a=b"
+        threads: workflow.cores * 0.5
 	shell: 'echo copy; cp {input[0]} {output[0]}'
 
 rule gather:

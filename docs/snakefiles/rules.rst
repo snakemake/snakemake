@@ -4,8 +4,8 @@
 Snakefiles and Rules
 ====================
 
-A Snakemake workflow defines a data analysis in terms of rules, that are listed in so-called Snakefiles.
-Most importantly, a rule can consist of a name, input files, output files, and a shell command to generate the output from the input, i.e.
+A Snakemake workflow defines a data analysis in terms of rules that are specified in the Snakefile.
+Most commonly, rules consist of a name, input files, output files, and a shell command to generate the output from the input:
 
 .. code-block:: python
 
@@ -14,10 +14,20 @@ Most importantly, a rule can consist of a name, input files, output files, and a
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-The name is optional and can be left out, creating an anonymous rule, and can be overridden with ``name``.
+The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
+.. sidebar:: Note
+
+    Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
+    when the corresponding job is executed, even if they are occuring inside a comment.
+    To avoid evaluation and replacement, you have to mask the braces by doubling them,
+    i.e. ``{{input}}``.
+
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. 
+Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
+
+
 Instead of a shell command, a rule can run some python code to generate the output:
 
 .. code-block:: python
@@ -373,16 +383,22 @@ Both threads and resources can be overwritten upon invocation via `--set-threads
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are two **standard resources** for total memory and disk usage of a job though: ``mem_mb`` and ``disk_mb``.
+There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
+The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
-Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
+
+Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
+``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 
 
-Preemptible Virtual Machine
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Preemptible Jobs
+~~~~~~~~~~~~~~~~
 
 
 You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are

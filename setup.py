@@ -41,6 +41,7 @@ setup(
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
@@ -74,6 +75,7 @@ setup(
         "smart_open >=3.0",
         "filelock",
         "stopit",
+        "tabulate",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],

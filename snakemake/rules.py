@@ -702,7 +702,7 @@ class Rule:
             # where input files are not yet present, we need to skip such cases and
             # mark them as <TBD>.
             if e.filename in aux_params["input"]:
-                value = TBDString
+                value = TBDString()
             else:
                 raise e
         except (Exception, BaseException) as e:
@@ -867,6 +867,18 @@ class Rule:
                     ]
             return p
 
+        def handle_incomplete_checkpoint(exception):
+            """If checkpoint is incomplete, target it such that it is completed
+            before this rule gets executed."""
+            print(exception.targetfile)
+            if exception.targetfile in input:
+                return TBDString()
+            else:
+                raise WorkflowError(
+                    "Rule parameter depends on checkpoint but checkpoint output is not defined as input file for the rule. "
+                    "Please add the output of the respective checkpoint to the rule inputs."
+                )
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -888,7 +900,7 @@ class Rule:
                     "output": output._plainstrings(),
                     "threads": resources._cores,
                 },
-                incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
+                incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -967,7 +979,7 @@ class Rule:
         def apply(name, res, threads=None):
             if callable(res):
                 aux = dict(rulename=self.name)
-                if threads:
+                if threads is not None:
                     aux["threads"] = threads
                 try:
                     res, _ = self.apply_input_function(
@@ -982,10 +994,16 @@ class Rule:
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int) and not isinstance(res, str):
-                    raise WorkflowError(
-                        "Resources function did not return int or str.", rule=self
-                    )
+            if isinstance(res, float):
+                # round to integer
+                res = int(round(res))
+
+            if not isinstance(res, int) and not isinstance(res, str):
+                raise WorkflowError(
+                    "Resources function did not return int, float (floats are "
+                    "rouded to the nearest integer), or str.",
+                    rule=self,
+                )
             if isinstance(res, int):
                 global_res = self.workflow.global_resources.get(name, res)
                 if global_res is not None:
@@ -993,6 +1011,8 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if self.workflow.max_threads is not None:
+            threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
         for name, res in self.resources.items():

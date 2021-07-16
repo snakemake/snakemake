@@ -1,5 +1,7 @@
 # Snakefile
 # each input is 8 lines
+shell.executable("bash")
+
 SCRATCH = 'test'
 
 
