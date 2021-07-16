@@ -6,7 +6,6 @@
 ### Fixes
 
 * Fixed --touch in combination with temp files (issue #1028) (@johanneskoester, @iromeo).
-* 
 
 ### Documentation
 
