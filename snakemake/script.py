@@ -905,11 +905,10 @@ class RustScript(ScriptBase):
         def encode_namedlist(values):
             values = list(values)
             if len(values) == 0:
-                return dict(keys=[], values=[])
-            keys, vals = zip(*values)
+                return dict(positional=[])
+            positional = [val for key, val in values if not key]
             return dict(
-                keys=list(keys),
-                values=list(vals),
+                positional=positional,
                 **{key: val for key, val in values if key}
             )
 
@@ -958,25 +957,13 @@ class RustScript(ScriptBase):
                 "/bench_iteration": {{
                    "use_type": "Option<usize>"
                 }},
-                "/-/keys": {{
-                    "use_type": "Vec<Option<String>>"
-                }},
-                "/input/keys": {{
-                    "use_type": "Vec<Option<String>>"
-                }},
-                "/output/keys": {{
-                    "use_type": "Vec<Option<String>>"
-                }},
-                "/wildcards/keys": {{
-                    "use_type": "Vec<Option<String>>"
-                }},
-                "/input/values": {{
+                "/input/positional": {{
                     "use_type": "Vec<String>"
                 }},
-                "/output/values": {{
+                "/output/positional": {{
                     "use_type": "Vec<String>"
                 }},
-                "/wildcards/values": {{
+                "/wildcards/positional": {{
                     "use_type": "Vec<String>"
                 }},
             }});
@@ -984,30 +971,29 @@ class RustScript(ScriptBase):
             pub struct Iter<'a, T>(std::slice::Iter<'a, T>);
             impl<'a, T> Iterator for Iter<'a, T> {{
                 type Item = &'a T;
-    
+                
                 fn next(&mut self) -> Option<Self::Item> {{
                     self.0.next()
                 }}
             }}
-            
             macro_rules! impl_iter {{
                 ($($s:ty),+) => {{
                     $(
                         impl IntoIterator for $s {{
                             type Item = String;
                             type IntoIter = std::vec::IntoIter<Self::Item>;
-                
+            
                             fn into_iter(self) -> Self::IntoIter {{
-                                self.values.into_iter()
+                                self.positional.into_iter()
                             }}
                         }}
             
                         impl<'a> IntoIterator for &'a $s {{
                             type Item = &'a String;
                             type IntoIter = Iter<'a, String>;
-                
+            
                             fn into_iter(self) -> Self::IntoIter {{
-                                Iter(self.values.as_slice().into_iter())
+                                Iter(self.positional.as_slice().into_iter())
                             }}
                         }}
                     )+
@@ -1017,24 +1003,13 @@ class RustScript(ScriptBase):
             macro_rules! impl_index {{
                 ($($s:ty),+) => {{
                     $(
-                        impl Index<usize> for $s {{
-                            type Output = String;
-                
-                            fn index(&self, index: usize) -> &Self::Output {{
-                                &self.values[index]
-                            }}
+                    impl Index<usize> for $s {{
+                        type Output = String;
+            
+                        fn index(&self, index: usize) -> &Self::Output {{
+                            &self.positional[index]
                         }}
-                
-                        impl Index<&str> for $s {{
-                            type Output = String;
-                
-                            fn index(&self, index: &str) -> &Self::Output {{
-                                let idx = self.keys.iter()
-                                    .position(|key| {{ if let Some(key) = key {{ key == index }} else {{ false }} }})
-                                    .expect(&format!("No such key: {{}}", index));
-                                &self.values[idx]
-                            }}
-                        }}
+                    }}
                     )+
                 }}
             }}

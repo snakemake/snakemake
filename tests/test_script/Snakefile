@@ -64,6 +64,7 @@ rule:
     input:
         "test.in",
         "test2.in",
+        ["test.in", "test2.in"],
         named_input="test.in",
     output:
         "rust.out",
