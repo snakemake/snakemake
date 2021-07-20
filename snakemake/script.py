@@ -1120,7 +1120,15 @@ class RustScript(ScriptBase):
 
     @staticmethod
     def default_dependencies() -> str:
-        return " -d ".join(["serde_json=1", "serde=1", "serde_derive=1", "lazy_static=1.4", "json_typegen=0.6"])
+        return " -d ".join(
+            [
+                "serde_json=1",
+                "serde=1",
+                "serde_derive=1",
+                "lazy_static=1.4",
+                "json_typegen=0.6",
+            ]
+        )
 
     @staticmethod
     def default_features() -> str:
