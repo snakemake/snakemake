@@ -908,8 +908,7 @@ class RustScript(ScriptBase):
                 return dict(positional=[])
             positional = [val for key, val in values if not key]
             return dict(
-                positional=positional,
-                **{key: val for key, val in values if key}
+                positional=positional, **{key: val for key, val in values if key}
             )
 
         snakemake = dict(
