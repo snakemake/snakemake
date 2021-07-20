@@ -12,8 +12,8 @@
 use std::error::Error;
 use std::io::{BufWriter, Write};
 use std::fs::File;
+use serde::Deserialize;
 
-// use serde::Deserialize;  already imported in the preamble we inject
 
 static BED: &[u8] = b"chrom1	1	15	foo	454	-
 chrom1	40	45	bar	2	+
@@ -31,15 +31,13 @@ struct BedRecord {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("Loading snakemake configuration object...");
-    let snakemake = Snakemake::load()?;
     let f_out = File::create(&snakemake.output[0])?;
 
     let mut ostream = BufWriter::new(f_out);
     println!("Loaded");
 
-    let keep_strand = match &snakemake.params["keep"] {
-        Value::String(s) if s.len() == 1 => Some(s.chars().next().unwrap() as char),
+    let keep_strand = match &snakemake.params.keep {
+        s if s.len() == 1 => Some(s.chars().next().unwrap() as char),
         _ => None,
     };
 

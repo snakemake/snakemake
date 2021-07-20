@@ -903,15 +903,15 @@ class RustScript(ScriptBase):
         # ["some", "values"] → {"0": "some", "1": "values"}
         # such that the key type is always String
         def encode_namedlist(values):
-            try:
-                encoded = {
-                    key if key else str(i): value
-                    for i, (key, value) in enumerate(values)
-                }
-                return encoded
-            except:
-                encoded = {str(index): value for (index, value) in enumerate(values)}
-                return encoded
+            values = list(values)
+            if len(values) == 0:
+                return dict(keys=[], values=[])
+            keys, vals = zip(*values)
+            return dict(
+                keys=list(keys),
+                values=list(vals),
+                **{key: val for key, val in values if key}
+            )
 
         snakemake = dict(
             input=encode_namedlist(input_._plainstrings()._allitems()),
@@ -932,11 +932,9 @@ class RustScript(ScriptBase):
             bench_iteration=bench_iteration,
             scriptdir=os.path.dirname(wrapper_path),
         )
-        # todo: needs improvement - there's probably a better solution
-        snakemake_pickle_path = os.path.join(
-            os.path.dirname(wrapper_path), "jobid{}.pickle".format(jobid)
-        )
-        pickle.dump(dict(snakemake), open(snakemake_pickle_path, "wb"), protocol=4)
+        import json
+
+        json_string = json.dumps(dict(snakemake))
 
         # Obtain search path for current snakemake module.
         # The module is needed for unpickling in the script.
@@ -948,68 +946,114 @@ class RustScript(ScriptBase):
         # For local scripts, add their location to the path in case they use path-based imports
         if path.startswith("file://"):
             searchpath += ", " + repr(os.path.dirname(path[7:]))
-
+        print(json_string)
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
-            use anyhow::Result;
-            use indexmap::IndexMap;
-            use serde::Deserialize;
-            use serde_pickle::Value;
-            use std::collections::HashMap;
+            use json_typegen::json_typegen;
             use std::ops::Index;
-
-            #[derive(Debug, Deserialize)]
-            struct NamedList<V>(pub IndexMap<String, V>);
-
-            impl<V> Index<usize> for NamedList<V> {{
-                type Output = V;
-
-                fn index(&self, index: usize) -> &Self::Output {{
-                    &self
-                        .0
-                        .get_index(index)
-                        .expect(&format!("index out of bounds: {{}}", index))
-                        .1
+            use lazy_static::lazy_static;
+            
+            json_typegen!("Snakemake", r###"{json_string}"###, {{
+                "/bench_iteration": {{
+                   "use_type": "Option<usize>"
+                }},
+                "/-/keys": {{
+                    "use_type": "Vec<Option<String>>"
+                }},
+                "/input/keys": {{
+                    "use_type": "Vec<Option<String>>"
+                }},
+                "/output/keys": {{
+                    "use_type": "Vec<Option<String>>"
+                }},
+                "/wildcards/keys": {{
+                    "use_type": "Vec<Option<String>>"
+                }},
+                "/input/values": {{
+                    "use_type": "Vec<String>"
+                }},
+                "/output/values": {{
+                    "use_type": "Vec<String>"
+                }},
+                "/wildcards/values": {{
+                    "use_type": "Vec<String>"
+                }},
+            }});
+            
+            pub struct Iter<'a, T>(std::slice::Iter<'a, T>);
+            impl<'a, T> Iterator for Iter<'a, T> {{
+                type Item = &'a T;
+    
+                fn next(&mut self) -> Option<Self::Item> {{
+                    self.0.next()
                 }}
-            }}
-
-            impl<V> Index<&str> for NamedList<V> {{
-                type Output = V;
-
-                fn index(&self, index: &str) -> &Self::Output {{
-                    &self.0.get(index).expect(&format!("No such key {{}}", &index))
-                }}
-            }}
-
-            #[derive(Debug, Deserialize)]
-            pub struct Snakemake {{
-                input: NamedList<String>,
-                output: NamedList<String>,
-                params: NamedList<Value>,
-                wildcards: NamedList<Value>,
-                threads: u64,
-                log: NamedList<String>,
-                resources: Value,
-                config: HashMap<String, Value>,
-                rulename: String,
-                bench_iteration: Option<usize>,
-                scriptdir: String,
             }}
             
-            impl Snakemake {{
-                fn load() -> Result<Self> {{
-                    let snakemake: Snakemake = serde_pickle::from_reader(std::fs::File::open(SNAKEMAKE_PICKLE_PATH)?)?;
-                    Ok(snakemake)
+            macro_rules! impl_iter {{
+                ($($s:ty),+) => {{
+                    $(
+                        impl IntoIterator for $s {{
+                            type Item = String;
+                            type IntoIter = std::vec::IntoIter<Self::Item>;
+                
+                            fn into_iter(self) -> Self::IntoIter {{
+                                self.values.into_iter()
+                            }}
+                        }}
+            
+                        impl<'a> IntoIterator for &'a $s {{
+                            type Item = &'a String;
+                            type IntoIter = Iter<'a, String>;
+                
+                            fn into_iter(self) -> Self::IntoIter {{
+                                Iter(self.values.as_slice().into_iter())
+                            }}
+                        }}
+                    )+
+                }};
+            }}
+            
+            macro_rules! impl_index {{
+                ($($s:ty),+) => {{
+                    $(
+                        impl Index<usize> for $s {{
+                            type Output = String;
+                
+                            fn index(&self, index: usize) -> &Self::Output {{
+                                &self.values[index]
+                            }}
+                        }}
+                
+                        impl Index<&str> for $s {{
+                            type Output = String;
+                
+                            fn index(&self, index: &str) -> &Self::Output {{
+                                let idx = self.keys.iter()
+                                    .position(|key| {{ if let Some(key) = key {{ key == index }} else {{ false }} }})
+                                    .expect(&format!("No such key: {{}}", index));
+                                &self.values[idx]
+                            }}
+                        }}
+                    )+
                 }}
             }}
-            // TODO extend PATH with {searchpath}
-            // TODO include addendum, if any {preamble_addendum}
-            static SNAKEMAKE_PICKLE_PATH: &'static str = "{snakemake_pickle_path}";
+            
+            
+            impl_iter!(Input, Output, Wildcards);
+            impl_index!(Input, Output, Wildcards);
+            
+            lazy_static! {{
+                // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
+                #[allow(non_upper_case_globals)]
+                static ref snakemake: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
+            }}
+            // TODO extend PATH with {{searchpath}}
+            // TODO include addendum, if any {{preamble_addendum}}
             """
         ).format(
             searchpath=searchpath,
-            snakemake_pickle_path=snakemake_pickle_path,
+            json_string=json_string,
             preamble_addendum=preamble_addendum,
         )
 
@@ -1076,11 +1120,11 @@ class RustScript(ScriptBase):
 
     @staticmethod
     def default_dependencies() -> str:
-        return " -d ".join(["serde-pickle=0.6", "serde=1", "anyhow=1", "indexmap=1.7"])
+        return " -d ".join(["serde_json=1", "serde=1", "serde_derive=1", "lazy_static=1.4", "json_typegen=0.6"])
 
     @staticmethod
     def default_features() -> str:
-        return ",".join(["serde/derive", "indexmap/serde"])
+        return ",".join(["serde/derive"])
 
     @staticmethod
     def extract_manifest(source: str) -> Tuple[str, str]:
