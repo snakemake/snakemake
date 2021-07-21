@@ -728,64 +728,102 @@ Rust_
     rule NAME:
         input:
             "path/to/inputfile",
-            "path/to/other/inputfile"
+            "path/to/other/inputfile",
+            named_input="path/to/named/inputfile",
         output:
             "path/to/outputfile",
             "path/to/another/outputfile"
         params:
             seed=4
+        log:
+            stdout="path/to/stdout.log",
+            stderr="path/to/stderr.log",
         script:
             "path/to/script.rs"
 
 The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
 script must be a valid ``rust-script`` script.
 
-In the Rust script, an instance of a ``Snakemake`` struct can be obtained via
-
-.. code-block:: rust
-
-    let snakemake = Snakemake::load()?;
-
-where the ``Snakemake`` struct is defined as follows:
+In the Rust script, a ``snakemake`` instance is available, which is automatically generated from the python snakemake object using |json_typegen|_.
+It usually looks like this:
 
 .. code-block:: rust
 
     pub struct Snakemake {
-        input: HashMap<String, String>,
-        output: HashMap<String, String>,
-        params: HashMap<String, Value>,
-        wildcards: HashMap<String, Value>,
+        input: Input,
+        output: Ouput,
+        params: Params,
+        wildcards: Wildcards,
         threads: u64,
-        log: Value,
-        resources: Value,
-        config: HashMap<String, Value>,
+        log: Log,
+        resources: Resources,
+        config: Config,
         rulename: String,
         bench_iteration: Option<usize>,
         scriptdir: String,
     }
 
-where the ``Value`` type is a |serde_pickle_value|_.
-
-So, for the above example, to get the value of ``params.seed``, or use ``0`` if it
-isn't set we would do something like
+Any named parameter is translated to a corresponding ``field_name: Type``, such that ``params.seed`` from the example above can be accessed just like in python, i.e.:
 
 .. code-block:: rust
 
-    let seed = match snakemake.params.get("seed") {
-        Some(Value::I64(i)) => i,
-        _ => 0
-    };
+    let seed = snakemake.params.seed;
+    assert_eq!(seed, 4);
 
-TODO: describe how to access positional and named args/params when the API is finalised
+Positional arguments for ``input``, ``output`` and ``wildcards`` can be accessed by index and iterated over:
 
-TODO: discuss what default dependencies and use statements are already used and the two types of manifest
+.. code-block:: rust
+
+    let input = &snakemake.input;
+
+    // Input implements Index<usize>
+    let inputfile = input[0];
+    assert_eq!(inputfile, "path/to/inputfile");
+
+    // Input implements IntoIterator
+    //
+    // prints
+    // > 'path/to/inputfile'
+    // > 'path/to/other/inputfile'
+    for f in input {
+        println!("> '{}'", &f);
+    }
+
+
+It is also possible to redirect ``stdout`` and ``stderr``:
+
+.. code-block:: rust
+
+    println!("This will NOT be written to path/to/stdout.log");
+    // redirect stdout to "path/to/stdout.log"
+    let _stdout_redirect = snakemake.redirect_stdout(snakemake.log.stdout)?;
+    println!("This will be written to path/to/stdout.log");
+
+    // redirect stderr to "path/to/stderr.log"
+    let _stderr_redirect = snakemake.redirect_stderr(snakemake.log.stderr)?;
+    eprintln!("This will be written to path/to/stderr.log");
+    drop(_stderr_redirect);
+    eprintln!("This will NOT be written to path/to/stderr.log");
+
+Redirection of stdout/stderr is only "active" as long as the returned ``Redirect`` instance is alive; in order to stop redirecting, drop the respective instance.
+
+In order to work, rust-script support for snakemake has some dependencies enabled by default:
+
+* ``anyhow=1``, for its ``Result`` type
+* ``gag=1``, to enable stdout/stderr redirects
+* ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
+* ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
+* ``serde=1``, explicit dependency of ``json_typegen``
+* ``serde_derive=1``, explicit dependency of ``json_typegen``
+* ``serde_json=1``, explicit dependency of ``json_typegen``
+
 
 TODO: add an example
 
 .. |rust-script| replace:: ``rust-script``
 .. _rust-script: https://rust-script.org/
-.. |serde_pickle_value| replace:: ``serde_pickle::Value``
-.. _serde_pickle_value: https://docs.rs/serde-pickle/0.6.2/serde_pickle/value/enum.Value.html
+.. |json_typegen| replace:: ``json_typegen``
+.. _json_typegen: https://github.com/evestera/json_typegen
 
 ----
 
