@@ -948,14 +948,7 @@ class RustScript(ScriptBase):
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
-            use anyhow::Result;
-            use gag::Redirect;
-            use std::fs::File;
-            use json_typegen::json_typegen;
-            use std::ops::Index;
-            use lazy_static::lazy_static;
-            
-            json_typegen!("Snakemake", r###"{json_string}"###, {{
+            json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
                 "/bench_iteration": {{
                    "use_type": "Option<usize>"
                 }},
@@ -1005,7 +998,7 @@ class RustScript(ScriptBase):
             macro_rules! impl_index {{
                 ($($s:ty),+) => {{
                     $(
-                    impl Index<usize> for $s {{
+                    impl std::ops::Index<usize> for $s {{
                         type Output = String;
             
                         fn index(&self, index: usize) -> &Self::Output {{
@@ -1021,33 +1014,35 @@ class RustScript(ScriptBase):
             impl_index!(Input, Output, Wildcards);
             
             impl Snakemake {{
+                #[allow(dead_code)]
                 fn redirect_stderr<P: AsRef<std::path::Path>>(
                     &self,
                     path: P,
-                ) -> Result<Redirect<File>> {{
+                ) -> anyhow::Result<gag::Redirect<std::fs::File>> {{
                     let log = std::fs::OpenOptions::new()
                         .truncate(true)
                         .read(true)
                         .create(true)
                         .write(true)
                         .open(path)?;
-                    Ok(Redirect::stderr(log)?)
+                    Ok(gag::Redirect::stderr(log)?)
                 }}
-            
+                
+                #[allow(dead_code)]
                 fn redirect_stdout<P: AsRef<std::path::Path>>(
                     &self,
                     path: P,
-                ) -> Result<Redirect<File>> {{
+                ) -> anyhow::Result<gag::Redirect<std::fs::File>> {{
                     let log = std::fs::OpenOptions::new()
                         .truncate(true)
                         .read(true)
                         .create(true)
                         .write(true)
                         .open(path)?;
-                    Ok(Redirect::stdout(log)?)
+                    Ok(gag::Redirect::stdout(log)?)
                 }}
                 
-                fn setup_path(&self) -> Result<()> {{
+                fn setup_path(&self) -> anyhow::Result<()> {{
                     use std::env;
                     if let Some(path) = env::var_os("PATH") {{
                         let mut paths = env::split_paths(&path).collect::<Vec<_>>();
@@ -1059,7 +1054,7 @@ class RustScript(ScriptBase):
                 }}
             }}
             
-            lazy_static! {{
+            lazy_static::lazy_static! {{
                 // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
                 #[allow(non_upper_case_globals)]
                 static ref snakemake: Snakemake = {{
