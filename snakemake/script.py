@@ -948,6 +948,9 @@ class RustScript(ScriptBase):
         # TODO write template for use with rust-script.
         return textwrap.dedent(
             """
+            use anyhow::Result;
+            use gag::Redirect;
+            use std::fs::File;
             use json_typegen::json_typegen;
             use std::ops::Index;
             use lazy_static::lazy_static;
@@ -1017,12 +1020,54 @@ class RustScript(ScriptBase):
             impl_iter!(Input, Output, Wildcards);
             impl_index!(Input, Output, Wildcards);
             
+            impl Snakemake {{
+                fn redirect_stderr<P: AsRef<std::path::Path>>(
+                    &self,
+                    path: P,
+                ) -> Result<Redirect<File>> {{
+                    let log = std::fs::OpenOptions::new()
+                        .truncate(true)
+                        .read(true)
+                        .create(true)
+                        .write(true)
+                        .open(path)?;
+                    Ok(Redirect::stderr(log)?)
+                }}
+            
+                fn redirect_stdout<P: AsRef<std::path::Path>>(
+                    &self,
+                    path: P,
+                ) -> Result<Redirect<File>> {{
+                    let log = std::fs::OpenOptions::new()
+                        .truncate(true)
+                        .read(true)
+                        .create(true)
+                        .write(true)
+                        .open(path)?;
+                    Ok(Redirect::stdout(log)?)
+                }}
+                
+                fn setup_path(&self) -> Result<()> {{
+                    use std::env;
+                    if let Some(path) = env::var_os("PATH") {{
+                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+                        paths.push(std::path::PathBuf::from("{searchpath}"));
+                        let new_path = env::join_paths(paths)?;
+                        env::set_var("PATH", &new_path);
+                    }}
+                    Ok(())
+                }}
+            }}
+            
             lazy_static! {{
                 // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
                 #[allow(non_upper_case_globals)]
-                static ref snakemake: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
+                static ref snakemake: Snakemake = {{
+                    let s: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
+                    s.setup_path().expect("Failed setting PATH");
+                    s
+                }};
             }}
-            // TODO extend PATH with {{searchpath}}
             // TODO include addendum, if any {{preamble_addendum}}
             """
         ).format(
@@ -1096,11 +1141,13 @@ class RustScript(ScriptBase):
     def default_dependencies() -> str:
         return " -d ".join(
             [
+                "anyhow=1",
                 "serde_json=1",
                 "serde=1",
                 "serde_derive=1",
                 "lazy_static=1.4",
                 "json_typegen=0.6",
+                "gag=1",
             ]
         )
 
