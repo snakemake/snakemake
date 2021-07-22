@@ -558,10 +558,10 @@ class Logger:
             elif level == "progress" and not self.quiet:
                 done = msg["done"]
                 total = msg["total"]
-                p = done / total
-                percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
                 self.logger.info(
-                    "{} of {} steps ({}) done".format(done, total, percent_fmt)
+                    "{} of {} steps ({}) done".format(
+                        done, total, format_percentage(done, total)
+                    )
                 )
             elif level == "shellcmd":
                 if self.printshellcmds:
@@ -625,6 +625,21 @@ format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
+
+
+def format_percentage(done, total):
+    """Format percentage from given fraction while avoiding superflous precision."""
+    if done == total:
+        return "100%"
+    if done == 0:
+        return "0%"
+    precision = 0
+    fraction = done / total
+    fmt_precision = "{{:.{}%}}".format
+    fmt = lambda fraction: fmt_precision(precision).format(fraction)
+    while fmt(fraction) == "100%" or fmt(fraction) == "0%":
+        precision += 1
+    return fmt(fraction)
 
 
 logger = Logger()
