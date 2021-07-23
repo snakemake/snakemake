@@ -898,10 +898,9 @@ class RustScript(ScriptBase):
     ):
         wrapper_path = path[7:] if path.startswith("file://") else path
 
-        # if the namedlist can be interpreted as a dict, do that
-        # otherwise enumerate the values and have the keys be strings, e.g.
-        # ["some", "values"] → {"0": "some", "1": "values"}
-        # such that the key type is always String
+        # snakemake's namedlists will be encoded as a dict
+        # which stores the not-named items at the key "positional"
+        # and unpacks named items into the dict
         def encode_namedlist(values):
             values = list(values)
             if len(values) == 0:
@@ -930,12 +929,12 @@ class RustScript(ScriptBase):
             bench_iteration=bench_iteration,
             scriptdir=os.path.dirname(wrapper_path),
         )
+
         import json
 
         json_string = json.dumps(dict(snakemake))
 
         # Obtain search path for current snakemake module.
-        # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
         searchpath = SNAKEMAKE_SEARCHPATH
         if container_img is not None:
