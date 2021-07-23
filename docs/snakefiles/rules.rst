@@ -650,6 +650,7 @@ An equivalent script (:ref:`to the Python one above <Python>`) written in R woul
 
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
+A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
 
@@ -825,7 +826,7 @@ In order to work, rust-script support for snakemake has some dependencies enable
 
 ----
 
-For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
+For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
 
 .. _snakefiles_notebook-integration:
 
