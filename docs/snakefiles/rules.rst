@@ -809,13 +809,13 @@ Redirection of stdout/stderr is only "active" as long as the returned ``Redirect
 
 In order to work, rust-script support for snakemake has some dependencies enabled by default:
 
-* ``anyhow=1``, for its ``Result`` type
-* ``gag=1``, to enable stdout/stderr redirects
-* ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
-* ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
-* ``serde=1``, explicit dependency of ``json_typegen``
-* ``serde_derive=1``, explicit dependency of ``json_typegen``
-* ``serde_json=1``, explicit dependency of ``json_typegen``
+#. ``anyhow=1``, for its ``Result`` type
+#. ``gag=1``, to enable stdout/stderr redirects
+#. ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
+#. ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
+#. ``serde=1``, explicit dependency of ``json_typegen``
+#. ``serde_derive=1``, explicit dependency of ``json_typegen``
+#. ``serde_json=1``, explicit dependency of ``json_typegen``
 
 
 TODO: add an example
