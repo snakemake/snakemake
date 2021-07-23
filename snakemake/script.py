@@ -944,8 +944,7 @@ class RustScript(ScriptBase):
         # For local scripts, add their location to the path in case they use path-based imports
         if path.startswith("file://"):
             searchpath += ", " + repr(os.path.dirname(path[7:]))
-        print(json_string)
-        # TODO write template for use with rust-script.
+
         return textwrap.dedent(
             """
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
