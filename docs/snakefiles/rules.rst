@@ -818,8 +818,6 @@ In order to work, rust-script support for snakemake has some dependencies enable
 #. ``serde_json=1``, explicit dependency of ``json_typegen``
 
 
-TODO: add an example
-
 .. |rust-script| replace:: ``rust-script``
 .. _rust-script: https://rust-script.org/
 .. |json_typegen| replace:: ``json_typegen``
