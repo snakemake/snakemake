@@ -95,6 +95,7 @@ class DAG:
         omitrules=None,
         ignore_ambiguity=False,
         force_incomplete=False,
+        force_params_changed=False,
         ignore_incomplete=False,
         notemp=False,
         keep_remote_local=False,
@@ -167,6 +168,7 @@ class DAG:
             self.omitrules.add(batch.rulename)
 
         self.force_incomplete = force_incomplete
+        self.force_params_changed = force_params_changed
         self.ignore_incomplete = ignore_incomplete
 
         self.periodic_wildcard_detector = PeriodicityDetector()
@@ -191,6 +193,8 @@ class DAG:
         self.cleanup()
 
         self.check_incomplete()
+        if self.force_params_changed:
+            self.rerun_params_changed()
 
         self.update_needrun(create_inventory=True)
         self.set_until_jobs()
@@ -335,6 +339,14 @@ class DAG:
                 else:
                     raise IncompleteFilesException(incomplete)
 
+    def rerun_params_changed(self):
+        """Force rerun of files for which parameters changed."""
+        files = self.params_changed_files
+        if files:
+            logger.debug("Forcing files for which parameters changed:")
+            logger.debug("\t" + "\n\t".join(files))
+            self.forcefiles.update(files)
+
     def incomplete_external_jobid(self, job):
         """Return the external jobid of the job if it is marked as incomplete.
 
@@ -446,6 +458,21 @@ class DAG:
                     job.output
                     for job in filter(
                         self.workflow.persistence.incomplete,
+                        filterfalse(self.needrun, self.jobs),
+                    )
+                )
+            )
+        )
+
+    @property
+    def params_changed_files(self):
+        """Return list of files for which parameters changed."""
+        return list(
+            chain(
+                *(
+                    job.output
+                    for job in filter(
+                        self.workflow.persistence.params_changed,
                         filterfalse(self.needrun, self.jobs),
                     )
                 )

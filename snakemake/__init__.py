@@ -99,6 +99,7 @@ def snakemake(
     cleanup_shadow=False,
     cleanup_scripts=True,
     force_incomplete=False,
+    force_params_changed=False,
     ignore_incomplete=False,
     list_version_changes=False,
     list_code_changes=False,
@@ -235,6 +236,7 @@ def snakemake(
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
+        force_params_changed (bool): force the re-creation of files with updated parameters (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
         list_code_changes (bool):   list output files with changed rule code (default False)
@@ -643,6 +645,7 @@ def snakemake(
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
+                    force_params_changed=force_params_changed,
                     ignore_incomplete=ignore_incomplete,
                     latency_wait=latency_wait,
                     verbose=verbose,
@@ -742,6 +745,7 @@ def snakemake(
                     ignore_ambiguity=ignore_ambiguity,
                     stats=stats,
                     force_incomplete=force_incomplete,
+                    force_params_changed=force_params_changed,
                     ignore_incomplete=ignore_incomplete,
                     list_version_changes=list_version_changes,
                     list_code_changes=list_code_changes,
@@ -1051,7 +1055,7 @@ def get_argument_parser(profile=None):
                         line options in YAML format. For example,
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles. 
+                        https://github.com/snakemake-profiles.
                         The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
@@ -1361,6 +1365,12 @@ def get_argument_parser(profile=None):
         "--ri",
         action="store_true",
         help=("Re-run all " "jobs the output of which is recognized as incomplete."),
+    )
+    group_exec.add_argument(
+        "--rerun-params-changed",
+        "--rp",
+        action="store_true",
+        help=("Re-run all " "jobs whose parameters have changed."),
     )
     group_exec.add_argument(
         "--shadow-prefix",
@@ -2808,6 +2818,7 @@ def main(argv=None):
             cleanup_shadow=args.cleanup_shadow,
             cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
+            force_params_changed=args.rerun_params_changed,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,
             list_code_changes=args.list_code_changes,

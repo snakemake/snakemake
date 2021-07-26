@@ -566,6 +566,7 @@ class Workflow:
         container_image=None,
         stats=None,
         force_incomplete=False,
+        force_params_changed=False,
         ignore_incomplete=False,
         list_version_changes=False,
         list_code_changes=False,
@@ -699,6 +700,7 @@ class Workflow:
             omitrules=omitrules,
             ignore_ambiguity=ignore_ambiguity,
             force_incomplete=force_incomplete,
+            force_params_changed=force_params_changed,
             ignore_incomplete=ignore_incomplete
             or printdag
             or printrulegraph

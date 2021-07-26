@@ -1286,3 +1286,24 @@ def test_touch_pipeline_with_temp_dir():
 
 def test_all_temp():
     run(dpath("test_all_temp"), all_temp=True)
+
+
+def test_no_rerun_params_changed_without_commandline_flag():
+    tmpdir = run(dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False)
+    run(tmpdir, config={"param1": 3}, cleanup=True)
+    shutil.rmtree(tmpdir)
+
+
+def test_rerun_params_changed_with_commandline_flag():
+    tmpdir = run(dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False)
+    # change expected result from 5 to 3
+    path_to_expected_result = os.path.join(tmpdir, "expected-results/param.txt")
+    with open(path_to_expected_result, "w") as f_res:
+        f_res.write("3")
+    # rerun and expect 3
+    run(
+        tmpdir,
+        shellcmd="snakemake --rerun-params-changed --cores 1 --config param1=3",
+        cleanup=True
+    )
+    shutil.rmtree(tmpdir)
