@@ -956,6 +956,9 @@ class RustScript(ScriptBase):
                 "/output/positional": {{
                     "use_type": "Vec<String>"
                 }},
+                "/log/positional": {{
+                    "use_type": "Vec<String>"
+                }},
                 "/wildcards/positional": {{
                     "use_type": "Vec<String>"
                 }},
@@ -1008,8 +1011,8 @@ class RustScript(ScriptBase):
             }}
             
             
-            impl_iter!(Input, Output, Wildcards);
-            impl_index!(Input, Output, Wildcards);
+            impl_iter!(Input, Output, Wildcards, Log);
+            impl_index!(Input, Output, Wildcards, Log);
             
             impl Snakemake {{
                 #[allow(dead_code)]
@@ -1109,17 +1112,13 @@ class RustScript(ScriptBase):
         fd.write(content.encode())
 
     def execute_script(self, fname, edit=False):
-        log_redirect = _log_shell_redirect(
-            self.log, stderr=True, stdout=True, append=False
-        )
         deps = self.default_dependencies()
         ftrs = self.default_features()
         self._execute_cmd(
-            "rust-script -d {deps} --features {ftrs} {fname:q} {log}",
+            "rust-script -d {deps} --features {ftrs} {fname:q} ",
             fname=fname,
             deps=deps,
             ftrs=ftrs,
-            log=log_redirect,
         )
 
     def combine_preamble_and_source(self, preamble: str) -> str:

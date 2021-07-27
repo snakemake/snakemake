@@ -31,6 +31,7 @@ struct BedRecord {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    snakemake.redirect_stderr(&snakemake.log[0])?;
     let f_out = File::create(&snakemake.output[0])?;
 
     let mut ostream = BufWriter::new(f_out);
