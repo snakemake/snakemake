@@ -33,7 +33,7 @@ Amazon Simple Storage Service (S3)
 
 This section describes usage of the S3 RemoteProvider, and also provides an intro to remote files and their usage.
 
-It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
+It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``~/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
 
 For the Amazon S3 and Google Cloud Storage providers, the sub-directory used must be the bucket name.
 
