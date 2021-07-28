@@ -11,6 +11,7 @@ dependencies:
   - httpretty
   - wrapt
   - pyyaml
+  - anyconfig
   - pytest ==6.1.2
   - pytest-cov
   - ftputil
