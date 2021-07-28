@@ -1577,7 +1577,7 @@ class Log(Namedlist):
 
 def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
-    import yaml
+    import anyconfig
 
     if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
         obj = open(configpath_or_obj, encoding="utf-8")
@@ -1585,30 +1585,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
         obj = configpath_or_obj
 
     try:
-        with obj as f:
-            try:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            except ValueError:
-                f.seek(0)  # try again
-            try:
-                # From https://stackoverflow.com/a/21912744/84349
-                class OrderedLoader(yaml.Loader):
-                    pass
-
-                def construct_mapping(loader, node):
-                    loader.flatten_mapping(node)
-                    return collections.OrderedDict(loader.construct_pairs(node))
-
-                OrderedLoader.add_constructor(
-                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
-                )
-                return yaml.load(f, Loader=OrderedLoader)
-            except yaml.YAMLError:
-                raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
-                    "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
-                )
+        return anyconfig.load(obj)
     except FileNotFoundError:
         raise WorkflowError("{} file {} not found.".format(filetype, configpath))
 

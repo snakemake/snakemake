@@ -61,6 +61,7 @@ setup(
         "requests",
         "ratelimiter",
         "pyyaml",
+        "anyconfig",
         "configargparse",
         "appdirs",
         "datrie",
