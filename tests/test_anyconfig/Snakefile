@@ -1,0 +1,12 @@
+configfile: "config.json"
+configfile: "config.toml"
+configfile: "config.yaml"
+configfile: "config_json_noextension"
+configfile: "config_yaml_noextension"
+
+
+rule dump_config:
+    output:
+        "test.out",
+    shell:
+        "echo {config} > {output}"
