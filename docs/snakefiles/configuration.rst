@@ -14,7 +14,7 @@ Standard Configuration
 ----------------------
 
 Snakemake directly supports the configuration of your workflow.
-A configuration is provided in a format [anyconfig](https://github.com/ssato/python-anyconfig) accepts (most notably JSON, YAML or TOML) and can be loaded with:
+A configuration is provided in a format `anyconfig <https://github.com/ssato/python-anyconfig>`_ accepts (most notably JSON, YAML or TOML) and can be loaded with:
 
 .. code-block:: python
 
