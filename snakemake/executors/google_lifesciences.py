@@ -512,7 +512,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         )
 
         if job.is_group():
-            preemptible = any(rule in self.preemptible_rules for rule in job.rules)
+            preemptible = all(rule in self.preemptible_rules for rule in job.rules)
+            if not preemtible and any(
+                rule in self.preemptible_rules for rule in job.rules
+            ):
+                raise WorkflowError(
+                    "All grouped rules should be homogenously set as preemptible rules"
+                )
         else:
             preemptible = job.rule.name in self.preemptible_rules
         # We add the size for the image itself (10 GB) to bootDiskSizeGb
