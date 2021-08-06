@@ -743,7 +743,11 @@ Rust_
             "path/to/script.rs"
 
 The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
-script must be a valid ``rust-script`` script.
+script must be a valid ``rust-script`` script and ``rust-script`` must be available in the
+environment the rule is run in.
+
+Some example scripts can be found in the
+`tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
 
 In the Rust script, a ``snakemake`` instance is available, which is automatically generated from the python snakemake object using |json_typegen|_.
 It usually looks like this:
@@ -771,7 +775,7 @@ Any named parameter is translated to a corresponding ``field_name: Type``, such 
     let seed = snakemake.params.seed;
     assert_eq!(seed, 4);
 
-Positional arguments for ``input``, ``output`` and ``wildcards`` can be accessed by index and iterated over:
+Positional arguments for ``input``, ``output``, ``log`` and ``wildcards`` can be accessed by index and iterated over:
 
 .. code-block:: rust
 
@@ -818,6 +822,7 @@ In order to work, rust-script support for snakemake has some dependencies enable
 #. ``serde_derive=1``, explicit dependency of ``json_typegen``
 #. ``serde_json=1``, explicit dependency of ``json_typegen``
 
+If your script uses any of these packages, you do not need to ``use`` them in your script. Trying to ``use`` them will cause a compilation error.
 
 .. |rust-script| replace:: ``rust-script``
 .. _rust-script: https://rust-script.org/
