@@ -513,11 +513,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         if job.is_group():
             preemptible = all(rule in self.preemptible_rules for rule in job.rules)
-            if not preemtible and any(
+            if not preemptible and any(
                 rule in self.preemptible_rules for rule in job.rules
             ):
                 raise WorkflowError(
                     "All grouped rules should be homogenously set as preemptible rules"
+                    "(see Defining groups for execution in snakemake documentation)"
                 )
         else:
             preemptible = job.rule.name in self.preemptible_rules
