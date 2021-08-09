@@ -47,7 +47,7 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       
       - name: Setup Snakemake environment
         run: |
@@ -165,7 +165,7 @@ jobs:
     needs: formatting
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Remove unix-only dependencies
         shell: python
