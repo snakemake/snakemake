@@ -313,7 +313,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
     def _append_task_outputs(self, outputs, files):
         for file in files:
             obj = self._prepare_file(
-                filename=o,
+                filename=file,
                 checkdir=checkdir,
                 type="Output",
             )
