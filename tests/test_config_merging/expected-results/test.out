@@ -1,0 +1,1 @@
+{block: {bar: updated_bar, baz: baz_initial, foo: updated_foo, fubar: new_fubar, qux: new_qux}}

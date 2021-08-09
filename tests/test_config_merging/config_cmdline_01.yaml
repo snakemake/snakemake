@@ -1,0 +1,4 @@
+block:
+    foo: foo_initial
+    bar: bar_initial
+    baz: baz_initial
