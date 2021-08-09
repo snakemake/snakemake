@@ -310,10 +310,8 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         return inputs
 
-    def _get_task_outputs(self, job, checkdir):
-        outputs = []
-        # add output files to outputs
-        for o in job.output:
+    def _append_task_outputs(self, outputs, files):
+        for file in files:
             obj = self._prepare_file(
                 filename=o,
                 checkdir=checkdir,
@@ -321,28 +319,20 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             )
             if obj:
                 outputs.append(obj)
+        return outputs
+
+    def _get_task_outputs(self, job, checkdir):
+        outputs = []
+        # add output files to outputs
+        outputs = self._append_task_outputs(outputs, job.output)
 
         # add log files to outputs
         if job.log:
-            for log in job.log:
-                obj = self._prepare_file(
-                    filename=log,
-                    checkdir=checkdir,
-                    type="Output",
-                )
-                if obj:
-                    outputs.append(obj)
+            outputs = self._append_task_outputs(outputs, job.log)
 
         # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
-            for benchmark in job.benchmark:
-                obj = self._prepare_file(
-                    filename=benchmark,
-                    checkdir=checkdir,
-                    type="Output",
-                )
-                if obj:
-                    outputs.append(obj)
+            outputs = self._append_task_outputs(outputs, job.benchmark)
 
         return outputs
 
