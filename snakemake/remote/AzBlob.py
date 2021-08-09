@@ -2,7 +2,7 @@
 """
 
 __author__ = "Sebastian Kurscheid"
-__copyright__ = "Copyright 2019, Sebastian Kurscheid"
+__copyright__ = "Copyright 2021, Sebastian Kurscheid"
 __email__ = "sebastian.kurscheid@anu.edu.au"
 __license__ = "MIT"
 

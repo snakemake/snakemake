@@ -3,11 +3,21 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches_ignore: []
 
 jobs:
+  cancel-previous:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: khan/pull-request-workflow-cancel@1.0.0
+        with:
+          workflows: "main.yml"
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
   formatting:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +31,7 @@ jobs:
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests/tests.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
+          black --check --diff snakemake tests/tests.py tests/test_tes.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
@@ -44,35 +54,12 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           conda install -c conda-forge -q mamba
           mamba env create -q --name snakemake --file test-environment.yml
-
+          # additionally add singularity
+          mamba install -c conda-forge -n snakemake singularity
+      
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y stress \
-            build-essential \
-            libssl-dev \
-            uuid-dev \
-            libgpgme11-dev \
-            squashfs-tools \
-            libseccomp-dev \
-            wget \
-            pkg-config \
-            git \
-            cryptsetup
-
-      - name: Setup Golang
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.13'
-
-      - name: Setup singularity
-        run: |
-          export VERSION=3.6.2
-          wget https://github.com/sylabs/singularity/releases/download/v${VERSION}/singularity-${VERSION}.tar.gz
-          tar -xzf singularity-${VERSION}.tar.gz
-          cd singularity
-          ./mconfig
-          make -C builddir
-          sudo make -C builddir install
+          sudo apt install -y stress git wget
         
       - name: Setup iRODS
         run: |
@@ -135,7 +122,7 @@ jobs:
           pytest -s -v -x tests/test_kubernetes.py
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && (success() || failure())
+        if: env.AWS_AVAILABLE
         env: 
           CI: true
         run: |
@@ -146,12 +133,19 @@ jobs:
           pytest -v -x tests/test_tibanna.py
 
       - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE && (success() || failure())
+        if: env.GCP_AVAILABLE
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
           pytest -s -v -x tests/test_google_lifesciences.py
+
+      - name: Test GA4GH TES executor
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_tes.py
         
       - name: Delete container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
@@ -173,21 +167,20 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      # No win conda package exist for pygraphviz yet
       - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["pygraphviz", "environment-modules","pandoc","tibanna"]
+          excluded_on_win = ["environment-modules"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
 
-      - name: Setup mini-conda
-        uses: goanpeca/setup-miniconda@v1
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
-          python-version: 3.8
+          python-version: 3.9
           channels: conda-forge, bioconda
 
       - name: Setup Snakemake environment

@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2021, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 

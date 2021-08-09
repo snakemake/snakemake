@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
@@ -153,7 +153,10 @@ class IOCache:
                     raise e
                 queue.task_done()
 
-        tasks = [asyncio.create_task(worker(queue)) for _ in range(n_workers)]
+        tasks = [
+            asyncio.get_event_loop().create_task(worker(queue))
+            for _ in range(n_workers)
+        ]
 
         for job in jobs:
             for f in chain(job.input, job.expanded_output):
@@ -224,6 +227,15 @@ class _IOFile(str):
             obj.remote_object._iofile = obj
 
         return obj
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
 
     def iocache(func):
         @functools.wraps(func)
@@ -360,6 +372,10 @@ class _IOFile(str):
     @property
     def is_directory(self):
         return is_flagged(self._file, "directory")
+
+    @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
 
     @property
     def is_multiext(self):
@@ -559,7 +575,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
-        """ Raise WorkflowError if file is a broken symlink. """
+        """Raise WorkflowError if file is a broken symlink."""
         if not self.exists_local and os.lstat(self.file):
             raise WorkflowError(
                 "File {} seems to be a broken symlink.".format(self.file)
@@ -624,7 +640,7 @@ class _IOFile(str):
             remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
-        """ times must be 2-tuple: (atime, mtime) """
+        """times must be 2-tuple: (atime, mtime)"""
         try:
             if self.is_directory:
                 file = os.path.join(self.file, ".snakemake_timestamp")
@@ -928,6 +944,12 @@ class AnnotatedString(str):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
 
 def flag(value, flag_type, flag_value=True):
     if isinstance(value, AnnotatedString):
@@ -998,12 +1020,12 @@ def pipe(value):
 
 
 def temporary(value):
-    """ An alias for temp. """
+    """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """ A flag for a file that shall be write protected after creation. """
+    """A flag for a file that shall be write protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1553,12 +1575,17 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath, filetype="Config"):
+def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
 
+    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+        obj = open(configpath_or_obj, encoding="utf-8")
+    else:
+        obj = configpath_or_obj
+
     try:
-        with open(configpath) as f:
+        with obj as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:

@@ -26,6 +26,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
 ==================================
@@ -488,11 +489,11 @@ This flag can be overridden on a file by file basis as described in the S3 remot
     from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
     XRootD = XRootDRemoteProvider(stay_on_remote=True)
-    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root").n
 
     rule all:
         input:
-            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
+            expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers)
 
     rule make_data:
         input:
@@ -782,17 +783,50 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 .. code-block:: python
 
-  import snakemake.remote.EGA as EGA
+    import snakemake.remote.EGA as EGA
 
-  ega = EGA.RemoteProvider()
+    ega = EGA.RemoteProvider()
 
 
-  rule a:
-    input:
-        ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
-    output:
-        "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
-    shell:
-        "cp {input} {output}"
+    rule a:
+        input:
+            ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
+        output:
+            "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
+        shell:
+            "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
+
+
+AUTO
+====
+
+A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
+It removes some of the boilerplate code required to download remote files from various providers:
+
+.. code-block:: python
+
+    from snakemake.remote import AUTO
+
+
+    rule all:
+        input:
+            'foo'
+
+
+    rule download:
+        input:
+            ftp_file_list=AUTO.remote([
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxcat.tar.gz',
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
+            ], keep_local=True),
+            http_file=AUTO.remote(
+                'https://github.com/hetio/hetionet/raw/master/hetnet/tsv/hetionet-v1.0-nodes.tsv'
+            )
+        output:
+            touch('foo')
+        shell:
+            """
+            head {input.http_file}
+            """

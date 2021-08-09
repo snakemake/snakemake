@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -21,7 +21,7 @@ from collections import namedtuple, defaultdict
 from itertools import accumulate, chain
 import urllib.parse
 import hashlib
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 
 import requests
@@ -39,6 +39,7 @@ from snakemake.io import (
     glob_wildcards,
     Wildcards,
     apply_wildcards,
+    contains_wildcard,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
@@ -257,13 +258,15 @@ class RuleRecord:
         if self._rule.shellcmd is not None:
             sources = [self._rule.shellcmd]
             language = "bash"
-        elif self._rule.script is not None:
+        elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 self._rule.script, self._rule.basedir
             )
             sources = [source.decode()]
-        elif self._rule.wrapper is not None:
+        elif self._rule.wrapper is not None and not contains_wildcard(
+            self._rule.wrapper
+        ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 wrapper.get_script(
@@ -271,7 +274,9 @@ class RuleRecord:
                 )
             )
             sources = [source.decode()]
-        elif self._rule.notebook is not None:
+        elif self._rule.notebook is not None and not contains_wildcard(
+            self._rule.notebook
+        ):
             _, source, language = script.get_source(
                 self._rule.notebook, self._rule.basedir
             )
@@ -374,10 +379,13 @@ class FileRecord:
         caption,
         env,
         category,
+        workflow,
         wildcards_overwrite=None,
         mode_embedded=True,
         aux_files=None,
+        name_overwrite=None,
     ):
+        self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
@@ -385,6 +393,7 @@ class FileRecord:
         logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
+        self.workflow = workflow
 
         h = hashlib.sha256()
         h.update(path.encode())
@@ -402,44 +411,6 @@ class FileRecord:
 
         self.aux_files = aux_files or []
 
-        self.table_content = None
-        if self.is_table:
-            if self.size > 1e6:
-                logger.warning(
-                    "Table {} >1MB. Rendering as generic file.".format(self.path)
-                )
-            else:
-                with open(self.path) as table:
-                    dialect = None
-                    for prefix in range(10, 17):
-                        try:
-                            table.seek(0)
-                            dialect = csv.Sniffer().sniff(table.read(prefix))
-                            break
-                        except csv.Error:
-                            pass
-                        except UnicodeDecodeError:
-                            # table is not readable as UTF-8
-                            break
-                    if dialect is None:
-                        logger.warning(
-                            "Failed to infer CSV/TSV dialect from table {}. "
-                            "Rendering as generic file.".format(self.path)
-                        )
-                    else:
-                        table.seek(0)
-                        reader = csv.reader(table, dialect)
-                        columns = next(reader)
-                        table = map(lambda row: list(map(num_if_possible, row)), reader)
-                        template = env.get_template("table.html.jinja2")
-                        html = template.render(
-                            columns=columns, table=table, name=self.name
-                        ).encode()
-
-                        self.table_content = html
-                        self.mime = "text/html"
-                        self.path = os.path.basename(self.path) + ".html"
-
         self.data_uri = self._data_uri()
         self.png_uri = self._png_uri()
 
@@ -447,7 +418,7 @@ class FileRecord:
     def png_content(self):
         assert self.is_img
 
-        convert = shutil.which("convert")
+        convert = shutil.which("magick")
         if convert is not None:
             try:
                 # 2048 aims at a reasonable balance between what displays
@@ -458,7 +429,8 @@ class FileRecord:
                 # '>' means only larger images scaled down to within max-dimensions
                 max_spec = max_width + "x" + max_height + ">"
                 png = sp.check_output(
-                    ["convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
+                    stderr=sp.PIPE,
                 )
                 return png
             except sp.CalledProcessError as e:
@@ -488,12 +460,9 @@ class FileRecord:
 
     def _data_uri(self):
         if self.mode_embedded:
-            if self.table_content is not None:
-                return data_uri(self.table_content, self.path, self.mime)
-            else:
-                return data_uri_from_file(self.path)
+            return data_uri_from_file(self.path)
         else:
-            return os.path.join("data/raw", self.id, self.name)
+            return os.path.join("data/raw", self.id, self.filename)
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
@@ -519,7 +488,9 @@ class FileRecord:
             )
 
             try:
-                caption = open(self.raw_caption).read() + rst_links
+                caption = (
+                    self.workflow.sourcecache.open(self.raw_caption).read() + rst_links
+                )
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
@@ -569,6 +540,12 @@ class FileRecord:
 
     @property
     def name(self):
+        if self.name_overwrite:
+            return self.name_overwrite
+        return os.path.basename(self.path)
+
+    @property
+    def filename(self):
         return os.path.basename(self.path)
 
 
@@ -660,7 +637,9 @@ def auto_report(dag, path, stylesheet=None):
                     )
                 report_obj = get_flag_value(f, "report")
 
-                def register_file(f, wildcards_overwrite=None, aux_files=None):
+                def register_file(
+                    f, wildcards_overwrite=None, aux_files=None, name_overwrite=None
+                ):
                     wildcards = wildcards_overwrite or job.wildcards
                     category = Category(
                         report_obj.category, wildcards=wildcards, job=job
@@ -676,9 +655,11 @@ def auto_report(dag, path, stylesheet=None):
                             report_obj.caption,
                             env,
                             category,
+                            dag.workflow,
                             wildcards_overwrite=wildcards_overwrite,
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
+                            name_overwrite=name_overwrite,
                         )
                     )
                     recorded_files.add(f)
@@ -712,7 +693,9 @@ def auto_report(dag, path, stylesheet=None):
                                 "marked for report".format(report_obj.htmlindex)
                             )
                         register_file(
-                            os.path.join(f, report_obj.htmlindex), aux_files=aux_files
+                            os.path.join(f, report_obj.htmlindex),
+                            aux_files=aux_files,
+                            name_overwrite="{}.html".format(os.path.basename(f)),
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
@@ -749,14 +732,20 @@ def auto_report(dag, path, stylesheet=None):
                     "warning.".format(f)
                 )
                 continue
+
+            def get_time(rectime, metatime, sel_func):
+                if metatime is None:
+                    return rectime
+                return sel_func(metatime, rectime)
+
             try:
                 job_hash = meta["job_hash"]
                 rule = meta["rule"]
                 rec = records[(job_hash, rule)]
                 rec.rule = rule
                 rec.job = job
-                rec.starttime = min(rec.starttime, meta["starttime"])
-                rec.endtime = max(rec.endtime, meta["endtime"])
+                rec.starttime = get_time(rec.starttime, meta["starttime"], min)
+                rec.endtime = get_time(rec.endtime, meta["endtime"], max)
                 rec.conda_env_file = None
                 rec.conda_env = meta["conda_env"]
                 rec.container_img_url = meta["container_img_url"]
@@ -778,12 +767,18 @@ def auto_report(dag, path, stylesheet=None):
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
 
+    def get_datetime(rectime):
+        try:
+            return datetime.datetime.fromtimestamp(rectime).isoformat()
+        except OSError:
+            return None
+
     # prepare end times
     timeline = [
         {
             "rule": rec.rule,
-            "starttime": datetime.datetime.fromtimestamp(rec.starttime).isoformat(),
-            "endtime": datetime.datetime.fromtimestamp(rec.endtime).isoformat(),
+            "starttime": get_datetime(rec.starttime),
+            "endtime": get_datetime(rec.endtime),
         }
         for rec in sorted(records.values(), key=lambda rec: rec.rule)
     ]
@@ -840,7 +835,7 @@ def auto_report(dag, path, stylesheet=None):
     # global description
     text = ""
     if dag.workflow.report_text:
-        with open(dag.workflow.report_text) as f:
+        with dag.workflow.sourcecache.open(dag.workflow.report_text) as f:
 
             class Snakemake:
                 config = dag.workflow.config
@@ -895,22 +890,14 @@ def auto_report(dag, path, stylesheet=None):
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)
 
     if not mode_embedded:
-        with ZipFile(path, mode="w") as zipout:
+        with ZipFile(path, compression=ZIP_DEFLATED, mode="w") as zipout:
             folder = Path(Path(path).stem)
             # store results in data folder
             for subcats in results.values():
                 for catresults in subcats.values():
                     for result in catresults:
                         # write raw data
-                        if result.table_content is not None:
-                            zipout.writestr(
-                                str(folder.joinpath(result.data_uri)),
-                                result.table_content,
-                            )
-                        else:
-                            zipout.write(
-                                result.path, str(folder.joinpath(result.data_uri))
-                            )
+                        zipout.write(result.path, str(folder.joinpath(result.data_uri)))
                         # write thumbnail
                         if result.is_img and result.png_content:
                             zipout.writestr(

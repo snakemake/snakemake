@@ -1,6 +1,6 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2020, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from common import *
-from .conftest import skip_on_windows, ON_WINDOWS
+from .common import *
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
 
 
 def test_list_untracked():
@@ -23,9 +23,7 @@ xfail_permissionerror_on_win = (
     pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
 )
 
-# Must fail on Windows with PermissionError since the tempfile.TemporaryDirectory
-# can't clean up the protected files generated in the test
-@xfail_permissionerror_on_win
+
 def test_delete_all_output():
     run(dpath("test_delete_all_output"))
 
@@ -122,7 +120,12 @@ def test_coin_solver():
 def test_directory():
     run(
         dpath("test_directory"),
-        targets=["downstream", "symlinked_input", "child_to_input"],
+        targets=[
+            "downstream",
+            "symlinked_input",
+            "child_to_input",
+            "not_child_to_other",
+        ],
     )
     run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
     run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
@@ -147,7 +150,6 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report():
     run(
         dpath("test_report"),
@@ -157,12 +159,10 @@ def test_report():
     )
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
 
 
-@skip_on_windows  # No conda-forge version of pygraphviz for windows
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
@@ -279,11 +279,18 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_name_override():
+    run(dpath("test_name_override"))
+
+
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
 @skip_on_windows
+@pytest.mark.xfail(
+    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
+)
 def test_remote():
     run(dpath("test_remote"), cores=1)
 
@@ -382,17 +389,14 @@ def test_issue328():
         pass
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
-@skip_on_windows  # test uses bwa which is non windows
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
-@skip_on_windows  # Conda support is partly broken on Win
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -400,6 +404,13 @@ def test_conda_custom_prefix():
         conda_prefix="custom",
         set_pythonpath=False,
     )
+
+
+@only_on_windows
+def test_conda_cmd_exe():
+    # Tests the conda environment activation when cmd.exe
+    # is used as the shell
+    run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
 @skip_on_windows  # Conda support is partly broken on Win
@@ -697,6 +708,16 @@ def test_singularity_invalid():
 
 
 @skip_on_windows
+def test_singularity_module_invalid():
+    run(
+        dpath("test_singularity_module"),
+        targets=["invalid.txt"],
+        use_singularity=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
 @connected
 def test_singularity_conda():
     run(
@@ -704,6 +725,24 @@ def test_singularity_conda():
         use_singularity=True,
         use_conda=True,
         conda_frontend="conda",
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_none():
+    run(
+        dpath("test_singularity_none"),
+        use_singularity=True,
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_global():
+    run(
+        dpath("test_singularity_global"),
+        use_singularity=True,
     )
 
 
@@ -719,9 +758,6 @@ def test_inoutput_is_path():
     run(dpath("test_inoutput_is_path"))
 
 
-# Fails on Windows with PermissionError when test system tries to
-# clean the conda environment
-@xfail_permissionerror_on_win
 def test_archive():
     run(dpath("test_archive"), archive="workflow-archive.tar.gz")
 
@@ -916,10 +952,23 @@ def test_default_resources():
 
     run(
         dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
         default_resources=DefaultResources(
-            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+            ["mem_mb=max(2*input.size, 1000.1)", "disk_mb=max(2*input.size, 1000.2)"]
         ),
     )
+
+
+@skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
+def test_tmpdir():
+    # artificially set the tmpdir to an expected value
+    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
+
+
+def test_tmpdir_default():
+    # Do not check the content (OS and setup depdendent),
+    # just check whether everything runs smoothly with the default.
+    run(dpath("test_tmpdir"), check_md5=False)
 
 
 def test_issue1284():
@@ -930,14 +979,18 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
-@skip_on_windows  # Currently no workable pygraphviz package
 def test_filegraph():
     workdir = dpath("test_filegraph")
-    dot_path = os.path.abspath("fg.dot")
-    pdf_path = "fg.pdf"
+    dot_path = os.path.join(workdir, "fg.dot")
+    pdf_path = os.path.join(workdir, "fg.pdf")
+
+    if ON_WINDOWS:
+        shell.executable("bash")
+        workdir = workdir.replace("\\", "/")
+        dot_path = dot_path.replace("\\", "/")
 
     # make sure the calls work
-    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
@@ -987,14 +1040,40 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue413():
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+
+
+@skip_on_windows
+def test_github_issue627():
+    run(dpath("test_github_issue627"))
+
+
+def test_github_issue727():
+    run(dpath("test_github_issue727"))
+
+
+@skip_on_windows
+def test_github_issue988():
+    run(dpath("test_github_issue988"))
+
+
+def test_github_issue1062():
+    # old code failed in dry run
+    run(dpath("test_github_issue1062"), dryrun=True)
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
 @skip_on_windows
+@pytest.mark.xfail(
+    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
+)
 def test_output_file_cache_remote():
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
@@ -1042,7 +1121,6 @@ def test_string_resources():
     )
 
 
-@skip_on_windows  # currently fails on windows. Please help fix.
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
@@ -1065,6 +1143,7 @@ def test_github_issue640():
     )
 
 
+@skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
     tmpdir = run(
         dpath("test_generate_unit_tests"),
@@ -1095,7 +1174,7 @@ def test_metadata_migration():
     # generate artificial incomplete metadata in v1 format for migration
     with open(
         metapath
-        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ\=",
+        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ=",
         "w",
     ) as meta:
         print('{"incomplete": true, "external_jobid": null}', file=meta)
@@ -1105,3 +1184,105 @@ def test_metadata_migration():
     # run workflow, incomplete v1 metadata should be migrated and trigger rerun of the rule,
     # which will save different data than the output contained in the git repo.
     run(dpath("test_metadata_migration"), force_incomplete=True)
+
+
+def test_paramspace():
+    run(dpath("test_paramspace"))
+
+
+def test_github_issue806():
+    run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
+
+
+@skip_on_windows
+def test_containerized():
+    run(dpath("test_containerized"), use_conda=True, use_singularity=True)
+
+
+def test_long_shell():
+    run(dpath("test_long_shell"))
+
+
+def test_modules_all():
+    run(dpath("test_modules_all"), targets=["a"])
+
+
+def test_modules_specific():
+    run(dpath("test_modules_specific"), targets=["test_a"])
+
+
+@skip_on_windows  # works in principle but the test framework modifies the target path separator
+def test_modules_meta_wrapper():
+    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)
+
+
+def test_use_rule_same_module():
+    run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
+
+
+def test_module_complex():
+    run(dpath("test_module_complex"), dryrun=True)
+
+
+def test_module_complex2():
+    run(dpath("test_module_complex2"), dryrun=True)
+
+
+def test_module_with_script():
+    run(dpath("test_module_with_script"))
+
+
+def test_module_worfklow_namespacing():
+    run(dpath("test_module_workflow_snakefile_usage"))
+
+
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_module_report():
+    run(
+        dpath("test_module_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_handover():
+    run(dpath("test_handover"), resources={"mem_mb": 20})
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path():
+    run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+@only_on_windows
+def test_filesep_windows_targets():
+    run(
+        dpath("test_filesep_windows"),
+        targets=["subfolder/test2.out2", "subfolder/test1.out2"],
+    )
+
+
+@only_on_windows
+def test_filesep_on_windows():
+    run(dpath("test_filesep_windows"))
+
+
+def test_set_resources():
+    run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
+
+
+def test_github_issue1069():
+    run(
+        dpath("test_github_issue1069"),
+        shellcmd="snakemake -c1 --resources mem_mb=16423",
+    )
+
+
+def test_touch_pipeline_with_temp_dir():
+    # Issue #1028
+    run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, touch=True)
+
+
+def test_all_temp():
+    run(dpath("test_all_temp"), all_temp=True)

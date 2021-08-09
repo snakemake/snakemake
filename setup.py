@@ -4,7 +4,7 @@ from __future__ import print_function
 
 __author__ = "Johannes Köster"
 __copyright__ = "Copyright 2015, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import sys
@@ -41,6 +41,7 @@ setup(
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
@@ -70,7 +71,12 @@ setup(
         "psutil",
         "nbformat",
         "toposort",
+        "connection_pool >=0.0.3",
         "pulp >=2.0",
+        "smart_open >=3.0",
+        "filelock",
+        "stopit",
+        "tabulate",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],

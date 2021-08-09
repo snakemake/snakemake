@@ -1,11 +1,11 @@
 .. _snakefiles-rules:
 
-=====
-Rules
-=====
+====================
+Snakefiles and Rules
+====================
 
-Most importantly, a rule can consist of a name (the name is optional and can be left out, creating an anonymous rule), input files, output files, and a shell command to generate the output from the input, i.e.
-
+A Snakemake workflow defines a data analysis in terms of rules that are specified in the Snakefile.
+Most commonly, rules consist of a name, input files, output files, and a shell command to generate the output from the input:
 
 .. code-block:: python
 
@@ -14,8 +14,20 @@ Most importantly, a rule can consist of a name (the name is optional and can be 
         output: "path/to/outputfile", "path/to/another/outputfile"
         shell: "somecommand {input} {output}"
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. Here input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
+The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
+
+.. sidebar:: Note
+
+    Note that any placeholders in the shell command (like ``{input}``) are always evaluated and replaced
+    when the corresponding job is executed, even if they are occuring inside a comment.
+    To avoid evaluation and replacement, you have to mask the braces by doubling them,
+    i.e. ``{{input}}``.
+
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. 
+Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
+
+
 Instead of a shell command, a rule can run some python code to generate the output:
 
 .. code-block:: python
@@ -259,7 +271,7 @@ Further, a rule can be given a number of threads to use, i.e.
 
     On a cluster node, Snakemake uses as many cores as available on that node.
     Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. 
-    Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the master node.
+    Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the main node.
 
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
 In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
@@ -296,7 +308,7 @@ In addition to threads, a rule can use arbitrary user-defined resources by speci
 
 .. code-block:: python
 
-    rule:
+    rule a:
         input:     ...
         output:    ...
         resources:
@@ -312,23 +324,17 @@ If limits for the resources are given via the command line, e.g.
 
 
 the scheduler will ensure that the given resources are not exceeded by running jobs.
+Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
+
+In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check whether a job exceeds a certain resource.
+However, resources are used to determine which jobs can be executed at a time while not exceeding the given limits at the command line.
 If no limits are given, the resources are ignored in local execution.
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
 
-Standard Resources
-~~~~~~~~~~~~~~~~~~
-
-There are two **standard resources** for memory and disk usage though: ``mem_mb`` and ``disk_mb``.
-When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
-Since it would be cumbersome to define them for every rule, you can set default values at the terminal or in a :ref:`profile <profiles>`.
-This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
-If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
-Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-
-Resources can also be callables that return ``int`` values.
+Resources can also be callables that return ``int`` or ``str`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
@@ -339,20 +345,60 @@ This can be used to adjust the required memory as follows
 
 .. code-block:: python
 
+    def get_mem_mb(wildcards, attempt):
+        return attempt * 100
+
     rule:
         input:    ...
         output:   ...
         resources:
-            mem_mb=lambda wildcards, attempt: attempt * 100
+            mem_mb=get_mem_mb
         shell:
             "..."
 
 Here, the first attempt will require 100 MB memory, the second attempt will require 200 MB memory and so on.
 When passing memory requirements to the cluster engine, you can by this automatically try out larger nodes if it turns out to be necessary.
 
+Another application of callables as resources is when memory usage depends on the number of threads:
 
-Preemptible Virtual Machine
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. code-block:: python
+
+    def get_mem_mb(wildcards, threads):
+        return threads * 150
+
+    rule b:
+        input:     ...
+        output:    ...
+        threads: 8
+        resources:
+            mem_mb=get_mem_mb
+        shell:
+            "..."
+
+Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
+Of course, any other arithmetic could be performed in that function.
+
+Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+
+Standard Resources
+~~~~~~~~~~~~~~~~~~
+
+There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
+The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
+When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+
+Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+the terminal or in a :ref:`profile <profiles>`.
+This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
+If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
+Any resource definitions inside a rule override what has been defined with ``--default-resources``.
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
+``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
+The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+
+
+Preemptible Jobs
+~~~~~~~~~~~~~~~~
 
 
 You can specify parameters ``preemptible-rules`` and ``preemption-default`` to request a `Google Cloud preemptible virtual machine <https://cloud.google.com/life-sciences/docs/reference/gcloud-examples#using_preemptible_vms>`_ for use with the `Google Life Sciences Executor <https://snakemake.readthedocs.io/en/stable/executing/cloud.html#executing-a-snakemake-workflow-via-google-cloud-life-sciences>`_. There are
@@ -480,8 +526,6 @@ Note that it is also supported to have multiple (named) log files being specifie
         log: log1="logs/abc.log", log2="logs/xyz.log"
         shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
 
-
-
 Non-file parameters for rules
 -----------------------------
 
@@ -505,7 +549,6 @@ Here, the command ``somecommand`` expects the prefix of the output file instead 
 
 Furthermore, for enhanced readability and clarity, the ``params`` section is also an excellent place to name and assign parameters and variables for your subsequent command.
 
-
 Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefiles-input_functions`), e.g. you can write
 
 .. code-block:: python
@@ -520,12 +563,16 @@ Similar to ``input``, ``params`` can take functions as well (see :ref:`snakefile
         shell:
             "somecommand -o {params.prefix}"
 
+.. sidebar:: Note
+
+    When accessing auxiliary source files (i.e. files that are located relative to the current Snakefile, e.g. some additional configuration)
+    it is crucial to not manually build their path but rather rely on Snakemake's special registration for these files, see :ref:`snakefiles-aux_source_files`.
+
 to get the same effect as above. Note that in contrast to the ``input`` directive, the
 ``params`` directive can optionally take more arguments than only ``wildcards``, namely ``input``, ``output``, ``threads``, and ``resources``.
 From the Python perspective, they can be seen as optional keyword arguments without a default value.
 Their order does not matter, apart from the fact that ``wildcards`` has to be the first argument.
 In the example above, this allows you to derive the prefix name from the output file.
-
 
 .. _snakefiles-external_scripts:
 
@@ -545,6 +592,10 @@ A rule can also point to an external script instead of a shell command or inline
             "path/to/another/outputfile"
         script:
             "scripts/script.py"
+
+.. sidebar:: Note
+
+    It is possible to refer to wildcards and params in the script path, e.g. by specifying ``"scripts/{params.scriptname}.py"`` or ``"scripts/{wildcards.scriptname}.py"``.
 
 The script path is always relative to the Snakefile containing the directive (in contrast to the input and output file paths, which are relative to the working directory).
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
@@ -682,9 +733,9 @@ Integration works as follows (note the use of `notebook:` instead of `script:`):
             # optional path to the processed notebook
             notebook="logs/notebooks/processed_notebook.ipynb"
         notebook:
-            "hello.py.ipynb"
+            "notebooks/hello.py.ipynb"
 
-.. note:
+.. sidebar:: Note
 
     Consider Jupyter notebook integration as a way to get the best of both worlds.
     A modular, readable workflow definition with Snakemake, and the ability to quickly explore and plot data with Jupyter.
@@ -695,6 +746,10 @@ In the notebook, a snakemake object is available, which can be accessed in the s
 In other words, you have access to input files via ``snakemake.input`` (in the Python case) and ``snakemake@input`` (in the R case) etc..
 Optionally it is possible to automatically store the processed notebook.
 This can be achieved by adding a named logfile ``notebook=...`` to the ``log`` directive.
+
+.. sidebar:: Note
+
+    It is possible to refer to wildcards and params in the notebook path, e.g. by specifying ``"notebook/{params.name}.py"`` or ``"notebook/{wildcards.name}.py"``.
 
 In order to simplify the coding of notebooks given the automatically inserted ``snakemake`` object, Snakemake provides an interactive edit mode for notebook rules.
 Let us assume you have written above rule, but the notebook does not yet exist.
@@ -725,6 +780,33 @@ An demo of the entire interactive editing process can be found by clicking below
     :alt: Notebook integration demo
     :align: center
 
+Finally, it is advisable to combine the ``notebook`` directive with the ``conda`` directive (see :ref:`integrated_package_management`) in order to define a software stack to use.
+At least, this software stack should contain jupyter and the language to use (e.g. Python or R).
+For the above case, this means
+
+.. code-block:: python
+
+    rule hello:
+        output:
+            "test.txt"
+        conda:
+            "envs/hello.yaml"
+        notebook:
+            "notebooks/hello.py.ipynb"
+
+with
+
+.. code-block:: yaml
+
+    channels:
+      - conda-forge
+    dependencies:
+      - python =3.8
+      - jupyter =1.0
+      - jupyterlab_code_formatter =1.4
+
+The last dependency is advisable in order to enable autoformatting of notebook cells when editing.
+When using other languages than Python in the notebook, one needs to additionally add the respective kernel, e.g. ``r-irkernel`` for R support.
 
 Protected and Temporary Files
 -----------------------------
@@ -856,46 +938,6 @@ The following shows an example job submission wrapper:
     job_properties["cluster"]["time"]
 
     os.system("qsub -t {threads} {script}".format(threads=threads, script=jobscript))
-
-
-.. _snakefiles-dynamic_files:
-
-Dynamic Files
--------------
-
-Snakemake provides experimental support for dynamic files.
-Dynamic files can be used whenever one has a rule for which the number of output files is unknown before the rule was executed.
-This is useful for example with certain clustering algorithms:
-
-.. code-block:: python
-
-    rule cluster:
-        input: "afile.csv"
-        output: dynamic("{clusterid}.cluster.csv")
-        run: ...
-
-Now the results of the rule can be used in Snakemake although it does not know how many files will be present before executing the rule `cluster`, e.g. by:
-
-
-.. code-block:: python
-
-    rule all:
-        input: dynamic("{clusterid}.cluster.plot.pdf")
-
-    rule plot:
-        input: "{clusterid}.cluster.csv"
-        output: "{clusterid}.cluster.plot.pdf"
-        run: ...
-
-Here, Snakemake determines the input files for the rule `all` after the rule `cluster` was executed, and then dynamically inserts jobs of the rule `plot` into the DAG to create the desired plots.
-
-.. note:
-
-    Note that dynamic file support is still experimental.
-    Especially, using more than one wildcard within dynamic files can introduce various problems.
-    Before using dynamic files, think about alternative, static solutions, where you know beforehand how many output files your rule will produce.
-    In four years and hundreds of workflows, I needed dynamic files only once.
-
 
 .. _snakefiles-input_functions:
 
@@ -1111,6 +1153,8 @@ Another (quick and dirty) possiblity is to tell snakemake to allow ambiguity via
 
 such that similar to GNU Make always the first matching rule is used. Here, a warning that summarizes the decision of snakemake is provided at the terminal.
 
+.. _snakefiles-local-rules:
+
 Local Rules
 -----------
 
@@ -1172,7 +1216,7 @@ However, the benchmark file can be annotated with the desired number of repeats,
 will instruct Snakemake to run each job of this rule three times and store all measurements in the benchmark file.
 The resulting tsv file can be used as input for other rules, just like any other output file.
 
-.. note::
+.. sidebar:: Note
 
     Note that benchmarking is only possible in a reliable fashion for subprocesses (thus for tasks run through the ``shell``, ``script``, and ``wrapper`` directive).
     In the ``run`` block, the variable ``bench_record`` is available that you can pass to ``shell()`` as ``bench_record=bench_record``.
@@ -1228,7 +1272,7 @@ Then, scattering and gathering can be implemented by using globally available ``
         shell:
             "cat {input} > {output}"
 
-Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/0.txt"``, ``"splitted/1.txt"``, ..., depending on the number of scatter items defined.
+Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/1-of-n.txt"``, ``"splitted/2-of-n.txt"``, ..., depending on the number ``n`` of scatter items defined.
 Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.pos.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
 
 The default number of scatter items can be overwritten via the command line interface.
@@ -1331,6 +1375,107 @@ It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
 
+.. _snakefiles-paramspace:
+
+Parameter space exploration
+---------------------------
+
+The basic Snakemake functionality already provides everything to handle parameter spaces in any way (sub-spacing for certain rules and even depending on wildcard values, the ability to read or generate spaces on the fly or from files via pandas, etc.).
+However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands. 
+From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), this is solved via the Paramspace helper, which can be used as follows:
+
+.. code-block:: python
+
+    from snakemake.utils import Paramspace
+    import pandas as pd
+
+    # declare a dataframe to be a paramspace
+    paramspace = Paramspace(pd.read_csv("params.tsv", sep="\t"))
+
+
+    rule all:
+        input:
+            # Aggregate over entire parameter space (or a subset thereof if needed)
+            # of course, something like this can happen anywhere in the workflow (not 
+            # only at the end).
+            expand("results/plots/{params}.pdf", params=paramspace.instance_patterns)
+
+
+    rule simulate:
+        output:
+            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}" 
+            # into a file path, with alpha, beta, gamma being the columns of the data frame
+            f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        params:
+            # automatically translate the wildcard values into an instance of the param space
+            # in the form of a dict (here: {"alpha": ..., "beta": ..., "gamma": ...})
+            simulation=paramspace.instance
+        script:
+            "scripts/simulate.py"
+
+
+    rule plot:
+        input:
+            f"results/simulations/{paramspace.wildcard_pattern}.tsv"
+        output:
+            f"results/plots/{paramspace.wildcard_pattern}.pdf"
+        shell:
+            "touch {output}"
+
+
+In above example, **please note** the Python ``f``-string formatting (the ``f`` before the initial quotes) applied to the input and output file strings that contain ``paramspace.wildcard_pattern``.
+This means that the file that is registered as input or output file by Snakemake does not contain a wildcard ``{paramspace.wildcard_pattern}``, but instead this item is replaced by a pattern of multiple wildcards derived from the columns of the paramter space dataframe.
+This is done by the Python ``f``-string formatting before the string is registered in the rule.
+Given that `params.tsv` contains:
+
+.. code-block:: none
+
+    alpha	beta	gamma
+    1.0	0.1	0.99
+    2.0	0.0	3.9
+
+
+This workflow will run as follows:
+
+.. code-block:: none
+
+    [Fri Nov 27 20:57:27 2020]
+    rule simulate:
+        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
+        jobid: 4                                                                                                                                                                               
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+
+    [Fri Nov 27 20:57:27 2020]
+    rule simulate:
+        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
+        jobid: 2                                                                                                                                                                               
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+
+    [Fri Nov 27 20:57:27 2020]
+    rule plot:
+        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
+        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
+        jobid: 3                                                                                                                                                                               
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+
+
+    [Fri Nov 27 20:57:27 2020]
+    rule plot:
+        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
+        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
+        jobid: 1                                                                                                                                                                               
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+
+
+    [Fri Nov 27 20:57:27 2020]
+    localrule all:
+        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
+        jobid: 0
+
+
+Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
+Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` constructor (see :ref:`utils-api`).
+
 .. _snakefiles-checkpoints:
 
 Data-dependent conditional execution
@@ -1357,6 +1502,11 @@ Assuming that the checkpoint is named ``somestep`` as above, the output files fo
 .. code-block:: python
 
   checkpoints.somestep.get(sample="a").output
+
+.. sidebar:: Note
+
+    Note that output files of checkpoints that are accessed via this mechanism should not be marked as temporary.
+    Otherwise, they would require to trigger reruns of the checkpoint whenever the DAG shall be reevaluated (because they are already missing at that point).
 
 Thereby, the ``get`` method throws ``snakemake.exceptions.IncompleteCheckpointException`` if the checkpoint has not yet been executed for these particular wildcard value(s).
 Inside an input function, the exception will be automatically handled by Snakemake, and leads to a re-evaluation after the checkpoint has been successfully passed.
@@ -1503,4 +1653,52 @@ Upon completion of the checkpoint, the input function is re-evaluated, and the c
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
 These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
-This mechanism can be used to replace the use of the :ref:`dynamic-flag <snakefiles-dynamic_files>` which will be deprecated in Snakemake 6.0.
+
+.. _snakefiles-rule-inheritance:
+
+Rule inheritance
+----------------
+
+With Snakemake 6.0 and later, it is possible to inherit from previously defined rules, or in other words, reuse an existing rule in a modified way.
+This works via the ``use rule`` statement that also allows to declare the usage of rules from external modules (see :ref:`snakefiles-modules`).
+Consider the following example:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        shell:
+            "echo test > {output}"
+
+
+    use rule a as b with:
+        output:
+            "test2.out"
+
+
+As can be seen, we first declare a rule a, and then we reuse the rule a as rule b, while changing only the output file and keeping everything else the same.
+In reality, one will often change more.
+Analogously to the ``use rule`` from external modules, any properties of the rule (``input``, ``output``, ``log``, ``params``, ``benchmark``, ``threads``, ``resources``, etc.) can be modified, except the actual execution step (``shell``, ``notebook``, ``script``, ``cwl``, or ``run``).
+All unmodified properties are inherited from the parent rule.
+
+.. _snakefiles-aux_source_files:
+
+Accessing auxiliary source files
+--------------------------------
+
+Snakemake workflows can refer to various other source files via paths relative to the current Snakefile.
+This happens for example with the :ref:`script directive <snakefiles-external_scripts>` or the :ref:`conda directive <integrated_package_management>`.
+Sometimes, it is necessary to access further source files that are in a directory relative to the current Snakefile.
+Since workflows can be imported from remote locations (e.g. when using :ref:`modules <snakefiles-modules>`), it is important to not do this manually, so that Snakemake has the chance to cache these files locally before they are accessed.
+This can be achieved by accessing their path via the ``workflow.get_source``, which (a) computes the correct path relative to the current Snakefile such that the file can be accessed from any working directory, and (b) downloads remote files to a local cache:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.out"
+        params:
+            json=workflow.source_path("../resources/test.json")
+        shell:
+            "somecommand {params.json} > {output}"

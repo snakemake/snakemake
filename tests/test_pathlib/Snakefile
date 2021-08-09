@@ -11,7 +11,7 @@ existing_file = Path("existing_file.txt")
 rule all:
 	input:
 		OUTDIR / "output_existing",
-		#OUTDIR / "output_temp",
+		OUTDIR / "output_temp",
 		OUTDIR / "output_protected",
 		OUTDIR / "output_other_rule_output_existing",
 		OUTDIR / "function_unpacking/output_function_unpacking",
@@ -21,7 +21,7 @@ rule input_Path:
 	input: Path("{sample}_file.txt")
 	output: OUTDIR / "output_{sample}"
 	log: OUTDIR / "log_{sample}"
-	shell: 
+	shell:
 		"""
 		cat {input} > {output}
 		echo log {wildcards.sample} > {log}
@@ -31,7 +31,7 @@ rule input_Path_output_temp:
 	input: existing_file
 	output: temp(OUTDIR / "output_temp")
 	log: OUTDIR / "log_temp"
-	shell: 
+	shell:
 		"""
 		cat {input} > {output}
 		echo log temp > {log}
@@ -41,7 +41,7 @@ rule input_Path_output_protected:
 	input: existing_file
 	output: protected(OUTDIR / "output_protected")
 	log: OUTDIR / "log_protected"
-	shell: 
+	shell:
 		"""
 		cat {input} > {output}
 		echo log protected > {log}
@@ -51,7 +51,7 @@ rule input_other_rule_output:
 	input: rules.input_Path.output
 	output: OUTDIR / "output_other_rule_output_{sample}"
 	log: OUTDIR / "log_other_rule_output_{sample}"
-	shell: 
+	shell:
 		"""
 		cat {input} > {output}
 		echo log protected > {log}
@@ -75,4 +75,3 @@ rule input_function_unpacking:
 		echo {input.existing_file2} >> {output}
 		echo log function unpacking > {log}
 		"""
-

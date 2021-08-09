@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
@@ -8,6 +8,7 @@ import threading
 import operator
 import time
 import math
+import asyncio
 
 from functools import partial
 from collections import defaultdict
@@ -24,9 +25,10 @@ from snakemake.executors import (
     TibannaExecutor,
 )
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
+from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
-
+from snakemake.common import async_run
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -54,7 +56,6 @@ class JobScheduler:
         self,
         workflow,
         dag,
-        cores,
         local_cores=1,
         dryrun=False,
         touch=False,
@@ -72,6 +73,7 @@ class JobScheduler:
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        tes=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -92,8 +94,10 @@ class JobScheduler:
         scheduler_type=None,
         scheduler_ilp_solver=None,
     ):
-        """ Create a new instance of KnapsackJobScheduler. """
+        """Create a new instance of KnapsackJobScheduler."""
         from ratelimiter import RateLimiter
+
+        cores = workflow.global_resources["_cores"]
 
         self.cluster = cluster
         self.cluster_config = cluster_config
@@ -113,11 +117,16 @@ class JobScheduler:
         self.keepmetadata = keepmetadata
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
+        self._tofinish = []
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
+
+        if workflow.global_resources["_nodes"] is not None:
+            # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
+            self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
         use_threads = (
@@ -310,6 +319,30 @@ class JobScheduler:
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
             )
+        elif tes:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+
+            self._executor = TaskExecutionServiceExecutor(
+                workflow,
+                dag,
+                cores=local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                latency_wait=latency_wait,
+                tes_url=tes,
+                container_image=container_image,
+            )
 
         else:
             self._executor = CPUExecutor(
@@ -367,7 +400,7 @@ class JobScheduler:
 
     @property
     def open_jobs(self):
-        """ Return open jobs. """
+        """Return open jobs."""
         jobs = self.dag.ready_jobs
 
         if not self.dryrun:
@@ -380,7 +413,7 @@ class JobScheduler:
 
     @property
     def remaining_jobs(self):
-        """ Return jobs to be scheduled including not yet ready ones. """
+        """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
             for job in self.dag.needrun_jobs
@@ -388,7 +421,7 @@ class JobScheduler:
         ]
 
     def schedule(self):
-        """ Schedule jobs that are ready, maximizing cpu usage. """
+        """Schedule jobs that are ready, maximizing cpu usage."""
         try:
             while True:
                 # work around so that the wait does not prevent keyboard interrupts
@@ -398,6 +431,7 @@ class JobScheduler:
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
+                    self._finish_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
@@ -440,7 +474,6 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
-
                     run = self.job_selector(needrun)
 
                     logger.debug(
@@ -453,8 +486,13 @@ class JobScheduler:
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
-                    # remove from read_jobs
-                    self.dag._ready_jobs -= run
+                    # remove from ready_jobs
+                    self.dag.register_running(run)
+
+                # reset params and resources because they might contain TBDs
+                if not self.dryrun:
+                    for job in run:
+                        job.reset_params_and_resources()
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
@@ -467,6 +505,12 @@ class JobScheduler:
             )
             self._executor.cancel()
             return False
+
+    def _finish_jobs(self):
+        # must be called from within lock
+        for job, update_dynamic in self._tofinish:
+            self.dag.finish(job, update_dynamic=update_dynamic)
+        self._tofinish.clear()
 
     def run(self, jobs, executor=None):
         if executor is None:
@@ -500,7 +544,7 @@ class JobScheduler:
         update_resources=True,
         handle_job_success=True,
     ):
-        """ Do stuff after job is finished. """
+        """Do stuff after job is finished."""
         with self._lock:
             if handle_job_success:
                 # by calling this behind the lock, we avoid race conditions
@@ -513,16 +557,7 @@ class JobScheduler:
                     self._handle_error(job)
                     return
 
-            try:
-                potential_new_ready_jobs = self.dag.finish(
-                    job, update_dynamic=update_dynamic
-                )
-            except (RuleException, WorkflowError) as e:
-                # if an error occurs while processing job output,
-                # we do the same as in case of errors during execution
-                print_exception(e, self.workflow.linemaps)
-                self._handle_error(job)
-                return
+            self._tofinish.append((job, update_dynamic))
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1
@@ -544,12 +579,8 @@ class JobScheduler:
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
                     self._open_jobs.release()
-            elif (
-                not self.running
-                or potential_new_ready_jobs
-                or self.workflow.immediate_submit
-            ):
-                # go on scheduling if open jobs are ready or no job is running
+            else:
+                # go on scheduling if there is any free core
                 self._open_jobs.release()
 
     def _error(self, job):
@@ -591,123 +622,175 @@ class JobScheduler:
         """
         import pulp
         from pulp import lpSum
+        from stopit import ThreadingTimeout as Timeout, TimeoutException
 
-        # assert self.resources["_cores"] > 0
-        scheduled_jobs = {
-            job: pulp.LpVariable(
-                "job_{}".format(idx),
-                lowBound=0,
-                upBound=1,
-                cat=pulp.LpInteger,
-            )
-            for idx, job in enumerate(jobs)
-        }
+        logger.info("Select jobs to execute...")
 
-        temp_files = {
-            temp_file for job in jobs for temp_file in self.dag.temp_input(job)
-        }
+        with self._lock:
+            if not self.resources["_cores"]:
+                return set()
 
-        temp_job_improvement = {
-            temp_file: pulp.LpVariable(
-                "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
-            )
-            for idx, temp_file in enumerate(temp_files)
-        }
+            # assert self.resources["_cores"] > 0
+            scheduled_jobs = {
+                job: pulp.LpVariable(
+                    "job_{}".format(idx),
+                    lowBound=0,
+                    upBound=1,
+                    cat=pulp.LpInteger,
+                )
+                for idx, job in enumerate(jobs)
+            }
 
-        temp_file_deletable = {
-            temp_file: pulp.LpVariable(
-                "deletable_{}".format(idx),
-                lowBound=0,
-                upBound=1,
-                cat=pulp.LpInteger,
-            )
-            for idx, temp_file in enumerate(temp_files)
-        }
-        prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+            def size_gb(f):
+                if self.touch:
+                    # In case of touch mode, there is no need to prioritize based on size.
+                    # We cannot access it anyway, because the files might be temporary and
+                    # not present.
+                    return 0
+                else:
+                    return f.size / 1e9
 
-        total_temp_size = max(sum([temp_file.size for temp_file in temp_files]), 1)
-        total_core_requirement = sum(
-            [max(job.resources.get("_cores", 1), 1) for job in jobs]
-        )
-        # Objective function
-        # Job priority > Core load
-        # Core load > temp file removal
-        # Instant removal > temp size
-        prob += (
-            2
-            * total_core_requirement
-            * 2
-            * total_temp_size
-            * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
-            + 2
-            * total_temp_size
-            * lpSum(
-                [
-                    max(job.resources.get("_cores", 1), 1) * scheduled_jobs[job]
-                    for job in jobs
-                ]
-            )
-            + total_temp_size
-            * lpSum(
-                [
-                    temp_file_deletable[temp_file] * temp_file.size
-                    for temp_file in temp_files
-                ]
-            )
-            + lpSum(
-                [
-                    temp_job_improvement[temp_file] * temp_file.size
-                    for temp_file in temp_files
-                ]
-            )
-        )
+            temp_files = {
+                temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+            }
 
-        # Constraints:
-        for name in self.workflow.global_resources:
+            temp_job_improvement = {
+                temp_file: pulp.LpVariable(
+                    "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
+                )
+                for idx, temp_file in enumerate(temp_files)
+            }
+
+            temp_file_deletable = {
+                temp_file: pulp.LpVariable(
+                    "deletable_{}".format(idx),
+                    lowBound=0,
+                    upBound=1,
+                    cat=pulp.LpInteger,
+                )
+                for idx, temp_file in enumerate(temp_files)
+            }
+            prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
+
+            total_temp_size = max(
+                sum([size_gb(temp_file) for temp_file in temp_files]), 1
+            )
+            total_core_requirement = sum(
+                [max(job.resources.get("_cores", 1), 1) for job in jobs]
+            )
+            # Objective function
+            # Job priority > Core load
+            # Core load > temp file removal
+            # Instant removal > temp size
             prob += (
-                lpSum(
-                    [scheduled_jobs[job] * job.resources.get(name, 0) for job in jobs]
+                2
+                * total_core_requirement
+                * 2
+                * total_temp_size
+                * lpSum([job.priority * scheduled_jobs[job] for job in jobs])
+                + 2
+                * total_temp_size
+                * lpSum(
+                    [
+                        max(job.resources.get("_cores", 1), 1) * scheduled_jobs[job]
+                        for job in jobs
+                    ]
                 )
-                <= self.resources[name]
+                + total_temp_size
+                * lpSum(
+                    [
+                        temp_file_deletable[temp_file] * size_gb(temp_file)
+                        for temp_file in temp_files
+                    ]
+                )
+                + lpSum(
+                    [
+                        temp_job_improvement[temp_file] * size_gb(temp_file)
+                        for temp_file in temp_files
+                    ]
+                )
             )
 
-        # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
-        remaining_jobs = self.remaining_jobs
-        for temp_file in temp_files:
-            prob += temp_job_improvement[temp_file] <= lpSum(
-                [
-                    scheduled_jobs[job] * self.required_by_job(temp_file, job)
-                    for job in jobs
-                ]
-            ) / lpSum([self.required_by_job(temp_file, job) for job in remaining_jobs])
+            # Constraints:
+            for name in self.workflow.global_resources:
+                prob += (
+                    lpSum(
+                        [
+                            scheduled_jobs[job] * job.resources.get(name, 0)
+                            for job in jobs
+                        ]
+                    )
+                    <= self.resources[name]
+                )
 
-            prob += temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
+            # Choose jobs that lead to "fastest" (minimum steps) removal of existing temp file
+            remaining_jobs = self.remaining_jobs
+            for temp_file in temp_files:
+                prob += temp_job_improvement[temp_file] <= lpSum(
+                    [
+                        scheduled_jobs[job] * self.required_by_job(temp_file, job)
+                        for job in jobs
+                    ]
+                ) / lpSum(
+                    [self.required_by_job(temp_file, job) for job in remaining_jobs]
+                )
 
-        solver = (
-            pulp.get_solver(self.scheduler_ilp_solver)
-            if self.scheduler_ilp_solver
-            else pulp.apis.LpSolverDefault
-        )
-        solver.msg = False
-        # disable extensive logging
+                prob += (
+                    temp_file_deletable[temp_file] <= temp_job_improvement[temp_file]
+                )
+
         try:
-            prob.solve(solver)
-        except pulp.apis.core.PulpSolverError as e:
-            raise WorkflowError(
-                "Failed to solve the job scheduling problem with pulp. "
-                "Please report a bug and use --scheduler greedy as a workaround:\n{}".format(
-                    e
-                )
+            with Timeout(10, swallow_exc=False):
+                self._solve_ilp(prob)
+        except TimeoutException as e:
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver in time (10s). "
+                "Falling back to greedy solver."
             )
+            return self.job_selector_greedy(jobs)
+        except pulp.apis.core.PulpSolverError as e:
+            logger.warning(
+                "Failed to solve scheduling problem with ILP solver. Falling back to greedy solver. "
+                "Run Snakemake with --verbose to see the full solver output for debugging the problem."
+            )
+            return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
             job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
         )
+
+        if not selected_jobs:
+            # No selected jobs. This could be due to insufficient resources or a failure in the ILP solver
+            # Hence, we silently fall back to the greedy solver to make sure that we don't miss anything.
+            return self.job_selector_greedy(jobs)
+
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
                 [job.resources.get(name, 0) for job in selected_jobs]
             )
         return selected_jobs
+
+    def _solve_ilp(self, prob):
+        import pulp
+
+        old_path = os.environ["PATH"]
+        if self.workflow.scheduler_solver_path is None:
+            # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
+            # This is needed for cluster envs, where the cluster job might have a different environment but
+            # still needs access to the solver binary.
+            os.environ["PATH"] = "{}:{}".format(
+                self.workflow.scheduler_solver_path, os.environ["PATH"]
+            )
+        try:
+            solver = (
+                pulp.get_solver(self.scheduler_ilp_solver)
+                if self.scheduler_ilp_solver
+                else pulp.apis.LpSolverDefault
+            )
+        finally:
+            os.environ["PATH"] = old_path
+        solver.msg = self.workflow.verbose
+        prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
         return 1 if temp_file in self.dag.temp_input(job) else 0
@@ -722,6 +805,8 @@ class JobScheduler:
             jobs (list):    list of jobs
         """
         with self._lock:
+            if not self.resources["_cores"]:
+                return set()
             # each job is an item with one copy (0-1 MDKP)
             n = len(jobs)
             x = [0] * n  # selected jobs
@@ -824,5 +909,5 @@ class JobScheduler:
         return (job.priority, temp_size, input_size)
 
     def progress(self):
-        """ Display the progress. """
+        """Display the progress."""
         logger.progress(done=self.finished_jobs, total=len(self.dag))

@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -102,13 +102,26 @@ class AbstractExecutor:
             "--set-threads", self.workflow.overwrite_threads
         )
 
+    def get_set_resources_args(self):
+        if self.workflow.overwrite_resources:
+            return " --set-resources {} ".format(
+                " ".join(
+                    "{}:{}={}".format(rule, name, value)
+                    for rule, res in self.workflow.overwrite_resources.items()
+                    for name, value in res.items()
+                ),
+            )
+        return ""
+
     def get_set_scatter_args(self):
         return self._format_key_value_args(
             "--set-scatter", self.workflow.overwrite_scatter
         )
 
-    def get_default_resources_args(self):
-        if self.workflow.default_resources.args is not None:
+    def get_default_resources_args(self, default_resources=None):
+        if default_resources is None:
+            default_resources = self.workflow.default_resources
+        if default_resources:
 
             def fmt(res):
                 if isinstance(res, str):
@@ -119,6 +132,11 @@ class AbstractExecutor:
                 " ".join(map(fmt, self.workflow.default_resources.args))
             )
             return args
+        return ""
+
+    def get_behavior_args(self):
+        if self.workflow.conda_not_block_search_path_envvars:
+            return " --conda-not-block-search-path-envvars "
         return ""
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -243,7 +261,7 @@ class RealExecutor(AbstractExecutor):
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
 
     def register_job(self, job):
         job.register()
@@ -304,6 +322,10 @@ class RealExecutor(AbstractExecutor):
             additional += " --use-conda "
             if self.workflow.conda_prefix:
                 additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
+            if self.workflow.conda_base_path and self.assume_shared_fs:
+                additional += " --conda-base-path {} ".format(
+                    self.workflow.conda_base_path
+                )
         if self.workflow.use_singularity:
             additional += " --use-singularity "
             if self.workflow.singularity_prefix:
@@ -314,11 +336,21 @@ class RealExecutor(AbstractExecutor):
                 additional += ' --singularity-args "{}"'.format(
                     self.workflow.singularity_args
                 )
+        if not self.workflow.execute_subworkflows:
+            additional += " --no-subworkflows "
+
+        if self.workflow.max_threads is not None:
+            additional += " --max-threads {} ".format(self.workflow.max_threads)
+
+        additional += self.get_set_resources_args()
+        additional += self.get_set_scatter_args()
+        additional += self.get_set_threads_args()
+        additional += self.get_behavior_args()
 
         if self.workflow.use_env_modules:
-            additional += " --use-envmodules"
+            additional += " --use-envmodules "
         if not self.keepmetadata:
-            additional += " --drop-metadata"
+            additional += " --drop-metadata "
 
         return additional
 
@@ -372,7 +404,7 @@ class RealExecutor(AbstractExecutor):
             benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
             target=target,
             rules=rules,
-            **kwargs
+            **kwargs,
         )
         return cmd
 
@@ -431,15 +463,13 @@ class CPUExecutor(RealExecutor):
             (
                 "cd {workflow.workdir_init} && ",
                 "{sys.executable} -m snakemake {target} --snakefile {snakefile} ",
-                "--force -j{cores} --keep-target-files --keep-remote ",
+                "--force --cores {cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
                 "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
-                "--max-inventory-time 0 ",
+                "--max-inventory-time 0 --ignore-incomplete ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
-                self.get_set_scatter_args(),
-                self.get_set_threads_args(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
                 "--notemp --quiet --no-hooks --nolock --mode {} ".format(
                     Mode.subprocess
@@ -510,6 +540,8 @@ class CPUExecutor(RealExecutor):
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook,
+            self.workflow.conda_base_path,
+            job.rule.basedir,
         )
 
     def run_single_job(self, job):
@@ -655,7 +687,7 @@ class ClusterExecutor(RealExecutor):
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
-            self.snakefile = os.path.relpath(workflow.snakefile)
+            self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         jobscript = workflow.jobscript
         if jobscript is None:
@@ -677,16 +709,14 @@ class ClusterExecutor(RealExecutor):
                     "{envvars} " "cd {workflow.workdir_init} && "
                     if assume_shared_fs
                     else "",
-                    "{path:u} {sys.executable} " if assume_shared_fs else "python ",
+                    "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
-                    "--force -j{cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
-                    "--wait-for-files {wait_for_files} --latency-wait {latency_wait} ",
+                    "--force --cores {cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
+                    "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
-                    self.get_set_scatter_args(),
-                    self.get_set_threads_args(),
                     "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
-                    "--nocolor --notemp --no-hooks --nolock ",
+                    "--nocolor --notemp --no-hooks --nolock {scheduler_solver_path:u} ",
                     "--mode {} ".format(Mode.cluster),
                 )
             )
@@ -701,7 +731,7 @@ class ClusterExecutor(RealExecutor):
 
         self.jobname = jobname
         self._tmpdir = None
-        self.cores = cores if cores else ""
+        self.cores = cores if cores else "all"
         self.cluster_config = cluster_config if cluster_config else dict()
 
         self.restart_times = restart_times
@@ -758,7 +788,7 @@ class ClusterExecutor(RealExecutor):
 
     def format_job(self, pattern, job, **kwargs):
         wait_for_files = []
-        path = ""
+        scheduler_solver_path = ""
         if self.assume_shared_fs:
             wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
@@ -766,16 +796,34 @@ class ClusterExecutor(RealExecutor):
             # This way, we ensure that the snakemake process in the cluster node runs
             # in the same environment as the current process.
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
+            scheduler_solver_path = "--scheduler-solver-path {}".format(
+                os.path.dirname(sys.executable)
+            )
+
+        # Only create extra file if we have more than 20 input files.
+        # This should not require the file creation in most cases.
+        if len(wait_for_files) > 20:
+            wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
+            with open(wait_for_files_file, "w") as fd:
+                fd.write("\n".join(wait_for_files))
+
+            waitfiles_parameter = format(
+                "--wait-for-files-file {wait_for_files_file}",
+                wait_for_files_file=wait_for_files_file,
+            )
+        else:
+            waitfiles_parameter = format(
+                "--wait-for-files {wait_for_files}", wait_for_files=wait_for_files
+            )
 
         format_p = partial(
             self.format_job_pattern,
             job=job,
             properties=job.properties(cluster=self.cluster_params(job)),
             latency_wait=self.latency_wait,
-            wait_for_files=wait_for_files,
-            path=path,
-            **kwargs
+            waitfiles_parameter=waitfiles_parameter,
+            scheduler_solver_path=scheduler_solver_path,
+            **kwargs,
         )
         try:
             return format_p(pattern)
@@ -800,13 +848,13 @@ class ClusterExecutor(RealExecutor):
             _quote_all=True,
             use_threads=use_threads,
             envvars=envvars,
-            **kwargs
+            **kwargs,
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
     def cluster_params(self, job):
         """Return wildcards object for job from cluster_config."""
@@ -853,6 +901,10 @@ class ClusterExecutor(RealExecutor):
         # By removing it again, we make sure that it is gone on the host FS.
         if not self.keepincomplete:
             self.workflow.persistence.cleanup(job)
+            # Also cleanup the jobs output files, in case the remote job
+            # was not able to, due to e.g. timeout.
+            logger.debug("Cleanup failed jobs output files.")
+            job.cleanup()
 
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
@@ -1062,7 +1114,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # Ctrl-C on the main process or sending killall to
                         # snakemake.
                         # Snakemake will handle the signal in
-                        # the master process.
+                        # the main process.
                         pass
                     else:
                         raise WorkflowError(
@@ -1402,7 +1454,7 @@ class DRMAAExecutor(ClusterExecutor):
 
 @contextlib.contextmanager
 def change_working_directory(directory=None):
-    """ Change working directory in execution context if provided. """
+    """Change working directory in execution context if provided."""
     if directory:
         try:
             saved_directory = os.getcwd()
@@ -1441,18 +1493,14 @@ class KubernetesExecutor(ClusterExecutor):
         self.workflow = workflow
 
         exec_job = (
-            (
-                "cp -rf /source/. . && "
-                "snakemake {target} --snakefile {snakefile} "
-                "--force -j{cores} --keep-target-files  --keep-remote "
-                "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-                " --attempt {attempt} {use_threads} --max-inventory-time 0 "
-                "--wrapper-prefix {workflow.wrapper_prefix} "
-                "{overwrite_config} {printshellcmds} {rules} --nocolor "
-                "--notemp --no-hooks --nolock "
-            )
-            + self.get_set_scatter_args()
-            + self.get_set_threads_args()
+            "cp -rf /source/. . && "
+            "snakemake {target} --snakefile {snakefile} "
+            "--force --cores {cores} --keep-target-files  --keep-remote "
+            "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
+            " --attempt {attempt} {use_threads} --max-inventory-time 0 "
+            "--wrapper-prefix {workflow.wrapper_prefix} "
+            "{overwrite_config} {printshellcmds} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
         )
 
         super().__init__(
@@ -1472,7 +1520,7 @@ class KubernetesExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
         # use relative path to Snakefile
-        self.snakefile = os.path.relpath(workflow.snakefile)
+        self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         try:
             from kubernetes import config
@@ -1514,7 +1562,7 @@ class KubernetesExecutor(ClusterExecutor):
 
             # The kubernetes API can't create secret files larger than 1MB.
             source_file_size = os.path.getsize(f)
-            max_file_size = 1000000
+            max_file_size = 1048576
             if source_file_size > max_file_size:
                 logger.warning(
                     "Skipping the source file {f}. Its size {source_file_size} exceeds "
@@ -1527,8 +1575,28 @@ class KubernetesExecutor(ClusterExecutor):
 
             with open(f, "br") as content:
                 key = "f{}".format(i)
+
+                # Some files are smaller than 1MB, but grows larger after being base64 encoded
+                # We should exclude them as well, otherwise Kubernetes APIs will complain
+                encoded_contents = base64.b64encode(content.read()).decode()
+                encoded_size = len(encoded_contents)
+                if encoded_size > 1048576:
+                    logger.warning(
+                        "Skipping the source file {f} for secret key {key}. "
+                        "Its base64 encoded size {encoded_size} exceeds "
+                        "the maximum file size (1MB) that can be passed "
+                        "from host to kubernetes.".format(
+                            f=f,
+                            source_file_size=source_file_size,
+                            key=key,
+                            encoded_size=encoded_size,
+                        )
+                    )
+                    continue
+
                 self.secret_files[key] = f
-                secret.data[key] = base64.b64encode(content.read()).decode()
+                secret.data[key] = encoded_contents
+
         for e in self.envvars:
             try:
                 key = e.lower()
@@ -1536,14 +1604,58 @@ class KubernetesExecutor(ClusterExecutor):
                 self.secret_envvars[key] = e
             except KeyError:
                 continue
+
+        # Test if the total size of the configMap exceeds 1MB
+        config_map_size = sum(
+            [len(base64.b64decode(v)) for k, v in secret.data.items()]
+        )
+        if config_map_size > 1048576:
+            logger.warning(
+                "The total size of the included files and other Kubernetes secrets "
+                "is {}, exceeding the 1MB limit.\n".format(config_map_size)
+            )
+            logger.warning(
+                "The following are the largest files. Consider removing some of them "
+                "(you need remove at least {} bytes):".format(config_map_size - 1048576)
+            )
+
+            entry_sizes = {
+                self.secret_files[k]: len(base64.b64decode(v))
+                for k, v in secret.data.items()
+                if k in self.secret_files
+            }
+            for k, v in sorted(entry_sizes.items(), key=lambda item: item[1])[:-6:-1]:
+                logger.warning("  * File: {k}, original size: {v}".format(k=k, v=v))
+
+            raise WorkflowError("ConfigMap too large")
+
         self.kubeapi.create_namespaced_secret(self.namespace, secret)
 
     def unregister_secret(self):
         import kubernetes.client
 
-        self.kubeapi.delete_namespaced_secret(
+        safe_delete_secret = lambda: self.kubeapi.delete_namespaced_secret(
             self.run_namespace, self.namespace, body=kubernetes.client.V1DeleteOptions()
         )
+        self._kubernetes_retry(safe_delete_secret)
+
+    # In rare cases, deleting a pod may rais 404 NotFound error.
+    def safe_delete_pod(self, jobid, ignore_not_found=True):
+        import kubernetes.client
+
+        body = kubernetes.client.V1DeleteOptions()
+        try:
+            self.kubeapi.delete_namespaced_pod(jobid, self.namespace, body=body)
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == 404 and ignore_not_found:
+                # Can't find the pod. Maybe it's already been
+                # destroyed. Proceed with a warning message.
+                logger.warning(
+                    "[WARNING] 404 not found when trying to delete the pod: {jobid}\n"
+                    "[WARNING] Ignore this error\n".format(jobid=jobid)
+                )
+            else:
+                raise e
 
     def shutdown(self):
         self.unregister_secret()
@@ -1555,7 +1667,9 @@ class KubernetesExecutor(ClusterExecutor):
         body = kubernetes.client.V1DeleteOptions()
         with self.lock:
             for j in self.active_jobs:
-                self.kubeapi.delete_namespaced_pod(j.jobid, self.namespace, body=body)
+                func = lambda: self.safe_delete_pod(j.jobid, ignore_not_found=True)
+                self._kubernetes_retry(func)
+
         self.shutdown()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -1576,6 +1690,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         body = kubernetes.client.V1Pod()
         body.metadata = kubernetes.client.V1ObjectMeta(labels={"app": "snakemake"})
+
         body.metadata.name = jobid
 
         # container
@@ -1673,6 +1788,43 @@ class KubernetesExecutor(ClusterExecutor):
             KubernetesJob(job, jobid, callback, error_callback, pod, None)
         )
 
+    # Sometimes, certain k8s requests throw kubernetes.client.rest.ApiException
+    # Solving this issue requires reauthentication, as _kubernetes_retry shows
+    # However, reauthentication itself, under rare conditions, may also throw
+    # errors such as:
+    #   kubernetes.client.exceptions.ApiException: (409), Reason: Conflict
+    #
+    # This error doesn't mean anything wrong with the k8s cluster, and users can safely
+    # ignore it.
+    def _reauthenticate_and_retry(self, func=None):
+        import kubernetes
+
+        # Unauthorized.
+        # Reload config in order to ensure token is
+        # refreshed. Then try again.
+        logger.info("Trying to reauthenticate")
+        kubernetes.config.load_kube_config()
+        subprocess.run(["kubectl", "get", "nodes"])
+
+        self.kubeapi = kubernetes.client.CoreV1Api()
+        self.batchapi = kubernetes.client.BatchV1Api()
+
+        try:
+            self.register_secret()
+        except kubernetes.client.rest.ApiException as e:
+            if e.status == 409 and e.reason == "Conflict":
+                logger.warning("409 conflict ApiException when registering secrets")
+                logger.warning(e)
+            else:
+                raise WorkflowError(
+                    e,
+                    "This is likely a bug in "
+                    "https://github.com/kubernetes-client/python.",
+                )
+
+        if func:
+            return func()
+
     def _kubernetes_retry(self, func):
         import kubernetes
         import urllib3
@@ -1685,22 +1837,7 @@ class KubernetesExecutor(ClusterExecutor):
                     # Unauthorized.
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
-                    logger.info("trying to reauthenticate")
-                    kubernetes.config.load_kube_config()
-                    subprocess.run(["kubectl", "get", "nodes"])
-
-                    self.kubeapi = kubernetes.client.CoreV1Api()
-                    self.batchapi = kubernetes.client.BatchV1Api()
-                    self.register_secret()
-                    try:
-                        return func()
-                    except kubernetes.client.rest.ApiException as e:
-                        # Both attempts failed, raise error.
-                        raise WorkflowError(
-                            e,
-                            "This is likely a bug in "
-                            "https://github.com/kubernetes-client/python.",
-                        )
+                    return self._reauthenticate_and_retry(func)
             # Handling timeout that may occur in case of GKE master upgrade
             except urllib3.exceptions.MaxRetryError as e:
                 logger.info(
@@ -1771,10 +1908,11 @@ class KubernetesExecutor(ClusterExecutor):
                     elif res.status.phase == "Succeeded":
                         # finished
                         j.callback(j.job)
-                        body = kubernetes.client.V1DeleteOptions()
-                        self.kubeapi.delete_namespaced_pod(
-                            j.jobid, self.namespace, body=body
+
+                        func = lambda: self.safe_delete_pod(
+                            j.jobid, ignore_not_found=True
                         )
+                        self._kubernetes_retry(func)
                     else:
                         # still active
                         still_running.append(j)
@@ -1823,7 +1961,7 @@ class TibannaExecutor(ClusterExecutor):
         for f in self.workflow_sources:
             log += f
         logger.debug(log)
-        self.snakefile = workflow.snakefile
+        self.snakefile = workflow.main_snakefile
         self.envvars = {e: os.environ[e] for e in workflow.envvars}
         if self.envvars:
             logger.debug("envvars = %s" % str(self.envvars))
@@ -1841,16 +1979,12 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("subdir=" + self.s3_subdir)
         self.quiet = quiet
         exec_job = (
-            (
-                "snakemake {target} --snakefile {snakefile} "
-                "--force -j{cores} --keep-target-files  --keep-remote "
-                "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-                "--attempt 1 {use_threads} --max-inventory-time 0 "
-                "{overwrite_config} {rules} --nocolor "
-                "--notemp --no-hooks --nolock "
-            )
-            + self.get_set_threads_args()
-            + self.get_set_scatter_args()
+            "snakemake {target} --snakefile {snakefile} "
+            "--force --cores {cores} --keep-target-files  --keep-remote "
+            "--latency-wait 0 --scheduler {workflow.scheduler_type} "
+            "--attempt 1 {use_threads} --max-inventory-time 0 "
+            "{overwrite_config} {rules} --nocolor "
+            "--notemp --no-hooks --nolock "
         )
 
         super().__init__(
@@ -2076,6 +2210,7 @@ class TibannaExecutor(ClusterExecutor):
             sfn=self.tibanna_sfn,
             verbose=not self.quiet,
             jobid=jobid,
+            open_browser=False,
             sleep=0,
         )
         exec_arn = exec_info.get("_tibanna", {}).get("exec_arn", "")
@@ -2145,6 +2280,8 @@ def run_wrapper(
     shadow_dir,
     jobid,
     edit_notebook,
+    conda_base_path,
+    basedir,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2223,6 +2360,8 @@ def run_wrapper(
                             cleanup_scripts,
                             passed_shadow_dir,
                             edit_notebook,
+                            conda_base_path,
+                            basedir,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2251,6 +2390,8 @@ def run_wrapper(
                                 cleanup_scripts,
                                 passed_shadow_dir,
                                 edit_notebook,
+                                conda_base_path,
+                                basedir,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2277,6 +2418,8 @@ def run_wrapper(
                     cleanup_scripts,
                     passed_shadow_dir,
                     edit_notebook,
+                    conda_base_path,
+                    basedir,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

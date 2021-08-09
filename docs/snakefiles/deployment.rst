@@ -1,4 +1,4 @@
-
+.. _distribution_and_reproducibility:
 
 ================================
 Distribution and Reproducibility
@@ -43,29 +43,68 @@ Conda environments (see :ref:`integrated_package_management`) should be stored i
 Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
 All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
-Then, a workflow can be deployed to a new system via the following steps
+Workflows setup in above structure can be easily used and combined via :ref:`the Snakemake module system <use_with_modules>`.
+Such deployment can even be automated via  `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Moreover, by publishing a workflow on `Github <https://github.com>`_ and following a set of additional `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ the workflow will be automatically included in the `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_, thereby easing discovery and even automating its usage documentation.
+For an example of such automated documentation, see `here <https://snakemake.github.io/snakemake-workflow-catalog/?usage=snakemake-workflows%2Fdna-seq-varlociraptor>`_.
+
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for more best-practice workflows.
+
+.. _use_with_modules:
+
+-----------------------------------------
+Using and combining pre-exising workflows
+-----------------------------------------
+
+Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
+This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
+
+Consider the following example:
 
 .. code-block:: python
 
-    # clone workflow into working directory
-    git clone https://github.com/user/myworkflow.git path/to/workdir
-    cd path/to/workdir
+    from snakemake.utils import min_version
+    min_version("6.0")
 
-    # edit config and workflow as needed
-    vim config/config.yaml
+    configfile: "config/config.yaml"
 
-    # execute workflow, deploy software dependencies via conda
-    snakemake -n --use-conda
+    module dna_seq:
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
+        config: config
 
-Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
-A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
-Given that cookiecutter is installed, you can use it via:
+    use rule * from dna_seq
 
-.. code-block:: bash
+First, we load a local configuration file.
+Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile``, while using the contents of the local configuration file.
+Finally we declare all rules of the dna_seq module to be used.
+This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
+However, the advantage here is that we are (a) able to easily extend of modify the workflow, while making the changes transparent, and (b) we can store this workflow in a separate (e.g. private) git repository, along with for example configuration and meta data, without the need to duplicate the workflow code.
+Finally, we are always able to later combine another module into the current workflow, e.g. when further kinds of analyses are needed.
+The ability to modify rules upon using them (see :ref:`snakefiles-modules`) allows for arbitrary rewiring and configuration of the combined modules.
 
-    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
+For example, we can easily add another rule to extend the given workflow:
 
-Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
+        config: config
+
+    use rule * from dna_seq
+
+    # easily extend the workflow
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
 
 ----------------------------------
 Uploading workflows to WorkflowHub
@@ -163,9 +202,13 @@ The path to the environment definition is interpreted as **relative to the Snake
 
    Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+   
+   Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments. 
+   Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
+   If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
-Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
+Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation. 
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
@@ -208,9 +251,64 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
 
---------------------------------------------------
-Combining Conda package management with containers
---------------------------------------------------
+A global definition of a container image can be given:
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        ...
+
+In this case all jobs will be executed in a container. You can disable execution in container
+by setting the container directive of the rule to ``None``.
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        container: None
+
+-----------------------------------------
+Containerization of Conda based workflows
+-----------------------------------------
+While :ref:`integrated_package_management` provides control over the used software in exactly
+the desired versions, it does not control the underlying operating system.
+However, given a workflow with conda environments for each rule, Snakemake can automatically
+generate a container image specification (in the form of a ``Dockerfile``) that contains
+all required environments via the flag --containerize:
+
+.. code-block:: bash
+
+    snakemake --containerize > Dockerfile
+
+The container image specification generated by Snakemake aims to be transparent and readable, e.g. by displaying each contained environment in a human readable way.
+Via the special directive ``containerized`` this container image can be used in the workflow (both globally or per rule) such that no further conda package downloads are necessary, for example:
+
+.. code-block:: python
+
+    containerized: "docker://username/myworkflow:1.0.0"
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "envs/ggplot.yaml"
+        script:
+            "scripts/plot-stuff.R"
+
+Using the containerization of Snakemake has three advantages over manually crafting a container image for a workflow:
+
+1. A workflow with conda environment definitions is much more transparent to the reader than a black box container image, as each rule directly shows which software stack is used. Containerization just persistently projects those environments into a container image.
+2. It remains possible to run the workflow without containers, just via the conda environments.
+3. During development, testing can first happen without the container and just on the conda environments. When releasing a production version of the workflow the image can be uploaded just once and for future stable releases, thereby limiting the overhead created in container registries.
+
+--------------------------------------------------------------
+Ad-hoc combination of Conda package management with containers
+--------------------------------------------------------------
 
 While :ref:`integrated_package_management` provides control over the used software in exactly
 the desired versions, it does not control the underlying operating system.

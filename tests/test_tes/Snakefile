@@ -1,0 +1,6 @@
+
+rule all:
+    shell:
+        """
+        echo "task submitted to tes"
+        """

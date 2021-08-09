@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import inspect
@@ -21,7 +21,13 @@ from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import MIN_PY_VERSION, SNAKEMAKE_SEARCHPATH, ON_WINDOWS
+from snakemake.common import (
+    MIN_PY_VERSION,
+    SNAKEMAKE_SEARCHPATH,
+    ON_WINDOWS,
+    smart_join,
+    is_local_file,
+)
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
@@ -260,6 +266,7 @@ class ScriptBase(ABC):
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,
@@ -283,6 +290,7 @@ class ScriptBase(ABC):
         self.config = config
         self.rulename = rulename
         self.conda_env = conda_env
+        self.conda_base_path = conda_base_path
         self.container_img = container_img
         self.singularity_args = singularity_args
         self.env_modules = env_modules
@@ -327,7 +335,7 @@ class ScriptBase(ABC):
     def local_path(self):
         path = self.path[7:]
         if not os.path.isabs(path):
-            return os.path.join(self.basedir, path)
+            return smart_join(self.basedir, path)
         return path
 
     @abstractmethod
@@ -347,10 +355,13 @@ class ScriptBase(ABC):
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
+            conda_base_path=self.conda_base_path,
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
             singularity_args=self.singularity_args,
+            resources=self.resources,
+            threads=self.threads,
             **kwargs
         )
 
@@ -491,7 +502,7 @@ class PythonScript(ScriptBase):
                         logger.warning(
                             "Environment defines Python "
                             "version < {0}.{1}. Using Python of the "
-                            "master process to execute "
+                            "main process to execute "
                             "script. Note that this cannot be avoided, "
                             "because the script uses data structures from "
                             "Snakemake which are Python >={0}.{1} "
@@ -812,7 +823,7 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
-def get_source(path, basedir="."):
+def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
         if path.startswith("file://"):
@@ -820,10 +831,12 @@ def get_source(path, basedir="."):
         elif path.startswith("file:"):
             path = path[5:]
         if not os.path.isabs(path):
-            path = os.path.abspath(os.path.join(basedir, path))
-        path = "file://" + path
-    # TODO this should probably be removed again. It does not work for report and hash!
-    path = format(path, stepout=1)
+            path = smart_join(basedir, path, abspath=True)
+        if is_local_file(path):
+            path = "file://" + path
+    if wildcards is not None and params is not None:
+        # Format path if wildcards are given.
+        path = format(path, wildcards=wildcards, params=params)
     if path.startswith("file://"):
         sourceurl = "file:" + pathname2url(path[7:])
     elif path.startswith("git+file"):
@@ -886,6 +899,7 @@ def script(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -898,7 +912,7 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir)
+    path, source, language = get_source(path, basedir, wildcards, params)
 
     exec_class = {
         "python": PythonScript,
@@ -925,6 +939,7 @@ def script(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,

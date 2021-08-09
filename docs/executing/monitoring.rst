@@ -6,7 +6,8 @@ Monitoring
 
 Snakemake supports `panoptes <https://github.com/panoptes-organization/panoptes>`_ a server (under development) that lets you monitor the execution of snakemake workflows.
 Snakemake communicates with panoptes via the :code:`--wms-monitor` flag. The flag specifies the ip and port where panoptes is running (e.g. :code:`--wms-monitor http://127.0.0.1:5000`).
-Snakemake sends the following requests to wms monitor:
+
+For panoptes versions 0.1.1 and lower, Snakemake sends the following requests to wms monitor:
 
 .. csv-table::
    :header: "API", "Method", "Data", "Description"
@@ -23,3 +24,8 @@ Snakemake sends the following requests to wms monitor:
             'timestamp': time.asctime(), 
             'id': id
         }"
+
+
+For future versions, Panoptes will implement`a more structured schema <https://github.com/panoptes-organization/monitor-schema>`_
+to interact with the server. This means that for Snakemake 3.30.1 and lower, you should use Panoptes 0.1.1 and lower.
+The documentation here will be updated when a new version of Panoptes with the Monitor Schema is released.

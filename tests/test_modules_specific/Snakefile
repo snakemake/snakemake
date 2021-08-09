@@ -1,0 +1,14 @@
+shell.executable("bash")
+
+module test:
+    snakefile: "module-test/Snakefile"
+
+
+use rule * from test as test_*
+
+
+use rule a from test as test_* with:
+    output:
+        "test2.out"
+    params:
+        test=2

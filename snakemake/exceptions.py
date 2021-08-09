@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
@@ -44,7 +44,10 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
+        is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
+            os.path.realpath(snakemake_path)
+        )
+        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
 
 
