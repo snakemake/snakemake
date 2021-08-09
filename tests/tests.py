@@ -253,6 +253,10 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_anyconfig():
+    run(dpath("test_anyconfig"))
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
