@@ -945,7 +945,7 @@ def parse_config(args):
                 except:
                     pass
             assert v is not None
-            config[key] = v
+            update_config(config, {key: v})
     return config
 
 
