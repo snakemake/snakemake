@@ -325,24 +325,24 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         # add log files to outputs
         if job.log:
             for log in job.log:
-                outputs.append(
-                    self._prepare_file(
-                        filename=log,
-                        checkdir=checkdir,
-                        type="Output",
-                    )
+                obj = self._prepare_file(
+                    filename=log,
+                    checkdir=checkdir,
+                    type="Output",
                 )
+                if obj:
+                    outputs.append(obj)
 
         # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
             for benchmark in job.benchmark:
-                outputs.append(
-                    self._prepare_file(
-                        filename=benchmark,
-                        checkdir=checkdir,
-                        type="Output",
-                    )
+                obj = self._prepare_file(
+                    filename=benchmark,
+                    checkdir=checkdir,
+                    type="Output",
                 )
+                if obj:
+                    outputs.append(obj)
 
         return outputs
 
