@@ -1,3 +1,3 @@
 block:
-    bar: updated_bar
-    fubar: new_fubar
+    bar: snake_bar
+    fubar: snake_fubar

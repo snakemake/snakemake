@@ -1,1 +1,1 @@
-{block: {bar: updated_bar, baz: baz_initial, foo: updated_foo, fubar: new_fubar, qux: new_qux}}
+{block: {foo: cfg02_foo, bar: cfg01_bar, baz: cfg01_baz, qux: cfg02_qux, fubar: snake_fubar}}

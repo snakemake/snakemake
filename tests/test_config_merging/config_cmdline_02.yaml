@@ -1,3 +1,3 @@
 block:
-    foo: updated_foo
-    qux: new_qux
+    foo: cfg02_foo
+    qux: cfg02_qux
