@@ -37,7 +37,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         tes_url=None,
         container_image=None,
     ):
-        import tes
+        try:
+            import tes
+        except ImportError:
+            WorkflowError("Unable to import Python package tes. TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip.")
 
         self.container_image = container_image or get_container_image()
         self.container_workdir = "/tmp"
