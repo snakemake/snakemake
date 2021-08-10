@@ -48,6 +48,8 @@ jobs:
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # we need tags for versioneer to work
       
       - name: Setup Snakemake environment
         run: |
