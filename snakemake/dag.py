@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import html
 import os
+import sys
 import shutil
 import textwrap
 import time
@@ -255,7 +256,12 @@ class DAG:
 
             # delete all pointers from dependencies to this job
             for dep in self.dependencies[job]:
-                del self.depending[dep][job]
+                try:
+                    del self.depending[dep][job]
+                except KeyError:
+                    # In case the pointer has been deleted before or
+                    # never created, we can simply continue.
+                    pass
 
             # delete all dependencies
             del self.dependencies[job]
@@ -1647,7 +1653,10 @@ class DAG:
         """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
             raise WorkflowError(
-                "Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards."
+                "Target rules may not contain wildcards. "
+                "Please specify concrete files or a rule without wildcards at the command line, "
+                "or have a rule without wildcards at the very top of your workflow (e.g. the typical "
+                '"rule all" which just collects all results you want to generate in the end).'
             )
         return self.new_job(targetrule)
 
@@ -2118,14 +2127,40 @@ class DAG:
             )
 
     def stats(self):
+        from tabulate import tabulate
+
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs)
         rules.update(job.rule for job in self.finished_jobs)
-        yield "Job counts:"
-        yield "\tcount\tjobs"
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            yield "\t{}\t{}".format(count, rule)
-        yield "\t{}".format(len(self))
+
+        max_threads = defaultdict(int)
+        min_threads = defaultdict(lambda: sys.maxsize)
+        for job in chain(self.needrun_jobs, self.finished_jobs):
+            max_threads[job.rule] = max(max_threads[job.rule], job.threads)
+            min_threads[job.rule] = min(min_threads[job.rule], job.threads)
+        rows = [
+            {
+                "job": rule,
+                "count": count,
+                "min threads": min_threads[rule],
+                "max threads": max_threads[rule],
+            }
+            for rule, count in sorted(
+                rules.most_common(), key=lambda item: item[0].name
+            )
+        ]
+        rows.append(
+            {
+                "job": "total",
+                "count": sum(rules.values()),
+                "min threads": min(min_threads.values()),
+                "max threads": max(max_threads.values()),
+            }
+        )
+
+        yield "Job stats:"
+        yield tabulate(rows, headers="keys")
+        yield ""
 
     def __str__(self):
         return self.dot()

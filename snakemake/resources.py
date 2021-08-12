@@ -1,26 +1,80 @@
 import re
+import tempfile
 
 
 class DefaultResources:
-    def __init__(self, args=None):
-        self.args = args
+    defaults = {
+        "mem_mb": "max(2*input.size_mb, 1000)",
+        "disk_mb": "max(2*input.size_mb, 1000)",
+        "tmpdir": "system_tmpdir",
+    }
 
-        def fallback(val):
-            def callable(wildcards, input, attempt, threads, rulename):
-                try:
-                    value = eval(
-                        val, {"input": input, "attempt": attempt, "threads": threads}
-                    )
-                # Triggers for string arguments like n1-standard-4
-                except NameError:
-                    return val
-                return value
+    bare_defaults = {
+        "tmpdir": "system_tmpdir",
+    }
 
-            return callable
+    @classmethod
+    def decode_arg(cls, arg):
+        try:
+            return arg.split("=")
+        except ValueError:
+            raise ValueError("Resources have to be defined as name=value pairs.")
 
-        self.parsed = dict(_cores=1, _nodes=1)
-        if self.args is not None:
-            self.parsed.update(parse_resources(args, fallback=fallback))
+    @classmethod
+    def encode_arg(cls, name, value):
+        return "{}={}".format(name, value)
+
+    def __init__(self, args=None, from_other=None, mode="full"):
+        if mode == "full":
+            self._args = dict(DefaultResources.defaults)
+        elif mode == "bare":
+            self._args = dict(DefaultResources.bare_defaults)
+        else:
+            raise ValueError("Unexpected mode for DefaultResources: {}".format(mode))
+
+        if from_other is not None:
+            self._args = dict(from_other._args)
+            self.parsed = dict(from_other.parsed)
+        else:
+            if args is None:
+                args = []
+
+            self._args.update(
+                {name: value for name, value in map(self.decode_arg, args)}
+            )
+
+            def fallback(val):
+                def callable(wildcards, input, attempt, threads, rulename):
+                    try:
+                        value = eval(
+                            val,
+                            {
+                                "input": input,
+                                "attempt": attempt,
+                                "threads": threads,
+                                "system_tmpdir": tempfile.gettempdir(),
+                            },
+                        )
+                    # Triggers for string arguments like n1-standard-4
+                    except NameError:
+                        return val
+                    return value
+
+                return callable
+
+            self.parsed = dict(_cores=1, _nodes=1)
+            self.parsed.update(parse_resources(self._args, fallback=fallback))
+
+    def set_resource(self, name, value):
+        self._args[name] = "{}".format(value)
+        self.parsed[name] = value
+
+    @property
+    def args(self):
+        return [self.encode_arg(name, value) for name, value in self._args.items()]
+
+    def __bool__(self):
+        return bool(self.parsed)
 
 
 def parse_resources(resources_args, fallback=None):
@@ -28,14 +82,18 @@ def parse_resources(resources_args, fallback=None):
     resources = dict()
     if resources_args is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
-        for res in resources_args:
-            try:
-                res, val = res.split("=")
-            except ValueError:
-                raise ValueError("Resources have to be defined as name=value pairs.")
+
+        if isinstance(resources_args, list):
+            resources_args = map(DefaultResources.decode_arg, resources_args)
+        else:
+            resources_args = resources_args.items()
+
+        for res, val in resources_args:
             if not valid.match(res):
                 raise ValueError(
-                    "Resource definition must start with a valid identifier."
+                    "Resource definition must start with a valid identifier, but found {}.".format(
+                        res
+                    )
                 )
             try:
                 val = int(val)

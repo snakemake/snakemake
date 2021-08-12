@@ -333,6 +333,10 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
             "plots/quals.svg"
 
 
+    def get_bwa_map_input_fastqs(wildcards):
+        return config["samples"][wildcards.sample]
+    
+
     rule bwa_map:
         input:
             "data/genome.fa",

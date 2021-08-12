@@ -2,4 +2,4 @@ channels:
   - bioconda
   - conda-forge
 dependencies:
-  - bwa ==0.7.17
+  - melt ==1.0.3

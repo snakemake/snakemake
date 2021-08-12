@@ -14,6 +14,8 @@ import subprocess
 import collections
 import re
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Tuple, Pattern, Union, Optional
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
@@ -31,9 +33,9 @@ from snakemake.common import (
 from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
-
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
+PathLike = Union[str, Path, os.PathLike]
 
 
 class Snakemake:
@@ -102,17 +104,62 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
         """
-        if not self.log:
-            return ""
-        lookup = {
-            (True, True, True): " >> {0} 2>&1",
-            (True, False, True): " >> {0}",
-            (False, True, True): " 2>> {0}",
-            (True, True, False): " > {0} 2>&1",
-            (True, False, False): " > {0}",
-            (False, True, False): " 2> {0}",
-        }
-        return lookup[(stdout, stderr, append)].format(self.log)
+        return _log_shell_redirect(self.log, stdout, stderr, append)
+
+
+def _log_shell_redirect(
+    log: Optional[PathLike],
+    stdout: bool = True,
+    stderr: bool = True,
+    append: bool = False,
+) -> str:
+    """
+    Return a shell redirection string to be used in `shell()` calls
+
+    This function allows scripts and wrappers support optional `log` files
+    specified in the calling rule.  If no `log` was specified, then an
+    empty string "" is returned, regardless of the values of `stdout`,
+    `stderr`, and `append`.
+
+    Parameters
+    ---------
+
+    stdout : bool
+        Send stdout to log
+
+    stderr : bool
+        Send stderr to log
+
+    append : bool
+        Do not overwrite the log file. Useful for sending output of
+        multiple commands to the same log. Note however that the log will
+        not be truncated at the start.
+
+    The following table describes the output:
+
+    -------- -------- -------- ----- -------------
+    stdout   stderr   append   log   return value
+    -------- -------- -------- ----- ------------
+    True     True     True     fn    >> fn 2>&1
+    True     False    True     fn    >> fn
+    False    True     True     fn    2>> fn
+    True     True     False    fn    > fn 2>&1
+    True     False    False    fn    > fn
+    False    True     False    fn    2> fn
+    any      any      any      None  ""
+    -------- -------- -------- ----- -----------
+    """
+    if not log:
+        return ""
+    lookup = {
+        (True, True, True): " >> {0} 2>&1",
+        (True, False, True): " >> {0}",
+        (False, True, True): " 2>> {0}",
+        (True, True, False): " > {0} 2>&1",
+        (True, False, False): " > {0}",
+        (False, True, False): " 2> {0}",
+    }
+    return lookup[(stdout, stderr, append)].format(str(log))
 
 
 class REncoder:
@@ -266,6 +313,7 @@ class ScriptBase(ABC):
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,
@@ -289,6 +337,7 @@ class ScriptBase(ABC):
         self.config = config
         self.rulename = rulename
         self.conda_env = conda_env
+        self.conda_base_path = conda_base_path
         self.container_img = container_img
         self.singularity_args = singularity_args
         self.env_modules = env_modules
@@ -353,10 +402,13 @@ class ScriptBase(ABC):
             cmd,
             bench_record=self.bench_record,
             conda_env=self.conda_env,
+            conda_base_path=self.conda_base_path,
             container_img=self.container_img,
             shadow_dir=self.shadow_dir,
             env_modules=self.env_modules,
             singularity_args=self.singularity_args,
+            resources=self.resources,
+            threads=self.threads,
             **kwargs
         )
 
@@ -818,6 +870,371 @@ class JuliaScript(ScriptBase):
         self._execute_cmd("julia {fname:q}", fname=fname)
 
 
+class RustScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        preamble_addendum="",
+    ):
+        wrapper_path = path[7:] if path.startswith("file://") else path
+
+        # snakemake's namedlists will be encoded as a dict
+        # which stores the not-named items at the key "positional"
+        # and unpacks named items into the dict
+        def encode_namedlist(values):
+            values = list(values)
+            if len(values) == 0:
+                return dict(positional=[])
+            positional = [val for key, val in values if not key]
+            return dict(
+                positional=positional, **{key: val for key, val in values if key}
+            )
+
+        snakemake = dict(
+            input=encode_namedlist(input_._plainstrings()._allitems()),
+            output=encode_namedlist(output._plainstrings()._allitems()),
+            params=encode_namedlist(params.items()),
+            wildcards=encode_namedlist(wildcards.items()),
+            threads=threads,
+            resources=encode_namedlist(
+                {
+                    name: value
+                    for (name, value) in resources.items()
+                    if name != "_cores" and name != "_nodes"
+                }.items()
+            ),
+            log=encode_namedlist(log._plainstrings()._allitems()),
+            config=encode_namedlist(config.items()),
+            rulename=rulename,
+            bench_iteration=bench_iteration,
+            scriptdir=os.path.dirname(wrapper_path),
+        )
+
+        import json
+
+        json_string = json.dumps(dict(snakemake))
+
+        # Obtain search path for current snakemake module.
+        # We append it at the end (as a fallback).
+        searchpath = SNAKEMAKE_SEARCHPATH
+        if container_img is not None:
+            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
+        searchpath = repr(searchpath)
+        # For local scripts, add their location to the path in case they use path-based imports
+        if path.startswith("file://"):
+            searchpath += ", " + repr(os.path.dirname(path[7:]))
+
+        return textwrap.dedent(
+            """
+            json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
+                "/bench_iteration": {{
+                   "use_type": "Option<usize>"
+                }},
+                "/input/positional": {{
+                    "use_type": "Vec<String>"
+                }},
+                "/output/positional": {{
+                    "use_type": "Vec<String>"
+                }},
+                "/log/positional": {{
+                    "use_type": "Vec<String>"
+                }},
+                "/wildcards/positional": {{
+                    "use_type": "Vec<String>"
+                }},
+            }});
+            
+            pub struct Iter<'a, T>(std::slice::Iter<'a, T>);
+            impl<'a, T> Iterator for Iter<'a, T> {{
+                type Item = &'a T;
+                
+                fn next(&mut self) -> Option<Self::Item> {{
+                    self.0.next()
+                }}
+            }}
+            macro_rules! impl_iter {{
+                ($($s:ty),+) => {{
+                    $(
+                        impl IntoIterator for $s {{
+                            type Item = String;
+                            type IntoIter = std::vec::IntoIter<Self::Item>;
+            
+                            fn into_iter(self) -> Self::IntoIter {{
+                                self.positional.into_iter()
+                            }}
+                        }}
+            
+                        impl<'a> IntoIterator for &'a $s {{
+                            type Item = &'a String;
+                            type IntoIter = Iter<'a, String>;
+            
+                            fn into_iter(self) -> Self::IntoIter {{
+                                Iter(self.positional.as_slice().into_iter())
+                            }}
+                        }}
+                    )+
+                }};
+            }}
+            
+            macro_rules! impl_index {{
+                ($($s:ty),+) => {{
+                    $(
+                    impl std::ops::Index<usize> for $s {{
+                        type Output = String;
+            
+                        fn index(&self, index: usize) -> &Self::Output {{
+                            &self.positional[index]
+                        }}
+                    }}
+                    )+
+                }}
+            }}
+            
+            
+            impl_iter!(Input, Output, Wildcards, Log);
+            impl_index!(Input, Output, Wildcards, Log);
+            
+            impl Snakemake {{
+                #[allow(dead_code)]
+                fn redirect_stderr<P: AsRef<std::path::Path>>(
+                    &self,
+                    path: P,
+                ) -> anyhow::Result<gag::Redirect<std::fs::File>> {{
+                    let log = std::fs::OpenOptions::new()
+                        .truncate(true)
+                        .read(true)
+                        .create(true)
+                        .write(true)
+                        .open(path)?;
+                    Ok(gag::Redirect::stderr(log)?)
+                }}
+                
+                #[allow(dead_code)]
+                fn redirect_stdout<P: AsRef<std::path::Path>>(
+                    &self,
+                    path: P,
+                ) -> anyhow::Result<gag::Redirect<std::fs::File>> {{
+                    let log = std::fs::OpenOptions::new()
+                        .truncate(true)
+                        .read(true)
+                        .create(true)
+                        .write(true)
+                        .open(path)?;
+                    Ok(gag::Redirect::stdout(log)?)
+                }}
+                
+                fn setup_path(&self) -> anyhow::Result<()> {{
+                    use std::env;
+                    if let Some(path) = env::var_os("PATH") {{
+                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
+                        paths.push(std::path::PathBuf::from("{searchpath}"));
+                        let new_path = env::join_paths(paths)?;
+                        env::set_var("PATH", &new_path);
+                    }}
+                    Ok(())
+                }}
+            }}
+            
+            lazy_static::lazy_static! {{
+                // https://github.com/rust-lang-nursery/lazy-static.rs/issues/153
+                #[allow(non_upper_case_globals)]
+                static ref snakemake: Snakemake = {{
+                    let s: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
+                    s.setup_path().expect("Failed setting PATH");
+                    s
+                }};
+            }}
+            // TODO include addendum, if any {{preamble_addendum}}
+            """
+        ).format(
+            searchpath=searchpath,
+            json_string=json_string,
+            preamble_addendum=preamble_addendum,
+        )
+
+    def get_preamble(self):
+        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+        # preamble_addendum = (
+        #     "__real_file__ = __file__; __file__ = {file_override};".format(
+        #         file_override=repr(os.path.realpath(wrapper_path))
+        #     )
+        # )
+        preamble_addendum = ""
+
+        preamble = RustScript.generate_preamble(
+            self.path,
+            self.source,
+            self.basedir,
+            self.input,
+            self.output,
+            self.params,
+            self.wildcards,
+            self.threads,
+            self.resources,
+            self.log,
+            self.config,
+            self.rulename,
+            self.conda_env,
+            self.container_img,
+            self.singularity_args,
+            self.env_modules,
+            self.bench_record,
+            self.jobid,
+            self.bench_iteration,
+            self.cleanup_scripts,
+            self.shadow_dir,
+            preamble_addendum=preamble_addendum,
+        )
+        return preamble
+
+    def write_script(self, preamble, fd):
+        content = self.combine_preamble_and_source(preamble)
+        fd.write(content.encode())
+
+    def execute_script(self, fname, edit=False):
+        deps = self.default_dependencies()
+        ftrs = self.default_features()
+        self._execute_cmd(
+            "rust-script -d {deps} --features {ftrs} {fname:q} ",
+            fname=fname,
+            deps=deps,
+            ftrs=ftrs,
+        )
+
+    def combine_preamble_and_source(self, preamble: str) -> str:
+        """The manifest info needs to be moved to before the preamble.
+        Also, because rust-scipt relies on inner docs, there can't be an empty line
+        between the manifest and preamble.
+        """
+        manifest, src = RustScript.extract_manifest(self.source.decode())
+        return manifest + preamble.lstrip("\r\n") + src
+
+    @staticmethod
+    def default_dependencies() -> str:
+        return " -d ".join(
+            [
+                "anyhow=1",
+                "serde_json=1",
+                "serde=1",
+                "serde_derive=1",
+                "lazy_static=1.4",
+                "json_typegen=0.6",
+                "gag=1",
+            ]
+        )
+
+    @staticmethod
+    def default_features() -> str:
+        return ",".join(["serde/derive"])
+
+    @staticmethod
+    def extract_manifest(source: str) -> Tuple[str, str]:
+        # we have no need for the shebang for now given the way we run the script
+        _, src = RustScript._strip_shebang(source)
+        manifest, src = RustScript._strip_manifest(src)
+
+        return manifest, src
+
+    @staticmethod
+    def _strip_shebang(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L312-L320"""
+        rgx = re.compile(r"^#![^\[].*?(\r\n|\n)")
+        return strip_re(rgx, src)
+
+    @staticmethod
+    def _strip_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L405-L411"""
+        manifest, remainder = RustScript._strip_single_line_manifest(src)
+        if not manifest:
+            manifest, remainder = RustScript._strip_code_block_manifest(src)
+        return manifest, remainder
+
+    @staticmethod
+    def _strip_single_line_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L618-L632"""
+        rgx = re.compile(r"^\s*//\s*cargo-deps\s*:(.*?)(\r\n|\n)", flags=re.IGNORECASE)
+        return strip_re(rgx, src)
+
+    @staticmethod
+    def _strip_code_block_manifest(src: str) -> Tuple[str, str]:
+        """From https://github.com/fornwall/rust-script/blob/ce508bad02a11d574657d2f1debf7e73fca2bf6e/src/manifest.rs#L634-L664
+        We need to find the first `/*!` or `//!` that *isn't* preceeded by something
+        that would make it apply to anything other than the crate itself. Because we
+        can't do this accurately, we'll just require that the doc comment is the
+        *first* thing in the file (after the optional shebang, which should already
+        have been stripped).
+        """
+        crate_comment_re = re.compile(
+            r"^\s*(/\*!|//([!/]))(.*?)(\r\n|\n)", flags=re.MULTILINE
+        )
+        # does src start with a crate comment?
+        match = crate_comment_re.match(src)
+        if not match:
+            return "", src
+        end_of_comment = match.end()
+        # find end of crate comment
+        while match is not None:
+            end_of_comment = match.end()
+            match = crate_comment_re.match(src, pos=end_of_comment)
+
+        crate_comment = src[:end_of_comment]
+        found_code_block_open = False
+        code_block_open_re = re.compile(r"```\s*cargo")
+        found_code_block_close = False
+        code_block_close_re = re.compile(r"```")
+        for line in crate_comment.splitlines():
+            if not found_code_block_open:
+                m = code_block_open_re.search(line)
+                if m:
+                    found_code_block_open = True
+            else:
+                m = code_block_close_re.search(line)
+                if m:
+                    found_code_block_close = True
+                    break
+
+        crate_comment_has_manifest = found_code_block_open and found_code_block_close
+        if crate_comment_has_manifest:
+            return crate_comment, src[end_of_comment:]
+        else:
+            return "", src
+
+
+def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
+    """Strip a substring matching a regex from a string and return the stripped part
+    and the remainder of the original string.
+    Returns an empty string and the original string if the regex is not found
+    """
+    rgx = re.compile(regex)
+    match = rgx.search(s)
+    if match:
+        head, tail = s[: match.end()], s[match.end() :]
+    else:
+        head, tail = "", s
+
+    return head, tail
+
+
 def get_source(path, basedir=".", wildcards=None, params=None):
     source = None
     if not path.startswith("http") and not path.startswith("git+file"):
@@ -864,6 +1281,8 @@ def get_language(path, source):
         language = "rmarkdown"
     elif path.endswith(".jl"):
         language = "julia"
+    elif path.endswith(".rs"):
+        language = "rust"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -894,6 +1313,7 @@ def script(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -913,6 +1333,7 @@ def script(
         "r": RScript,
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
+        "rust": RustScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
@@ -933,6 +1354,7 @@ def script(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,

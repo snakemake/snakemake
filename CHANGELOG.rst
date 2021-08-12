@@ -1,3 +1,41 @@
+[6.5.3] - 2021-07-06
+====================
+- Fixed a bug occuring when using --resources in the command line interface (@johanneskoester).
+- Minor improvements in the docs (@johanneskoester).
+
+[6.5.2] - 2021-07-02
+====================
+- Create directory pointed to by tmpdir resource if it does not yet exist (@johanneskoester).
+- Use a single core again in dryrun if --cores is not specified (@johanneskoester).
+- Bugfix for FTP remote provider (@jmeppley).
+- Improved documentation (@corneliusroemer).
+
+
+[6.5.1] - 2021-06-24
+====================
+- Extended best practices document (@johanneskoester)
+- Restore ``-j all`` behavior for local execution as a (deprecated) way of running Snakemake on all cores. Recommended now: ``--cores all`` (@johanneskoester).
+- Improved handling and better error messages for checkpoints (@johanneskoester).
+
+[6.5.0] - 2021-06-22
+====================
+- Allow to set the default profile via the environment variable $SNAKEMAKE_PROFILE.
+- There is a new default resource tmpdir (by default reflects the system setting), which is automatically used for temporary files by shell commands and scripts which properly consider the usual environment variables like $TMP, $TEMP, $TMPDIR (@johanneskoester).
+- The CLI flags --jobs and --cores are now separated, with --cores being responsible for local cores and global cores in the cluster case, and --jobs being responsible for number of jobs. Still -j and --jobs works as a fallback for local execution (@johanneskoester).
+- Added the ability to overwrite resources via --set-resources (@johanneskoester).
+- Various fixes for Windows execution (@melund).
+- Fixed a bug with fractional resources (@johanneskoester).
+- Fixed timeouts and other issues in google life science backend (@johanneskoester).
+- Fixed a bug with missing conda frontend definitions in subworkflows (@johanneskoester).
+- Skip envvar checking during linting (@johanneskoester).
+- Fixed a bug causing container images in modules to be ignored (@johanneskoester).
+
+
+[6.4.1] - 2021-05-27
+====================
+- Fixed bug in ``workflow.source_path()`` that occurred with modules included from remote locations (@johanneskoester).
+- Inform cluster jobs about conda/mamba/activate path such that they don't need to determine this themselves (@johanneskoester).
+
 [6.4.0] - 2021-05-20
 ====================
 - Improvements in the docs (resource usage, best practices, remote files) (@johanneskoester, @admorris).

@@ -37,7 +37,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'sphinxarg.ext',
     'sphinx.ext.autosectionlabel'
 ]
@@ -59,7 +59,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Snakemake'
-copyright = '2014-2016, Johannes Koester'
+copyright = '2014-2021, Johannes Koester'
 
 import snakemake
 # The version info for the project you're documenting, acts as replacement for
@@ -280,4 +280,4 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 def setup(app):
-    app.add_stylesheet('sphinx-argparse.css')
+    app.add_css_file('sphinx-argparse.css')

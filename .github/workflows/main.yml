@@ -47,7 +47,9 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # we need tags for versioneer to work
       
       - name: Setup Snakemake environment
         run: |
@@ -70,7 +72,7 @@ jobs:
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
       - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
         if: env.GCP_AVAILABLE
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
@@ -122,7 +124,7 @@ jobs:
           pytest -s -v -x tests/test_kubernetes.py
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && (success() || failure())
+        if: env.AWS_AVAILABLE
         env: 
           CI: true
         run: |
@@ -133,7 +135,7 @@ jobs:
           pytest -v -x tests/test_tibanna.py
 
       - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE && (success() || failure())
+        if: env.GCP_AVAILABLE
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
@@ -165,14 +167,15 @@ jobs:
     needs: formatting
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
-      # No win conda package exist for pygraphviz yet
       - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["pygraphviz", "environment-modules","pandoc","tibanna"]
+          excluded_on_win = ["environment-modules"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
@@ -181,7 +184,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
-          python-version: 3.8
+          python-version: 3.9
           channels: conda-forge, bioconda
 
       - name: Setup Snakemake environment

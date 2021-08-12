@@ -16,6 +16,7 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
+from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
@@ -363,7 +364,7 @@ class QuotedFormatter(string.Formatter):
 
     def __init__(self, quote_func=None, *args, **kwargs):
         if quote_func is None:
-            quote_func = shlex.quote if not ON_WINDOWS else argvquote
+            quote_func = shlex.quote
         self.quote_func = quote_func
         super().__init__(*args, **kwargs)
 
@@ -395,7 +396,7 @@ class AlwaysQuotedFormatter(QuotedFormatter):
         return super().format_field(value, format_spec)
 
 
-def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
+def format(_pattern, *args, stepout=1, _quote_all=False, quote_func=None, **kwargs):
     """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
@@ -419,9 +420,9 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     variables.update(kwargs)
     fmt = SequenceFormatter(separator=" ")
     if _quote_all:
-        fmt.element_formatter = AlwaysQuotedFormatter()
+        fmt.element_formatter = AlwaysQuotedFormatter(quote_func)
     else:
-        fmt.element_formatter = QuotedFormatter()
+        fmt.element_formatter = QuotedFormatter(quote_func)
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
@@ -469,7 +470,11 @@ def min_version(version):
     if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(
         version
     ):
-        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))
+        raise WorkflowError(
+            "Expecting Snakemake version {} or higher (you are currently using {}).".format(
+                version, snakemake.__version__
+            )
+        )
 
 
 def update_config(config, overwrite_config):
@@ -553,13 +558,22 @@ def argvquote(arg, force=True):
         return cmdline
 
 
+def cmd_exe_quote(arg):
+    """Quotes an argument in a cmd.exe compliant way."""
+    arg = argvquote(arg)
+    cmd_exe_metachars = '^()%!"<>&|'
+    for char in cmd_exe_metachars:
+        arg.replace(char, "^" + char)
+    return arg
+
+
 def os_sync():
     """Ensure flush to disk"""
     if not ON_WINDOWS:
         os.sync()
 
 
-def _find_bash_on_windows():
+def find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
     First attempt is to look for bash installed  with a git conda package.

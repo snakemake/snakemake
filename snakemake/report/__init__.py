@@ -418,7 +418,7 @@ class FileRecord:
     def png_content(self):
         assert self.is_img
 
-        convert = shutil.which("convert")
+        convert = shutil.which("magick")
         if convert is not None:
             try:
                 # 2048 aims at a reasonable balance between what displays
@@ -429,7 +429,8 @@ class FileRecord:
                 # '>' means only larger images scaled down to within max-dimensions
                 max_spec = max_width + "x" + max_height + ">"
                 png = sp.check_output(
-                    ["convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
+                    stderr=sp.PIPE,
                 )
                 return png
             except sp.CalledProcessError as e:
