@@ -30,4 +30,3 @@ if ON_WINDOWS and bash_cmd:
     @pytest.fixture(autouse=True)
     def reset_shell_exec_on_windows(prepend_usable_bash_to_path):
         shell.executable(None)
-
