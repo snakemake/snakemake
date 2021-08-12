@@ -47,7 +47,9 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # we need tags for versioneer to work
       
       - name: Setup Snakemake environment
         run: |
@@ -70,7 +72,7 @@ jobs:
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
       - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
         if: env.GCP_AVAILABLE
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
@@ -165,7 +167,9 @@ jobs:
     needs: formatting
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Remove unix-only dependencies
         shell: python
