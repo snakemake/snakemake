@@ -1,1 +1,1 @@
-{json_key: json_value, toml_section: {toml_key: toml_value}, yaml_key: yaml_value, hidden_json_key: hidden_json_value, hidden_yaml_key: hidden_yaml_value}
+{"json_key": "json_value", "toml_section": {"toml_key": "toml_value"}, "yaml_key": "yaml_value", "hidden_json_key": "hidden_json_value", "hidden_yaml_key": "hidden_yaml_value"}

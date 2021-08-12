@@ -8,5 +8,8 @@ configfile: "config_yaml_noextension"
 rule dump_config:
     output:
         "test.out",
-    shell:
-        "echo {config} > {output}"
+    run:
+        import json
+
+        with open(output[0], "w") as fd:
+            json.dump(config, fd)
