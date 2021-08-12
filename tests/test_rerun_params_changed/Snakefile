@@ -1,0 +1,8 @@
+rule write_param_to_file:
+    params:
+        param1 = config["param1"]
+    output:
+        "param.txt"
+    run:
+        with open("param.txt", "w") as f_param:
+            f_param.writelines([str(params.param1)])
