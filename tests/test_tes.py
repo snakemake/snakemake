@@ -28,6 +28,12 @@ def _post_task(request, context):
     print(task, file=sys.stderr)
     if _validate_task(task):
         context.status_code = 200
+        # create output file
+        with open("{}/test_tes/test_output.txt".format(os.path.dirname(os.path.realpath(__file__))), "w+") as f:
+            f.write("output")
+        # create log file
+        with open("{}/test_tes/test_log.txt".format(os.path.dirname(os.path.realpath(__file__))), "w+") as f:
+            f.write("log")
         return TEST_POST_RESPONSE
     else:
         context.status_code = 400
@@ -46,4 +52,4 @@ def test_tes(requests_mock):
         "GET", "{}/v1/tasks/id_1".format(TES_URL), json=_get_task
     )
     workdir = dpath("test_tes")
-    run(workdir, snakefile="Snakefile", tes=TES_URL, no_tmpdir=True, cleanup=False)
+    run(workdir, snakefile="Snakefile", tes=TES_URL, no_tmpdir=True, cleanup=False, forceall=True)
