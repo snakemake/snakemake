@@ -23,16 +23,17 @@ def _validate_task(task):
 
 
 def _post_task(request, context):
+    outdir = "{}/test_tes/".format(os.path.dirname(os.path.realpath(__file__)))
     print("\n>>>> _post_task", file=sys.stderr)
     task = json.loads(request.body)
     print(task, file=sys.stderr)
     if _validate_task(task):
         context.status_code = 200
         # create output file
-        with open("{}/test_tes/test_output.txt".format(os.path.dirname(os.path.realpath(__file__))), "w+") as f:
+        with open("{}/test_output.txt".format(outdir), "w+") as f:
             f.write("output")
         # create log file
-        with open("{}/test_tes/test_log.txt".format(os.path.dirname(os.path.realpath(__file__))), "w+") as f:
+        with open("{}/test_log.txt".format(outdir), "w+") as f:
             f.write("log")
         return TEST_POST_RESPONSE
     else:
