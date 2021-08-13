@@ -53,4 +53,11 @@ def test_tes(requests_mock):
         "GET", "{}/v1/tasks/id_1".format(TES_URL), json=_get_task
     )
     workdir = dpath("test_tes")
-    run(workdir, snakefile="Snakefile", tes=TES_URL, no_tmpdir=True, cleanup=False, forceall=True)
+    run(
+        workdir,
+        snakefile="Snakefile",
+        tes=TES_URL,
+        no_tmpdir=True,
+        cleanup=False,
+        forceall=True
+    )
