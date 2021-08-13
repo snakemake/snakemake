@@ -59,5 +59,5 @@ def test_tes(requests_mock):
         tes=TES_URL,
         no_tmpdir=True,
         cleanup=False,
-        forceall=True
+        forceall=True,
     )
