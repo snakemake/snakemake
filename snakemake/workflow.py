@@ -1479,21 +1479,23 @@ class Workflow:
                         rule=rule,
                     )
 
-                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
+                have_conda_env = ruleinfo.conda_env and is_local_file(
                     ruleinfo.conda_env
-                ):
+                )
+                if have_conda_env and not os.path.isabs(ruleinfo.conda_env):
                     ruleinfo.conda_env = os.path.join(
                         self.current_basedir, ruleinfo.conda_env
                     )
-                rule.conda_env = ruleinfo.conda_env
+                    rule.conda_env = ruleinfo.conda_env
 
-                if is_local_file(ruleinfo.spack_env) and not os.path.isabs(
+                have_spack_env = ruleinfo.spack_env and is_local_file(
                     ruleinfo.spack_env
-                ):
+                )
+                if have_spack_env and not os.path.isabs(ruleinfo.spack_env):
                     ruleinfo.spack_env = os.path.join(
                         self.current_basedir, ruleinfo.spack_env
                     )
-                rule.spack_env = ruleinfo.spack_env
+                    rule.spack_env = ruleinfo.spack_env
 
             invalid_rule = not (
                 ruleinfo.script

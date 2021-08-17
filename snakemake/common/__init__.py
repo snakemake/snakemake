@@ -73,6 +73,8 @@ def parse_uri(path_or_uri):
         # "docker", "git+file", "shub", "ncbi","root","roots","rootk", "gsiftp",
         # "srm","ega","ab","dropbox"
         # Fall back to a simple split if we encounter something which isn't supported.
+        print(path_or_uri)
+        print("here")
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
             uri = collections.namedtuple("Uri", ["scheme", "uri_path"])

@@ -166,10 +166,7 @@ class shell:
                     conda_env, cmd
                 )
         elif spack_env:
-            if ON_WINDOWS and not cls.get_executable():
-                cmd = Spack().shellcmd_win(spack_env, cmd)
-            else:
-                cmd = Spack().shellcmd(spack_env, cmd)
+            cmd = Spack().shellcmd(spack_env, cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

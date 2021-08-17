@@ -135,8 +135,9 @@ class Env(EnvBase):
             except subprocess.CalledProcessError as e:
                 raise WorkflowError("Error exporting spack spec:\n" + e.output)
 
-            # TODO: we could either save another spack.yaml, or update spack
-            # to be able to actually download binaries or save the environment.
+            # TODO: spack has support for copy/relocate environments, but it is
+            # usually the case that the paths are too long to change for the
+            # relocate. So at best we could only save hard coded paths (and don't))
             with open(os.path.join(env_archive, "specs.json"), "w") as pkg_list:
                 print(out, file=pkg_list)
 
@@ -152,7 +153,9 @@ class Env(EnvBase):
         return env_archive
 
     def create(self, dryrun=False):
-        """Create the spack enviroment."""
+        """
+        Create the spack enviroment.
+        """
         from snakemake.shell import shell
 
         # Read env file and create hash.
@@ -183,6 +186,7 @@ class Env(EnvBase):
                     )
                 )
                 return env_path
+
             spack = Spack()
             logger.info(
                 "Creating spack environment {}...".format(
@@ -190,6 +194,20 @@ class Env(EnvBase):
                 )
             )
             env_archive = self.archive_file
+
+            # This currently doesn't work because the paths are too long to relocate
+            # We need to specify it will be a copy, not a symlink
+            #    view:
+            #      copy:
+            #        root: /Users/spackuser/soft/test/copy
+            #        link_type: copy
+
+            # spack_env_root = os.path.join(env_path, "snakemake_view")
+
+            # with open(env_file, 'r') as fd:
+            #    updated_file = yaml.load(fd.read(), Loader=yaml.loader.BaseLoader)
+            # updated_file['spack']['view'] = {"copy": {"root": spack_env_root, "link_type": "copy"}}
+
             try:
                 # Touch "start" flag file
                 os.makedirs(env_path, exist_ok=True)
@@ -200,7 +218,11 @@ class Env(EnvBase):
                 # Copy env file to env_path so we can see what an
                 # environment in .snakemake/spack contains.
                 target_env_file = os.path.join(env_path, "spack.yaml")
-                shutil.copy(env_file, target_env_file)
+
+                # See lines above about relocation paths
+                # with open(target_env_file, 'w') as fd:
+                #    yaml.dump(updated_file, fd)
+                shutil.copyfile(env_file, target_env_file)
 
                 logger.info("Downloading and installing remote packages.")
                 create = " ".join(

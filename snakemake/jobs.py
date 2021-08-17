@@ -12,6 +12,7 @@ import json
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
+from urllib.parse import urlparse
 
 from snakemake.io import (
     IOFile,
