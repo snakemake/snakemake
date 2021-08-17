@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input:
         expand("test{i}.out2", i=range(3))
@@ -8,7 +10,7 @@ rule a:
     conda:
         "test-env.yaml"
     shell:
-        "bwa 2> {output} || true"
+        "Tm -h > {output} || true"
 
 
 rule b:
@@ -19,4 +21,4 @@ rule b:
     conda:
         "test-env.yaml"
     shell:
-        "bwa 2> {output} || true"
+        "Tm -h > {output} || true"

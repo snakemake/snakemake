@@ -44,7 +44,10 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
+        is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
+            os.path.realpath(snakemake_path)
+        )
+        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
 
 

@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import html
 import os
+import sys
 import shutil
 import textwrap
 import time
@@ -174,7 +175,7 @@ class DAG:
         self.update_output_index()
 
     def init(self, progress=False):
-        """ Initialise the DAG. """
+        """Initialise the DAG."""
         for job in map(self.rule2job, self.targetrules):
             job = self.update([job], progress=progress, create_inventory=True)
             self.targetjobs.add(job)
@@ -253,8 +254,20 @@ class DAG:
                 self._needrun.remove(job)
             except KeyError:
                 pass
+
+            # delete all pointers from dependencies to this job
+            for dep in self.dependencies[job]:
+                try:
+                    del self.depending[dep][job]
+                except KeyError:
+                    # In case the pointer has been deleted before or
+                    # never created, we can simply continue.
+                    pass
+
+            # delete all dependencies
             del self.dependencies[job]
             try:
+                # delete all pointers to downstream dependencies
                 del self.depending[job]
             except KeyError:
                 pass
@@ -384,12 +397,12 @@ class DAG:
 
     @property
     def jobs(self):
-        """ All jobs in the DAG. """
+        """All jobs in the DAG."""
         return self.dependencies.keys()
 
     @property
     def needrun_jobs(self):
-        """ Jobs that need to be executed. """
+        """Jobs that need to be executed."""
         return filterfalse(self.finished, self._needrun)
 
     @property
@@ -399,7 +412,7 @@ class DAG:
 
     @property
     def finished_jobs(self):
-        """ Iterate over all jobs that have been finished."""
+        """Iterate over all jobs that have been finished."""
         return filter(self.finished, self.jobs)
 
     @property
@@ -423,11 +436,11 @@ class DAG:
         return not self.needrun(job) or self.finished(job)
 
     def reason(self, job):
-        """ Return the reason of the job execution. """
+        """Return the reason of the job execution."""
         return self._reason[job]
 
     def finished(self, job):
-        """ Return whether a job is finished. """
+        """Return whether a job is finished."""
         return job in self._finished
 
     def dynamic(self, job):
@@ -493,7 +506,7 @@ class DAG:
         no_touch=False,
         force_stay_on_remote=False,
     ):
-        """ Raise exception if output files of job are missing. """
+        """Raise exception if output files of job are missing."""
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
@@ -538,7 +551,7 @@ class DAG:
                     f.touch()
 
     def unshadow_output(self, job, only_log=False):
-        """ Move files from shadow directory to real output paths. """
+        """Move files from shadow directory to real output paths."""
         if not job.shadow_dir or not job.expanded_output:
             return
 
@@ -580,14 +593,14 @@ class DAG:
                 )
 
     def handle_protected(self, job):
-        """ Write-protect output files that are marked with protected(). """
+        """Write-protect output files that are marked with protected()."""
         for f in job.expanded_output:
             if f in job.protected_output:
                 logger.info("Write-protecting output file {}.".format(f))
                 f.protect()
 
     def handle_touch(self, job):
-        """ Touches those output files that are marked for touching. """
+        """Touches those output files that are marked for touching."""
         for f in job.expanded_output:
             if f in job.touch_output:
                 f = job.shadowed_path(f)
@@ -607,7 +620,7 @@ class DAG:
         return sum(f.size for f in self.temp_input(job))
 
     def handle_temp(self, job):
-        """ Remove temp files if they are no longer needed. Update temp_mtimes. """
+        """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.notemp:
             return
 
@@ -656,7 +669,7 @@ class DAG:
                     )
 
     def handle_remote(self, job, upload=True):
-        """ Remove local files if they are no longer needed and upload. """
+        """Remove local files if they are no longer needed and upload."""
         if upload:
             # handle output files
             files = job.expanded_output
@@ -736,7 +749,7 @@ class DAG:
         progress=False,
         create_inventory=False,
     ):
-        """ Update the DAG by adding given jobs and their dependencies. """
+        """Update the DAG by adding given jobs and their dependencies."""
         if visited is None:
             visited = set()
         if known_producers is None:
@@ -827,7 +840,7 @@ class DAG:
         progress=False,
         create_inventory=False,
     ):
-        """ Update the DAG by adding the given job and its dependencies. """
+        """Update the DAG by adding the given job and its dependencies."""
         if job in self.dependencies:
             return
         if visited is None:
@@ -919,7 +932,7 @@ class DAG:
             self._dynamic.add(job)
 
     def update_needrun(self, create_inventory=False):
-        """ Update the information whether a job needs to be executed. """
+        """Update the information whether a job needs to be executed."""
 
         if create_inventory:
             # Concurrently collect mtimes of all existing files.
@@ -1089,7 +1102,7 @@ class DAG:
         self.targetjobs = set(self.until_jobs())
 
     def update_priority(self):
-        """ Update job priorities. """
+        """Update job priorities."""
         prioritized = (
             lambda job: job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output)
@@ -1665,7 +1678,10 @@ class DAG:
         """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
             raise WorkflowError(
-                "Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards."
+                "Target rules may not contain wildcards. "
+                "Please specify concrete files or a rule without wildcards at the command line, "
+                "or have a rule without wildcards at the very top of your workflow (e.g. the typical "
+                '"rule all" which just collects all results you want to generate in the end).'
             )
         return self.new_job(targetrule)
 
@@ -2142,14 +2158,40 @@ class DAG:
             )
 
     def stats(self):
+        from tabulate import tabulate
+
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs)
         rules.update(job.rule for job in self.finished_jobs)
-        yield "Job counts:"
-        yield "\tcount\tjobs"
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            yield "\t{}\t{}".format(count, rule)
-        yield "\t{}".format(len(self))
+
+        max_threads = defaultdict(int)
+        min_threads = defaultdict(lambda: sys.maxsize)
+        for job in chain(self.needrun_jobs, self.finished_jobs):
+            max_threads[job.rule] = max(max_threads[job.rule], job.threads)
+            min_threads[job.rule] = min(min_threads[job.rule], job.threads)
+        rows = [
+            {
+                "job": rule,
+                "count": count,
+                "min threads": min_threads[rule],
+                "max threads": max_threads[rule],
+            }
+            for rule, count in sorted(
+                rules.most_common(), key=lambda item: item[0].name
+            )
+        ]
+        rows.append(
+            {
+                "job": "total",
+                "count": sum(rules.values()),
+                "min threads": min(min_threads.values()),
+                "max threads": max(max_threads.values()),
+            }
+        )
+
+        yield "Job stats:"
+        yield tabulate(rows, headers="keys")
+        yield ""
 
     def __str__(self):
         return self.dot()

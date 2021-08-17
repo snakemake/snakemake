@@ -44,7 +44,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular** with, `>5 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular**, with `>5 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 For an introduction, please visit https://snakemake.github.io.
 
 
@@ -58,6 +58,7 @@ Getting started
 * To properly understand what Snakemake can do for you please read our `"rolling" paper <https://doi.org/10.12688/f1000research.29032.1>`_.
 * News about Snakemake are published via `Twitter <https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester>`_.
 * To learn Snakemake, please do the :ref:`tutorial`, and see the :ref:`FAQ <project_info-faq>`.
+* **Best practices** for writing Snakemake workflows can be found :ref:`here <snakefiles-best_practices>`.
 * For more advanced usage on various platforms, see the :ref:`executor_tutorial`.
 
 .. _main-support:
@@ -119,6 +120,7 @@ Resources
    tutorial/tutorial
    tutorial/short
    executor_tutorial/tutorial
+   snakefiles/best_practices
 
 .. toctree::
   :caption: Executing workflows

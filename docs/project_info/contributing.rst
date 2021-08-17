@@ -44,7 +44,7 @@ Contributing a new cluster or cloud execution backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors.py <https://github.com/snakemake/snakemake/tree/main/snakemake/executors.py>`_.
+All executors are located in `snakemake/executors/ <https://github.com/snakemake/snakemake/tree/main/snakemake/executors>`_.
 In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
 Below you find a skeleton
 

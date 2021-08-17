@@ -19,7 +19,7 @@ class RuleInfo:
         self.benchmark = None
         self.conda_env = None
         self.spack_env = None
-        self.container_img = ""
+        self.container_img = None
         self.is_containerized = False
         self.env_modules = None
         self.wildcard_constraints = None

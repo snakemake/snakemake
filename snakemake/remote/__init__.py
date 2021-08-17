@@ -7,15 +7,24 @@ __license__ = "MIT"
 import os
 import sys
 import re
+from functools import partial
 from abc import ABCMeta, abstractmethod
 from wrapt import ObjectProxy
+from contextlib import contextmanager
+
+try:
+    from connection_pool import ConnectionPool
+except ImportError:
+    # we just won't pool connections if it's not installed
+    #  Should there be a warning? Should there be a runtime flag?
+    pass
 import copy
-from urllib.parse import urlparse
 import collections
 
 # module-specific
 import snakemake.io
 from snakemake.logging import logger
+from snakemake.common import parse_uri
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
@@ -299,6 +308,104 @@ class DomainObject(AbstractRemoteObject):
         return self.path_remainder
 
 
+class PooledDomainObject(DomainObject):
+    """This adds conection pooling to DomainObjects
+    out of a location path specified as
+    (host|IP):port/remote/location
+    """
+
+    connection_pools = {}
+
+    def __init__(self, *args, pool_size=100, immediate_close=False, **kwargs):
+        super(PooledDomainObject, self).__init__(*args, **kwargs)
+        self.pool_size = 100
+        self.immediate_close = immediate_close
+
+    def get_default_kwargs(self, **defaults):
+        defaults.setdefault("host", self.host)
+        defaults.setdefault("port", int(self.port) if self.port else None)
+        return defaults
+
+    def get_args_to_use(self):
+        """merge the objects args with the parent provider
+
+        Positional Args: use those of object or fall back to ones from provider
+        Keyword Args: merge with any defaults
+        """
+        # if args have been provided to remote(),
+        #  use them over those given to RemoteProvider()
+        args_to_use = self.provider.args
+        if len(self.args):
+            args_to_use = self.args
+
+        # use kwargs passed in to remote() to override those given to the RemoteProvider()
+        #  default to the host and port given as part of the file,
+        #  falling back to one specified as a kwarg to remote() or the RemoteProvider
+        #  (overriding the latter with the former if both)
+        kwargs_to_use = self.get_default_kwargs()
+        for k, v in self.provider.kwargs.items():
+            kwargs_to_use[k] = v
+        for k, v in self.kwargs.items():
+            kwargs_to_use[k] = v
+
+        return args_to_use, kwargs_to_use
+
+    @contextmanager
+    def get_connection(self):
+        """get a connection from a pool or create a new one"""
+        if not self.immediate_close and "connection_pool" in sys.modules:
+            # if we can (and the user doesn't override) use a pool
+            with self.connection_pool.item() as conn:
+                yield conn
+        else:
+            # otherwise create a one-time connection
+            args_to_use, kwargs_to_use = self.get_args_to_use()
+            conn = self.create_connection(*args_to_use, **kwargs_to_use)
+            try:
+                yield conn
+            finally:
+                self.close_connection(conn)
+
+    @property
+    def conn_keywords(self):
+        """returns list of keywords relevant to a unique connection"""
+        return ["host", "port", "username"]
+
+    @property
+    def connection_pool(self):
+        """set up a pool of re-usable active connections"""
+        # merge this object's values with those of its parent provider
+        args_to_use, kwargs_to_use = self.get_args_to_use()
+
+        # hashing connection pool on tuple of relevant arguments. There
+        # may be a better way to do this
+        conn_pool_label_tuple = (
+            type(self),
+            *args_to_use,
+            *[kwargs_to_use.get(k, None) for k in self.conn_keywords],
+        )
+
+        if conn_pool_label_tuple not in self.connection_pools:
+            create_callback = partial(
+                self.create_connection, *args_to_use, **kwargs_to_use
+            )
+            self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
+                create_callback, close=self.close_connection, max_size=self.pool_size
+            )
+
+        return self.connection_pools[conn_pool_label_tuple]
+
+    @abstractmethod
+    def create_connection(self):
+        """handle the protocol specific job of creating a connection"""
+        pass
+
+    @abstractmethod
+    def close_connection(self, connection):
+        """handle the protocol specific job of closing a connection"""
+        pass
+
+
 class AutoRemoteProvider:
     @property
     def protocol_mapping(self):
@@ -346,7 +453,7 @@ class AutoRemoteProvider:
         provider_remote_list = []
         for value in values:
             # select provider
-            o = urlparse(value)
+            o = parse_uri(value)
             Provider = self.protocol_mapping.get(o.scheme)
 
             if Provider is None:
