@@ -1289,13 +1289,17 @@ def test_all_temp():
 
 
 def test_no_rerun_params_changed_without_commandline_flag():
-    tmpdir = run(dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False)
+    tmpdir = run(
+        dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False
+    )
     run(tmpdir, config={"param1": 3}, cleanup=True)
     shutil.rmtree(tmpdir)
 
 
 def test_rerun_params_changed_with_commandline_flag():
-    tmpdir = run(dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False)
+    tmpdir = run(
+        dpath("test_rerun_params_changed"), config={"param1": 5}, cleanup=False
+    )
     # change expected result from 5 to 3
     path_to_expected_result = os.path.join(tmpdir, "expected-results/param.txt")
     with open(path_to_expected_result, "w") as f_res:
@@ -1304,6 +1308,6 @@ def test_rerun_params_changed_with_commandline_flag():
     run(
         tmpdir,
         shellcmd="snakemake --rerun-params-changed --cores 1 --config param1=3",
-        cleanup=True
+        cleanup=True,
     )
     shutil.rmtree(tmpdir)
