@@ -23,11 +23,19 @@ def _validate_task(task):
 
 
 def _post_task(request, context):
+    outdir = dpath("test_tes")
     print("\n>>>> _post_task", file=sys.stderr)
     task = json.loads(request.body)
     print(task, file=sys.stderr)
     if _validate_task(task):
         context.status_code = 200
+        # create output file
+        print("\n     create output files in {}".format(outdir), file=sys.stderr)
+        with open("{}/test_output.txt".format(outdir), "w+") as f:
+            f.write("output")
+        # create log file
+        with open("{}/test_log.txt".format(outdir), "w+") as f:
+            f.write("log")
         return TEST_POST_RESPONSE
     else:
         context.status_code = 400
@@ -46,4 +54,12 @@ def test_tes(requests_mock):
         "GET", "{}/v1/tasks/id_1".format(TES_URL), json=_get_task
     )
     workdir = dpath("test_tes")
-    run(workdir, snakefile="Snakefile", tes=TES_URL, no_tmpdir=True, cleanup=False)
+    print("\n>>>> run workflow in {}".format(workdir), file=sys.stderr)
+    run(
+        workdir,
+        snakefile="Snakefile",
+        tes=TES_URL,
+        no_tmpdir=True,
+        cleanup=False,
+        forceall=True,
+    )
