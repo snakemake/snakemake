@@ -21,6 +21,8 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
+    supports_default = True
+
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
@@ -29,7 +31,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self._xrd = XRootDHelper()
@@ -59,7 +61,7 @@ class RemoteObject(AbstractRemoteObject):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
-            **kwargs
+            **kwargs,
         )
 
         if provider:
@@ -131,6 +133,12 @@ class XRootDHelper(object):
         dirname, filename = os.path.split(match.group("path"))
         # We need a trailing / to keep XRootD happy
         dirname += "/"
+
+        # and also make sure we supply a non-relative path
+        # (snakemake removes double-slash // characters)
+        if not dirname.startswith("/"):
+            dirname = "/" + dirname
+
         return domain, dirname, filename
 
     def exists(self, url):
@@ -188,18 +196,24 @@ class XRootDHelper(object):
         # Prepare the source path for XRootD
         if not self._parse_url(source):
             source = abspath(source)
+        else:
+            domain, dirname, filename = self._parse_url(source)
+            source = f"{domain}/{dirname}/{filename}"
+
         # Prepare the destination path for XRootD
         assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
             domain, dirname, filename = self._parse_url(destination)
+            destination = f"{domain}/{dirname}/{filename}"
             self.makedirs(domain, dirname)
         else:
             destination = abspath(destination)
             if not os.path.isdir(os.path.dirname(destination)):
                 os.makedirs(os.path.dirname(destination))
+
         # Perform the copy operation
         process = client.CopyProcess()
-        process.add_job(source, destination)
+        process.add_job(source, destination, force=True)
         process.prepare()
         status, returns = process.run()
         if not status.ok or not returns[0]["status"].ok:

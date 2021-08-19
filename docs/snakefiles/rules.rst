@@ -581,6 +581,9 @@ External scripts
 
 A rule can also point to an external script instead of a shell command or inline Python code, e.g.
 
+Python
+~~~~~~
+
 .. code-block:: python
 
     rule NAME:
@@ -601,6 +604,20 @@ The script path is always relative to the Snakefile containing the directive (in
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
+An example external Python script could look like this:
+
+.. code-block:: python
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
+
+R and R Markdown
+~~~~~~~~~~~~~~~~
+
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
@@ -620,38 +637,7 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analogous to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
-
-Alternatively, it is possible to integrate Julia_ scripts, e.g.
-
-.. _Julia: https://julialang.org
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
-        script:
-            "path/to/script.jl"
-
-In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
-
-For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
-
-An example external Python script could look like this:
-
-.. code-block:: python
-
-    def do_something(data_path, out_path, threads, myparam):
-        # python code
-
-    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
-
-You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
-An equivalent script written in R would look like this:
+An equivalent script (:ref:`to the Python one above <Python>`) written in R would look like this:
 
 .. code-block:: r
 
@@ -664,6 +650,7 @@ An equivalent script written in R would look like this:
 
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
+A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
 
@@ -712,6 +699,139 @@ In the R Markdown file you can insert output from a R command, and access variab
 
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
 Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
+
+Julia_
+~~~~~~
+
+.. _Julia: https://julialang.org
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.jl"
+
+In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the :ref:`Python case <Python>`, with the only difference that you have to index from 1 instead of 0.
+
+Rust_
+~~~~~
+
+.. _Rust: https://www.rust-lang.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+            named_input="path/to/named/inputfile",
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        params:
+            seed=4
+        log:
+            stdout="path/to/stdout.log",
+            stderr="path/to/stderr.log",
+        script:
+            "path/to/script.rs"
+
+The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
+script must be a valid ``rust-script`` script and ``rust-script`` must be available in the
+environment the rule is run in.
+
+Some example scripts can be found in the
+`tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
+
+In the Rust script, a ``snakemake`` instance is available, which is automatically generated from the python snakemake object using |json_typegen|_.
+It usually looks like this:
+
+.. code-block:: rust
+
+    pub struct Snakemake {
+        input: Input,
+        output: Ouput,
+        params: Params,
+        wildcards: Wildcards,
+        threads: u64,
+        log: Log,
+        resources: Resources,
+        config: Config,
+        rulename: String,
+        bench_iteration: Option<usize>,
+        scriptdir: String,
+    }
+
+Any named parameter is translated to a corresponding ``field_name: Type``, such that ``params.seed`` from the example above can be accessed just like in python, i.e.:
+
+.. code-block:: rust
+
+    let seed = snakemake.params.seed;
+    assert_eq!(seed, 4);
+
+Positional arguments for ``input``, ``output``, ``log`` and ``wildcards`` can be accessed by index and iterated over:
+
+.. code-block:: rust
+
+    let input = &snakemake.input;
+
+    // Input implements Index<usize>
+    let inputfile = input[0];
+    assert_eq!(inputfile, "path/to/inputfile");
+
+    // Input implements IntoIterator
+    //
+    // prints
+    // > 'path/to/inputfile'
+    // > 'path/to/other/inputfile'
+    for f in input {
+        println!("> '{}'", &f);
+    }
+
+
+It is also possible to redirect ``stdout`` and ``stderr``:
+
+.. code-block:: rust
+
+    println!("This will NOT be written to path/to/stdout.log");
+    // redirect stdout to "path/to/stdout.log"
+    let _stdout_redirect = snakemake.redirect_stdout(snakemake.log.stdout)?;
+    println!("This will be written to path/to/stdout.log");
+
+    // redirect stderr to "path/to/stderr.log"
+    let _stderr_redirect = snakemake.redirect_stderr(snakemake.log.stderr)?;
+    eprintln!("This will be written to path/to/stderr.log");
+    drop(_stderr_redirect);
+    eprintln!("This will NOT be written to path/to/stderr.log");
+
+Redirection of stdout/stderr is only "active" as long as the returned ``Redirect`` instance is alive; in order to stop redirecting, drop the respective instance.
+
+In order to work, rust-script support for snakemake has some dependencies enabled by default:
+
+#. ``anyhow=1``, for its ``Result`` type
+#. ``gag=1``, to enable stdout/stderr redirects
+#. ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
+#. ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
+#. ``serde=1``, explicit dependency of ``json_typegen``
+#. ``serde_derive=1``, explicit dependency of ``json_typegen``
+#. ``serde_json=1``, explicit dependency of ``json_typegen``
+
+If your script uses any of these packages, you do not need to ``use`` them in your script. Trying to ``use`` them will cause a compilation error.
+
+.. |rust-script| replace:: ``rust-script``
+.. _rust-script: https://rust-script.org/
+.. |json_typegen| replace:: ``json_typegen``
+.. _json_typegen: https://github.com/evestera/json_typegen
+
+----
+
+For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
 
 .. _snakefiles_notebook-integration:
 
