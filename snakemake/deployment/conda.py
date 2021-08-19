@@ -417,27 +417,33 @@ class Conda:
         with cls.lock:
             if container_img not in cls.instances:
                 inst = super().__new__(cls)
-                inst.__init__(container_img=container_img, prefix_path=prefix_path)
                 cls.instances[container_img] = inst
-                inst._check()
                 return inst
             else:
                 return cls.instances[container_img]
 
     def __init__(self, container_img=None, prefix_path=None):
-        from snakemake.deployment import singularity
-        from snakemake.shell import shell
+        if not self.is_initialized:  # avoid superfluous init calls
+            from snakemake.deployment import singularity
+            from snakemake.shell import shell
 
-        if isinstance(container_img, singularity.Image):
-            container_img = container_img.path
-        self.container_img = container_img
+            if isinstance(container_img, singularity.Image):
+                container_img = container_img.path
+            self.container_img = container_img
 
-        if prefix_path is None or container_img is not None:
-            self.prefix_path = json.loads(
-                shell.check_output(self._get_cmd("conda info --json"))
-            )["conda_prefix"]
-        else:
-            self.prefix_path = prefix_path
+            if prefix_path is None or container_img is not None:
+                self.prefix_path = json.loads(
+                    shell.check_output(self._get_cmd("conda info --json"))
+                )["conda_prefix"]
+            else:
+                self.prefix_path = prefix_path
+
+            # check conda installation
+            self._check()
+
+    @property
+    def is_initialized(self):
+        return hasattr(self, "prefix_path")
 
     def _get_cmd(self, cmd):
         if self.container_img:

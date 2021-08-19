@@ -56,6 +56,7 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
+import snakemake.io
 
 
 class Rule:
@@ -543,8 +544,14 @@ class Rule:
                             self
                         )
                     )
+
+            if self.workflow.all_temp and output:
+                # mark as temp if all output files shall be marked as temp
+                item = snakemake.io.flag(item, "temp")
+
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -701,7 +708,7 @@ class Rule:
             # Function evaluation can depend on input files. Since expansion can happen during dryrun,
             # where input files are not yet present, we need to skip such cases and
             # mark them as <TBD>.
-            if e.filename in aux_params["input"]:
+            if "input" in aux_params and e.filename in aux_params["input"]:
                 value = TBDString()
             else:
                 raise e
