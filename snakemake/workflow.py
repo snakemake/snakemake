@@ -217,6 +217,7 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
+        self.scheduler = None
 
         _globals = globals()
         _globals["workflow"] = self
@@ -953,7 +954,7 @@ class Workflow:
             self.persistence.conda_cleanup_envs()
             return True
 
-        scheduler = JobScheduler(
+        self.scheduler = JobScheduler(
             self,
             dag,
             local_cores=local_cores,
@@ -1053,7 +1054,7 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = scheduler.schedule()
+        success = self.scheduler.schedule()
 
         if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
@@ -1069,7 +1070,7 @@ class Workflow:
                 logger.remove_logfile()
             else:
                 if stats:
-                    scheduler.stats.to_json(stats)
+                    self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
