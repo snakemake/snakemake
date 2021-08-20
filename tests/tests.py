@@ -1286,3 +1286,7 @@ def test_touch_pipeline_with_temp_dir():
 
 def test_all_temp():
     run(dpath("test_all_temp"), all_temp=True)
+
+
+def test_strict_mode():
+    run(dpath("test_strict_mode"), shouldfail=True)
