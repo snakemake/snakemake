@@ -315,7 +315,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         return inputs
 
-    def _append_task_outputs(self, outputs, files):
+    def _append_task_outputs(self, outputs, files, checkdir):
         for file in files:
             obj = self._prepare_file(
                 filename=file,
@@ -329,15 +329,15 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
     def _get_task_outputs(self, job, checkdir):
         outputs = []
         # add output files to outputs
-        outputs = self._append_task_outputs(outputs, job.output)
+        outputs = self._append_task_outputs(outputs, job.output, checkdir)
 
         # add log files to outputs
         if job.log:
-            outputs = self._append_task_outputs(outputs, job.log)
+            outputs = self._append_task_outputs(outputs, job.log, checkdir)
 
         # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
-            outputs = self._append_task_outputs(outputs, job.benchmark)
+            outputs = self._append_task_outputs(outputs, job.benchmark, checkdir)
 
         return outputs
 
