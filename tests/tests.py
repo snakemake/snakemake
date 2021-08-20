@@ -107,7 +107,12 @@ def test14():
 @skip_on_windows
 def test_cluster_statusscript():
     os.environ["TESTVAR"] = "test"
-    run(dpath("test_cluster_statusscript"), snakefile="Snakefile.nonstandard", cluster="./qsub", cluster_status="./status.sh")
+    run(
+        dpath("test_cluster_statusscript"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./qsub",
+        cluster_status="./status.sh",
+    )
 
 
 def test15():
