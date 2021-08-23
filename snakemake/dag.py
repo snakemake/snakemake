@@ -737,10 +737,16 @@ class DAG:
 
         # check if all potential producers are strictly ordered
         jobs = sorted(jobs, reverse=True)
-        primary_job = jobs[0]
-        is_strictly_ordered = all(primary_job > job for job in jobs)
+        discarded_jobs = set()
 
-        for job in jobs:
+        def is_strictly_higher_ordered(pivot_job):
+            return all(
+                pivot_job > job
+                for job in jobs
+                if job is not pivot_job and job not in discarded_jobs
+            )
+
+        for i, job in enumerate(jobs):
             logger.dag_debug(dict(status="candidate", job=job))
             if file in job.input:
                 cycles.append(job)
@@ -758,11 +764,11 @@ class DAG:
                     progress=progress,
                     create_inventory=create_inventory,
                 )
-                if is_strictly_ordered:
-                    # Jobs are strictly ordered, hence the first working one is the
-                    # one to use and all others can be skipped.
-                    break
                 producers.append(job)
+                if is_strictly_higher_ordered(job):
+                    # All other jobs are either discarded or strictly less given
+                    # any defined ruleorder.
+                    break
             except (
                 MissingInputException,
                 CyclicGraphException,
@@ -770,6 +776,7 @@ class DAG:
                 WorkflowError,
             ) as ex:
                 exceptions.append(ex)
+                discarded_jobs.add(job)
             except RecursionError as e:
                 raise WorkflowError(
                     e,
