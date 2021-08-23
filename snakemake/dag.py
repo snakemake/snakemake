@@ -734,6 +734,11 @@ class DAG:
         producers = []
         exceptions = list()
         cycles = list()
+        
+        # check if all potential producers are strictly ordered
+        jobs = sorted(jobs, reverse=True)
+        primary_job = jobs[0]
+        is_strictly_ordered = all(primary_job > job for job in jobs)
 
         for job in jobs:
             logger.dag_debug(dict(status="candidate", job=job))
@@ -753,8 +758,10 @@ class DAG:
                     progress=progress,
                     create_inventory=create_inventory,
                 )
-                # TODO this might fail if a rule discarded here is needed
-                # elsewhere
+                if is_strictly_ordered:
+                    # Jobs are strictly ordered, hence the first working one is the
+                    # one to use and all others can be skipped.
+                    break
                 producers.append(job)
             except (
                 MissingInputException,
