@@ -640,11 +640,11 @@ class JobScheduler:
         from pulp import lpSum
         from stopit import ThreadingTimeout as Timeout, TimeoutException
 
-        if len(jobs) == 1:
-            logger.debug(
-                "Using greedy selector because only single job has to be scheduled."
-            )
-            return self.job_selector_greedy(jobs)
+        # if len(jobs) == 1:
+        #     logger.debug(
+        #         "Using greedy selector because only single job has to be scheduled."
+        #     )
+        #     return self.job_selector_greedy(jobs)
 
         with self._lock:
             if not self.resources["_cores"]:
