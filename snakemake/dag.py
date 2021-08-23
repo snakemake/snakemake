@@ -734,7 +734,7 @@ class DAG:
         producers = []
         exceptions = list()
         cycles = list()
-        
+
         # check if all potential producers are strictly ordered
         jobs = sorted(jobs, reverse=True)
         primary_job = jobs[0]
