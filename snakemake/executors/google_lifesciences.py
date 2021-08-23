@@ -894,9 +894,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 return self._retry_request(request, timeout * 2, attempts - 1)
             raise ex
         except googleapiclient.errors.HttpError as ex:
+            if attempts > 0:
+                time.sleep(timeout)
+                return self._retry_request(request, timeout * 2, attempts - 1)
             log_verbose_traceback(ex)
             raise ex
         except Exception as ex:
+            if attempts > 0:
+                time.sleep(timeout)
+                return self._retry_request(request, timeout * 2, attempts - 1)
             log_verbose_traceback(ex)
             raise ex
 

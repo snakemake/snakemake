@@ -1311,3 +1311,7 @@ def test_rerun_params_changed_with_commandline_flag():
         cleanup=True,
     )
     shutil.rmtree(tmpdir)
+
+
+def test_strict_mode():
+    run(dpath("test_strict_mode"), shouldfail=True)
