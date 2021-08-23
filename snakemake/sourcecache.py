@@ -45,7 +45,7 @@ class SourceCache:
 
     def open(self, path_or_uri, mode="r"):
         cache_entry = self._cache(path_or_uri)
-        return self._open(cache_entry, mode)
+        return self._open(cache_entry, mode, encoding="utf-8")
 
     def get_path(self, path_or_uri, mode="r"):
         cache_entry = self._cache(path_or_uri)
@@ -75,13 +75,13 @@ class SourceCache:
                     cache_source.write(source.read())
         return cache_entry
 
-    def _open(self, path_or_uri, mode):
+    def _open(self, path_or_uri, mode, encoding=None):
         from smart_open import open
 
         if str(path_or_uri).startswith("git+file:"):
             return io.BytesIO(git_content(path_or_uri).encode())
 
         try:
-            return open(path_or_uri, mode)
+            return open(path_or_uri, mode, encoding=encoding)
         except Exception as e:
             raise WorkflowError("Failed to open source file {}".format(path_or_uri), e)
