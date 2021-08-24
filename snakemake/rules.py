@@ -1075,7 +1075,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in conda environment file cannot be "
+                "Wildcards in spack environment file cannot be "
                 "determined from output files:",
                 str(e),
                 rule=self,

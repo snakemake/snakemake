@@ -96,61 +96,11 @@ class Env(EnvBase):
         Create self-contained archive of environment.
 
         This won't be possible with spack until an environment can be created
-        that uses a copy instead of link. Currently, we just include all
-        of the links, the idea being that the environment could be restored
-        on the same system.
+        that uses a copy instead of link (now possible) but ALSO can be
+        relocated. Currently, the spack.yaml files are the best reproducers.
         """
-        from snakemake.shell import shell
+        raise WorkflowError("spack does not support environment archive.")
 
-        try:
-            import yaml
-        except ImportError:
-            raise WorkflowError(
-                "Error importing PyYAML. " "Please install PyYAML to archive workflows."
-            )
-        # importing requests locally because it interferes with instantiating spack environments
-        import requests
-
-        env_archive = self.archive_file
-        if os.path.exists(env_archive):
-            return env_archive
-
-        try:
-            logger.info("Saving metadata spack environment {}...".format(self.file))
-            os.makedirs(env_archive, exist_ok=True)
-
-            # Activate the environment so we can find packages
-            activate = "eval `spack env activate --sh %s`" % self.path
-            shell.check_output(
-                activate, stderr=subprocess.STDOUT, universal_newlines=True
-            )
-
-            try:
-                out = shell.check_output(
-                    "spack find --json",
-                    stderr=subprocess.STDOUT,
-                    universal_newlines=True,
-                )
-                logger.debug(out)
-            except subprocess.CalledProcessError as e:
-                raise WorkflowError("Error exporting spack spec:\n" + e.output)
-
-            # TODO: spack has support for copy/relocate environments, but it is
-            # usually the case that the paths are too long to change for the
-            # relocate. So at best we could only save hard coded paths (and don't))
-            with open(os.path.join(env_archive, "specs.json"), "w") as pkg_list:
-                print(out, file=pkg_list)
-
-            deactivate = "eval `spack env deactivate --sh`"
-            out = shell.check_output(
-                deactivate, stderr=subprocess.STDOUT, universal_newlines=True
-            )
-
-        except (Exception, BaseException) as e:
-            shutil.rmtree(env_archive)
-            raise e
-
-        return env_archive
 
     def create(self, dryrun=False):
         """
@@ -193,20 +143,6 @@ class Env(EnvBase):
                     utils.simplify_path(self.file)
                 )
             )
-            env_archive = self.archive_file
-
-            # This currently doesn't work because the paths are too long to relocate
-            # We need to specify it will be a copy, not a symlink
-            #    view:
-            #      copy:
-            #        root: /Users/spackuser/soft/test/copy
-            #        link_type: copy
-
-            # spack_env_root = os.path.join(env_path, "snakemake_view")
-
-            # with open(env_file, 'r') as fd:
-            #    updated_file = yaml.load(fd.read(), Loader=yaml.loader.BaseLoader)
-            # updated_file['spack']['view'] = {"copy": {"root": spack_env_root, "link_type": "copy"}}
 
             try:
                 # Touch "start" flag file
@@ -214,14 +150,9 @@ class Env(EnvBase):
                 with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
 
-                # TODO: check if env archive exists. Use that if present.
                 # Copy env file to env_path so we can see what an
                 # environment in .snakemake/spack contains.
                 target_env_file = os.path.join(env_path, "spack.yaml")
-
-                # See lines above about relocation paths
-                # with open(target_env_file, 'w') as fd:
-                #    yaml.dump(updated_file, fd)
                 shutil.copyfile(env_file, target_env_file)
 
                 logger.info("Downloading and installing remote packages.")
@@ -308,3 +239,4 @@ class Spack:
     def shellcmd(self, env_path, cmd):
         activate = "eval `spack env activate --sh %s`" % env_path
         return "{}; {}".format(activate, cmd)
+

@@ -2030,10 +2030,12 @@ class DAG:
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
+        # Cut out early if we are using spack, doesn't support archive
         if self.workflow.use_spack:
-            self.create_spack_envs(forceall=True)
-        else:
-            self.create_conda_envs(forceall=True)
+            raise WorkflowError("spack does not support environment archive.")
+
+        # Default archive (supported) is conda
+        self.create_conda_envs(forceall=True)
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
@@ -2075,9 +2077,6 @@ class DAG:
                 for job in self.jobs:
                     if job.conda_env_file:
                         env_archive = job.archive_conda_env()
-                        envs.add(env_archive)
-                    elif job.spack_env_file:
-                        env_archive = job.archive_spack_env()
                         envs.add(env_archive)
                 for env in envs:
                     add(env)
