@@ -101,7 +101,6 @@ class Env(EnvBase):
         """
         raise WorkflowError("spack does not support environment archive.")
 
-
     def create(self, dryrun=False):
         """
         Create the spack enviroment.
@@ -239,4 +238,3 @@ class Spack:
     def shellcmd(self, env_path, cmd):
         activate = "eval `spack env activate --sh %s`" % env_path
         return "{}; {}".format(activate, cmd)
-
