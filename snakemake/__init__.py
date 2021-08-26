@@ -825,6 +825,8 @@ def parse_set_resources(args):
             if not len(key) == 2:
                 raise ValueError(errmsg)
             rule, resource = key
+            if rule not in assignments.keys():
+                assignments[rule] = dict()
             try:
                 value = int(value)
             except ValueError:
