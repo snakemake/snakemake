@@ -324,6 +324,11 @@ def test_shadow():
     run(dpath("test_shadow"))
 
 
+@skip_on_windows
+def test_shadow_copy():
+    run(dpath("test_shadow_copy"))
+
+
 @skip_on_windows  # Symbolic link privileges needed to work
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")
