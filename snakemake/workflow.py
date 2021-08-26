@@ -17,12 +17,13 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
+
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
+    CreateCondaEnvironmentException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -67,6 +68,7 @@ from snakemake.common import (
     bytesto,
     ON_WINDOWS,
     is_local_file,
+    parse_uri,
     Rules,
     Scatter,
     Gather,
@@ -80,6 +82,7 @@ from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
 from snakemake.sourcecache import SourceCache
+from snakemake.deployment.conda import Conda
 
 
 class Workflow:
@@ -95,6 +98,7 @@ class Workflow:
         overwrite_threads=None,
         overwrite_scatter=None,
         overwrite_groups=None,
+        overwrite_resources=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -128,6 +132,11 @@ class Workflow:
         max_inventory_wait_time=20,
         conda_not_block_search_path_envvars=False,
         execute_subworkflows=True,
+        scheduler_solver_path=None,
+        conda_base_path=None,
+        check_envvars=True,
+        max_threads=None,
+        all_temp=False,
     ):
         """
         Create the controller.
@@ -158,6 +167,7 @@ class Workflow:
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
         self.overwrite_threads = overwrite_threads or dict()
+        self.overwrite_resources = overwrite_resources or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -202,6 +212,11 @@ class Workflow:
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
         self.sourcecache = SourceCache()
+        self.scheduler_solver_path = scheduler_solver_path
+        self._conda_base_path = conda_base_path
+        self.check_envvars = check_envvars
+        self.max_threads = max_threads
+        self.all_temp = all_temp
 
         _globals = globals()
         _globals["workflow"] = self
@@ -231,8 +246,8 @@ class Workflow:
         if default_resources is not None:
             self.default_resources = default_resources
         else:
-            # only _cores and _nodes
-            self.default_resources = DefaultResources()
+            # only _cores, _nodes, and _tmpdir
+            self.default_resources = DefaultResources(mode="bare")
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
@@ -240,6 +255,19 @@ class Workflow:
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def conda_base_path(self):
+        if self._conda_base_path:
+            return self._conda_base_path
+        if self.use_conda:
+            try:
+                return Conda().prefix_path
+            except CreateCondaEnvironmentException as e:
+                # Return no preset conda base path now and report error later in jobs.
+                return None
+        else:
+            return None
 
     @property
     def modifier(self):
@@ -281,16 +309,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if ON_WINDOWS:
-                try:
-                    f = pathname2url(f)
-                except OSError:
-                    pass  # f isn't changed if it wasn't a path
-
-            url = urlparse(f)
-            if url.scheme == "file" or url.scheme == "":
-                return url2pathname(url.path)
-            return None
+            if is_local_file(f):
+                return parse_uri(f).uri_path
+            else:
+                return None
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -377,6 +399,19 @@ class Workflow:
 
     @property
     def cores(self):
+        if self._cores is None:
+            raise WorkflowError(
+                "Workflow requires a total number of cores to be defined (e.g. because a "
+                "rule defines its number of threads as a fraction of a total number of cores). "
+                "Please set it with --cores N with N being the desired number of cores. "
+                "Consider to use this in combination with --max-threads to avoid "
+                "jobs with too many threads for your setup. Also make sure to perform "
+                "a dryrun first."
+            )
+        return self._cores
+
+    @property
+    def _cores(self):
         return self.global_resources["_cores"]
 
     @property
@@ -626,6 +661,10 @@ class Workflow:
             )
         )
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
+
+        if ON_WINDOWS:
+            targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
+
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
@@ -755,7 +794,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
-                        cores=self.cores,
+                        cores=self._cores,
                         nodes=self.nodes,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
@@ -917,7 +956,6 @@ class Workflow:
         scheduler = JobScheduler(
             self,
             dag,
-            self.cores,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -966,17 +1004,17 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
-                elif kubernetes or tibanna:
+                elif kubernetes or tibanna or google_lifesciences:
                     logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
-                    if self.cores is not None:
+                    if self._cores is not None:
                         warning = (
                             ""
-                            if self.cores > 1
+                            if self._cores > 1
                             else " (use --cores to define parallelism)"
                         )
                         logger.resources_info(
-                            "Provided cores: {}{}".format(self.cores, warning)
+                            "Provided cores: {}{}".format(self._cores, warning)
                         )
                         logger.resources_info(
                             "Rules claiming more threads " "will be scaled down."
@@ -997,7 +1035,8 @@ class Workflow:
                 ):
                     logger.info("Singularity containers: ignored")
 
-                logger.run_info("\n".join(dag.stats()))
+                if self.mode == Mode.default:
+                    logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info("Nothing to be done.")
         else:
@@ -1051,6 +1090,17 @@ class Workflow:
         else:
             return basedir
 
+    def source_path(self, rel_path):
+        """Return path to source file from work dir derived from given path relative to snakefile"""
+        # TODO download to disk (use source cache) in case of remote file
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        calling_file = frame.f_code.co_filename
+        calling_dir = os.path.dirname(calling_file)
+        path = smart_join(calling_dir, rel_path)
+        return self.sourcecache.get_path(path)
+
     @property
     def snakefile(self):
         import inspect
@@ -1064,7 +1114,7 @@ class Workflow:
         If used multiple times, union is taken.
         """
         undefined = set(var for var in envvars if var not in os.environ)
-        if undefined:
+        if self.check_envvars and undefined:
             raise WorkflowError(
                 "The following environment variables are requested by the workflow but undefined. "
                 "Please make sure that they are correctly defined before running Snakemake:\n"
@@ -1202,7 +1252,7 @@ class Workflow:
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
 
-        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+        if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
             schema = os.path.join(self.current_basedir, schema)
         if self.pepfile is None:
@@ -1334,6 +1384,8 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+            if name in self.overwrite_resources:
+                rule.resources.update(self.overwrite_resources[name])
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
@@ -1396,9 +1448,8 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
+                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
+                    ruleinfo.conda_env
                 ):
                     ruleinfo.conda_env = os.path.join(
                         self.current_basedir, ruleinfo.conda_env
@@ -1422,7 +1473,7 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img is not None:
+                if not invalid_rule and ruleinfo.container_img != False:
                     # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
@@ -1553,7 +1604,11 @@ class Workflow:
 
     def container(self, container_img):
         def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
+            # Explicitly set container_img to False if None is passed, indicating that
+            # no container image shall be used, also not a global one.
+            ruleinfo.container_img = (
+                container_img if container_img is not None else False
+            )
             ruleinfo.is_containerized = False
             return ruleinfo
 

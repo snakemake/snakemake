@@ -1,6 +1,5 @@
 import os, sys
 from urllib.error import URLError
-from urllib.parse import urlparse
 import tempfile
 import re
 import shutil
@@ -9,6 +8,8 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
+from snakemake.common import is_local_file
+from snakemake.common import ON_WINDOWS
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -83,6 +84,10 @@ class JupyterNotebook(ScriptBase):
                 )
             )
 
+        if ON_WINDOWS:
+            fname = fname.replace("\\", "/")
+            fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+
         self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
 
         if edit:
@@ -123,7 +128,7 @@ class JupyterNotebook(ScriptBase):
 
 class PythonJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "import os; os.chdir('{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = "import os; os.chdir(r'{cwd}');".format(cwd=os.getcwd())
 
         return PythonScript.generate_preamble(
             self.path,
@@ -204,6 +209,7 @@ def notebook(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -219,7 +225,7 @@ def notebook(
     """
     draft = False
     if edit is not None:
-        if urlparse(path).scheme == "":
+        if is_local_file(path):
             if not os.path.isabs(path):
                 local_path = os.path.join(basedir, path)
             else:
@@ -265,6 +271,7 @@ def notebook(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,

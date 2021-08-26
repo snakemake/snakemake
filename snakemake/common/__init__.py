@@ -12,8 +12,10 @@ import uuid
 import os
 import asyncio
 import sys
+import collections
+from pathlib import Path
 
-from ._version import get_versions
+from snakemake._version import get_versions
 
 __version__ = get_versions()["version"]
 del get_versions
@@ -21,7 +23,7 @@ del get_versions
 
 MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
-SNAKEMAKE_SEARCHPATH = os.path.dirname(os.path.dirname(__file__))
+SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 
 ON_WINDOWS = platform.system() == "Windows"
@@ -38,15 +40,11 @@ else:
     async_run = asyncio.run
 
 
-class TBDInt(int):
-    """An integer that prints into <TBD>"""
-
-    def __str__(self):
-        return "<TBD>"
-
-
 # A string that prints as TBD
-TBDString = "<TBD>"
+class TBDString(str):
+    # the second arg is necessary to avoid problems when pickling
+    def __new__(cls, _=None):
+        return str.__new__(cls, "<TBD>")
 
 
 APPDIRS = None
@@ -62,9 +60,25 @@ def get_appdirs():
 
 
 def is_local_file(path_or_uri):
+    return parse_uri(path_or_uri).scheme == "file"
+
+
+def parse_uri(path_or_uri):
     from smart_open import parse_uri
 
-    return parse_uri(path_or_uri).scheme == "file"
+    try:
+        return parse_uri(path_or_uri)
+    except NotImplementedError as e:
+        # Snakemake sees a lot of URIs which are not supported by smart_open yet
+        # "docker", "git+file", "shub", "ncbi","root","roots","rootk", "gsiftp",
+        # "srm","ega","ab","dropbox"
+        # Fall back to a simple split if we encounter something which isn't supported.
+        scheme, _, uri_path = path_or_uri.partition("://")
+        if scheme and uri_path:
+            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return uri(scheme, uri_path)
+        else:
+            raise e
 
 
 def smart_join(base, path, abspath=False):
@@ -74,7 +88,17 @@ def smart_join(base, path, abspath=False):
             return os.path.abspath(full)
         return full
     else:
-        return "{}/{}".format(base, path)
+        from smart_open import parse_uri
+
+        uri = parse_uri("{}/{}".format(base, path))
+        if not ON_WINDOWS:
+            # Norm the path such that it does not contain any ../,
+            # which is invalid in an URL.
+            assert uri.uri_path[0] == "/"
+            uri_path = os.path.normpath(uri.uri_path)
+        else:
+            uri_path = uri.uri_path
+        return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
 
 
 def num_if_possible(s):

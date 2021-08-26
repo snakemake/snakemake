@@ -21,6 +21,7 @@ from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
+from snakemake.resources import DefaultResources
 
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
 logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
@@ -72,7 +73,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         exec_job = exec_job or (
             "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
+            "--force --cores {cores} --keep-target-files --keep-remote "
             "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
             "--attempt 1 {use_threads} --max-inventory-time 0 "
             "{overwrite_config} {rules} --nocolor "
@@ -112,10 +113,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         targz = self._generate_build_source_package()
         self._upload_build_source_package(targz)
 
-        # Save default resources to add later, since we need to add custom
+        # we need to add custom
         # default resources depending on the instance requested
-        self.default_resources = self.workflow.default_resources
-        self.workflow.default_resources.args = None
+        self.default_resources = None
 
         super().__init__(
             workflow,
@@ -273,17 +273,25 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """shutdown deletes build packages if the user didn't request to clean
         up the cache. At this point we've already cancelled running jobs.
         """
-        # Delete build source packages only if user regooglquested no cache
-        if self._save_storage_cache:
-            logger.debug("Requested to save workflow sources, skipping cleanup.")
-        else:
-            for package in self._build_packages:
-                blob = self.bucket.blob(package)
-                if blob.exists():
-                    logger.debug("Deleting blob %s" % package)
-                    blob.delete()
+        from google.api_core import retry
+        from snakemake.remote.GS import google_cloud_retry_predicate
 
-        # perform additional steps on shutdown if necessary
+        @retry.Retry(predicate=google_cloud_retry_predicate)
+        def _shutdown():
+            # Delete build source packages only if user regooglquested no cache
+            if self._save_storage_cache:
+                logger.debug("Requested to save workflow sources, skipping cleanup.")
+            else:
+                for package in self._build_packages:
+                    blob = self.bucket.blob(package)
+                    if blob.exists():
+                        logger.debug("Deleting blob %s" % package)
+                        blob.delete()
+
+            # perform additional steps on shutdown if necessary
+
+        _shutdown()
+
         super().shutdown()
 
     def cancel(self):
@@ -358,8 +366,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "found resource request for {} GPUs. This will limit to n1 "
             "instance types.".format(gpu_count)
         )
-        self.workflow.default_resources.parsed["nvidia_gpu"] = gpu_count
-        self.workflow.default_resources.args.append("nvidia_gpu=%s" % gpu_count)
+        self.default_resources.set_resource("nvidia_gpu", gpu_count)
+
         self._machine_type_prefix = self._machine_type_prefix or ""
         if not self._machine_type_prefix.startswith("n1"):
             self._machine_type_prefix = "n1"
@@ -412,13 +420,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             gpu_count = 1
 
         # Update default resources using decided memory and disk
-        self.workflow.default_resources = self.default_resources
-        self.workflow.default_resources.args = [
-            "mem_mb=%s" % mem_mb,
-            "disk_mb=%s" % disk_mb,
-        ]
-        self.workflow.default_resources.parsed["mem_mb"] = mem_mb
-        self.workflow.default_resources.parsed["disk_mb"] = disk_mb
+
+        self.default_resources = DefaultResources(
+            from_other=self.workflow.default_resources
+        )
+        self.default_resources.set_resource("mem_mb", mem_mb)
+        self.default_resources.set_resource("disk_mb", disk_mb)
 
         # Job resource specification can be overridden by gpu preferences
         self.machine_type_prefix = job.resources.get("machine_type")
@@ -504,10 +511,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "Selected machine type {}:{}".format(smallest, selected["description"])
         )
 
+        # We add the size for the image itself (10 GB) to bootDiskSizeGb
         virtual_machine = {
             "machineType": smallest,
             "labels": {"app": "snakemake"},
-            "bootDiskSizeGb": disk_gb,
+            "bootDiskSizeGb": disk_gb + 10,
             "preemptible": job.rule.name in self.preemptible_rules,
         }
 
@@ -656,12 +664,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """given a .tar.gz created for a workflow, upload it to source/cache
         of Google storage, only if the blob doesn't already exist.
         """
-        # Upload to temporary storage, only if doesn't exist
-        self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
-        blob = self.bucket.blob(self.pipeline_package)
-        logger.debug("build-package=%s" % self.pipeline_package)
-        if not blob.exists():
-            blob.upload_from_filename(targz, content_type="application/gzip")
+        from google.api_core import retry
+        from snakemake.remote.GS import google_cloud_retry_predicate
+
+        @retry.Retry(predicate=google_cloud_retry_predicate)
+        def _upload():
+            # Upload to temporary storage, only if doesn't exist
+            self.pipeline_package = "source/cache/%s" % os.path.basename(targz)
+            blob = self.bucket.blob(self.pipeline_package)
+            logger.debug("build-package=%s" % self.pipeline_package)
+            if not blob.exists():
+                blob.upload_from_filename(targz, content_type="application/gzip")
+
+        _upload()
 
     def _generate_log_action(self, job):
         """generate an action to save the pipeline logs to storage."""
@@ -696,7 +711,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         )
 
         # Now that we've parsed the job resource requirements, add to exec
-        exec_job += self.get_default_resources_args()
+        exec_job += self.get_default_resources_args(self.default_resources)
 
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
@@ -879,9 +894,15 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 return self._retry_request(request, timeout * 2, attempts - 1)
             raise ex
         except googleapiclient.errors.HttpError as ex:
+            if attempts > 0:
+                time.sleep(timeout)
+                return self._retry_request(request, timeout * 2, attempts - 1)
             log_verbose_traceback(ex)
             raise ex
         except Exception as ex:
+            if attempts > 0:
+                time.sleep(timeout)
+                return self._retry_request(request, timeout * 2, attempts - 1)
             log_verbose_traceback(ex)
             raise ex
 

@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import sys
 import shutil
 from os.path import join
 import tempfile
@@ -92,7 +93,9 @@ def run(
     cleanup=True,
     conda_frontend="mamba",
     config=dict(),
+    targets=None,
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
+    shellcmd=None,
     **params,
 ):
     """
@@ -140,24 +143,39 @@ def run(
 
     # copy files
     for f in os.listdir(path):
-        print(f)
         copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     # run snakemake
-    success = snakemake(
-        snakefile=original_snakefile if no_tmpdir else snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        verbose=True,
-        conda_frontend=conda_frontend,
-        container_image=container_image,
-        **params,
-    )
+    if shellcmd:
+        if not shellcmd.startswith("snakemake"):
+            raise ValueError("shellcmd does not start with snakemake")
+        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        try:
+            subprocess.check_output(
+                shellcmd,
+                cwd=path if no_tmpdir else tmpdir,
+                shell=True,
+            )
+            success = True
+        except subprocess.CalledProcessError as e:
+            success = False
+            print(e.stderr, file=sys.stderr)
+    else:
+        success = snakemake(
+            snakefile=original_snakefile if no_tmpdir else snakefile,
+            cores=cores,
+            workdir=path if no_tmpdir else tmpdir,
+            stats="stats.txt",
+            config=config,
+            verbose=True,
+            targets=targets,
+            conda_frontend=conda_frontend,
+            container_image=container_image,
+            **params,
+        )
 
     if shouldfail:
         assert not success, "expected error on execution"
@@ -188,7 +206,6 @@ def run(
                 md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
-                    # import pdb; pdb.set_trace()
                     with open(expectedfile) as expected:
                         expected_content = expected.read()
                     with open(targetfile) as target:
@@ -203,4 +220,4 @@ def run(
 
     if not cleanup:
         return tmpdir
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)

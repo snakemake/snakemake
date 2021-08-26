@@ -52,6 +52,8 @@ dependencies:
   - toposort
   - mamba
   - crc32c
+  - pip
+  - connection_pool
   - py-tes
   - requests-mock
   - peppy
@@ -59,3 +61,4 @@ dependencies:
   - glpk
   - smart_open
   - filelock
+  - tabulate

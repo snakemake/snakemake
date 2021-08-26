@@ -56,7 +56,6 @@ class JobScheduler:
         self,
         workflow,
         dag,
-        cores,
         local_cores=1,
         dryrun=False,
         touch=False,
@@ -98,6 +97,8 @@ class JobScheduler:
         """Create a new instance of KnapsackJobScheduler."""
         from ratelimiter import RateLimiter
 
+        cores = workflow.global_resources["_cores"]
+
         self.cluster = cluster
         self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
@@ -116,11 +117,16 @@ class JobScheduler:
         self.keepmetadata = keepmetadata
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
+        self._tofinish = []
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
+
+        if workflow.global_resources["_nodes"] is not None:
+            # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
+            self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
         use_threads = (
@@ -425,6 +431,7 @@ class JobScheduler:
 
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
+                    self._finish_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
@@ -482,6 +489,11 @@ class JobScheduler:
                     # remove from ready_jobs
                     self.dag.register_running(run)
 
+                # reset params and resources because they might contain TBDs
+                if not self.dryrun:
+                    for job in run:
+                        job.reset_params_and_resources()
+
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
@@ -493,6 +505,12 @@ class JobScheduler:
             )
             self._executor.cancel()
             return False
+
+    def _finish_jobs(self):
+        # must be called from within lock
+        for job, update_dynamic in self._tofinish:
+            self.dag.finish(job, update_dynamic=update_dynamic)
+        self._tofinish.clear()
 
     def run(self, jobs, executor=None):
         if executor is None:
@@ -539,16 +557,7 @@ class JobScheduler:
                     self._handle_error(job)
                     return
 
-            try:
-                potential_new_ready_jobs = self.dag.finish(
-                    job, update_dynamic=update_dynamic
-                )
-            except (RuleException, WorkflowError) as e:
-                # if an error occurs while processing job output,
-                # we do the same as in case of errors during execution
-                print_exception(e, self.workflow.linemaps)
-                self._handle_error(job)
-                return
+            self._tofinish.append((job, update_dynamic))
 
             if update_resources:
                 # normal jobs have len=1, group jobs have len>1
@@ -632,7 +641,14 @@ class JobScheduler:
                 for idx, job in enumerate(jobs)
             }
 
-            size_gb = lambda f: f.size / 1e9
+            def size_gb(f):
+                if self.touch:
+                    # In case of touch mode, there is no need to prioritize based on size.
+                    # We cannot access it anyway, because the files might be temporary and
+                    # not present.
+                    return 0
+                else:
+                    return f.size / 1e9
 
             temp_files = {
                 temp_file for job in jobs for temp_file in self.dag.temp_input(job)
@@ -757,11 +773,22 @@ class JobScheduler:
     def _solve_ilp(self, prob):
         import pulp
 
-        solver = (
-            pulp.get_solver(self.scheduler_ilp_solver)
-            if self.scheduler_ilp_solver
-            else pulp.apis.LpSolverDefault
-        )
+        old_path = os.environ["PATH"]
+        if self.workflow.scheduler_solver_path is None:
+            # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
+            # This is needed for cluster envs, where the cluster job might have a different environment but
+            # still needs access to the solver binary.
+            os.environ["PATH"] = "{}:{}".format(
+                self.workflow.scheduler_solver_path, os.environ["PATH"]
+            )
+        try:
+            solver = (
+                pulp.get_solver(self.scheduler_ilp_solver)
+                if self.scheduler_ilp_solver
+                else pulp.apis.LpSolverDefault
+            )
+        finally:
+            os.environ["PATH"] = old_path
         solver.msg = self.workflow.verbose
         prob.solve(solver)
 

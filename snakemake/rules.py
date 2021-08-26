@@ -55,7 +55,8 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDInt
+from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
+import snakemake.io
 
 
 class Rule:
@@ -490,6 +491,12 @@ class Rule:
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            if ON_WINDOWS:
+                if isinstance(item, (_IOFile, AnnotatedString)):
+                    item = item.new_from(item.replace(os.sep, os.altsep))
+                else:
+                    item = item.replace(os.sep, os.altsep)
+
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
                 rule_dependency = item.rule
@@ -537,8 +544,14 @@ class Rule:
                             self
                         )
                     )
+
+            if self.workflow.all_temp and output:
+                # mark as temp if all output files shall be marked as temp
+                item = snakemake.io.flag(item, "temp")
+
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -691,6 +704,14 @@ class Rule:
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
+        except FileNotFoundError as e:
+            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+            # where input files are not yet present, we need to skip such cases and
+            # mark them as <TBD>.
+            if "input" in aux_params and e.filename in aux_params["input"]:
+                value = TBDString()
+            else:
+                raise e
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
@@ -853,6 +874,18 @@ class Rule:
                     ]
             return p
 
+        def handle_incomplete_checkpoint(exception):
+            """If checkpoint is incomplete, target it such that it is completed
+            before this rule gets executed."""
+            print(exception.targetfile)
+            if exception.targetfile in input:
+                return TBDString()
+            else:
+                raise WorkflowError(
+                    "Rule parameter depends on checkpoint but checkpoint output is not defined as input file for the rule. "
+                    "Please add the output of the respective checkpoint to the rule inputs."
+                )
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -874,7 +907,7 @@ class Rule:
                     "output": output._plainstrings(),
                     "threads": resources._cores,
                 },
-                incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
+                incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -953,35 +986,31 @@ class Rule:
         def apply(name, res, threads=None):
             if callable(res):
                 aux = dict(rulename=self.name)
-                if threads:
+                if threads is not None:
                     aux["threads"] = threads
                 try:
-                    try:
-                        res, _ = self.apply_input_function(
-                            res,
-                            wildcards,
-                            input=input,
-                            attempt=attempt,
-                            incomplete_checkpoint_func=lambda e: 0,
-                            raw_exceptions=True,
-                            **aux
-                        )
-                    except FileNotFoundError as e:
-                        # Resources can depend on input files. Since expansion can happen during dryrun,
-                        # where input files are not yet present, we need to skip such resources and
-                        # mark them as [TBD].
-                        if e.filename in input:
-                            # use zero for resource if it cannot yet be determined
-                            res = TBDInt(0)
-                        else:
-                            raise e
+                    res, _ = self.apply_input_function(
+                        res,
+                        wildcards,
+                        input=input,
+                        attempt=attempt,
+                        incomplete_checkpoint_func=lambda e: 0,
+                        raw_exceptions=True,
+                        **aux
+                    )
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int) and not isinstance(res, str):
-                    raise WorkflowError(
-                        "Resources function did not return int or str.", rule=self
-                    )
+            if isinstance(res, float):
+                # round to integer
+                res = int(round(res))
+
+            if not isinstance(res, int) and not isinstance(res, str):
+                raise WorkflowError(
+                    "Resources function did not return int, float (floats are "
+                    "rouded to the nearest integer), or str.",
+                    rule=self,
+                )
             if isinstance(res, int):
                 global_res = self.workflow.global_resources.get(name, res)
                 if global_res is not None:
@@ -989,6 +1018,8 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if self.workflow.max_threads is not None:
+            threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
         for name, res in self.resources.items():

@@ -2,6 +2,7 @@
 """
 This is a test for the params syntax.
 """
+shell.executable("bash")
 
 rule:
 	input: "somedir/test.out"

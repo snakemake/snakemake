@@ -39,10 +39,15 @@ def google_cloud_retry_predicate(ex):
       ex (Exception) : the exception passed from the decorated function
     Returns: boolean to indicate doing retry (True) or not (False)
     """
-    # Most likely case is Google API transient error
+    from requests.exceptions import ReadTimeout
+
+    # Most likely case is Google API transient error.
     if retry.if_transient_error(ex):
         return True
-    # Could also be checksum mismatch of download
+    # Timeouts should be considered for retry as well.
+    if isinstance(ex, ReadTimeout):
+        return True
+    # Could also be checksum mismatch of download.
     if isinstance(ex, CheckSumMismatchException):
         return True
     return False

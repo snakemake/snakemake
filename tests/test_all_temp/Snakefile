@@ -1,0 +1,23 @@
+rule all:
+    input:
+        "test2.txt"
+    run:
+        import os
+        if os.path.exists("test1.txt"):
+            raise ValueError("test1.txt still present!")
+
+
+rule a:
+    output:
+        "test1.txt"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "test1.txt"
+    output:
+        "test2.txt"
+    shell:
+        "touch {output}"

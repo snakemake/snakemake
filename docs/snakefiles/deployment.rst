@@ -1,4 +1,4 @@
-
+.. _distribution_and_reproducibility:
 
 ================================
 Distribution and Reproducibility
@@ -43,29 +43,14 @@ Conda environments (see :ref:`integrated_package_management`) should be stored i
 Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
 All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
-Then, a workflow can be deployed to a new system via the following steps
+Workflows setup in above structure can be easily used and combined via :ref:`the Snakemake module system <use_with_modules>`.
+Such deployment can even be automated via  `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Moreover, by publishing a workflow on `Github <https://github.com>`_ and following a set of additional `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ the workflow will be automatically included in the `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_, thereby easing discovery and even automating its usage documentation.
+For an example of such automated documentation, see `here <https://snakemake.github.io/snakemake-workflow-catalog/?usage=snakemake-workflows%2Fdna-seq-varlociraptor>`_.
 
-.. code-block:: python
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for more best-practice workflows.
 
-    # clone workflow into working directory
-    git clone https://github.com/user/myworkflow.git path/to/workdir
-    cd path/to/workdir
-
-    # edit config and workflow as needed
-    vim config/config.yaml
-
-    # execute workflow, deploy software dependencies via conda
-    snakemake -n --use-conda
-
-Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
-A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
-Given that cookiecutter is installed, you can use it via:
-
-.. code-block:: bash
-
-    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
-
-Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
+.. _use_with_modules:
 
 -----------------------------------------
 Using and combining pre-exising workflows

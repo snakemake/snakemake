@@ -49,6 +49,8 @@ For adding config placeholders into a shell command, Python string formatting sy
     shell:
         "mycommand {config[foo]} ..."
 
+.. _snakefiles_tabular_configuration
+
 ---------------------
 Tabular configuration
 ---------------------
@@ -194,6 +196,12 @@ They should **not** be used to encode workflow specific configuration options.
 For those, one should always complement the pepfile with an ordinary :ref:`config file <snakefiles_standard_configuration>`.
 The rationale is that PEPs should be portable between different data analysis workflows (that could be applied to the same data) and even between workflow management systems.
 In other words, a PEP should describe everything needed about the data, while a workflow and its configuration should describe everything needed about the analysis that is applied to it.
+
+^^^^^^^^^^^^^^^
+Validating PEPs
+^^^^^^^^^^^^^^^
+
+Using the ``pepschema`` directive leads to an automatic parsing of the provided schema *and* PEP validation with the PEP validation tool -- `eido <http://eido.databio.org>`_. Eido schemas extend `JSON Schema <https://json-schema.org>`_ vocabulary to accommodate the powerful PEP features. Follow the `How to write a PEP schema <http://eido.databio.org/en/latest/writing-a-schema>`_ guide to learn more.
 
 .. _snakefiles-cluster_configuration:
 

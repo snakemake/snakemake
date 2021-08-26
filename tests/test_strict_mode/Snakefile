@@ -1,0 +1,12 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        """
+        echo 'prints 1'
+        $(exit 1)  # Should fail with set -e
+        echo 'prints 2'
+        echo 'hello' > {output}
+        """

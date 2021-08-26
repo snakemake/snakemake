@@ -1,0 +1,23 @@
+
+rule all:
+    input:
+        expand("test{i}.out2", i=range(3))
+
+rule a:
+    output:
+        "test{i}.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        'make --version > {output} || VER>NUL'
+
+
+rule b:
+    input:
+        "test{i}.out"
+    output:
+        "test{i}.out2"
+    conda:
+        "test-env.yaml"
+    shell:
+        "make --version > {output} || VER>NUL"

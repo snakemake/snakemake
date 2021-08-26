@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import html
 import os
+import sys
 import shutil
 import textwrap
 import time
@@ -252,8 +253,20 @@ class DAG:
                 self._needrun.remove(job)
             except KeyError:
                 pass
+
+            # delete all pointers from dependencies to this job
+            for dep in self.dependencies[job]:
+                try:
+                    del self.depending[dep][job]
+                except KeyError:
+                    # In case the pointer has been deleted before or
+                    # never created, we can simply continue.
+                    pass
+
+            # delete all dependencies
             del self.dependencies[job]
             try:
+                # delete all pointers to downstream dependencies
                 del self.depending[job]
             except KeyError:
                 pass
@@ -718,9 +731,8 @@ class DAG:
             visited = set()
         if known_producers is None:
             known_producers = dict()
-        producer = None
+        producers = []
         exceptions = list()
-        jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
 
         for job in jobs:
@@ -743,12 +755,7 @@ class DAG:
                 )
                 # TODO this might fail if a rule discarded here is needed
                 # elsewhere
-                if producer:
-                    if job < producer or self.ignore_ambiguity:
-                        break
-                    elif producer is not None:
-                        raise AmbiguousRuleException(file, job, producer)
-                producer = job
+                producers.append(job)
             except (
                 MissingInputException,
                 CyclicGraphException,
@@ -770,7 +777,7 @@ class DAG:
                     if file
                     else "",
                 )
-        if producer is None:
+        if not producers:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
@@ -778,21 +785,27 @@ class DAG:
                 raise WorkflowError(*exceptions)
             elif len(exceptions) == 1:
                 raise exceptions[0]
-        else:
-            logger.dag_debug(dict(status="selected", job=producer))
-            logger.dag_debug(
-                dict(
-                    file=file,
-                    msg="Producer found, hence exceptions are ignored.",
-                    exception=WorkflowError(*exceptions),
-                )
-            )
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
             logger.info("Processed {} potential jobs.".format(n))
             self._progress = n
 
+        producers.sort(reverse=True)
+        producer = producers[0]
+        ambiguities = list(
+            filter(lambda x: not x < producer and not producer < x, producers[1:])
+        )
+        if ambiguities and not self.ignore_ambiguity:
+            raise AmbiguousRuleException(file, producer, ambiguities[0])
+        logger.dag_debug(dict(status="selected", job=producer))
+        logger.dag_debug(
+            dict(
+                file=file,
+                msg="Producer found, hence exceptions are ignored.",
+                exception=WorkflowError(*exceptions),
+            )
+        )
         return producer
 
     def update_(
@@ -1640,7 +1653,10 @@ class DAG:
         """Generate a new job from a given rule."""
         if targetrule.has_wildcards():
             raise WorkflowError(
-                "Target rules may not contain wildcards. Please specify concrete files or a rule without wildcards."
+                "Target rules may not contain wildcards. "
+                "Please specify concrete files or a rule without wildcards at the command line, "
+                "or have a rule without wildcards at the very top of your workflow (e.g. the typical "
+                '"rule all" which just collects all results you want to generate in the end).'
             )
         return self.new_job(targetrule)
 
@@ -2111,14 +2127,40 @@ class DAG:
             )
 
     def stats(self):
+        from tabulate import tabulate
+
         rules = Counter()
         rules.update(job.rule for job in self.needrun_jobs)
         rules.update(job.rule for job in self.finished_jobs)
-        yield "Job counts:"
-        yield "\tcount\tjobs"
-        for rule, count in sorted(rules.most_common(), key=lambda item: item[0].name):
-            yield "\t{}\t{}".format(count, rule)
-        yield "\t{}".format(len(self))
+
+        max_threads = defaultdict(int)
+        min_threads = defaultdict(lambda: sys.maxsize)
+        for job in chain(self.needrun_jobs, self.finished_jobs):
+            max_threads[job.rule] = max(max_threads[job.rule], job.threads)
+            min_threads[job.rule] = min(min_threads[job.rule], job.threads)
+        rows = [
+            {
+                "job": rule,
+                "count": count,
+                "min threads": min_threads[rule],
+                "max threads": max_threads[rule],
+            }
+            for rule, count in sorted(
+                rules.most_common(), key=lambda item: item[0].name
+            )
+        ]
+        rows.append(
+            {
+                "job": "total",
+                "count": sum(rules.values()),
+                "min threads": min(min_threads.values()),
+                "max threads": max(max_threads.values()),
+            }
+        )
+
+        yield "Job stats:"
+        yield tabulate(rows, headers="keys")
+        yield ""
 
     def __str__(self):
         return self.dot()
