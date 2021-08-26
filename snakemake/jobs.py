@@ -746,7 +746,10 @@ class Job(AbstractJob):
 
         # "minimal" creates symlinks only to the input files in the shadow directory
         # "copy-minimal" creates copies instead
-        if self.rule.shadow_depth == "minimal" or self.rule.shadow_depth == "copy-minimal":
+        if (
+            self.rule.shadow_depth == "minimal"
+            or self.rule.shadow_depth == "copy-minimal"
+        ):
             # Re-create the directory structure in the shadow directory
             for (f, d) in set(
                 [
