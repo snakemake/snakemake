@@ -995,11 +995,21 @@ Note that any flag that forces re-creation of files still also applies to files 
 Shadow rules
 ------------
 
-Shadow rules result in each execution of the rule to be run in isolated temporary directories. This "shadow" directory contains symlinks to files and directories in the current workdir. This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow. It can also be useful if you want to keep your workdir clean while the program executes, or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
+Shadow rules result in each execution of the rule to be run in isolated temporary directories.
+This "shadow" directory contains symlinks to files and directories in the current workdir.
+This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow.
+It can also be useful if you want to keep your workdir clean while the program executes,
+or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
 
-By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
+By setting ``shadow: "shallow"``, the top level files and directories are symlinked,
+so that any relative paths in a subdirectory will be real paths in the filesystem.
+The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir.
+The setting ``shadow: "minimal"`` only symlinks the inputs to the rule,
+and ``shadow: "copy-minimal"`` copies the inputs instead of just creating symlinks.
+Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
-Typically, you will not need to modify your rule for compatibility with ``shadow``, unless you reference parent directories relative to your workdir in a rule.
+Typically, you will not need to modify your rule for compatibility with ``shadow``,
+unless you reference parent directories relative to your workdir in a rule.
 
 .. code-block:: python
 
@@ -1009,7 +1019,11 @@ Typically, you will not need to modify your rule for compatibility with ``shadow
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
 
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution. Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs. The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``,
+and are cleared on successful execution.
+Consider running with the ``--cleanup-shadow`` argument every now and then
+to remove any remaining shadow directories from aborted jobs.
+The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 Flag files
 ----------
