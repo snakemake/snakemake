@@ -1442,14 +1442,7 @@ class DRMAAExecutor(ClusterExecutor):
                         still_running.append(active_job)
 
                         def handle_suspended(by):
-                            if by == "user":
-                                state = drmaa.JobState.USER_SUSPENDED
-                            else:
-                                state = drmaa.JobState.SYSTEM_SUSPENDED
-                            if (
-                                retval == state
-                                and active_job.job.jobid not in suspended_msg
-                            ):
+                            if active_job.job.jobid not in suspended_msg:
                                 logger.warning(
                                     "Job {} (DRMAA id: {}) was suspended by {}.".format(
                                         active_job.job.jobid, active_job.jobid, by
@@ -1457,8 +1450,12 @@ class DRMAAExecutor(ClusterExecutor):
                                 )
                                 suspended_msg.add(active_job.job.jobid)
 
-                        handle_suspended("user")
-                        handle_suspended("system")
+                        if retval == drmaa.JobState.USER_SUSPENDED:
+                            handle_suspended("user")
+                        elif retval == drmaa.JobState.SYSTEM_SUSPENDED:
+                            handle_suspended("system")
+                        else:
+                            suspended_msg.remove(active_job.job.jobid)
 
             with self.lock:
                 self.active_jobs.extend(still_running)
