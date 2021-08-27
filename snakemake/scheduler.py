@@ -640,11 +640,11 @@ class JobScheduler:
         from pulp import lpSum
         from stopit import ThreadingTimeout as Timeout, TimeoutException
 
-        # if len(jobs) == 1:
-        #     logger.debug(
-        #         "Using greedy selector because only single job has to be scheduled."
-        #     )
-        #     return self.job_selector_greedy(jobs)
+        if len(jobs) == 1:
+            logger.debug(
+                "Using greedy selector because only single job has to be scheduled."
+            )
+            return self.job_selector_greedy(jobs)
 
         with self._lock:
             if not self.resources["_cores"]:
@@ -915,8 +915,14 @@ class JobScheduler:
             temp_size = 0
             input_size = 0
         else:
-            temp_size = self.dag.temp_size(job)
-            input_size = job.inputsize
+            try:
+                temp_size = self.dag.temp_size(job)
+                input_size = job.inputsize
+            except FileNotFoundError:
+                # If the file is not yet present, this shall not affect the
+                # job selection.
+                temp_size = 0
+                input_size = 0
 
         # Usually, this should guide the scheduler to first schedule all jobs
         # that remove the largest temp file, then the second largest and so on.
