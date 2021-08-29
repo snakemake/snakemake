@@ -1306,3 +1306,10 @@ def test_all_temp():
 
 def test_strict_mode():
     run(dpath("test_strict_mode"), shouldfail=True)
+
+
+def test_github_issue1158():
+    run(
+        dpath("test_github_issue1158"),
+        cluster="./qsub.py",
+    )
