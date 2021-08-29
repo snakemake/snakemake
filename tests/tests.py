@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
 def test_list_untracked():
@@ -1308,6 +1308,7 @@ def test_strict_mode():
     run(dpath("test_strict_mode"), shouldfail=True)
 
 
+@needs_strace
 def test_github_issue1158():
     run(
         dpath("test_github_issue1158"),
