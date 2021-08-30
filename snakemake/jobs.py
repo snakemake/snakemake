@@ -806,7 +806,6 @@ class Job(AbstractJob):
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
-                print("shallow linking source {}".format(source))
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
         elif self.rule.shadow_depth == "full":
