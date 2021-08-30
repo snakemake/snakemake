@@ -738,6 +738,19 @@ class Job(AbstractJob):
         if not self.is_shadow:
             return
 
+        # Create shadow directory if not exists,
+        # because it e.g. is only available on the worker nodes of a cluster, and not the login node
+        try:
+            os.makedirs(self.rule.workflow.persistence.shadow_path, exist_ok=True)
+            pass
+        except OSError:
+            logger.error(
+                "Cannot create base shadow directory in the environment this job ({}) is executing".format(
+                    self
+                )
+            )
+            raise
+
         # Create shadow directory structure
         self.shadow_dir = tempfile.mkdtemp(
             dir=self.rule.workflow.persistence.shadow_path
@@ -793,6 +806,7 @@ class Job(AbstractJob):
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
             for source in os.listdir(cwd):
+                print("shallow linking source {}".format(source))
                 link = os.path.join(self.shadow_dir, source)
                 os.symlink(os.path.abspath(source), link)
         elif self.rule.shadow_depth == "full":
