@@ -738,7 +738,7 @@ class Job(AbstractJob):
         if not self.is_shadow:
             return
 
-        # Create shadow directory if not exists,
+        # Create shadow directory if it does not exist,
         # because it e.g. is only available on the worker nodes of a cluster, and not the login node
         try:
             os.makedirs(self.rule.workflow.persistence.shadow_path, exist_ok=True)
