@@ -1455,7 +1455,11 @@ class DRMAAExecutor(ClusterExecutor):
                         elif retval == drmaa.JobState.SYSTEM_SUSPENDED:
                             handle_suspended("system")
                         else:
-                            suspended_msg.remove(active_job.job.jobid)
+                            try:
+                                suspended_msg.remove(active_job.job.jobid)
+                            except KeyError:
+                                # there was nothing to remove
+                                pass
 
             with self.lock:
                 self.active_jobs.extend(still_running)
