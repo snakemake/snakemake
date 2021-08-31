@@ -769,7 +769,7 @@ class ClusterExecutor(RealExecutor):
         wait_for_files = []
         scheduler_solver_path = ""
         if self.assume_shared_fs:
-            wait_for_files.append("'" + self.tmpdir + "'")
+            wait_for_files.append(self.tmpdir)
             wait_for_files.extend(job.get_wait_for_files())
             # Prepend PATH of current python executable to PATH.
             # This way, we ensure that the snakemake process in the cluster node runs
@@ -792,7 +792,7 @@ class ClusterExecutor(RealExecutor):
             )
         else:
             waitfiles_parameter = format(
-                "--wait-for-files {wait_for_files}", wait_for_files=wait_for_files
+                "--wait-for-files {wait_for_files}", wait_for_files=(" ".join(['"{0}"'.format(x) for x in wait_for_files])),
             )
 
         format_p = partial(
