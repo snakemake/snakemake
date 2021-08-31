@@ -788,7 +788,7 @@ class ClusterExecutor(RealExecutor):
 
             waitfiles_parameter = format(
                 "--wait-for-files-file {wait_for_files_file}",
-                wait_for_files_file=wait_for_files_file,
+                wait_for_files_file=('"' + wait_for_files_file + '"'),
             )
         else:
             waitfiles_parameter = format(
