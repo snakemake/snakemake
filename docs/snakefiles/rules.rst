@@ -1112,7 +1112,7 @@ This can be done by having them return ``dict()`` objects with the names as the 
 .. code-block:: python
 
     def myfunc(wildcards):
-        return { 'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)
+        return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
 
     rule:
         input: unpack(myfunc)
