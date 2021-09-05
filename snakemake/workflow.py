@@ -730,6 +730,9 @@ class Workflow:
             or delete_temp_output,
         )
 
+        if self.mode in [Mode.subprocess, Mode.cluster]:
+            self.persistence.deactivate_cache()
+
         if cleanup_metadata:
             for f in cleanup_metadata:
                 self.persistence.cleanup_metadata(f)
