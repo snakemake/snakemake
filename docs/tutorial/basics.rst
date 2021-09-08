@@ -300,7 +300,7 @@ Step 5: Calling genomic variants
 ::::::::::::::::::::::::::::::::
 
 The next step in our workflow will aggregate the mapped reads from all samples and jointly call genomic variants on them (see :ref:`tutorial-background`).
-For the variant calling, we will combine the two utilities samtools_ and bcftools_.
+For the variant calling, we will use the utility bcftools_.
 Snakemake provides a **helper function for collecting input files** that helps us to describe the aggregation in this step.
 With
 
@@ -357,7 +357,7 @@ But for now, this is enough so that we can add the following rule to our Snakefi
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -O v -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 
@@ -369,10 +369,10 @@ But for now, this is enough so that we can add the following rule to our Snakefi
 
   .. code:: python
 
-      "samtools mpileup"
-      "-g -f {input.fa} {input.bam}"
+      "bcftools mpileup"
+      "-O v -f {input.fa} {input.bam}"
 
-  This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
+  This would concatenate to the command ``"bcftools mpileup-O v -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-O'``.
 
 
 With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
@@ -555,7 +555,7 @@ In total, the resulting workflow looks like this:
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -O v -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 
