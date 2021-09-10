@@ -2,6 +2,7 @@
 Tests for Snakemake’s API
 """
 from snakemake import snakemake
+import asyncio
 import tempfile
 import os.path
 from textwrap import dedent
@@ -32,3 +33,23 @@ def test_run_script_directive():
                 file=f,
             )
         snakemake(path, workdir=tmpdir)
+
+
+def test_run_script_directive_async():
+    """Tests :func`snakemake.common.async_run`. The test ensure the ability to
+    execute Snakemake API even if an asyncio event loop is already running.
+
+    """
+    import tracemalloc
+    from snakemake.common import async_run
+
+    tracemalloc.start()
+
+    async def dummy_task():
+        await asyncio.sleep(0.00001)
+
+    async def main():
+        async_run(dummy_task())
+        test_run_script_directive()
+
+    async_run(main())
