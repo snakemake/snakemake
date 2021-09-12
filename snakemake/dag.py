@@ -1224,7 +1224,10 @@ class DAG:
     def handle_pipes(self):
         """Use pipes to determine job groups. Check if every pipe has exactly
         one consumer"""
-        needruns = self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished)
+        needruns = filterfalse(
+            self.finished,
+            self.bfs(self.dependencies, *self.targetjobs, stop=self.noneedrun_finished),
+        )
         for job in needruns:
             candidate_groups = set()
             if job.group is not None:
