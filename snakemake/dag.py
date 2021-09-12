@@ -754,12 +754,22 @@ class DAG:
             visited = set()
         if known_producers is None:
             known_producers = dict()
-        producer = None
+        producers = []
         exceptions = list()
-        jobs = sorted(jobs, reverse=not self.ignore_ambiguity)
         cycles = list()
 
-        for job in jobs:
+        # check if all potential producers are strictly ordered
+        jobs = sorted(jobs, reverse=True)
+        discarded_jobs = set()
+
+        def is_strictly_higher_ordered(pivot_job):
+            return all(
+                pivot_job > job
+                for job in jobs
+                if job is not pivot_job and job not in discarded_jobs
+            )
+
+        for i, job in enumerate(jobs):
             logger.dag_debug(dict(status="candidate", job=job))
             if file in job.input:
                 cycles.append(job)
@@ -777,14 +787,11 @@ class DAG:
                     progress=progress,
                     create_inventory=create_inventory,
                 )
-                # TODO this might fail if a rule discarded here is needed
-                # elsewhere
-                if producer:
-                    if job < producer or self.ignore_ambiguity:
-                        break
-                    elif producer is not None:
-                        raise AmbiguousRuleException(file, job, producer)
-                producer = job
+                producers.append(job)
+                if is_strictly_higher_ordered(job):
+                    # All other jobs are either discarded or strictly less given
+                    # any defined ruleorder.
+                    break
             except (
                 MissingInputException,
                 CyclicGraphException,
@@ -792,6 +799,7 @@ class DAG:
                 WorkflowError,
             ) as ex:
                 exceptions.append(ex)
+                discarded_jobs.add(job)
             except RecursionError as e:
                 raise WorkflowError(
                     e,
@@ -806,7 +814,7 @@ class DAG:
                     if file
                     else "",
                 )
-        if producer is None:
+        if not producers:
             if cycles:
                 job = cycles[0]
                 raise CyclicGraphException(job.rule, file, rule=job.rule)
@@ -814,21 +822,27 @@ class DAG:
                 raise WorkflowError(*exceptions)
             elif len(exceptions) == 1:
                 raise exceptions[0]
-        else:
-            logger.dag_debug(dict(status="selected", job=producer))
-            logger.dag_debug(
-                dict(
-                    file=file,
-                    msg="Producer found, hence exceptions are ignored.",
-                    exception=WorkflowError(*exceptions),
-                )
-            )
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
             logger.info("Processed {} potential jobs.".format(n))
             self._progress = n
 
+        producers.sort(reverse=True)
+        producer = producers[0]
+        ambiguities = list(
+            filter(lambda x: not x < producer and not producer < x, producers[1:])
+        )
+        if ambiguities and not self.ignore_ambiguity:
+            raise AmbiguousRuleException(file, producer, ambiguities[0])
+        logger.dag_debug(dict(status="selected", job=producer))
+        logger.dag_debug(
+            dict(
+                file=file,
+                msg="Producer found, hence exceptions are ignored.",
+                exception=WorkflowError(*exceptions),
+            )
+        )
         return producer
 
     def update_(

@@ -140,8 +140,10 @@ class JobScheduler:
         self._lock = threading.Lock()
 
         self._errors = False
+        self._executor_error = None
         self._finished = False
         self._job_queue = None
+        self._last_job_selection_empty = False
         self._submit_callback = self._noop
         self._finish_callback = partial(
             self._proceed,
@@ -391,6 +393,12 @@ class JobScheduler:
             pass
         self._open_jobs.release()
 
+    def executor_error_callback(self, exception):
+        with self._lock:
+            self._executor_error = exception
+            # next scheduling round to catch and raise error
+            self._open_jobs.release()
+
     @property
     def stats(self):
         try:
@@ -435,16 +443,20 @@ class JobScheduler:
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
+                    executor_error = self._executor_error
                     user_kill = self._user_kill
 
                 # handle errors
-                if user_kill or (not self.keepgoing and errors):
+                if user_kill or (not self.keepgoing and errors) or executor_error:
                     if user_kill == "graceful":
                         logger.info(
                             "Will exit after finishing " "currently running jobs."
                         )
 
-                    if not running:
+                    if executor_error:
+                        print_exception(executor_error, self.workflow.linemaps)
+
+                    if executor_error or not running:
                         logger.info("Shutting down, this might take some time.")
                         self._executor.shutdown()
                         if not user_kill:
@@ -474,7 +486,11 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
+
+                    if not self._last_job_selection_empty:
+                        logger.info("Select jobs to execute...")
                     run = self.job_selector(needrun)
+                    self._last_job_selection_empty = not run
 
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
@@ -624,7 +640,11 @@ class JobScheduler:
         from pulp import lpSum
         from stopit import ThreadingTimeout as Timeout, TimeoutException
 
-        logger.info("Select jobs to execute...")
+        if len(jobs) == 1:
+            logger.debug(
+                "Using greedy selector because only single job has to be scheduled."
+            )
+            return self.job_selector_greedy(jobs)
 
         with self._lock:
             if not self.resources["_cores"]:
@@ -895,8 +915,14 @@ class JobScheduler:
             temp_size = 0
             input_size = 0
         else:
-            temp_size = self.dag.temp_size(job)
-            input_size = job.inputsize
+            try:
+                temp_size = self.dag.temp_size(job)
+                input_size = job.inputsize
+            except FileNotFoundError:
+                # If the file is not yet present, this shall not affect the
+                # job selection.
+                temp_size = 0
+                input_size = 0
 
         # Usually, this should guide the scheduler to first schedule all jobs
         # that remove the largest temp file, then the second largest and so on.

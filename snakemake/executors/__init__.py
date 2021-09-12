@@ -714,7 +714,7 @@ class ClusterExecutor(RealExecutor):
         self.active_jobs = list()
         self.lock = threading.Lock()
         self.wait = True
-        self.wait_thread = threading.Thread(target=self._wait_for_jobs)
+        self.wait_thread = threading.Thread(target=self._wait_thread)
         self.wait_thread.daemon = True
         self.wait_thread.start()
 
@@ -723,6 +723,12 @@ class ClusterExecutor(RealExecutor):
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
         )
+
+    def _wait_thread(self):
+        try:
+            self._wait_for_jobs()
+        except Exception as e:
+            self.workflow.scheduler.executor_error_callback(e)
 
     def shutdown(self):
         with self.lock:
@@ -1067,21 +1073,18 @@ class GenericClusterExecutor(ClusterExecutor):
         success = "success"
         failed = "failed"
         running = "running"
+        status_cmd_kills = set()
         if self.statuscmd is not None:
 
-            def job_status(job):
+            def job_status(job, valid_returns=["running", "success", "failed"]):
                 try:
                     # this command shall return "success", "failed" or "running"
-                    return (
-                        subprocess.check_output(
-                            "{statuscmd} {jobid}".format(
-                                jobid=job.jobid, statuscmd=self.statuscmd
-                            ),
-                            shell=True,
-                        )
-                        .decode()
-                        .split("\n")[0]
-                    )
+                    ret = subprocess.check_output(
+                        "{statuscmd} {jobid}".format(
+                            jobid=job.jobid, statuscmd=self.statuscmd
+                        ),
+                        shell=True,
+                    ).decode()
                 except subprocess.CalledProcessError as e:
                     if e.returncode < 0:
                         # Ignore SIGINT and all other issues due to signals
@@ -1090,12 +1093,30 @@ class GenericClusterExecutor(ClusterExecutor):
                         # snakemake.
                         # Snakemake will handle the signal in
                         # the main process.
-                        pass
+                        status_cmd_kills.add(e.returncode)
+                        if len(status_cmd_kills) > 10:
+                            logger.info(
+                                "Cluster status command {} was killed >10 times with signal(s) {} "
+                                "(if this happens unexpectedly during your workflow execution, "
+                                "have a closer look.).".format(
+                                    self.statuscmd, ",".join(status_cmd_kills)
+                                )
+                            )
+                            status_cmd_kills.clear()
                     else:
                         raise WorkflowError(
                             "Failed to obtain job status. "
                             "See above for error message."
                         )
+
+                ret = ret.strip().split("\n")
+                if len(ret) != 1 or ret[0] not in valid_returns:
+                    raise WorkflowError(
+                        "Cluster status command {} returned {} but just a single line with one of {} is expected.".format(
+                            self.statuscmd, "\\n".join(ret), ",".join(valid_returns)
+                        )
+                    )
+                return ret[0]
 
         else:
 
@@ -1383,6 +1404,8 @@ class DRMAAExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         import drmaa
 
+        suspended_msg = set()
+
         while True:
             with self.lock:
                 if not self.wait:
@@ -1393,9 +1416,7 @@ class DRMAAExecutor(ClusterExecutor):
             for active_job in active_jobs:
                 with self.status_rate_limiter:
                     try:
-                        retval = self.session.wait(
-                            active_job.jobid, drmaa.Session.TIMEOUT_NO_WAIT
-                        )
+                        retval = self.session.jobStatus(active_job.jobid)
                     except drmaa.ExitTimeoutException as e:
                         # job still active
                         still_running.append(active_job)
@@ -1408,20 +1429,40 @@ class DRMAAExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
                         continue
-                    # job exited
-                    os.remove(active_job.jobscript)
-                    if (
-                        not retval.wasAborted
-                        and retval.hasExited
-                        and retval.exitStatus == 0
-                    ):
+                    if retval == drmaa.JobState.DONE:
+                        os.remove(active_job.jobscript)
                         active_job.callback(active_job.job)
-                    else:
+                    elif retval == drmaa.JobState.FAILED:
+                        os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         self.print_cluster_job_error(
                             active_job, self.dag.jobid(active_job.job)
                         )
                         active_job.error_callback(active_job.job)
+                    else:
+                        # still running
+                        still_running.append(active_job)
+
+                        def handle_suspended(by):
+                            if active_job.job.jobid not in suspended_msg:
+                                logger.warning(
+                                    "Job {} (DRMAA id: {}) was suspended by {}.".format(
+                                        active_job.job.jobid, active_job.jobid, by
+                                    )
+                                )
+                                suspended_msg.add(active_job.job.jobid)
+
+                        if retval == drmaa.JobState.USER_SUSPENDED:
+                            handle_suspended("user")
+                        elif retval == drmaa.JobState.SYSTEM_SUSPENDED:
+                            handle_suspended("system")
+                        else:
+                            try:
+                                suspended_msg.remove(active_job.job.jobid)
+                            except KeyError:
+                                # there was nothing to remove
+                                pass
+
             with self.lock:
                 self.active_jobs.extend(still_running)
             sleep()

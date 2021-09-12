@@ -838,7 +838,9 @@ def parse_set_resources(args):
         "VALUE being a positive integer or a string."
     )
 
-    assignments = dict()
+    from collections import defaultdict
+
+    assignments = defaultdict(dict)
     if args.set_resources is not None:
         for entry in args.set_resources:
             key, value = parse_key_value_arg(entry, errmsg=errmsg)

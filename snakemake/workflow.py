@@ -223,6 +223,7 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
+        self.scheduler = None
 
         _globals = globals()
         _globals["workflow"] = self
@@ -738,6 +739,9 @@ class Workflow:
             or delete_temp_output,
         )
 
+        if self.mode in [Mode.subprocess, Mode.cluster]:
+            self.persistence.deactivate_cache()
+
         if cleanup_metadata:
             for f in cleanup_metadata:
                 self.persistence.cleanup_metadata(f)
@@ -974,7 +978,7 @@ class Workflow:
             self.persistence.spack_cleanup_envs()
             return True
 
-        scheduler = JobScheduler(
+        self.scheduler = JobScheduler(
             self,
             dag,
             local_cores=local_cores,
@@ -1077,7 +1081,7 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = scheduler.schedule()
+        success = self.scheduler.schedule()
 
         if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
@@ -1093,7 +1097,7 @@ class Workflow:
                 logger.remove_logfile()
             else:
                 if stats:
-                    scheduler.stats.to_json(stats)
+                    self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1376,16 +1380,22 @@ class Workflow:
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
+                if ruleinfo.shadow_depth not in (
+                    True,
+                    "shallow",
+                    "full",
+                    "minimal",
+                    "copy-minimal",
+                ):
                     raise RuleException(
-                        "Shadow must either be 'minimal', 'shallow', 'full', "
+                        "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
                         "or True (equivalent to 'full')",
                         rule=rule,
                     )
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|shallow|full' instead.".format(
+                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
                             rule
                         )
                     )
