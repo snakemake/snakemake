@@ -3,6 +3,7 @@ Tests for Snakemake’s API
 """
 from snakemake import snakemake
 import asyncio
+import sys
 import tempfile
 import os.path
 from textwrap import dedent
@@ -52,4 +53,7 @@ def test_run_script_directive_async():
         async_run(dummy_task())
         test_run_script_directive()
 
-    async_run(main())
+    if sys.version_info < (3, 7):
+        async_run(main())
+    else:
+        asyncio.run(main())
