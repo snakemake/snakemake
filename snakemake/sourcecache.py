@@ -18,6 +18,21 @@ from snakemake.io import git_content
 # TODO also use sourcecache for script and wrapper code!
 
 
+class github:
+    """Marker for denoting github source files from releases."""
+    valid_repo = re.compile("^.+/.+$")
+
+    def __init__(self, repo, path, tag):
+        if not github.valid_repo.match(repo):
+            raise WorkflowError("Repo {} is not a valid repo specification (must be given as owner/name).")
+        self.repo = repo
+        self.tag = tag
+        self.path = path.strip("/")
+
+    def get_url(self):
+        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.tag, self.path)
+
+
 class SourceCache:
     cache_whitelist = [
         "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
@@ -39,9 +54,11 @@ class SourceCache:
 
     def is_persistently_cacheable(self, path_or_uri):
         # TODO remove special git url handling once included in smart_open
+        if isinstance(path_or_uri, github):
+            return True
         if path_or_uri.startswith("git+file:"):
             return False
-        return is_local_file(path_or_uri) and self.cacheable_prefixes.match(path_or_uri)
+        return is_local_file(path_or_uri) or self.cacheable_prefixes.match(path_or_uri)
 
     def open(self, path_or_uri, mode="r"):
         cache_entry = self._cache(path_or_uri)
