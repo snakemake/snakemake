@@ -792,7 +792,8 @@ class ClusterExecutor(RealExecutor):
             )
         else:
             waitfiles_parameter = format(
-                "--wait-for-files {wait_for_files}", wait_for_files=[repr(f) for f in wait_for_files],
+                "--wait-for-files {wait_for_files}",
+                wait_for_files=[repr(f) for f in wait_for_files],
             )
 
         format_p = partial(
