@@ -438,6 +438,7 @@ class JobScheduler:
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
                     self._finish_jobs()
+                    self._error_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
