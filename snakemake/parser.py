@@ -1157,7 +1157,7 @@ class Python(TokenAutomaton):
 
 class Snakefile:
     def __init__(self, path, workflow, rulecount=0):
-        self.path = path
+        self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount

@@ -81,8 +81,9 @@ from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
-from snakemake.sourcecache import SourceCache
+from snakemake.sourcecache import GenericSourceFile, LocalSourceFile, SourceCache, SourceFile, infer_source_file
 from snakemake.deployment.conda import Conda
+from snakemake import sourcecache
 
 
 class Workflow:
@@ -226,6 +227,7 @@ class Workflow:
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
+        _globals["github"] = sourcecache.Github
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -1088,9 +1090,10 @@ class Workflow:
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
-        basedir = os.path.dirname(self.included_stack[-1])
-        if is_local_file(basedir):
-            return os.path.abspath(basedir)
+        snakefile = self.included_stack[-1]
+        basedir = snakefile.get_basedir()
+        if isinstance(basedir, LocalSourceFile):
+            return basedir.abspath()
         else:
             return basedir
 
@@ -1141,16 +1144,8 @@ class Workflow:
         """
         Include a snakefile.
         """
-        if isinstance(snakefile, Path):
-            snakefile = str(snakefile)
-
-        # check if snakefile is a path to the filesystem
-        if is_local_file(snakefile):
-            if not os.path.isabs(snakefile) and self.included_stack:
-                snakefile = smart_join(self.current_basedir, snakefile)
-            # Could still be a url if relative import was used
-            if is_local_file(snakefile):
-                snakefile = os.path.abspath(snakefile)
+        basedir = self.current_basedir if self.included_stack else None
+        snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
@@ -1170,13 +1165,14 @@ class Workflow:
         if print_compilation:
             print(code)
 
-        # insert the current directory into sys.path
-        # this allows to import modules from the workflow directory
-        sys.path.insert(0, os.path.dirname(snakefile))
+        if isinstance(snakefile, LocalSourceFile):
+            # insert the current directory into sys.path
+            # this allows to import modules from the workflow directory
+            sys.path.insert(0, snakefile.get_basedir())
 
         self.linemaps[snakefile] = linemap
 
-        exec(compile(code, snakefile, "exec"), self.globals)
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_first_rule:
             self.first_rule = first_rule
