@@ -11,10 +11,8 @@ import sys
 import os
 import json
 import threading
-import tempfile
 from functools import partial
 import inspect
-import traceback
 import textwrap
 
 from snakemake.common import DYNAMIC_FILL
