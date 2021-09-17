@@ -16,6 +16,7 @@ from retrying import retry
 from snakemake.common import is_local_file, get_appdirs, smart_join
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.io import git_content, split_git_path
+from snakemake.logging import logger
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
