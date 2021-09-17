@@ -92,7 +92,7 @@ class LocalSourceFile(SourceFile):
         return os.path.basename(self.path)
 
     def abspath(self):
-        return os.path.abspath(self.path)
+        return LocalSourceFile(os.path.abspath(self.path))
 
 
 class LocalGitFile(SourceFile):
