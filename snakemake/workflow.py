@@ -81,7 +81,13 @@ from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
-from snakemake.sourcecache import GenericSourceFile, LocalSourceFile, SourceCache, SourceFile, infer_source_file
+from snakemake.sourcecache import (
+    GenericSourceFile,
+    LocalSourceFile,
+    SourceCache,
+    SourceFile,
+    infer_source_file,
+)
 from snakemake.deployment.conda import Conda
 from snakemake import sourcecache
 

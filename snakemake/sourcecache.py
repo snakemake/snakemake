@@ -14,17 +14,25 @@ from abc import ABC, abstractmethod
 
 from snakemake.common import is_local_file, get_appdirs, smart_join
 from snakemake.exceptions import WorkflowError, SourceFileError
-from snakemake.io import git_content
+from snakemake.io import git_content, split_git_path
 
 
 # TODO also use sourcecache for script and wrapper code!
+
+
+def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
+    n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
+    if n_refs != 1:
+        raise SourceFileError(
+            "exactly one of tag, branch, or commit must be specified."
+        )
 
 
 class SourceFile(ABC):
     @abstractmethod
     def get_path_or_uri(self):
         ...
-    
+
     @abstractmethod
     def is_persistently_cacheable(self):
         ...
@@ -37,7 +45,11 @@ class SourceFile(ABC):
     def get_basedir(self):
         path = os.path.dirname(self.get_path_or_uri())
         return self.__class__(path)
-    
+
+    @abstractmethod
+    def get_filename(self):
+        ...
+
     def join(self, path):
         return self.__class__(smart_join(self.get_path_or_uri(), path))
 
@@ -60,6 +72,9 @@ class GenericSourceFile(SourceFile):
     def get_path_or_uri(self):
         return self.path_or_uri
 
+    def get_filename(self):
+        return os.path.basename(self.path_or_uri)
+
     def is_persistently_cacheable(self):
         return False
 
@@ -74,46 +89,79 @@ class LocalSourceFile(SourceFile):
     def is_persistently_cacheable(self):
         return False
 
+    def get_filename(self):
+        return os.path.basename(self.path)
+
     def abspath(self):
         return os.path.abspath(self.path)
 
 
-def infer_source_file(path_or_uri, basedir: SourceFile=None):
-    if isinstance(path_or_uri, SourceFile):
-        return path_or_uri
-    if isinstance(path_or_uri, Path):
-        path_or_uri = str(path_or_uri)
-    if not isinstance(path_or_uri, str):
-        raise SourceFileError("must be given as Python string or one of the predefined source file marker types (see docs)")
-    if is_local_file(path_or_uri):
-        # either local file or relative to some remote basedir
-        if not os.path.isabs(path_or_uri) and basedir is not None:
-            return basedir.join(path_or_uri)
-        return LocalSourceFile(path_or_uri)
-    # something else
-    return GenericSourceFile(path_or_uri)
+class LocalGitFile(SourceFile):
+    def __init__(
+        self, repo_path, path: str, tag: str = None, ref: str = None, commit: str = None
+    ):
+        _check_git_args(tag, ref, commit)
+        self.tag = tag
+        self.commit = commit
+        self._ref = ref
+        self.repo_path = repo_path
+        self.path = path
+
+    def get_path_or_uri(self):
+        return "git+{}/{}@{}".format(self.repo_path, self.path, self.ref)
+
+    def join(self, path):
+        return LocalGitFile(
+            self.repo_path,
+            "/".join(self.path, path),
+            tag=self.tag,
+            ref=self.ref,
+            commit=self.commit,
+        )
+
+    def is_persistently_cacheable(self):
+        False
+
+    def get_filename(self):
+        return os.path.basename(self.path)
+
+    @property
+    def ref(self):
+        return self.tag or self.commit or self._ref
 
 
 class Github(SourceFile):
     """Marker for denoting github source files from releases."""
+
     valid_repo = re.compile("^.+/.+$")
 
-    def __init__(self, repo: str, path: str, tag: str=None, branch: str=None, commit: str=None):
+    def __init__(
+        self,
+        repo: str,
+        path: str,
+        tag: str = None,
+        branch: str = None,
+        commit: str = None,
+    ):
         if not Github.valid_repo.match(repo):
-            raise SourceFileError("repo {} is not a valid repo specification (must be given as owner/name).")
+            raise SourceFileError(
+                "repo {} is not a valid repo specification (must be given as owner/name)."
+            )
 
-        n_refs = sum(1 for ref in (tag, branch, commit) if ref is not None)
-        if n_refs != 1:
-            raise SourceFileError("exactly one of tag, branch, or commit must be specified.")
+        _check_git_args(tag, branch, commit)
 
         if path is None:
             raise SourceFileError("path must be given")
 
-        if not all(isinstance(item, str) for item in (repo, path, tag, branch, commit) if item is not None):
+        if not all(
+            isinstance(item, str)
+            for item in (repo, path, tag, branch, commit)
+            if item is not None
+        ):
             raise SourceFileError("arguments must be given as str.")
 
         self.repo = repo
-        self.tag = tag 
+        self.tag = tag
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
@@ -124,16 +172,52 @@ class Github(SourceFile):
     def is_persistently_cacheable(self):
         return self.tag or self.commit
 
+    def get_filename(self):
+        return os.path.basename(self.path)
+
     @property
     def ref(self):
         return self.tag or self.commit or self.branch
 
     def get_basedir(self):
-        return Github(repo=self.repo, path=os.path.dirname(self.path), tag=self.tag, commit=self.commit, branch=self.branch)
+        return Github(
+            repo=self.repo,
+            path=os.path.dirname(self.path),
+            tag=self.tag,
+            commit=self.commit,
+            branch=self.branch,
+        )
 
     def join(self, path):
         path = os.path.normpath("{}/{}".format(self.path, path))
-        return Github(repo=self.repo, path=path, tag=self.tag, commit=self.commit, branch=self.branch)
+        return Github(
+            repo=self.repo,
+            path=path,
+            tag=self.tag,
+            commit=self.commit,
+            branch=self.branch,
+        )
+
+
+def infer_source_file(path_or_uri, basedir: SourceFile = None):
+    if isinstance(path_or_uri, SourceFile):
+        return path_or_uri
+    if isinstance(path_or_uri, Path):
+        path_or_uri = str(path_or_uri)
+    if not isinstance(path_or_uri, str):
+        raise SourceFileError(
+            "must be given as Python string or one of the predefined source file marker types (see docs)"
+        )
+    if is_local_file(path_or_uri):
+        # either local file or relative to some remote basedir
+        if not os.path.isabs(path_or_uri) and basedir is not None:
+            return basedir.join(path_or_uri)
+        return LocalSourceFile(path_or_uri)
+    if path_or_uri.startswith("git+file:"):
+        root_path, file_path, ref = split_git_path(path_or_uri)
+        return LocalGitFile(root_path, file_path, ref=ref)
+    # something else
+    return GenericSourceFile(path_or_uri)
 
 
 class SourceCache:
@@ -141,15 +225,24 @@ class SourceCache:
         "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
-    def __init__(self):
+    def __init__(self, runtime_cache_path=None):
         self.cache = Path(
             os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
         )
         os.makedirs(self.cache, exist_ok=True)
-        self.runtime_cache = tempfile.TemporaryDirectory(
-            suffix="snakemake-runtime-source-cache"
-        )
+        if runtime_cache_path is None:
+            self.runtime_cache = tempfile.TemporaryDirectory(
+                suffix="snakemake-runtime-source-cache"
+            )
+            self._runtime_cache_path = None
+        else:
+            self._runtime_cache_path = runtime_cache_path
+            self.runtime_cache = None
         self.cacheable_prefixes = re.compile("|".join(self.cache_whitelist))
+
+    @property
+    def runtime_cache_path(self):
+        return self._runtime_cache_path or self.runtime_cache.name
 
     def lock_cache(self, entry):
         from filelock import FileLock
@@ -159,6 +252,13 @@ class SourceCache:
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
         return self._open(cache_entry, mode)
+
+    def exists(self, source_file):
+        try:
+            self.open(source_file)
+        except:
+            return False
+        return True
 
     def get_path(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
@@ -173,7 +273,7 @@ class SourceCache:
             return self.cache / urihash
         else:
             # check runtime cache
-            return Path(self.runtime_cache.name) / urihash
+            return Path(self.runtime_cache_path) / urihash
 
     def _cache(self, source_file):
         cache_entry = self._cache_entry(source_file)
@@ -189,8 +289,17 @@ class SourceCache:
     def _open(self, path_or_uri, mode):
         from smart_open import open
 
-        if str(path_or_uri).startswith("git+file:"):
-            return io.BytesIO(git_content(path_or_uri).encode())
+        if isinstance(path_or_uri, LocalGitFile):
+            import git
+
+            return io.BytesIO(
+                git.Repo(path_or_uri.repo_path)
+                .git.show("{}:{}".format(path_or_uri.ref, path_or_uri.path))
+                .encode()
+            )
+
+        if isinstance(path_or_uri, SourceFile):
+            path_or_uri = path_or_uri.get_path_or_uri()
 
         try:
             return open(path_or_uri, mode)

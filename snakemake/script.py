@@ -6,6 +6,8 @@ __license__ = "MIT"
 import inspect
 import itertools
 import os
+from snakemake import sourcecache
+from snakemake.sourcecache import SourceCache, infer_source_file
 import tempfile
 import textwrap
 import sys
@@ -1235,53 +1237,46 @@ def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     return head, tail
 
 
-def get_source(path, basedir=".", wildcards=None, params=None):
-    source = None
-    if not path.startswith("http") and not path.startswith("git+file"):
-        if path.startswith("file://"):
-            path = path[7:]
-        elif path.startswith("file:"):
-            path = path[5:]
-        if not os.path.isabs(path):
-            path = smart_join(basedir, path, abspath=True)
-        if is_local_file(path):
-            path = "file://" + path
+def get_source(
+    path,
+    sourcecache: sourcecache.SourceCache,
+    basedir=None,
+    wildcards=None,
+    params=None,
+):
     if wildcards is not None and params is not None:
         # Format path if wildcards are given.
         path = format(path, wildcards=wildcards, params=params)
-    if path.startswith("file://"):
-        sourceurl = "file:" + pathname2url(path[7:])
-    elif path.startswith("git+file"):
-        source = git_content(path).encode()
-        (root_path, file_path, version) = split_git_path(path)
-        path = path.rstrip("@" + version)
-    else:
-        sourceurl = path
 
-    if source is None:
-        with urlopen(sourceurl) as source:
-            source = source.read()
+    if basedir is not None:
+        basedir = infer_source_file(basedir)
 
-    language = get_language(path, source)
+    source_file = infer_source_file(path, basedir)
+    with sourcecache.open(source_file) as f:
+        source = f.read()
+
+    language = get_language(source_file, source)
 
     return path, source, language
 
 
-def get_language(path, source):
+def get_language(source_file, source):
     import nbformat
 
+    filename = source_file.get_filename()
+
     language = None
-    if path.endswith(".py"):
+    if filename.endswith(".py"):
         language = "python"
-    elif path.endswith(".ipynb"):
+    elif filename.endswith(".ipynb"):
         language = "jupyter"
-    elif path.endswith(".R"):
+    elif filename.endswith(".R"):
         language = "r"
-    elif path.endswith(".Rmd"):
+    elif filename.endswith(".Rmd"):
         language = "rmarkdown"
-    elif path.endswith(".jl"):
+    elif filename.endswith(".jl"):
         language = "julia"
-    elif path.endswith(".rs"):
+    elif filename.endswith(".rs"):
         language = "rust"
 
     # detect kernel language for Jupyter Notebooks
@@ -1322,11 +1317,15 @@ def script(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
+    runtime_sourcecache_path,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir, wildcards, params)
+
+    path, source, language = get_source(
+        path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+    )
 
     exec_class = {
         "python": PythonScript,

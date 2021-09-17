@@ -35,6 +35,7 @@ def cwl(
     use_singularity,
     bench_record,
     jobid,
+    runtime_sourcecache_path,
 ):
     """
     Load cwl from the given basedir + path and execute it.
