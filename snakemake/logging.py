@@ -131,7 +131,7 @@ class WMSLogger:
         from snakemake.resources import parse_resources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = parse_resources(args) or []
+        self.args = args or []
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
