@@ -62,3 +62,4 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
+  - retrying

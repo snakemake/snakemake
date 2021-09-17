@@ -10,14 +10,12 @@ import os
 import tempfile
 import io
 from abc import ABC, abstractmethod
+from retrying import retry
 
 
 from snakemake.common import is_local_file, get_appdirs, smart_join
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.io import git_content, split_git_path
-
-
-# TODO also use sourcecache for script and wrapper code!
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -255,7 +253,7 @@ class SourceCache:
 
     def exists(self, source_file):
         try:
-            self.open(source_file)
+            self._cache(source_file)
         except:
             return False
         return True
@@ -279,12 +277,16 @@ class SourceCache:
         cache_entry = self._cache_entry(source_file)
         with self.lock_cache(cache_entry):
             if not cache_entry.exists():
-                # open from origin
-                with self._open(source_file.get_path_or_uri(), "rb") as source, open(
-                    cache_entry, "wb"
-                ) as cache_source:
-                    cache_source.write(source.read())
+                self._do_cache(source_file, cache_entry)
         return cache_entry
+
+    @retry(stop_max_delay=2000, wait_fixed=500)
+    def _do_cache(self, source_file, cache_entry):
+        # open from origin
+        with self._open(source_file.get_path_or_uri(), "rb") as source, open(
+            cache_entry, "wb"
+        ) as cache_source:
+            cache_source.write(source.read())
 
     def _open(self, path_or_uri, mode):
         from smart_open import open
