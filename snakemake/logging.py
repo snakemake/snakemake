@@ -128,8 +128,6 @@ class WMSLogger:
         workflow will already be running and it would not be worth stopping it.
         """
 
-        from snakemake.resources import parse_resources
-
         self.address = address or "http:127.0.0.1:5000"
         self.args = args or []
         self.metadata = metadata or {}
