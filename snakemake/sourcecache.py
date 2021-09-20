@@ -7,6 +7,7 @@ import hashlib
 from pathlib import Path
 import re
 import os
+from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
@@ -63,6 +64,9 @@ class SourceFile(ABC):
     def __str__(self):
         return self.get_path_or_uri()
 
+    def simplify_path(self):
+        return self
+
 
 class GenericSourceFile(SourceFile):
     def __init__(self, path_or_uri):
@@ -96,6 +100,9 @@ class LocalSourceFile(SourceFile):
 
     def isabs(self):
         return os.path.isabs(self.path)
+
+    def simplify_path(self):
+        return utils.simplify_path(self.path)
 
 
 class LocalGitFile(SourceFile):

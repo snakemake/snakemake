@@ -266,13 +266,13 @@ class Env:
             if dryrun:
                 logger.info(
                     "Incomplete Conda environment {} will be recreated.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
             else:
                 logger.info(
                     "Removing incomplete Conda environment {}...".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 shutil.rmtree(env_path, ignore_errors=True)
@@ -282,14 +282,14 @@ class Env:
             if dryrun:
                 logger.info(
                     "Conda environment {} will be created.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 return env_path
             conda = Conda(self._container_img)
             logger.info(
                 "Creating conda environment {}...".format(
-                    utils.simplify_path(self.file)
+                    self.file.simplify_path()
                 )
             )
             # Check if env archive exists. Use that if present.
