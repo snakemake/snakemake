@@ -288,9 +288,7 @@ class Env:
                 return env_path
             conda = Conda(self._container_img)
             logger.info(
-                "Creating conda environment {}...".format(
-                    self.file.simplify_path()
-                )
+                "Creating conda environment {}...".format(self.file.simplify_path())
             )
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
