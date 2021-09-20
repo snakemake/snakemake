@@ -1873,4 +1873,4 @@ def srcdir(path):
     """Return the absolute path, relative to the source directory of the current Snakefile."""
     if not workflow.included_stack:
         return None
-    return os.path.join(os.path.dirname(workflow.included_stack[-1]), path)
+    return workflow.current_basedir.join(path).get_path_or_uri()
