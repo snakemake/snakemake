@@ -1260,14 +1260,14 @@ class Workflow:
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
-            schema = os.path.join(self.current_basedir, schema)
+            schema = self.current_basedir.join(schema)
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """Define a global report description in .rst format."""
-        self.report_text = os.path.join(self.current_basedir, path)
+        self.report_text = self.current_basedir.join(path)
 
     @property
     def config(self):
@@ -1463,9 +1463,7 @@ class Workflow:
                 if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
                     ruleinfo.conda_env
                 ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
+                    ruleinfo.conda_env = self.current_basedir.join(ruleinfo.conda_env).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
