@@ -113,7 +113,7 @@ def wrapper(
     the given path + wrapper.(py|R|Rmd) and execute it.
     """
     path = get_script(
-        path, SourceCache(runtime_path=runtime_sourcecache_path), prefix=prefix
+        path, SourceCache(runtime_cache_path=runtime_sourcecache_path), prefix=prefix
     )
     script(
         path,
