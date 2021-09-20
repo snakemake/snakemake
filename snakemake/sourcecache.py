@@ -51,6 +51,8 @@ class SourceFile(ABC):
         ...
 
     def join(self, path):
+        if isinstance(path, SourceFile):
+            path = path.get_path_or_uri()
         return self.__class__(smart_join(self.get_path_or_uri(), path))
 
     def __hash__(self):
