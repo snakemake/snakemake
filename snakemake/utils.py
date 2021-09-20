@@ -63,9 +63,13 @@ def validate(data, schema, set_default=True):
         if workflow:
             schemafile = workflow.current_basedir.join(schemafile)
 
-    source = workflow.sourcecache.open(schemafile) if workflow else schemafile
+    source = (
+        workflow.sourcecache.open(schemafile)
+        if workflow
+        else schemafile.get_path_or_uri()
+    )
     schema = _load_configfile(source, filetype="Schema")
-    if is_local_file(schemafile):
+    if isinstance(schemafile, LocalSourceFile):
         resolver = RefResolver(
             urljoin("file:", schemafile),
             schema,
@@ -75,7 +79,7 @@ def validate(data, schema, set_default=True):
         )
     else:
         resolver = RefResolver(
-            schemafile,
+            schemafile.get_path_or_uri(),
             schema,
         )
 
