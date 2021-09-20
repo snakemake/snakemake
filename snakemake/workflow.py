@@ -1174,7 +1174,7 @@ class Workflow:
         if isinstance(snakefile, LocalSourceFile):
             # insert the current directory into sys.path
             # this allows to import modules from the workflow directory
-            sys.path.insert(0, snakefile.get_basedir())
+            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
         self.linemaps[snakefile] = linemap
 
