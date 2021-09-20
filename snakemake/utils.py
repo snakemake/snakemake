@@ -71,7 +71,7 @@ def validate(data, schema, set_default=True):
     schema = _load_configfile(source, filetype="Schema")
     if isinstance(schemafile, LocalSourceFile):
         resolver = RefResolver(
-            urljoin("file:", schemafile),
+            urljoin("file:", schemafile.get_path_or_uri()),
             schema,
             handlers={
                 "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
