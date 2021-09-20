@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from retrying import retry
 
 
-from snakemake.common import is_local_file, get_appdirs, smart_join
+from snakemake.common import is_local_file, get_appdirs, parse_uri, smart_join
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.io import git_content, split_git_path
 from snakemake.logging import logger
@@ -221,6 +221,10 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
         )
     if is_local_file(path_or_uri):
         # either local file or relative to some remote basedir
+        for schema in ("file://", "file:"):
+            if path_or_uri.startswith(schema):
+                path_or_uri = path_or_uri[len(schema) :]
+                break
         if not os.path.isabs(path_or_uri) and basedir is not None:
             return basedir.join(path_or_uri)
         return LocalSourceFile(path_or_uri)
