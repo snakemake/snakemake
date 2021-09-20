@@ -7,7 +7,12 @@ import inspect
 import itertools
 import os
 from snakemake import sourcecache
-from snakemake.sourcecache import LocalSourceFile, SourceCache, infer_source_file
+from snakemake.sourcecache import (
+    LocalSourceFile,
+    SourceCache,
+    SourceFile,
+    infer_source_file,
+)
 import tempfile
 import textwrap
 import sys
@@ -1233,8 +1238,10 @@ def get_source(
     params=None,
 ):
     if wildcards is not None and params is not None:
+        if isinstance(path, SourceFile):
+            path = path.get_path_or_uri()
         # Format path if wildcards are given.
-        path = format(path, wildcards=wildcards, params=params)
+        path = infer_source_file(format(path, wildcards=wildcards, params=params))
 
     if basedir is not None:
         basedir = infer_source_file(basedir)
