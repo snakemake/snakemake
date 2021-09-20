@@ -122,14 +122,14 @@ class LocalGitFile(SourceFile):
     def join(self, path):
         return LocalGitFile(
             self.repo_path,
-            "/".join(self.path, path),
+            "/".join((self.path, path)),
             tag=self.tag,
             ref=self.ref,
             commit=self.commit,
         )
 
     def is_persistently_cacheable(self):
-        False
+        return False
 
     def get_filename(self):
         return os.path.basename(self.path)
