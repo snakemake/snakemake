@@ -58,10 +58,9 @@ def validate(data, schema, set_default=True):
 
     schemafile = infer_source_file(schema)
 
-    if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs():
+    if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        if workflow:
-            schemafile = workflow.current_basedir.join(schemafile)
+        schemafile = workflow.current_basedir.join(schemafile)
 
     source = (
         workflow.sourcecache.open(schemafile)

@@ -265,7 +265,7 @@ class SourceCache:
     def exists(self, source_file):
         try:
             self._cache(source_file)
-        except:
+        except Exception:
             return False
         return True
 
