@@ -94,6 +94,9 @@ class LocalSourceFile(SourceFile):
     def abspath(self):
         return LocalSourceFile(os.path.abspath(self.path))
 
+    def isabs(self):
+        return os.path.isabs(self.path)
+
 
 class LocalGitFile(SourceFile):
     def __init__(

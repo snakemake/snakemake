@@ -1260,7 +1260,7 @@ class Workflow:
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
-            schema = self.current_basedir.join(schema)
+            schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
@@ -1460,10 +1460,14 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
-                    ruleinfo.conda_env
-                ):
-                    ruleinfo.conda_env = self.current_basedir.join(ruleinfo.conda_env).get_path_or_uri()
+
+                if ruleinfo.conda_env is not None:
+                    if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
+                        ruleinfo.conda_env
+                    ):
+                        ruleinfo.conda_env = self.current_basedir.join(
+                            ruleinfo.conda_env
+                        ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (

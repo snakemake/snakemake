@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -45,7 +46,7 @@ class Env:
     def __init__(
         self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
     ):
-        self.file = env_file
+        self.file = infer_source_file(env_file)
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -161,7 +162,9 @@ class Env:
         try:
             # Download
             logger.info(
-                "Downloading packages for conda environment {}...".format(self.file)
+                "Downloading packages for conda environment {}...".format(
+                    self.file.get_path_or_uri()
+                )
             )
             os.makedirs(env_archive, exist_ok=True)
             try:
@@ -216,11 +219,16 @@ class Env:
         env_file = self.file
         tmp_file = None
 
-        if not is_local_file(env_file) or env_file.startswith("git+file:/"):
+        if not isinstance(env_file, LocalSourceFile) or isinstance(
+            env_file, LocalGitFile
+        ):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
+                # write to temp file such that conda can open it
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_file = tmp.name
+        else:
+            env_file = env_file.get_path_or_uri()
 
         env_hash = self.hash
         env_path = self.path
