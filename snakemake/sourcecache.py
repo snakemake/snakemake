@@ -11,7 +11,6 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from retrying import retry
 
 
 from snakemake.common import is_local_file, get_appdirs, parse_uri, smart_join
@@ -297,7 +296,6 @@ class SourceCache:
                 self._do_cache(source_file, cache_entry)
         return cache_entry
 
-    @retry(stop_max_delay=2000, wait_fixed=500)
     def _do_cache(self, source_file, cache_entry):
         # open from origin
         with self._open(source_file.get_path_or_uri(), "rb") as source, open(
