@@ -227,7 +227,9 @@ We add the following rule beneath the ``bwa_map`` rule:
 
 .. sidebar:: Note
 
-  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
+  In the shell command above we split the string into two lines, which are however automatically concatenated into one by Python.
+  This is a handy pattern to avoid too long shell command lines. When using this, make sure to have a trailing whitespace in each line but the last, 
+  in order to avoid arguments to become not properly separated.
 
 This rule will take the input file from the ``mapped_reads`` directory and store a sorted version in the ``sorted_reads`` directory.
 Note that Snakemake **automatically creates missing directories** before jobs are executed.
@@ -235,18 +237,9 @@ For sorting, ``samtools`` requires a prefix specified with the flag ``-T``.
 Here, we need the value of the wildcard ``sample``.
 Snakemake allows to access wildcards in the shell command via the ``wildcards`` object that has an attribute with the value for each wildcard.
 
-.. note::
+.. sidebar:: Note
 
-  When **splitting long shell commands across multiple lines**, make sure to **include whitespace at the end of each line**.
-  As the strings from each line are simply concatenated, this can otherwise lead to erroneous shell commands and weird errors.
-  For example, further splitting the first of the commands in the current example should not be done like this:
-
-  .. code:: python
-
-      "samtools mpileup"
-      "-g -f {input.fa} {input.bam}"
-
-  This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
+  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
 
 When issuing
 
