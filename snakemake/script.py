@@ -369,7 +369,7 @@ class ScriptBase(ABC):
             os.makedirs(dir_, exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
-                suffix="." + os.path.basename(self.path), dir=dir_, delete=False
+                suffix="." + self.path.get_filename(), dir=dir_, delete=False
             ) as fd:
                 self.write_script(preamble, fd)
 
@@ -449,7 +449,6 @@ class PythonScript(ScriptBase):
         is_local,
         preamble_addendum="",
     ):
-        wrapper_path = path
         snakemake = Snakemake(
             input_,
             output,
@@ -461,7 +460,7 @@ class PythonScript(ScriptBase):
             config,
             rulename,
             bench_iteration,
-            os.path.dirname(wrapper_path),
+            path.get_basedir().get_path_or_uri(),
         )
         snakemake = pickle.dumps(snakemake)
         # Obtain search path for current snakemake module.
@@ -473,7 +472,7 @@ class PythonScript(ScriptBase):
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpath += ", " + repr(os.path.dirname(path))
+            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
 
         return textwrap.dedent(
             """
@@ -489,10 +488,14 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-        wrapper_path = self.path
+
+        if isinstance(self.path, LocalSourceFile):
+            file_override = os.path.realpath(self.path.get_path_or_uri())
+        else:
+            file_override = self.path.get_path_or_uri()
         preamble_addendum = (
             "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(os.path.realpath(wrapper_path))
+                file_override=repr(file_override)
             )
         )
 
@@ -896,8 +899,6 @@ class RustScript(ScriptBase):
         is_local,
         preamble_addendum="",
     ):
-        wrapper_path = path[7:] if path.startswith("file://") else path
-
         # snakemake's namedlists will be encoded as a dict
         # which stores the not-named items at the key "positional"
         # and unpacks named items into the dict
@@ -927,7 +928,7 @@ class RustScript(ScriptBase):
             config=encode_namedlist(config.items()),
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=os.path.dirname(wrapper_path),
+            scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
         import json
