@@ -318,10 +318,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if is_local_file(f):
-                return parse_uri(f).uri_path
-            else:
-                return None
+            if not isinstance(f, SourceFile) and is_local_file(f):
+                return f
+            if isinstance(f, LocalSourceFile):
+                return f.get_path_or_uri()
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
