@@ -2445,14 +2445,19 @@ def run_wrapper(
         # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
-        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
-        lineno, file = get_exception_origin(ex, linemaps)
-        raise RuleException(
-            format_error(
-                ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+        origin = get_exception_origin(ex, linemaps)
+        if origin is not None:
+            log_verbose_traceback(ex)
+            lineno, file = origin
+            raise RuleException(
+                format_error(
+                    ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+                )
             )
-        )
+        else:
+            # some internal bug, just reraise
+            raise ex
 
     if benchmark is not None:
         try:
