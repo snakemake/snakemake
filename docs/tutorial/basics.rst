@@ -113,6 +113,10 @@ In other words, Snakemake will replace ``{input}`` with ``data/genome.fa data/sa
 The shell command invokes ``bwa mem`` with reference genome and reads, and pipes the output into ``samtools`` which creates a compressed `BAM <https://en.wikipedia.org/wiki/Binary_Alignment_Map>`_ file containing the alignments.
 The output of ``samtools`` is redirected into the output file defined by the rule with ``>``.
 
+.. sidebar:: Note
+
+  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
+
 When a workflow is executed, Snakemake tries to generate given **target** files.
 Target files can be specified via the command line.
 By executing
@@ -245,10 +249,6 @@ When issuing
 
 you will see how Snakemake wants to run first the rule ``bwa_map`` and then the rule ``samtools_sort`` to create the desired target file:
 as mentioned before, the dependencies are resolved automatically by matching file names.
-
-.. sidebar:: Note
-
-  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
 
 Step 4: Indexing read alignments and visualizing the DAG of jobs
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
