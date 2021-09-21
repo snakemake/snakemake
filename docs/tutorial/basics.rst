@@ -237,10 +237,6 @@ For sorting, ``samtools`` requires a prefix specified with the flag ``-T``.
 Here, we need the value of the wildcard ``sample``.
 Snakemake allows to access wildcards in the shell command via the ``wildcards`` object that has an attribute with the value for each wildcard.
 
-.. sidebar:: Note
-
-  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
-
 When issuing
 
 .. code:: console
@@ -249,6 +245,10 @@ When issuing
 
 you will see how Snakemake wants to run first the rule ``bwa_map`` and then the rule ``samtools_sort`` to create the desired target file:
 as mentioned before, the dependencies are resolved automatically by matching file names.
+
+.. sidebar:: Note
+
+  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
 
 Step 4: Indexing read alignments and visualizing the DAG of jobs
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
