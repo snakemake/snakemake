@@ -665,7 +665,7 @@ class RScript(ScriptBase):
             REncoder.encode_dict(config),
             REncoder.encode_value(rulename),
             REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(os.path.dirname(path)),
+            REncoder.encode_value(path.get_basedir().get_path_or_uri()),
             preamble_addendum=preamble_addendum,
         )
 
@@ -774,7 +774,7 @@ class RMarkdown(ScriptBase):
             REncoder.encode_dict(self.config),
             REncoder.encode_value(self.rulename),
             REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(os.path.dirname(self.path)),
+            REncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
         )
 
     def write_script(self, preamble, fd):
@@ -858,7 +858,7 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_dict(self.config),
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(os.path.dirname(self.path)),
+                JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
             ).replace(
                 "'", '"'
             )
@@ -943,7 +943,7 @@ class RustScript(ScriptBase):
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpath += ", " + repr(os.path.dirname(path))
+            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
 
         return textwrap.dedent(
             """
