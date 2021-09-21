@@ -360,6 +360,13 @@ But for now, this is enough so that we can add the following rule to our Snakefi
             "samtools mpileup -g -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
+With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
+This can be done by **specifying names for input or output files**, for example with ``fa=...``.
+The files can then be referred to in the shell command by name, for example with ``{input.fa}``.
+For **long shell commands** like this one, it is advisable to **split the string over multiple indented lines**.
+Python will automatically merge it into one.
+Further, you will notice that the **input or output file lists can contain arbitrary Python statements**, as long as it returns a string, or a list of strings.
+Here, we invoke our ``expand`` function to aggregate over the aligned reads of all samples.
 
 .. sidebar:: Note
 
@@ -373,16 +380,6 @@ But for now, this is enough so that we can add the following rule to our Snakefi
       "-g -f {input.fa} {input.bam}"
 
   This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
-
-
-With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
-This can be done by **specifying names for input or output files**, for example with ``fa=...``.
-The files can then be referred to in the shell command by name, for example with ``{input.fa}``.
-For **long shell commands** like this one, it is advisable to **split the string over multiple indented lines**.
-Python will automatically merge it into one.
-Further, you will notice that the **input or output file lists can contain arbitrary Python statements**, as long as it returns a string, or a list of strings.
-Here, we invoke our ``expand`` function to aggregate over the aligned reads of all samples.
-
 
 Exercise
 ........
