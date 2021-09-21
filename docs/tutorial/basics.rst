@@ -235,6 +235,19 @@ For sorting, ``samtools`` requires a prefix specified with the flag ``-T``.
 Here, we need the value of the wildcard ``sample``.
 Snakemake allows to access wildcards in the shell command via the ``wildcards`` object that has an attribute with the value for each wildcard.
 
+.. note::
+
+  When **splitting long shell commands across multiple lines**, make sure to **include whitespace at the end of each line**.
+  As the strings from each line are simply concatenated, this can otherwise lead to erroneous shell commands and weird errors.
+  For example, further splitting the first of the commands in the current example should not be done like this:
+
+  .. code:: python
+
+      "samtools mpileup"
+      "-g -f {input.fa} {input.bam}"
+
+  This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
+
 When issuing
 
 .. code:: console
@@ -368,18 +381,6 @@ Python will automatically merge it into one.
 Further, you will notice that the **input or output file lists can contain arbitrary Python statements**, as long as it returns a string, or a list of strings.
 Here, we invoke our ``expand`` function to aggregate over the aligned reads of all samples.
 
-.. sidebar:: Note
-
-  When **splitting long shell commands across multiple lines**, make sure to **include whitespace at the end of each line**.
-  As the strings from each line are simply concatenated, this can otherwise lead to erroneous shell commands and weird errors.
-  For example, further splitting the first of the commands in the current example should not be done like this:
-
-  .. code:: python
-
-      "samtools mpileup"
-      "-g -f {input.fa} {input.bam}"
-
-  This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
 
 Exercise
 ........
