@@ -253,11 +253,12 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(
+        path, source, language, is_local = get_source(
             path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
         )
     else:
         source = None
+        is_local = True
 
     exec_class = get_exec_class(language)
 
@@ -284,6 +285,7 @@ def notebook(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     )
 
     if draft:
