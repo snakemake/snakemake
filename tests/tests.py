@@ -802,6 +802,7 @@ def test_issue823():
     run(dpath("test_issue823_1"))
     run(dpath("test_issue823_2"))
 
+
 @skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
