@@ -153,6 +153,7 @@ class PythonJupyterNotebook(JupyterNotebook):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
 
