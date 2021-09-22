@@ -1,0 +1,33 @@
+rule all:
+    input:
+        "c.txt",
+
+checkpoint a:
+    output:
+        "a.txt"
+    shell:
+        "touch {output}"
+
+rule b1:
+    output:
+        pipe("b.pipe")
+    shell:
+        ""
+
+rule b2:
+    input:
+        pipe("b.pipe")
+    output:
+        "b.txt"
+    shell:
+        "touch {output}"
+
+rule c:
+    input:
+        "a.txt",
+        "b.txt",
+    output:
+        "c.txt"
+    shell:
+        "touch {output}"
+

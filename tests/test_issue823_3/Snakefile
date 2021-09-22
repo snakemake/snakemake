@@ -1,0 +1,10 @@
+rule all:
+    input:
+        "a.txt"
+
+checkpoint a:
+    output:
+        "a.txt"
+    shell:
+        "touch {output}"
+
