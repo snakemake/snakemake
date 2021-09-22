@@ -211,7 +211,10 @@ class Github(SourceFile):
 
 def infer_source_file(path_or_uri, basedir: SourceFile = None):
     if isinstance(path_or_uri, SourceFile):
-        return path_or_uri
+        if basedir is None:
+            return path_or_uri
+        else:
+            path_or_uri = path_or_uri.get_path_or_uri()
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
