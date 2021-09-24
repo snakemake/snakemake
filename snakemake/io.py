@@ -1345,11 +1345,11 @@ def git_content(git_file):
     """
     This function will extract a file from a git repository, one located on
     the filesystem.
-    Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    Expected format is git+file:///path/to/your/repo/path_to_file@version
 
     Args:
       env_file (str): consist of path to repo, @, version and file information
-                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+                      Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
     Returns:
         file content or None if the expected format isn't meet
     """
