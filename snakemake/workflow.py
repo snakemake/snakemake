@@ -233,7 +233,8 @@ class Workflow:
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
-        _globals["github"] = sourcecache.Github
+        _globals["github"] = sourcecache.GithubFile
+        _globals["gitlab"] = sourcecache.GitlabFile
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]

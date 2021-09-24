@@ -140,7 +140,7 @@ class LocalGitFile(SourceFile):
         return self.tag or self.commit or self._ref
 
 
-class Github(SourceFile):
+class HostingProviderFile(SourceFile):
     """Marker for denoting github source files from releases."""
 
     valid_repo = re.compile("^.+/.+$")
@@ -176,9 +176,6 @@ class Github(SourceFile):
         self.branch = branch
         self.path = path.strip("/")
 
-    def get_path_or_uri(self):
-        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
-
     def is_persistently_cacheable(self):
         return self.tag or self.commit
 
@@ -190,7 +187,7 @@ class Github(SourceFile):
         return self.tag or self.commit or self.branch
 
     def get_basedir(self):
-        return Github(
+        return self.__class__(
             repo=self.repo,
             path=os.path.dirname(self.path),
             tag=self.tag,
@@ -200,12 +197,36 @@ class Github(SourceFile):
 
     def join(self, path):
         path = os.path.normpath("{}/{}".format(self.path, path))
-        return Github(
+        return self.__class__(
             repo=self.repo,
             path=path,
             tag=self.tag,
             commit=self.commit,
             branch=self.branch,
+        )
+
+
+class GithubFile(HostingProviderFile):
+    def get_path_or_uri(self):
+        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
+
+
+class GitlabFile(HostingProviderFile):
+    def __init__(
+        self,
+        repo: str,
+        path: str,
+        tag: str = None,
+        branch: str = None,
+        commit: str = None,
+        host: str = None,
+    ):
+        super().__init__(repo, path, tag, branch, commit)
+        self.host = host
+
+    def get_path_or_uri(self):
+        return "https://{}/{}/-/raw/{}/{}".format(
+            self.host or "gitlab.com", self.repo, self.ref, self.path
         )
 
 
