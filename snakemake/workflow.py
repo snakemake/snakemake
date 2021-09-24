@@ -81,8 +81,15 @@ from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
-from snakemake.sourcecache import SourceCache
+from snakemake.sourcecache import (
+    GenericSourceFile,
+    LocalSourceFile,
+    SourceCache,
+    SourceFile,
+    infer_source_file,
+)
 from snakemake.deployment.conda import Conda
+from snakemake import sourcecache
 
 
 class Workflow:
@@ -217,6 +224,7 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
+        self.scheduler = None
 
         _globals = globals()
         _globals["workflow"] = self
@@ -225,6 +233,8 @@ class Workflow:
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
+        _globals["github"] = sourcecache.GithubFile
+        _globals["gitlab"] = sourcecache.GitlabFile
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -309,10 +319,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if is_local_file(f):
-                return parse_uri(f).uri_path
-            else:
-                return None
+            if not isinstance(f, SourceFile) and is_local_file(f):
+                return f
+            if isinstance(f, LocalSourceFile):
+                return f.get_path_or_uri()
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -731,6 +741,9 @@ class Workflow:
             or delete_temp_output,
         )
 
+        if self.mode in [Mode.subprocess, Mode.cluster]:
+            self.persistence.deactivate_cache()
+
         if cleanup_metadata:
             for f in cleanup_metadata:
                 self.persistence.cleanup_metadata(f)
@@ -955,7 +968,7 @@ class Workflow:
             self.persistence.conda_cleanup_envs()
             return True
 
-        scheduler = JobScheduler(
+        self.scheduler = JobScheduler(
             self,
             dag,
             local_cores=local_cores,
@@ -1055,7 +1068,7 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = scheduler.schedule()
+        success = self.scheduler.schedule()
 
         if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
@@ -1071,7 +1084,7 @@ class Workflow:
                 logger.remove_logfile()
             else:
                 if stats:
-                    scheduler.stats.to_json(stats)
+                    self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1086,9 +1099,10 @@ class Workflow:
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
-        basedir = os.path.dirname(self.included_stack[-1])
-        if is_local_file(basedir):
-            return os.path.abspath(basedir)
+        snakefile = self.included_stack[-1]
+        basedir = snakefile.get_basedir()
+        if isinstance(basedir, LocalSourceFile):
+            return basedir.abspath()
         else:
             return basedir
 
@@ -1101,7 +1115,7 @@ class Workflow:
         calling_file = frame.f_code.co_filename
         calling_dir = os.path.dirname(calling_file)
         path = smart_join(calling_dir, rel_path)
-        return self.sourcecache.get_path(path)
+        return self.sourcecache.get_path(infer_source_file(path))
 
     @property
     def snakefile(self):
@@ -1139,16 +1153,8 @@ class Workflow:
         """
         Include a snakefile.
         """
-        if isinstance(snakefile, Path):
-            snakefile = str(snakefile)
-
-        # check if snakefile is a path to the filesystem
-        if is_local_file(snakefile):
-            if not os.path.isabs(snakefile) and self.included_stack:
-                snakefile = smart_join(self.current_basedir, snakefile)
-            # Could still be a url if relative import was used
-            if is_local_file(snakefile):
-                snakefile = os.path.abspath(snakefile)
+        basedir = self.current_basedir if self.included_stack else None
+        snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
@@ -1168,13 +1174,14 @@ class Workflow:
         if print_compilation:
             print(code)
 
-        # insert the current directory into sys.path
-        # this allows to import modules from the workflow directory
-        sys.path.insert(0, os.path.dirname(snakefile))
+        if isinstance(snakefile, LocalSourceFile):
+            # insert the current directory into sys.path
+            # this allows to import modules from the workflow directory
+            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
         self.linemaps[snakefile] = linemap
 
-        exec(compile(code, snakefile, "exec"), self.globals)
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_first_rule:
             self.first_rule = first_rule
@@ -1256,14 +1263,14 @@ class Workflow:
 
         if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
-            schema = os.path.join(self.current_basedir, schema)
+            schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
         """Define a global report description in .rst format."""
-        self.report_text = os.path.join(self.current_basedir, path)
+        self.report_text = self.current_basedir.join(path)
 
     @property
     def config(self):
@@ -1354,16 +1361,22 @@ class Workflow:
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
+                if ruleinfo.shadow_depth not in (
+                    True,
+                    "shallow",
+                    "full",
+                    "minimal",
+                    "copy-minimal",
+                ):
                     raise RuleException(
-                        "Shadow must either be 'minimal', 'shallow', 'full', "
+                        "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
                         "or True (equivalent to 'full')",
                         rule=rule,
                     )
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|shallow|full' instead.".format(
+                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
                             rule
                         )
                     )
@@ -1450,12 +1463,15 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if is_local_file(ruleinfo.conda_env) and not os.path.isabs(
-                    ruleinfo.conda_env
+
+                if (
+                    ruleinfo.conda_env is not None
+                    and is_local_file(ruleinfo.conda_env)
+                    and not os.path.isabs(ruleinfo.conda_env)
                 ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
+                    ruleinfo.conda_env = self.current_basedir.join(
+                        ruleinfo.conda_env
+                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
@@ -1861,4 +1877,4 @@ def srcdir(path):
     """Return the absolute path, relative to the source directory of the current Snakefile."""
     if not workflow.included_stack:
         return None
-    return os.path.join(os.path.dirname(workflow.included_stack[-1]), path)
+    return workflow.current_basedir.join(path).get_path_or_uri()

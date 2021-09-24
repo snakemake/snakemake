@@ -736,6 +736,8 @@ Rust_
             "path/to/another/outputfile"
         params:
             seed=4
+        conda:
+            "rust.yaml"
         log:
             stdout="path/to/stdout.log",
             stderr="path/to/stderr.log",
@@ -745,6 +747,17 @@ Rust_
 The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
 script must be a valid ``rust-script`` script and ``rust-script`` must be available in the
 environment the rule is run in.
+The minimum required ``rust-script`` version is `1.15.0`, so in the example above, the contents of ``rust.yaml`` might look like this:
+
+.. code block:: yaml
+
+    channels:
+      - conda-forge
+      - bioconda
+    dependencies:
+      - rust-script>=0.15.0
+
+
 
 Some example scripts can be found in the
 `tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
@@ -995,11 +1008,21 @@ Note that any flag that forces re-creation of files still also applies to files 
 Shadow rules
 ------------
 
-Shadow rules result in each execution of the rule to be run in isolated temporary directories. This "shadow" directory contains symlinks to files and directories in the current workdir. This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow. It can also be useful if you want to keep your workdir clean while the program executes, or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
+Shadow rules result in each execution of the rule to be run in isolated temporary directories.
+This "shadow" directory contains symlinks to files and directories in the current workdir.
+This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow.
+It can also be useful if you want to keep your workdir clean while the program executes,
+or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
 
-By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
+By setting ``shadow: "shallow"``, the top level files and directories are symlinked,
+so that any relative paths in a subdirectory will be real paths in the filesystem.
+The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir.
+The setting ``shadow: "minimal"`` only symlinks the inputs to the rule,
+and ``shadow: "copy-minimal"`` copies the inputs instead of just creating symlinks.
+Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
-Typically, you will not need to modify your rule for compatibility with ``shadow``, unless you reference parent directories relative to your workdir in a rule.
+Typically, you will not need to modify your rule for compatibility with ``shadow``,
+unless you reference parent directories relative to your workdir in a rule.
 
 .. code-block:: python
 
@@ -1009,7 +1032,11 @@ Typically, you will not need to modify your rule for compatibility with ``shadow
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
 
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution. Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs. The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``,
+and are cleared on successful execution.
+Consider running with the ``--cleanup-shadow`` argument every now and then
+to remove any remaining shadow directories from aborted jobs.
+The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 Flag files
 ----------
@@ -1098,7 +1125,7 @@ This can be done by having them return ``dict()`` objects with the names as the 
 .. code-block:: python
 
     def myfunc(wildcards):
-        return { 'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)
+        return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
 
     rule:
         input: unpack(myfunc)

@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
 from itertools import chain
@@ -55,19 +56,21 @@ def validate(data, schema, set_default=True):
             "in order to use the validate directive."
         )
 
-    schemafile = schema
+    schemafile = infer_source_file(schema)
 
-    if not os.path.isabs(schemafile):
-        frame = inspect.currentframe().f_back
+    if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        if workflow:
-            schemafile = smart_join(workflow.current_basedir, schemafile)
+        schemafile = workflow.current_basedir.join(schemafile)
 
-    source = workflow.sourcecache.open(schemafile) if workflow else schemafile
+    source = (
+        workflow.sourcecache.open(schemafile)
+        if workflow
+        else schemafile.get_path_or_uri()
+    )
     schema = _load_configfile(source, filetype="Schema")
-    if is_local_file(schemafile):
+    if isinstance(schemafile, LocalSourceFile):
         resolver = RefResolver(
-            urljoin("file:", schemafile),
+            urljoin("file:", schemafile.get_path_or_uri()),
             schema,
             handlers={
                 "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
@@ -75,7 +78,7 @@ def validate(data, schema, set_default=True):
         )
     else:
         resolver = RefResolver(
-            schemafile,
+            schemafile.get_path_or_uri(),
             schema,
         )
 
