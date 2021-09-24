@@ -736,6 +736,8 @@ Rust_
             "path/to/another/outputfile"
         params:
             seed=4
+        conda:
+            "rust.yaml"
         log:
             stdout="path/to/stdout.log",
             stderr="path/to/stderr.log",
@@ -745,6 +747,17 @@ Rust_
 The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
 script must be a valid ``rust-script`` script and ``rust-script`` must be available in the
 environment the rule is run in.
+The minimum required ``rust-script`` version is `1.15.0`, so in the example above, the contents of ``rust.yaml`` might look like this:
+
+.. code block:: yaml
+
+    channels:
+      - conda-forge
+      - bioconda
+    dependencies:
+      - rust-script>=0.15.0
+
+
 
 Some example scripts can be found in the
 `tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
