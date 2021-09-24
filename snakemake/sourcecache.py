@@ -153,7 +153,7 @@ class HostingProviderFile(SourceFile):
         branch: str = None,
         commit: str = None,
     ):
-        if not Github.valid_repo.match(repo):
+        if not self.__class__.valid_repo.match(repo):
             raise SourceFileError(
                 "repo {} is not a valid repo specification (must be given as owner/name)."
             )
