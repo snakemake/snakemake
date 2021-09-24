@@ -555,6 +555,7 @@ class JobScheduler:
         # must be called from within lock
         for job in self._toerror:
             self._handle_error(job)
+        self._toerror.clear()
 
     def run(self, jobs, executor=None):
         if executor is None:
