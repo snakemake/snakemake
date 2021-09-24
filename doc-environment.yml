@@ -13,6 +13,7 @@ dependencies:
   - jsonschema
   - gitpython
   - sphinx
+  - pip
   - pip:
     - sphinxcontrib-napoleon
   - sphinx-argparse

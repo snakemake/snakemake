@@ -515,6 +515,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.edit_notebook,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.runtime_cache_path,
         )
 
     def run_single_job(self, job):
@@ -2296,6 +2297,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    runtime_sourcecache_path,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2376,6 +2378,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            runtime_sourcecache_path,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2406,6 +2409,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2434,20 +2438,26 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
-        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
-        lineno, file = get_exception_origin(ex, linemaps)
-        raise RuleException(
-            format_error(
-                ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+        origin = get_exception_origin(ex, linemaps)
+        if origin is not None:
+            log_verbose_traceback(ex)
+            lineno, file = origin
+            raise RuleException(
+                format_error(
+                    ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+                )
             )
-        )
+        else:
+            # some internal bug, just reraise
+            raise ex
 
     if benchmark is not None:
         try:
