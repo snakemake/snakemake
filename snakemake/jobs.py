@@ -289,6 +289,7 @@ class Job(AbstractJob):
 
     @group.setter
     def group(self, group):
+        print(group, type(group))
         self._group = group
 
     @property
