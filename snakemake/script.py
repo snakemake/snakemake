@@ -190,6 +190,8 @@ class REncoder:
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
+        elif isinstance(value, Path):
+            return str(value)
         elif isinstance(value, collections.abc.Iterable):
             # convert all iterables to vectors
             return cls.encode_list(value)
