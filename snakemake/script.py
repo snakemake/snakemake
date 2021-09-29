@@ -184,6 +184,8 @@ class REncoder:
             return "NULL"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -243,6 +245,8 @@ class JuliaEncoder:
             return "nothing"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
