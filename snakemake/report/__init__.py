@@ -261,7 +261,7 @@ class RuleRecord:
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
             _, source, language = script.get_source(
-                self._rule.script, self._rule.basedir
+                self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
             sources = [source.decode()]
         elif self._rule.wrapper is not None and not contains_wildcard(
@@ -270,7 +270,9 @@ class RuleRecord:
             logger.info("Loading wrapper code for rule {}".format(self.name))
             _, source, language = script.get_source(
                 wrapper.get_script(
-                    self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
+                    self._rule.wrapper,
+                    self._rule.workflow.sourcecache,
+                    prefix=self._rule.workflow.wrapper_prefix,
                 )
             )
             sources = [source.decode()]
@@ -278,7 +280,7 @@ class RuleRecord:
             self._rule.notebook
         ):
             _, source, language = script.get_source(
-                self._rule.notebook, self._rule.basedir
+                self._rule.notebook, self._rule.workflow.sourcecache, self._rule.basedir
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
