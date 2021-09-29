@@ -1,6 +1,7 @@
 import os
 
-# This test file is taken from Kubernetes - both use Google Cloud
+# This test file is adapted from this one:
+# https://github.com/snakemake/snakemake/blob/758fabdb64255f8ca79e9c1483ceab67eb39ff07/tests/test_google_lifesciences/Snakefile
 from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
 GS = GSRemoteProvider()
 
@@ -16,10 +17,6 @@ checkpoint copy:
     resources:
         mem_mb=100
     run:
-        # we could test volume size like this but it is currently unclear what f1-micro instances provide as boot disk size
-        #stats = os.statvfs('.')
-        #volume_gib = stats.f_bsize * stats.f_blocks / 1.074e9
-        #assert volume_gib > 90
         shell("cp {input} {output}")
 
 rule pack:
