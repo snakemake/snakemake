@@ -343,10 +343,18 @@ Resources are always meant to be specified as total per job, not by thread (i.e.
 In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check whether a job exceeds a certain resource.
 However, resources are used to determine which jobs can be executed at a time while not exceeding the given limits at the command line.
 If no limits are given, the resources are ignored in local execution.
+
 In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
 
+When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
+For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
+The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
+The only exception is ``runtime``.
+For it, ``max()`` will be used within each layer, then the total amount of time across all layers will be summed.
+If resource constraints are provided (via ``-resources`` or ``--cores``) Snakemake will prevent group jobs from requesting more than the constraint.
+Jobs that could otherwise be run in parallel will be run in series to prevent the violation of resource constraints.
 
 Resources can also be callables that return ``int`` or ``str`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
@@ -394,14 +402,16 @@ Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
 
+
+
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
+There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
 The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 
-Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
@@ -1662,6 +1672,10 @@ It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
 
+As with other groups, Snakemake will automatically calculate the required resources for the group job (see :ref:`resources <snakefiles-resources>`.
+The way resources are combined differs, though.
+Most resources, including ``runtime``, are summed accross all jobs involved in the pipe.
+Threads, however, is set by the job requesting the highest number of threads (``max()``).
 
 .. _snakefiles-service-rules:
 

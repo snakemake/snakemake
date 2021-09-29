@@ -1121,8 +1121,9 @@ def get_argument_parser(profile=None):
             "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
             "available CPU cores. "
-            "In case of cluster/cloud execution, this argument sets the number of "
-            "total cores used over all jobs (made available to rules via workflow.cores)."
+            "In case of cluster/cloud execution, this argument sets the maximum number "
+            "of cores requested from the cluster or cloud scheduler. "
+            "This number is available to rules via workflow.cores."
         ),
     )
     group_exec.add_argument(
@@ -1156,11 +1157,13 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define additional resources that shall constrain the scheduling "
-            "analogously to threads (see above). A resource is defined as "
+            "analogously to --cores (see above). A resource is defined as "
             "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
             "use resources by defining the resource keyword, e.g. "
             "resources: mem_mb=600. If now two rules require 600 of the resource "
-            "'mem_mb' they won't be run in parallel by the scheduler."
+            "'mem_mb' they won't be run in parallel by the scheduler. In "
+            "cluster/cloud mode, this argument will also constrain the amount of "
+            "resources requested from the server."
         ),
     )
     group_exec.add_argument(
@@ -1175,9 +1178,11 @@ def get_argument_parser(profile=None):
     group_exec.add_argument(
         "--max-threads",
         type=int,
-        help="Define a global maximum number of threads for any job. This can be helpful in a cluster/cloud setting, "
-        "when you want to restrict the maximum number of requested threads without modifying the workflow definition "
-        "or overwriting them invidiually with --set-threads.",
+        help="Define a global maximum number of threads available to any rule. Rules "
+        "requesting more threads (via the threads keyword) will have their values "
+        "reduced to the maximum. This can be useful when you want to restrict the "
+        "maximum number of threads without modifying the workflow definition or "
+        "overwriting rules individually with --set-threads.",
     )
     group_exec.add_argument(
         "--set-resources",

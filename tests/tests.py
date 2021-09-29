@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
+from snakemake.jobs import GroupJob
+
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
@@ -934,6 +936,104 @@ def test_pathlib_missing_file():
 @skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_group_jobs_resources(mocker):
+    spy = mocker.spy(GroupJob, "_calculate_resources")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"typo": 23, "mem_mb": 60000},
+        group_components={0: 5},
+    )
+    assert set(spy.spy_return.items()) == {
+        ("_nodes", 1),
+        ("_cores", 6),
+        ("runtime", 420),
+        ("tmpdir", "/tmp"),
+        ("mem_mb", 60000),
+        ("fake_res", 400),
+    }
+
+
+@skip_on_windows
+def test_group_jobs_resources_with_max_threads(mocker):
+    spy = mocker.spy(GroupJob, "_calculate_resources")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        group_components={0: 5},
+    )
+    assert set(spy.spy_return.items()) == {
+        ("_nodes", 1),
+        ("_cores", 5),
+        ("runtime", 380),
+        ("tmpdir", "/tmp"),
+        ("mem_mb", 60000),
+        ("fake_res", 1200),
+    }
+
+
+@skip_on_windows
+def test_group_jobs_resources_with_limited_resources(mocker):
+    spy = mocker.spy(GroupJob, "_calculate_resources")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=5,
+        resources={"mem_mb": 10000},
+        max_threads=1,
+        group_components={0: 5},
+    )
+    assert set(spy.spy_return.items()) == {
+        ("_nodes", 1),
+        ("_cores", 1),
+        ("runtime", 700),
+        ("tmpdir", "/tmp"),
+        ("mem_mb", 10000),
+        ("fake_res", 400),
+    }
+
+
+@skip_on_windows
+def test_group_job_resources_with_pipe(mocker):
+    spy = mocker.spy(GroupJob, "_calculate_resources")
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=6,
+        resources={
+            "mem_mb": 60000,
+        },
+        group_components={0: 5},
+    )
+    assert set(spy.spy_return.items()) == {
+        ("_nodes", 1),
+        ("_cores", 4),
+        ("runtime", 280),
+        ("tmpdir", "/tmp"),
+        ("mem_mb", 50000),
+    }
+
+
+@skip_on_windows
+def test_group_job_resources_with_pipe_with_too_much_constraint(mocker):
+    spy = mocker.spy(GroupJob, "_calculate_resources")
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=6,
+        resources={
+            "mem_mb": 20000,
+        },
+        group_components={0: 5},
+        shouldfail=True,
+    )
 
 
 @skip_on_windows
