@@ -570,7 +570,7 @@ class Rule:
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
                     r = ReportObject(
-                        os.path.join(self.workflow.current_basedir, report_obj.caption),
+                        self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
                         report_obj.patterns,
