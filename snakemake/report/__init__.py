@@ -274,7 +274,7 @@ class RuleRecord:
                     self._rule.workflow.sourcecache,
                     prefix=self._rule.workflow.wrapper_prefix,
                 ),
-                self._rule.workflow.sourcecache
+                self._rule.workflow.sourcecache,
             )
             sources = [source.decode()]
         elif self._rule.notebook is not None and not contains_wildcard(
