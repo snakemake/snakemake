@@ -1255,7 +1255,7 @@ def get_source(
 
     is_local = isinstance(source_file, LocalSourceFile)
 
-    return path, source, language, is_local
+    return source_file, source, language, is_local
 
 
 def get_language(source_file, source):
