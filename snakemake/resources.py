@@ -1,7 +1,7 @@
 import re
 import tempfile
 
-from snakemake.logging import logger
+from snakemake.exceptions import WorkflowError
 
 
 class DefaultResources:
@@ -65,9 +65,9 @@ class DefaultResources:
                             isinstance(e, FileNotFoundError) and e.filename in input
                         ):
                             # Missing input files are handled by the caller
-                            logger.error(
-                                "Error: Failed to evaluate DefaultResources "
-                                "value '{}'.\n"
+                            raise WorkflowError(
+                                "Failed to evaluate DefaultResources value "
+                                "'{}'.\n"
                                 "  String arguments may need additional "
                                 "quoting. Ex: --default-resources "
                                 "\"tmpdir='/home/user/tmp'\".".format(val)
