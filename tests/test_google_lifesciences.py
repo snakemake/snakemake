@@ -105,7 +105,7 @@ def test_cloud_checkpoints_issue574():
             use_conda=True,
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
-            google_lifesciences_cache=True,
+            google_lifesciences_cache=False,
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
