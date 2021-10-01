@@ -68,7 +68,7 @@ class DefaultResources:
                             raise WorkflowError(
                                 "Failed to evaluate DefaultResources value "
                                 "'{}'.\n"
-                                "  String arguments may need additional "
+                                "    String arguments may need additional "
                                 "quoting. Ex: --default-resources "
                                 "\"tmpdir='/home/user/tmp'\".".format(val)
                             )
