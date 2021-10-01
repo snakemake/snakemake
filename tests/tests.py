@@ -1320,3 +1320,7 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+
+def test_ancient_dag():
+    run(dpath("test_ancient_dag"))

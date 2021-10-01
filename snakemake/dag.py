@@ -1040,7 +1040,7 @@ class DAG:
                     if job_ not in visited:
                         # TODO may it happen that order determines whether
                         # _n_until_ready is incremented for this job?
-                        if all(f.is_ancient for f in files):
+                        if all(f.is_ancient and f.exists for f in files):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue
