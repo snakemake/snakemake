@@ -1320,3 +1320,7 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+
+def test_converting_path_for_r_script():
+    run(dpath("test_converting_path_for_r_script"), cores=1)
