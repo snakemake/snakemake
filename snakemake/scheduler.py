@@ -476,7 +476,7 @@ class JobScheduler:
                         logger.error(_ERROR_MSG_FINAL)
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
-                    if self.remaining_jobs or self.finished_jobs != len(self.dag):
+                    if self.remaining_jobs:
                         logger.error(_ERROR_MSG_ISSUE_823)
                         logger.error(
                             "Remaining jobs:\n"
