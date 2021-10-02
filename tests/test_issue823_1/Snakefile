@@ -21,7 +21,7 @@ rule b:
     input:
         _checkpoint_output,
     output:
-        temp('b.txt')
+        'b.txt'
     shell:
         "touch {output}"
 

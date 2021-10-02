@@ -798,9 +798,16 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 
-def test_issue823():
+def test_issue823_1():
     run(dpath("test_issue823_1"))
+
+
+def test_issue823_2():
     run(dpath("test_issue823_2"))
+
+
+def test_issue823_3():
+    run(dpath("test_issue823_3s"))
 
 
 @skip_on_windows
