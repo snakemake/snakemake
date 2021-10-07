@@ -1092,7 +1092,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # snakemake.
                         # Snakemake will handle the signal in
                         # the main process.
-                        status_cmd_kills.extend(-e.returncode)
+                        status_cmd_kills.append(-e.returncode)
                         if len(status_cmd_kills) > 10:
                             logger.info(
                                 "Cluster status command {} was killed >10 times with signal(s) {} "
