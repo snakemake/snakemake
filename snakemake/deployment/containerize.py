@@ -59,7 +59,7 @@ def containerize(workflow):
             "\n".join(map("#   {}".format, env.content.decode().strip().split("\n")))
         )
         get_env_cmds.append("RUN mkdir -p {}".format(prefix))
-        if env.file.startswith("https://"):
+        if env.file.get_path_or_uri().startswith("https://"):
             # get_env_cmds.append("RUN curl -sSL {} > {}".format(env.file, env_target_path))
             get_env_cmds.append("ADD {} {}".format(env.file, env_target_path))
         else:

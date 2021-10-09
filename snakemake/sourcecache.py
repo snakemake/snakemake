@@ -87,6 +87,9 @@ class LocalSourceFile(SourceFile):
     def __init__(self, path):
         self.path = path
 
+    def __fspath__(self):
+        return self.path
+
     def get_path_or_uri(self):
         return self.path
 
