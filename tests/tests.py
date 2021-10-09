@@ -1320,3 +1320,9 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+def test_github_issue1210():
+    run(
+        dpath("test_github_issue1210"),
+        containerize=True
+    )
