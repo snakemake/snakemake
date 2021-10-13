@@ -11,7 +11,7 @@ import json
 import shutil
 
 from collections import defaultdict
-from itertools import chain, filterfalse
+from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 
 from snakemake.io import (
@@ -1200,9 +1200,65 @@ class GroupJob(AbstractJob):
         from toposort import toposort
 
         if self.toposorted is None:
-            self.toposorted = list(
-                self.dag.toposorted(jobs=self.jobs, inherit_pipe_dependencies=True)
-            )
+            pipe_groups = defaultdict(list)
+            for name, group in groupby(self.jobs, attrgetter('pipe_group')):
+                if name is not None:
+                    pipe_groups[name].extend(group)
+
+            pipe_dependencies = {}
+            for name, group in pipe_groups.items():
+                pipe_dependencies[name] = set(
+                    d
+                    for job in group
+                    for d in self.dag.dependencies[job]
+                    if d not in group
+                )
+                # products = set(f for job in group for f in job.products)
+                # inputs[name] = [
+                #     f for job in group for f in job.input if f not in products
+                # ]
+
+            def get_dependencies(job, ignore=[]):
+                # Jobs connected by a pipe must be run simultaneously. Thus, we need to
+                # trick toposort into putting them on the same level. This is done by
+                # causing the two ends of the pipe to inherit each other's dependencies.
+                # Note that in the current implemention, complicated chains of pipes
+                # risk a massive recursion problem because of the way we traverse up and
+                # down the DAG. Better implementations should try to incorporate some
+                # sort of memoization to prevent the same function/parameter set from
+                # being called multiple times.
+                if job.pipe_group in pipe_dependencies:
+                    dependencies = pipe_dependencies[job.pipe_group]
+                else:
+                    dependencies = self.dag.dependencies[job]
+                for dep in dependencies:
+                    if dep in self.jobs and dep not in ignore:
+                        # If not a pipe consumer, we add the producer as an ordinary
+                        # dependency
+                        yield dep
+
+                # pipes = [f for f in job.output if is_flagged(f, "pipe")]
+                # if pipes:
+                #     # If this is a pipe producer, we iterate through every pipe, find
+                #     # the consumers, and inherit their dependencies.
+                #     for pipe in pipes:
+                #         # Find the job consuming the pipe. This code is already
+                #         # run in dag.py, so extending the Job api to include
+                #         # a pipes list containing this information could
+                #         # optimize this
+                #         depending = [
+                #             j
+                #             for j, files in self.dag.depending[job].items()
+                #             if pipe in files
+                #         ][0]
+                #         # We take care to ignore the current job to avoid an infinite
+                #         # recursion!
+                #         yield from get_dependencies(depending, ignore=[job])
+
+            dag = {job: set(get_dependencies(job)) for job in self.jobs}
+
+            self.toposorted = list(toposort(dag))
+
 
     @property
     def all_products(self):
