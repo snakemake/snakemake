@@ -2531,7 +2531,9 @@ class CandidateGroup:
         self.id = str(uuid.uuid4())
 
     def __eq__(self, other):
-        return self.id == other.id
+        if isinstance(other, CandidateGroup):
+            return self.id == other.id
+        return False
 
     def __hash__(self):
         return hash(self.id)
