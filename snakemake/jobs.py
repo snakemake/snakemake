@@ -204,6 +204,9 @@ class Job(AbstractJob):
         self._conda_env = None
         self._group = None
 
+        # pipe_group will only be set if the job generates or consumes a pipe
+        self.pipe_group = None
+
         self.shadow_dir = None
         self._inputsize = None
         self.is_updated = False

@@ -1408,8 +1408,11 @@ class DAG:
         visited = set()
         for job in self.needrun_jobs():
             candidate_groups = set()
+            user_groups = set()
+            if job.pipe_group is not None:
+                candidate_groups.add(job.pipe_group)
             if job.group is not None:
-                candidate_groups.add(job.group)
+                user_groups.add(job.group)
             all_depending = set()
             has_pipe_or_service = False
             for f in job.output:
@@ -1466,44 +1469,49 @@ class DAG:
                             )
 
                         all_depending.add(dep)
+                        if dep.pipe_group is not None:
+                            candidate_groups.add(dep.pipe_group)
                         if dep.group is not None:
-                            candidate_groups.add(dep.group)
+                            user_groups.add(dep.group)
+
             if not has_pipe_or_service:
                 continue
 
-            if len(candidate_groups) > 1:
-                if all(isinstance(group, CandidateGroup) for group in candidate_groups):
-                    # all candidates are newly created groups, merge them into one
-                    group = candidate_groups.pop()
-                    for g in candidate_groups:
-                        group.merge(g)
-                else:
-                    raise WorkflowError(
+            # All pipe groups should be contained within one user-defined group
+            if len(user_groups) > 1:
+                raise WorkflowError(
                         "An output file is marked as "
                         "pipe or service, but consuming jobs "
                         "are part of conflicting "
                         "groups.",
                         rule=job.rule,
                     )
+
+            if len(candidate_groups) > 1:
+                # Merge multiple pipe groups together
+                group = candidate_groups.pop()
+                for g in candidate_groups:
+                    g.merge(group)
             elif candidate_groups:
                 # extend the candidate group to all involved jobs
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = CandidateGroup()
+                group = CandidateGroup()  # str(uuid.uuid4())
 
-            # set group for job and all downstreams
-            job.group = group
+            # Assign the pipe group to all involved jobs.
+            job.pipe_group = group
             visited.add(job)
             for j in all_depending:
-                j.group = group
+                j.pipe_group = group
                 visited.add(j)
 
         # convert candidate groups to plain string IDs
         for job in visited:
-            job.group = (
-                job.group.id if isinstance(job.group, CandidateGroup) else job.group
-            )
+            # Set the group every job with an assigned pipe_group but no user-defined
+            # group to the pipe_group
+            if job.pipe_group and job.group is None:
+                job.group = job.pipe_group.id
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
