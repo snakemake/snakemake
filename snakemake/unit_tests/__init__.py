@@ -75,7 +75,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
                 def copy_files(files, content_type):
                     for f in files:
                         f = Path(f)
-                        target = path / rulename / content_type / f.parent
+                        target = path / rulename / content_type
                         os.makedirs(target, exist_ok=True)
                         if f.is_dir():
                             shutil.copytree(f, target)
