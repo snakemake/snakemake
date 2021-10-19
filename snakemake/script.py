@@ -1259,9 +1259,6 @@ def get_source(
 
     is_local = isinstance(source_file, LocalSourceFile)
 
-    # encode source
-    source = source.encode()
-
     return source_file, source, language, is_local
 
 

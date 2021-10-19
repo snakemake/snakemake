@@ -57,7 +57,7 @@ class ProvenanceHashMap:
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
         elif job.is_notebook:
             _, source, _, _ = script.get_source(
                 job.rule.notebook,
@@ -66,7 +66,7 @@ class ProvenanceHashMap:
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
         elif job.is_wrapper:
             _, source, _, _ = script.get_source(
                 wrapper.get_script(
@@ -79,7 +79,7 @@ class ProvenanceHashMap:
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
 
         # Hash params.
         for key, value in sorted(job.params._allitems()):
