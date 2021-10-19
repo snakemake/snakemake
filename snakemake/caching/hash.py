@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2021, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -50,14 +50,30 @@ class ProvenanceHashMap:
             # resources, and filenames (which shall be irrelevant for the hash).
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
-            _, source, _ = script.get_source(job.rule.script)
+            _, source, _, _ = script.get_source(
+                job.rule.script,
+                job.rule.workflow.sourcecache,
+                basedir=job.rule.basedir,
+                wildcards=job.wildcards,
+                params=job.params,
+            )
             h.update(source)
         elif job.is_notebook:
-            _, source, _ = script.get_source(job.rule.notebook)
+            _, source, _, _ = script.get_source(
+                job.rule.notebook,
+                job.rule.workflow.sourcecache,
+                basedir=job.rule.basedir,
+                wildcards=job.wildcards,
+                params=job.params,
+            )
             h.update(source)
         elif job.is_wrapper:
-            _, source, _ = script.get_source(
-                wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix)
+            _, source, _, _ = script.get_source(
+                wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix),
+                job.rule.workflow.sourcecache,
+                basedir=job.rule.basedir,
+                wildcards=job.wildcards,
+                params=job.params,
             )
             h.update(source)
 
@@ -115,7 +131,7 @@ class ProvenanceHashMap:
 
 def hash_file(f):
     h = hashlib.sha256()
-    with open(f, "b") as f:
+    with open(f, "rb") as f:
         # Read and update hash string value in blocks of 4K
         for byte_block in iter(lambda: f.read(4096), b""):
             h.update(byte_block)

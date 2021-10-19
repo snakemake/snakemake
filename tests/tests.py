@@ -1,19 +1,27 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2020, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 import sys
 import uuid
+import subprocess as sp
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from common import *
+from .common import *
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
+
+
+xfail_permissionerror_on_win = (
+    pytest.mark.xfail(raises=PermissionError) if ON_WINDOWS else lambda x: x
+)
 
 
 def test_delete_all_output():
@@ -37,6 +45,7 @@ def test_issue956():
     run(dpath("test_issue956"))
 
 
+@skip_on_windows
 def test01():
     run(dpath("test01"))
 
@@ -89,16 +98,53 @@ def test13():
     run(dpath("test13"))
 
 
+@skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
+
+
+@skip_on_windows
+def test_cluster_statusscript():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./qsub",
+        cluster_status="./status.sh",
+    )
 
 
 def test15():
     run(dpath("test15"))
 
 
+def test_glpk_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="GLPK_CMD")
+
+
+@skip_on_windows
+def test_coin_solver():
+    run(dpath("test_solver"), scheduler_ilp_solver="COIN_CMD")
+
+
 def test_directory():
+    run(
+        dpath("test_directory"),
+        targets=[
+            "downstream",
+            "symlinked_input",
+            "child_to_input",
+            "not_child_to_other",
+        ],
+    )
+    run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
+    run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
+    run(dpath("test_directory"), targets=["child_to_other"], shouldfail=True)
+
+
+@skip_on_windows
+def test_directory2():
     run(
         dpath("test_directory"),
         targets=[
@@ -109,13 +155,10 @@ def test_directory():
             "some/shadow",
         ],
     )
-    run(dpath("test_directory"), targets=["file_expecting_dir"], shouldfail=True)
-    run(dpath("test_directory"), targets=["dir_expecting_file"], shouldfail=True)
-    run(dpath("test_directory"), targets=["child_to_other"], shouldfail=True)
 
 
 def test_ancient():
-    run(dpath("test_ancient"), targets=["D", "old_file"])
+    run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
 def test_report():
@@ -129,6 +172,10 @@ def test_report():
 
 def test_report_zip():
     run(dpath("test_report_zip"), report="report.zip", check_md5=False)
+
+
+def test_report_dir():
+    run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
 
 def test_dynamic():
@@ -162,6 +209,7 @@ def test_shell():
     run(dpath("test_shell"))
 
 
+@skip_on_windows
 def test_temp():
     run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
 
@@ -170,6 +218,10 @@ def test_keyword_list():
     run(dpath("test_keyword_list"))
 
 
+# Fails on WIN because some snakemake doesn't release the logfile
+# which cause a PermissionError when the test setup tries to
+# remove the temporary files
+@skip_on_windows
 def test_subworkflows():
     run(dpath("test_subworkflows"), subpath=dpath("test02"))
 
@@ -216,6 +268,7 @@ def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
 
+@skip_on_windows
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
@@ -228,6 +281,7 @@ def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 
 
+@skip_on_windows
 def test_srcdir():
     run(dpath("test_srcdir"))
 
@@ -236,14 +290,23 @@ def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 
 
+def test_name_override():
+    run(dpath("test_name_override"))
+
+
 def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
+@skip_on_windows
+@pytest.mark.xfail(
+    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
+)
 def test_remote():
     run(dpath("test_remote"), cores=1)
 
 
+@skip_on_windows
 def test_cluster_sync():
     os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
@@ -258,16 +321,32 @@ def test_empty_include():
     run(dpath("test_empty_include"))
 
 
+@skip_on_windows
 def test_script():
-    run(dpath("test_script"), use_conda=True)
+    run(dpath("test_script"), use_conda=True, check_md5=False)
 
 
+def test_script_python():
+    run(dpath("test_script_py"))
+
+
+@skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
 
 
+@skip_on_windows
+def test_shadow_copy():
+    run(dpath("test_shadow_copy"))
+
+
+@skip_on_windows  # Symbolic link privileges needed to work
 def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")
+
+
+@skip_on_windows
+def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
 
 
@@ -311,6 +390,7 @@ def test_symlink_time_handling():
         run(dpath("test_symlink_time_handling"))
 
 
+@skip_on_windows
 def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
@@ -342,6 +422,14 @@ def test_conda_custom_prefix():
     )
 
 
+@only_on_windows
+def test_conda_cmd_exe():
+    # Tests the conda environment activation when cmd.exe
+    # is used as the shell
+    run(dpath("test_conda_cmd_exe"), use_conda=True)
+
+
+@skip_on_windows  # Conda support is partly broken on Win
 def test_wrapper():
     run(dpath("test_wrapper"), use_conda=True)
 
@@ -413,6 +501,7 @@ def test_remote_ncbi():
 
 
 @ci
+@skip_on_windows
 def test_remote_irods():
     run(dpath("test_remote_irods"))
 
@@ -450,6 +539,7 @@ def test_dup_out_patterns():
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
 
+@skip_on_windows
 def test_restartable_job_cmd_exit_1_no_restart():
     """Test the restartable job feature on ``exit 1``
 
@@ -464,6 +554,7 @@ def test_restartable_job_cmd_exit_1_no_restart():
     )
 
 
+@skip_on_windows
 def test_restartable_job_cmd_exit_1_one_restart():
     # Restarting once is enough
     run(
@@ -474,6 +565,7 @@ def test_restartable_job_cmd_exit_1_one_restart():
     )
 
 
+@skip_on_windows
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
@@ -530,6 +622,7 @@ def test_issue260():
     run(dpath("test_issue260"))
 
 
+@skip_on_windows
 @not_ci
 def test_default_remote():
     run(
@@ -546,6 +639,7 @@ def test_run_namedlist():
 
 @connected
 @not_ci
+@skip_on_windows
 def test_remote_gs():
     run(dpath("test_remote_gs"))
 
@@ -557,7 +651,7 @@ def test_gs_requester_pays(
     requesting_project=None,
     requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
 ):
-    """ Tests pull-request 79 / issue 96 for billable user projects on GS
+    """Tests pull-request 79 / issue 96 for billable user projects on GS
 
     If requesting_project None, behaves as test_remote_gs().
 
@@ -587,6 +681,7 @@ def test_gs_requester_pays(
 @pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
 @connected
 @ci
+@skip_on_windows
 def test_remote_azure():
     run(dpath("test_remote_azure"))
 
@@ -601,6 +696,7 @@ def test_remote_http():
     run(dpath("test_remote_http"))
 
 
+@skip_on_windows
 @connected
 @pytest.mark.xfail
 def test_remote_http_cluster():
@@ -611,11 +707,13 @@ def test_profile():
     run(dpath("test_profile"))
 
 
+@skip_on_windows
 @connected
 def test_singularity():
     run(dpath("test_singularity"), use_singularity=True)
 
 
+@skip_on_windows
 def test_singularity_invalid():
     run(
         dpath("test_singularity"),
@@ -625,6 +723,17 @@ def test_singularity_invalid():
     )
 
 
+@skip_on_windows
+def test_singularity_module_invalid():
+    run(
+        dpath("test_singularity_module"),
+        targets=["invalid.txt"],
+        use_singularity=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
 @connected
 def test_singularity_conda():
     run(
@@ -632,6 +741,24 @@ def test_singularity_conda():
         use_singularity=True,
         use_conda=True,
         conda_frontend="conda",
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_none():
+    run(
+        dpath("test_singularity_none"),
+        use_singularity=True,
+    )
+
+
+@skip_on_windows
+@connected
+def test_singularity_global():
+    run(
+        dpath("test_singularity_global"),
+        use_singularity=True,
     )
 
 
@@ -655,11 +782,13 @@ def test_log_input():
     run(dpath("test_log_input"))
 
 
+@skip_on_windows
 @connected
 def test_cwl():
     run(dpath("test_cwl"))
 
 
+@skip_on_windows
 @connected
 def test_cwl_singularity():
     run(dpath("test_cwl"), use_singularity=True)
@@ -669,6 +798,7 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 
+@skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
 
@@ -677,16 +807,35 @@ def test_pathlib_missing_file():
     run(dpath("test_pathlib_missing_file"), shouldfail=True)
 
 
+@skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
 
+@skip_on_windows
+def test_multicomp_group_jobs():
+    run(
+        dpath("test_multicomp_group_jobs"),
+        cluster="./qsub",
+        overwrite_groups={"a": "group0", "b": "group0"},
+        group_components={"group0": 2},
+    )
+
+
+@skip_on_windows
 def test_group_job_fail():
     run(dpath("test_group_job_fail"), cluster="./qsub", shouldfail=True)
 
 
+@skip_on_windows  # Not supported, but could maybe be implemented. https://stackoverflow.com/questions/48542644/python-and-windows-named-pipes
 def test_pipes():
     run(dpath("test_pipes"))
+
+
+@skip_on_windows
+def test_pipes_multiple():
+    # see github issue #975
+    run(dpath("test_pipes_multiple"))
 
 
 def test_pipes_fail():
@@ -711,10 +860,12 @@ def test_issue854():
     run(dpath("test_issue854"), shouldfail=True)
 
 
+@skip_on_windows
 def test_issue850():
     run(dpath("test_issue850"), cluster="./qsub")
 
 
+@skip_on_windows
 def test_issue860():
     run(dpath("test_issue860"), cluster="./qsub", targets=["done"])
 
@@ -731,6 +882,7 @@ def test_issue912():
     run(dpath("test_issue912"))
 
 
+@skip_on_windows
 def test_job_properties():
     run(dpath("test_job_properties"), cluster="./qsub.py")
 
@@ -739,10 +891,12 @@ def test_issue916():
     run(dpath("test_issue916"))
 
 
+@skip_on_windows
 def test_issue930():
     run(dpath("test_issue930"), cluster="./qsub")
 
 
+@skip_on_windows
 def test_issue635():
     run(dpath("test_issue635"), use_conda=True, check_md5=False)
 
@@ -751,6 +905,7 @@ def test_issue635():
 @pytest.mark.skip(
     reason="Temporarily disable until the stable container image becomes available again."
 )
+@skip_on_windows
 def test_convert_to_cwl():
     workdir = dpath("test_convert_to_cwl")
     # run(workdir, export_cwl=os.path.join(workdir, "workflow.cwl"))
@@ -782,6 +937,7 @@ def test_issue1092():
     run(dpath("test_issue1092"))
 
 
+@skip_on_windows
 def test_issue1093():
     run(dpath("test_issue1093"), use_conda=True)
 
@@ -798,10 +954,12 @@ def test_issue1085():
     run(dpath("test_issue1085"), shouldfail=True)
 
 
+@skip_on_windows
 def test_issue1083():
     run(dpath("test_issue1083"), use_singularity=True)
 
 
+@skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
 def test_pipes2():
     run(dpath("test_pipes2"))
 
@@ -810,15 +968,29 @@ def test_expand_flag():
     run(dpath("test_expand_flag"), shouldfail=True)
 
 
+@skip_on_windows
 def test_default_resources():
     from snakemake.resources import DefaultResources
 
     run(
         dpath("test_default_resources"),
+        # use fractional defaults here to test whether they are correctly rounded
         default_resources=DefaultResources(
-            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+            ["mem_mb=max(2*input.size, 1000.1)", "disk_mb=max(2*input.size, 1000.2)"]
         ),
     )
+
+
+@skip_on_windows  # TODO fix the windows case: it somehow does not consistently modify all temp env vars as desired
+def test_tmpdir():
+    # artificially set the tmpdir to an expected value
+    run(dpath("test_tmpdir"), overwrite_resources={"a": {"tmpdir": "/tmp"}})
+
+
+def test_tmpdir_default():
+    # Do not check the content (OS and setup depdendent),
+    # just check whether everything runs smoothly with the default.
+    run(dpath("test_tmpdir"), check_md5=False)
 
 
 def test_issue1284():
@@ -831,11 +1003,16 @@ def test_issue1281():
 
 def test_filegraph():
     workdir = dpath("test_filegraph")
-    dot_path = os.path.abspath("fg.dot")
-    pdf_path = "fg.pdf"
+    dot_path = os.path.join(workdir, "fg.dot")
+    pdf_path = os.path.join(workdir, "fg.pdf")
+
+    if ON_WINDOWS:
+        shell.executable("bash")
+        workdir = workdir.replace("\\", "/")
+        dot_path = dot_path.replace("\\", "/")
 
     # make sure the calls work
-    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
     with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
@@ -865,10 +1042,11 @@ def test_batch_fail():
 
 
 def test_github_issue52():
-    run(dpath("test_github_issue52"), shouldfail=True)
-    run(dpath("test_github_issue52"), snakefile="other.smk", shouldfail=True)
+    run(dpath("test_github_issue52"))
+    run(dpath("test_github_issue52"), snakefile="other.smk")
 
 
+@skip_on_windows
 def test_github_issue78():
     run(dpath("test_github_issue78"), use_singularity=True)
 
@@ -884,13 +1062,40 @@ def test_github_issue105():
     run(dpath("test_github_issue105"))
 
 
+def test_github_issue413():
+    run(dpath("test_github_issue413"), no_tmpdir=True)
+
+
+@skip_on_windows
+def test_github_issue627():
+    run(dpath("test_github_issue627"))
+
+
+def test_github_issue727():
+    run(dpath("test_github_issue727"))
+
+
+@skip_on_windows
+def test_github_issue988():
+    run(dpath("test_github_issue988"))
+
+
+def test_github_issue1062():
+    # old code failed in dry run
+    run(dpath("test_github_issue1062"), dryrun=True)
+
+
 def test_output_file_cache():
     test_path = dpath("test_output_file_cache")
-    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = os.path.join(test_path, "cache")
+    os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(test_path, cache=["a", "b"])
     run(test_path, cache=["invalid_multi"], targets="invalid1.txt", shouldfail=True)
 
 
+@skip_on_windows
+@pytest.mark.xfail(
+    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
+)
 def test_output_file_cache_remote():
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
@@ -910,10 +1115,12 @@ def test_core_dependent_threads():
     run(dpath("test_core_dependent_threads"))
 
 
+@skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
 
 
+@skip_on_windows
 @connected
 def test_container():
     run(dpath("test_container"), use_singularity=True)
@@ -925,6 +1132,7 @@ def test_linting():
     )
 
 
+@skip_on_windows
 def test_string_resources():
     from snakemake.resources import DefaultResources
 
@@ -937,3 +1145,178 @@ def test_string_resources():
 
 def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
+
+
+def test_github_issue456():
+    run(dpath("test_github_issue456"))
+
+
+def test_scatter_gather():
+    run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
+
+
+@skip_on_windows
+def test_github_issue640():
+    run(
+        dpath("test_github_issue640"),
+        targets=["Output/FileWithRights"],
+        dryrun=True,
+        cleanup=False,
+    )
+
+
+@skip_on_windows  # TODO check whether this might be enabled later
+def test_generate_unit_tests():
+    tmpdir = run(
+        dpath("test_generate_unit_tests"),
+        generate_unit_tests=".tests/unit",
+        check_md5=False,
+        cleanup=False,
+    )
+    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+
+
+@skip_on_windows
+def test_metadata_migration():
+    outpath = Path(
+        "tests/test_metadata_migration/some/veryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryverylong"
+    )
+    os.makedirs(outpath, exist_ok=True)
+    metapath = Path(
+        "tests/test_metadata_migration/.snakemake/metadata/@c29tZS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5L3Zlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcn/@l2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeS92ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnkvdmVyeXZlcnl2ZXJ5dmVy"
+    )
+    os.makedirs(metapath, exist_ok=True)
+    exppath = Path(
+        "tests/test_metadata_migration/expected-results/some/veryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryverylong"
+    )
+    os.makedirs(exppath, exist_ok=True)
+    with open(outpath / "path.txt", "w"):
+        # generate empty file
+        pass
+    # generate artificial incomplete metadata in v1 format for migration
+    with open(
+        metapath
+        / "eXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeXZlcnl2ZXJ5dmVyeWxvbmcvcGF0aC50eHQ=",
+        "w",
+    ) as meta:
+        print('{"incomplete": true, "external_jobid": null}', file=meta)
+    with open(exppath / "path.txt", "w") as out:
+        print("updated", file=out)
+
+    # run workflow, incomplete v1 metadata should be migrated and trigger rerun of the rule,
+    # which will save different data than the output contained in the git repo.
+    run(dpath("test_metadata_migration"), force_incomplete=True)
+
+
+def test_paramspace():
+    run(dpath("test_paramspace"))
+
+
+def test_github_issue806():
+    run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
+
+
+@skip_on_windows
+def test_containerized():
+    run(dpath("test_containerized"), use_conda=True, use_singularity=True)
+
+
+def test_long_shell():
+    run(dpath("test_long_shell"))
+
+
+def test_modules_all():
+    run(dpath("test_modules_all"), targets=["a"])
+
+
+def test_modules_specific():
+    run(dpath("test_modules_specific"), targets=["test_a"])
+
+
+@skip_on_windows  # works in principle but the test framework modifies the target path separator
+def test_modules_meta_wrapper():
+    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)
+
+
+def test_use_rule_same_module():
+    run(dpath("test_use_rule_same_module"), targets=["test.out", "test2.out"])
+
+
+def test_module_complex():
+    run(dpath("test_module_complex"), dryrun=True)
+
+
+def test_module_complex2():
+    run(dpath("test_module_complex2"), dryrun=True)
+
+
+def test_module_with_script():
+    run(dpath("test_module_with_script"))
+
+
+def test_module_worfklow_namespacing():
+    run(dpath("test_module_workflow_snakefile_usage"))
+
+
+@skip_on_windows  # No conda-forge version of pygraphviz for windows
+def test_module_report():
+    run(
+        dpath("test_module_report"),
+        report="report.html",
+        report_stylesheet="custom-stylesheet.css",
+        check_md5=False,
+    )
+
+
+def test_handover():
+    run(dpath("test_handover"), resources={"mem_mb": 20})
+
+
+@skip_on_windows  # test shell command not properly working
+def test_source_path():
+    run(dpath("test_source_path"), snakefile="workflow/Snakefile")
+
+
+@only_on_windows
+def test_filesep_windows_targets():
+    run(
+        dpath("test_filesep_windows"),
+        targets=["subfolder/test2.out2", "subfolder/test1.out2"],
+    )
+
+
+@only_on_windows
+def test_filesep_on_windows():
+    run(dpath("test_filesep_windows"))
+
+
+def test_set_resources():
+    run(dpath("test_set_resources"), overwrite_resources={"a": {"a": 1, "b": "foo"}})
+
+
+def test_github_issue1069():
+    run(
+        dpath("test_github_issue1069"),
+        shellcmd="snakemake -c1 --resources mem_mb=16423",
+    )
+
+
+def test_touch_pipeline_with_temp_dir():
+    # Issue #1028
+    run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, touch=True)
+
+
+def test_all_temp():
+    run(dpath("test_all_temp"), all_temp=True)
+
+
+def test_strict_mode():
+    run(dpath("test_strict_mode"), shouldfail=True)
+
+
+@needs_strace
+def test_github_issue1158():
+    run(
+        dpath("test_github_issue1158"),
+        cluster="./qsub.py",
+    )

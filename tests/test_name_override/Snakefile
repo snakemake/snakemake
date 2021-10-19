@@ -1,0 +1,19 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        txt = 'out2.txt'
+
+some_var: str = 'generate_out'
+
+rule:
+    name: some_var
+    output: 'out1.txt'
+    shell: '''echo {rule} > {output}'''
+
+
+rule name1:
+    name: "name2"
+    input: 'out1.txt'
+    output: 'out2.txt'
+    shell: '''echo {rule} > {output}'''

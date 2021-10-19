@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2017-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
@@ -11,6 +11,7 @@ import shutil
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+from snakemake.utils import os_sync
 
 
 if not shutil.which("globus-url-copy"):
@@ -68,7 +69,7 @@ class RemoteObject(gfal.RemoteObject):
                 "-parallel", "4", "-create-dest", "-recurse", "-dp", source, target
             )
 
-            os.sync()
+            os_sync()
             return self.local_file()
         return None
 

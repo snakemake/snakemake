@@ -1,0 +1,7 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        report(directory("test"), caption="caption.rst", htmlindex="test.html")
+    shell:
+    	"mkdir test; cp template.html test/test.html; mkdir test/js; echo \"alert('test')\" > test/js/test.js"

@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
@@ -19,6 +19,7 @@ from itertools import product, chain
 from contextlib import contextmanager
 import string
 import collections
+import asyncio
 
 from snakemake.exceptions import (
     MissingOutputException,
@@ -28,8 +29,33 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 
-from snakemake.common import DYNAMIC_FILL
+
+class Mtime:
+    __slots__ = ["_local", "_local_target", "_remote"]
+
+    def __init__(self, local=None, local_target=None, remote=None):
+        self._local = local
+        self._local_target = local_target
+        self._remote = remote
+
+    def local_or_remote(self, follow_symlinks=False):
+        if self._remote is not None:
+            return self._remote
+        if follow_symlinks and self._local_target is not None:
+            return self._local_target
+        return self._local
+
+    def remote(
+        self,
+    ):
+        return self._remote
+
+    def local(self, follow_symlinks=False):
+        if follow_symlinks and self._local_target is not None:
+            return self._local_target
+        return self._local
 
 
 def lutime(f, times):
@@ -77,19 +103,83 @@ else:
         os.chmod(f, mode)
 
 
+class ExistsDict(dict):
+    def __init__(self, cache):
+        super().__init__()
+        self.cache = cache
+        self.has_inventory = set()
+
+    def __getitem__(self, path):
+        # Always return False if not in dict.
+        # The reason is that this is only called if the method contains below has returned True.
+        # Hence, we already know that either path is in dict, or inventory has never
+        # seen it, and hence it does not exist.
+        return self.get(path, False)
+
+    def __contains__(self, path):
+        # if already in inventory, always return True.
+        parent = path.get_inventory_parent()
+        return parent in self.has_inventory or super().__contains__(path)
+
+
 class IOCache:
-    def __init__(self):
+    def __init__(self, max_wait_time):
         self.mtime = dict()
-        self.exists_local = dict()
-        self.exists_remote = dict()
+        self.exists_local = ExistsDict(self)
+        self.exists_remote = ExistsDict(self)
         self.size = dict()
         self.active = True
+        self.remaining_wait_time = max_wait_time
+        self.max_wait_time = max_wait_time
+
+    def mtime_inventory(self, jobs):
+        async_run(self._mtime_inventory(jobs))
+
+    async def _mtime_inventory(self, jobs, n_workers=8):
+        queue = asyncio.Queue()
+        stop_item = object()
+
+        async def worker(queue):
+            while True:
+                item = await queue.get()
+                if item is stop_item:
+                    queue.task_done()
+                    return
+                try:
+                    self.mtime[item] = await self.collect_mtime(item)
+                except Exception as e:
+                    queue.task_done()
+
+                    raise e
+                queue.task_done()
+
+        tasks = [
+            asyncio.get_event_loop().create_task(worker(queue))
+            for _ in range(n_workers)
+        ]
+
+        for job in jobs:
+            for f in chain(job.input, job.expanded_output):
+                if f.exists:
+                    queue.put_nowait(f)
+            if job.benchmark and job.benchmark.exists:
+                queue.put_nowait(job.benchmark)
+
+        # Send a stop item to each worker.
+        for _ in range(n_workers):
+            queue.put_nowait(stop_item)
+
+        await asyncio.gather(*tasks)
+
+    async def collect_mtime(self, path):
+        return path.mtime_uncached
 
     def clear(self):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
         self.exists_remote.clear()
+        self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
         self.clear()
@@ -108,14 +198,27 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = ["_is_function", "_file", "rule", "_regex"]
+    __slots__ = [
+        "_is_function",
+        "_file",
+        "rule",
+        "_regex",
+    ]
 
     def __new__(cls, file):
-        obj = str.__new__(cls, file)
-        obj._is_function = isfunction(file) or ismethod(file)
-        obj._is_function = obj._is_function or (
-            isinstance(file, AnnotatedString) and bool(file.callable)
+        is_annotated = isinstance(file, AnnotatedString)
+        is_callable = (
+            isfunction(file) or ismethod(file) or (is_annotated and bool(file.callable))
         )
+        if not is_callable and file.endswith("/"):
+            # remove trailing slashes
+            stripped = file.rstrip("/")
+            if is_annotated:
+                stripped = AnnotatedString(stripped)
+                stripped.flags = file.flags
+            file = stripped
+        obj = str.__new__(cls, file)
+        obj._is_function = is_callable
         obj._file = file
         obj.rule = None
         obj._regex = None
@@ -124,6 +227,15 @@ class _IOFile(str):
             obj.remote_object._iofile = obj
 
         return obj
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
 
     def iocache(func):
         @functools.wraps(func)
@@ -142,8 +254,8 @@ class _IOFile(str):
 
     def _refer_to_remote(func):
         """
-            A decorator so that if the file is remote and has a version
-            of the same file-related function, call that version instead.
+        A decorator so that if the file is remote and has a version
+        of the same file-related function, call that version instead.
         """
 
         @functools.wraps(func)
@@ -155,10 +267,82 @@ class _IOFile(str):
 
         return wrapper
 
+    def inventory(self):
+        async_run(self._inventory())
+
+    async def _inventory(self):
+        """Starting from the given file, try to cache as much existence and
+        modification date information of this and other files as possible.
+        """
+        cache = self.rule.workflow.iocache
+        if cache.active:
+            tasks = []
+            if self.is_remote and self not in cache.exists_remote:
+                # info not yet in inventory, let's discover as much as we can
+                tasks.append(self.remote_object.inventory(cache))
+            if not ON_WINDOWS and self not in cache.exists_local:
+                # we don't want to mess with different path representations on windows
+                tasks.append(self._local_inventory(cache))
+            await asyncio.gather(*tasks)
+
+    async def _local_inventory(self, cache):
+        # for local files, perform BFS via os.scandir to determine existence of files
+        if cache.remaining_wait_time <= 0:
+            # No more time to create inventory.
+            return
+
+        start_time = time.time()
+
+        folders = self.split("/")[:-1]
+        if not folders:
+            return
+
+        if os.path.isabs(self):
+            # For absolute paths, only use scan the immediate parent
+            ancestors = [os.path.dirname(self)]
+        else:
+            ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
+
+        for (i, path) in enumerate(ancestors):
+            if path in cache.exists_local.has_inventory:
+                # This path was already scanned before, hence we can stop.
+                break
+            try:
+                with os.scandir(path) as scan:
+                    for entry in scan:
+                        cache.exists_local[entry.path] = True
+                cache.exists_local[path] = True
+                cache.exists_local.has_inventory.add(path)
+            except FileNotFoundError:
+                # Not found, hence, all subfolders cannot be present as well
+                for path in ancestors[i:]:
+                    cache.exists_local[path] = False
+                    cache.exists_local.has_inventory.add(path)
+                break
+            except PermissionError:
+                raise WorkflowError(
+                    "Insufficient permissions to access {}. "
+                    "Please make sure that all accessed files and directories "
+                    "are readable and writable for you.".format(self)
+                )
+
+        cache.remaining_wait_time -= time.time() - start_time
+
+    @_refer_to_remote
+    def get_inventory_parent(self):
+        """If eligible for inventory, get the parent of a given path.
+
+        This code does not work on local Windows paths,
+        but inventory is disabled on Windows.
+        """
+        parent = os.path.dirname(self)
+        if parent and parent != "..":
+            return parent
+
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first. 
-        
+        """Open this file. If necessary, download it from remote first.
+
         This can (and should) be used in a `with`-statement.
         """
         if not self.exists:
@@ -174,6 +358,9 @@ class _IOFile(str):
         finally:
             f.close()
 
+    def contains_wildcard(self):
+        return contains_wildcard(self.file)
+
     @property
     def is_remote(self):
         return is_flagged(self._file, "remote_object")
@@ -185,6 +372,10 @@ class _IOFile(str):
     @property
     def is_directory(self):
         return is_flagged(self._file, "directory")
+
+    @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
 
     @property
     def is_multiext(self):
@@ -273,20 +464,6 @@ class _IOFile(str):
     @property
     @iocache
     def exists_local(self):
-        if self.rule.workflow.iocache.active:
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last ancestor, because this is always "." or "/" or a
-            # drive letter.
-            for p in self.parents(omit=1):
-                try:
-                    if not p.exists_local:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory.
-                    continue
         return os.path.exists(self.file)
 
     @property
@@ -294,23 +471,6 @@ class _IOFile(str):
     def exists_remote(self):
         if not self.is_remote:
             return False
-        if (
-            self.rule.workflow.iocache.active
-            and self.remote_object.provider.allows_directories
-        ):
-            # The idea is to first check existence of parent directories and
-            # cache the results.
-            # We omit the last 2 ancestors, because these are "." and the host
-            # name of the remote location.
-            for p in self.parents(omit=2):
-                try:
-                    if not p.exists_remote:
-                        return False
-                except:
-                    # In case of an error, we continue, because it can be that
-                    # we simply don't have the permissions to access a parent
-                    # directory in the remote.
-                    continue
         return self.remote_object.exists()
 
     @property
@@ -325,19 +485,78 @@ class _IOFile(str):
 
     @property
     @iocache
-    @_refer_to_remote
     def mtime(self):
-        return self.mtime_local
+        return self.mtime_uncached
 
     @property
-    def mtime_local(self):
-        # do not follow symlinks for modification time
-        if os.path.isdir(self.file) and os.path.exists(
-            os.path.join(self.file, ".snakemake_timestamp")
-        ):
-            return os.lstat(os.path.join(self.file, ".snakemake_timestamp")).st_mtime
-        else:
-            return os.lstat(self.file).st_mtime
+    def mtime_uncached(self):
+        """Obtain mtime.
+
+        Usually, this will be one stat call only. For symlinks and directories
+        it will be two, for symlinked directories it will be three,
+        for remote files it will additionally query the remote
+        location.
+        """
+        mtime_remote = self.remote_object.mtime() if self.is_remote else None
+
+        # We first do a normal stat.
+        try:
+            _stat = os.stat(self.file, follow_symlinks=False)
+
+            is_symlink = stat.S_ISLNK(_stat.st_mode)
+            is_dir = stat.S_ISDIR(_stat.st_mode)
+            mtime = _stat.st_mtime
+
+            def get_dir_mtime():
+                # Try whether we have a timestamp file for it.
+                return os.stat(
+                    os.path.join(self.file, ".snakemake_timestamp"),
+                    follow_symlinks=True,
+                ).st_mtime
+
+            if not is_symlink:
+                if is_dir:
+                    try:
+                        mtime = get_dir_mtime()
+                    except FileNotFoundError:
+                        # No timestamp, hence go on as if it is a file.
+                        pass
+
+                # In the usual case, not a dir, not a symlink.
+                # We need just a single stat call.
+                return Mtime(local=mtime, remote=mtime_remote)
+
+            else:
+                # In case of a symlink, we need the stats for the target file/dir.
+                target_stat = os.stat(self.file, follow_symlinks=True)
+                # Further, we need to check again if this is a directory.
+                is_dir = stat.S_ISDIR(target_stat.st_mode)
+                mtime_target = target_stat.st_mtime
+
+                if is_dir:
+                    try:
+                        mtime_target = get_dir_mtime()
+                    except FileNotFoundError:
+                        # No timestamp, hence go on as if it is a file.
+                        pass
+
+                return Mtime(
+                    local=mtime, local_target=mtime_target, remote=mtime_remote
+                )
+
+        except FileNotFoundError:
+            if self.is_remote:
+                return Mtime(remote=mtime_remote)
+            raise WorkflowError(
+                "Unable to obtain modification time of file {} although it existed before. "
+                "It could be that a concurrent process has deleted it while Snakemake "
+                "was running.".format(self.file)
+            )
+        except PermissionError:
+            raise WorkflowError(
+                "Unable to obtain modification time of file {} because of missing "
+                "read permissions.".format(self.file)
+            )
 
     @property
     def flags(self):
@@ -356,7 +575,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
-        """ Raise WorkflowError if file is a broken symlink. """
+        """Raise WorkflowError if file is a broken symlink."""
         if not self.exists_local and os.lstat(self.file):
             raise WorkflowError(
                 "File {} seems to be a broken symlink.".format(self.file)
@@ -364,29 +583,12 @@ class _IOFile(str):
 
     @_refer_to_remote
     def is_newer(self, time):
-        """ Returns true of the file is newer than time, or if it is
-            a symlink that points to a file newer than time. """
+        """Returns true of the file (which is an input file) is newer than time, or if it is
+        a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
-        elif self.is_remote:
-            # If file is remote but provider does not override the implementation this
-            # is the best we can do.
-            return self.mtime > time
-        else:
-            if os.path.isdir(self.file) and os.path.exists(
-                os.path.join(self.file, ".snakemake_timestamp")
-            ):
-                st_mtime_file = os.path.join(self.file, ".snakemake_timestamp")
-            else:
-                st_mtime_file = self.file
-            try:
-                return os.stat(st_mtime_file).st_mtime > time or self.mtime > time
-            except FileNotFoundError:
-                raise WorkflowError(
-                    "File {} not found although it existed before. Is there another active process that might have deleted it?".format(
-                        self.file
-                    )
-                )
+
+        return self.mtime.local_or_remote(follow_symlinks=True) > time
 
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
@@ -438,13 +640,13 @@ class _IOFile(str):
             remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
-        """ times must be 2-tuple: (atime, mtime) """
+        """times must be 2-tuple: (atime, mtime)"""
         try:
             if self.is_directory:
                 file = os.path.join(self.file, ".snakemake_timestamp")
                 # Create the flag file if it doesn't exist
                 if not os.path.exists(file):
-                    with open(file, "w") as f:
+                    with open(file, "w"):
                         pass
                 lutime(file, times)
             else:
@@ -479,6 +681,7 @@ class _IOFile(str):
 
     def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
         f = self._file
+
         if self._is_function:
             f = self._file(Namedlist(fromdict=wildcards))
 
@@ -502,9 +705,6 @@ class _IOFile(str):
 
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
-
-    def contains_wildcard(self):
-        return contains_wildcard(self.file)
 
     def regex(self):
         if self._regex is None:
@@ -720,7 +920,7 @@ def apply_wildcards(
             else:
                 raise WildcardError(str(ex))
 
-    return re.sub(_wildcard_regex, format_match, pattern)
+    return _wildcard_regex.sub(format_match, pattern)
 
 
 def not_iterable(value):
@@ -743,6 +943,12 @@ class AnnotatedString(str):
     def __init__(self, value):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
 
 
 def flag(value, flag_type, flag_value=True):
@@ -808,16 +1014,18 @@ def pipe(value):
         raise SyntaxError("Pipes may not be protected.")
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
-    return flag(value, "pipe")
+    if ON_WINDOWS:
+        logger.warning("Pipes is not yet supported on Windows.")
+    return flag(value, "pipe", not ON_WINDOWS)
 
 
 def temporary(value):
-    """ An alias for temp. """
+    """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """ A flag for a file that shall be write protected after creation. """
+    """A flag for a file that shall be write protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -829,7 +1037,7 @@ def dynamic(value):
     """
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
-    rule has been run """
+    rule has been run"""
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -862,11 +1070,13 @@ def checkpoint_target(value):
 
 
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns"]
+    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
 )
 
 
-def report(value, caption=None, category=None, subcategory=None, patterns=[]):
+def report(
+    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+):
     """Flag output file or directory as to be included into reports.
 
     In case of directory, files to include can be specified via a glob pattern (default: *).
@@ -879,7 +1089,11 @@ def report(value, caption=None, category=None, subcategory=None, patterns=[]):
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
-    return flag(value, "report", ReportObject(caption, category, subcategory, patterns))
+    return flag(
+        value,
+        "report",
+        ReportObject(caption, category, subcategory, patterns, htmlindex),
+    )
 
 
 def local(value):
@@ -908,7 +1122,7 @@ def expand(*args, **wildcards):
         combinator = product
     elif len(args) == 2:
         combinator = args[1]
-    if isinstance(filepatterns, str):
+    if isinstance(filepatterns, str) or isinstance(filepatterns, Path):
         filepatterns = [filepatterns]
 
     def path_to_str(f):
@@ -1062,7 +1276,7 @@ def update_wildcard_constraints(
             return match.group(0)
 
     examined_names = set()
-    updated = re.sub(_wildcard_regex, replace_constraint, pattern)
+    updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
     if isinstance(pattern, AnnotatedString):
@@ -1083,40 +1297,40 @@ def split_git_path(path):
 
 def get_git_root(path):
     """
-        Args:
-            path: (str) Path a to a directory/file that is located inside the repo
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory/file that is located inside the repo
+    Returns:
+        path to root folder for git repo
     """
     import git
 
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         return get_git_root_parent_directory(tail, path)
 
 
 def get_git_root_parent_directory(path, input_path):
     """
-        This function will recursively go through parent directories until a git
-        repository is found or until no parent directories are left, in which case
-        a error will be raised. This is needed when providing a path to a
-        file/folder that is located on a branch/tag no currently checked out.
+    This function will recursively go through parent directories until a git
+    repository is found or until no parent directories are left, in which case
+    a error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag no currently checked out.
 
-        Args:
-            path: (str) Path a to a directory that is located inside the repo
-            input_path: (str) origin path, used when raising WorkflowError
-        Returns:
-            path to root folder for git repo
+    Args:
+        path: (str) Path a to a directory that is located inside the repo
+        input_path: (str) origin path, used when raising WorkflowError
+    Returns:
+        path to root folder for git repo
     """
     import git
 
     try:
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError as e:
+    except git.exc.NoSuchPathError:
         tail, head = os.path.split(path)
         if tail is None:
             raise WorkflowError(
@@ -1129,15 +1343,15 @@ def get_git_root_parent_directory(path, input_path):
 
 def git_content(git_file):
     """
-        This function will extract a file from a git repository, one located on
-        the filesystem.
-        Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    This function will extract a file from a git repository, one located on
+    the filesystem.
+    Expected format is git+file:///path/to/your/repo/path_to_file@version
 
-        Args:
-          env_file (str): consist of path to repo, @, version and file information
-                          Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-        Returns:
-            file content or None if the expected format isn't meet
+    Args:
+      env_file (str): consist of path to repo, @, version and file information
+                      Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+    Returns:
+        file content or None if the expected format isn't meet
     """
     import git
 
@@ -1213,13 +1427,13 @@ class Namedlist(list):
         """
         Generic function that throws an `AttributeError`.
 
-        Used as replacement for functions such as `index()` and `sort()`, 
-        which may be overridden by workflows, to signal to a user that 
-        these functions should not be used.        
+        Used as replacement for functions such as `index()` and `sort()`,
+        which may be overridden by workflows, to signal to a user that
+        these functions should not be used.
         """
         raise AttributeError(
-            f"{_name}() cannot be used; attribute name reserved"
-            f" for use in some existing workflows"
+            "{_name}() cannot be used; attribute name reserved"
+            " for use in some existing workflows".format(_name=_name)
         )
 
     def _add_name(self, name):
@@ -1241,8 +1455,8 @@ class Namedlist(list):
         """
         if name not in self._allowed_overrides and hasattr(self.__class__, name):
             raise AttributeError(
-                f"invalid name for input, output, wildcard, "
-                f"params or log: {name} is reserved for internal use"
+                "invalid name for input, output, wildcard, "
+                "params or log: {name} is reserved for internal use".format(name=name)
             )
 
         self._names[name] = (index, end)
@@ -1361,12 +1575,17 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath, filetype="Config"):
+def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
 
+    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+        obj = open(configpath_or_obj, encoding="utf-8")
+    else:
+        obj = configpath_or_obj
+
     try:
-        with open(configpath) as f:
+        with obj as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:
@@ -1414,6 +1633,7 @@ class PeriodicityDetector:
             max_repeat (int): The maximum length of the periodic substring.
             min_repeat (int): The minimum length of the periodic substring.
         """
+        self.min_repeat = min_repeat
         self.regex = re.compile(
             "((?P<value>.+)(?P=value){{{min_repeat},{max_repeat}}})$".format(
                 min_repeat=min_repeat - 1, max_repeat=max_repeat - 1
@@ -1422,6 +1642,29 @@ class PeriodicityDetector:
 
     def is_periodic(self, value):
         """Returns the periodic substring or None if not periodic."""
+        # short-circuit: need at least min_repeat characters
+        if len(value) < self.min_repeat:
+            return None
+
+        # short-circuit: need at least min_repeat same characters
+        last_letter = value[-1]
+        counter = collections.Counter(value)
+        if counter[last_letter] < self.min_repeat:
+            return None
+
+        # short-circuit: need at least min_repeat same characters
+        pos = 2
+        while (
+            value[-pos] != last_letter
+        ):  # as long as last letter is not seen, repeat length is minimally pos
+            if (
+                len(value) < (pos * self.min_repeat)
+                or counter[value[-pos]] < self.min_repeat
+            ):
+                return None
+            pos += 1
+
+        # now do the expensive regex
         m = self.regex.search(value)  # search for a periodic suffix.
         if m is not None:
             return m.group("value")

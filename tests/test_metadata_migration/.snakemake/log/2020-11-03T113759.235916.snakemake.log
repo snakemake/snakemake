@@ -1,0 +1,18 @@
+Building DAG of jobs...
+Using shell: /usr/bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	a
+	1
+
+[Tue Nov  3 11:37:59 2020]
+rule a:
+    output: some/veryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery/veryveryveryveryveryveryveryveryveryveryveryveryverylong/path.txt
+    jobid: 0
+
+[Tue Nov  3 11:37:59 2020]
+Finished job 0.
+1 of 1 steps (100%) done
+Complete log: /home/johannes/scms/snakemake/tests/test_metadata_migration/.snakemake/log/2020-11-03T113759.235916.snakemake.log

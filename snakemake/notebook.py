@@ -1,6 +1,5 @@
 import os, sys
 from urllib.error import URLError
-from urllib.parse import urlparse
 import tempfile
 import re
 import shutil
@@ -9,6 +8,9 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
+from snakemake.common import is_local_file
+from snakemake.common import ON_WINDOWS
+from snakemake.sourcecache import SourceCache
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -17,6 +19,14 @@ KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 class Listen:
     def __init__(self, arg):
         self.ip, self.port = arg.split(":")
+
+
+def get_cell_sources(source):
+    import nbformat
+
+    nb = nbformat.reads(source, as_version=nbformat.NO_CONVERT)
+
+    return [cell["source"] for cell in nb["cells"]]
 
 
 class JupyterNotebook(ScriptBase):
@@ -44,7 +54,7 @@ class JupyterNotebook(ScriptBase):
     def write_script(self, preamble, fd):
         import nbformat
 
-        nb = nbformat.reads(self.source, as_version=4)  # nbformat.NO_CONVERT
+        nb = nbformat.reads(self.source, as_version=nbformat.NO_CONVERT)
 
         self.remove_preamble_cell(nb)
         self.insert_preamble_cell(preamble, nb)
@@ -64,7 +74,7 @@ class JupyterNotebook(ScriptBase):
         if edit is not None:
             logger.info("Opening notebook for editing.")
             cmd = (
-                "jupyter notebook --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
                 "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
             )
         else:
@@ -74,6 +84,10 @@ class JupyterNotebook(ScriptBase):
                     output_parameter=output_parameter
                 )
             )
+
+        if ON_WINDOWS:
+            fname = fname.replace("\\", "/")
+            fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
 
         self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
 
@@ -115,7 +129,7 @@ class JupyterNotebook(ScriptBase):
 
 class PythonJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "import os; os.chdir('{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = "import os; os.chdir(r'{cwd}');".format(cwd=os.getcwd())
 
         return PythonScript.generate_preamble(
             self.path,
@@ -139,6 +153,7 @@ class PythonJupyterNotebook(JupyterNotebook):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
 
@@ -196,6 +211,7 @@ def notebook(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -204,14 +220,15 @@ def notebook(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
-    edit=None,
+    edit,
+    runtime_sourcecache_path,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
     draft = False
     if edit is not None:
-        if urlparse(path).scheme == "":
+        if is_local_file(path):
             if not os.path.isabs(path):
                 local_path = os.path.join(basedir, path)
             else:
@@ -237,9 +254,12 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir)
+        path, source, language, is_local = get_source(
+            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+        )
     else:
         source = None
+        is_local = True
 
     exec_class = get_exec_class(language)
 
@@ -257,6 +277,7 @@ def notebook(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,
@@ -265,6 +286,7 @@ def notebook(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     )
 
     if draft:

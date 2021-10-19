@@ -1,0 +1,12 @@
+
+rule all:
+    input:
+        "test_input.txt"
+    output:
+        "test_output.txt"
+    log:
+        "test_log.txt"
+    shell:
+        """
+        echo "task submitted to tes"
+        """

@@ -3,7 +3,7 @@ name: Publish to Docker Hub
 on:    
   push:
     branches:
-      - master
+      - main
 
 jobs:
   update:
@@ -15,4 +15,4 @@ jobs:
       with:
         name: snakemake/snakemake
         username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        password: ${{ secrets.DOCKER_TOKEN }}

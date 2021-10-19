@@ -1,18 +1,22 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import subprocess
 import shutil
 import os
-from urllib.parse import urlparse
 import hashlib
 from distutils.version import LooseVersion
 
 import snakemake
 from snakemake.deployment.conda import Conda
-from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
+from snakemake.common import (
+    is_local_file,
+    parse_uri,
+    lazy_property,
+    SNAKEMAKE_SEARCHPATH,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
@@ -21,7 +25,7 @@ SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 
 
 class Image:
-    def __init__(self, url, dag):
+    def __init__(self, url, dag, is_containerized):
         if " " in url:
             raise WorkflowError(
                 "Invalid singularity image URL containing " "whitespace."
@@ -49,11 +53,11 @@ class Image:
 
         self.url = url
         self._img_dir = dag.workflow.persistence.container_img_path
+        self.is_containerized = is_containerized
 
     @property
     def is_local(self):
-        scheme = urlparse(self.url).scheme
-        return not scheme or scheme == "file"
+        return is_local_file(self.url)
 
     @lazy_property
     def hash(self):
@@ -91,7 +95,7 @@ class Image:
     @property
     def path(self):
         if self.is_local:
-            return urlparse(self.url).path
+            return parse_uri(self.url).uri_path
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
     def __hash__(self):
@@ -102,10 +106,16 @@ class Image:
 
 
 def shellcmd(
-    img_path, cmd, args="", envvars=None, shell_executable=None, container_workdir=None
+    img_path,
+    cmd,
+    args="",
+    quiet=False,
+    envvars=None,
+    shell_executable=None,
+    container_workdir=None,
 ):
     """Execute shell command inside singularity container given optional args
-       and environment variables to be passed."""
+    and environment variables to be passed."""
 
     if envvars:
         envvars = " ".join(
@@ -127,8 +137,9 @@ def shellcmd(
     if container_workdir:
         args += " --pwd {}".format(container_workdir)
 
-    cmd = "{} singularity exec --home {} {} {} {} -c '{}'".format(
+    cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
+        "--quiet --silent" if quiet else "",
         os.getcwd(),
         args,
         img_path,

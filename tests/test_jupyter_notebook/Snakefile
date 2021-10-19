@@ -1,6 +1,9 @@
+shell.executable("bash")
+
 rule all:
     input:
-        'result_final.txt'
+        'result_final.txt',
+        'book.result_final.txt',
 
 rule foo:
     output:
@@ -30,3 +33,14 @@ rule baz:
         'env.yaml'
     notebook:
         'Notebook.ipynb'
+
+
+rule wild:
+    input:
+        infile = 'result_intermediate.txt'
+    output:
+        outfile = '{what}.result_final.txt'
+    conda:
+        'env.yaml'
+    notebook:
+        'Note{wildcards.what}.ipynb'

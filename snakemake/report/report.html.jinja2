@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Snakemake Report</title>
+
+    <!-- Bootstrap CSS -->
+    <style>{{ "https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css"|get_resource_as_string }}</style>
+    <style>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.css"|get_resource_as_string }}</style>
+    <style>{{ pygments_css|safe }}</style>
+
+    <!-- Custom styles for this template -->
+    <style>
+      body {
+      font-size: .875rem;
+      }
+
+      .feather {
+      width: 16px;
+      height: 16px;
+      vertical-align: text-bottom;
+      }
+
+      /*
+      * Sidebar
+      */
+
+      .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100; /* Behind the navbar */
+      padding: 48px 0 0; /* Height of navbar */
+      box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+      }
+
+      .sidebar-sticky {
+      position: relative;
+      top: 0;
+      height: calc(100vh - 48px);
+      padding-top: .5rem;
+      overflow-x: hidden;
+      overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+      }
+
+      @supports ((position: -webkit-sticky) or (position: sticky)) {
+      .sidebar-sticky {
+        position: -webkit-sticky;
+        position: sticky;
+      }
+      }
+
+      .sidebar .nav-link {
+      font-weight: 500;
+      color: #333;
+      }
+
+      .sidebar .nav-link .feather {
+      margin-right: 4px;
+      color: #999;
+      }
+
+      .sidebar .nav-link.active {
+      color: #007bff;
+      }
+
+      .sidebar .nav-link:hover .feather,
+      .sidebar .nav-link.active .feather {
+      color: inherit;
+      }
+
+      .sidebar-heading {
+      font-size: .75rem;
+      text-transform: uppercase;
+      }
+
+      /*
+      * Content
+      */
+
+      [role="main"] {
+      padding-top: 65px; /* Space for fixed navbar */
+      }
+
+      *[id]:before {
+        display: block;
+        content: " ";
+        margin-top: -75px;
+        height: 75px;
+        visibility: hidden;
+      }
+
+      /*
+      * Navbar
+      */
+
+      .navbar-brand {
+      padding-top: .75rem;
+      padding-bottom: .75rem;
+      font-size: 1rem;
+      font-weight: bold;
+      background-color: rgba(0, 0, 0, .25);
+      box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
+      }
+
+      .navbar .form-control {
+      padding: .75rem 1rem;
+      border-width: 0;
+      border-radius: 0;
+      }
+
+      .form-control-dark {
+      color: #fff;
+      background-color: rgba(255, 255, 255, .1);
+      border-color: rgba(255, 255, 255, .1);
+      }
+
+      .form-control-dark:focus {
+      border-color: transparent;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .25);
+      }
+
+      /*
+      * Utilities
+      */
+
+      .border-top { border-top: 1px solid #e5e5e5; }
+      .border-bottom { border-bottom: 1px solid #e5e5e5; }
+
+      /* Snakemake specific */
+      .result img {
+        max-width: 100vw;
+      }
+
+      .result .preview {
+        text-align: center;
+      }
+
+      #rulegraph canvas {
+        display: block;
+        max-width: 100vw;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      @keyframes fadeinout {
+        0%   { opacity:1; }
+        50%  { opacity:0; }
+        100% { opacity:1; }
+      }
+
+      #loading-screen {
+        background-color: white;
+        width: 100%;
+        height: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 2000;
+        padding-top: 50vh;
+      }
+
+      p.animation {
+        animation: fadeinout 2.5s infinite;
+        text-align: center;
+        font-size: 200%;
+      }
+
+      #loading-screen p#info {
+        text-align: center;
+        color: grey;
+      }
+
+      #loading-screen p#jswarning {
+      	text-align: center;
+        color: red;
+      }
+
+      #panel-loading-screen {
+        width: 100%;
+        height: 100%;
+        padding-top: 50vh;
+      }
+
+      #panel-loading-sceen p.animation {
+        margin: auto;
+      }
+
+      .vega-actions .btn {
+        font-size: 100%;
+      }
+
+      .plot {
+        text-align: center;
+      }
+
+      h6.sidebar-heading {
+        text-transform: none;
+      }
+
+      .preview {
+        text-align: right;
+      }
+
+      .ekko-lightbox-nav-overlay a span {
+        color: lightgrey;
+      }
+
+      .navbar {
+        opacity: 0.8;
+      }
+
+      .source {
+        background: none !important;
+        overflow-x: auto;
+        width: 100%;
+      }
+
+      table.dataTable tbody tr.selected,
+      table.dataTable tbody th.selected,
+      table.dataTable tbody td.selected {
+        color: black;
+        font-weight: bold;
+      }
+
+      table.dataTable tbody tr.selected td:first-of-type {
+        font-weight: bold;
+      }
+
+      table.dataTable tbody tr.selected td {
+        border-top: 1px solid #007bff;
+        border-bottom: 1px solid #007bff;
+      }
+
+      table.dataTable tbody > tr.selected, 
+      table.dataTable tbody > tr > .selected {
+        background-color: transparent;
+      }
+
+      table.dataTable tbody tr.selected a, 
+      table.dataTable tbody th.selected a, 
+      table.dataTable tbody td.selected a {
+        color: #007bff;
+      }
+
+      table caption {
+        display: none;
+      }
+
+      table.results-table {
+        width: 100%;
+	margin-bottom: 4em;
+      }
+
+      .rule-property {
+        overflow-y: auto;
+        max-height: 10em;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel#workflow {
+        display: block;
+      }
+
+      .ruletable th {
+        width: 1px;
+      }
+
+      .rule-properties ul {
+        padding-left: 1.2em;
+      }
+
+      #thumbnail-modal .modal-body {
+        overflow: auto;
+        text-align: center;
+      }
+
+      .category pre {
+        max-width: 20vw;
+        max-height: 10vh;
+      }
+	    
+      .modal-lg {
+    	max-width: 95%;
+      }
+    </style>
+
+    {% if custom_stylesheet is not none %}
+    <style>
+      {{ custom_stylesheet }}
+    </style>
+    {% endif %}
+  </head>
+
+  <body>
+    <div id="loading-screen">
+      <p class="animation">Loading Snakemake Report...</p>
+      <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+      {% if mode_embedded %}
+      <p id="info">Loading {{ results_size|filesizeformat }}. For large reports, this can take a while.</p>
+      {% endif %}
+    </div>
+
+    <nav class="navbar fixed-top navbar-dark bg-dark flex-md-nowrap p-0 shadow">
+      <a class="navbar-brand col-sm-3 col-md-2 mr-0" href="https://snakemake.readthedocs.io">Snakemake Report</a>
+      <div class="nav navbar-nav navbar-center" id="brand"></div>
+      <ul class="nav navbar-nav navbar-right" style="padding-right: 10px;">
+        <li class="text-white">{{ now }}</li>
+        <li><a class="text-white" href="https://snakemake.readthedocs.io">Snakemake {{ version }}</a></li>
+      </ul>
+      <!--<input id="searchbar" class="invisible form-control form-control-dark w-100" type="text" placeholder="Search" aria-label="Search">-->
+    </nav>
+
+    <div class="container-fluid">
+      <div class="row">
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+          <div class="sidebar-sticky">
+            <ul class="nav flex-column">
+              <li class="nav-item">
+                <a class="nav-link active panel-link" data-panel="workflow" href="javascript:void(0)">
+                  <span data-feather="git-pull-request"></span>
+                  Workflow <span class="sr-only">(current)</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link panel-link" data-panel="statistics" href="javascript:void(0)">
+                  <span data-feather="bar-chart-2"></span>
+                  Statistics
+                </a>
+              </li>
+              {% if configfiles %}
+              <li class="nav-item">
+                <a class="nav-link panel-link" data-panel="configuration" href="javascript:void(0)">
+                  <span data-feather="settings"></span>
+                  Configuration
+                </a>
+              </li>
+              {% endif %}
+            </ul>
+
+            <h5 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+              <span class="d-flex align-items-center text-muted text-bold">
+                Results
+              </span>
+            </h5>
+            <ul class="nav flex-column mb-2">
+            {% for cat, _ in results|dictsort %}
+              <li class="nav-item">
+                <a class="nav-link panel-link" data-panel="{{ cat.id }}" href="javascript:void(0)">
+                  <span data-feather="folder"></span>
+                  {{ cat.name }}
+                </a>
+              </li>
+            {% endfor %}
+            </ul>
+          </div>
+        </nav>
+
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4">
+          <div class="panel" id="workflow">
+            <h2>Workflow</h2>
+
+            {{ text }}
+
+            <div class="row justify-content-center">
+              <div class="col-xs-6">
+                <div id="rulegraph"></div>
+              </div>
+            </div>
+
+            <p>Click the nodes to obtain details about each step.</p>
+
+          </div>
+
+          {% for cat, subcats in results|dictsort %}
+          <div class="panel category" id="{{ cat.id }}">
+            <h2>{{ cat.name }}</h2>
+            {% for subcat, catresults in subcats|dictsort %}
+            {% if subcats|length > 1 or not subcat.is_other %}
+            <h4>{{ subcat.name }}</h4>
+            {% endif %}
+            <table class="results-table table" data-category="{{ cat.id }}" data-subcategory="{{ subcat.id }}"></table>
+            {% if not loop.last %}
+            <div style="clear: both; margin-bottom: 4em;"></div> <!-- ensure distance to next table -->
+            {% endif %}
+            {% endfor %}
+          </div>  
+          {% endfor %}
+
+          <div class="panel" id="statistics">
+            <h2>Statistics</h2>
+            If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
+            <div class="row justify-content-center">
+              <div class="col-xs-6">
+                <div id="runtimes" class="plot"></div>
+              </div>
+              <div class="col-xs-6">
+                <div id="timeline" class="plot"></div>
+              </div>
+            </div>
+          </div>
+
+          {% if configfiles %}
+          <div class="panel" id="configuration">
+            <h2>Configuration</h2>
+            <table class="table">
+              <caption>Configuration files</caption>
+              <thead>
+                <tr>
+                  <th scope="col">File</th>
+                  <th scope="col">Code</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for configfile in configfiles %}
+                  <tr>
+                    <td>{{ configfile.name }}</td>
+                    <td>
+                      <a data-toggle="collapse" role="button" href="#configfile-{{ configfile.id }}" aria-expanded="false" aria-controls="collapse-env"><span data-feather="plus-circle"></span></a>
+                      <div class="collapse" id="configfile-{{ configfile.id }}">
+                        {{ configfile.code()|safe }}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+
+          <div class="panel" id="panel-loading-screen">
+            <p class="animation">Loading...</p>
+          </div>
+        </main>
+
+        <div id="thumbnail-modal" class="modal" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <img src="" alt="Thumbnail">
+              </div>
+              <div class="modal-footer">
+                <a class="btn btn-primary btn-download" role="button" href="#">Download original</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% for rule in rules %}
+        <div data-rule="{{ rule.name }}" class="modal rule-properties" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Rule {{ rule.name }}</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <table class="table w-auto table-sm table-borderless ruletable">
+                  <caption>Rule properties</caption>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Jobs</th><td>{{ rule.n_jobs }}</td>
+                    </tr>
+
+                    {% if rule.input %}
+                    <tr>
+                      <th scope="row" colspan=2>Input files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.input %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.output %}
+                    <tr>
+                      <th scope="row" colspan=2>Output files</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for f in rule.output %}
+                            <li>{{ f }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.container_img_url %}
+                    <tr>
+                      <th scope="row" colspan=2>Container image</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        {{ rule.container_img_url }}
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.conda_env %}
+                    <tr>
+                      <th scope="row" colspan=2>Conda software stack</th>
+                    </tr>
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        <ul>
+                          {% for dep in rule.conda_env["dependencies"] %}
+                            <li>{{ dep }}</li>
+                          {% endfor %}
+                        </ul>
+                      </td>
+                    </tr>
+                    {% endif %}
+
+                    {% if rule.code %}
+                    <tr>
+                      <th scope="row" colspan=2>Code</th>
+                    </tr>
+                      {% for item in rule.code %}
+                    <tr>
+                      <td class="rule-property" colspan=2>
+                        {{ item|safe }}
+                      </td>
+                    </tr>
+                      {% endfor %}
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/js/bootstrap.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega/5.6.0/vega.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-lite/3.4.0/vega-lite.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/vega-embed/5.1.3/vega-embed.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"|get_resource_as_string }}</script>
+    <script>{{ "https://cdn.datatables.net/v/bs4/dt-1.10.20/r-2.2.2/sl-1.3.0/datatables.min.js"|get_resource_as_string }}</script>
+    {% if mode_embedded %}
+    <script>{{ "https://raw.githubusercontent.com/eligrey/FileSaver.js/2.0.0/src/FileSaver.js"|get_resource_as_string }}</script>
+    {% endif %}
+
+    <!-- Icons -->
+    <script>
+      $("#jswarning").hide()
+      feather.replace()
+    </script>
+
+    <script id="results">
+      var results = {
+      {% for cat, subcats in results|dictsort %}
+        {% for subcat, catresults in subcats|dictsort %}
+          {% for res in catresults %}
+            "{{ res.path|safe }}": {
+              name: "{{ res.name }}",
+              filename: "{{ res.filename }}",
+              path: "{{ res.path }}",
+              size: "{{ res.size|filesizeformat }}",
+              caption: {{ res.caption|default('""', true) }},
+              job_properties: {
+                rule: "{{ res.job.rule.name }}",
+                wildcards: "{{ res.wildcards }}",
+                params: "{{ res.params }}"
+              },
+              data_uri: function() { return "{{ res.data_uri }}"; },
+              {% if res.png_uri is not none %}
+              thumbnail_uri: function() { return "{{ res.png_uri }}"; }
+              {% else %}
+              thumbnail_uri: function() { return null; }
+              {% endif %}
+            }{{ "," if not loop.last }}
+          {% endfor %}
+          {{ "," if not loop.last }}
+        {% endfor %}
+        {{ "," if not loop.last }}
+      {% endfor %}
+      };
+    </script>
+
+    <script>
+      var categories = {
+      {% for cat, subcats in results|dictsort %}
+        "{{ cat.id }}": {
+        {% for subcat, catresults in subcats|dictsort %}
+          "{{ subcat.id }}": [
+          {% for res in catresults %}
+            "{{ res.path|safe }}"{{ "," if not loop.last }}
+          {% endfor %}
+          ]{{ "," if not loop.last }}
+        {% endfor %}
+        }{{ "," if not loop.last }}
+      {% endfor %}
+      };
+
+      function show_rule_properties(rule) {
+        $(`.rule-properties[data-rule=${rule}]`).modal("show");
+      }
+
+      function download_result(path) {
+        var res = results[path];
+        saveAs(res.data_uri(), res.name);
+      }
+
+      function show_thumbnail(path) {
+        var res = results[path];
+        var modal = $("#thumbnail-modal");
+
+        modal.find(".modal-title").text(res.name);
+        modal.find(".modal-body img").attr("src", res.thumbnail_uri());
+        var link = modal.find(".modal-footer a.btn-download")
+          .attr(
+            "href", 
+            {% if mode_embedded %}
+            `javascript:download_result("${res.path}")`
+            {% else %}
+            res.data_uri
+            {% endif %}
+          ).attr("target", "_blank");
+        if(!res.name.endsWith(".html")) {
+          link.attr("download", res.name);
+        }
+        modal.modal('handleUpdate');
+        modal.modal("show");
+      }
+
+      function show_category(panel) {
+        panel.find(".results-table").each(function() {
+          var table = $(this);
+          
+          // stop if this is already a datatable
+          if ($.fn.DataTable.isDataTable(table)) {
+            return;
+          }
+
+          var cat = table.data("category");
+          var subcat = table.data("subcategory");
+
+          $(this).DataTable({
+            data: categories[cat][subcat].map(res => results[res]),
+            bAutoWidth: false,
+            columns: [
+              {
+                title: "File",
+                render: function(data, type, row) {
+                  var link = $("<a>", {
+                    target: "_blank",
+                    {% if mode_embedded %}
+                    href: `javascript:download_result("${row.path}")`
+                    {% else %}
+                    href: row.data_uri
+                    {% endif %}
+                  }).text(row.name);
+                  if(!row.filename.endsWith(".html")) {
+                    link.attr("download", row.filename);
+                  };
+
+                  return link.wrap("<span>").parent().html();
+                }
+              },
+              {
+                title: "Description",
+                render: function(data, type, row) {
+                  return row.caption;
+                }
+              },
+              {
+                title: "Job properties",
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    var desc = $("<dl>", { class: "row" });
+                    desc.append($("<dt>", { class: "col-sm-3" }).text("Rule"))
+                      .append(
+                        $(
+                          "<dd>", { class:"col-sm-9" })
+                            .append($("<a>", {href: `javascript:show_rule_properties("${row.job_properties.rule}")`})
+                            .text(row.job_properties.rule)
+                        )
+                      )
+                      .append($("<dt>", { class: "col-sm-3" }).text("Wildcards"))
+                      .append($("<dd>", { class: "col-sm-9" }).text(row.job_properties.wildcards || "-"))
+                      .append($("<dt>", { class: "col-sm-3" }).text("Parameters"))
+                      .append($("<dd>", { class: "col-sm-9" }).append($("<pre>").text(row.job_properties.params || "-")));
+                    return desc.wrap("<span>").parent().html();
+                  } else {
+                    return row.job_properties.rule;
+                  }
+                }
+              },
+              {
+                title: "Thumbnail",
+                sortable: false,
+                render: function(data, type, row) {
+                  if (type === 'display'){
+                    var thumbnail_uri = row.thumbnail_uri()
+                    if (thumbnail_uri) {
+                      var link = $("<a>", {
+                        href: `javascript:show_thumbnail("${row.path}")`
+                      }).append($("<img>", {
+                        src: thumbnail_uri,
+                        width: 200
+                      }));
+                      return link.wrap("<span>").parent().html();
+                    } else {
+                      return "";
+                    }
+                  } else {
+                    return "";
+                  }
+                }
+              },
+            ]
+          })
+        });
+      }
+
+      function show_panel(id) {
+        $(".panel").hide();
+        var loading_screen = $("#panel-loading-screen");
+        loading_screen.show();
+        var panel = $(`#${id}`);
+        if (panel.hasClass("category")) {
+          show_category(panel);
+        }
+        loading_screen.hide();
+        panel.show();
+      }
+
+      var rulegraph_spec = {
+        "$schema": "https://vega.github.io/schema/vega/v5.json",
+        "width": {{ rulegraph_width }},
+        "height": {{ rulegraph_height }},
+        "padding": 0,
+        "autosize": "none",
+
+        "signals": [
+          { "name": "cx", "update": "width / 2" },
+          { "name": "cy", "update": "height / 2" }
+        ],
+
+        "data": [
+          {
+            "name": "node-data",
+            "values": {{ rulegraph_nodes }}
+          },
+          {
+            "name": "link-data",
+            "values": {{ rulegraph_links }}
+          }
+        ],
+
+        "scales": [
+          {
+            "name": "color",
+            "type": "ordinal",
+            "range": {"scheme": "category20c"}
+          },
+          {
+            "name": "x",
+            "type": "linear"
+          },
+          {
+            "name": "y",
+            "type": "linear"
+          }
+        ],
+
+        "marks": [
+          {
+            "name": "nodes",
+            "type": "symbol",
+            "zindex": 1,
+            "from": {"data": "node-data"},
+            "encode": {
+              "enter": {
+                "fill": {"scale": "color", "field": "rule"},
+                "x": {"field": "fx", "scale": "x"},
+                "y": {"field": "fy", "scale": "y"},
+                "tooltip": { "value": "Click to show rule details." }
+              },
+              "update": {
+                "size": {"value": 100}
+              },
+              "hover": {
+                "size": {"value": 200}
+              }
+            },
+
+            "transform": [
+              {
+                "type": "force",
+                "iterations": 1,
+                "static": true,
+                "forces": [
+                  {
+                    "force": "link",
+                    "links": "link-data",
+                    "distance": 25
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "labels",
+            "type": "text",
+            "zindex": 2,
+            "from": {"data": "node-data"},
+            "encode": {
+              "enter": {
+                "fill": {"value": "black"},
+                "fontWeight": {"value": "normal"},
+                "text": {"field": "rule"},
+                "x": {"field": "fx", "scale": "x"},
+                "y": {"field": "fy", "scale": "y"},
+                "dx": {"value": 5},
+                "dy": {"value": -5},
+              }
+            }
+          },
+          {
+            "type": "path",
+            "from": {"data": "link-data"},
+            "interactive": false,
+            "encode": {
+              "update": {
+                "stroke": {"value": "#ccc"},
+                "strokeWidth": {"value": 0.5}
+              }
+            },
+            "transform": [
+              {
+                "type": "linkpath", "shape": "diagonal",
+                "sourceX": "datum.source.x", "sourceY": "datum.source.y",
+                "targetX": "datum.target.x", "targetY": "datum.target.y"
+              }
+            ]
+          }
+        ]
+      };
+      vegaEmbed("#rulegraph", rulegraph_spec).then(function(ret) {
+        ret.view.addEventListener("click", function(event, item) {
+          if(item && "rule" in item.datum) {
+            var rule = item.datum.rule;
+            show_rule_properties(rule);
+          }
+        });
+      });
+
+
+      
+
+      var runtimes_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+        "description": "Runtimes of jobs.",
+        "data": {"values": {{ runtimes }}},
+        "mark": "point",
+        "encoding": {
+          "x": {"field": "runtime", "type": "quantitative",
+                "axis": {"title": "runtime [s]", "labelAngle": -90},
+                "scale": {"type": "log"}
+          },
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
+        }
+      };
+      vegaEmbed("#runtimes", runtimes_spec);
+
+      var timeline_spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+        "description": "Timeline of jobs.",
+        "data": {
+          "values": {{ timeline }}
+        },
+        "mark": "point",
+        "encoding": {
+          "x": {
+            "field": "endtime", "type": "temporal",
+            "timeUnit": "yearmonthdatehoursminutes",
+            "axis": {
+              "labelAngle": -90,
+              "title": "creation date"
+            }
+          },
+          "y": {"field": "rule", "type": "nominal"},
+          "color": {"value": "#007bff"}
+        }
+      };
+      vegaEmbed("#timeline", timeline_spec);
+
+      $(".vega-actions a").addClass("btn btn-outline-secondary");
+      $(".vega-actions").addClass("btn-group");
+      
+      $("a.panel-link").click(function() {
+        $("a.nav-link.active").removeClass("active");
+        $(this).addClass("active");
+        var panelid = $(this).attr("data-panel");
+        show_panel(panelid);
+      })
+
+      $(document).ready(function() {
+        // Hide loading screen when document is ready.
+        setTimeout(function(){
+            $("#loading-screen").hide();
+        }, 2000);
+      });
+    </script>
+  </body>
+</html>

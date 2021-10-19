@@ -1,33 +1,36 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import sys
 import os
+import sys
 import shutil
 from os.path import join
-from subprocess import call
 import tempfile
 import hashlib
 import urllib
-from shutil import rmtree, which
-from shlex import quote
 import pytest
+import glob
 import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
+from snakemake.common import ON_WINDOWS
 
 
 def dpath(path):
     """get path to a data file (relative to the directory this
-	test lives in)"""
+    test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
-def md5sum(filename):
-    data = open(filename, "rb").read()
+def md5sum(filename, ignore_newlines=False):
+    if ignore_newlines:
+        with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
+            data = f.read().encode("utf8", errors="surrogateescape")
+    else:
+        data = open(filename, "rb").read()
     return hashlib.md5(data).hexdigest()
 
 
@@ -68,6 +71,16 @@ def copy(src, dst):
         shutil.copy(src, dst)
 
 
+def get_expected_files(results_dir):
+    """Recursively walk through the expected-results directory to enumerate
+    all excpected files."""
+    return [
+        os.path.relpath(f, results_dir)
+        for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
+        if not os.path.isdir(f)
+    ]
+
+
 def run(
     path,
     shouldfail=False,
@@ -79,8 +92,11 @@ def run(
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
-    container_image="snakemake/snakemake:latest",
-    **params
+    config=dict(),
+    targets=None,
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
+    shellcmd=None,
+    **params,
 ):
     """
     Test the Snakefile in path.
@@ -108,7 +124,7 @@ def run(
     tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
     os.mkdir(tmpdir)
 
-    config = {}
+    config = dict(config)
 
     # handle subworkflow
     if subpath is not None:
@@ -127,29 +143,45 @@ def run(
 
     # copy files
     for f in os.listdir(path):
-        print(f)
         copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
     # run snakemake
-    success = snakemake(
-        snakefile=original_snakefile if no_tmpdir else snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        verbose=True,
-        conda_frontend=conda_frontend,
-        **params
-    )
+    if shellcmd:
+        if not shellcmd.startswith("snakemake"):
+            raise ValueError("shellcmd does not start with snakemake")
+        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        try:
+            subprocess.check_output(
+                shellcmd,
+                cwd=path if no_tmpdir else tmpdir,
+                shell=True,
+            )
+            success = True
+        except subprocess.CalledProcessError as e:
+            success = False
+            print(e.stderr, file=sys.stderr)
+    else:
+        success = snakemake(
+            snakefile=original_snakefile if no_tmpdir else snakefile,
+            cores=cores,
+            workdir=path if no_tmpdir else tmpdir,
+            stats="stats.txt",
+            config=config,
+            verbose=True,
+            targets=targets,
+            conda_frontend=conda_frontend,
+            container_image=container_image,
+            **params,
+        )
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
         assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
+        for resultfile in get_expected_files(results_dir):
             if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
             ):
@@ -157,19 +189,35 @@ def run(
                 continue
             targetfile = join(tmpdir, resultfile)
             expectedfile = join(results_dir, resultfile)
+
+            if ON_WINDOWS:
+                if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                    continue  # Skip test if a Windows specific file exists
+                if resultfile.endswith("_WIN"):
+                    targetfile = join(tmpdir, resultfile[:-4])
+            elif resultfile.endswith("_WIN"):
+                # Skip win specific result files on Posix platforms
+                continue
+
             assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
                 resultfile
             )
             if check_md5:
-                # if md5sum(targetfile) != md5sum(expectedfile):
-                #     import pdb; pdb.set_trace()
-                if md5sum(targetfile) != md5sum(expectedfile):
+                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                if md5target != md5expected:
+                    with open(expectedfile) as expected:
+                        expected_content = expected.read()
                     with open(targetfile) as target:
                         content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
+                    assert (
+                        False
+                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                        resultfile=resultfile,
+                        content=content,
+                        expected_content=expected_content,
                     )
 
     if not cleanup:
         return tmpdir
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)

@@ -1,6 +1,6 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import logging as _logging
@@ -14,6 +14,8 @@ import threading
 import tempfile
 from functools import partial
 import inspect
+import traceback
+import textwrap
 
 from snakemake.common import DYNAMIC_FILL
 from snakemake.common import Mode
@@ -113,6 +115,177 @@ class SlackLogger:
             self.slack.chat.post_message(
                 self.own_id, text="Workflow complete.", username="snakemake"
             )
+
+
+class WMSLogger:
+    def __init__(self, address=None, args=None, metadata=None):
+        """A WMS monitor is a workflow management system logger to enable
+        monitoring with something like Panoptes. The address corresponds to
+        the --wms-monitor argument, and args should be a list of key/value
+        pairs with extra arguments to send to identify the workflow. We require
+        the logging server to exist and receive creating a workflow to start
+        the run, but we don't exit with error if any updates fail, as the
+        workflow will already be running and it would not be worth stopping it.
+        """
+
+        from snakemake.resources import parse_resources
+
+        self.address = address or "http:127.0.0.1:5000"
+        self.args = parse_resources(args) or []
+        self.metadata = metadata or {}
+
+        # A token is suggested but not required, depends on server
+        self.token = os.getenv("WMS_MONITOR_TOKEN")
+        self.service_info()
+
+        # Create or retrieve the existing workflow
+        self.create_workflow()
+
+    def service_info(self):
+        """Service Info ensures that the server is running. We exit on error
+        if this isn't the case, so the function can be called in init.
+        """
+        import requests
+
+        # We first ensure that the server is running, period
+        response = requests.get(
+            self.address + "/api/service-info", headers=self._headers
+        )
+        if response.status_code != 200:
+            sys.stderr.write(
+                "Problem with server: {} {}".format(self.address, os.linesep)
+            )
+            sys.exit(-1)
+
+        # And then that it's ready to be interacted with
+        if response.json().get("status") != "running":
+            sys.stderr.write(
+                "The status of the server {} is not in 'running' mode {}".format(
+                    self.address, os.linesep
+                )
+            )
+            sys.exit(-1)
+
+    def create_workflow(self):
+        """Creating a workflow means pinging the wms server for a new id, or
+        if providing an argument for an existing workflow, ensuring that
+        it exists and receiving back the same identifier.
+        """
+        import requests
+
+        # Send the working directory to the server
+        workdir = (
+            os.getcwd()
+            if not self.metadata.get("directory")
+            else os.path.abspath(self.metadata["directory"])
+        )
+
+        # Prepare a request that has metadata about the job
+        metadata = {
+            "snakefile": os.path.join(workdir, self.metadata.get("snakefile")),
+            "command": self.metadata.get("command"),
+            "workdir": workdir,
+        }
+
+        response = requests.get(
+            self.address + "/create_workflow",
+            headers=self._headers,
+            params=self.args,
+            data=metadata,
+        )
+
+        # Check the response, will exit on any error
+        self.check_response(response, "/create_workflow")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": response.json()["id"]}
+
+    def check_response(self, response, endpoint="wms monitor request"):
+        """A helper function to take a response and check for an expected set of
+        error codes, 404 (not found), 401 (requires authorization), 403 (permission
+        denied), 500 (server error) and 200 (success).
+        """
+        status_code = response.status_code
+
+        # Cut out early on success
+        if status_code == 200:
+            return
+
+        if status_code == 404:
+            sys.stderr.write("The wms %s endpoint was not found" % endpoint)
+            sys.exit(-1)
+        elif status_code == 401:
+            sys.stderr.write(
+                "Authorization is required with a WMS_MONITOR_TOKEN in the environment"
+            )
+            sys.exit(-1)
+        elif status_code == 500:
+            sys.stderr.write(
+                "There was a server error when trying to access %s" % endpoint
+            )
+            sys.exit(-1)
+        elif status_code == 403:
+            sys.stderr.write("Permission is denied to %s." % endpoint)
+            sys.exit(-1)
+
+        # Any other response code is not acceptable
+        sys.stderr.write(
+            "The %s response code %s is not recognized."
+            % (endpoint, response.status_code)
+        )
+
+    @property
+    def _headers(self):
+        """return authenticated headers if the user has provided a token"""
+        headers = None
+        if self.token:
+            headers = {"Authorization": "Bearer %s" % self.token}
+        return headers
+
+    def _parse_message(self, msg):
+        """Given a message dictionary, we want to loop through the key, value
+        pairs and convert some attributes to strings (e.g., jobs are fine to be
+        represnted as names) and return a dictionary.
+        """
+        result = {}
+        for key, value in msg.items():
+
+            # For a job, the name is sufficient
+            if key == "job":
+                result[key] = str(value)
+
+            # For an exception, return the name and a message
+            elif key == "exception":
+                result[key] = "%s: %s" % (
+                    msg["exception"].__class__.__name__,
+                    msg["exception"] or "Exception",
+                )
+
+            # All other fields are json serializable
+            else:
+                result[key] = value
+
+        # Return a json dumped string
+        return json.dumps(result)
+
+    def log_handler(self, msg):
+        """Custom wms server log handler.
+
+        Sends the log to the server.
+
+        Args:
+            msg (dict):     the log message dictionary
+        """
+        import requests
+
+        url = self.server["url"] + "/update_workflow_status"
+        server_info = {
+            "msg": self._parse_message(msg),
+            "timestamp": time.asctime(),
+            "id": self.server["id"],
+        }
+        response = requests.post(url, data=server_info, headers=self._headers)
+        self.check_response(response, "/update_workflow_status")
 
 
 class Logger:
@@ -316,6 +489,8 @@ class Logger:
                 self.logger.warning(
                     indent("Downstream jobs will be updated " "after completion.")
                 )
+            if msg["is_handover"]:
+                self.logger.warning("Handing over execution to foreign system...")
             self.logger.info("")
 
             self.last_msg_was_job_info = True
@@ -383,10 +558,10 @@ class Logger:
             elif level == "progress" and not self.quiet:
                 done = msg["done"]
                 total = msg["total"]
-                p = done / total
-                percent_fmt = ("{:.2%}" if p < 0.01 else "{:.0%}").format(p)
                 self.logger.info(
-                    "{} of {} steps ({}) done".format(done, total, percent_fmt)
+                    "{} of {} steps ({}) done".format(
+                        done, total, format_percentage(done, total)
+                    )
                 )
             elif level == "shellcmd":
                 if self.printshellcmds:
@@ -403,14 +578,25 @@ class Logger:
                 print(json.dumps({"nodes": msg["nodes"], "links": msg["edges"]}))
             elif level == "dag_debug":
                 if self.debug_dag:
-                    job = msg["job"]
-                    self.logger.warning(
-                        "{status} job {name}\n\twildcards: {wc}".format(
-                            status=msg["status"],
-                            name=job.rule.name,
-                            wc=format_wildcards(job.wildcards),
+                    if "file" in msg:
+                        self.logger.warning(
+                            "file {file}:\n    {msg}\n{exception}".format(
+                                file=msg["file"],
+                                msg=msg["msg"],
+                                exception=textwrap.indent(
+                                    str(msg["exception"]), "    "
+                                ),
+                            )
                         )
-                    )
+                    else:
+                        job = msg["job"]
+                        self.logger.warning(
+                            "{status} job {name}\n    wildcards: {wc}".format(
+                                status=msg["status"],
+                                name=job.rule.name,
+                                wc=format_wildcards(job.wildcards),
+                            )
+                        )
 
             self.last_msg_was_job_info = False
 
@@ -441,6 +627,21 @@ def format_resource_names(resources, omit_resources="_cores _nodes".split()):
     return ", ".join(name for name in resources if name not in omit_resources)
 
 
+def format_percentage(done, total):
+    """Format percentage from given fraction while avoiding superflous precision."""
+    if done == total:
+        return "100%"
+    if done == 0:
+        return "0%"
+    precision = 0
+    fraction = done / total
+    fmt_precision = "{{:.{}%}}".format
+    fmt = lambda fraction: fmt_precision(precision).format(fraction)
+    while fmt(fraction) == "100%" or fmt(fraction) == "0%":
+        precision += 1
+    return fmt(fraction)
+
+
 logger = Logger()
 
 
@@ -467,7 +668,6 @@ def setup_logger(
         mode=mode,
     )
     logger.set_stream_handler(stream_handler)
-
     logger.set_level(_logging.DEBUG if debug else _logging.INFO)
     logger.quiet = quiet
     logger.printshellcmds = printshellcmds

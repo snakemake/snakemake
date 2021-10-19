@@ -1,0 +1,25 @@
+
+#shell.executable("bash")
+
+# This tests that snakemake handles input/output 
+# defined with both forward and backwards slashes
+# on Windows. 
+
+rule all:
+    input:
+        expand("subfolder\\test{i}.out2", i=range(3))
+
+rule a:
+    output:
+        "subfolder\\test{i}.out"
+    shell:
+        'echo hello > {output}'
+
+
+rule b:
+    input:
+        "subfolder\\test{i}.out"
+    output:
+        "subfolder/test{i}.out2"
+    shell:
+        "echo world> {output}"

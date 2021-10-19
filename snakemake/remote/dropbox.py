@@ -8,6 +8,7 @@ import os
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -55,8 +56,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the Dropbox API.
-    """
+    """This is a class to interact with the Dropbox API."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -109,7 +109,7 @@ class RemoteObject(AbstractRemoteObject):
             self._dropboxc.files_download_to_file(
                 self.local_file(), self.dropbox_file()
             )
-            os.sync()  # ensure flush to disk
+            os_sync()  # ensure flush to disk
         else:
             raise DropboxFileException(
                 "The file does not seem to exist remotely: %s" % self.dropbox_file()

@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule All: input: "C"
 
 rule A:

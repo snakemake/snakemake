@@ -2,18 +2,21 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python >=3.5.3
+  - stopit
   - datrie
   - boto3
   - moto
+  - junit-xml  # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
-  - pytest
+  - pytest ==6.1.2
   - pytest-cov
   - ftputil
   - pysftp
   - requests
+  - responses <0.12.1 # responses 0.12.1 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
   - dropbox
   - numpy
   - appdirs
@@ -30,22 +33,32 @@ dependencies:
   - google-cloud-storage
   - google-api-python-client
   - oauth2client
-  - azure-storage
-  - azure-storage-common
+  - azure-storage-blob
   - ratelimiter
   - configargparse
   - appdirs
   - python-irodsclient
-  - cwltool
+  - cwltool <=3.0.20201203173111 # TODO remove once schema-salad has been updated in conda-forge
   - jsonschema
   - pandas
   - networkx
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp >=2.0
   - tibanna
   - environment-modules
   - nbformat
   - toposort
   - mamba
   - crc32c
+  - pip
+  - connection_pool
+  - py-tes
+  - requests-mock
+  - peppy
+  - eido
+  - glpk
+  - smart_open
+  - filelock
+  - tabulate

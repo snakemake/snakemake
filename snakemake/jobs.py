@@ -1,22 +1,18 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2021, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import hashlib
 import os
 import sys
 import base64
 import tempfile
-import subprocess
 import json
+import shutil
 
 from collections import defaultdict
 from itertools import chain, filterfalse
-from functools import partial
 from operator import attrgetter
-from urllib.request import urlopen
-from urllib.parse import urlparse
 
 from snakemake.io import (
     IOFile,
@@ -25,18 +21,18 @@ from snakemake.io import (
     _IOFile,
     is_flagged,
     get_flag_value,
-    contains_wildcard,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-from snakemake.exceptions import (
-    UnexpectedOutputException,
-    CreateCondaEnvironmentException,
-)
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, lazy_property, get_uuid
-from snakemake.deployment import conda
-from snakemake import wrapper
+from snakemake.common import (
+    DYNAMIC_FILL,
+    is_local_file,
+    parse_uri,
+    lazy_property,
+    get_uuid,
+    TBDString,
+)
 
 
 def format_files(job, io, dynamicio):
@@ -46,7 +42,7 @@ def format_files(job, io, dynamicio):
         elif is_flagged(f, "pipe"):
             yield "{} (pipe)".format(f)
         elif is_flagged(f, "checkpoint_target"):
-            yield "<TBD>"
+            yield TBDString()
         else:
             yield f
 
@@ -74,9 +70,51 @@ class AbstractJob:
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         raise NotImplementedError()
 
+    def reset_params_and_resources(self):
+        raise NotImplementedError()
+
+
+class JobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        update=False,
+    ):
+        if rule.is_branched:
+            # for distinguishing branched rules, we need input and output in addition
+            key = (
+                rule.name,
+                *rule.output,
+                *rule.input,
+                *sorted(wildcards_dict.items()),
+            )
+        else:
+            key = (rule.name, *sorted(wildcards_dict.items()))
+        if update:
+            # cache entry has to be replaced because job shall be constructed from scratch
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            self.cache[key] = obj
+        else:
+            try:
+                # try to get job from cache
+                obj = self.cache[key]
+            except KeyError:
+                obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+                self.cache[key] = obj
+        return obj
+
 
 class Job(AbstractJob):
     HIGHEST_PRIORITY = sys.maxsize
+
+    obj_cache = dict()
 
     __slots__ = [
         "rule",
@@ -148,6 +186,7 @@ class Job(AbstractJob):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
+        self.pipe_output = set(f for f in self.output if is_flagged(f, "pipe"))
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -180,16 +219,14 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
-        self._hash = self.rule.__hash__()
-        for wildcard_value in self.wildcards_dict.values():
-            self._hash ^= wildcard_value.__hash__()
 
     def updated(self):
-        job = Job(
+        job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
+            update=True,
         )
         job.is_updated = True
         return job
@@ -205,7 +242,10 @@ class Job(AbstractJob):
         path = self.rule.script or self.rule.notebook
         if not path:
             return
-        assert os.path.exists(path)  # to make sure lstat works
+        if self.rule.basedir:
+            # needed if rule is included from another subdirectory
+            path = os.path.relpath(os.path.join(self.rule.basedir, path))
+        assert os.path.exists(path), "cannot find {0}".format(path)
         script_mtime = os.lstat(path).st_mtime
         for f in self.expanded_output:
             if f.exists:
@@ -269,15 +309,18 @@ class Job(AbstractJob):
             )
         return self._resources
 
+    def reset_params_and_resources(self):
+        self._resources = None
+        self._params = None
+
     @property
     def conda_env_file(self):
         if self._conda_env_file is None:
             expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
             if expanded_env is not None:
-                scheme, _, path, *_ = urlparse(expanded_env)
                 # Normalize 'file:///my/path.yml' to '/my/path.yml'
-                if scheme == "file" or not scheme:
-                    self._conda_env_file = path
+                if is_local_file(expanded_env):
+                    self._conda_env_file = parse_uri(expanded_env).uri_path
                 else:
                     self._conda_env_file = expanded_env
         return self._conda_env_file
@@ -309,6 +352,10 @@ class Job(AbstractJob):
     @property
     def container_img_url(self):
         return self.rule.container_img
+
+    @property
+    def is_containerized(self):
+        return self.rule.is_containerized
 
     @property
     def container_img(self):
@@ -350,7 +397,7 @@ class Job(AbstractJob):
 
     @property
     def message(self):
-        """ Return the message for this job. """
+        """Return the message for this job."""
         try:
             return (
                 self.format_wildcards(self.rule.message) if self.rule.message else None
@@ -365,7 +412,7 @@ class Job(AbstractJob):
 
     @property
     def shellcmd(self):
-        """ Return the shell command. """
+        """Return the shell command."""
         try:
             return (
                 self.format_wildcards(self.rule.shellcmd)
@@ -421,7 +468,7 @@ class Job(AbstractJob):
 
     @property
     def expanded_output(self):
-        """ Iterate over output files while dynamic output is expanded. """
+        """Iterate over output files while dynamic output is expanded."""
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
                 expansion = self.expand_dynamic(f_)
@@ -435,7 +482,7 @@ class Job(AbstractJob):
                 yield f
 
     def shadowed_path(self, f):
-        """ Get the shadowed path of IOFile f. """
+        """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
             return f
         f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
@@ -444,7 +491,7 @@ class Job(AbstractJob):
 
     @property
     def dynamic_wildcards(self):
-        """ Return all wildcard values determined from dynamic output. """
+        """Return all wildcard values determined from dynamic output."""
         combinations = set()
         for f, f_ in zip(self.output, self.rule.output):
             if f in self.dynamic_output:
@@ -458,7 +505,7 @@ class Job(AbstractJob):
 
     @property
     def missing_input(self):
-        """ Return missing input files. """
+        """Return missing input files."""
         # omit file if it comes from a subworkflow
         return set(
             f for f in self.input if not f.exists and not f in self.subworkflow_input
@@ -493,55 +540,42 @@ class Job(AbstractJob):
 
     @property
     def output_mintime(self):
-        """ Return oldest output file. """
-        existing = [f.mtime for f in self.expanded_output if f.exists]
+        """Return oldest output file."""
+        try:
+            mintime = min(
+                f.mtime.local_or_remote() for f in self.expanded_output if f.exists
+            )
+        except ValueError:
+            # no existing output
+            mintime = None
+
         if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime)
-        if existing:
-            return min(existing)
-        return None
+            mintime_benchmark = self.benchmark.mtime.local_or_remote()
+            if mintime is not None:
+                return min(mintime, mintime_benchmark)
+            else:
+                return mintime_benchmark
 
-    @property
-    def output_mintime_local(self):
-        existing = [f.mtime_local for f in self.expanded_output if f.exists]
-        if self.benchmark and self.benchmark.exists:
-            existing.append(self.benchmark.mtime_local)
-        if existing:
-            return min(existing)
-        return None
+        return mintime
 
-    @property
-    def input_maxtime(self):
-        """ Return newest input file. """
-        existing = [f.mtime for f in self.input if f.exists]
-        if existing:
-            return max(existing)
-        return None
+    def missing_output(self, requested):
+        def handle_file(f):
+            # pipe output is always declared as missing
+            # (even if it might be present on disk for some reason)
+            if f in self.pipe_output or not f.exists:
+                yield f
 
-    def missing_output(self, requested=None):
-        """ Return missing output files. """
-        files = set()
-        if self.benchmark and (requested is None or self.benchmark in requested):
-            if not self.benchmark.exists:
-                files.add(self.benchmark)
-
-        for f, f_ in zip(self.output, self.rule.output):
-            if requested is None or f in requested:
-                if f in self.dynamic_output:
-                    if not self.expand_dynamic(f_):
-                        files.add("{} (dynamic)".format(f_))
-                elif is_flagged(f, "pipe"):
-                    # pipe output is always declared as missing
-                    # (even if it might be present on disk for some reason)
-                    files.add(f)
-                elif not f.exists:
-                    files.add(f)
-
-        for f in self.log:
-            if requested and f in requested and not f.exists:
-                files.add(f)
-
-        return files
+        if self.dynamic_output:
+            for f, f_ in zip(self.output, self.rule.output):
+                if f in requested:
+                    if f in self.dynamic_output:
+                        if not self.expand_dynamic(f_):
+                            yield "{} (dynamic)".format(f_)
+                    else:
+                        yield from handle_file(f)
+        else:
+            for f in requested:
+                yield from handle_file(f)
 
     @property
     def local_input(self):
@@ -579,7 +613,9 @@ class Job(AbstractJob):
     def remote_input_newer_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -587,7 +623,9 @@ class Job(AbstractJob):
     def remote_input_older_than_local(self):
         files = set()
         for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -595,7 +633,9 @@ class Job(AbstractJob):
     def remote_output_newer_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime > f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -603,7 +643,9 @@ class Job(AbstractJob):
     def remote_output_older_than_local(self):
         files = set()
         for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (f.mtime < f.mtime_local):
+            if (f.exists_remote and f.exists_local) and (
+                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+            ):
                 files.add(f)
         return files
 
@@ -635,8 +677,7 @@ class Job(AbstractJob):
             raise ProtectedOutputException(self.rule, protected)
 
     def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run
-        """
+        """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
                 os.remove(f)
@@ -680,6 +721,10 @@ class Job(AbstractJob):
 
         self.remove_existing_output()
 
+        # Create tmpdir if necessary
+        if self.resources.get("tmpdir"):
+            os.makedirs(self.resources.tmpdir, exist_ok=True)
+
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
@@ -699,7 +744,12 @@ class Job(AbstractJob):
         )
         cwd = os.getcwd()
 
-        if self.rule.shadow_depth == "minimal":
+        # "minimal" creates symlinks only to the input files in the shadow directory
+        # "copy-minimal" creates copies instead
+        if (
+            self.rule.shadow_depth == "minimal"
+            or self.rule.shadow_depth == "copy-minimal"
+        ):
             # Re-create the directory structure in the shadow directory
             for (f, d) in set(
                 [
@@ -719,19 +769,26 @@ class Job(AbstractJob):
                     else:
                         raise RuleException(
                             "The following file name references a parent directory relative to your workdir.\n"
-                            'This isn\'t supported for shadow: "minimal". Consider using an absolute path instead.\n{}'.format(
-                                f
+                            'This isn\'t supported for shadow: "{}". Consider using an absolute path instead.\n{}'.format(
+                                f, self.rule.shadow_depth
                             ),
                             rule=self.rule,
                         )
 
-            # Symlink the input files
-            for rel_path in set(
-                [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
-            ):
-                link = os.path.join(self.shadow_dir, rel_path)
-                original = os.path.relpath(rel_path, os.path.dirname(link))
-                os.symlink(original, link)
+            # Symlink or copy the input files
+            if self.rule.shadow_depth == "copy-minimal":
+                for rel_path in set(
+                    [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
+                ):
+                    copy = os.path.join(self.shadow_dir, rel_path)
+                    shutil.copy(rel_path, copy)
+            else:
+                for rel_path in set(
+                    [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
+                ):
+                    link = os.path.join(self.shadow_dir, rel_path)
+                    original = os.path.relpath(rel_path, os.path.dirname(link))
+                    os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":
@@ -764,10 +821,9 @@ class Job(AbstractJob):
                 f.remote_object.close()
 
     def cleanup(self):
-        """ Cleanup output files. """
+        """Cleanup output files."""
         to_remove = [f for f in self.expanded_output if f.exists]
 
-        to_remove.extend([f for f in self.remote_input if f.exists_local])
         to_remove.extend(
             [
                 f
@@ -787,26 +843,8 @@ class Job(AbstractJob):
             for f in to_remove:
                 f.remove()
 
-            self.rmdir_empty_remote_dirs()
-
-    @property
-    def empty_remote_dirs(self):
-        for f in set(self.output) | set(self.input):
-            if f.is_remote and not f.should_stay_on_remote:
-                if os.path.exists(os.path.dirname(f)) and not len(
-                    os.listdir(os.path.dirname(f))
-                ):
-                    yield os.path.dirname(f)
-
-    def rmdir_empty_remote_dirs(self):
-        for d in self.empty_remote_dirs:
-            try:
-                os.removedirs(d)
-            except:
-                pass  # it's ok if we can't remove the leaf
-
     def format_wildcards(self, string, **variables):
-        """ Format a string with variables from the job. """
+        """Format a string with variables from the job."""
         _variables = dict()
         _variables.update(self.rule.workflow.globals)
         _variables.update(
@@ -869,26 +907,14 @@ class Job(AbstractJob):
     def __repr__(self):
         return self.rule.name
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return (
-            self.rule == other.rule
-            and (self.wildcards_dict == other.wildcards_dict)
-            and (self.input == other.input)
-        )
-
     def __lt__(self, other):
         return self.rule.__lt__(other.rule)
 
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
 
-    def __hash__(self):
-        return self._hash
-
     def expand_dynamic(self, pattern):
-        """ Expand dynamic files. """
+        """Expand dynamic files."""
         return list(
             listfiles(pattern, restriction=self.wildcards, omit_value=DYNAMIC_FILL)
         )
@@ -919,6 +945,7 @@ class Job(AbstractJob):
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,
             printshellcmd=printshellcmd,
+            is_handover=self.rule.is_handover,
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 
@@ -973,6 +1000,7 @@ class Job(AbstractJob):
         ignore_missing_output=False,
         assume_shared_fs=True,
         latency_wait=None,
+        keep_metadata=True,
     ):
         if assume_shared_fs:
             if not error and handle_touch:
@@ -995,7 +1023,9 @@ class Job(AbstractJob):
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self)
+                self.dag.workflow.persistence.finished(
+                    self, keep_metadata=keep_metadata
+                )
             except IOError as e:
                 logger.warning(
                     "Error recording metadata for finished job "
@@ -1047,7 +1077,24 @@ class Job(AbstractJob):
         return 1
 
 
+class GroupJobFactory:
+    def __init__(self):
+        self.cache = dict()
+
+    def new(self, id, jobs):
+        jobs = frozenset(jobs)
+        key = (id, jobs)
+        try:
+            obj = self.cache[key]
+        except KeyError:
+            obj = GroupJob(id, jobs)
+            self.cache[key] = obj
+        return obj
+
+
 class GroupJob(AbstractJob):
+
+    obj_cache = dict()
 
     __slots__ = [
         "groupid",
@@ -1064,7 +1111,7 @@ class GroupJob(AbstractJob):
 
     def __init__(self, id, jobs):
         self.groupid = id
-        self.jobs = frozenset(jobs)
+        self.jobs = jobs
         self.toposorted = None
         self._resources = None
         self._input = None
@@ -1086,10 +1133,18 @@ class GroupJob(AbstractJob):
         from toposort import toposort
 
         if self.toposorted is None:
-            dag = {
-                job: {dep for dep in self.dag.dependencies[job] if dep in self.jobs}
-                for job in self.jobs
-            }
+
+            def get_dependencies(job):
+                for dep, files in self.dag.dependencies[job].items():
+                    if dep in self.jobs:
+                        yield dep
+                        if any(is_flagged(f, "pipe") for f in files):
+                            # In case of a pipe, inherit the dependencies of the producer,
+                            # such that the two jobs end up on the same toposort level.
+                            # This is important because they are executed simulataneously.
+                            yield from get_dependencies(dep)
+
+            dag = {job: set(get_dependencies(job)) for job in self.jobs}
 
             self.toposorted = list(toposort(dag))
 
@@ -1140,6 +1195,10 @@ class GroupJob(AbstractJob):
         for job in self.jobs:
             job.remove_existing_output()
 
+    def reset_params_and_resources(self):
+        for job in self.jobs:
+            job.reset_params_and_resources()
+
     def download_remote_input(self):
         for job in self.jobs:
             job.download_remote_input()
@@ -1172,6 +1231,15 @@ class GroupJob(AbstractJob):
     @property
     def resources(self):
         if self._resources is None:
+
+            def check_string_resource(res, value1, value2):
+                if value1 != value2:
+                    raise WorkflowError(
+                        "Failed to group jobs together. Resource {} "
+                        "is a string but not all group jobs require the same value. "
+                        "Observed: {} != {}.".format(res, value1, value2)
+                    )
+
             self._resources = defaultdict(int)
             self._resources["_nodes"] = 1
             pipe_group = any([job.is_pipe for job in self.jobs])
@@ -1187,21 +1255,43 @@ class GroupJob(AbstractJob):
                         # All we can do is to ignore such jobs for now.
                         continue
                     for res, value in job_resources.items():
-                        if res != "_nodes":
-                            sibling_resources[res] += value
+                        if isinstance(value, int):
+                            if res != "_nodes":
+                                sibling_resources[res] += value
+                        elif isinstance(value, TBDString):
+                            # we omit TBDs
+                            continue
+                        else:
+                            # all string resources must be the same for all group jobs
+                            if res in sibling_resources:
+                                check_string_resource(
+                                    res, sibling_resources[res], value
+                                )
+                            else:
+                                sibling_resources[res] = value
 
                 for res, value in sibling_resources.items():
-                    if res != "_nodes":
-                        if self.dag.workflow.run_local or pipe_group:
-                            # in case of local execution, this must be a
-                            # group of jobs that are connected with pipes
-                            # and have to run simultaneously
-                            self._resources[res] += value
+                    if isinstance(value, int):
+                        if res != "_nodes":
+                            if self.dag.workflow.run_local or pipe_group:
+                                # in case of local execution, this must be a
+                                # group of jobs that are connected with pipes
+                                # and have to run simultaneously
+                                self._resources[res] += value
+                            else:
+                                # take the maximum with previous values
+                                self._resources[res] = max(
+                                    self._resources.get(res, 0), value
+                                )
+                    elif isinstance(value, TBDString):
+                        # we omit TBDs
+                        continue
+                    else:
+                        # all string resources must be the same for all group jobs
+                        if res in self._resources:
+                            check_string_resource(res, self._resources[res], value)
                         else:
-                            # take the maximum with previous values
-                            self._resources[res] = max(
-                                self._resources.get(res, 0), value
-                            )
+                            self._resources[res] = value
 
         return Resources(fromdict=self._resources)
 
@@ -1310,7 +1400,7 @@ class GroupJob(AbstractJob):
         return all(job.is_local for job in self.jobs)
 
     def format_wildcards(self, string, **variables):
-        """ Format a string with variables from the job. """
+        """Format a string with variables from the job."""
         _variables = dict()
         _variables.update(self.dag.workflow.globals)
         _variables.update(
@@ -1386,6 +1476,8 @@ class GroupJob(AbstractJob):
         return hash(self.jobs)
 
     def __eq__(self, other):
+        if not isinstance(other, AbstractJob):
+            return False
         if other.is_group():
             return self.jobs == other.jobs
         else:
@@ -1404,9 +1496,12 @@ class Reason:
         "nooutput",
         "derived",
         "pipe",
+        "target",
+        "finished",
     ]
 
     def __init__(self):
+        self.finished = False
         self._updated_input = None
         self._updated_input_run = None
         self._missing_output = None
@@ -1432,6 +1527,10 @@ class Reason:
     @lazy_property
     def incomplete_output(self):
         return set()
+
+    def mark_finished(self):
+        "called if the job has been run"
+        self.finished = True
 
     def __str__(self):
         s = list()
@@ -1470,10 +1569,12 @@ class Reason:
                         )
                     )
         s = "; ".join(s)
+        if self.finished:
+            return "Finished (was: {s})".format(s=s)
         return s
 
     def __bool__(self):
-        return bool(
+        v = bool(
             self.updated_input
             or self.missing_output
             or self.forced
@@ -1482,3 +1583,4 @@ class Reason:
             or self.nooutput
             or self.pipe
         )
+        return v and not self.finished

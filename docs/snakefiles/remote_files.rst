@@ -14,7 +14,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 
 * Amazon Simple Storage Service (AWS S3): ``snakemake.remote.S3``
 * Google Cloud Storage (GS): ``snakemake.remote.GS``
-* Microsoft Azure Storage: ``snakemake.remote.AzureStorage``
+* Microsoft Azure Blob Storage: ``snakemake.remote.AzBlob``
 * File transfer over SSH (SFTP): ``snakemake.remote.SFTP``
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
@@ -26,13 +26,14 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
 ==================================
 
 This section describes usage of the S3 RemoteProvider, and also provides an intro to remote files and their usage.
 
-It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
+It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``~/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
 
 For the Amazon S3 and Google Cloud Storage providers, the sub-directory used must be the bucket name.
 
@@ -139,26 +140,35 @@ In the Snakefile, no additional authentication information has to be provided:
             GS.remote("bucket-name/file.txt")
 
 
-Microsoft Azure Storage
-=======================
+Microsoft Azure Blob Storage
+=============================
 
-Usage of the Azure Storage provider is similar to the S3 provider.
-For authentication, one needs to provide an account name and a key
-or SAS token (without leading question mark), which can for example
-be read from environment variables.
+Usage of the Azure Blob Storage provider is similar to the S3 provider. For
+authentication, an account name and shared access signature (SAS) or key can be used. If these
+variables are not passed directly to AzureRemoteProvider (see
+[BlobServiceClient
+class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
+for naming), they will be read from environment variables, named
+`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
+`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
+a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+the storage account key.
+
+When using AzBlob as default remote provider you will almost always want to
+pass these environment variables on to the remote execution environment (e.g.
+Kubernetes) with `--envvars`, e.g
+`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
 
 .. code-block:: python
 
-    from snakemake.remote.AzureStorage import RemoteProvider as AzureRemoteProvider
-    account_name=os.environ['AZURE_ACCOUNT']
-    account_key=os.environ.get('AZURE_KEY')
-    sas_token=os.environ.get('SAS_TOKEN')
-    assert account_key or sas_token
-    AS = AzureRemoteProvider(account_name=account_name, account_key=account_key, sas_token=sas_token)
+    from snakemake.remote.AzBlob import RemoteProvider as AzureRemoteProvider
+    AS = AzureRemoteProvider()# assumes env vars AZ_BLOB_ACCOUNT_URL and possibly AZ_BLOB_CREDENTIAL are set
 
     rule a:
         input:
             AS.remote("path/to/file.txt")
+
+
 
 
 File transfer over SSH (SFTP)
@@ -479,11 +489,11 @@ This flag can be overridden on a file by file basis as described in the S3 remot
     from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
     XRootD = XRootDRemoteProvider(stay_on_remote=True)
-    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root").n
 
     rule all:
         input:
-            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
+            expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers)
 
     rule make_data:
         input:
@@ -773,17 +783,50 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 .. code-block:: python
 
-  import snakemake.remote.EGA as EGA
+    import snakemake.remote.EGA as EGA
 
-  ega = EGA.RemoteProvider()
+    ega = EGA.RemoteProvider()
 
 
-  rule a:
-    input:
-        ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
-    output:
-        "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
-    shell:
-        "cp {input} {output}"
+    rule a:
+        input:
+            ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
+        output:
+            "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
+        shell:
+            "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
+
+
+AUTO
+====
+
+A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
+It removes some of the boilerplate code required to download remote files from various providers:
+
+.. code-block:: python
+
+    from snakemake.remote import AUTO
+
+
+    rule all:
+        input:
+            'foo'
+
+
+    rule download:
+        input:
+            ftp_file_list=AUTO.remote([
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxcat.tar.gz',
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
+            ], keep_local=True),
+            http_file=AUTO.remote(
+                'https://github.com/hetio/hetionet/raw/master/hetnet/tsv/hetionet-v1.0-nodes.tsv'
+            )
+        output:
+            touch('foo')
+        shell:
+            """
+            head {input.http_file}
+            """

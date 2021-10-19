@@ -1,11 +1,9 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018-2019, Johannes Köster"
+__copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
 from itertools import chain
-
-from snakemake.io import _IOFile
 
 
 class OutputIndex:

@@ -1,0 +1,4 @@
+channels:
+  - conda-forge
+dependencies:
+  - make   ==4.3

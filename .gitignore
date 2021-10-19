@@ -17,7 +17,9 @@ dist/
 
 .pytest*
 .cache
+.mypy_cache
 .ipynb*
+.vscode
 .ropeproject
 .test*
 tests/test*/*
