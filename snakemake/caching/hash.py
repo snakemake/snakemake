@@ -69,7 +69,11 @@ class ProvenanceHashMap:
             h.update(source)
         elif job.is_wrapper:
             _, source, _, _ = script.get_source(
-                wrapper.get_script(job.rule.wrapper, sourcecahce=job.rule.workflow.sourcecache, prefix=workflow.wrapper_prefix),
+                wrapper.get_script(
+                    job.rule.wrapper,
+                    sourcecahce=job.rule.workflow.sourcecache,
+                    prefix=workflow.wrapper_prefix,
+                ),
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
                 wildcards=job.wildcards,
