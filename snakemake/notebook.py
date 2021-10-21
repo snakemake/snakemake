@@ -10,6 +10,7 @@ from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
 from snakemake.common import ON_WINDOWS
+from snakemake.sourcecache import SourceCache
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -152,6 +153,7 @@ class PythonJupyterNotebook(JupyterNotebook):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
 
@@ -218,7 +220,8 @@ def notebook(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
-    edit=None,
+    edit,
+    runtime_sourcecache_path,
 ):
     """
     Load a script from the given basedir + path and execute it.
@@ -251,9 +254,12 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir, wildcards, params)
+        path, source, language, is_local = get_source(
+            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+        )
     else:
         source = None
+        is_local = True
 
     exec_class = get_exec_class(language)
 
@@ -280,6 +286,7 @@ def notebook(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     )
 
     if draft:

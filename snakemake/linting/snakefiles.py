@@ -15,7 +15,7 @@ class SnakefileLinter(Linter):
         return {"snakefile": snakefile}
 
     def read_item(self, snakefile):
-        return open(snakefile).read()
+        return self.workflow.sourcecache.open(snakefile).read()
 
     def lint_absolute_paths(self, snakefile, regex=re.compile(ABS_PATH_PATTERN)):
         for match in regex.finditer(snakefile):

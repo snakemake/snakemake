@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
-from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS
+from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
 def test_list_untracked():
@@ -102,6 +102,17 @@ def test13():
 def test14():
     os.environ["TESTVAR"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
+
+
+@skip_on_windows
+def test_cluster_statusscript():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./qsub",
+        cluster_status="./status.sh",
+    )
 
 
 def test15():
@@ -329,6 +340,11 @@ def test_script_python():
 @skip_on_windows  # Test relies on perl
 def test_shadow():
     run(dpath("test_shadow"))
+
+
+@skip_on_windows
+def test_shadow_copy():
+    run(dpath("test_shadow_copy"))
 
 
 @skip_on_windows  # Symbolic link privileges needed to work
@@ -823,6 +839,12 @@ def test_pipes():
     run(dpath("test_pipes"))
 
 
+@skip_on_windows
+def test_pipes_multiple():
+    # see github issue #975
+    run(dpath("test_pipes_multiple"))
+
+
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 
@@ -1293,3 +1315,15 @@ def test_touch_pipeline_with_temp_dir():
 
 def test_all_temp():
     run(dpath("test_all_temp"), all_temp=True)
+
+
+def test_strict_mode():
+    run(dpath("test_strict_mode"), shouldfail=True)
+
+
+@needs_strace
+def test_github_issue1158():
+    run(
+        dpath("test_github_issue1158"),
+        cluster="./qsub.py",
+    )

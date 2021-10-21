@@ -164,6 +164,11 @@ class WorkflowError(Exception):
         self.rule = rule
 
 
+class SourceFileError(WorkflowError):
+    def __init__(self, msg):
+        super().__init__("Error in source file definition: {}".format(msg))
+
+
 class WildcardError(WorkflowError):
     pass
 
