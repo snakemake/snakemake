@@ -4,11 +4,9 @@ min_version("6.1.1")
 
 configfile: "config.yaml"
 
-remote_snakefile = "https://raw.githubusercontent.com/snakemake/snakemake/v6.1.1/tests/test_script_py/Snakefile"
-
 module with_script:
     snakefile:
-        remote_snakefile
+        github("snakemake/snakemake", tag="v6.1.1", path="tests/test_script_py/Snakefile")
     config:
         config
 
