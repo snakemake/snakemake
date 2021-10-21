@@ -639,29 +639,40 @@
 
 -   Native Google Cloud support via the (despite the name generic)
     lifesciences API.
+-   Ability to optionally exchange the conda frontend to mamba (faster
+    and sometimes more correct) instead of conda.
 
-\- Ability to optionally exchange the conda frontend to mamba (faster
-and sometimes more correct) instead of conda. Changed -------- Improved
-notebook integration experience, with various removed bugs and pitfalls.
+#### Changed
+
+- Improved notebook integration experience, with various removed bugs and
+  pitfalls.
 - Auto-retry google storage API calls on transient or checksum errors.
 
 ## \[5.17.0\] - 2020-05-07
 
 #### Added
 
-\- --envvars flag for passing secrets to cloud executors Changed
--------- Wider thumbnail dialogs in report. - Updated installation
-instructions. - Various small kubernetes bug fixes. - Bug fix for iRods
-remote files.
+- --envvars flag for passing secrets to cloud executors
+
+#### Changed
+
+- Wider thumbnail dialogs in report.
+- Updated installation instructions.
+- Various small kubernetes bug fixes.
+- Bug fix for iRods remote files.
 
 ## \[5.16.0\] - 2020-04-29
 
 #### Added
 
-\- Interactive jupyter notebook editing. Notebooks defined by rules can
-be interactively drafted and updated using snakemake --edit-notebook
-(see docs). Changed -------- Fixed group resource usage to occupy one
-cluster/cloud node. - Minor bug fixes.
+- Interactive jupyter notebook editing. Notebooks defined by rules can
+  be interactively drafted and updated using snakemake --edit-notebook
+  (see docs).
+
+#### Changed
+
+- Fixed group resource usage to occupy one cluster/cloud node.
+- Minor bug fixes.
 
 ## \[5.15.0\] - 2020-04-21
 
@@ -695,10 +706,14 @@ cluster/cloud node. - Minor bug fixes.
 
 #### Added
 
-\- Allow to flag directories for inclusion in the report. Changed
--------- Fixed hash computation for --cache in case of positional params
-arguments. - Automatically restrict thread usage of linear algebra
-libraries to whatever is specified in the rule/job.
+- Allow to flag directories for inclusion in the report.
+
+#### Changed
+
+- Fixed hash computation for --cache in case of positional params
+  arguments.
+- Automatically restrict thread usage of linear algebra libraries to whatever
+  is specified in the rule/job.
 
 ### \[5.12.3\] - 2020-03-24
 
@@ -798,17 +813,24 @@ libraries to whatever is specified in the rule/job.
 -   Allow custom log handler defitions via --log-handler-script (e.g.
     post errors and progress to a slack channel or send emails).
 
-\- Allow setting threads as a function of the given cores (see docs).
-Changed -------- Various minor fixes.
+-   Allow setting threads as a function of the given cores (see docs).
+
+#### Changed
+
+- Various minor fixes.
 
 ### \[5.8.2\] - 2019-12-16
 
 #### Added
 
-\- Implemented a `multiext` helper, allowing to define a set of output
-files that just differ by extension. Changed -------- Fixed a failure
-when caching jobs with conda environments. - Fixed various minor bugs. -
-Caching now allows to cache the output of rules using `multiext`.
+- Implemented a `multiext` helper, allowing to define a set of output
+files that just differ by extension.
+
+#### Changed
+
+- Fixed a failure when caching jobs with conda environments.
+- Fixed various minor bugs.
+- Caching now allows to cache the output of rules using `multiext`.
 
 ### \[5.8.1\] - 2019-11-15
 
@@ -823,10 +845,13 @@ Caching now allows to cache the output of rules using `multiext`.
 -   Blockchain based caching between workflows (in collaboration with
     Sven Nahnsen from QBiC), see [the
     docs](https://snakemake.readthedocs.io/en/v5.8.0/executing/caching.html).
+-   New flag --skip-cleanup-scripts, that leads to temporary scripts
+    (coming from script or wrapper directive) are not deleted (by Vanessa
+    Sochat).
 
-\- New flag --skip-cleanup-scripts, that leads to temporary scripts
-(coming from script or wrapper directive) are not deleted (by Vanessa
-Sochat). Changed -------- Various bug fixes.
+#### Changed
+
+- Various bug fixes.
 
 ### \[5.7.4\] - 2019-10-23
 
@@ -839,10 +864,15 @@ Sochat). Changed -------- Various bug fixes.
 
 #### Added
 
-\- Ability to print log files of failed jobs with --show-failed-logs.
-Changed -------- Fixed bugs in tibanna executor. - Fixed handling of
-symbolic links. - Fixed typos in help texts. - Fixed handling of default
-resources. - Fixed bugs in azure storage backend.
+- Ability to print log files of failed jobs with --show-failed-logs.
+
+#### Changed
+
+- Fixed bugs in tibanna executor.
+- Fixed handling of symbolic links.
+- Fixed typos in help texts.
+- Fixed handling of default resources.
+- Fixed bugs in azure storage backend.
 
 ## \[5.7.0\] - 2019-10-07
 
@@ -854,9 +884,8 @@ resources. - Fixed bugs in azure storage backend.
 
 #### Added
 
--   First class support for Amazon cloud execution via a new <span
-    class="title-ref">Tibanna backend
-    \<https://snakemake.readthedocs.io/en/v5.7.0/executable.html#executing-a-snakemake-workflow-via-tibanna-on-amazon-web-services></span>.
+-   First class support for Amazon cloud execution via a new
+    [Tibanna backend](https://snakemake.readthedocs.io/en/v5.7.0/executable.html#executing-a-snakemake-workflow-via-tibanna-on-amazon-web-services).
     Thanks to Soo Lee from Harvard Biomedical Informatics!
 -   Allow multiple config files to be passed via the command line.
 -   A new, more detailed way to visualize the DAG (--filegraph). Thanks
@@ -871,15 +900,18 @@ resources. - Fixed bugs in azure storage backend.
 #### Changed
 
 -   Fix compatibility with latest singularity versions.
+-   Various bug fixes (e.g. in cluster error handling, remote providers,
+    kubernetes backend).
 
-\- Various bug fixes (e.g. in cluster error handling, remote providers,
-kubernetes backend). Added ------ Add --default-resources flag, that
-allows to define default resources for jobs (e.g. mem_mb, disk_mb), see
-[docs](https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#resources).
+#### Added
+
+- Add --default-resources flag, that
+  allows to define default resources for jobs (e.g. mem_mb, disk_mb), see
+  [docs](https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#resources).
 - Accept `--dry-run` as a synonym of `--dryrun`. Other Snakemake options
-are similarly hyphenated, so other documentation now refers to
-`--dry-run` but both (and also `-n`) will always be accepted
-equivalently.
+  are similarly hyphenated, so other documentation now refers to
+  `--dry-run` but both (and also `-n`) will always be accepted
+  equivalently.
 
 ### \[5.5.4\] - 2019-07-21
 
@@ -915,8 +947,11 @@ equivalently.
 
 #### Added
 
-\- Script directives now also support Julia. Changed -------- Various
-small bug fixes.
+- Script directives now also support Julia.
+
+#### Changed
+
+- Various small bug fixes.
 
 ### \[5.4.5\] - 2019-04-12
 
