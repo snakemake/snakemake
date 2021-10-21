@@ -15,9 +15,6 @@
 
 import sys
 import os
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {'.md': CommonMarkParser}
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -39,7 +36,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinxarg.ext',
-    'sphinx.ext.autosectionlabel'
+    'sphinx.ext.autosectionlabel',
+    'myst_parser',
 ]
 
 # Snakemake theme (made by SciAni).
