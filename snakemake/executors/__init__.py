@@ -1073,7 +1073,7 @@ class GenericClusterExecutor(ClusterExecutor):
         success = "success"
         failed = "failed"
         running = "running"
-        status_cmd_kills = set()
+        status_cmd_kills = []
         if self.statuscmd is not None:
 
             def job_status(job, valid_returns=["running", "success", "failed"]):
@@ -1093,7 +1093,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # snakemake.
                         # Snakemake will handle the signal in
                         # the main process.
-                        status_cmd_kills.add(e.returncode)
+                        status_cmd_kills.append(-e.returncode)
                         if len(status_cmd_kills) > 10:
                             logger.info(
                                 "Cluster status command {} was killed >10 times with signal(s) {} "
