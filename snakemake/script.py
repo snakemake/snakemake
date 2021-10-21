@@ -184,6 +184,8 @@ class REncoder:
             return "NULL"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -245,6 +247,8 @@ class JuliaEncoder:
             return "nothing"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -1257,7 +1261,7 @@ def get_source(
 
     is_local = isinstance(source_file, LocalSourceFile)
 
-    return path, source, language, is_local
+    return source_file, source, language, is_local
 
 
 def get_language(source_file, source):
