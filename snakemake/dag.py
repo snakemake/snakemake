@@ -735,7 +735,18 @@ class DAG:
         exceptions = list()
         cycles = list()
 
-        for job in jobs:
+        # check if all potential producers are strictly ordered
+        jobs = sorted(jobs, reverse=True)
+        discarded_jobs = set()
+
+        def is_strictly_higher_ordered(pivot_job):
+            return all(
+                pivot_job > job
+                for job in jobs
+                if job is not pivot_job and job not in discarded_jobs
+            )
+
+        for i, job in enumerate(jobs):
             logger.dag_debug(dict(status="candidate", job=job))
             if file in job.input:
                 cycles.append(job)
@@ -753,9 +764,11 @@ class DAG:
                     progress=progress,
                     create_inventory=create_inventory,
                 )
-                # TODO this might fail if a rule discarded here is needed
-                # elsewhere
                 producers.append(job)
+                if is_strictly_higher_ordered(job):
+                    # All other jobs are either discarded or strictly less given
+                    # any defined ruleorder.
+                    break
             except (
                 MissingInputException,
                 CyclicGraphException,
@@ -763,6 +776,7 @@ class DAG:
                 WorkflowError,
             ) as ex:
                 exceptions.append(ex)
+                discarded_jobs.add(job)
             except RecursionError as e:
                 raise WorkflowError(
                     e,
@@ -1210,6 +1224,8 @@ class DAG:
     def handle_pipes(self):
         """Use pipes to determine job groups. Check if every pipe has exactly
         one consumer"""
+
+        visited = set()
         for job in self.needrun_jobs:
             candidate_groups = set()
             if job.group is not None:
@@ -1269,22 +1285,31 @@ class DAG:
                 continue
 
             if len(candidate_groups) > 1:
-                raise WorkflowError(
-                    "An output file is marked as "
-                    "pipe, but consuming jobs "
-                    "are part of conflicting "
-                    "groups.",
-                    rule=job.rule,
-                )
+                if all(isinstance(group, CandidateGroup) for group in candidate_groups):
+                    for g in candidate_groups:
+                        g.merge(group)
+                else:
+                    raise WorkflowError(
+                        "An output file is marked as "
+                        "pipe, but consuming jobs "
+                        "are part of conflicting "
+                        "groups.",
+                        rule=job.rule,
+                    )
             elif candidate_groups:
                 # extend the candidate group to all involved jobs
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = str(uuid.uuid4())
+                group = CandidateGroup()  # str(uuid.uuid4())
             job.group = group
+            visited.add(job)
             for j in all_depending:
                 j.group = group
+                visited.add(j)
+
+        for job in visited:
+            job.group = group.id if isinstance(group, CandidateGroup) else group
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
@@ -2167,3 +2192,17 @@ class DAG:
 
     def __len__(self):
         return self._len
+
+
+class CandidateGroup:
+    def __init__(self):
+        self.id = str(uuid.uuid4())
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def merge(self, other):
+        self.id = other.id

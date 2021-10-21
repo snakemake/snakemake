@@ -6,6 +6,13 @@ __license__ = "MIT"
 import inspect
 import itertools
 import os
+from snakemake import sourcecache
+from snakemake.sourcecache import (
+    LocalSourceFile,
+    SourceCache,
+    SourceFile,
+    infer_source_file,
+)
 import tempfile
 import textwrap
 import sys
@@ -177,6 +184,8 @@ class REncoder:
             return "NULL"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -236,6 +245,8 @@ class JuliaEncoder:
             return "nothing"
         elif isinstance(value, str):
             return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
         elif isinstance(value, bool):
@@ -322,6 +333,7 @@ class ScriptBase(ABC):
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     ):
         self.path = path
         self.source = source
@@ -346,6 +358,7 @@ class ScriptBase(ABC):
         self.bench_iteration = bench_iteration
         self.cleanup_scripts = cleanup_scripts
         self.shadow_dir = shadow_dir
+        self.is_local = is_local
 
     def evaluate(self, edit=False):
         assert not edit or self.editable
@@ -360,7 +373,7 @@ class ScriptBase(ABC):
             os.makedirs(dir_, exist_ok=True)
 
             with tempfile.NamedTemporaryFile(
-                suffix="." + os.path.basename(self.path), dir=dir_, delete=False
+                suffix="." + self.path.get_filename(), dir=dir_, delete=False
             ) as fd:
                 self.write_script(preamble, fd)
 
@@ -437,9 +450,9 @@ class PythonScript(ScriptBase):
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
         preamble_addendum="",
     ):
-        wrapper_path = path[7:] if path.startswith("file://") else path
         snakemake = Snakemake(
             input_,
             output,
@@ -451,7 +464,7 @@ class PythonScript(ScriptBase):
             config,
             rulename,
             bench_iteration,
-            os.path.dirname(wrapper_path),
+            path.get_basedir().get_path_or_uri(),
         )
         snakemake = pickle.dumps(snakemake)
         # Obtain search path for current snakemake module.
@@ -462,8 +475,8 @@ class PythonScript(ScriptBase):
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
-        if path.startswith("file://"):
-            searchpath += ", " + repr(os.path.dirname(path[7:]))
+        if is_local:
+            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
 
         return textwrap.dedent(
             """
@@ -479,10 +492,14 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
+
+        if isinstance(self.path, LocalSourceFile):
+            file_override = os.path.realpath(self.path.get_path_or_uri())
+        else:
+            file_override = self.path.get_path_or_uri()
         preamble_addendum = (
             "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(os.path.realpath(wrapper_path))
+                file_override=repr(file_override)
             )
         )
 
@@ -508,12 +525,13 @@ class PythonScript(ScriptBase):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
 
     def write_script(self, preamble, fd):
         fd.write(preamble.encode())
-        fd.write(self.source)
+        fd.write(self.source.encode())
 
     def _is_python_env(self):
         if self.conda_env is not None:
@@ -651,11 +669,7 @@ class RScript(ScriptBase):
             REncoder.encode_dict(config),
             REncoder.encode_value(rulename),
             REncoder.encode_numeric(bench_iteration),
-            REncoder.encode_value(
-                os.path.dirname(path[7:])
-                if path.startswith("file://")
-                else os.path.dirname(path)
-            ),
+            REncoder.encode_value(path.get_basedir().get_path_or_uri()),
             preamble_addendum=preamble_addendum,
         )
 
@@ -686,7 +700,7 @@ class RScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         fd.write(preamble.encode())
-        fd.write(self.source)
+        fd.write(self.source.encode())
 
     def execute_script(self, fname, edit=False):
         if self.conda_env is not None and "R_LIBS" in os.environ:
@@ -764,16 +778,12 @@ class RMarkdown(ScriptBase):
             REncoder.encode_dict(self.config),
             REncoder.encode_value(self.rulename),
             REncoder.encode_numeric(self.bench_iteration),
-            REncoder.encode_value(
-                os.path.dirname(self.path[7:])
-                if self.path.startswith("file://")
-                else os.path.dirname(self.path)
-            ),
+            REncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
         )
 
     def write_script(self, preamble, fd):
         # Insert Snakemake object after the RMarkdown header
-        code = self.source.decode()
+        code = self.source
         pos = next(itertools.islice(re.finditer(r"---\n", code), 1, 2)).start() + 3
         fd.write(str.encode(code[:pos]))
         preamble = textwrap.dedent(
@@ -785,7 +795,7 @@ class RMarkdown(ScriptBase):
             % preamble
         )
         fd.write(preamble.encode())
-        fd.write(str.encode(code[pos:]))
+        fd.write(code[pos:].encode())
 
     def execute_script(self, fname, edit=False):
         if len(self.output) != 1:
@@ -852,11 +862,7 @@ class JuliaScript(ScriptBase):
                 JuliaEncoder.encode_dict(self.config),
                 JuliaEncoder.encode_value(self.rulename),
                 JuliaEncoder.encode_value(self.bench_iteration),
-                JuliaEncoder.encode_value(
-                    os.path.dirname(self.path[7:])
-                    if self.path.startswith("file://")
-                    else os.path.dirname(self.path)
-                ),
+                JuliaEncoder.encode_value(self.path.get_basedir().get_path_or_uri()),
             ).replace(
                 "'", '"'
             )
@@ -864,7 +870,7 @@ class JuliaScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         fd.write(preamble.encode())
-        fd.write(self.source)
+        fd.write(self.source.encode())
 
     def execute_script(self, fname, edit=False):
         self._execute_cmd("julia {fname:q}", fname=fname)
@@ -894,10 +900,9 @@ class RustScript(ScriptBase):
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
         preamble_addendum="",
     ):
-        wrapper_path = path[7:] if path.startswith("file://") else path
-
         # snakemake's namedlists will be encoded as a dict
         # which stores the not-named items at the key "positional"
         # and unpacks named items into the dict
@@ -927,7 +932,7 @@ class RustScript(ScriptBase):
             config=encode_namedlist(config.items()),
             rulename=rulename,
             bench_iteration=bench_iteration,
-            scriptdir=os.path.dirname(wrapper_path),
+            scriptdir=path.get_basedir().get_path_or_uri(),
         )
 
         import json
@@ -941,8 +946,8 @@ class RustScript(ScriptBase):
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
-        if path.startswith("file://"):
-            searchpath += ", " + repr(os.path.dirname(path[7:]))
+        if is_local:
+            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
 
         return textwrap.dedent(
             """
@@ -1073,12 +1078,6 @@ class RustScript(ScriptBase):
         )
 
     def get_preamble(self):
-        wrapper_path = self.path[7:] if self.path.startswith("file://") else self.path
-        # preamble_addendum = (
-        #     "__real_file__ = __file__; __file__ = {file_override};".format(
-        #         file_override=repr(os.path.realpath(wrapper_path))
-        #     )
-        # )
         preamble_addendum = ""
 
         preamble = RustScript.generate_preamble(
@@ -1103,6 +1102,7 @@ class RustScript(ScriptBase):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
         return preamble
@@ -1126,7 +1126,7 @@ class RustScript(ScriptBase):
         Also, because rust-scipt relies on inner docs, there can't be an empty line
         between the manifest and preamble.
         """
-        manifest, src = RustScript.extract_manifest(self.source.decode())
+        manifest, src = RustScript.extract_manifest(self.source)
         return manifest + preamble.lstrip("\r\n") + src
 
     @staticmethod
@@ -1235,53 +1235,50 @@ def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     return head, tail
 
 
-def get_source(path, basedir=".", wildcards=None, params=None):
-    source = None
-    if not path.startswith("http") and not path.startswith("git+file"):
-        if path.startswith("file://"):
-            path = path[7:]
-        elif path.startswith("file:"):
-            path = path[5:]
-        if not os.path.isabs(path):
-            path = smart_join(basedir, path, abspath=True)
-        if is_local_file(path):
-            path = "file://" + path
+def get_source(
+    path,
+    sourcecache: sourcecache.SourceCache,
+    basedir=None,
+    wildcards=None,
+    params=None,
+):
     if wildcards is not None and params is not None:
+        if isinstance(path, SourceFile):
+            path = path.get_path_or_uri()
         # Format path if wildcards are given.
-        path = format(path, wildcards=wildcards, params=params)
-    if path.startswith("file://"):
-        sourceurl = "file:" + pathname2url(path[7:])
-    elif path.startswith("git+file"):
-        source = git_content(path).encode()
-        (root_path, file_path, version) = split_git_path(path)
-        path = path.rstrip("@" + version)
-    else:
-        sourceurl = path
+        path = infer_source_file(format(path, wildcards=wildcards, params=params))
 
-    if source is None:
-        with urlopen(sourceurl) as source:
-            source = source.read()
+    if basedir is not None:
+        basedir = infer_source_file(basedir)
 
-    language = get_language(path, source)
+    source_file = infer_source_file(path, basedir)
+    with sourcecache.open(source_file) as f:
+        source = f.read()
 
-    return path, source, language
+    language = get_language(source_file, source)
+
+    is_local = isinstance(source_file, LocalSourceFile)
+
+    return source_file, source, language, is_local
 
 
-def get_language(path, source):
+def get_language(source_file, source):
     import nbformat
 
+    filename = source_file.get_filename()
+
     language = None
-    if path.endswith(".py"):
+    if filename.endswith(".py"):
         language = "python"
-    elif path.endswith(".ipynb"):
+    elif filename.endswith(".ipynb"):
         language = "jupyter"
-    elif path.endswith(".R"):
+    elif filename.endswith(".R"):
         language = "r"
-    elif path.endswith(".Rmd"):
+    elif filename.endswith(".Rmd"):
         language = "rmarkdown"
-    elif path.endswith(".jl"):
+    elif filename.endswith(".jl"):
         language = "julia"
-    elif path.endswith(".rs"):
+    elif filename.endswith(".rs"):
         language = "rust"
 
     # detect kernel language for Jupyter Notebooks
@@ -1322,11 +1319,15 @@ def script(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
+    runtime_sourcecache_path,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
-    path, source, language = get_source(path, basedir, wildcards, params)
+
+    path, source, language, is_local = get_source(
+        path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+    )
 
     exec_class = {
         "python": PythonScript,
@@ -1363,5 +1364,6 @@ def script(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     )
     executor.evaluate()

@@ -126,12 +126,14 @@ With Snakemake 6.0 and later, it is possible to define external workflows as mod
     min_version("6.0")
 
     module other_workflow:
-        snakefile: "other_workflow/Snakefile"
+        snakefile:
+            # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
+            "other_workflow/Snakefile"
     
     use rule * from other_workflow as other_*
 
 The first statement registers the external workflow as a module, by defining the path to the main snakefile.
-The snakefile property of the module can either take a local path or a HTTP/HTTPS url.
+Here, plain paths, HTTP/HTTPS URLs and special markers for code hosting providers like Github or Gitlab are possible (see :ref:`snakefile-code-hosting-providers`).
 The second statement declares all rules of that module to be used in the current one.
 Thereby, the ``as other_*`` at the end renames all those rule with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
@@ -149,6 +151,7 @@ It is possible to overwrite the global config dictionary for the module, which i
     configfile: "config/config.yaml"
 
     module other_workflow:
+        # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
         snakefile: "other_workflow/Snakefile"
         config: config["other-workflow"]
     
@@ -167,6 +170,7 @@ This modification can be performed after a general import, and will overwrite an
     min_version("6.0")
 
     module other_workflow:
+        # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
         snakefile: "other_workflow/Snakefile"
         config: config["other-workflow"]
 
@@ -261,3 +265,34 @@ This function automatically determines the absolute path to the file (here ``../
 When executing, snakemake first tries to create (or update, if necessary) ``test.txt`` (and all other possibly mentioned dependencies) by executing the subworkflow.
 Then the current workflow is executed.
 This can also happen recursively, since the subworkflow may have its own subworkflows as well.
+
+
+.. _snakefile-code-hosting-providers:
+
+----------------------
+Code hosting providers
+----------------------
+
+To obtain the correct URL to an external source code resource (e.g. a snakefile, see :ref:`snakefiles-modules`), Snakemake provides markers for code hosting providers.
+Currently, Github 
+
+.. code-block:: python
+
+    github("owner/repo", path="workflow/Snakefile", tag="v1.0.0")
+
+
+and Gitlab are supported:
+
+.. code-block:: python
+
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0")
+
+For the latter, it is also possible to specify an alternative host, e.g.
+
+.. code-block:: python
+
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org")
+
+
+While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
+Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.

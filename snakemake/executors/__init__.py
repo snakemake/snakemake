@@ -515,6 +515,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.edit_notebook,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.runtime_cache_path,
         )
 
     def run_single_job(self, job):
@@ -1403,6 +1404,8 @@ class DRMAAExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         import drmaa
 
+        suspended_msg = set()
+
         while True:
             with self.lock:
                 if not self.wait:
@@ -1413,9 +1416,7 @@ class DRMAAExecutor(ClusterExecutor):
             for active_job in active_jobs:
                 with self.status_rate_limiter:
                     try:
-                        retval = self.session.wait(
-                            active_job.jobid, drmaa.Session.TIMEOUT_NO_WAIT
-                        )
+                        retval = self.session.jobStatus(active_job.jobid)
                     except drmaa.ExitTimeoutException as e:
                         # job still active
                         still_running.append(active_job)
@@ -1428,20 +1429,40 @@ class DRMAAExecutor(ClusterExecutor):
                         os.remove(active_job.jobscript)
                         active_job.error_callback(active_job.job)
                         continue
-                    # job exited
-                    os.remove(active_job.jobscript)
-                    if (
-                        not retval.wasAborted
-                        and retval.hasExited
-                        and retval.exitStatus == 0
-                    ):
+                    if retval == drmaa.JobState.DONE:
+                        os.remove(active_job.jobscript)
                         active_job.callback(active_job.job)
-                    else:
+                    elif retval == drmaa.JobState.FAILED:
+                        os.remove(active_job.jobscript)
                         self.print_job_error(active_job.job)
                         self.print_cluster_job_error(
                             active_job, self.dag.jobid(active_job.job)
                         )
                         active_job.error_callback(active_job.job)
+                    else:
+                        # still running
+                        still_running.append(active_job)
+
+                        def handle_suspended(by):
+                            if active_job.job.jobid not in suspended_msg:
+                                logger.warning(
+                                    "Job {} (DRMAA id: {}) was suspended by {}.".format(
+                                        active_job.job.jobid, active_job.jobid, by
+                                    )
+                                )
+                                suspended_msg.add(active_job.job.jobid)
+
+                        if retval == drmaa.JobState.USER_SUSPENDED:
+                            handle_suspended("user")
+                        elif retval == drmaa.JobState.SYSTEM_SUSPENDED:
+                            handle_suspended("system")
+                        else:
+                            try:
+                                suspended_msg.remove(active_job.job.jobid)
+                            except KeyError:
+                                # there was nothing to remove
+                                pass
+
             with self.lock:
                 self.active_jobs.extend(still_running)
             sleep()
@@ -2277,6 +2298,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    runtime_sourcecache_path,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2357,6 +2379,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            runtime_sourcecache_path,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2387,6 +2410,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2415,20 +2439,26 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
-        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
-        lineno, file = get_exception_origin(ex, linemaps)
-        raise RuleException(
-            format_error(
-                ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+        origin = get_exception_origin(ex, linemaps)
+        if origin is not None:
+            log_verbose_traceback(ex)
+            lineno, file = origin
+            raise RuleException(
+                format_error(
+                    ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+                )
             )
-        )
+        else:
+            # some internal bug, just reraise
+            raise ex
 
     if benchmark is not None:
         try:
