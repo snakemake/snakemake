@@ -837,6 +837,12 @@ def test_pipes():
     run(dpath("test_pipes"))
 
 
+@skip_on_windows
+def test_pipes_multiple():
+    # see github issue #975
+    run(dpath("test_pipes_multiple"))
+
+
 def test_pipes_fail():
     run(dpath("test_pipes_fail"), shouldfail=True)
 

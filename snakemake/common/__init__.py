@@ -37,7 +37,23 @@ if sys.version_info < (3, 7):
 
 
 else:
-    async_run = asyncio.run
+
+    def async_run(coroutine):
+        """Attaches to running event loop or creates a new one to execute a
+        coroutine.
+
+        .. seealso::
+
+             https://github.com/snakemake/snakemake/issues/1105
+             https://stackoverflow.com/a/65696398
+
+        """
+        try:
+            _ = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coroutine)
+        else:
+            asyncio.create_task(coroutine)
 
 
 # A string that prints as TBD

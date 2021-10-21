@@ -69,14 +69,20 @@ Consider the following example:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
-        config: config
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+        config:
+            config
 
     use rule * from dna_seq
 
 First, we load a local configuration file.
-Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile``, while using the contents of the local configuration file.
+Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
+Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
+With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
+
 This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
 However, the advantage here is that we are (a) able to easily extend of modify the workflow, while making the changes transparent, and (b) we can store this workflow in a separate (e.g. private) git repository, along with for example configuration and meta data, without the need to duplicate the workflow code.
 Finally, we are always able to later combine another module into the current workflow, e.g. when further kinds of analyses are needed.
@@ -92,7 +98,9 @@ For example, we can easily add another rule to extend the given workflow:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
         config: config
 
     use rule * from dna_seq
@@ -105,6 +113,8 @@ For example, we can easily add another rule to extend the given workflow:
             "results/plots/vafs.svg"
         notebook:
             "notebooks/plot-vafs.py.ipynb"
+
+Moreover, it is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
 
 ----------------------------------
 Uploading workflows to WorkflowHub
