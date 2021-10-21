@@ -241,9 +241,9 @@ Using --cluster-status
 ::::::::::::::::::::::
 
 Sometimes you need specific detection to determine if a cluster job completed successfully, failed or is still running.
-Error detection with ``--cluster`` can be improved for edge cases such as timeouts and jobs exceeding memory that are silently terminated by 
+Error detection with ``--cluster`` can be improved for edge cases such as timeouts and jobs exceeding memory that are silently terminated by
 the queueing system.
-This can be achieved with the ``--cluster-status`` option. This takes as input a script and passes a job id as first argument.
+This can be achieved with the ``--cluster-status`` option. The value of this option should be a executable script which takes a job id as the first argument and prints to stdout only one of [running|success|failed]. Importantly, the job id snakemake passes on is captured from the stdout of the cluster submit tool. This string will often include more than the job id, but snakemake does not modify this string and will pass this string to the status script unchanged. In the situation where snakemake has received more than the job id these are 3 potential solutions to consider: parse the string received by the script and extract the job id within the script, wrap the submission tool to intercept its stdout and return just the job code, or ideally, the cluster may offer an option to only return the job id upon submission and you can instruct snakemake to use that option. For sge this would look like  ``snakemake --cluster "qsub -terse"``.
 
 The following (simplified) script detects the job status on a given SLURM cluster (>= 14.03.0rc1 is required for ``--parsable``).
 
