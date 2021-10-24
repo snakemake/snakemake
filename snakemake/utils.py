@@ -152,9 +152,9 @@ def validate(data, schema, set_default=True):
 
 def simplify_path(path):
     """Return a simplified version of the given path."""
-    relpath = os.path.relpath(path)
+    relpath = os.path.relpath(str(path))
     if relpath.startswith("../../"):
-        return path
+        return str(path)
     else:
         return relpath
 
