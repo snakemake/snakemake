@@ -73,6 +73,7 @@ from snakemake.common import (
     Scatter,
     Gather,
     smart_join,
+    NOTHING_TO_BE_DONE_MSG,
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
@@ -820,7 +821,7 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: Nothing to be done.".format(subworkflow.name)
+                        "Subworkflow {}: {}".format(subworkflow.name, NOTHING_TO_BE_DONE_MSG)
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
@@ -1051,13 +1052,13 @@ class Workflow:
                 if self.mode == Mode.default:
                     logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
             if quiet:
                 # in case of dryrun and quiet, just print above info and exit
