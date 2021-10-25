@@ -821,7 +821,9 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: {}".format(subworkflow.name, NOTHING_TO_BE_DONE_MSG)
+                        "Subworkflow {}: {}".format(
+                            subworkflow.name, NOTHING_TO_BE_DONE_MSG
+                        )
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
