@@ -579,7 +579,9 @@ class PythonScript(ScriptBase):
             # bash is configured as executable on Windows
             py_exec = py_exec.replace("\\", "/")
         # use the same Python as the running process or the one from the environment
-        self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
+        self._execute_cmd(
+            "{py_exec} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
+        )
 
 
 class RScript(ScriptBase):

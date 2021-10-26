@@ -194,6 +194,7 @@ class shell:
                 envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
+                is_python_script=context.get("is_python_script", False),
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:

@@ -744,10 +744,11 @@ Rust_
         script:
             "path/to/script.rs"
 
-The ability to execute Rust scripts is facilitated by |rust-script|_. As such, the
-script must be a valid ``rust-script`` script and ``rust-script`` must be available in the
-environment the rule is run in.
-The minimum required ``rust-script`` version is `1.15.0`, so in the example above, the contents of ``rust.yaml`` might look like this:
+The ability to execute Rust scripts is facilitated by |rust-script|_.
+As such, the script must be a valid ``rust-script`` script and ``rust-script``
+(plus OpenSSL and a C compiler toolchain, provided by Conda packages ``openssl``, ``c-compiler``, ``pkg-config``)
+must be available in the environment the rule is run in.
+The minimum required ``rust-script`` version is 1.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
 
 .. code block:: yaml
 
@@ -756,6 +757,9 @@ The minimum required ``rust-script`` version is `1.15.0`, so in the example abov
       - bioconda
     dependencies:
       - rust-script>=0.15.0
+      - openssl
+      - c-compiler
+      - pkg-config
 
 
 
@@ -1487,6 +1491,8 @@ However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end 
 
 Alternatively, groups can be defined via the command line interface.
 This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
+
+For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
 Piped output
 ------------
