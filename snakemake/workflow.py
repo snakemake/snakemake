@@ -958,7 +958,7 @@ class Workflow:
             for env in set(job.conda_env for job in dag.jobs):
                 if env:
                     print(
-                        simplify_path(env.file),
+                        env.file.simplify_path(),
                         env.container_img_url or "",
                         simplify_path(env.path),
                         sep="\t",

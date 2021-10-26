@@ -409,6 +409,10 @@ def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
+def test_conda_list_envs():
+    run(dpath("test_conda"), list_conda_envs=True, check_results=False)
+
+
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
@@ -1219,6 +1223,11 @@ def test_github_issue806():
 @skip_on_windows
 def test_containerized():
     run(dpath("test_containerized"), use_conda=True, use_singularity=True)
+
+
+@skip_on_windows
+def test_containerize():
+    run(dpath("test_conda"), containerize=True, check_results=False)
 
 
 def test_long_shell():
