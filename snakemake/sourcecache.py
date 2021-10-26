@@ -105,6 +105,9 @@ class LocalSourceFile(SourceFile):
     def simplify_path(self):
         return utils.simplify_path(self.path)
 
+    def __fspath__(self):
+        return self.path
+
 
 class LocalGitFile(SourceFile):
     def __init__(
