@@ -8,6 +8,7 @@ import sys
 import base64
 import tempfile
 import json
+import shutil
 
 from collections import defaultdict
 from itertools import chain, filterfalse
@@ -743,7 +744,12 @@ class Job(AbstractJob):
         )
         cwd = os.getcwd()
 
-        if self.rule.shadow_depth == "minimal":
+        # "minimal" creates symlinks only to the input files in the shadow directory
+        # "copy-minimal" creates copies instead
+        if (
+            self.rule.shadow_depth == "minimal"
+            or self.rule.shadow_depth == "copy-minimal"
+        ):
             # Re-create the directory structure in the shadow directory
             for (f, d) in set(
                 [
@@ -763,19 +769,26 @@ class Job(AbstractJob):
                     else:
                         raise RuleException(
                             "The following file name references a parent directory relative to your workdir.\n"
-                            'This isn\'t supported for shadow: "minimal". Consider using an absolute path instead.\n{}'.format(
-                                f
+                            'This isn\'t supported for shadow: "{}". Consider using an absolute path instead.\n{}'.format(
+                                f, self.rule.shadow_depth
                             ),
                             rule=self.rule,
                         )
 
-            # Symlink the input files
-            for rel_path in set(
-                [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
-            ):
-                link = os.path.join(self.shadow_dir, rel_path)
-                original = os.path.relpath(rel_path, os.path.dirname(link))
-                os.symlink(original, link)
+            # Symlink or copy the input files
+            if self.rule.shadow_depth == "copy-minimal":
+                for rel_path in set(
+                    [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
+                ):
+                    copy = os.path.join(self.shadow_dir, rel_path)
+                    shutil.copy(rel_path, copy)
+            else:
+                for rel_path in set(
+                    [os.path.relpath(f) for f in self.input if not os.path.isabs(f)]
+                ):
+                    link = os.path.join(self.shadow_dir, rel_path)
+                    original = os.path.relpath(rel_path, os.path.dirname(link))
+                    os.symlink(original, link)
 
         # Shallow simply symlink everything in the working directory.
         elif self.rule.shadow_depth == "shallow":

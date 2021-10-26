@@ -118,6 +118,11 @@ class JobScheduler:
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
+        self._toerror = []
+        self.handle_job_success = True
+        self.update_resources = True
+        self.print_progress = not self.quiet and not self.dryrun
+        self.update_dynamic = not self.dryrun
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -140,14 +145,12 @@ class JobScheduler:
         self._lock = threading.Lock()
 
         self._errors = False
+        self._executor_error = None
         self._finished = False
         self._job_queue = None
+        self._last_job_selection_empty = False
         self._submit_callback = self._noop
-        self._finish_callback = partial(
-            self._proceed,
-            update_dynamic=not self.dryrun,
-            print_progress=not self.quiet and not self.dryrun,
-        )
+        self._finish_callback = self._proceed
 
         self._local_executor = None
         if dryrun:
@@ -210,13 +213,10 @@ class JobScheduler:
                     keepmetadata=keepmetadata,
                 )
                 if workflow.immediate_submit:
-                    self._submit_callback = partial(
-                        self._proceed,
-                        update_dynamic=False,
-                        print_progress=False,
-                        update_resources=False,
-                        handle_job_success=False,
-                    )
+                    self.update_dynamic = False
+                    self.print_progress = False
+                    self.update_resources = False
+                    self.handle_job_success = False
             else:
                 self._executor = DRMAAExecutor(
                     workflow,
@@ -391,6 +391,12 @@ class JobScheduler:
             pass
         self._open_jobs.release()
 
+    def executor_error_callback(self, exception):
+        with self._lock:
+            self._executor_error = exception
+            # next scheduling round to catch and raise error
+            self._open_jobs.release()
+
     @property
     def stats(self):
         try:
@@ -432,19 +438,24 @@ class JobScheduler:
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
                     self._finish_jobs()
+                    self._error_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
+                    executor_error = self._executor_error
                     user_kill = self._user_kill
 
                 # handle errors
-                if user_kill or (not self.keepgoing and errors):
+                if user_kill or (not self.keepgoing and errors) or executor_error:
                     if user_kill == "graceful":
                         logger.info(
                             "Will exit after finishing " "currently running jobs."
                         )
 
-                    if not running:
+                    if executor_error:
+                        print_exception(executor_error, self.workflow.linemaps)
+
+                    if executor_error or not running:
                         logger.info("Shutting down, this might take some time.")
                         self._executor.shutdown()
                         if not user_kill:
@@ -474,7 +485,11 @@ class JobScheduler:
                         "Ready jobs ({}):\n\t".format(len(needrun))
                         + "\n\t".join(map(str, needrun))
                     )
+
+                    if not self._last_job_selection_empty:
+                        logger.info("Select jobs to execute...")
                     run = self.job_selector(needrun)
+                    self._last_job_selection_empty = not run
 
                     logger.debug(
                         "Selected jobs ({}):\n\t".format(len(run))
@@ -508,9 +523,39 @@ class JobScheduler:
 
     def _finish_jobs(self):
         # must be called from within lock
-        for job, update_dynamic in self._tofinish:
-            self.dag.finish(job, update_dynamic=update_dynamic)
+        for job in self._tofinish:
+            if self.handle_job_success:
+                try:
+                    self.get_executor(job).handle_job_success(job)
+                except (RuleException, WorkflowError) as e:
+                    # if an error occurs while processing job output,
+                    # we do the same as in case of errors during execution
+                    print_exception(e, self.workflow.linemaps)
+                    self._handle_error(job)
+                    return
+
+            if self.update_resources:
+                # normal jobs have len=1, group jobs have len>1
+                self.finished_jobs += len(job)
+                self.running.remove(job)
+                self._free_resources(job)
+
+            if self.print_progress:
+                if job.is_group():
+                    for j in job:
+                        logger.job_finished(jobid=j.jobid)
+                else:
+                    logger.job_finished(jobid=job.jobid)
+                self.progress()
+
+            self.dag.finish(job, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
+
+    def _error_jobs(self):
+        # must be called from within lock
+        for job in self._toerror:
+            self._handle_error(job)
+        self._toerror.clear()
 
     def run(self, jobs, executor=None):
         if executor is None:
@@ -539,42 +584,13 @@ class JobScheduler:
     def _proceed(
         self,
         job,
-        update_dynamic=True,
-        print_progress=False,
-        update_resources=True,
-        handle_job_success=True,
     ):
         """Do stuff after job is finished."""
         with self._lock:
-            if handle_job_success:
-                # by calling this behind the lock, we avoid race conditions
-                try:
-                    self.get_executor(job).handle_job_success(job)
-                except (RuleException, WorkflowError) as e:
-                    # if an error occurs while processing job output,
-                    # we do the same as in case of errors during execution
-                    print_exception(e, self.workflow.linemaps)
-                    self._handle_error(job)
-                    return
-
-            self._tofinish.append((job, update_dynamic))
-
-            if update_resources:
-                # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
-                self.running.remove(job)
-                self._free_resources(job)
-
-            if print_progress:
-                if job.is_group():
-                    for j in job:
-                        logger.job_finished(jobid=j.jobid)
-                else:
-                    logger.job_finished(jobid=job.jobid)
-                self.progress()
+            self._tofinish.append(job)
 
             if self.dryrun:
-                if not self.running:
+                if len(self.running) - len(self._tofinish) - len(self._toerror) <= 0:
                     # During dryrun, only release when all running jobs are done.
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
@@ -585,7 +601,8 @@ class JobScheduler:
 
     def _error(self, job):
         with self._lock:
-            self._handle_error(job)
+            self._toerror.append(job)
+            self._open_jobs.release()
 
     def _handle_error(self, job):
         """Clear jobs and stop the workflow.
@@ -609,7 +626,6 @@ class JobScheduler:
             self.failed.add(job)
             if self.keepgoing:
                 logger.info("Job failed, going on with independent jobs.")
-        self._open_jobs.release()
 
     def exit_gracefully(self, *args):
         with self._lock:
@@ -624,7 +640,11 @@ class JobScheduler:
         from pulp import lpSum
         from stopit import ThreadingTimeout as Timeout, TimeoutException
 
-        logger.info("Select jobs to execute...")
+        if len(jobs) == 1:
+            logger.debug(
+                "Using greedy selector because only single job has to be scheduled."
+            )
+            return self.job_selector_greedy(jobs)
 
         with self._lock:
             if not self.resources["_cores"]:
@@ -895,8 +915,14 @@ class JobScheduler:
             temp_size = 0
             input_size = 0
         else:
-            temp_size = self.dag.temp_size(job)
-            input_size = job.inputsize
+            try:
+                temp_size = self.dag.temp_size(job)
+                input_size = job.inputsize
+            except FileNotFoundError:
+                # If the file is not yet present, this shall not affect the
+                # job selection.
+                temp_size = 0
+                input_size = 0
 
         # Usually, this should guide the scheduler to first schedule all jobs
         # that remove the largest temp file, then the second largest and so on.

@@ -570,7 +570,7 @@ class Rule:
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
                     r = ReportObject(
-                        os.path.join(self.workflow.current_basedir, report_obj.caption),
+                        self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
                         report_obj.patterns,
@@ -708,7 +708,7 @@ class Rule:
             # Function evaluation can depend on input files. Since expansion can happen during dryrun,
             # where input files are not yet present, we need to skip such cases and
             # mark them as <TBD>.
-            if e.filename in aux_params["input"]:
+            if "input" in aux_params and e.filename in aux_params["input"]:
                 value = TBDString()
             else:
                 raise e

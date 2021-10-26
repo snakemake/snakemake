@@ -85,6 +85,8 @@ class shell:
                     )
                 cls._process_prefix = "set -euo pipefail; "
                 cls._win_command_prefix = "-c"
+        elif os.path.split(cmd)[-1].lower() == "bash":
+            cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -182,6 +184,7 @@ class shell:
                 envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
+                is_python_script=context.get("is_python_script", False),
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:

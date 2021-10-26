@@ -581,6 +581,9 @@ External scripts
 
 A rule can also point to an external script instead of a shell command or inline Python code, e.g.
 
+Python
+~~~~~~
+
 .. code-block:: python
 
     rule NAME:
@@ -601,6 +604,20 @@ The script path is always relative to the Snakefile containing the directive (in
 It is recommended to put all scripts into a subfolder ``scripts`` as above.
 Inside the script, you have access to an object ``snakemake`` that provides access to the same objects that are available in the ``run`` and ``shell`` directives (input, output, params, wildcards, log, threads, resources, config), e.g. you can use ``snakemake.input[0]`` to access the first input file of above rule.
 
+An example external Python script could look like this:
+
+.. code-block:: python
+
+    def do_something(data_path, out_path, threads, myparam):
+        # python code
+
+    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
+
+You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
+
+R and R Markdown
+~~~~~~~~~~~~~~~~
+
 Apart from Python scripts, this mechanism also allows you to integrate R_ and R Markdown_ scripts with Snakemake, e.g.
 
 .. _R: https://www.r-project.org
@@ -620,38 +637,7 @@ Apart from Python scripts, this mechanism also allows you to integrate R_ and R 
 
 In the R script, an S4 object named ``snakemake`` analogous to the Python case above is available and allows access to input and output files and other parameters. Here the syntax follows that of S4 classes with attributes that are R lists, e.g. we can access the first input file with ``snakemake@input[[1]]`` (note that the first file does not have index ``0`` here, because R starts counting from ``1``). Named input and output files can be accessed in the same way, by just providing the name instead of an index, e.g. ``snakemake@input[["myfile"]]``.
 
-
-Alternatively, it is possible to integrate Julia_ scripts, e.g.
-
-.. _Julia: https://julialang.org
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "path/to/inputfile",
-            "path/to/other/inputfile"
-        output:
-            "path/to/outputfile",
-            "path/to/another/outputfile"
-        script:
-            "path/to/script.jl"
-
-In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the Python case (see above), with the only difference that you have to index from 1 instead of 0.
-
-For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object. A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
-
-An example external Python script could look like this:
-
-.. code-block:: python
-
-    def do_something(data_path, out_path, threads, myparam):
-        # python code
-
-    do_something(snakemake.input[0], snakemake.output[0], snakemake.threads, snakemake.config["myparam"])
-
-You can use the Python debugger from within the script if you invoke Snakemake with ``--debug``.
-An equivalent script written in R would look like this:
+An equivalent script (:ref:`to the Python one above <Python>`) written in R would look like this:
 
 .. code-block:: r
 
@@ -664,6 +650,7 @@ An equivalent script written in R would look like this:
 
 To debug R scripts, you can save the workspace with ``save.image()``, and invoke R after Snakemake has terminated. Then you can use the usual R debugging facilities while having access to the ``snakemake`` variable.
 It is best practice to wrap the actual code into a separate function. This increases the portability if the code shall be invoked outside of Snakemake or from a different rule.
+A convenience method, ``snakemake@source()``, acts as a wrapper for the normal R ``source()`` function, and can be used to source files relative to the original script directory.
 
 An R Markdown file can be integrated in the same way as R and Python scripts, but only a single output (html) file can be used:
 
@@ -712,6 +699,156 @@ In the R Markdown file you can insert output from a R command, and access variab
 
 A link to the R Markdown document with the snakemake object can be inserted. Therefore a variable called ``rmd`` needs to be added to the ``params`` section in the header of the ``report.Rmd`` file. The generated R Markdown file with snakemake object will be saved in the file specified in this ``rmd`` variable. This file can be embedded into the HTML document using base64 encoding and a link can be inserted as shown in the example above.
 Also other input and output files can be embedded in this way to make a portable report. Note that the above method with a data URI only works for small files. An experimental technology to embed larger files is using Javascript Blob `object <https://developer.mozilla.org/en-US/docs/Web/API/Blob>`_.
+
+Julia_
+~~~~~~
+
+.. _Julia: https://julialang.org
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile"
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        script:
+            "path/to/script.jl"
+
+In the Julia_ script, a ``snakemake`` object is available, which can be accessed similar to the :ref:`Python case <Python>`, with the only difference that you have to index from 1 instead of 0.
+
+Rust_
+~~~~~
+
+.. _Rust: https://www.rust-lang.org/
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+            named_input="path/to/named/inputfile",
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile"
+        params:
+            seed=4
+        conda:
+            "rust.yaml"
+        log:
+            stdout="path/to/stdout.log",
+            stderr="path/to/stderr.log",
+        script:
+            "path/to/script.rs"
+
+The ability to execute Rust scripts is facilitated by |rust-script|_.
+As such, the script must be a valid ``rust-script`` script and ``rust-script``
+(plus OpenSSL and a C compiler toolchain, provided by Conda packages ``openssl``, ``c-compiler``, ``pkg-config``)
+must be available in the environment the rule is run in.
+The minimum required ``rust-script`` version is 1.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
+
+.. code block:: yaml
+
+    channels:
+      - conda-forge
+      - bioconda
+    dependencies:
+      - rust-script>=0.15.0
+      - openssl
+      - c-compiler
+      - pkg-config
+
+
+
+Some example scripts can be found in the
+`tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
+
+In the Rust script, a ``snakemake`` instance is available, which is automatically generated from the python snakemake object using |json_typegen|_.
+It usually looks like this:
+
+.. code-block:: rust
+
+    pub struct Snakemake {
+        input: Input,
+        output: Ouput,
+        params: Params,
+        wildcards: Wildcards,
+        threads: u64,
+        log: Log,
+        resources: Resources,
+        config: Config,
+        rulename: String,
+        bench_iteration: Option<usize>,
+        scriptdir: String,
+    }
+
+Any named parameter is translated to a corresponding ``field_name: Type``, such that ``params.seed`` from the example above can be accessed just like in python, i.e.:
+
+.. code-block:: rust
+
+    let seed = snakemake.params.seed;
+    assert_eq!(seed, 4);
+
+Positional arguments for ``input``, ``output``, ``log`` and ``wildcards`` can be accessed by index and iterated over:
+
+.. code-block:: rust
+
+    let input = &snakemake.input;
+
+    // Input implements Index<usize>
+    let inputfile = input[0];
+    assert_eq!(inputfile, "path/to/inputfile");
+
+    // Input implements IntoIterator
+    //
+    // prints
+    // > 'path/to/inputfile'
+    // > 'path/to/other/inputfile'
+    for f in input {
+        println!("> '{}'", &f);
+    }
+
+
+It is also possible to redirect ``stdout`` and ``stderr``:
+
+.. code-block:: rust
+
+    println!("This will NOT be written to path/to/stdout.log");
+    // redirect stdout to "path/to/stdout.log"
+    let _stdout_redirect = snakemake.redirect_stdout(snakemake.log.stdout)?;
+    println!("This will be written to path/to/stdout.log");
+
+    // redirect stderr to "path/to/stderr.log"
+    let _stderr_redirect = snakemake.redirect_stderr(snakemake.log.stderr)?;
+    eprintln!("This will be written to path/to/stderr.log");
+    drop(_stderr_redirect);
+    eprintln!("This will NOT be written to path/to/stderr.log");
+
+Redirection of stdout/stderr is only "active" as long as the returned ``Redirect`` instance is alive; in order to stop redirecting, drop the respective instance.
+
+In order to work, rust-script support for snakemake has some dependencies enabled by default:
+
+#. ``anyhow=1``, for its ``Result`` type
+#. ``gag=1``, to enable stdout/stderr redirects
+#. ``json_typegen=0.6``, for generating rust structs from a json representation of the snakemake object
+#. ``lazy_static=1.4``, to make a ``snakemake`` instance easily accessible
+#. ``serde=1``, explicit dependency of ``json_typegen``
+#. ``serde_derive=1``, explicit dependency of ``json_typegen``
+#. ``serde_json=1``, explicit dependency of ``json_typegen``
+
+If your script uses any of these packages, you do not need to ``use`` them in your script. Trying to ``use`` them will cause a compilation error.
+
+.. |rust-script| replace:: ``rust-script``
+.. _rust-script: https://rust-script.org/
+.. |json_typegen| replace:: ``json_typegen``
+.. _json_typegen: https://github.com/evestera/json_typegen
+
+----
+
+For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
 
 .. _snakefiles_notebook-integration:
 
@@ -875,11 +1012,21 @@ Note that any flag that forces re-creation of files still also applies to files 
 Shadow rules
 ------------
 
-Shadow rules result in each execution of the rule to be run in isolated temporary directories. This "shadow" directory contains symlinks to files and directories in the current workdir. This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow. It can also be useful if you want to keep your workdir clean while the program executes, or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
+Shadow rules result in each execution of the rule to be run in isolated temporary directories.
+This "shadow" directory contains symlinks to files and directories in the current workdir.
+This is useful for running programs that generate lots of unused files which you don't want to manually cleanup in your snakemake workflow.
+It can also be useful if you want to keep your workdir clean while the program executes,
+or simplify your workflow by not having to worry about unique filenames for all outputs of all rules.
 
-By setting ``shadow: "shallow"``, the top level files and directories are symlinked, so that any relative paths in a subdirectory will be real paths in the filesystem. The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir. The setting ``shadow: "minimal"`` only symlinks the inputs to the rule. Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
+By setting ``shadow: "shallow"``, the top level files and directories are symlinked,
+so that any relative paths in a subdirectory will be real paths in the filesystem.
+The setting ``shadow: "full"`` fully shadows the entire subdirectory structure of the current workdir.
+The setting ``shadow: "minimal"`` only symlinks the inputs to the rule,
+and ``shadow: "copy-minimal"`` copies the inputs instead of just creating symlinks.
+Once the rule successfully executes, the output file will be moved if necessary to the real path as indicated by ``output``.
 
-Typically, you will not need to modify your rule for compatibility with ``shadow``, unless you reference parent directories relative to your workdir in a rule.
+Typically, you will not need to modify your rule for compatibility with ``shadow``,
+unless you reference parent directories relative to your workdir in a rule.
 
 .. code-block:: python
 
@@ -889,7 +1036,11 @@ Typically, you will not need to modify your rule for compatibility with ``shadow
         shadow: "shallow"
         shell: "somecommand --other_outputs other.txt {input} {output}"
 
-Shadow directories are stored one per rule execution in ``.snakemake/shadow/``, and are cleared on successful execution. Consider running with the ``--cleanup-shadow`` argument every now and then to remove any remaining shadow directories from aborted jobs. The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+Shadow directories are stored one per rule execution in ``.snakemake/shadow/``,
+and are cleared on successful execution.
+Consider running with the ``--cleanup-shadow`` argument every now and then
+to remove any remaining shadow directories from aborted jobs.
+The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
 Flag files
 ----------
@@ -978,7 +1129,7 @@ This can be done by having them return ``dict()`` objects with the names as the 
 .. code-block:: python
 
     def myfunc(wildcards):
-        return { 'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)
+        return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
 
     rule:
         input: unpack(myfunc)
@@ -1340,6 +1491,8 @@ However, if we would add ``group: "mygroup"`` to rule ``c``, all jobs would end 
 
 Alternatively, groups can be defined via the command line interface.
 This enables to almost arbitrarily partition the DAG, e.g. in order to safe network traffic, see :ref:`here <job_grouping>`.
+
+For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
 Piped output
 ------------

@@ -1,0 +1,39 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        "d.out",
+
+rule A:
+    output:
+        "a.out",
+    shell:
+        "echo 'text' > {output}"
+
+rule B:
+    input:
+        ancient("a.out"),
+    output:
+        "b_{i}.out",
+    shell:
+        "cat {input} > {output}"
+
+# rule C is required for #946
+#  use `range(20)` so test will pass in < 5% of cases where issue is present
+rule C:
+    input:
+        expand("b_{i}.out", i=list(range(20))),
+    output:
+        "c.out",
+    shell:
+        "cat {input} > {output}"
+
+# For #946, 'a.out' is required as input, but does not need to be `ancient()`
+rule D:
+    input:
+        "a.out",
+        "c.out",
+    output:
+        "d.out",
+    shell:
+        "cat {input} > {output}"
