@@ -802,10 +802,12 @@ def test_issue823_1():
     run(dpath("test_issue823_1"))
 
 
+@skip_on_windows
 def test_issue823_2():
     run(dpath("test_issue823_2"))
 
 
+@skip_on_windows
 def test_issue823_3():
     run(dpath("test_issue823_3s"))
 
@@ -1332,3 +1334,7 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+
+def test_ancient_dag():
+    run(dpath("test_ancient_dag"))

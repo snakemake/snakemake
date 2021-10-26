@@ -12,15 +12,18 @@ rule b1:
     output:
         pipe("b.pipe")
     shell:
-        ""
+        "echo test > {output}"
 
 rule b2:
     input:
-        pipe("b.pipe")
+        "b.pipe"
     output:
         "b.txt"
     shell:
-        "touch {output}"
+        """
+        cat {input} > /dev/null
+        touch {output}
+        """
 
 rule c:
     input:
