@@ -1197,14 +1197,20 @@ class GroupJob(AbstractJob):
         self.jobs = self.jobs | other.jobs
 
     def finalize(self):
-        from toposort import toposort
-
         if self.toposorted is None:
+            # Jobs connected by a pipe must be run simultaneously. Thus, we need to
+            # trick toposort into putting them on the same level. This is done by
+            # causing all jobs in the pipe group to use each other's dependencies.
+
+            # First, we organize all the jobs in the group into a dict according to
+            # their pipe_group
             pipe_groups = defaultdict(list)
-            for name, group in groupby(self.jobs, attrgetter('pipe_group')):
+            for name, group in groupby(self.jobs, attrgetter("pipe_group")):
                 if name is not None:
                     pipe_groups[name].extend(group)
 
+            # Then, for each pipe_group, we find the dependencies of every job in the
+            # group, filtering out any dependencies that are, themselves, in the group
             pipe_dependencies = {}
             for name, group in pipe_groups.items():
                 pipe_dependencies[name] = set(
@@ -1213,46 +1219,57 @@ class GroupJob(AbstractJob):
                     for d in self.dag.dependencies[job]
                     if d not in group
                 )
-                # products = set(f for job in group for f in job.products)
-                # inputs[name] = [
-                #     f for job in group for f in job.input if f not in products
-                # ]
 
-            def get_dependencies(job, ignore=[]):
-                # Jobs connected by a pipe must be run simultaneously. Thus, we need to
-                # trick toposort into putting them on the same level. This is done by
-                # causing the two ends of the pipe to inherit each other's dependencies.
-                # Note that in the current implemention, complicated chains of pipes
-                # risk a massive recursion problem because of the way we traverse up and
-                # down the DAG. Better implementations should try to incorporate some
-                # sort of memoization to prevent the same function/parameter set from
-                # being called multiple times.
+            # Collect every job's dependencies into a definitive mapping. Regular jobs
+            # get their dependencies directly from dag.dependencies, while pipe jobs
+            # get their dependencies from the pipe_dependencies calculated above.
+            dependencies = {}
+            for job in self.jobs:
                 if job.pipe_group in pipe_dependencies:
-                    dependencies = pipe_dependencies[job.pipe_group]
+                    dependencies[job] = pipe_dependencies[job.pipe_group]
                 else:
-                    dependencies = self.dag.dependencies[job]
-                for dep in dependencies:
-                    if dep in self.jobs and dep not in ignore:
-                        # If not a pipe consumer, we add the producer as an ordinary
-                        # dependency
-                        yield dep
+                    dependencies[job] = self.dag.dependencies[job]
 
-            dag = {job: set(get_dependencies(job)) for job in self.jobs}
+            self.toposorted = [*self.toposort(self.jobs, dependencies)]
 
-            self.toposorted = list(toposort(dag))
+    def toposort(self, group, dependencies):
+        """Sort group of jobs into layers of dependency.
 
+        Args:
+            group (Iterable[jobs]): List of jobs to sort
+            dependencies (Dict[job, Iterable[jobs]]): Dictionary of job keys mapped to
+                a list of all jobs they depend on. Dependencies should have one key
+                entry for every job in group.
+        """
+        from toposort import toposort as _toposort
 
-    @property
-    def all_products(self):
-        if self._all_products is None:
-            self._all_products = set(f for job in self.jobs for f in job.products)
-        return self._all_products
+        # _toposort takes a dict: {job: {dependencies...}, ...}. Here, just filter
+        # out all the dependencies that aren't in the group.
+        yield from _toposort(
+            {job: {dep for dep in dependencies[job] if dep in group} for job in group}
+        )
 
     def __iter__(self):
         if self.toposorted is None:
             yield from self.jobs
-        else:
-            yield from chain.from_iterable(self.toposorted)
+            return
+
+        # The scheduler currently relies on Pipe jobs being returned in dependency order
+        # (i.e. if a -> b, yield a before b). finalize(), which produces self.toposort,
+        # puts all pipe jobs at the same toposort level for resource calculation
+        # purposes, so if we yield directly from toposort, we can't guarentee the order.
+        # Here, we filter through jobs to find pipe groups, then rerun toposort on each
+        # pipe group.
+        pipe_groups = defaultdict(set)
+        for sibling in self.toposorted:
+            for job in sibling:
+                if job.pipe_group is None:
+                    yield job
+                    continue
+                pipe_groups[job.pipe_group].add(job)
+
+            for group in pipe_groups.values():
+                yield from chain(*self.toposort(group, self.dag.dependencies))
 
     def __repr__(self):
         return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
@@ -1262,6 +1279,12 @@ class GroupJob(AbstractJob):
 
     def is_group(self):
         return True
+
+    @property
+    def all_products(self):
+        if self._all_products is None:
+            self._all_products = set(f for job in self.jobs for f in job.products)
+        return self._all_products
 
     @property
     def is_checkpoint(self):
