@@ -615,7 +615,8 @@ class Script(AbstractCmd):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, spack_env, conda_base_path, container_img, singularity_args, "
             "env_modules, bench_record, jobid, bench_iteration, cleanup_scripts, "
-            "shadow_dir", "runtime_sourcecache_path"
+            "shadow_dir",
+            "runtime_sourcecache_path",
         )
 
 
@@ -641,7 +642,8 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, spack_env, conda_base_path, container_img, singularity_args, "
             "env_modules, bench_record, workflow.wrapper_prefix, jobid, "
-            "bench_iteration, cleanup_scripts, shadow_dir", "runtime_sourcecache_path"
+            "bench_iteration, cleanup_scripts, shadow_dir",
+            "runtime_sourcecache_path",
         )
 
 
