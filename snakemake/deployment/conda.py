@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -46,7 +47,7 @@ class Env(EnvBase):
     def __init__(
         self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
     ):
-        self.file = env_file
+        self.file = infer_source_file(env_file)
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -138,7 +139,9 @@ class Env(EnvBase):
         try:
             # Download
             logger.info(
-                "Downloading packages for conda environment {}...".format(self.file)
+                "Downloading packages for conda environment {}...".format(
+                    self.file.get_path_or_uri()
+                )
             )
             os.makedirs(env_archive, exist_ok=True)
             try:
@@ -193,11 +196,16 @@ class Env(EnvBase):
         env_file = self.file
         tmp_file = None
 
-        if not is_local_file(env_file) or env_file.startswith("git+file:/"):
+        if not isinstance(env_file, LocalSourceFile) or isinstance(
+            env_file, LocalGitFile
+        ):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
+                # write to temp file such that conda can open it
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_file = tmp.name
+        else:
+            env_file = env_file.get_path_or_uri()
 
         env_hash = self.hash
         env_path = self.path
@@ -229,22 +237,35 @@ class Env(EnvBase):
                 return env_path
 
         # Check for broken environment
-        self.check_broken_environment(env_path, dryrun)
+        if os.path.exists(
+            os.path.join(env_path, "env_setup_start")
+        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
+            if dryrun:
+                logger.info(
+                    "Incomplete Conda environment {} will be recreated.".format(
+                        self.file.simplify_path()
+                    )
+                )
+            else:
+                logger.info(
+                    "Removing incomplete Conda environment {}...".format(
+                        self.file.simplify_path()
+                    )
+                )
+                shutil.rmtree(env_path, ignore_errors=True)
 
         # Create environment if not already present.
         if not os.path.exists(env_path):
             if dryrun:
                 logger.info(
                     "Conda environment {} will be created.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 return env_path
             conda = Conda(self._container_img)
             logger.info(
-                "Creating conda environment {}...".format(
-                    utils.simplify_path(self.file)
-                )
+                "Creating conda environment {}...".format(self.file.simplify_path())
             )
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file

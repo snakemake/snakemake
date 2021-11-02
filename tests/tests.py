@@ -415,6 +415,10 @@ def test_spack():
 
 
 @skip_on_windows  # test uses bwa which is non windows
+def test_conda_list_envs():
+    run(dpath("test_conda"), list_conda_envs=True, check_results=False)
+
+
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
@@ -804,6 +808,15 @@ def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
 
 
+def test_issue823_1():
+    run(dpath("test_issue823_1"))
+
+
+@skip_on_windows
+def test_issue823_2():
+    run(dpath("test_issue823_2"))
+
+
 @skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
@@ -836,6 +849,12 @@ def test_group_job_fail():
 @skip_on_windows  # Not supported, but could maybe be implemented. https://stackoverflow.com/questions/48542644/python-and-windows-named-pipes
 def test_pipes():
     run(dpath("test_pipes"))
+
+
+@skip_on_windows
+def test_pipes_multiple():
+    # see github issue #975
+    run(dpath("test_pipes_multiple"))
 
 
 def test_pipes_fail():
@@ -1221,6 +1240,11 @@ def test_containerized():
     run(dpath("test_containerized"), use_conda=True, use_singularity=True)
 
 
+@skip_on_windows
+def test_containerize():
+    run(dpath("test_conda"), containerize=True, check_results=False)
+
+
 def test_long_shell():
     run(dpath("test_long_shell"))
 
@@ -1320,3 +1344,7 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+
+def test_ancient_dag():
+    run(dpath("test_ancient_dag"))

@@ -517,6 +517,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.edit_notebook,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.runtime_cache_path,
         )
 
     def run_single_job(self, job):
@@ -790,11 +791,12 @@ class ClusterExecutor(RealExecutor):
 
             waitfiles_parameter = format(
                 "--wait-for-files-file {wait_for_files_file}",
-                wait_for_files_file=wait_for_files_file,
+                wait_for_files_file=repr(wait_for_files_file),
             )
         else:
             waitfiles_parameter = format(
-                "--wait-for-files {wait_for_files}", wait_for_files=wait_for_files
+                "--wait-for-files {wait_for_files}",
+                wait_for_files=[repr(f) for f in wait_for_files],
             )
 
         format_p = partial(
@@ -1073,7 +1075,7 @@ class GenericClusterExecutor(ClusterExecutor):
         success = "success"
         failed = "failed"
         running = "running"
-        status_cmd_kills = set()
+        status_cmd_kills = []
         if self.statuscmd is not None:
 
             def job_status(job, valid_returns=["running", "success", "failed"]):
@@ -1093,7 +1095,7 @@ class GenericClusterExecutor(ClusterExecutor):
                         # snakemake.
                         # Snakemake will handle the signal in
                         # the main process.
-                        status_cmd_kills.add(e.returncode)
+                        status_cmd_kills.append(-e.returncode)
                         if len(status_cmd_kills) > 10:
                             logger.info(
                                 "Cluster status command {} was killed >10 times with signal(s) {} "
@@ -2299,6 +2301,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    runtime_sourcecache_path,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2380,6 +2383,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            runtime_sourcecache_path,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2411,6 +2415,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2440,20 +2445,26 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
         raise e
     except (Exception, BaseException) as ex:
-        log_verbose_traceback(ex)
         # this ensures that exception can be re-raised in the parent thread
-        lineno, file = get_exception_origin(ex, linemaps)
-        raise RuleException(
-            format_error(
-                ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+        origin = get_exception_origin(ex, linemaps)
+        if origin is not None:
+            log_verbose_traceback(ex)
+            lineno, file = origin
+            raise RuleException(
+                format_error(
+                    ex, lineno, linemaps=linemaps, snakefile=file, show_traceback=True
+                )
             )
-        )
+        else:
+            # some internal bug, just reraise
+            raise ex
 
     if benchmark is not None:
         try:

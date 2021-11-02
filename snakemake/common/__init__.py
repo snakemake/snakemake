@@ -25,6 +25,9 @@ MIN_PY_VERSION = (3, 5)
 DYNAMIC_FILL = "__snakemake_dynamic__"
 SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
+NOTHING_TO_BE_DONE_MSG = (
+    "Nothing to be done (all requested files are present and up to date)."
+)
 
 ON_WINDOWS = platform.system() == "Windows"
 
@@ -37,7 +40,23 @@ if sys.version_info < (3, 7):
 
 
 else:
-    async_run = asyncio.run
+
+    def async_run(coroutine):
+        """Attaches to running event loop or creates a new one to execute a
+        coroutine.
+
+        .. seealso::
+
+             https://github.com/snakemake/snakemake/issues/1105
+             https://stackoverflow.com/a/65696398
+
+        """
+        try:
+            _ = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coroutine)
+        else:
+            asyncio.create_task(coroutine)
 
 
 # A string that prints as TBD
@@ -48,6 +67,9 @@ class TBDString(str):
 
 
 APPDIRS = None
+
+
+RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 
 
 def get_appdirs():

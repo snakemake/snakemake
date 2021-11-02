@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake import common
 
 dd = textwrap.dedent
 
@@ -511,10 +512,11 @@ class Run(RuleKeywordState):
             "resources, log, version, rule, conda_env, spack_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir):".format(
+            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
-                else self.snakefile.rulecount
+                else self.snakefile.rulecount,
+                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
 
@@ -613,7 +615,7 @@ class Script(AbstractCmd):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, spack_env, conda_base_path, container_img, singularity_args, "
             "env_modules, bench_record, jobid, bench_iteration, cleanup_scripts, "
-            "shadow_dir"
+            "shadow_dir", "runtime_sourcecache_path"
         )
 
 
@@ -626,7 +628,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, spack_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook"
+            "edit_notebook, runtime_sourcecache_path"
         )
 
 
@@ -639,7 +641,7 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, spack_env, conda_base_path, container_img, singularity_args, "
             "env_modules, bench_record, workflow.wrapper_prefix, jobid, "
-            "bench_iteration, cleanup_scripts, shadow_dir"
+            "bench_iteration, cleanup_scripts, shadow_dir", "runtime_sourcecache_path"
         )
 
 
@@ -650,7 +652,7 @@ class CWL(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid"
+            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
         )
 
 
@@ -1163,7 +1165,7 @@ class Python(TokenAutomaton):
 
 class Snakefile:
     def __init__(self, path, workflow, rulecount=0):
-        self.path = path
+        self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount

@@ -50,29 +50,36 @@ class ProvenanceHashMap:
             # resources, and filenames (which shall be irrelevant for the hash).
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
-            _, source, _ = script.get_source(
+            _, source, _, _ = script.get_source(
                 job.rule.script,
+                job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
         elif job.is_notebook:
-            _, source, _ = script.get_source(
+            _, source, _, _ = script.get_source(
                 job.rule.notebook,
+                job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
         elif job.is_wrapper:
-            _, source, _ = script.get_source(
-                wrapper.get_script(job.rule.wrapper, prefix=workflow.wrapper_prefix),
+            _, source, _, _ = script.get_source(
+                wrapper.get_script(
+                    job.rule.wrapper,
+                    sourcecache=job.rule.workflow.sourcecache,
+                    prefix=workflow.wrapper_prefix,
+                ),
+                job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
                 wildcards=job.wildcards,
                 params=job.params,
             )
-            h.update(source)
+            h.update(source.encode())
 
         # Hash params.
         for key, value in sorted(job.params._allitems()):
