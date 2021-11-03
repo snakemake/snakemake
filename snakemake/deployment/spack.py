@@ -200,6 +200,11 @@ class Env(EnvBase):
 
         return env_path
 
+    def __eq__(self, other):
+        if isinstance(other, Env):
+            return self.file == other.file
+        return False
+
 
 class Spack:
     def __init__(self):

@@ -378,6 +378,11 @@ class Env(EnvBase):
     def get_singularity_envvars(self):
         return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
 
+    def __eq__(self, other):
+        if isinstance(other, Env):
+            return self.file == other.file
+        return False
+
 
 class Conda:
     instances = dict()
