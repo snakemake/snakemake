@@ -95,7 +95,6 @@ class Env(EnvBase):
 
     @property
     def is_containerized(self):
-
         if not self._container_img:
             return False
         return self._container_img.is_containerized
@@ -378,15 +377,6 @@ class Env(EnvBase):
     @classmethod
     def get_singularity_envvars(self):
         return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
-
-    def __hash__(self):
-        # this hash is only for object comparison, not for env paths
-        return hash(self.file)
-
-    def __eq__(self, other):
-        if isinstance(other, Env):
-            return self.file == other.file
-        return False
 
 
 class Conda:

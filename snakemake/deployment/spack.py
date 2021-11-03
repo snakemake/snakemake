@@ -29,6 +29,7 @@ from snakemake.common import strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
+from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 
 
 class SpackCleanupMode(Enum):
@@ -44,7 +45,8 @@ class Env(EnvBase):
     """Spack environment from a given specification file."""
 
     def __init__(self, env_file, workflow, env_dir=None, cleanup=None):
-        self.file = env_file
+
+        self.file = infer_source_file(env_file)
         self.workflow = workflow
 
         self._env_dir = env_dir or workflow.persistence.spack_env_path
@@ -111,14 +113,15 @@ class Env(EnvBase):
         env_file = self.file
         tmp_file = None
 
-        url_scheme, *_ = urlparse(env_file)
-        if (url_scheme and not url_scheme == "file") or (
-            not url_scheme and env_file.startswith("git+file:/")
+        if not isinstance(env_file, LocalSourceFile) or isinstance(
+            env_file, LocalGitFile
         ):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_file = tmp.name
+        else:
+            env_file = env_file.get_path_or_uri()
 
         env_hash = self.hash
         env_path = self.path
@@ -131,16 +134,14 @@ class Env(EnvBase):
             if dryrun:
                 logger.info(
                     "Spack environment {} will be created.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 return env_path
 
             spack = Spack()
             logger.info(
-                "Creating spack environment {}...".format(
-                    utils.simplify_path(self.file)
-                )
+                "Creating spack environment {}...".format(self.file.simplify_path())
             )
 
             try:
@@ -198,15 +199,6 @@ class Env(EnvBase):
             os.remove(tmp_file)
 
         return env_path
-
-    def __hash__(self):
-        # this hash is only for object comparison, not for env paths
-        return hash(self.file)
-
-    def __eq__(self, other):
-        if isinstance(other, Env):
-            return self.file == other.file
-        return False
 
 
 class Spack:
