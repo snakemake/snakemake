@@ -972,14 +972,17 @@ class Workflow:
 
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
-            for env in set(job.conda_env for job in dag.jobs):
-                if env:
-                    print(
-                        env.file.simplify_path(),
-                        env.container_img_url or "",
-                        simplify_path(env.path),
-                        sep="\t",
-                    )
+            envs = []
+            for env in [job.conda_env for job in dag.jobs]:
+                if env and env not in envs:
+                    envs.append(env)
+            for env in envs:
+                print(
+                    env.file.simplify_path(),
+                    env.container_img_url or "",
+                    simplify_path(env.path),
+                    sep="\t",
+                )
             return True
 
         if conda_cleanup_envs:
