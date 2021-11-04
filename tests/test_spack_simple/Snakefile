@@ -1,0 +1,11 @@
+rule all:
+    input:
+        expand("test.out")
+
+rule a:
+    output:
+        "test.out"
+    spack:
+        "spack.yaml"
+    shell:
+        "garplinator | head -n 1 > {output}"

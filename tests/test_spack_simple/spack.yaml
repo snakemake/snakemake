@@ -1,0 +1,4 @@
+spack:
+    repos: [$spack/var/spack/repos/builtin.mock]
+    specs:
+      - garply

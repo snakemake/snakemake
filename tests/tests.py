@@ -411,7 +411,7 @@ def test_conda():
 
 @skip_on_windows
 def test_spack():
-    run(dpath("test_spack"), use_spack=True)
+    run(dpath("test_spack_simple"), use_spack=True)
 
 
 @skip_on_windows  # test uses bwa which is non windows
