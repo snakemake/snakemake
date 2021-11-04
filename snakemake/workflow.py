@@ -1480,7 +1480,7 @@ class Workflow:
 
             if ruleinfo.conda_env and ruleinfo.spack_env:
                 raise RuleException(
-                    "You can only set one environment, both Spack and Conda " " found ",
+                    "You can only set one environment, both Spack and Conda found.",
                     rule=rule,
                 )
 

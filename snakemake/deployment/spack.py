@@ -18,6 +18,7 @@ from glob import glob
 import tarfile
 import zipfile
 import uuid
+from pathlib import Path
 from enum import Enum
 import threading
 import shutil
@@ -82,10 +83,9 @@ class Env(EnvBase):
         First tries full hash, if it does not exist, (8-prefix) is used
         as default.
         """
-        hash = self.hash
         env_dir = self._env_dir
         get_path = lambda h: os.path.join(env_dir, h)
-        hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
+        hash_candidates = [self.hash[:8], self.hash]
         exists = [os.path.exists(get_path(h)) for h in hash_candidates]
         if exists[1] or (not exists[0]):
             # full hash exists or fallback hash does not exist: use full hash
@@ -123,7 +123,6 @@ class Env(EnvBase):
         else:
             env_file = env_file.get_path_or_uri()
 
-        env_hash = self.hash
         env_path = self.path
 
         # Check for broken environment
@@ -139,7 +138,6 @@ class Env(EnvBase):
                 )
                 return env_path
 
-            spack = Spack()
             logger.info(
                 "Creating spack environment {}...".format(self.file.simplify_path())
             )
@@ -147,8 +145,7 @@ class Env(EnvBase):
             try:
                 # Touch "start" flag file
                 os.makedirs(env_path, exist_ok=True)
-                with open(os.path.join(env_path, "env_setup_start"), "a") as f:
-                    pass
+                Path(os.path.join(env_path, "env_setup_start")).touch()
 
                 # Copy env file to env_path so we can see what an
                 # environment in .snakemake/spack contains.
@@ -177,9 +174,7 @@ class Env(EnvBase):
                     )
 
                 # Touch "done" flag file
-                with open(os.path.join(env_path, "env_setup_done"), "a") as f:
-                    pass
-
+                Path(os.path.join(env_path, "env_setup_done")).touch()
                 logger.debug(out)
                 logger.info(
                     "Environment for {} created (location: {})".format(
@@ -222,7 +217,7 @@ class Spack:
 
         try:
             shell.check_output(locate_cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             raise CreateSpackEnvironmentException(
                 "The 'spack' command is not "
                 "available in the "
