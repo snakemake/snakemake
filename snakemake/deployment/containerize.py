@@ -29,14 +29,14 @@ def containerize(workflow):
         else:
             return env.file.get_path_or_uri()
 
-    envs = sorted(
-        set(
-            conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
-            for rule in workflow.rules
-            if rule.conda_env is not None
-        ),
-        key=relfile,
-    )
+    envs = []
+    for rule in workflow.rules:
+        if rule.conda_env is not None:
+            new_env = conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
+            if new_env not in envs:
+                envs.append(new_env)
+    envs = sorted(envs, key=relfile)
+
     envhash = hashlib.sha256()
     for env in envs:
         logger.info("Hashing conda environment {}.".format(relfile(env)))
