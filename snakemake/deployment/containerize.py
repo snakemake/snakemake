@@ -45,6 +45,7 @@ def containerize(workflow):
             "Containerization of conda based workflows is not allowed if any conda env definition contains a wildcard."
         )
 
+    envs = get_workflow_conda_envs(workflow)
     envhash = hashlib.sha256()
     for env in envs:
         logger.info("Hashing conda environment {}.".format(relfile(env)))
