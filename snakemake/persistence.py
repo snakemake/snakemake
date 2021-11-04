@@ -32,11 +32,10 @@ class Persistence:
         warn_only=False,
     ):
         self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        for p in [self.path, self._lockdir]:
+            if not os.path.exists(p):
+                os.mkdir(p)
 
         self.dag = dag
         self._lockfile = dict()
@@ -50,25 +49,21 @@ class Persistence:
 
         self.source_cache = os.path.join(self.path, "source_cache")
 
-        if conda_prefix is None:
-            self.conda_env_path = os.path.join(self.path, "conda")
-        else:
+        # Defaults for conda, spack, singularity, and shadow paths
+        self.conda_env_path = os.path.join(self.path, "conda")
+        self.spack_env_path = os.path.join(self.path, "spack")
+        self.container_img_path = os.path.join(self.path, "singularity")
+        self.shadow_path = os.path.join(self.path, "shadow")
+
+        if conda_prefix is not None:
             self.conda_env_path = os.path.abspath(os.path.expanduser(conda_prefix))
-
-        if spack_prefix is None:
-            self.spack_env_path = os.path.join(self.path, "spack")
-        else:
+        if spack_prefix is not None:
             self.spack_env_path = os.path.abspath(os.path.expanduser(spack_prefix))
-
-        if singularity_prefix is None:
-            self.container_img_path = os.path.join(self.path, "singularity")
-        else:
+        if singularity_prefix is not None:
             self.container_img_path = os.path.abspath(
                 os.path.expanduser(singularity_prefix)
             )
-        if shadow_prefix is None:
-            self.shadow_path = os.path.join(self.path, "shadow")
-        else:
+        if shadow_prefix is not None:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
@@ -85,9 +80,7 @@ class Persistence:
             os.makedirs(self._incomplete_path, exist_ok=True)
 
             migration_indicator.touch()
-
             self.migrate_v1_to_v2()
-
             migration_indicator.unlink()
 
         self._incomplete_cache = None

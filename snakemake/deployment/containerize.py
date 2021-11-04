@@ -13,6 +13,28 @@ from snakemake.sourcecache import LocalSourceFile
 CONDA_ENV_PATH = "/conda-envs"
 
 
+def get_workflow_conda_envs(workflow):
+    """
+    Given a workflow, return a sorted list of unique conda environments
+    """
+    envs = []
+    for rule in workflow.rules:
+        if rule.conda_env is not None:
+            new_env = conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
+            if new_env not in envs:
+                envs.append(new_env)
+    return sorted(envs, key=relfile)
+
+
+def relfile(env):
+    """
+    Given an envronment, return the relative path to it
+    """
+    if isinstance(env.file, LocalSourceFile):
+        return os.path.relpath(env.file.get_path_or_uri(), os.getcwd())
+    return env.file.get_path_or_uri()
+
+
 def containerize(workflow):
     if any(
         contains_wildcard(rule.conda_env)
@@ -22,20 +44,6 @@ def containerize(workflow):
         raise WorkflowError(
             "Containerization of conda based workflows is not allowed if any conda env definition contains a wildcard."
         )
-
-    def relfile(env):
-        if isinstance(env.file, LocalSourceFile):
-            return os.path.relpath(env.file.get_path_or_uri(), os.getcwd())
-        else:
-            return env.file.get_path_or_uri()
-
-    envs = []
-    for rule in workflow.rules:
-        if rule.conda_env is not None:
-            new_env = conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
-            if new_env not in envs:
-                envs.append(new_env)
-    envs = sorted(envs, key=relfile)
 
     envhash = hashlib.sha256()
     for env in envs:

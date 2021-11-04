@@ -375,7 +375,7 @@ class Env(EnvBase):
         return env_path
 
     @classmethod
-    def get_singularity_envvars(self):
+    def get_singularity_envvars(cls):
         return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
 
     def __eq__(self, other):
