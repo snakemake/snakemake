@@ -1239,7 +1239,9 @@ def get_argument_parser(profile=None):
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
             "dictionary inside the workflow. Multiple files overwrite each other in "
-            "the given order."
+            "the given order. Thereby missing keys in previous config files are extended by "
+            "following configfiles. Note that this order also includes a config file defined "
+            "in the workflow definition itself (which will come first)."
         ),
     )
     group_exec.add_argument(
