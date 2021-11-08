@@ -192,7 +192,7 @@ We modify the rule ``bwa_map`` accordingly:
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             "mapped_reads/{sample}.bam"
         params:
