@@ -4,7 +4,6 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-import snakemake
 import subprocess
 import tempfile
 import hashlib
