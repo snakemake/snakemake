@@ -67,6 +67,7 @@ class EnvCommandBase:
         self._check()
 
     def _check(self):
+        # Should be implemented by subclass for custom check method (e.g., version)
         pass
 
 
@@ -152,10 +153,12 @@ class EnvBase:
         as default.
 
         """
-        hash = self.hash
         env_dir = self._env_dir
         get_path = lambda h: os.path.join(env_dir, h)
-        hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
+        hash_candidates = [
+            self.hash[:8],
+            self.hash,
+        ]  # [0] is the old fallback hash (shortened)
         exists = [os.path.exists(get_path(h)) for h in hash_candidates]
         if self.is_containerized or exists[1] or (not exists[0]):
             # containerizes, full hash exists or fallback hash does not exist: use full hash
