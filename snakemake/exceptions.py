@@ -497,7 +497,7 @@ class CreateCondaEnvironmentException(WorkflowError):
     pass
 
 
-class CreateSpackEnvironmentException(WorkflowError):
+class CreateEnvironmentException(WorkflowError):
     pass
 
 

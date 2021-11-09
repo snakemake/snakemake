@@ -4,13 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-import re
-from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 import subprocess
-import tempfile
-from urllib.request import urlopen
-from urllib.error import URLError
-import hashlib
 import shutil
 from distutils.version import StrictVersion
 import json
@@ -20,16 +14,12 @@ import zipfile
 import uuid
 from enum import Enum
 import threading
-import shutil
 
-
-from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
+from snakemake.exceptions import CreateEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
-from snakemake import utils
+from snakemake.common import parse_uri, ON_WINDOWS
 from snakemake.deployment import singularity, containerize
-from snakemake.io import git_content
-from .base import EnvBase
+from .base import EnvBase, EnvCommandBase
 
 
 class CondaCleanupMode(Enum):
@@ -47,76 +37,19 @@ class Env(EnvBase):
     def __init__(
         self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
     ):
-        self.file = infer_source_file(env_file)
-
+        self.name = "conda"
+        super().__init__(env_file, workflow, cleanup)
         self.frontend = workflow.conda_frontend
-        self.workflow = workflow
-
         self._container_img = container_img
         self._env_dir = env_dir or (
             containerize.CONDA_ENV_PATH
             if self.is_containerized
             else workflow.persistence.conda_env_path
         )
-        self._hash = None
-        self._content_hash = None
-        self._content = None
-        self._path = None
-        self._archive_file = None
-        self._cleanup = cleanup
-        self._singularity_args = workflow.singularity_args
 
     @property
     def _env_archive_dir(self):
         return self.workflow.persistence.conda_env_archive_path
-
-    @property
-    def container_img_url(self):
-        return self._container_img.url if self._container_img else None
-
-    @property
-    def hash(self):
-        if self._hash is None:
-            if self.is_containerized:
-                self._hash = self.content_hash
-            else:
-                md5hash = hashlib.md5()
-                # Include the absolute path of the target env dir into the hash.
-                # By this, moving the working directory around automatically
-                # invalidates all environments. This is necessary, because binaries
-                # in conda environments can contain hardcoded absolute RPATHs.
-                env_dir = os.path.realpath(self._env_dir)
-                md5hash.update(env_dir.encode())
-                if self._container_img:
-                    md5hash.update(self._container_img.url.encode())
-                md5hash.update(self.content)
-                self._hash = md5hash.hexdigest()
-        return self._hash
-
-    @property
-    def is_containerized(self):
-        if not self._container_img:
-            return False
-        return self._container_img.is_containerized
-
-    @property
-    def path(self):
-        """Path to directory of the conda environment.
-
-        First tries full hash, if it does not exist, (8-prefix) is used
-        as default.
-
-        """
-        hash = self.hash
-        env_dir = self._env_dir
-        get_path = lambda h: os.path.join(env_dir, h)
-        hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
-        exists = [os.path.exists(get_path(h)) for h in hash_candidates]
-        if self.is_containerized or exists[1] or (not exists[0]):
-            # containerizes, full hash exists or fallback hash does not exist: use full hash
-            return get_path(hash_candidates[1])
-        # use fallback hash
-        return get_path(hash_candidates[0])
 
     def create_archive(self):
         """Create self-contained archive of environment."""
@@ -179,7 +112,7 @@ class Env(EnvBase):
         except (
             requests.exceptions.ChunkedEncodingError,
             requests.exceptions.HTTPError,
-        ) as e:
+        ):
             shutil.rmtree(env_archive)
             raise WorkflowError("Error downloading conda package {}.".format(pkg_url))
         except (Exception, BaseException) as e:
@@ -187,206 +120,97 @@ class Env(EnvBase):
             raise e
         return env_archive
 
-    def create(self, dryrun=False):
-        """Create the conda enviroment."""
+    def _create(self, env_path, env_file):
+        """Creation logic for conda environment, called by self.create"""
         from snakemake.shell import shell
 
-        # Read env file and create hash.
-        env_file = self.file
-        tmp_file = None
-
-        if not isinstance(env_file, LocalSourceFile) or isinstance(
-            env_file, LocalGitFile
-        ):
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
-                # write to temp file such that conda can open it
-                tmp.write(self.content)
-                env_file = tmp.name
-                tmp_file = tmp.name
-        else:
-            env_file = env_file.get_path_or_uri()
-
-        env_hash = self.hash
-        env_path = self.path
-
-        if self.is_containerized:
-            if not dryrun:
-                try:
-                    shell.check_output(
-                        singularity.shellcmd(
-                            self._container_img.path,
-                            "[ -d '{}' ]".format(env_path),
-                            args=self._singularity_args,
-                            envvars=self.get_singularity_envvars(),
-                            quiet=True,
-                        ),
-                        stderr=subprocess.PIPE,
-                    )
-                except subprocess.CalledProcessError as e:
-                    raise WorkflowError(
-                        "Unable to find environment in container image. "
-                        "Maybe a conda environment was modified without containerizing again "
-                        "(see snakemake --containerize)?\nDetails:\n{}\n{}".format(
-                            e, e.stderr.decode()
-                        )
-                    )
-                return env_path
+        # Check if env archive exists. Use that if present.
+        env_archive = self.archive_file
+        if os.path.exists(env_archive):
+            logger.info("Installing archived conda packages.")
+            pkg_list = os.path.join(env_archive, "packages.txt")
+            if os.path.exists(pkg_list):
+                # read pacakges in correct order
+                # this is for newer env archives where the package list
+                # was stored
+                packages = [
+                    os.path.join(env_archive, pkg.rstrip()) for pkg in open(pkg_list)
+                ]
             else:
-                # env should be present in the container
-                return env_path
+                # guess order
+                packages = glob(os.path.join(env_archive, "*.tar.bz2"))
 
-        # Check for broken environment
-        if os.path.exists(
-            os.path.join(env_path, "env_setup_start")
-        ) and not os.path.exists(os.path.join(env_path, "env_setup_done")):
-            if dryrun:
-                logger.info(
-                    "Incomplete Conda environment {} will be recreated.".format(
-                        self.file.simplify_path()
-                    )
-                )
-            else:
-                logger.info(
-                    "Removing incomplete Conda environment {}...".format(
-                        self.file.simplify_path()
-                    )
-                )
-                shutil.rmtree(env_path, ignore_errors=True)
-
-        # Create environment if not already present.
-        if not os.path.exists(env_path):
-            if dryrun:
-                logger.info(
-                    "Conda environment {} will be created.".format(
-                        self.file.simplify_path()
-                    )
-                )
-                return env_path
-            conda = Conda(self._container_img)
-            logger.info(
-                "Creating conda environment {}...".format(self.file.simplify_path())
+            # install packages manually from env archive
+            cmd = " ".join(
+                [
+                    "conda",
+                    "create",
+                    "--quiet",
+                    "--yes",
+                    "--prefix '{}'".format(env_path),
+                ]
+                + packages
             )
-            # Check if env archive exists. Use that if present.
-            env_archive = self.archive_file
-            try:
-                # Touch "start" flag file
-                os.makedirs(env_path, exist_ok=True)
-                with open(os.path.join(env_path, "env_setup_start"), "a") as f:
-                    pass
-
-                if os.path.exists(env_archive):
-                    logger.info("Installing archived conda packages.")
-                    pkg_list = os.path.join(env_archive, "packages.txt")
-                    if os.path.exists(pkg_list):
-                        # read pacakges in correct order
-                        # this is for newer env archives where the package list
-                        # was stored
-                        packages = [
-                            os.path.join(env_archive, pkg.rstrip())
-                            for pkg in open(pkg_list)
-                        ]
-                    else:
-                        # guess order
-                        packages = glob(os.path.join(env_archive, "*.tar.bz2"))
-
-                    # install packages manually from env archive
-                    cmd = " ".join(
-                        [
-                            "conda",
-                            "create",
-                            "--quiet",
-                            "--yes",
-                            "--prefix '{}'".format(env_path),
-                        ]
-                        + packages
-                    )
-                    if self._container_img:
-                        cmd = singularity.shellcmd(
-                            self._container_img.path,
-                            cmd,
-                            args=self._singularity_args,
-                            envvars=self.get_singularity_envvars(),
-                        )
-                    out = shell.check_output(
-                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
-                    )
-
-                else:
-                    # Copy env file to env_path (because they can be on
-                    # different volumes and singularity should only mount one).
-                    # In addition, this allows to immediately see what an
-                    # environment in .snakemake/conda contains.
-                    target_env_file = env_path + ".yaml"
-                    shutil.copy(env_file, target_env_file)
-
-                    logger.info("Downloading and installing remote packages.")
-                    cmd = " ".join(
-                        [
-                            self.frontend,
-                            "env",
-                            "create",
-                            "--quiet",
-                            '--file "{}"'.format(target_env_file),
-                            '--prefix "{}"'.format(env_path),
-                        ]
-                    )
-                    if self._container_img:
-                        cmd = singularity.shellcmd(
-                            self._container_img.path,
-                            cmd,
-                            args=self._singularity_args,
-                            envvars=self.get_singularity_envvars(),
-                        )
-                    out = shell.check_output(
-                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
-                    )
-
-                    # cleanup if requested
-                    if self._cleanup is CondaCleanupMode.tarballs:
-                        logger.info("Cleaning up conda package tarballs.")
-                        shell.check_output("conda clean -y --tarballs")
-                    elif self._cleanup is CondaCleanupMode.cache:
-                        logger.info(
-                            "Cleaning up conda package tarballs and package cache."
-                        )
-                        shell.check_output("conda clean -y --tarballs --packages")
-                # Touch "done" flag file
-                with open(os.path.join(env_path, "env_setup_done"), "a") as f:
-                    pass
-
-                logger.debug(out)
-                logger.info(
-                    "Environment for {} created (location: {})".format(
-                        os.path.relpath(env_file), os.path.relpath(env_path)
-                    )
+            if self._container_img:
+                cmd = singularity.shellcmd(
+                    self._container_img.path,
+                    cmd,
+                    args=self._singularity_args,
+                    envvars=self.get_singularity_envvars(),
                 )
-            except subprocess.CalledProcessError as e:
-                # remove potential partially installed environment
-                shutil.rmtree(env_path, ignore_errors=True)
-                raise CreateCondaEnvironmentException(
-                    "Could not create conda environment from {}:\n".format(env_file)
-                    + e.output
+            out = shell.check_output(
+                cmd, stderr=subprocess.STDOUT, universal_newlines=True
+            )
+
+        else:
+            # Copy env file to env_path (because they can be on
+            # different volumes and singularity should only mount one).
+            # In addition, this allows to immediately see what an
+            # environment in .snakemake/conda contains.
+            target_env_file = env_path + ".yaml"
+            shutil.copy(env_file, target_env_file)
+
+            logger.info("Downloading and installing remote packages.")
+            cmd = " ".join(
+                [
+                    self.frontend,
+                    "env",
+                    "create",
+                    "--quiet",
+                    '--file "{}"'.format(target_env_file),
+                    '--prefix "{}"'.format(env_path),
+                ]
+            )
+            if self._container_img:
+                cmd = singularity.shellcmd(
+                    self._container_img.path,
+                    cmd,
+                    args=self._singularity_args,
+                    envvars=self.get_singularity_envvars(),
                 )
+            out = shell.check_output(
+                cmd, stderr=subprocess.STDOUT, universal_newlines=True
+            )
 
-        if tmp_file:
-            # temporary file was created
-            os.remove(tmp_file)
+            # cleanup if requested
+            if self._cleanup is CondaCleanupMode.tarballs:
+                logger.info("Cleaning up conda package tarballs.")
+                shell.check_output("conda clean -y --tarballs")
+            elif self._cleanup is CondaCleanupMode.cache:
+                logger.info("Cleaning up conda package tarballs and package cache.")
+                shell.check_output("conda clean -y --tarballs --packages")
 
-        return env_path
+            logger.debug(out)
 
     @classmethod
     def get_singularity_envvars(cls):
         return {"CONDA_PKGS_DIRS": "/tmp/conda/{}".format(uuid.uuid4())}
 
-    def __eq__(self, other):
-        if isinstance(other, Env):
-            return self.file == other.file
-        return False
 
-
-class Conda:
+class Conda(EnvCommandBase):
     instances = dict()
     lock = threading.Lock()
+    name = "conda"
 
     def __new__(cls, container_img=None, prefix_path=None):
         with cls.lock:
@@ -413,8 +237,7 @@ class Conda:
             else:
                 self.prefix_path = prefix_path
 
-            # check conda installation
-            self._check()
+            super().__init__()
 
     @property
     def is_initialized(self):
@@ -426,44 +249,11 @@ class Conda:
         return cmd
 
     def _check(self):
+        """
+        Additional checks for conda (for version, etc.)
+        """
         from snakemake.shell import shell
 
-        # Use type here since conda now is a function.
-        # type allows to check for both functions and regular commands.
-        if not ON_WINDOWS or shell.get_executable():
-            locate_cmd = "type conda"
-        else:
-            locate_cmd = "where conda"
-
-        try:
-            shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            if self.container_img:
-                raise CreateCondaEnvironmentException(
-                    "The 'conda' command is not "
-                    "available inside "
-                    "your singularity container "
-                    "image. Snakemake mounts "
-                    "your conda installation "
-                    "into singularity. "
-                    "Sometimes, this can fail "
-                    "because of shell restrictions. "
-                    "It has been tested to work "
-                    "with docker://ubuntu, but "
-                    "it e.g. fails with "
-                    "docker://bash "
-                )
-            else:
-                raise CreateCondaEnvironmentException(
-                    "The 'conda' command is not "
-                    "available in the "
-                    "shell {} that will be "
-                    "used by Snakemake. You have "
-                    "to ensure that it is in your "
-                    "PATH, e.g., first activating "
-                    "the conda base environment "
-                    "with `conda activate base`.".format(shell.get_executable())
-                )
         try:
             version = shell.check_output(
                 self._get_cmd("conda --version"),
@@ -481,13 +271,13 @@ class Conda:
 
             version = version.split()[1]
             if StrictVersion(version) < StrictVersion("4.2"):
-                raise CreateCondaEnvironmentException(
+                raise CreateEnvironmentException(
                     "Conda must be version 4.2 or later, found version {}.".format(
                         version
                     )
                 )
         except subprocess.CalledProcessError as e:
-            raise CreateCondaEnvironmentException(
+            raise CreateEnvironmentException(
                 "Unable to check conda version:\n" + e.output.decode()
             )
 

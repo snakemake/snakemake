@@ -2,7 +2,6 @@ from pathlib import Path
 import hashlib
 import os
 
-from snakemake.common import get_container_image
 from snakemake.io import contains_wildcard
 from snakemake.exceptions import WorkflowError
 from snakemake.deployment import conda

@@ -9,8 +9,6 @@ import os
 import hashlib
 from distutils.version import LooseVersion
 
-import snakemake
-from snakemake.deployment.conda import Conda
 from snakemake.common import (
     is_local_file,
     parse_uri,
@@ -75,7 +73,7 @@ class Image:
         if not os.path.exists(self.path):
             logger.info("Pulling singularity image {}.".format(self.url))
             try:
-                p = subprocess.check_output(
+                subprocess.check_output(
                     [
                         "singularity",
                         "pull",
