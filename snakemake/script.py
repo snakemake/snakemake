@@ -393,7 +393,7 @@ class ScriptBase(ABC):
 
     @property
     def local_path(self):
-        path = self.path[7:]
+        path = str(self.path)#[7:]
         if not os.path.isabs(path):
             return smart_join(self.basedir, path)
         return path
