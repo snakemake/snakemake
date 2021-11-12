@@ -999,6 +999,24 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         ("fake_res", 400),
     }
 
+@skip_on_windows
+def test_multiple_group_jobs_submit_ignoring_resource_constraints():
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        shouldfail=True,
+    )
+    with (Path(tmp)/'qsub.log').open('r') as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 2
+    shutil.rmtree(tmp)
 
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
@@ -1022,8 +1040,7 @@ def test_group_job_resources_with_pipe(mocker):
 
 
 @skip_on_windows
-def test_group_job_resources_with_pipe_with_too_much_constraint(mocker):
-    spy = mocker.spy(GroupJob, "_calculate_resources")
+def test_group_job_resources_with_pipe_with_too_much_constraint():
     run(
         dpath("test_group_with_pipe"),
         cluster="./qsub",
