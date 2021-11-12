@@ -350,6 +350,11 @@ def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
 
 
+@skip_on_windows
+def test_shadowed_log():
+    run(dpath("test_shadowed_log"))
+
+
 def test_until():
     run(
         dpath("test_until"),
