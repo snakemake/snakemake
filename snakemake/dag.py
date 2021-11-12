@@ -640,7 +640,7 @@ class DAG:
         for f in job.log:
             if not f.exists_local:
                 # If log file was not created during job, create an empty one.
-                f.touch_or_create()
+                job.shadowed_path(f).touch_or_create()
             if upload_remote and f.is_remote and not f.should_stay_on_remote:
                 f.upload_to_remote()
                 if not f.exists_remote:
