@@ -1243,10 +1243,18 @@ class Workflow:
                 c = snakemake.io.load_configfile(fp)
                 update_config(config, c)
                 if self.overwrite_config:
-                    logger.info("Config file {} is extended by additional config specified via the command line.".format(fp))
+                    logger.info(
+                        "Config file {} is extended by additional config specified via the command line.".format(
+                            fp
+                        )
+                    )
                     update_config(config, self.overwrite_config)
             elif not self.overwrite_configfiles:
-                raise WorkflowError("Workflow defines configfile {} but it is not present or accessible.".format(fp))
+                raise WorkflowError(
+                    "Workflow defines configfile {} but it is not present or accessible.".format(
+                        fp
+                    )
+                )
 
     def pepfile(self, path):
         global pep
