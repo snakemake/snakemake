@@ -150,8 +150,8 @@ class HostingProviderFile(SourceFile):
 
     def __init__(
         self,
-        repo: str,
-        path: str,
+        repo: str = None,
+        path: str = None,
         tag: str = None,
         branch: str = None,
         commit: str = None,
