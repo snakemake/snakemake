@@ -42,12 +42,12 @@ class JupyterNotebook(ScriptBase):
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
 
-        os.makedirs(os.path.dirname(str(self.local_path)), exist_ok=True)
+        os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
-        with open(str(self.local_path), "wb") as out:
+        with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
 
-        self.source = open(str(self.local_path)).read()
+        self.source = open(self.local_path).read()
 
         self.evaluate(edit=listen)
 
@@ -101,7 +101,7 @@ class JupyterNotebook(ScriptBase):
             for cell in nb["cells"]:
                 cell["outputs"] = []
 
-            nbformat.write(nb, str(self.local_path))
+            nbformat.write(nb, self.local_path)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat
