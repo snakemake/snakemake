@@ -682,7 +682,8 @@ class Workflow:
 
         rules = self.rules
         if allowed_rules:
-            rules = [rule for rule in rules if rule.name in set(allowed_rules)]
+            allowed_rules = set(allowed_rules)
+            rules = [rule for rule in rules if rule.name in allowed_rules]
 
         if wait_for_files is not None:
             try:

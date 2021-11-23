@@ -1342,3 +1342,7 @@ def test_github_issue1158():
 
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+def test_checkpoint_allowed_rules():
+    run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
