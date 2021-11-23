@@ -1029,7 +1029,7 @@ class Job(AbstractJob):
                     self, keep_metadata=keep_metadata
                 )
             except IOError as e:
-                logger.warning(
+                raise WorkflowError(
                     "Error recording metadata for finished job "
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
