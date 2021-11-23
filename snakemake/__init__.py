@@ -929,6 +929,7 @@ def parse_config(args):
     if args.config is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
         for entry in args.config:
+            print(entry) # TODO dbg
             key, val = parse_key_value_arg(
                 entry,
                 errmsg="Invalid config definition: Config entries have to be defined as name=value pairs.",
