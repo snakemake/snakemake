@@ -1340,5 +1340,9 @@ def test_github_issue1158():
     )
 
 
+def test_converting_path_for_r_script():
+    run(dpath("test_converting_path_for_r_script"), cores=1)
+
+
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
