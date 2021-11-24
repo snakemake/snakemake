@@ -341,6 +341,7 @@ class RealExecutor(AbstractExecutor):
         if self.workflow.config_args:
             overwrite_config.append("--config")
             overwrite_config.extend(self.workflow.config_args)
+        print(overwrite_config, file=sys.stderr)
 
         printshellcmds = ""
         if self.workflow.printshellcmds:
