@@ -266,6 +266,8 @@ class Workflow:
         if envvars is not None:
             self.register_envvars(*envvars)
 
+        print("init", "configfiles", self.configfiles, "overwrite", self.overwrite_configfiles, file=sys.stderr) # DBG
+
     @property
     def conda_base_path(self):
         if self._conda_base_path:
@@ -764,7 +766,7 @@ class Workflow:
         dag.update_checkpoint_dependencies()
         dag.check_dynamic()
 
-        print(self.configfiles, self.overwrite_configfiles, file=sys.stderr)
+        print("execute", "configfiles", self.configfiles, "overwrite", self.overwrite_configfiles, file=sys.stderr) # DBG
 
         try:
             self.persistence.lock()
@@ -1241,6 +1243,7 @@ class Workflow:
             c = snakemake.io.load_configfile(fp)
             update_config(config, c)
             update_config(config, self.overwrite_config)
+        print("configfile method", "configfiles", self.configfiles, "overwrite", self.overwrite_configfiles, file=sys.stderr) # DBG
 
     def pepfile(self, path):
         global pep
