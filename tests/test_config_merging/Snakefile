@@ -8,4 +8,4 @@ rule dump_config:
         import json
 
         with open(output[0], "w") as fd:
-            json.dump(config, fd)
+            json.dump(config, fd, sort_keys=True)
