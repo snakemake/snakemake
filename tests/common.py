@@ -88,6 +88,7 @@ def run(
     subpath=None,
     no_tmpdir=False,
     check_md5=True,
+    check_results=True,
     cores=3,
     set_pythonpath=True,
     cleanup=True,
@@ -181,42 +182,43 @@ def run(
         assert not success, "expected error on execution"
     else:
         assert success, "expected successful execution"
-        for resultfile in get_expected_files(results_dir):
-            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
-                # this means tests cannot use directories as output files
-                continue
-            targetfile = join(tmpdir, resultfile)
-            expectedfile = join(results_dir, resultfile)
+        if check_results:
+            for resultfile in get_expected_files(results_dir):
+                if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
+                    os.path.join(results_dir, resultfile)
+                ):
+                    # this means tests cannot use directories as output files
+                    continue
+                targetfile = join(tmpdir, resultfile)
+                expectedfile = join(results_dir, resultfile)
 
-            if ON_WINDOWS:
-                if os.path.exists(join(results_dir, resultfile + "_WIN")):
-                    continue  # Skip test if a Windows specific file exists
-                if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
-            elif resultfile.endswith("_WIN"):
-                # Skip win specific result files on Posix platforms
-                continue
+                if ON_WINDOWS:
+                    if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                        continue  # Skip test if a Windows specific file exists
+                    if resultfile.endswith("_WIN"):
+                        targetfile = join(tmpdir, resultfile[:-4])
+                elif resultfile.endswith("_WIN"):
+                    # Skip win specific result files on Posix platforms
+                    continue
 
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
-            if check_md5:
-                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
-                if md5target != md5expected:
-                    with open(expectedfile) as expected:
-                        expected_content = expected.read()
-                    with open(targetfile) as target:
-                        content = target.read()
-                    assert (
-                        False
-                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
-                        resultfile=resultfile,
-                        content=content,
-                        expected_content=expected_content,
-                    )
+                assert os.path.exists(
+                    targetfile
+                ), 'expected file "{}" not produced'.format(resultfile)
+                if check_md5:
+                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                    if md5target != md5expected:
+                        with open(expectedfile) as expected:
+                            expected_content = expected.read()
+                        with open(targetfile) as target:
+                            content = target.read()
+                        assert (
+                            False
+                        ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                            resultfile=resultfile,
+                            content=content,
+                            expected_content=expected_content,
+                        )
 
     if not cleanup:
         return tmpdir

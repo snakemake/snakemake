@@ -73,6 +73,7 @@ from snakemake.common import (
     Scatter,
     Gather,
     smart_join,
+    NOTHING_TO_BE_DONE_MSG,
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
@@ -203,7 +204,7 @@ class Workflow:
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfiles = []
+        self.configfiles = list(overwrite_configfiles) or []
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
@@ -265,15 +266,6 @@ class Workflow:
 
         if envvars is not None:
             self.register_envvars(*envvars)
-
-        print(
-            "init",
-            "configfiles",
-            self.configfiles,
-            "overwrite",
-            self.overwrite_configfiles,
-            file=sys.stderr,
-        )  # DBG
 
     @property
     def conda_base_path(self):
@@ -773,15 +765,6 @@ class Workflow:
         dag.update_checkpoint_dependencies()
         dag.check_dynamic()
 
-        print(
-            "execute",
-            "configfiles",
-            self.configfiles,
-            "overwrite",
-            self.overwrite_configfiles,
-            file=sys.stderr,
-        )  # DBG
-
         try:
             self.persistence.lock()
         except IOError:
@@ -838,7 +821,9 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: Nothing to be done.".format(subworkflow.name)
+                        "Subworkflow {}: {}".format(
+                            subworkflow.name, NOTHING_TO_BE_DONE_MSG
+                        )
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
@@ -973,7 +958,7 @@ class Workflow:
             for env in set(job.conda_env for job in dag.jobs):
                 if env:
                     print(
-                        simplify_path(env.file),
+                        env.file.simplify_path(),
                         env.container_img_url or "",
                         simplify_path(env.path),
                         sep="\t",
@@ -1069,13 +1054,13 @@ class Workflow:
                 if self.mode == Mode.default:
                     logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
             if quiet:
                 # in case of dryrun and quiet, just print above info and exit
@@ -1253,18 +1238,23 @@ class Workflow:
         """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
-            self.configfiles.append(fp)
-            c = snakemake.io.load_configfile(fp)
-            update_config(config, c)
-            update_config(config, self.overwrite_config)
-        print(
-            "configfile method",
-            "configfiles",
-            self.configfiles,
-            "overwrite",
-            self.overwrite_configfiles,
-            file=sys.stderr,
-        )  # DBG
+            if os.path.exists(fp):
+                self.configfiles.append(fp)
+                c = snakemake.io.load_configfile(fp)
+                update_config(config, c)
+                if self.overwrite_config:
+                    logger.info(
+                        "Config file {} is extended by additional config specified via the command line.".format(
+                            fp
+                        )
+                    )
+                    update_config(config, self.overwrite_config)
+            elif not self.overwrite_configfiles:
+                raise WorkflowError(
+                    "Workflow defines configfile {} but it is not present or accessible.".format(
+                        fp
+                    )
+                )
 
     def pepfile(self, path):
         global pep

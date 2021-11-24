@@ -416,6 +416,10 @@ def test_conda():
     run(dpath("test_conda"), use_conda=True)
 
 
+def test_conda_list_envs():
+    run(dpath("test_conda"), list_conda_envs=True, check_results=False)
+
+
 def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
@@ -803,6 +807,15 @@ def test_cwl_singularity():
 
 def test_issue805():
     run(dpath("test_issue805"), shouldfail=True)
+
+
+def test_issue823_1():
+    run(dpath("test_issue823_1"))
+
+
+@skip_on_windows
+def test_issue823_2():
+    run(dpath("test_issue823_2"))
 
 
 @skip_on_windows
@@ -1228,6 +1241,11 @@ def test_containerized():
     run(dpath("test_containerized"), use_conda=True, use_singularity=True)
 
 
+@skip_on_windows
+def test_containerize():
+    run(dpath("test_conda"), containerize=True, check_results=False)
+
+
 def test_long_shell():
     run(dpath("test_long_shell"))
 
@@ -1327,3 +1345,11 @@ def test_github_issue1158():
         dpath("test_github_issue1158"),
         cluster="./qsub.py",
     )
+
+
+def test_converting_path_for_r_script():
+    run(dpath("test_converting_path_for_r_script"), cores=1)
+
+
+def test_ancient_dag():
+    run(dpath("test_ancient_dag"))

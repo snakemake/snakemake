@@ -14,7 +14,7 @@ import tempfile
 import threading
 
 from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
-from snakemake.common import ON_WINDOWS
+from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
@@ -130,13 +130,22 @@ class shell:
             kwargs["quote_func"] = cmd_exe_quote
 
         cmd = format(cmd, *args, stepout=2, **kwargs)
-        context = inspect.currentframe().f_back.f_locals
-        # add kwargs to context (overwriting the locals of the caller)
-        context.update(kwargs)
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != "win32"
+
+        func_context = inspect.currentframe().f_back.f_locals
+
+        if func_context.get(RULEFUNC_CONTEXT_MARKER):
+            # If this comes from a rule, we expect certain information to be passed
+            # implicitly via the rule func context, which is added here.
+            context = func_context
+        else:
+            # Otherwise, context is just filled via kwargs.
+            context = dict()
+        # add kwargs to context (overwriting the locals of the caller)
+        context.update(kwargs)
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
@@ -148,6 +157,8 @@ class shell:
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
         resources = context.get("resources", {})
+        singularity_args = context.get("singularity_args", "")
+        threads = context.get("threads", 1)
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
@@ -176,25 +187,25 @@ class shell:
             cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
         if container_img:
-            args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
                 container_img,
                 cmd,
-                args,
+                singularity_args,
                 envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
+                is_python_script=context.get("is_python_script", False),
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
 
-        threads = str(context.get("threads", 1))
         tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
         envvars = dict(os.environ)
+        threads = str(threads)
         envvars["OMP_NUM_THREADS"] = threads
         envvars["GOTO_NUM_THREADS"] = threads
         envvars["OPENBLAS_NUM_THREADS"] = threads
