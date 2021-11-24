@@ -506,6 +506,7 @@ def snakemake(
         update_config(overwrite_config, config)
         if config_args is None:
             config_args = unparse_config(config)
+    print(overwrite_config, file=sys.stderr)
 
     if workdir:
         olddir = os.getcwd()
