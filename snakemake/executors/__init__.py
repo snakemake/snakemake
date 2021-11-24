@@ -337,7 +337,7 @@ class RealExecutor(AbstractExecutor):
             self.workflow.configfiles,
             self.workflow.overwrite_configfiles,
             file=sys.stderr,
-        ) # DBG
+        )  # DBG
         if self.workflow.overwrite_configfiles:
             # add each of the overwriting configfiles in the original order
             if self.workflow.overwrite_configfiles:
