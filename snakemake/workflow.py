@@ -764,6 +764,8 @@ class Workflow:
         dag.update_checkpoint_dependencies()
         dag.check_dynamic()
 
+        print(self.configfiles, self.overwrite_configfiles, file=sys.stderr)
+
         try:
             self.persistence.lock()
         except IOError:

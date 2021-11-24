@@ -333,6 +333,11 @@ class RealExecutor(AbstractExecutor):
             overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
 
         overwrite_config = []
+        print(
+            self.workflow.configfiles,
+            self.workflow.overwrite_configfiles,
+            file=sys.stderr,
+        )
         if self.workflow.overwrite_configfiles:
             # add each of the overwriting configfiles in the original order
             if self.workflow.overwrite_configfiles:
@@ -341,7 +346,6 @@ class RealExecutor(AbstractExecutor):
         if self.workflow.config_args:
             overwrite_config.append("--config")
             overwrite_config.extend(self.workflow.config_args)
-        print(overwrite_config, file=sys.stderr)
 
         printshellcmds = ""
         if self.workflow.printshellcmds:
