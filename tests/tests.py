@@ -264,6 +264,13 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_config_merging():
+    run(
+        dpath("test_config_merging"),
+        shellcmd='snakemake -j 1 --configfile config_cmdline_01.yaml config_cmdline_02.yaml --config "block={bowser: cmdline_bowser}" "block={toad: cmdline_toad}"',
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
