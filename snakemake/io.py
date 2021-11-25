@@ -1577,35 +1577,40 @@ class Log(Namedlist):
 
 def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
+    import json
     import yaml
-
-    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
-        obj = open(configpath_or_obj, encoding="utf-8")
-    else:
-        obj = configpath_or_obj
+    import anyconfig
 
     try:
-        with obj as f:
+        if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+            obj = open(configpath_or_obj, encoding="utf-8")
+        else:
+            obj = configpath_or_obj
+
+        with obj as fd:
             try:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            except ValueError:
-                f.seek(0)  # try again
-            try:
-                # From https://stackoverflow.com/a/21912744/84349
-                class OrderedLoader(yaml.Loader):
+                return anyconfig.load(fd)
+            except anyconfig.UnknownFileTypeError:
+                # replicate Snakemake's old behavior by trying to interpret
+                # unknown config file formats first as JSON and then as YAML
+
+                fd.seek(0)
+                try:
+                    return anyconfig.load(fd, ac_parser="json")
+                except json.JSONDecodeError:
+                    # let's try yaml next
                     pass
 
-                def construct_mapping(loader, node):
-                    loader.flatten_mapping(node)
-                    return collections.OrderedDict(loader.construct_pairs(node))
+                fd.seek(0)
+                try:
+                    return anyconfig.load(fd, ac_parser="yaml")
+                except yaml.YAMLError:
+                    # oof
+                    pass
 
-                OrderedLoader.add_constructor(
-                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
-                )
-                return yaml.load(f, Loader=OrderedLoader)
-            except yaml.YAMLError:
                 raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
+                    "Config file format could not be automatically determined "
+                    "and is not valid JSON or YAML. "
                     "In case of YAML, make sure to not mix "
                     "whitespace and tab indentation.".format(filetype)
                 )

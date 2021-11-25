@@ -1,0 +1,15 @@
+configfile: "config.json"
+configfile: "config.toml"
+configfile: "config.yaml"
+configfile: "config_json_noextension"
+configfile: "config_yaml_noextension"
+
+
+rule dump_config:
+    output:
+        "test.out",
+    run:
+        import json
+
+        with open(output[0], "w") as fd:
+            json.dump(config, fd)
