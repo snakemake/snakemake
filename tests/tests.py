@@ -1353,3 +1353,8 @@ def test_converting_path_for_r_script():
 
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+@skip_on_windows
+def test_checkpoint_allowed_rules():
+    run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
