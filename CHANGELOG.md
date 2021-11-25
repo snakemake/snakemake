@@ -1,5 +1,25 @@
 # Changelog
 
+## [6.11.0](https://www.github.com/snakemake/snakemake/compare/v6.10.0...v6.11.0) (2021-11-25)
+
+
+### Features
+
+* fail with an error if snakemake cannot write job metadata. ([#1273](https://www.github.com/snakemake/snakemake/issues/1273)) ([cd968cd](https://www.github.com/snakemake/snakemake/commit/cd968cd03437ad6db1d791f5d7ae5295b9754137))
+
+
+### Bug Fixes
+
+* Adds fixes for the first two MREs in [#823](https://www.github.com/snakemake/snakemake/issues/823) ([#1215](https://www.github.com/snakemake/snakemake/issues/1215)) ([cfd2f89](https://www.github.com/snakemake/snakemake/commit/cfd2f890a0af57628f7b9278d8d43f59b7006825))
+* env file usage after changes to source file handling (inspired by [#1233](https://www.github.com/snakemake/snakemake/issues/1233) and [#1211](https://www.github.com/snakemake/snakemake/issues/1211)). ([#1236](https://www.github.com/snakemake/snakemake/issues/1236)) ([3ac8e85](https://www.github.com/snakemake/snakemake/commit/3ac8e858a7b908326922c8f68cae512b1250e906))
+* fixed code change detection when using modules ([#1264](https://www.github.com/snakemake/snakemake/issues/1264)) ([b571e09](https://www.github.com/snakemake/snakemake/commit/b571e09ce452f6a1a95395e1c3c8b9e3f83867ad))
+* handle config file extension/overwriting more explicitly ([#1251](https://www.github.com/snakemake/snakemake/issues/1251)) ([d0a7bf2](https://www.github.com/snakemake/snakemake/commit/d0a7bf243c5df204136fa1f14706aab793793c68))
+* Issue [#1253](https://www.github.com/snakemake/snakemake/issues/1253) (problems editing Jupyter Notebooks) ([#1255](https://www.github.com/snakemake/snakemake/issues/1255)) ([3398ddf](https://www.github.com/snakemake/snakemake/commit/3398ddffd1f68182af768ef4ea519e9a9ad4efaf))
+* more informative nothing to be done message ([#1234](https://www.github.com/snakemake/snakemake/issues/1234)) ([368d265](https://www.github.com/snakemake/snakemake/commit/368d265ff3da984bd3a53b319dcb882d6916975b))
+* only consider context of shell command for technical switches if called from snakemake rules. ([#1213](https://www.github.com/snakemake/snakemake/issues/1213)) ([4816a58](https://www.github.com/snakemake/snakemake/commit/4816a58653e466ca94b1482a1d947a856f5381b3))
+* R encoding of pathlib.Path objects ([#1201](https://www.github.com/snakemake/snakemake/issues/1201)) ([bd516e9](https://www.github.com/snakemake/snakemake/commit/bd516e958af22e57c18cacf0cb22552c2a237bd8))
+* Use 'snakemake.utils.update_config' instead of 'dict.update' ([#1126](https://www.github.com/snakemake/snakemake/issues/1126)) ([2658027](https://www.github.com/snakemake/snakemake/commit/2658027458dde4c10b3d6e1af7671564d175f9cb))
+
 ## [6.10.0](https://www.github.com/snakemake/snakemake/compare/v6.9.1...v6.10.0) (2021-10-21)
 
 
