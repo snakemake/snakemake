@@ -219,6 +219,17 @@ class shell:
             envvars["TEMPDIR"] = tmpdir_resource
             envvars["TEMP"] = tmpdir_resource
 
+        if "additional_envvars" in kwargs:
+            env = kwargs["additional_envvars"]
+            if not isinstance(env, dict) or not all(
+                isinstance(v, str) for v in env.values()
+            ):
+                raise WorkflowError(
+                    "Given environment variables for shell command have to be a dict of strings, "
+                    "but the following was provided instead:\n{}".format(env)
+                )
+            envvars.update(env)
+
         if conda_env and cls.conda_block_conflicting_envvars:
             # remove envvars that conflict with conda
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
