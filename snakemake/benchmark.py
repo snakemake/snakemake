@@ -191,6 +191,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
 
     def __init__(self, pid, bench_record, interval=BENCHMARK_INTERVAL):
         import psutil
+
         ScheduledPeriodicTimer.__init__(self, interval)
         #: PID of observed process
         self.pid = pid
@@ -203,6 +204,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
     def work(self):
         """Write statistics"""
         import psutil
+
         try:
             self._update_record()
         except psutil.NoSuchProcess:
@@ -213,6 +215,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
     def _update_record(self):
         """Perform the actual measurement"""
         import psutil
+
         # Memory measurements
         rss, vms, uss, pss = 0, 0, 0, 0
         # I/O measurements
