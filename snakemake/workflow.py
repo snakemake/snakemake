@@ -204,7 +204,7 @@ class Workflow:
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfiles = overwrite_configfiles or []
+        self.configfiles = list(overwrite_configfiles) or []
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
@@ -682,7 +682,8 @@ class Workflow:
 
         rules = self.rules
         if allowed_rules:
-            rules = [rule for rule in rules if rule.name in set(allowed_rules)]
+            allowed_rules = set(allowed_rules)
+            rules = [rule for rule in rules if rule.name in allowed_rules]
 
         if wait_for_files is not None:
             try:
@@ -1238,10 +1239,23 @@ class Workflow:
         """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
-            self.configfiles.append(fp)
-            c = snakemake.io.load_configfile(fp)
-            update_config(config, c)
-            update_config(config, self.overwrite_config)
+            if os.path.exists(fp):
+                self.configfiles.append(fp)
+                c = snakemake.io.load_configfile(fp)
+                update_config(config, c)
+                if self.overwrite_config:
+                    logger.info(
+                        "Config file {} is extended by additional config specified via the command line.".format(
+                            fp
+                        )
+                    )
+                    update_config(config, self.overwrite_config)
+            elif not self.overwrite_configfiles:
+                raise WorkflowError(
+                    "Workflow defines configfile {} but it is not present or accessible.".format(
+                        fp
+                    )
+                )
 
     def pepfile(self, path):
         global pep

@@ -264,6 +264,13 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_config_merging():
+    run(
+        dpath("test_config_merging"),
+        shellcmd='snakemake -j 1 --configfile config_cmdline_01.yaml config_cmdline_02.yaml --config "block={bowser: cmdline_bowser}" "block={toad: cmdline_toad}"',
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
@@ -1345,5 +1352,14 @@ def test_github_issue1158():
     )
 
 
+def test_converting_path_for_r_script():
+    run(dpath("test_converting_path_for_r_script"), cores=1)
+
+
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+@skip_on_windows
+def test_checkpoint_allowed_rules():
+    run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
