@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake import common
 
 dd = textwrap.dedent
 
@@ -507,10 +508,11 @@ class Run(RuleKeywordState):
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, runtime_sourcecache_path):".format(
+            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
-                else self.snakefile.rulecount
+                else self.snakefile.rulecount,
+                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
 

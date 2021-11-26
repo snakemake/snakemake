@@ -497,13 +497,13 @@ def snakemake(
         configfiles = []
     for f in configfiles:
         # get values to override. Later configfiles override earlier ones.
-        overwrite_config.update(load_configfile(f))
+        update_config(overwrite_config, load_configfile(f))
     # convert provided paths to absolute paths
     configfiles = list(map(os.path.abspath, configfiles))
 
     # directly specified elements override any configfiles
     if config:
-        overwrite_config.update(config)
+        update_config(overwrite_config, config)
         if config_args is None:
             config_args = unparse_config(config)
 
@@ -947,7 +947,7 @@ def parse_config(args):
                 except:
                     pass
             assert v is not None
-            config[key] = v
+            update_config(config, {key: v})
     return config
 
 
@@ -1239,7 +1239,9 @@ def get_argument_parser(profile=None):
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
             "dictionary inside the workflow. Multiple files overwrite each other in "
-            "the given order."
+            "the given order. Thereby missing keys in previous config files are extended by "
+            "following configfiles. Note that this order also includes a config file defined "
+            "in the workflow definition itself (which will come first)."
         ),
     )
     group_exec.add_argument(
@@ -2555,7 +2557,7 @@ def main(argv=None):
                 "The mamba package manager (https://github.com/mamba-org/mamba) is an "
                 "extremely fast and robust conda replacement. "
                 "It is the recommended way of using Snakemake's conda integration. "
-                "It can be installed with `conda install -n base -c conda-forge mamba."
+                "It can be installed with `conda install -n base -c conda-forge mamba`. "
                 "If you still prefer to use conda, you can enforce that by setting "
                 "`--conda-frontend conda`.",
                 file=sys.stderr,

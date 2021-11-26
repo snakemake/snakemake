@@ -393,10 +393,8 @@ class ScriptBase(ABC):
 
     @property
     def local_path(self):
-        path = self.path[7:]
-        if not os.path.isabs(path):
-            return smart_join(self.basedir, path)
-        return path
+        assert self.is_local
+        return self.path.get_path_or_uri()
 
     @abstractmethod
     def get_preamble(self):
@@ -579,7 +577,9 @@ class PythonScript(ScriptBase):
             # bash is configured as executable on Windows
             py_exec = py_exec.replace("\\", "/")
         # use the same Python as the running process or the one from the environment
-        self._execute_cmd("{py_exec} {fname:q}", py_exec=py_exec, fname=fname)
+        self._execute_cmd(
+            "{py_exec} {fname:q}", py_exec=py_exec, fname=fname, is_python_script=True
+        )
 
 
 class RScript(ScriptBase):

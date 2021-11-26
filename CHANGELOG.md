@@ -1,5 +1,66 @@
 # Changelog
 
+### [6.11.1](https://www.github.com/snakemake/snakemake/compare/v6.11.0...v6.11.1) (2021-11-26)
+
+
+### Bug Fixes
+
+* provide temporary IPYTHONDIR for notebook execution in order to avoid race conditions in https://github.com/ipython/ipython/blob/master/IPython/paths.py#L20 upon execution of multiple notebooks at the same time. ([#1280](https://www.github.com/snakemake/snakemake/issues/1280)) ([4d70da1](https://www.github.com/snakemake/snakemake/commit/4d70da11f810224ddce192ae1472a6380898865f))
+
+
+### Documentation
+
+* move psutil import into benchmark methods to avoid needing it as a dependency for doc building ([6ffe38d](https://www.github.com/snakemake/snakemake/commit/6ffe38d1740294a7170765ab875b363f4ae82cd4))
+* require sphinx>=3 ([1773875](https://www.github.com/snakemake/snakemake/commit/1773875fc8f2fddb09362410afb7c49c4406bfa3))
+* skip lazy property ([2883718](https://www.github.com/snakemake/snakemake/commit/28837183fa55a6764621580983b3d724f3881a6a))
+
+## [6.11.0](https://www.github.com/snakemake/snakemake/compare/v6.10.0...v6.11.0) (2021-11-25)
+
+
+### Features
+
+* fail with an error if snakemake cannot write job metadata. ([#1273](https://www.github.com/snakemake/snakemake/issues/1273)) ([cd968cd](https://www.github.com/snakemake/snakemake/commit/cd968cd03437ad6db1d791f5d7ae5295b9754137))
+
+
+### Bug Fixes
+
+* Adds fixes for the first two MREs in [#823](https://www.github.com/snakemake/snakemake/issues/823) ([#1215](https://www.github.com/snakemake/snakemake/issues/1215)) ([cfd2f89](https://www.github.com/snakemake/snakemake/commit/cfd2f890a0af57628f7b9278d8d43f59b7006825))
+* env file usage after changes to source file handling (inspired by [#1233](https://www.github.com/snakemake/snakemake/issues/1233) and [#1211](https://www.github.com/snakemake/snakemake/issues/1211)). ([#1236](https://www.github.com/snakemake/snakemake/issues/1236)) ([3ac8e85](https://www.github.com/snakemake/snakemake/commit/3ac8e858a7b908326922c8f68cae512b1250e906))
+* fixed code change detection when using modules ([#1264](https://www.github.com/snakemake/snakemake/issues/1264)) ([b571e09](https://www.github.com/snakemake/snakemake/commit/b571e09ce452f6a1a95395e1c3c8b9e3f83867ad))
+* handle config file extension/overwriting more explicitly ([#1251](https://www.github.com/snakemake/snakemake/issues/1251)) ([d0a7bf2](https://www.github.com/snakemake/snakemake/commit/d0a7bf243c5df204136fa1f14706aab793793c68))
+* Issue [#1253](https://www.github.com/snakemake/snakemake/issues/1253) (problems editing Jupyter Notebooks) ([#1255](https://www.github.com/snakemake/snakemake/issues/1255)) ([3398ddf](https://www.github.com/snakemake/snakemake/commit/3398ddffd1f68182af768ef4ea519e9a9ad4efaf))
+* more informative nothing to be done message ([#1234](https://www.github.com/snakemake/snakemake/issues/1234)) ([368d265](https://www.github.com/snakemake/snakemake/commit/368d265ff3da984bd3a53b319dcb882d6916975b))
+* only consider context of shell command for technical switches if called from snakemake rules. ([#1213](https://www.github.com/snakemake/snakemake/issues/1213)) ([4816a58](https://www.github.com/snakemake/snakemake/commit/4816a58653e466ca94b1482a1d947a856f5381b3))
+* R encoding of pathlib.Path objects ([#1201](https://www.github.com/snakemake/snakemake/issues/1201)) ([bd516e9](https://www.github.com/snakemake/snakemake/commit/bd516e958af22e57c18cacf0cb22552c2a237bd8))
+* Use 'snakemake.utils.update_config' instead of 'dict.update' ([#1126](https://www.github.com/snakemake/snakemake/issues/1126)) ([2658027](https://www.github.com/snakemake/snakemake/commit/2658027458dde4c10b3d6e1af7671564d175f9cb))
+
+## [6.10.0](https://www.github.com/snakemake/snakemake/compare/v6.9.1...v6.10.0) (2021-10-21)
+
+
+### Features
+
+* Add more informative errors when evaluation of `--default-resources` fails ([#1192](https://www.github.com/snakemake/snakemake/issues/1192)) ([b3c4e68](https://www.github.com/snakemake/snakemake/commit/b3c4e687c87c75075393cef842b129dcec70e7f6))
+
+
+### Bug Fixes
+
+* add quotes to each item of the wait_for_files list ([#1160](https://www.github.com/snakemake/snakemake/issues/1160)) ([72856ed](https://www.github.com/snakemake/snakemake/commit/72856edd12fbe29d723731c6f596f05cd2b59c0e))
+* caching process ([#1225](https://www.github.com/snakemake/snakemake/issues/1225)) ([0825a29](https://www.github.com/snakemake/snakemake/commit/0825a29e46c08b200efe6bd0c66acf1e6828eed8))
+* enable usage of job grouping in GLS ([#1054](https://www.github.com/snakemake/snakemake/issues/1054)) ([d243c22](https://www.github.com/snakemake/snakemake/commit/d243c22ff494b63bd5e07b7c5bf1f6ff32539cde))
+* Only --bind Snakemake when we're working with a Python script ([#1206](https://www.github.com/snakemake/snakemake/issues/1206)) ([1d79f62](https://www.github.com/snakemake/snakemake/commit/1d79f625b7262d66def71c779f2a2c091bc418d8))
+* run dependencies with non-existent ancient files before the consuming job ([#1202](https://www.github.com/snakemake/snakemake/issues/1202)) ([84d1f64](https://www.github.com/snakemake/snakemake/commit/84d1f6451b12352eba5a8bfefcfcce8b2d98c5aa)), closes [#946](https://www.github.com/snakemake/snakemake/issues/946)
+* status cmd repeats until killed by 11 *different* signals ([#1207](https://www.github.com/snakemake/snakemake/issues/1207)) ([8b28b57](https://www.github.com/snakemake/snakemake/commit/8b28b5740c34149c9b5df56dbbfa034219eb1574))
+* typo in sourcecache use ([#1229](https://www.github.com/snakemake/snakemake/issues/1229)) ([8b54bc5](https://www.github.com/snakemake/snakemake/commit/8b54bc5db9d8e5c0bcb8f2c2ff141dc075e3e659))
+* wms monitor arg parsing now accepts any kind of value ([#1181](https://www.github.com/snakemake/snakemake/issues/1181)) ([313de93](https://www.github.com/snakemake/snakemake/commit/313de932e2e2a4f2c530df18c1abb15d37eb3217))
+
+
+### Documentation
+
+* Clarification of --cluster-stats docs  &  elaborating on the situation where job ids are not passed to the status script ([#1221](https://www.github.com/snakemake/snakemake/issues/1221)) ([ed0e4a2](https://www.github.com/snakemake/snakemake/commit/ed0e4a27a2167a69a4fe1bcdf237dd27bb3732ca))
+* Combine CHANGELOG.rst with CHANGELOG.md ([#1228](https://www.github.com/snakemake/snakemake/issues/1228)) ([19f5a43](https://www.github.com/snakemake/snakemake/commit/19f5a43261bd6ba548d6f01080640f0d4119871e))
+* Mention required openssl dep for rust-script ([#1216](https://www.github.com/snakemake/snakemake/issues/1216)) ([fc8c5f6](https://www.github.com/snakemake/snakemake/commit/fc8c5f62c397a0239ef213ab45a26a1def50f9eb))
+* Unpin docutils version ([#1230](https://www.github.com/snakemake/snakemake/issues/1230)) ([15a82bf](https://www.github.com/snakemake/snakemake/commit/15a82bfe402b3577bf19e6d2eca3b2fb86109628))
+
 ### [6.9.1](https://www.github.com/snakemake/snakemake/compare/v6.9.0...v6.9.1) (2021-09-30)
 
 
