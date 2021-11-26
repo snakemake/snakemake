@@ -638,17 +638,10 @@ class DAG:
 
     def handle_log(self, job, upload_remote=True):
         for f in job.log:
+            f = job.shadowed_path(f)
             if not f.exists_local:
                 # If log file was not created during job, create an empty one.
-                job.shadowed_path(f).touch_or_create()
-            if upload_remote and f.is_remote and not f.should_stay_on_remote:
-                f.upload_to_remote()
-                if not f.exists_remote:
-                    raise RemoteFileException(
-                        "The file upload was attempted, but it does not "
-                        "exist on remote. Check that your credentials have "
-                        "read AND write permissions."
-                    )
+                f.touch_or_create()
 
     def handle_remote(self, job, upload=True):
         """Remove local files if they are no longer needed and upload."""
@@ -657,6 +650,8 @@ class DAG:
             files = job.expanded_output
             if job.benchmark:
                 files = chain(job.expanded_output, (job.benchmark,))
+            if job.log:
+                files = chain(files, job.log)
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
