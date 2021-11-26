@@ -94,7 +94,7 @@ class JupyterNotebook(ScriptBase):
                 cmd,
                 fname_out=fname_out,
                 fname=fname,
-                additional_envvars={"IPYTHONDIR": tmp.name},
+                additional_envvars={"IPYTHONDIR": tmp},
             )
 
             if edit:
