@@ -6,4 +6,3 @@ docutils
 myst-parser
 configargparse
 appdirs
-psutil
