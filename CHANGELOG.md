@@ -1,5 +1,13 @@
 # Changelog
 
+### [6.11.2](https://www.github.com/snakemake/snakemake/compare/v6.11.1...v6.11.2) (2021-11-27)
+
+
+### Bug Fixes
+
+* issue [#1257](https://www.github.com/snakemake/snakemake/issues/1257) (missing logfile failure when using shadow directory) ([#1258](https://www.github.com/snakemake/snakemake/issues/1258)) ([426d92f](https://www.github.com/snakemake/snakemake/commit/426d92fd9610b61b414b7f0152d777c463c939a2))
+* SameFileError [#1153](https://www.github.com/snakemake/snakemake/issues/1153) ([#1220](https://www.github.com/snakemake/snakemake/issues/1220)) ([ede313d](https://www.github.com/snakemake/snakemake/commit/ede313dcd31ea5f136b3b8f743e2265331475342))
+
 ### [6.11.1](https://www.github.com/snakemake/snakemake/compare/v6.11.0...v6.11.1) (2021-11-26)
 
 
