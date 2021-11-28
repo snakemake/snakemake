@@ -497,13 +497,13 @@ def snakemake(
         configfiles = []
     for f in configfiles:
         # get values to override. Later configfiles override earlier ones.
-        overwrite_config.update(load_configfile(f))
+        update_config(overwrite_config, load_configfile(f))
     # convert provided paths to absolute paths
     configfiles = list(map(os.path.abspath, configfiles))
 
     # directly specified elements override any configfiles
     if config:
-        overwrite_config.update(config)
+        update_config(overwrite_config, config)
         if config_args is None:
             config_args = unparse_config(config)
 
@@ -947,7 +947,7 @@ def parse_config(args):
                 except:
                     pass
             assert v is not None
-            config[key] = v
+            update_config(config, {key: v})
     return config
 
 

@@ -71,37 +71,43 @@ class JupyterNotebook(ScriptBase):
             fname_out = os.path.join(os.getcwd(), fname_out)
             output_parameter = "--output {fname_out:q}"
 
-        if edit is not None:
-            logger.info("Opening notebook for editing.")
-            cmd = (
-                "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
-            )
-        else:
-            cmd = (
-                "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
-                "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                    output_parameter=output_parameter
+        with tempfile.TemporaryDirectory() as tmp:
+            if edit is not None:
+                logger.info("Opening notebook for editing.")
+                cmd = (
+                    "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                    "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
                 )
+            else:
+                cmd = (
+                    "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
+                    "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+                        output_parameter=output_parameter,
+                    )
+                )
+
+            if ON_WINDOWS:
+                fname = fname.replace("\\", "/")
+                fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+
+            self._execute_cmd(
+                cmd,
+                fname_out=fname_out,
+                fname=fname,
+                additional_envvars={"IPYTHONDIR": tmp},
             )
 
-        if ON_WINDOWS:
-            fname = fname.replace("\\", "/")
-            fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+            if edit:
+                logger.info("Saving modified notebook.")
+                nb = nbformat.read(fname, as_version=4)
 
-        self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
+                self.remove_preamble_cell(nb)
 
-        if edit:
-            logger.info("Saving modified notebook.")
-            nb = nbformat.read(fname, as_version=4)
+                # clean up all outputs
+                for cell in nb["cells"]:
+                    cell["outputs"] = []
 
-            self.remove_preamble_cell(nb)
-
-            # clean up all outputs
-            for cell in nb["cells"]:
-                cell["outputs"] = []
-
-            nbformat.write(nb, self.local_path)
+                nbformat.write(nb, self.local_path)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat

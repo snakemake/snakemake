@@ -264,6 +264,13 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_config_merging():
+    run(
+        dpath("test_config_merging"),
+        shellcmd='snakemake -j 1 --configfile config_cmdline_01.yaml config_cmdline_02.yaml --config "block={bowser: cmdline_bowser}" "block={toad: cmdline_toad}"',
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
@@ -348,6 +355,11 @@ def test_shadow_prefix():
 @skip_on_windows
 def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
+
+
+@skip_on_windows
+def test_shadowed_log():
+    run(dpath("test_shadowed_log"))
 
 
 def test_until():
@@ -1180,13 +1192,15 @@ def test_github_issue640():
 
 @skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
-    tmpdir = run(
-        dpath("test_generate_unit_tests"),
-        generate_unit_tests=".tests/unit",
-        check_md5=False,
-        cleanup=False,
-    )
-    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    with tempfile.NamedTemporaryFile() as tmpfile:
+        os.environ["UNIT_TEST_TMPFILE"] = tmpfile.name
+        tmpdir = run(
+            dpath("test_generate_unit_tests"),
+            generate_unit_tests=".tests/unit",
+            check_md5=False,
+            cleanup=False,
+        )
+        sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
 
 
 @skip_on_windows
@@ -1346,3 +1360,8 @@ def test_converting_path_for_r_script():
 
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+@skip_on_windows
+def test_checkpoint_allowed_rules():
+    run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
