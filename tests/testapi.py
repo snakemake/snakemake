@@ -57,3 +57,18 @@ def test_run_script_directive_async():
         async_run(main())
     else:
         asyncio.run(main())
+
+
+def test_lockexception():
+    from snakemake.persistence import Persistence
+    from snakemake.exceptions import LockException
+
+    persistence = Persistence()
+    persistence.all_inputfiles = lambda: ["A.txt"]
+    persistence.all_outputfiles = lambda: ["B.txt"]
+    persistence.lock()
+    try:
+        persistence.lock()
+    except LockException as e:
+        return True
+    assert False
