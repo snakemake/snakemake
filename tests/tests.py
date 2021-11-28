@@ -860,7 +860,7 @@ def test_pipes():
 @skip_on_windows
 def test_pipes_multiple():
     # see github issue #975
-    run(dpath("test_pipes_multiple"))
+    run(dpath("test_pipes_multiple"), cores=5)
 
 
 def test_pipes_fail():
