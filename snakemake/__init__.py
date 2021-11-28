@@ -50,7 +50,7 @@ def snakemake(
     listrules=False,
     list_target_rules=False,
     cores=1,
-    nodes=1,
+    nodes=None,
     local_cores=1,
     max_threads=None,
     resources=dict(),
