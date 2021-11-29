@@ -90,6 +90,7 @@ def run(
     check_md5=True,
     check_results=True,
     cores=3,
+    nodes=1,
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
@@ -168,6 +169,7 @@ def run(
         success = snakemake(
             snakefile=original_snakefile if no_tmpdir else snakefile,
             cores=cores,
+            nodes=nodes,
             workdir=path if no_tmpdir else tmpdir,
             stats="stats.txt",
             config=config,
