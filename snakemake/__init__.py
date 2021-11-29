@@ -2730,6 +2730,7 @@ def main(argv=None):
 
         if args.draft_notebook:
             from snakemake import notebook
+
             args.target = [args.draft_notebook]
             args.edit_notebook = notebook.EditMode(draft_only=True)
         elif args.edit_notebook:

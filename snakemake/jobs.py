@@ -1005,7 +1005,7 @@ class Job(AbstractJob):
         keep_metadata=True,
     ):
         if self.dag.is_edit_notebook_job(self):
-            # No postprocessing necessary, we have just created the skeleton notebook and 
+            # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
         if assume_shared_fs:

@@ -1172,6 +1172,18 @@ def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
 
+def test_jupyter_notebook_draft():
+    from snakemake.notebook import EditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        use_conda=True,
+        edit_notebook=EditMode(draft_only=True),
+        targets=["result_intermediate.txt"],
+        check_md5=False,
+    )
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 

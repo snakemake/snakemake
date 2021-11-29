@@ -12,7 +12,7 @@ from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
 from snakemake.common import ON_WINDOWS
-from snakemake.sourcecache import SourceCache
+from snakemake.sourcecache import SourceCache, infer_source_file
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -45,7 +45,7 @@ class JupyterNotebook(ScriptBase):
         self.insert_preamble_cell(preamble, nb)
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
-        nb["metadata"]["language_info"]["name"] = self.get_language_name()
+        nb["metadata"] = {"language_info": {"name": self.get_language_name()}}
 
         os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
@@ -140,9 +140,13 @@ class JupyterNotebook(ScriptBase):
             preamble = preambles[0]
             # remove old preamble
             del notebook["cells"][preamble]
-    
+
     @abstractmethod
     def get_language_name(self):
+        ...
+
+    @abstractmethod
+    def get_interpreter_exec(self):
         ...
 
 
@@ -179,6 +183,9 @@ class PythonJupyterNotebook(JupyterNotebook):
     def get_language_name(self):
         return "python"
 
+    def get_interpreter_exec(self):
+        return "python"
+
 
 class RJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
@@ -210,7 +217,10 @@ class RJupyterNotebook(JupyterNotebook):
         )
 
     def get_language_name(self):
-        return "python"
+        return "r"
+
+    def get_interpreter_exec(self):
+        return "RScript"
 
 
 def get_exec_class(language):
@@ -252,7 +262,6 @@ def notebook(
     Load a script from the given basedir + path and execute it.
     """
     draft = False
-    import pdb; pdb.set_trace()
     if edit is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
@@ -286,6 +295,7 @@ def notebook(
     else:
         source = None
         is_local = True
+        path = infer_source_file(path)
 
     exec_class = get_exec_class(language)
 
@@ -319,11 +329,17 @@ def notebook(
         executor.evaluate(edit=edit)
     elif edit.draft_only:
         executor.draft()
-        msg = "Generated skeleton notebook in {}.".format(path)
+        msg = "Generated skeleton notebook:\n{} ".format(path)
         if conda_env and not container_img:
             msg += (
-                "For editing with VSCode, run command 'Select interpreter "
-                "to start jupyter server' and insert:\n{}".format(str(Path(conda_env) / "bin/python"))
+                "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"
+                "\n{}\n".format(
+                    str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
+                )
+            )
+            msg += (
+                "\nEditing with Jupyter CLI:"
+                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
             )
         logger.info(msg)
     elif draft:
