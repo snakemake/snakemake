@@ -225,11 +225,11 @@ integrate with scripting languages like R and Python, and Jupyter notebooks.
 
 First, we create a rule ``plot_quals`` with input file
 
--  ``"calls/all.vcf"``
+-  ``"results/calls/all.vcf"``
 
 and output file
 
--  ``"plots/quals.svg"``.
+-  ``"results/plots/quals.svg"``.
 
 Instead of a shell command, we use Snakemake's Jupyter notebook integration by specifying
 
@@ -260,7 +260,7 @@ Then, we let Snakemake generate a skeleton notebook for us with
 
 .. code:: console
 
-    snakemake --draft-notebook plots/quals.svg --cores 1 --use-conda
+    snakemake --draft-notebook results/plots/quals.svg --cores 1 --use-conda
 
 Snakemake will print instructions on how to open, edit and execute the notebook.
 
@@ -268,28 +268,31 @@ We open the notebook in the editor and add the following content
 
 .. code:: python
 
-       import matplotlib
-       matplotlib.use("Agg")
-       import matplotlib.pyplot as plt
-       from pysam import VariantFile
-       
-       quals = [record.qual for record in VariantFile(snakemake.input[0])]
-       plt.hist(quals)
-       
-       plt.savefig(snakemake.output[0])
+    import pandas as pd
+    import altair as alt
+    from pysam import VariantFile
+
+    quals = pd.DataFrame({"qual": [record.qual for record in VariantFile(snakemake.input[0])]})
+
+    chart = alt.Chart(quals).mark_bar().encode(
+        alt.X("qual", bin=True),
+        alt.Y("count()")
+    )
+
+    chart.save(snakemake.output[0])
 
 As you can see, instead of writing a command line parser for passing
 parameters like input and output files, you have direct access to the
 properties of the rule via a magic ``snakemake`` object, that Snakemake
-automatically inserts into the script before executing the rule.
-
-
+automatically inserts into the notebook before executing the rule.
 
 Make sure to test your workflow with
 
 ::
 
-   snakemake --use-conda plots/quals.svg --cores 1
+   snakemake --use-conda --force results/plots/quals.svg --cores 1
+
+Here, the force ensures that the readily drafted notebook is re-executed even if you had already generated the output plot in the interactive mode.
  
 Step 7
 ------
@@ -301,8 +304,8 @@ define default target files.
 
 At the top of your ``Snakefile`` define a rule ``all``, with input files
 
--  ``"calls/all.vcf"``
--  ``"plots/quals.svg"``
+-  ``"results/calls/all.vcf"``
+-  ``"results/plots/quals.svg"``
 
 and neither a shell command nor output files. This rule simply serves as
 an indicator of what shall be collected as results.
