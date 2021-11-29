@@ -1,5 +1,12 @@
 # Changelog
 
+### [6.12.1](https://www.github.com/snakemake/snakemake/compare/v6.12.0...v6.12.1) (2021-11-29)
+
+
+### Bug Fixes
+
+* set default number of nodes to 1 in test cases ([#1288](https://www.github.com/snakemake/snakemake/issues/1288)) ([f6e12b4](https://www.github.com/snakemake/snakemake/commit/f6e12b4798485be3a1bb240b4af44d57dd5c84b2))
+
 ## [6.12.0](https://www.github.com/snakemake/snakemake/compare/v6.11.1...v6.12.0) (2021-11-29)
 
 
