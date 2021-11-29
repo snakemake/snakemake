@@ -237,7 +237,7 @@ class DAG:
     def cleanup_workdir(self):
         for job in self.jobs:
             if not self.is_edit_notebook_job(job):
-                for io_dir, job in set(
+                for io_dir in set(
                     os.path.dirname(io_file)
                     for io_file in chain(job.output, job.input)
                     if not os.path.exists(io_file)
