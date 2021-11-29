@@ -1179,7 +1179,7 @@ def test_jupyter_notebook_draft():
         dpath("test_jupyter_notebook_draft"),
         use_conda=True,
         edit_notebook=EditMode(draft_only=True),
-        targets=["result_intermediate.txt"],
+        targets=["results/result_intermediate.txt"],
         check_md5=False,
     )
 
