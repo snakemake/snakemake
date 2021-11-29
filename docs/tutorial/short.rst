@@ -39,7 +39,8 @@ First, create an empty workflow in the current directory with:
 
 ::
 
-   touch Snakefile
+   mkdir workflow
+   touch workflow/Snakefile
 
 Once a Snakefile is present, you can perform a dry run of Snakemake
 with:
@@ -77,14 +78,14 @@ You will create a workflow that maps the sequencing samples in the
 Then, you will call genomic variants over the mapped samples, and create
 an example plot.
 
-First, create a rule called ``bwa``, with input files
+First, create a rule called ``map_reads``, with input files
 
 -  ``data/genome.fa``
 -  ``data/samples/A.fastq``
 
 and output file
 
--  ``mapped/A.bam``
+-  ``results/mapped/A.bam``
 
 To generate output from input, use the shell command
 
@@ -114,41 +115,41 @@ Upon execution, Snakemake will automatically create that environment,
 and execute the shell command within.
 
 Now, test your workflow by simulating the creation of the file
-``mapped/A.bam`` via
+``results/mapped/A.bam`` via
 
 ::
 
-   snakemake --use-conda -n mapped/A.bam
+   snakemake --use-conda -n results/mapped/A.bam
 
 to perform a dry-run and
 
 ::
 
-   snakemake --use-conda mapped/A.bam --cores 1
+   snakemake --use-conda results/mapped/A.bam --cores 1
 
 to perform the actual execution.
  
 Step 3
 ------
 
-Now, generalize the rule ``bwa`` by replacing the concrete sample name
+Now, generalize the rule ``map_reads`` by replacing the concrete sample name
 ``A`` with a wildcard ``{sample}`` in input and output file the rule
-``bwa``. This way, Snakemake can apply the rule to map any of the three
+``map_reads``. This way, Snakemake can apply the rule to map any of the three
 available samples to the reference genome.
 
-Test this by creating the file ``mapped/B.bam``.
+Test this by creating the file ``results/mapped/B.bam``.
 
 Step 4
 ------
 
-Next, create a rule ``sort`` that sorts the obtained ``.bam`` file by
+Next, create a rule ``sort_alignments`` that sorts the obtained ``.bam`` file by
 genomic coordinate. The rule should have the input file
 
--  ``mapped/{sample}.bam``
+-  ``results/mapped/{sample}.bam``
 
 and the output file
 
--  ``mapped/{sample}.sorted.bam``
+-  ``results/mapped/{sample}.sorted.bam``
 
 and uses the shell command
 
@@ -163,13 +164,13 @@ Test your workflow with
 
 ::
 
-   snakemake --use-conda -n mapped/A.sorted.bam
+   snakemake --use-conda -n results/mapped/A.sorted.bam
 
 and
 
 ::
 
-   snakemake --use-conda mapped/A.sorted.bam --cores 1
+   snakemake --use-conda results/mapped/A.sorted.bam --cores 1
 
 Step 5
 ------
@@ -193,17 +194,17 @@ docs <https://snakemake.readthedocs.io/en/stable/tutorial/basics.html#step-5-cal
 Create a rule ``call`` with input files
 
 -  ``fa="data/genome.fa"``
--  ``bam=expand("mapped/{sample}.sorted.bam", sample=samples)``
+-  ``bam=expand("results/mapped/{sample}.sorted.bam", sample=samples)``
 
 output file
 
--  ``"calls/all.vcf"``
+-  ``"results/calls/all.vcf"``
 
 and shell command
 
 ::
 
-   samtools mpileup -g -f {input.fa} {input.bam} | bcftools call -mv - > {output}
+   bcftools mpileup -f {input.fa} {input.bam} | bcftools call -mv - > {output}
 
 Further, define a new conda environment file with the following content:
 
@@ -214,16 +215,15 @@ Further, define a new conda environment file with the following content:
          - conda-forge
        dependencies:
          - bcftools =1.9
-         - samtools =1.9
 
 Step 6
 ------
 
 Finally, we strive to calculate some exemplary statistics. This time, we
 don’t use a shell command, but rather employ Snakemake’s ability to
-integrate with scripting languages like R and Python.
+integrate with scripting languages like R and Python, and Jupyter notebooks.
 
-First, we create a rule ``stats`` with input file
+First, we create a rule ``plot_quals`` with input file
 
 -  ``"calls/all.vcf"``
 
@@ -231,22 +231,40 @@ and output file
 
 -  ``"plots/quals.svg"``.
 
-Instead of a shell command, we write
+Instead of a shell command, we use Snakemake's Jupyter notebook integration by specifying
 
 .. code:: python
 
-       script:
-           "scripts/plot-quals.py"
+       notebook:
+           "notebooks/plot-quals.py"
 
-and create the corresponding script and its containing folder in our
-working directory with
+instead of using the ``shell`` directive as before.
 
-::
+Next, we have to define a conda environment for the rule, say
+``workflow/envs/stats.yaml``, that provides the required Python packages to
+execute the script:
 
-   mkdir scripts
-   touch scripts/plot-quals.py
+.. code:: yaml
 
-We open the script in the editor and add the following content
+    channels:
+      - bioconda
+      - conda-forge
+    dependencies:
+      - pysam =0.17
+      - altair =4.1
+      - altair_saver =0.5
+      - pandas =1.3
+      - jupyter =1.0
+
+Then, we let Snakemake generate a skeleton notebook for us with
+
+.. code:: console
+
+    snakemake --draft-notebook plots/quals.svg --cores 1 --use-conda
+
+Snakemake will print instructions on how to open, edit and execute the notebook.
+
+We open the notebook in the editor and add the following content
 
 .. code:: python
 
@@ -265,19 +283,7 @@ parameters like input and output files, you have direct access to the
 properties of the rule via a magic ``snakemake`` object, that Snakemake
 automatically inserts into the script before executing the rule.
 
-Finally, we have to define a conda environment for the rule, say
-``envs/stats.yaml``, that provides the required Python packages to
-execute the script:
 
-.. code:: yaml
-
-       channels:
-         - bioconda
-         - conda-forge
-       dependencies:
-         - pysam =0.15
-         - matplotlib =3.1
-         - python =3.8
 
 Make sure to test your workflow with
 
