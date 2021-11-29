@@ -1,5 +1,25 @@
 # Changelog
 
+## [6.12.0](https://www.github.com/snakemake/snakemake/compare/v6.11.1...v6.12.0) (2021-11-29)
+
+
+### Features
+
+* add flag --draft-notebook for generating a skeleton notebook for manual editing (e.g. in VSCode). ([#1284](https://www.github.com/snakemake/snakemake/issues/1284)) ([d279322](https://www.github.com/snakemake/snakemake/commit/d2793223f914790c07b25363cb9b314ef166cb3e))
+
+
+### Bug Fixes
+
+* issue [#1257](https://www.github.com/snakemake/snakemake/issues/1257) (missing logfile failure when using shadow directory) ([#1258](https://www.github.com/snakemake/snakemake/issues/1258)) ([426d92f](https://www.github.com/snakemake/snakemake/commit/426d92fd9610b61b414b7f0152d777c463c939a2))
+* keep empty output and input dirs of --draft-notebook job ([f1181bd](https://www.github.com/snakemake/snakemake/commit/f1181bd41ea8b20fafd3975c2733ca1d439381dc))
+* SameFileError [#1153](https://www.github.com/snakemake/snakemake/issues/1153) ([#1220](https://www.github.com/snakemake/snakemake/issues/1220)) ([ede313d](https://www.github.com/snakemake/snakemake/commit/ede313dcd31ea5f136b3b8f743e2265331475342))
+* snakemake API using only 1 job as default ([#1283](https://www.github.com/snakemake/snakemake/issues/1283)) ([e92ad48](https://www.github.com/snakemake/snakemake/commit/e92ad4867feb456ce8ef3dc57fd8528affa64ae9))
+
+
+### Documentation
+
+* short tutorial updates ([#1286](https://www.github.com/snakemake/snakemake/issues/1286)) ([b653a44](https://www.github.com/snakemake/snakemake/commit/b653a44d105e4b3799425a695d75a08239dc0d6b))
+
 ### [6.11.1](https://www.github.com/snakemake/snakemake/compare/v6.11.0...v6.11.1) (2021-11-26)
 
 
