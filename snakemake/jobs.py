@@ -1004,6 +1004,10 @@ class Job(AbstractJob):
         latency_wait=None,
         keep_metadata=True,
     ):
+        if self.dag.is_edit_notebook_job(self):
+            # No postprocessing necessary, we have just created the skeleton notebook and 
+            # execution will anyway stop afterwards.
+            return
         if assume_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)

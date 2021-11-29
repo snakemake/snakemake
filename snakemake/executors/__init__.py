@@ -512,7 +512,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.edit_notebook,
+            self.workflow.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
