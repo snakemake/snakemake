@@ -953,7 +953,7 @@ For example, running
 
 .. code-block:: console
 
-    snakemake --cores 1 --edit-notebook test.txt --use-conda
+    snakemake --cores 1 --draft-notebook test.txt --use-conda
 
 will generate skeleton code in ``notebooks/hello.py.ipynb`` and additionally print instructions on how to open and execute the notebook in VSCode.
 
