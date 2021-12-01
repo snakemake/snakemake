@@ -1721,8 +1721,13 @@ class KubernetesExecutor(ClusterExecutor):
         container.volume_mounts = [
             kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
         ]
-
-        body.spec = kubernetes.client.V1PodSpec(containers=[container])
+        
+        node_selector = {}
+        if "machine_type" in job.resources.keys():
+            # Kubernetes labels a node by its instance type using this node_label. 
+            node_selector["node.kubernetes.io/instance-type"] = job.resources["machine_type"]
+            
+        body.spec = kubernetes.client.V1PodSpec(containers=[container], node_selector=node_selector)
         # fail on first error
         body.spec.restart_policy = "Never"
 
