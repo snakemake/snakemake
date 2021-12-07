@@ -1379,5 +1379,6 @@ def test_checkpoint_allowed_rules():
     run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
 
 
+@skip_on_windows
 def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
