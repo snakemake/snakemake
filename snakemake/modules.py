@@ -13,18 +13,24 @@ from snakemake.checkpoints import Checkpoints
 from snakemake.common import Rules, Scatter, Gather
 
 
-def get_name_modifier_func(rules=None, name_modifier=None):
+def get_name_modifier_func(rules=None, name_modifier=None, parent_modifier=None):
     if name_modifier is None:
         return None
     else:
+        if parent_modifier is None:
+            parent_modifier_func = lambda rulename: rulename
+        else:
+            parent_modifier_func = parent_modifier.modify_rulename
         if "*" in name_modifier:
-            return lambda rulename: name_modifier.replace("*", rulename)
+            return lambda rulename: parent_modifier_func(
+                name_modifier.replace("*", rulename)
+            )
         elif name_modifier is not None:
             if len(rules) > 1:
                 raise SyntaxError(
                     "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
                 )
-            return lambda rulename: name_modifier
+            return lambda rulename: parent_modifier_func(name_modifier)
 
 
 class ModuleInfo:

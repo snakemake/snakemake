@@ -1819,11 +1819,13 @@ class Workflow:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
-                orig_rule = self._rules[rules[0]]
+                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
-                    rulename_modifier=get_name_modifier_func(rules, name_modifier),
+                    rulename_modifier=get_name_modifier_func(
+                        rules, name_modifier, parent_modifier=self.modifier
+                    ),
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     self.rule(
