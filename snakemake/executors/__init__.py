@@ -27,6 +27,7 @@ import base64
 import uuid
 import re
 import math
+import inspect
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -44,6 +45,32 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.common import Mode, __version__, get_container_image, get_uuid
+
+
+def register_executor(executor):
+    """Register a given class as Snakemake executor."""
+    mod = inspect.getmodule(inspect.stack()[1])
+    err = (
+        lambda msg: "Module {} has tried to register class {} as an executor {}".format(
+            mod.__name__, executor.__name__, msg
+        )
+    )
+    if type(executor) != "classobj":
+        raise ValueError(
+            err(
+                "but given object is of type {} instead of classobj.".format(
+                    type(executor)
+                )
+            )
+        )
+    if executor.__name__ in globals():
+        raise ValueError(
+            err("but the name {} is already taken.".format(executor.__name__))
+        )
+    globals()[executor.__name__] = executor
+    # TODO expose this in the CLI and register in the scheduler.
+    # AbstractExecutor will need methods for that and existing
+    # executors should be migrated to use these methods as well.
 
 
 # TODO move each executor into a separate submodule
