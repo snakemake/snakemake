@@ -1,5 +1,24 @@
 # Changelog
 
+### [6.12.3](https://www.github.com/snakemake/snakemake/compare/v6.12.2...v6.12.3) (2021-12-09)
+
+
+### Bug Fixes
+
+* fixed display of any exceptions and errors from within a workflow definition ([23d40d9](https://www.github.com/snakemake/snakemake/commit/23d40d99614a88fd3c596d05e6915509ae43d4ce))
+
+### [6.12.2](https://www.github.com/snakemake/snakemake/compare/v6.12.1...v6.12.2) (2021-12-07)
+
+
+### Bug Fixes
+
+* rule inheritance within modules (did previously lead to key errors) ([#1292](https://www.github.com/snakemake/snakemake/issues/1292)) ([603e0a8](https://www.github.com/snakemake/snakemake/commit/603e0a87d2c7af57a8f1d397605bc501c50934e0))
+
+
+### Documentation
+
+* Fix typo in rules.rst (—draft-notebook) ([#1290](https://www.github.com/snakemake/snakemake/issues/1290)) ([f5c42cf](https://www.github.com/snakemake/snakemake/commit/f5c42cfdc68f1516cec71b8ead8d78225ae915e5))
+
 ### [6.12.1](https://www.github.com/snakemake/snakemake/compare/v6.12.0...v6.12.1) (2021-11-29)
 
 
