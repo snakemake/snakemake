@@ -1181,7 +1181,7 @@ class Workflow:
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        self.linemaps[snakefile] = linemap
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
