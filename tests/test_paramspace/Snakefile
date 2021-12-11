@@ -34,7 +34,7 @@ paramspace_sep_and_pattern = Paramspace(
 paramspace_filenamesep = Paramspace(
     pd.read_csv("params.tsv", sep="\t"),
     filename_params="*",
-    filename_sep="::",
+    filename_sep="__",
 )
 
 
