@@ -277,7 +277,7 @@ class DAG:
         # First deduplicate based on job.conda_env_file
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.container_img_url)
+            (job.conda_env_file.format(params=job.params), job.container_img_url)
             for job in jobs
             if job.conda_env_file
         }
