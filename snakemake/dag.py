@@ -31,7 +31,6 @@ from snakemake.common import DYNAMIC_FILL, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
-from snakemake.utils import format
 
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
@@ -279,7 +278,7 @@ class DAG:
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
             (
-                format(job.conda_env_file, wildcards=job.wildcards, params=job.params),
+                job.conda_env_file,
                 job.container_img_url,
             )
             for job in jobs
