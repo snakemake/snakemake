@@ -333,6 +333,7 @@ class Logger:
             os.remove(self.logfile)
 
     def handler(self, msg):
+        msg["timestamp"] = time.time()
         for handler in self.log_handler:
             handler(msg)
 
