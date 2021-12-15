@@ -272,7 +272,7 @@ class WMSLogger:
         Sends the log to the server.
 
         Args:
-            msg (dict):     the log message dictionary
+            msg (dict):    the log message dictionary
         """
         import requests
 
