@@ -1786,6 +1786,7 @@ class Workflow:
         config=None,
         skip_validation=False,
         replace_prefix=None,
+        prefix=None,
     ):
         self.modules[name] = ModuleInfo(
             self,
@@ -1795,6 +1796,7 @@ class Workflow:
             config=config,
             skip_validation=skip_validation,
             replace_prefix=replace_prefix,
+            prefix=prefix,
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):

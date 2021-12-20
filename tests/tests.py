@@ -1273,6 +1273,10 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
 
 
+def test_modules_prefix():
+    run(dpath("test_modules_prefix"), targets=["a"])
+
+
 def test_modules_specific():
     run(dpath("test_modules_specific"), targets=["test_a"])
 
