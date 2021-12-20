@@ -532,6 +532,8 @@ class JobScheduler:
                     # we do the same as in case of errors during execution
                     print_exception(e, self.workflow.linemaps)
                     self._handle_error(job)
+                    if self.keepgoing:
+                        continue
                     return
 
             if self.update_resources:
