@@ -1,0 +1,13 @@
+configfile: "config.yaml" # does not exist, but this statement should be ignored on module import
+
+
+def some_func():
+    return 15
+
+
+rule a:
+    output:
+        "results/test.out",
+        "/tmp/foo.txt"
+    shell:
+        "echo {config[test]} > {output[0]}; touch {output[1]}"

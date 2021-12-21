@@ -159,6 +159,8 @@ It is possible to overwrite the global config dictionary for the module, which i
 
 In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statment.
+Moreover, one can automatically move all relative input and output files of a module into a dedicated folder: by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
+This becomes particularly usefull when combining multiple modules, see :ref:`use_with_modules`.
 
 Instead of using all rules, it is possible to import specific rules.
 Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.
@@ -186,7 +188,7 @@ Note that the second use statement has to use the original rule name, not the on
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
-Of course, it is possible to combine the use of rules from multiple modules, and via modifying statements they can be rewired and reconfigured in an arbitrary way.
+Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
 ..  _snakefiles-meta-wrappers:
 
