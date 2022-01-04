@@ -50,7 +50,7 @@ def snakemake(
     listrules=False,
     list_target_rules=False,
     cores=1,
-    nodes=1,
+    nodes=None,
     local_cores=1,
     max_threads=None,
     resources=dict(),
@@ -299,7 +299,7 @@ def snakemake(
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
-        edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
+        edit_notebook (object):     "notebook.EditMode" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
@@ -1489,6 +1489,13 @@ def get_argument_parser(profile=None):
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
 
+    group_notebooks.add_argument(
+        "--draft-notebook",
+        metavar="TARGET",
+        help="Draft a skeleton notebook for the rule used to generate the given target file. This notebook "
+        "can then be opened in a jupyter server, exeucted and implemented until ready. After saving, it "
+        "will automatically be reused in non-interactive mode by Snakemake for subsequent jobs.",
+    )
     group_notebooks.add_argument(
         "--edit-notebook",
         metavar="TARGET",
@@ -2721,12 +2728,17 @@ def main(argv=None):
             )
             log_handler.append(wms_logger.log_handler)
 
-        if args.edit_notebook:
+        if args.draft_notebook:
+            from snakemake import notebook
+
+            args.target = [args.draft_notebook]
+            args.edit_notebook = notebook.EditMode(draft_only=True)
+        elif args.edit_notebook:
             from snakemake import notebook
 
             args.target = [args.edit_notebook]
             args.force = True
-            args.edit_notebook = notebook.Listen(args.notebook_listen)
+            args.edit_notebook = notebook.EditMode(args.notebook_listen)
 
         aggregated_wait_for_files = args.wait_for_files
         if args.wait_for_files_file is not None:

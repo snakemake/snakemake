@@ -860,7 +860,7 @@ def test_pipes():
 @skip_on_windows
 def test_pipes_multiple():
     # see github issue #975
-    run(dpath("test_pipes_multiple"))
+    run(dpath("test_pipes_multiple"), cores=5)
 
 
 def test_pipes_fail():
@@ -1172,6 +1172,18 @@ def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
 
+def test_jupyter_notebook_draft():
+    from snakemake.notebook import EditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        use_conda=True,
+        edit_notebook=EditMode(draft_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
+    )
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 
@@ -1259,6 +1271,11 @@ def test_long_shell():
 
 def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
+
+
+@skip_on_windows
+def test_modules_prefix():
+    run(dpath("test_modules_prefix"), targets=["a"])
 
 
 def test_modules_specific():
@@ -1365,3 +1382,8 @@ def test_ancient_dag():
 @skip_on_windows
 def test_checkpoint_allowed_rules():
     run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
+
+
+@skip_on_windows
+def test_modules_ruledeps_inheritance():
+    run(dpath("test_modules_ruledeps_inheritance"))

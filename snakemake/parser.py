@@ -819,6 +819,10 @@ class ModuleSnakefile(ModuleKeywordState):
     pass
 
 
+class ModulePrefix(ModuleKeywordState):
+    pass
+
+
 class ModuleMetaWrapper(ModuleKeywordState):
     @property
     def keyword(self):
@@ -848,6 +852,7 @@ class Module(GlobalKeywordState):
         config=ModuleConfig,
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
+        prefix=ModulePrefix,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):

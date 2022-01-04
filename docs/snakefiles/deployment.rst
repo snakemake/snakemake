@@ -115,6 +115,44 @@ For example, we can easily add another rule to extend the given workflow:
             "notebooks/plot-vafs.py.ipynb"
 
 Moreover, it is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
+Here, let us assume that we want to conduct another kind of analysis, say RNA-seq, using a different external workflow.
+We can extend above example in the following way:
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile:
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+        config: config["dna-seq"]
+        prefix: "dna-seq"
+
+    use rule * from dna_seq as dna_seq_*
+
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
+    module rna_seq:
+        snakefile:
+            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile" tag="v2.0.1")
+        config: config["rna-seq"]
+        prefix: "rna-seq"
+
+    use rule * from rna_seq as rna_seq_*
+
+Above, several things have changed. First, we have added another module ``rna_seq``.
+Second, we have added a prefix to all rule names of both modules (``dna_seq_*`` and ``rna_seq_*`` in the ``use rule`` statements) in order to avoid rule name clashes.
+Third, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
+Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
 
 ----------------------------------
 Uploading workflows to WorkflowHub
