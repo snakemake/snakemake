@@ -48,7 +48,7 @@ def get_config():
 
 
 class NotThisMethod(Exception):
-    """Exception raised if a method is not valid for the current scenario."""
+    """The exception is raised if a method is not valid for the current scenario."""
 
 
 LONG_VERSION_PY = {}
@@ -235,7 +235,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
 
     This only gets called if the git-archive 'subst' keywords were *not*
     expanded, and _version.py hasn't already been rewritten with a short
-    version string, meaning we're inside a checked out source tree.
+    version string, meaning we're inside a checked-out source tree.
     """
     GITS = ["git"]
     if sys.platform == "win32":
@@ -331,7 +331,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
 
 
 def plus_or_dot(pieces):
-    """Return a + if we don't already have one, else return a ."""
+    """Return a + if we don't already have one, else return a '.'"""
     if "+" in pieces.get("closest-tag", ""):
         return "."
     return "+"

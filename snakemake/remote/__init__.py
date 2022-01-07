@@ -309,7 +309,7 @@ class DomainObject(AbstractRemoteObject):
 
 
 class PooledDomainObject(DomainObject):
-    """This adds conection pooling to DomainObjects
+    """This adds connection pooling to DomainObjects
     out of a location path specified as
     (host|IP):port/remote/location
     """

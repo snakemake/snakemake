@@ -22,7 +22,7 @@ google_credentials = pytest.mark.skipif(
 
 def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     """Given a storage prefix and a bucket, recursively delete files there
-    This is intended to run at the completion of testing to ensure that
+    This is intended to run after testing to ensure that
     the bucket is cleaned up.
 
     Arguments:
@@ -41,7 +41,7 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
 
 def create_google_storage(bucket_name="snakemake-testing"):
     """Given a bucket name, create the Google storage bucket,
-    with intention to be used for testing and then cleaned up by
+    intending to be used for testing and then cleaned up by
     cleanup_google_storage
 
     Arguments:
