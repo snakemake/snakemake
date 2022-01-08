@@ -237,7 +237,7 @@ class GitlabFile(HostingProviderFile):
 
 def infer_source_file(path_or_uri, basedir: SourceFile = None):
     if isinstance(path_or_uri, SourceFile):
-        if basedir is None:
+        if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
