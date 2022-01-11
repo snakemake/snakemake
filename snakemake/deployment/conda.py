@@ -370,9 +370,18 @@ class Env:
                     post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
                     if post_deploy_script.exists():
                         if ON_WINDOWS:
-                            raise WorkflowError("Post deploy script {} provided for conda env {} but unsupported on windows.".format(post_deploy_script, env_file))
+                            raise WorkflowError(
+                                "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
+                                    post_deploy_script, env_file
+                                )
+                            )
                         # run the script relative to current workdir
-                        shell.check_output(conda.shellcmd(env_path, "sh {}".format(post_deploy_script)), stderr=subprocess.STDOUT)
+                        shell.check_output(
+                            conda.shellcmd(
+                                env_path, "sh {}".format(post_deploy_script)
+                            ),
+                            stderr=subprocess.STDOUT,
+                        )
 
                     # cleanup if requested
                     if self._cleanup is CondaCleanupMode.tarballs:
