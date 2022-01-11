@@ -71,7 +71,7 @@ Consider the following example:
     module dna_seq:
         snakefile:
             # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
-            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config:
             config
 
@@ -100,7 +100,7 @@ For example, we can easily add another rule to extend the given workflow:
     module dna_seq:
         snakefile:
             # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
-            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config: config
 
     use rule * from dna_seq
@@ -127,7 +127,7 @@ We can extend above example in the following way:
 
     module dna_seq:
         snakefile:
-            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config: config["dna-seq"]
         prefix: "dna-seq"
 
@@ -143,7 +143,7 @@ We can extend above example in the following way:
 
     module rna_seq:
         snakefile:
-            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile", tag="v2.0.1")
         config: config["rna-seq"]
         prefix: "rna-seq"
 
