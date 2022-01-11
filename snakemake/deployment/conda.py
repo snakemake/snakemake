@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 import re
 from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 import subprocess
@@ -364,6 +365,14 @@ class Env:
                     out = shell.check_output(
                         cmd, stderr=subprocess.STDOUT, universal_newlines=True
                     )
+
+                    # TODO run post-deploy.sh if present
+                    post_deploy_script = Path(env_file).with_extension(".post-deploy.sh")
+                    if post_deploy_script.exists():
+                        if ON_WINDOWS:
+                            raise WorkflowError("Post deploy script {} provided for conda env {} but unsupported on windows.".format(post_deploy_script, env_file))
+                        # run the script relative to current workdir
+                        shell.check_output(conda.shellcmd("sh {post_deploy_script}"), stderr=subprocess.STDOUT)
 
                     # cleanup if requested
                     if self._cleanup is CondaCleanupMode.tarballs:
