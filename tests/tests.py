@@ -585,7 +585,7 @@ def test_restartable_job_cmd_exit_1_one_restart():
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
-    The qsub in the sub directory will fail the first time and succeed the
+    The qsub in the subdirectory will fail the first time and succeed the
     second time.
     """
     # Even two consecutive times should fail as files are cleared
@@ -674,10 +674,10 @@ def test_gs_requester_pays(
     Parameters
     ----------
     requesting_project: Optional[str]
-        User project to bill for download. None will not provide project for
+        User project to bill for download. None will not provide the project for
         requester-pays as is the usual default
     requesting_url: str
-        URL of bucket to download. Default will match expected output, but is a
+        URL of the bucket to download. The default will match the expected output but is a
         bucket that doesn't require requester pays.
     """
     # create temporary config file

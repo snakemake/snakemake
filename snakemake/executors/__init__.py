@@ -2305,11 +2305,11 @@ def run_wrapper(
 
     Arguments
     job_rule   -- the ``job.rule`` member
-    input      -- list of input files
-    output     -- list of output files
+    input      -- a list of input files
+    output     -- a list of output files
     wildcards  -- so far processed wildcards
     threads    -- usable threads
-    log        -- list of log files
+    log        -- a list of log files
     shadow_dir -- optional shadow directory root
     """
     # get shortcuts to job_rule members
