@@ -376,6 +376,11 @@ class Env:
                                 )
                             )
                         # run the script relative to current workdir
+                        logger.info(
+                            "Running post-deploy script {}...".format(
+                                post_deploy_script.relative_to(os.getcwd())
+                            )
+                        )
                         shell.check_output(
                             conda.shellcmd(
                                 env_path, "sh {}".format(post_deploy_script)
