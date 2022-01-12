@@ -28,7 +28,7 @@ class RuleTest:
 
 
 def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
-    """Generate unit tests from given dag at given path."""
+    """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
     try:
