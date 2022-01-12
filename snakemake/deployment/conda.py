@@ -366,28 +366,6 @@ class Env:
                         cmd, stderr=subprocess.STDOUT, universal_newlines=True
                     )
 
-                    # TODO run post-deploy.sh if present
-                    post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
-                    if post_deploy_script.exists():
-                        if ON_WINDOWS:
-                            raise WorkflowError(
-                                "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
-                                    post_deploy_script, env_file
-                                )
-                            )
-                        # run the script relative to current workdir
-                        logger.info(
-                            "Running post-deploy script {}...".format(
-                                post_deploy_script.relative_to(os.getcwd())
-                            )
-                        )
-                        shell.check_output(
-                            conda.shellcmd(
-                                env_path, "sh {}".format(post_deploy_script)
-                            ),
-                            stderr=subprocess.STDOUT,
-                        )
-
                     # cleanup if requested
                     if self._cleanup is CondaCleanupMode.tarballs:
                         logger.info("Cleaning up conda package tarballs.")
@@ -397,6 +375,26 @@ class Env:
                             "Cleaning up conda package tarballs and package cache."
                         )
                         shell.check_output("conda clean -y --tarballs --packages")
+
+                # Execute post-deplay script if present
+                post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
+                if post_deploy_script.exists():
+                    if ON_WINDOWS:
+                        raise WorkflowError(
+                            "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
+                                post_deploy_script, env_file
+                            )
+                        )
+                    logger.info(
+                        "Running post-deploy script {}...".format(
+                            post_deploy_script.relative_to(os.getcwd())
+                        )
+                    )
+                    shell.check_output(
+                        conda.shellcmd(env_path, "sh {}".format(post_deploy_script)),
+                        stderr=subprocess.STDOUT,
+                    )
+
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
