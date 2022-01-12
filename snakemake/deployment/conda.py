@@ -212,6 +212,30 @@ class Env:
             raise e
         return env_archive
 
+    def execute_deployment_script(self):
+        """Execute post-deployment script if present"""
+        from snakemake.shell import shell
+
+        env_file = self.file
+        post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
+        if post_deploy_script.exists():
+            if ON_WINDOWS:
+                raise WorkflowError(
+                    "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
+                        post_deploy_script, env_file
+                    )
+                )
+            logger.info(
+                "Running post-deploy script {}...".format(
+                    post_deploy_script.relative_to(os.getcwd())
+                )
+            )
+            conda = Conda(self._container_img)
+            shell.check_output(
+                conda.shellcmd(self.path, "sh {}".format(post_deploy_script)),
+                stderr=subprocess.STDOUT,
+            )
+
     def create(self, dryrun=False):
         """Create the conda enviroment."""
         from snakemake.shell import shell
@@ -377,23 +401,7 @@ class Env:
                         shell.check_output("conda clean -y --tarballs --packages")
 
                 # Execute post-deplay script if present
-                post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
-                if post_deploy_script.exists():
-                    if ON_WINDOWS:
-                        raise WorkflowError(
-                            "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
-                                post_deploy_script, env_file
-                            )
-                        )
-                    logger.info(
-                        "Running post-deploy script {}...".format(
-                            post_deploy_script.relative_to(os.getcwd())
-                        )
-                    )
-                    shell.check_output(
-                        conda.shellcmd(env_path, "sh {}".format(post_deploy_script)),
-                        stderr=subprocess.STDOUT,
-                    )
+                self.execute_deployment_script()
 
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
