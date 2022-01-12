@@ -212,11 +212,10 @@ class Env:
             raise e
         return env_archive
 
-    def execute_deployment_script(self):
+    def execute_deployment_script(self, env_file):
         """Execute post-deployment script if present"""
         from snakemake.shell import shell
 
-        env_file = self.file
         post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
         if post_deploy_script.exists():
             if ON_WINDOWS:
@@ -401,7 +400,7 @@ class Env:
                         shell.check_output("conda clean -y --tarballs --packages")
 
                 # Execute post-deplay script if present
-                self.execute_deployment_script()
+                self.execute_deployment_script(env_file)
 
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
