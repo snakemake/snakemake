@@ -2,7 +2,7 @@ shell.executable("bash")
 
 rule all:
     input:
-        expand("test.out", i=range(3))
+        "test.out"
 
 rule a:
     output:
