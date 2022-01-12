@@ -269,7 +269,7 @@ Providing post-deployment scripts
 
 With Snakemake 9.14 post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
 This might be helpful in case a conda package is missing components or requires further configuration for execution.
-post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deplay.sh``.
+post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``.
 
 .. code-block:: python
 
@@ -280,7 +280,7 @@ post-deployment scripts must be placed next to their corresponding environment-f
             "results.tsv"
         conda:
             "envs/interproscan.yaml"
-            "envs/interproscan.post-deplay.sh
+            "envs/interproscan.post-deploy.sh
         shell:
             "interproscan.sh -i {input} -f tsv -o {output}"
 
