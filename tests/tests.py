@@ -1346,3 +1346,9 @@ def test_converting_path_for_r_script():
 
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+def test_issue1331():
+    # not guaranteed to fail, so let's try multiple times
+    for i in range(10):
+        run(dpath("test_issue1331"), cores=4)
