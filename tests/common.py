@@ -20,7 +20,7 @@ from snakemake.common import ON_WINDOWS
 
 
 def dpath(path):
-    """get path to a data file (relative to the directory this
+    """get the path to a data file (relative to the directory this
     test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
@@ -73,7 +73,7 @@ def copy(src, dst):
 
 def get_expected_files(results_dir):
     """Recursively walk through the expected-results directory to enumerate
-    all excpected files."""
+    all expected files."""
     return [
         os.path.relpath(f, results_dir)
         for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
@@ -90,6 +90,7 @@ def run(
     check_md5=True,
     check_results=True,
     cores=3,
+    nodes=1,
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
@@ -100,7 +101,7 @@ def run(
     **params,
 ):
     """
-    Test the Snakefile in path.
+    Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
@@ -168,6 +169,7 @@ def run(
         success = snakemake(
             snakefile=original_snakefile if no_tmpdir else snakefile,
             cores=cores,
+            nodes=nodes,
             workdir=path if no_tmpdir else tmpdir,
             stats="stats.txt",
             config=config,

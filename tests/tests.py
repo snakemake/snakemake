@@ -264,6 +264,13 @@ def test_update_config():
     run(dpath("test_update_config"))
 
 
+def test_config_merging():
+    run(
+        dpath("test_config_merging"),
+        shellcmd='snakemake -j 1 --configfile config_cmdline_01.yaml config_cmdline_02.yaml --config "block={bowser: cmdline_bowser}" "block={toad: cmdline_toad}"',
+    )
+
+
 def test_wildcard_keyword():
     run(dpath("test_wildcard_keyword"))
 
@@ -348,6 +355,11 @@ def test_shadow_prefix():
 @skip_on_windows
 def test_shadow_prefix_qsub():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
+
+
+@skip_on_windows
+def test_shadowed_log():
+    run(dpath("test_shadowed_log"))
 
 
 def test_until():
@@ -573,7 +585,7 @@ def test_restartable_job_cmd_exit_1_one_restart():
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
-    The qsub in the sub directory will fail the first time and succeed the
+    The qsub in the subdirectory will fail the first time and succeed the
     second time.
     """
     # Even two consecutive times should fail as files are cleared
@@ -662,10 +674,10 @@ def test_gs_requester_pays(
     Parameters
     ----------
     requesting_project: Optional[str]
-        User project to bill for download. None will not provide project for
+        User project to bill for download. None will not provide the project for
         requester-pays as is the usual default
     requesting_url: str
-        URL of bucket to download. Default will match expected output, but is a
+        URL of the bucket to download. The default will match the expected output but is a
         bucket that doesn't require requester pays.
     """
     # create temporary config file
@@ -848,7 +860,7 @@ def test_pipes():
 @skip_on_windows
 def test_pipes_multiple():
     # see github issue #975
-    run(dpath("test_pipes_multiple"))
+    run(dpath("test_pipes_multiple"), cores=5)
 
 
 def test_pipes_fail():
@@ -1160,6 +1172,18 @@ def test_jupyter_notebook():
     run(dpath("test_jupyter_notebook"), use_conda=True)
 
 
+def test_jupyter_notebook_draft():
+    from snakemake.notebook import EditMode
+
+    run(
+        dpath("test_jupyter_notebook_draft"),
+        use_conda=True,
+        edit_notebook=EditMode(draft_only=True),
+        targets=["results/result_intermediate.txt"],
+        check_md5=False,
+    )
+
+
 def test_github_issue456():
     run(dpath("test_github_issue456"))
 
@@ -1180,13 +1204,15 @@ def test_github_issue640():
 
 @skip_on_windows  # TODO check whether this might be enabled later
 def test_generate_unit_tests():
-    tmpdir = run(
-        dpath("test_generate_unit_tests"),
-        generate_unit_tests=".tests/unit",
-        check_md5=False,
-        cleanup=False,
-    )
-    sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
+    with tempfile.NamedTemporaryFile() as tmpfile:
+        os.environ["UNIT_TEST_TMPFILE"] = tmpfile.name
+        tmpdir = run(
+            dpath("test_generate_unit_tests"),
+            generate_unit_tests=".tests/unit",
+            check_md5=False,
+            cleanup=False,
+        )
+        sp.check_call(["pytest", ".tests", "-vs"], cwd=tmpdir)
 
 
 @skip_on_windows
@@ -1245,6 +1271,11 @@ def test_long_shell():
 
 def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
+
+
+@skip_on_windows
+def test_modules_prefix():
+    run(dpath("test_modules_prefix"), targets=["a"])
 
 
 def test_modules_specific():
@@ -1346,6 +1377,16 @@ def test_converting_path_for_r_script():
 
 def test_ancient_dag():
     run(dpath("test_ancient_dag"))
+
+
+@skip_on_windows
+def test_checkpoint_allowed_rules():
+    run(dpath("test_checkpoint_allowed_rules"), targets=["c"], cluster="./qsub")
+
+
+@skip_on_windows
+def test_modules_ruledeps_inheritance():
+    run(dpath("test_modules_ruledeps_inheritance"))
 
 
 def test_issue1331():

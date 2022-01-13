@@ -40,6 +40,9 @@ extensions = [
     'myst_parser',
 ]
 
+# skip internal class that Sphinx can't process (#296)
+autodoc_default_options = {'exclude-members': 'lazy_property'}
+
 # Snakemake theme (made by SciAni).
 html_css_files = ["theme.css"]
 

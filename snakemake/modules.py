@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from pathlib import Path
 import types
 import re
 
@@ -13,18 +14,24 @@ from snakemake.checkpoints import Checkpoints
 from snakemake.common import Rules, Scatter, Gather
 
 
-def get_name_modifier_func(rules=None, name_modifier=None):
+def get_name_modifier_func(rules=None, name_modifier=None, parent_modifier=None):
     if name_modifier is None:
         return None
     else:
+        if parent_modifier is None:
+            parent_modifier_func = lambda rulename: rulename
+        else:
+            parent_modifier_func = parent_modifier.modify_rulename
         if "*" in name_modifier:
-            return lambda rulename: name_modifier.replace("*", rulename)
+            return lambda rulename: parent_modifier_func(
+                name_modifier.replace("*", rulename)
+            )
         elif name_modifier is not None:
             if len(rules) > 1:
                 raise SyntaxError(
                     "Multiple rules in 'use rule' statement but name modification ('as' statement) does not contain a wildcard '*'."
                 )
-            return lambda rulename: name_modifier
+            return lambda rulename: parent_modifier_func(name_modifier)
 
 
 class ModuleInfo:
@@ -37,6 +44,7 @@ class ModuleInfo:
         config=None,
         skip_validation=False,
         replace_prefix=None,
+        prefix=None,
     ):
         self.workflow = workflow
         self.name = name
@@ -44,7 +52,22 @@ class ModuleInfo:
         self.meta_wrapper = meta_wrapper
         self.config = config
         self.skip_validation = skip_validation
+
+        if prefix is not None:
+            if isinstance(prefix, Path):
+                prefix = str(prefix)
+            if not isinstance(prefix, str):
+                raise WorkflowError(
+                    "Prefix definition in module statement must be string or Path."
+                )
+            if replace_prefix is not None:
+                raise WorkflowError(
+                    "Module definition contains both prefix and replace_prefix. "
+                    "Only one at a time is allowed."
+                )
+
         self.replace_prefix = replace_prefix
+        self.prefix = prefix
 
     def use_rules(self, rules=None, name_modifier=None, ruleinfo=None):
         snakefile = self.get_snakefile()
@@ -60,6 +83,7 @@ class ModuleInfo:
             allow_rule_overwrite=True,
             namespace=self.name,
             replace_prefix=self.replace_prefix,
+            prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
@@ -110,6 +134,7 @@ class WorkflowModifier:
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
         replace_prefix=None,
+        prefix=None,
         replace_wrapper_tag=None,
         namespace=None,
     ):
@@ -128,7 +153,7 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = PathModifier(replace_prefix, workflow)
+        self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
