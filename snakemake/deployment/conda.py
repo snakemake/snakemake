@@ -61,6 +61,7 @@ class Env:
         self._hash = None
         self._content_hash = None
         self._content = None
+        self._content_deploy = None
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
@@ -68,6 +69,10 @@ class Env:
 
     def _get_content(self):
         return self.workflow.sourcecache.open(self.file, "rb").read()
+
+    def _get_content_deploy(self):
+        deploy_file = Path(self.file).with_suffix(".post-deploy.sh")
+        return self.workflow.sourcecache.open(deploy_file, "rb").read()
 
     @property
     def _env_archive_dir(self):
@@ -82,6 +87,12 @@ class Env:
         if self._content is None:
             self._content = self._get_content()
         return self._content
+
+    @property
+    def content_deploy(self):
+        if self._content_deploy is None:
+            self._content_deploy = self._get_content_deploy()
+        return self._content_deploy
 
     @property
     def hash(self):
@@ -212,28 +223,26 @@ class Env:
             raise e
         return env_archive
 
-    def execute_deployment_script(self, env_file):
+    def execute_deployment_script(self, env_file, deploy_file):
         """Execute post-deployment script if present"""
         from snakemake.shell import shell
 
-        post_deploy_script = Path(env_file).with_suffix(".post-deploy.sh")
-        if post_deploy_script.exists():
-            if ON_WINDOWS:
-                raise WorkflowError(
-                    "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
-                        post_deploy_script, env_file
-                    )
-                )
-            logger.info(
-                "Running post-deploy script {}...".format(
-                    post_deploy_script.relative_to(os.getcwd())
+        if ON_WINDOWS:
+            raise WorkflowError(
+                "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
+                    deploy_file, env_file
                 )
             )
-            conda = Conda(self._container_img)
-            shell.check_output(
-                conda.shellcmd(self.path, "sh {}".format(post_deploy_script)),
-                stderr=subprocess.STDOUT,
+        logger.info(
+            "Running post-deploy script {}...".format(
+                deploy_file.relative_to(os.getcwd())
             )
+        )
+        conda = Conda(self._container_img)
+        shell.check_output(
+            conda.shellcmd(self.path, "sh {}".format(deploy_file)),
+            stderr=subprocess.STDOUT,
+        )
 
     def create(self, dryrun=False):
         """Create the conda enviroment."""
@@ -241,7 +250,9 @@ class Env:
 
         # Read env file and create hash.
         env_file = self.file
-        tmp_file = None
+        deploy_file = None
+        tmp_env_file = None
+        tmp_deploy_file = None
 
         if not isinstance(env_file, LocalSourceFile) or isinstance(
             env_file, LocalGitFile
@@ -250,9 +261,19 @@ class Env:
                 # write to temp file such that conda can open it
                 tmp.write(self.content)
                 env_file = tmp.name
-                tmp_file = tmp.name
+                tmp_env_file = tmp.name
+            if Path(self.file).with_suffix(".post-deploy.sh").exists():
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".post-deploy.sh"
+                ) as tmp:
+                    # write to temp file such that conda can open it
+                    tmp.write(self.content_deploy)
+                    deploy_file = tmp.name
+                    tmp_deploy_file = tmp.name
         else:
             env_file = env_file.get_path_or_uri()
+            if Path(env_file).with_suffix(".post-deploy.sh").exists():
+                deploy_file = Path(env_file).with_suffix(".post-deploy.sh")
 
         env_hash = self.hash
         env_path = self.path
@@ -400,7 +421,10 @@ class Env:
                         shell.check_output("conda clean -y --tarballs --packages")
 
                 # Execute post-deplay script if present
-                self.execute_deployment_script(env_file)
+                if deploy_file:
+                    target_deploy_file = env_path + ".post-deploy.sh"
+                    shutil.copy(deploy_file, target_deploy_file)
+                    self.execute_deployment_script(env_file, target_deploy_file)
 
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
@@ -420,9 +444,11 @@ class Env:
                     + e.output
                 )
 
-        if tmp_file:
+        if tmp_env_file:
             # temporary file was created
-            os.remove(tmp_file)
+            os.remove(tmp_env_file)
+        if tmp_deploy_file:
+            os.remove(tmp_deploy_file)
 
         return env_path
 
