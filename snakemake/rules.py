@@ -752,7 +752,7 @@ class Rule:
                     is_unpack=is_unpack,
                     **aux_params
                 )
-                if apply_path_modifier:
+                if apply_path_modifier and not incomplete:
                     item = self.apply_path_modifier(item, property=property)
 
             if is_unpack and not incomplete:
