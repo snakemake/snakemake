@@ -262,7 +262,11 @@ class Env:
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_env_file = tmp.name
-            if Path(self.file).with_suffix(".post-deploy.sh").exists():
+            if (
+                Path(self.file.get_path_or_uri())
+                .with_suffix(".post-deploy.sh")
+                .exists()
+            ):
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".post-deploy.sh"
                 ) as tmp:
