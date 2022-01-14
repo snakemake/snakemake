@@ -262,6 +262,36 @@ Conda deployment also works well for offline or air-gapped environments. Running
 
 .. _singularity:
 
+
+-------------------------
+Providing post-deployment scripts
+-------------------------
+
+From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
+This might be helpful in case a conda package is missing components or requires further configuration for execution.
+Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "seqs.fastq"
+        output:
+            "results.tsv"
+        conda:
+            "envs/interproscan.yaml"
+        shell:
+            "interproscan.sh -i {input} -f tsv -o {output}"
+
+.. code-block:: none
+
+    ├── Snakefile
+    └── envs
+        ├── interproscan.yaml
+        └── interproscan.post-deploy.sh
+
+The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+
 --------------------------
 Running jobs in containers
 --------------------------

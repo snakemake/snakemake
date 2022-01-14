@@ -1,0 +1,17 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        "test.out"
+
+rule a:
+    output:
+        "test.out"
+    conda:
+        "test-env.yaml"
+    shell:
+        """
+        if [ -f $CONDA_PREFIX/test.txt ] ;then
+            touch {output}
+        fi
+        """

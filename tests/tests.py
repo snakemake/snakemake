@@ -429,6 +429,11 @@ def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
+@skip_on_windows
+def test_deploy_script():
+    run(dpath("test_deploy_script"), use_conda=True)
+
+
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
