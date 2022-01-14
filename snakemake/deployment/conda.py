@@ -235,7 +235,7 @@ class Env:
             )
         logger.info(
             "Running post-deploy script {}...".format(
-                deploy_file.relative_to(os.getcwd())
+                Path(deploy_file).relative_to(os.getcwd())
             )
         )
         conda = Conda(self._container_img)
