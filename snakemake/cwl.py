@@ -193,7 +193,7 @@ def job_to_cwl(job, dag, outputs, inputs):
 
 
 def dag_to_cwl(dag):
-    """Convert a given DAG to a CWL workflow, which is returned as JSON object."""
+    """Convert a given DAG to a CWL workflow, which is returned as a JSON object."""
     snakemake_cwl = {
         "class": "CommandLineTool",
         "id": "#snakemake-job",

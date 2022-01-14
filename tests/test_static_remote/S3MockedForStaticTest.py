@@ -41,7 +41,7 @@ def pickled_moto_wrapper(func):
     """
         This is a class decorator that in turn decorates all methods within
         a class to mock out boto calls with moto-simulated ones.
-        Since the moto backends are not presistent across calls by default, 
+        Since the moto backends are not persistent across calls by default,
         the wrapper also pickles the bucket state after each function call,
         and restores it before execution. This way uploaded files are available
         for follow-on tasks. Since snakemake may execute with multiple threads

@@ -1,0 +1,17 @@
+shell.executable("bash")
+
+configfile: "config/config.yaml"
+
+
+module test:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        config
+    prefix:
+        "foo"
+
+
+use rule * from test
+
+assert test.some_func() == 15

@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from pathlib import Path
 import types
 import re
 
@@ -43,6 +44,7 @@ class ModuleInfo:
         config=None,
         skip_validation=False,
         replace_prefix=None,
+        prefix=None,
     ):
         self.workflow = workflow
         self.name = name
@@ -50,7 +52,22 @@ class ModuleInfo:
         self.meta_wrapper = meta_wrapper
         self.config = config
         self.skip_validation = skip_validation
+
+        if prefix is not None:
+            if isinstance(prefix, Path):
+                prefix = str(prefix)
+            if not isinstance(prefix, str):
+                raise WorkflowError(
+                    "Prefix definition in module statement must be string or Path."
+                )
+            if replace_prefix is not None:
+                raise WorkflowError(
+                    "Module definition contains both prefix and replace_prefix. "
+                    "Only one at a time is allowed."
+                )
+
         self.replace_prefix = replace_prefix
+        self.prefix = prefix
 
     def use_rules(self, rules=None, name_modifier=None, ruleinfo=None):
         snakefile = self.get_snakefile()
@@ -66,6 +83,7 @@ class ModuleInfo:
             allow_rule_overwrite=True,
             namespace=self.name,
             replace_prefix=self.replace_prefix,
+            prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
         ):
             self.workflow.include(snakefile, overwrite_first_rule=True)
@@ -116,6 +134,7 @@ class WorkflowModifier:
         ruleinfo_overwrite=None,
         allow_rule_overwrite=False,
         replace_prefix=None,
+        prefix=None,
         replace_wrapper_tag=None,
         namespace=None,
     ):
@@ -134,7 +153,7 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = PathModifier(replace_prefix, workflow)
+        self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 

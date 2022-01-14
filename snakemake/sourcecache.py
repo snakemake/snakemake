@@ -13,7 +13,13 @@ import io
 from abc import ABC, abstractmethod
 
 
-from snakemake.common import is_local_file, get_appdirs, parse_uri, smart_join
+from snakemake.common import (
+    ON_WINDOWS,
+    is_local_file,
+    get_appdirs,
+    parse_uri,
+    smart_join,
+)
 from snakemake.exceptions import WorkflowError, SourceFileError
 from snakemake.io import git_content, split_git_path
 from snakemake.logging import logger
@@ -202,6 +208,10 @@ class HostingProviderFile(SourceFile):
 
     def join(self, path):
         path = os.path.normpath("{}/{}".format(self.path, path))
+        if ON_WINDOWS:
+            # convert back to URL separators
+            # (win specific separators are introduced by normpath above)
+            path = path.replace("\\", "/")
         return self.__class__(
             repo=self.repo,
             path=path,
@@ -237,7 +247,7 @@ class GitlabFile(HostingProviderFile):
 
 def infer_source_file(path_or_uri, basedir: SourceFile = None):
     if isinstance(path_or_uri, SourceFile):
-        if basedir is None:
+        if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()

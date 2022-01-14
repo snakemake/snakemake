@@ -96,7 +96,6 @@ if os.chmod in os.supports_follow_symlinks:
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
 
-
 else:
 
     def lchmod(f, mode):
@@ -793,7 +792,7 @@ _wildcard_regex = re.compile(
 def wait_for_files(
     files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
 ):
-    """Wait for given files to be present in filesystem."""
+    """Wait for given files to be present in the filesystem."""
     files = list(files)
 
     def get_missing():
@@ -987,7 +986,7 @@ def ancient(value):
 
 def directory(value):
     """
-    A flag to specify that an output is a directory, rather than a file or named pipe.
+    A flag to specify that output is a directory, rather than a file or named pipe.
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
@@ -1025,7 +1024,7 @@ def temporary(value):
 
 
 def protected(value):
-    """A flag for a file that shall be write protected after creation."""
+    """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1079,7 +1078,7 @@ def report(
 ):
     """Flag output file or directory as to be included into reports.
 
-    In case of directory, files to include can be specified via a glob pattern (default: *).
+    In the case of a directory, files to include can be specified via a glob pattern (default: *).
 
     Arguments
     value -- File or directory.
@@ -1097,7 +1096,7 @@ def report(
 
 
 def local(value):
-    """Mark a file as local file. This disables application of a default remote
+    """Mark a file as a local file. This disables the application of a default remote
     provider.
     """
     if is_flagged(value, "remote"):
@@ -1300,7 +1299,7 @@ def get_git_root(path):
     Args:
         path: (str) Path a to a directory/file that is located inside the repo
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1316,14 +1315,14 @@ def get_git_root_parent_directory(path, input_path):
     """
     This function will recursively go through parent directories until a git
     repository is found or until no parent directories are left, in which case
-    a error will be raised. This is needed when providing a path to a
-    file/folder that is located on a branch/tag no currently checked out.
+    an error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag not currently checked out.
 
     Args:
         path: (str) Path a to a directory that is located inside the repo
         input_path: (str) origin path, used when raising WorkflowError
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1345,10 +1344,10 @@ def git_content(git_file):
     """
     This function will extract a file from a git repository, one located on
     the filesystem.
-    Expected format is git+file:///path/to/your/repo/path_to_file@version
+    The expected format is git+file:///path/to/your/repo/path_to_file@version
 
     Args:
-      env_file (str): consist of path to repo, @, version and file information
+      env_file (str): consist of path to repo, @, version, and file information
                       Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
     Returns:
         file content or None if the expected format isn't meet
@@ -1378,7 +1377,7 @@ def strip_wildcard_constraints(pattern):
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
-    it is hashable, however the hash does not consider the item names.
+    it is hashable, however, the hash does not consider the item names.
     """
 
     def __init__(
