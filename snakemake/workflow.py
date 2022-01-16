@@ -204,7 +204,7 @@ class Workflow:
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfiles = overwrite_configfiles or []
+        self.configfiles = list(overwrite_configfiles) or []
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
@@ -682,7 +682,8 @@ class Workflow:
 
         rules = self.rules
         if allowed_rules:
-            rules = [rule for rule in rules if rule.name in set(allowed_rules)]
+            allowed_rules = set(allowed_rules)
+            rules = [rule for rule in rules if rule.name in allowed_rules]
 
         if wait_for_files is not None:
             try:
@@ -958,7 +959,7 @@ class Workflow:
             for env in set(job.conda_env for job in dag.jobs):
                 if env:
                     print(
-                        simplify_path(env.file),
+                        env.file.simplify_path(),
                         env.container_img_url or "",
                         simplify_path(env.path),
                         sep="\t",
@@ -1180,7 +1181,7 @@ class Workflow:
             # this allows to import modules from the workflow directory
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        self.linemaps[snakefile] = linemap
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
@@ -1238,10 +1239,23 @@ class Workflow:
         """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
-            self.configfiles.append(fp)
-            c = snakemake.io.load_configfile(fp)
-            update_config(config, c)
-            update_config(config, self.overwrite_config)
+            if os.path.exists(fp):
+                self.configfiles.append(fp)
+                c = snakemake.io.load_configfile(fp)
+                update_config(config, c)
+                if self.overwrite_config:
+                    logger.info(
+                        "Config file {} is extended by additional config specified via the command line.".format(
+                            fp
+                        )
+                    )
+                    update_config(config, self.overwrite_config)
+            elif not self.overwrite_configfiles:
+                raise WorkflowError(
+                    "Workflow defines configfile {} but it is not present or accessible.".format(
+                        fp
+                    )
+                )
 
     def pepfile(self, path):
         global pep
@@ -1772,6 +1786,7 @@ class Workflow:
         config=None,
         skip_validation=False,
         replace_prefix=None,
+        prefix=None,
     ):
         self.modules[name] = ModuleInfo(
             self,
@@ -1781,6 +1796,7 @@ class Workflow:
             config=config,
             skip_validation=skip_validation,
             replace_prefix=replace_prefix,
+            prefix=prefix,
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):
@@ -1805,11 +1821,13 @@ class Workflow:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
-                orig_rule = self._rules[rules[0]]
+                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
-                    rulename_modifier=get_name_modifier_func(rules, name_modifier),
+                    rulename_modifier=get_name_modifier_func(
+                        rules, name_modifier, parent_modifier=self.modifier
+                    ),
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     self.rule(

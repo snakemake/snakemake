@@ -494,49 +494,46 @@ class Logger:
             self.last_msg_was_job_info = True
         elif level == "group_info" and not self.quiet:
             timestamp()
+            msg = "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
             if not self.last_msg_was_job_info:
-                self.logger.info("")
-            self.logger.info(
-                "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
-            )
+                msg = "\n" + msg
+            self.logger.info(msg)
         elif level == "job_error":
-            timestamp()
-            self.logger.error(indent("Error in rule {}:".format(msg["name"])))
-            self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
-            if msg["output"]:
-                self.logger.error(
-                    indent("    output: {}".format(", ".join(msg["output"])))
-                )
-            if msg["log"]:
-                self.logger.error(
-                    indent(
+
+            def job_error():
+                yield indent("Error in rule {}:".format(msg["name"]))
+                yield indent("    jobid: {}".format(msg["jobid"]))
+                if msg["output"]:
+                    yield indent("    output: {}".format(", ".join(msg["output"])))
+                if msg["log"]:
+                    yield indent(
                         "    log: {} (check log file(s) for error message)".format(
                             ", ".join(msg["log"])
                         )
                     )
-                )
-            if msg["conda_env"]:
-                self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
-            if msg["shellcmd"]:
-                self.logger.error(
-                    indent(
+                if msg["conda_env"]:
+                    yield indent("    conda-env: {}".format(msg["conda_env"]))
+                if msg["shellcmd"]:
+                    yield indent(
                         "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
                             msg["shellcmd"]
                         )
                     )
-                )
 
-            for item in msg["aux"].items():
-                self.logger.error(indent("    {}: {}".format(*item)))
+                for item in msg["aux"].items():
+                    yield indent("    {}: {}".format(*item))
 
-            if self.show_failed_logs and msg["log"]:
-                for f in msg["log"]:
-                    try:
-                        self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
-                    except FileNotFoundError:
-                        self.logger.error("Logfile {} not found.".format(f))
+                if self.show_failed_logs and msg["log"]:
+                    for f in msg["log"]:
+                        try:
+                            yield "Logfile {}:\n{}".format(f, open(f).read())
+                        except FileNotFoundError:
+                            yield "Logfile {} not found.".format(f)
 
-            self.logger.error("")
+                yield ""
+
+            timestamp()
+            self.logger.error("\n".join(map(indent, job_error())))
         elif level == "group_error":
             timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
