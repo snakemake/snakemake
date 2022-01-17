@@ -86,4 +86,4 @@ Installation via pip
 Instead of conda, snakemake can be installed with pip.
 However, note that snakemake has non-python dependencies, such that the pip based installation has a limited functionality if those dependencies are not manually installed in addition.
 
-A list of all of Snakemake's dependencies can be found within its `meta.yaml conda recipe <https://bioconda.github.io/recipes/snakemake/README.html>`_.
+A list of Snakemake's dependencies can be found within its `meta.yaml conda recipe <https://bioconda.github.io/recipes/snakemake/README.html>`_.
