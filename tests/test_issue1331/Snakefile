@@ -12,24 +12,24 @@ rule all:
 
 checkpoint trimming:
     output:
-        "trimmed-{sample}.txt"
+        "output/trimmed/{sample}.txt"
     shell:
         "touch {output}; sleep 1"
 
 
 rule align:
     input:
-        "trimmed-{sample}.txt"
+        "output/trimmed/{sample}.txt"
     output:
-        pipe("aligned-{sample}.txt")
+        pipe("output/aligned/{sample}.txt")
     shell:
         "touch {output}; sleep 1"
 
 
 rule sort:
     input:
-        "aligned-{sample}.txt"
+        "output/aligned/{sample}.txt"
     output:
-        "aligned_and_sort-{sample}.txt"
+        "output/aligned_and_sort/{sample}.txt"
     shell:
         "touch {output}; sleep 1"
