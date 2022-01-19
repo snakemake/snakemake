@@ -133,49 +133,6 @@ class SlurmExecutor(ClusterExecutor):
 
         return job.dynamic_wildcards.copy()
 
-    def write_jobscript(self, job, jobscript, **kwargs):
-        pass
-        # only force threads if this is not a group job
-        # otherwise we want proper process handling
-    #    use_threads = "--force-use-threads" if not job.is_group() else ""
-
-    #    envvars = " ".join(
-    #       "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
-    #    )
-
-        # We need to shorten the exec_job-string, here.
-        # The first part SLURM sees should be the executable, here:
-        # snakemake.
-        #print(self.exec_job)
-        #print('=' * 10)
-        #to_exec = " ".join(self.exec_job.split(" ")[5:])
-        #print(to_exec)
-        #print('=' * 10)
-        #print(kwargs)
-        #print('=' * 10)
-        #print(job)
-        #print('=' * 10)
-        #print(self.jobscript)
-        #print('=' * 10)
-
-    #    exec_job = self.format_job(
-    #        #to_exec,
-    #        self.exec_job,
-    #        job,
-    #        _quote_all=True,
-    #        use_threads=use_threads,
-    #        #envvars=envvars,
-    #        **kwargs,
-    #    )
-
-        #content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)#
-
-        #logger.debug("Jobscript:\n{}".format(content))
-        #with open(jobscript, "w") as f:
-        #    print(content, file=f)
-
-        #os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
-
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         workdir = os.getcwd()
@@ -189,7 +146,8 @@ class SlurmExecutor(ClusterExecutor):
         try:
             call = "sbatch -A {account} -p {partition} \
                     -J {jobname} \
-                    -o .snakemake/slurm_logs/%x_%j.log".format(
+                    -o .snakemake/slurm_logs/%x_%j.log \
+                    --export=ALL".format(
                 **job.resources, jobname=self.get_jobname(job)
             )
         except KeyError as e:
@@ -201,7 +159,8 @@ class SlurmExecutor(ClusterExecutor):
             )
             sys.exit(1)
 
-        call += " --export={}".format(",".join(self.workflow.envvars))
+        #call += " --export={}".format(",".join(self.workflow.envvars))
+        #call += ",PATH"
 
         if not job.resources.get('walltime_minutes'):
             logger.warning("No wall time limit is set, setting 'walltime_minutes' to 1.")
