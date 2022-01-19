@@ -762,8 +762,11 @@ class ClusterExecutor(RealExecutor):
             self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
+    def get_jobname(self, job):
+        return job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
+
     def get_jobscript(self, job):
-        f = job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
+        f = self.get_jobname(job)
 
         if os.path.sep in f:
             raise WorkflowError(
