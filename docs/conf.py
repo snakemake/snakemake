@@ -15,9 +15,6 @@
 
 import sys
 import os
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {'.md': CommonMarkParser}
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -37,10 +34,14 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'sphinxarg.ext',
-    'sphinx.ext.autosectionlabel'
+    'sphinx.ext.autosectionlabel',
+    'myst_parser',
 ]
+
+# skip internal class that Sphinx can't process (#296)
+autodoc_default_options = {'exclude-members': 'lazy_property'}
 
 # Snakemake theme (made by SciAni).
 html_css_files = ["theme.css"]
@@ -59,7 +60,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Snakemake'
-copyright = '2014-2016, Johannes Koester'
+copyright = '2014-2021, Johannes Koester'
 
 import snakemake
 # The version info for the project you're documenting, acts as replacement for
@@ -280,4 +281,4 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 def setup(app):
-    app.add_stylesheet('sphinx-argparse.css')
+    app.add_css_file('sphinx-argparse.css')

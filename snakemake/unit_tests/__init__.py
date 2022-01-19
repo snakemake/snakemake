@@ -28,7 +28,7 @@ class RuleTest:
 
 
 def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
-    """Generate unit tests from given dag at given path."""
+    """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
     try:
@@ -75,7 +75,12 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
                 def copy_files(files, content_type):
                     for f in files:
                         f = Path(f)
-                        target = path / rulename / content_type / f.parent
+                        parent = f.parent
+                        if parent.is_absolute():
+                            root = str(f.parents[len(f.parents) - 1])
+                            parent = str(parent)[len(root) :]
+                            print(parent)
+                        target = path / rulename / content_type / parent
                         os.makedirs(target, exist_ok=True)
                         if f.is_dir():
                             shutil.copytree(f, target)
@@ -105,6 +110,6 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         if not written:
             logger.warning(
                 "No job with all input files present for rule {}. "
-                "Consider re-executing the workflow with --no-temp in order "
+                "Consider re-executing the workflow with --notemp in order "
                 "have all input files present before generating unit tests."
             )

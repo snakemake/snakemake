@@ -12,6 +12,7 @@ from urllib.request import urlopen
 
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
+from snakemake.sourcecache import SourceCache, infer_source_file
 
 
 PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
@@ -52,35 +53,24 @@ def is_git_path(path):
     return path.startswith("git+file:")
 
 
-def find_extension(path, extensions=[".py", ".R", ".Rmd", ".jl"]):
+def find_extension(
+    path, sourcecache: SourceCache, extensions=[".py", ".R", ".Rmd", ".jl"]
+):
     for ext in extensions:
         if path.endswith("wrapper{}".format(ext)):
             return path
+
+    path = infer_source_file(path)
     for ext in extensions:
-        script = "/wrapper{}".format(ext)
-        if is_local(path):
-            if path.startswith("file://"):
-                p = path[7:]
-            elif path.startswith("file:"):
-                p = path[5:]
-            if os.path.exists(p + script):
-                return path + script
-        else:
-            try:
-                urlopen(path + script)
-                return path + script
-            except URLError:
-                continue
-    if is_git_path(path):
-        path, version = path.split("@")
-        return os.path.join(path, "wrapper.py") + "@" + version
-    else:
-        return path + "/wrapper.py"  # default case
+        script = path.join("wrapper{}".format(ext))
+
+        if sourcecache.exists(script):
+            return script
 
 
-def get_script(path, prefix=None):
+def get_script(path, sourcecache: SourceCache, prefix=None):
     path = get_path(path, prefix=prefix)
-    return find_extension(path)
+    return find_extension(path, sourcecache)
 
 
 def get_conda_env(path, prefix=None):
@@ -106,6 +96,7 @@ def wrapper(
     config,
     rulename,
     conda_env,
+    conda_base_path,
     container_img,
     singularity_args,
     env_modules,
@@ -115,12 +106,15 @@ def wrapper(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
+    runtime_sourcecache_path,
 ):
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
     the given path + wrapper.(py|R|Rmd) and execute it.
     """
-    path = get_script(path, prefix=prefix)
+    path = get_script(
+        path, SourceCache(runtime_cache_path=runtime_sourcecache_path), prefix=prefix
+    )
     script(
         path,
         "",
@@ -134,6 +128,7 @@ def wrapper(
         config,
         rulename,
         conda_env,
+        conda_base_path,
         container_img,
         singularity_args,
         env_modules,
@@ -142,4 +137,5 @@ def wrapper(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        runtime_sourcecache_path,
     )

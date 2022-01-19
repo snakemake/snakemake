@@ -4,11 +4,12 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 import re
+from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
 import subprocess
 import tempfile
 from urllib.request import urlopen
-from urllib.parse import urlparse
 from urllib.error import URLError
 import hashlib
 import shutil
@@ -22,9 +23,10 @@ from enum import Enum
 import threading
 import shutil
 
+
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import strip_prefix, ON_WINDOWS
+from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import git_content
@@ -45,7 +47,7 @@ class Env:
     def __init__(
         self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
     ):
-        self.file = env_file
+        self.file = infer_source_file(env_file)
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -59,6 +61,7 @@ class Env:
         self._hash = None
         self._content_hash = None
         self._content = None
+        self._content_deploy = None
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
@@ -66,6 +69,10 @@ class Env:
 
     def _get_content(self):
         return self.workflow.sourcecache.open(self.file, "rb").read()
+
+    def _get_content_deploy(self):
+        deploy_file = Path(self.file).with_suffix(".post-deploy.sh")
+        return self.workflow.sourcecache.open(deploy_file, "rb").read()
 
     @property
     def _env_archive_dir(self):
@@ -80,6 +87,12 @@ class Env:
         if self._content is None:
             self._content = self._get_content()
         return self._content
+
+    @property
+    def content_deploy(self):
+        if self._content_deploy is None:
+            self._content_deploy = self._get_content_deploy()
+        return self._content_deploy
 
     @property
     def hash(self):
@@ -110,7 +123,6 @@ class Env:
 
     @property
     def is_containerized(self):
-        import yaml
 
         if not self._container_img:
             return False
@@ -162,7 +174,9 @@ class Env:
         try:
             # Download
             logger.info(
-                "Downloading packages for conda environment {}...".format(self.file)
+                "Downloading packages for conda environment {}...".format(
+                    self.file.get_path_or_uri()
+                )
             )
             os.makedirs(env_archive, exist_ok=True)
             try:
@@ -179,8 +193,8 @@ class Env:
                     if l and not l.startswith("#") and not l.startswith("@"):
                         pkg_url = l
                         logger.info(pkg_url)
-                        parsed = urlparse(pkg_url)
-                        pkg_name = os.path.basename(parsed.path)
+                        parsed = parse_uri(pkg_url)
+                        pkg_name = os.path.basename(parsed.uri_path)
                         # write package name to list
                         print(pkg_name, file=pkg_list)
                         # download package
@@ -209,22 +223,61 @@ class Env:
             raise e
         return env_archive
 
+    def execute_deployment_script(self, env_file, deploy_file):
+        """Execute post-deployment script if present"""
+        from snakemake.shell import shell
+
+        if ON_WINDOWS:
+            raise WorkflowError(
+                "Post deploy script {} provided for conda env {} but unsupported on windows.".format(
+                    deploy_file, env_file
+                )
+            )
+        logger.info(
+            "Running post-deploy script {}...".format(
+                Path(deploy_file).relative_to(os.getcwd())
+            )
+        )
+        conda = Conda(self._container_img)
+        shell.check_output(
+            conda.shellcmd(self.path, "sh {}".format(deploy_file)),
+            stderr=subprocess.STDOUT,
+        )
+
     def create(self, dryrun=False):
-        """ Create the conda enviroment."""
+        """Create the conda enviroment."""
         from snakemake.shell import shell
 
         # Read env file and create hash.
         env_file = self.file
-        tmp_file = None
+        deploy_file = None
+        tmp_env_file = None
+        tmp_deploy_file = None
 
-        url_scheme, *_ = urlparse(env_file)
-        if (url_scheme and not url_scheme == "file") or (
-            not url_scheme and env_file.startswith("git+file:/")
+        if not isinstance(env_file, LocalSourceFile) or isinstance(
+            env_file, LocalGitFile
         ):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".yaml") as tmp:
+                # write to temp file such that conda can open it
                 tmp.write(self.content)
                 env_file = tmp.name
-                tmp_file = tmp.name
+                tmp_env_file = tmp.name
+            if (
+                Path(self.file.get_path_or_uri())
+                .with_suffix(".post-deploy.sh")
+                .exists()
+            ):
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".post-deploy.sh"
+                ) as tmp:
+                    # write to temp file such that conda can open it
+                    tmp.write(self.content_deploy)
+                    deploy_file = tmp.name
+                    tmp_deploy_file = tmp.name
+        else:
+            env_file = env_file.get_path_or_uri()
+            if Path(env_file).with_suffix(".post-deploy.sh").exists():
+                deploy_file = Path(env_file).with_suffix(".post-deploy.sh")
 
         env_hash = self.hash
         env_path = self.path
@@ -262,13 +315,13 @@ class Env:
             if dryrun:
                 logger.info(
                     "Incomplete Conda environment {} will be recreated.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
             else:
                 logger.info(
                     "Removing incomplete Conda environment {}...".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 shutil.rmtree(env_path, ignore_errors=True)
@@ -278,15 +331,13 @@ class Env:
             if dryrun:
                 logger.info(
                     "Conda environment {} will be created.".format(
-                        utils.simplify_path(self.file)
+                        self.file.simplify_path()
                     )
                 )
                 return env_path
             conda = Conda(self._container_img)
             logger.info(
-                "Creating conda environment {}...".format(
-                    utils.simplify_path(self.file)
-                )
+                "Creating conda environment {}...".format(self.file.simplify_path())
             )
             # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
@@ -317,7 +368,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
-                            "--copy",
+                            "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
                         + packages
@@ -348,8 +399,8 @@ class Env:
                             "env",
                             "create",
                             "--quiet",
-                            "--file '{}'".format(target_env_file),
-                            "--prefix '{}'".format(env_path),
+                            '--file "{}"'.format(target_env_file),
+                            '--prefix "{}"'.format(env_path),
                         ]
                     )
                     if self._container_img:
@@ -372,6 +423,13 @@ class Env:
                             "Cleaning up conda package tarballs and package cache."
                         )
                         shell.check_output("conda clean -y --tarballs --packages")
+
+                # Execute post-deplay script if present
+                if deploy_file:
+                    target_deploy_file = env_path + ".post-deploy.sh"
+                    shutil.copy(deploy_file, target_deploy_file)
+                    self.execute_deployment_script(env_file, target_deploy_file)
+
                 # Touch "done" flag file
                 with open(os.path.join(env_path, "env_setup_done"), "a") as f:
                     pass
@@ -390,9 +448,11 @@ class Env:
                     + e.output
                 )
 
-        if tmp_file:
+        if tmp_env_file:
             # temporary file was created
-            os.remove(tmp_file)
+            os.remove(tmp_env_file)
+        if tmp_deploy_file:
+            os.remove(tmp_deploy_file)
 
         return env_path
 
@@ -414,28 +474,37 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None):
+    def __new__(cls, container_img=None, prefix_path=None):
         with cls.lock:
             if container_img not in cls.instances:
-                from snakemake.shell import shell
-
                 inst = super().__new__(cls)
-                inst.__init__(container_img=container_img)
                 cls.instances[container_img] = inst
-                inst._check()
-                inst.info = json.loads(
-                    shell.check_output(inst._get_cmd("conda info --json"))
-                )
                 return inst
             else:
                 return cls.instances[container_img]
 
-    def __init__(self, container_img=None):
-        from snakemake.deployment import singularity
+    def __init__(self, container_img=None, prefix_path=None):
+        if not self.is_initialized:  # avoid superfluous init calls
+            from snakemake.deployment import singularity
+            from snakemake.shell import shell
 
-        if isinstance(container_img, singularity.Image):
-            container_img = container_img.path
-        self.container_img = container_img
+            if isinstance(container_img, singularity.Image):
+                container_img = container_img.path
+            self.container_img = container_img
+
+            if prefix_path is None or container_img is not None:
+                self.prefix_path = json.loads(
+                    shell.check_output(self._get_cmd("conda info --json"))
+                )["conda_prefix"]
+            else:
+                self.prefix_path = prefix_path
+
+            # check conda installation
+            self._check()
+
+    @property
+    def is_initialized(self):
+        return hasattr(self, "prefix_path")
 
     def _get_cmd(self, cmd):
         if self.container_img:
@@ -508,16 +577,29 @@ class Conda:
                 "Unable to check conda version:\n" + e.output.decode()
             )
 
-    def prefix_path(self):
-        return self.info["conda_prefix"]
-
     def bin_path(self):
-        return os.path.join(self.prefix_path(), "bin")
+        if ON_WINDOWS:
+            return os.path.join(self.prefix_path, "Scripts")
+        else:
+            return os.path.join(self.prefix_path, "bin")
 
     def shellcmd(self, env_path, cmd):
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
+
+        if ON_WINDOWS:
+            activate = activate.replace("\\", "/")
+            env_path = env_path.replace("\\", "/")
+
         return "source {} '{}'; {}".format(activate, env_path, cmd)
+
+    def shellcmd_win(self, env_path, cmd):
+        """Prepend the windows activate bat script."""
+        # get path to activate script
+        activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
+        env_path = env_path.replace("\\", "/")
+
+        return '"{}" "{}"&&{}'.format(activate, env_path, cmd)
 
 
 def is_mamba_available():

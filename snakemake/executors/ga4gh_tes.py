@@ -37,7 +37,12 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         tes_url=None,
         container_image=None,
     ):
-        import tes
+        try:
+            import tes
+        except ImportError:
+            raise WorkflowError(
+                "Unable to import Python package tes. TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip."
+            )
 
         self.container_image = container_image or get_container_image()
         self.container_workdir = "/tmp"
@@ -54,7 +59,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 "snakemake {target} ",
                 "--snakefile {snakefile} ",
                 "--verbose ",
-                "--force -j{cores} ",
+                "--force --cores {cores} ",
                 "--keep-target-files ",
                 "--keep-remote ",
                 "--latency-wait 10 ",
@@ -310,39 +315,29 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         return inputs
 
-    def _get_task_outputs(self, job, checkdir):
-        outputs = []
-        # add output files to outputs
-        for o in job.output:
+    def _append_task_outputs(self, outputs, files, checkdir):
+        for file in files:
             obj = self._prepare_file(
-                filename=o,
+                filename=file,
                 checkdir=checkdir,
                 type="Output",
             )
             if obj:
                 outputs.append(obj)
+        return outputs
+
+    def _get_task_outputs(self, job, checkdir):
+        outputs = []
+        # add output files to outputs
+        outputs = self._append_task_outputs(outputs, job.output, checkdir)
 
         # add log files to outputs
         if job.log:
-            for log in job.log:
-                outputs.append(
-                    self._prepare_file(
-                        filename=log,
-                        checkdir=checkdir,
-                        type="Output",
-                    )
-                )
+            outputs = self._append_task_outputs(outputs, job.log, checkdir)
 
         # add benchmark files to outputs
         if hasattr(job, "benchmark") and job.benchmark:
-            for benchmark in job.benchmark:
-                outputs.append(
-                    self._prepare_file(
-                        filename=benchmark,
-                        checkdir=checkdir,
-                        type="Output",
-                    )
-                )
+            outputs = self._append_task_outputs(outputs, job.benchmark, checkdir)
 
         return outputs
 

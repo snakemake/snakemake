@@ -28,4 +28,4 @@ Then, the workflow can be executed in the same working directory with, e.g.,
 
 Note that due to limitations in CWL, it seems currently impossible to avoid that all target files (output files of target jobs), are written directly to the workdir, regardless of their relative paths in the Snakefile.
 
-Note that export is impossible in case the workflow contains :ref:`dynamic output files <snakefiles-dynamic_files>` or output files with absolute paths.
+Note that export is impossible in case the workflow contains :ref:`checkpoints <snakefiles-checkpoints>` or output files with absolute paths.

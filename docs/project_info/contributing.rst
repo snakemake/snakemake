@@ -44,7 +44,7 @@ Contributing a new cluster or cloud execution backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors.py <https://github.com/snakemake/snakemake/tree/master/snakemake/executors.py>`_.
+All executors are located in `snakemake/executors/ <https://github.com/snakemake/snakemake/tree/main/snakemake/executors>`_.
 In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
 Below you find a skeleton
 
@@ -196,7 +196,7 @@ To create a Pull Request you need to do these steps:
 10. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
 11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
 
-If you want to create more pull requests, first run :code:`git checkout master` and then start at step 5. with a new branch name.
+If you want to create more pull requests, first run :code:`git checkout main` and then start at step 5. with a new branch name.
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 

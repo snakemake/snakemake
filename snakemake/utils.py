@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
 from itertools import chain
@@ -16,10 +17,11 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
+from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS
+from snakemake.common import ON_WINDOWS, is_local_file, smart_join
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -38,8 +40,11 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
-    # skip if a corresponding modifier has been defined
-    if "workflow" in globals() and globals()["workflow"].modifier.skip_validation:
+    frame = inspect.currentframe().f_back
+    workflow = frame.f_globals.get("workflow")
+
+    if workflow and workflow.modifier.skip_validation:
+        # skip if a corresponding modifier has been defined
         return
 
     try:
@@ -51,20 +56,31 @@ def validate(data, schema, set_default=True):
             "in order to use the validate directive."
         )
 
-    if not os.path.isabs(schema):
-        frame = inspect.currentframe().f_back
-        # if workflow object is not available this has not been started from a workflow
-        if "workflow" in frame.f_globals:
-            workflow = frame.f_globals["workflow"]
-            schema = os.path.join(workflow.current_basedir, schema)
+    schemafile = infer_source_file(schema)
 
-    schemafile = schema
-    schema = _load_configfile(schema, filetype="Schema")
-    resolver = RefResolver(
-        urljoin("file:", schemafile),
-        schema,
-        handlers={"file": lambda uri: _load_configfile(re.sub("^file://", "", uri))},
+    if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
+        # if workflow object is not available this has not been started from a workflow
+        schemafile = workflow.current_basedir.join(schemafile)
+
+    source = (
+        workflow.sourcecache.open(schemafile)
+        if workflow
+        else schemafile.get_path_or_uri()
     )
+    schema = _load_configfile(source, filetype="Schema")
+    if isinstance(schemafile, LocalSourceFile):
+        resolver = RefResolver(
+            urljoin("file:", schemafile.get_path_or_uri()),
+            schema,
+            handlers={
+                "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
+            },
+        )
+    else:
+        resolver = RefResolver(
+            schemafile.get_path_or_uri(),
+            schema,
+        )
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -144,7 +160,7 @@ def simplify_path(path):
 
 
 def linecount(filename):
-    """Return the number of lines of given file.
+    """Return the number of lines of the given file.
 
     Args:
         filename (str): the path to the file
@@ -220,8 +236,8 @@ def report(
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
-    All keywords not listed below are intepreted as paths to files that shall
-    be embedded into the document. They keywords will be available as link
+    All keywords not listed below are interpreted as paths to files that shall
+    be embedded into the document. The keywords will be available as link
     targets in the text. E.g. append a file as keyword arg via F1=input[0]
     and put a download link in the text like this:
 
@@ -247,7 +263,7 @@ def report(
     Args:
         text (str):         The "restructured text" as it is expected by python docutils.
         path (str):         The path to the desired output file
-        stylesheet (str):   An optional path to a css file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint how to create your own.
+        stylesheet (str):   An optional path to a CSS file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint on how to create your own.
         defaultenc (str):   The encoding that is reported to the browser for embedded text files, defaults to utf8.
         template (str):     An optional path to a docutils HTML template.
         metadata (str):     E.g. an optional author name or email address.
@@ -294,7 +310,7 @@ def R(code):
 class SequenceFormatter(string.Formatter):
     """string.Formatter subclass with special behavior for sequences.
 
-    This class delegates formatting of individual elements to another
+    This class delegates the formatting of individual elements to another
     formatter object. Non-list objects are formatted by calling the
     delegate formatter's "format_field" method. List-like objects
     (list, tuple, set, frozenset) are formatted by formatting each
@@ -351,7 +367,7 @@ class QuotedFormatter(string.Formatter):
 
     def __init__(self, quote_func=None, *args, **kwargs):
         if quote_func is None:
-            quote_func = shlex.quote if not ON_WINDOWS else argvquote
+            quote_func = shlex.quote
         self.quote_func = quote_func
         super().__init__(*args, **kwargs)
 
@@ -383,7 +399,7 @@ class AlwaysQuotedFormatter(QuotedFormatter):
         return super().format_field(value, format_spec)
 
 
-def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
+def format(_pattern, *args, stepout=1, _quote_all=False, quote_func=None, **kwargs):
     """Format a pattern in Snakemake style.
 
     This means that keywords embedded in braces are replaced by any variable
@@ -407,9 +423,9 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     variables.update(kwargs)
     fmt = SequenceFormatter(separator=" ")
     if _quote_all:
-        fmt.element_formatter = AlwaysQuotedFormatter()
+        fmt.element_formatter = AlwaysQuotedFormatter(quote_func)
     else:
-        fmt.element_formatter = QuotedFormatter()
+        fmt.element_formatter = QuotedFormatter(quote_func)
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
@@ -457,7 +473,11 @@ def min_version(version):
     if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(
         version
     ):
-        raise WorkflowError("Expecting Snakemake version {} or higher.".format(version))
+        raise WorkflowError(
+            "Expecting Snakemake version {} or higher (you are currently using {}).".format(
+                version, snakemake.__version__
+            )
+        )
 
 
 def update_config(config, overwrite_config):
@@ -508,9 +528,9 @@ def available_cpu_count():
 
 
 def argvquote(arg, force=True):
-    """Returns an argument quoted in such a way that that CommandLineToArgvW
+    """Returns an argument quoted in such a way that CommandLineToArgvW
     on Windows will return the argument string unchanged.
-    This is the same thing Popen does when supplied with an list of arguments.
+    This is the same thing Popen does when supplied with a list of arguments.
     Arguments in a command line should be separated by spaces; this
     function does not add these spaces. This implementation follows the
     suggestions outlined here:
@@ -541,17 +561,26 @@ def argvquote(arg, force=True):
         return cmdline
 
 
+def cmd_exe_quote(arg):
+    """Quotes an argument in a cmd.exe compliant way."""
+    arg = argvquote(arg)
+    cmd_exe_metachars = '^()%!"<>&|'
+    for char in cmd_exe_metachars:
+        arg.replace(char, "^" + char)
+    return arg
+
+
 def os_sync():
     """Ensure flush to disk"""
     if not ON_WINDOWS:
         os.sync()
 
 
-def _find_bash_on_windows():
+def find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
-    First attempt is to look for bash installed  with a git conda package.
-    alternatively try bash installed with 'Git for Windows'.
+    The first attempt is to look for a bash installed with a git conda package.
+    Alternatively, try bash installed with 'Git for Windows'.
     """
     if not ON_WINDOWS:
         return None
@@ -579,19 +608,22 @@ class Paramspace:
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
 
-    The exact behavior can be tweeked with two parameters:
+    The exact behavior can be tweaked with two parameters:
 
       - ``filename_params`` takes a list of column names of the passed dataframe.
         These names are used to build the filename (separated by '_') in the order
         in which they are passed.
-        All remaining parameters will be used to generate a directoty structure.
+        All remaining parameters will be used to generate a directory structure.
         Example for a data frame with four columns named column1 to column4:
 
         | ``Paramspace(df, filename_params=["column3", "column2"])`` ->
         | column1~{value1}/column4~{value4}/column3~{value3}_column2~{value2}
 
-      - ``param_sep`` takes a string which is used to join the column name and
-        column value in the genrated paths (Default: '~'). Example:
+        If ``filename_params="*"``, all columns of the dataframe are encoded into
+        the filename instead of parent directories.
+
+      - ``param_sep`` takes a string that is used to join the column name and
+        column value in the generated paths (Default: '~'). Example:
 
         | ``Paramspace(df, param_sep=":")`` ->
         | column1:{value1}/column2:{value2}/column3:{value3}/column4:{value4}
@@ -606,6 +638,9 @@ class Paramspace:
             self.pattern = "/".join([r"{}"] * len(self.dataframe.columns))
             self.ordered_columns = self.dataframe.columns
         else:
+            if isinstance(filename_params, str) and filename_params == "*":
+                filename_params = dataframe.columns
+
             if any((param not in dataframe.columns for param in filename_params)):
                 raise KeyError(
                     "One or more entries of filename_params are not valid coulumn names for the param file."
@@ -658,8 +693,16 @@ class Paramspace:
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
 
+        def convert_value_dtype(name, value):
+            if self.dataframe.dtypes[name] == bool and value == "False":
+                # handle problematic case when boolean False is returned as
+                # boolean True because the string "False" is misinterpreted
+                return False
+            else:
+                return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
+
         return {
-            name: pd.Series([value]).astype(self.dataframe.dtypes[name])
+            name: convert_value_dtype(name, value)
             for name, value in wildcards.items()
             if name in self.ordered_columns
         }

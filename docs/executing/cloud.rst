@@ -176,7 +176,7 @@ however if you do so, your container must meet the following requirements:
 
 If you use any Snakemake container as a base, you should be good to go. If you'd
 like to get a reference for requirements, it's helpful to look at the
-`Dockerfile <https://github.com/snakemake/snakemake/blob/master/Dockerfile>`_
+`Dockerfile <https://github.com/snakemake/snakemake/blob/main/Dockerfile>`_
 for Snakemake.
 
 Requesting GPUs
@@ -350,7 +350,7 @@ To install and configure Funnel follow its official `documentation <https://ohsu
 Configuration
 ~~~~~~~~~~~~~
 
-Two steps are required to make a Snakemake workflow TES ready:
+Three steps are required to make a Snakemake workflow TES ready:
 
 **Attach conda to rules:**
 Execution of Snakemake tasks via TES means, Snakemake is running in a container in the cloud and it executes a specific rule (or a group of rules) with defined input/output data.
@@ -364,6 +364,13 @@ For simplicity, this guide recommends to attach a specific conda environment to 
 The TES module requires using a remote file storage system for input/output files such that all files are available on the cloud machines and within their running container.
 There are several options available in Snakemake to use remote files.
 This guide recommends to use S3 (or SWIFT) object storage.
+
+**Install py-tes module:**
+TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip.
+
+.. code-block:: console
+
+    $ pip install py-tes 
 
 Execution
 ~~~~~~~~~

@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import shutil
+import subprocess
 import tarfile
 import tempfile
 
@@ -26,7 +27,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self,
         workflow,
         dag,
-        jobname="snakejob.{name}.{jobid}.sh",
+        jobname=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -37,7 +38,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
         exec_job=None,
         max_status_checks_per_second=10,
     ):
-
         # overwrite the command to execute a single snakemake job if necessary
         # exec_job = "..."
 
@@ -45,7 +45,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             workflow,
             dag,
             None,
-            jobname=jobname,
+            #jobname=jobname,
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
@@ -61,20 +61,23 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
 
+    def _wait_for_jobs(self):
+        pass
+
     def format_job(self, job):
-        return super().self.format_job(
+        return super().format_job(
             self.exec_job, job, _quote_all=True, use_threads=True
         )
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-        super()._run(job)
+        #super()._run(job)
 
         jobsteps = dict()
 
         if job.is_group():
             def get_call(level_job, level_id, aux=""):
                 # we need this calculation, because of srun's greediness and
-                # SLURM's limits: it is not able to limit the memory if per cpu
+                # SLURM's limits: it is not able toClusterExecutor limit the memory if per cpu
                 mem_per_cpu = max(level_job.resources.mem_mb // level_job.threads, 100)
                 return (
                     "srun -J {level_id} --jobid {jobid}"

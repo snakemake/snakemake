@@ -11,8 +11,6 @@ import sys
 import time
 import threading
 
-import psutil
-
 from snakemake.exceptions import WorkflowError
 
 
@@ -123,7 +121,7 @@ class BenchmarkRecord:
 
 
 class DaemonTimer(threading.Thread):
-    """Variant of threading.Timer that is deaemonized"""
+    """A variant of threading.The timer that is daemonized"""
 
     def __init__(self, interval, function, args=None, kwargs=None):
         threading.Thread.__init__(self, daemon=True)
@@ -192,6 +190,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
     """Allows easy observation of a given PID for resource usage"""
 
     def __init__(self, pid, bench_record, interval=BENCHMARK_INTERVAL):
+        import psutil
+
         ScheduledPeriodicTimer.__init__(self, interval)
         #: PID of observed process
         self.pid = pid
@@ -203,6 +203,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
 
     def work(self):
         """Write statistics"""
+        import psutil
+
         try:
             self._update_record()
         except psutil.NoSuchProcess:
@@ -212,6 +214,8 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
 
     def _update_record(self):
         """Perform the actual measurement"""
+        import psutil
+
         # Memory measurements
         rss, vms, uss, pss = 0, 0, 0, 0
         # I/O measurements
@@ -313,7 +317,7 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
 
 
 def print_benchmark_records(records, file_):
-    """Write benchmark records to file-like object"""
+    """Write benchmark records to file-like the object"""
     print(BenchmarkRecord.get_header(), file=file_)
     for r in records:
         print(r.to_tsv(), file=file_)

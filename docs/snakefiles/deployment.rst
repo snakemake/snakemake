@@ -1,4 +1,4 @@
-
+.. _distribution_and_reproducibility:
 
 ================================
 Distribution and Reproducibility
@@ -43,29 +43,14 @@ Conda environments (see :ref:`integrated_package_management`) should be stored i
 Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
 All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
-Then, a workflow can be deployed to a new system via the following steps
+Workflows setup in above structure can be easily used and combined via :ref:`the Snakemake module system <use_with_modules>`.
+Such deployment can even be automated via  `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Moreover, by publishing a workflow on `Github <https://github.com>`_ and following a set of additional `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ the workflow will be automatically included in the `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_, thereby easing discovery and even automating its usage documentation.
+For an example of such automated documentation, see `here <https://snakemake.github.io/snakemake-workflow-catalog/?usage=snakemake-workflows%2Fdna-seq-varlociraptor>`_.
 
-.. code-block:: python
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for more best-practice workflows.
 
-    # clone workflow into working directory
-    git clone https://github.com/user/myworkflow.git path/to/workdir
-    cd path/to/workdir
-
-    # edit config and workflow as needed
-    vim config/config.yaml
-
-    # execute workflow, deploy software dependencies via conda
-    snakemake -n --use-conda
-
-Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
-A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
-Given that cookiecutter is installed, you can use it via:
-
-.. code-block:: bash
-
-    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
-
-Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
+.. _use_with_modules:
 
 -----------------------------------------
 Using and combining pre-exising workflows
@@ -84,14 +69,20 @@ Consider the following example:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
-        config: config
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config:
+            config
 
     use rule * from dna_seq
 
 First, we load a local configuration file.
-Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/blob/v2.0.1/Snakefile``, while using the contents of the local configuration file.
+Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
+Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
+With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
 Finally we declare all rules of the dna_seq module to be used.
+
 This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
 However, the advantage here is that we are (a) able to easily extend of modify the workflow, while making the changes transparent, and (b) we can store this workflow in a separate (e.g. private) git repository, along with for example configuration and meta data, without the need to duplicate the workflow code.
 Finally, we are always able to later combine another module into the current workflow, e.g. when further kinds of analyses are needed.
@@ -107,7 +98,9 @@ For example, we can easily add another rule to extend the given workflow:
     configfile: "config/config.yaml"
 
     module dna_seq:
-        snakefile: "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/Snakefile"
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config: config
 
     use rule * from dna_seq
@@ -120,6 +113,46 @@ For example, we can easily add another rule to extend the given workflow:
             "results/plots/vafs.svg"
         notebook:
             "notebooks/plot-vafs.py.ipynb"
+
+Moreover, it is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
+Here, let us assume that we want to conduct another kind of analysis, say RNA-seq, using a different external workflow.
+We can extend above example in the following way:
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile:
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["dna-seq"]
+        prefix: "dna-seq"
+
+    use rule * from dna_seq as dna_seq_*
+
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
+    module rna_seq:
+        snakefile:
+            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["rna-seq"]
+        prefix: "rna-seq"
+
+    use rule * from rna_seq as rna_seq_*
+
+Above, several things have changed. First, we have added another module ``rna_seq``.
+Second, we have added a prefix to all rule names of both modules (``dna_seq_*`` and ``rna_seq_*`` in the ``use rule`` statements) in order to avoid rule name clashes.
+Third, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
+Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
 
 ----------------------------------
 Uploading workflows to WorkflowHub
@@ -229,6 +262,36 @@ Conda deployment also works well for offline or air-gapped environments. Running
 
 .. _singularity:
 
+
+-------------------------
+Providing post-deployment scripts
+-------------------------
+
+From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
+This might be helpful in case a conda package is missing components or requires further configuration for execution.
+Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "seqs.fastq"
+        output:
+            "results.tsv"
+        conda:
+            "envs/interproscan.yaml"
+        shell:
+            "interproscan.sh -i {input} -f tsv -o {output}"
+
+.. code-block:: none
+
+    ├── Snakefile
+    └── envs
+        ├── interproscan.yaml
+        └── interproscan.post-deploy.sh
+
+The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+
 --------------------------
 Running jobs in containers
 --------------------------
@@ -265,6 +328,25 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
+
+A global definition of a container image can be given:
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        ...
+
+In this case all jobs will be executed in a container. You can disable execution in container
+by setting the container directive of the rule to ``None``.
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        container: None
 
 -----------------------------------------
 Containerization of Conda based workflows

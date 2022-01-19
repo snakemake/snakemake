@@ -96,7 +96,6 @@ if os.chmod in os.supports_follow_symlinks:
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
 
-
 else:
 
     def lchmod(f, mode):
@@ -227,6 +226,15 @@ class _IOFile(str):
             obj.remote_object._iofile = obj
 
         return obj
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
 
     def iocache(func):
         @functools.wraps(func)
@@ -363,6 +371,10 @@ class _IOFile(str):
     @property
     def is_directory(self):
         return is_flagged(self._file, "directory")
+
+    @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
 
     @property
     def is_multiext(self):
@@ -562,7 +574,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def check_broken_symlink(self):
-        """ Raise WorkflowError if file is a broken symlink. """
+        """Raise WorkflowError if file is a broken symlink."""
         if not self.exists_local and os.lstat(self.file):
             raise WorkflowError(
                 "File {} seems to be a broken symlink.".format(self.file)
@@ -627,7 +639,7 @@ class _IOFile(str):
             remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
-        """ times must be 2-tuple: (atime, mtime) """
+        """times must be 2-tuple: (atime, mtime)"""
         try:
             if self.is_directory:
                 file = os.path.join(self.file, ".snakemake_timestamp")
@@ -780,7 +792,7 @@ _wildcard_regex = re.compile(
 def wait_for_files(
     files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
 ):
-    """Wait for given files to be present in filesystem."""
+    """Wait for given files to be present in the filesystem."""
     files = list(files)
 
     def get_missing():
@@ -931,6 +943,12 @@ class AnnotatedString(str):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
 
 def flag(value, flag_type, flag_value=True):
     if isinstance(value, AnnotatedString):
@@ -968,7 +986,7 @@ def ancient(value):
 
 def directory(value):
     """
-    A flag to specify that an output is a directory, rather than a file or named pipe.
+    A flag to specify that output is a directory, rather than a file or named pipe.
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
@@ -1001,12 +1019,12 @@ def pipe(value):
 
 
 def temporary(value):
-    """ An alias for temp. """
+    """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """ A flag for a file that shall be write protected after creation. """
+    """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1060,7 +1078,7 @@ def report(
 ):
     """Flag output file or directory as to be included into reports.
 
-    In case of directory, files to include can be specified via a glob pattern (default: *).
+    In the case of a directory, files to include can be specified via a glob pattern (default: *).
 
     Arguments
     value -- File or directory.
@@ -1078,7 +1096,7 @@ def report(
 
 
 def local(value):
-    """Mark a file as local file. This disables application of a default remote
+    """Mark a file as a local file. This disables the application of a default remote
     provider.
     """
     if is_flagged(value, "remote"):
@@ -1281,7 +1299,7 @@ def get_git_root(path):
     Args:
         path: (str) Path a to a directory/file that is located inside the repo
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1297,14 +1315,14 @@ def get_git_root_parent_directory(path, input_path):
     """
     This function will recursively go through parent directories until a git
     repository is found or until no parent directories are left, in which case
-    a error will be raised. This is needed when providing a path to a
-    file/folder that is located on a branch/tag no currently checked out.
+    an error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag not currently checked out.
 
     Args:
         path: (str) Path a to a directory that is located inside the repo
         input_path: (str) origin path, used when raising WorkflowError
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1326,11 +1344,11 @@ def git_content(git_file):
     """
     This function will extract a file from a git repository, one located on
     the filesystem.
-    Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    The expected format is git+file:///path/to/your/repo/path_to_file@version
 
     Args:
-      env_file (str): consist of path to repo, @, version and file information
-                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+      env_file (str): consist of path to repo, @, version, and file information
+                      Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
     Returns:
         file content or None if the expected format isn't meet
     """
@@ -1359,7 +1377,7 @@ def strip_wildcard_constraints(pattern):
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
-    it is hashable, however the hash does not consider the item names.
+    it is hashable, however, the hash does not consider the item names.
     """
 
     def __init__(
@@ -1556,12 +1574,17 @@ class Log(Namedlist):
     pass
 
 
-def _load_configfile(configpath, filetype="Config"):
+def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml
 
+    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
+        obj = open(configpath_or_obj, encoding="utf-8")
+    else:
+        obj = configpath_or_obj
+
     try:
-        with open(configpath) as f:
+        with obj as f:
             try:
                 return json.load(f, object_pairs_hook=collections.OrderedDict)
             except ValueError:

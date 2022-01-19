@@ -1,0 +1,17 @@
+from snakemake.utils import min_version
+
+min_version("6.1.1")
+
+configfile: "config.yaml"
+
+module with_script:
+    snakefile:
+        github("snakemake/snakemake", tag="v6.1.1", path="tests/test_script_py/Snakefile")
+    config:
+        config
+
+use rule * from with_script as with_script_*
+
+rule all:
+    input:
+        rules.with_script_all.input

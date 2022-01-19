@@ -2,7 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python >=3.5.3
+  - stopit
   - datrie
   - boto3
   - moto
@@ -51,11 +52,13 @@ dependencies:
   - toposort
   - mamba
   - crc32c
-  - pip:
-    - py-tes
+  - pip
+  - connection_pool
+  - py-tes
   - requests-mock
   - peppy
   - eido
   - glpk
   - smart_open
   - filelock
+  - tabulate

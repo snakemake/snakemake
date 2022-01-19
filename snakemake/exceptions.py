@@ -44,7 +44,10 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
+        is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
+            os.path.realpath(snakemake_path)
+        )
+        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
 
 
@@ -161,13 +164,18 @@ class WorkflowError(Exception):
         self.rule = rule
 
 
+class SourceFileError(WorkflowError):
+    def __init__(self, msg):
+        super().__init__("Error in source file definition: {}".format(msg))
+
+
 class WildcardError(WorkflowError):
     pass
 
 
 class RuleException(Exception):
     """
-    Base class for exception occuring within the
+    Base class for exception occurring within the
     execution or definition of rules.
     """
 

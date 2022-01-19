@@ -23,21 +23,20 @@ from snakemake.io import get_wildcard_names, Wildcards
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
-
 class SlurmExecutor(ClusterExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
     """
 
-    default_jobscript = "slurm_jobstep.py"
+    #default_jobscript = "slurm/slurm_jobstep.py"
 
     def __init__(
         self,
         workflow,
         dag,
         cores,
-        jobname="snakejob_{jobid}_", # name and SLURM_JOB_ID will be appended
+        jobname="snakejob_{rulenname}_{jobid}", # name and SLURM_JOB_ID will be appended
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -51,6 +50,7 @@ class SlurmExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         cluster_config=None,
     ):
+        #self.jobname = self.dag.rulename + '_' + self.dag.jobid
         # needs to be set in either case for the submission string
         if not cores:
             cores = 1
@@ -73,8 +73,6 @@ class SlurmExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
         )
         self.exec_job += " --slurm-jobstep"
-        print(self.exec_job)
-
 
     def cancel(self):
         for job in self.active_jobs:
@@ -112,65 +110,71 @@ class SlurmExecutor(ClusterExecutor):
                 error_callback=error_callback,  #
             )
 
-    def format_job(self, pattern, job, **kwargs):
-        wait_for_files = []
-        path = ""
-        if self.assume_shared_fs:
-            wait_for_files.append(self.tmpdir)
-            wait_for_files.extend(job.get_wait_for_files())
-            # Prepend PATH of current python executable to PATH.
-            # This way, we ensure that the snakemake process in the cluster node runs
-            # in the same environment as the current process.
-            # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            path = "PATH='{}':$PATH".format(os.path.dirname(sys.executable))
-        # logger.info(pattern)
-        format_p = partial(
-            self.format_job_pattern,
-            job=job,
-            properties=job.properties(cluster=self.cluster_params(job)),
-            latency_wait=self.latency_wait,
-            wait_for_files=wait_for_files,
-            path=path,
-            #wildcards = self.cluster_wildcards(job),
-            **kwargs,
-        )
-        try:
-            return format_p(pattern)
-        except KeyError as e:
-            raise WorkflowError(
-                "Error formatting jobscript: {} not found\n"
-                "Make sure that your custom jobscript is up to date.".format(e)
-            )
+    def cluster_params(self, job):
+        """
+           Returns wildcards object for 'job'.
+
+           In contrast to the ClusterExecutor, which gets
+           its config from a config file, this SlurmExecutor
+           has the internal handling via job.resources
+        """
+        #print('in cluster_params():')
+        #print('========')
+        #print('type(job):')
+        #print(type(job))
+        #print('-------')
+        #print('dir(job):')
+        #print(dir(job))
+        #print('-------')
+        #cluster = job.dynamic_wildcards.copy()
+        #print('in cluster_params():')
+        ###print(cluster)
+        #sys.exit()
+
+        return job.dynamic_wildcards.copy()
 
     def write_jobscript(self, job, jobscript, **kwargs):
+        pass
         # only force threads if this is not a group job
         # otherwise we want proper process handling
-        use_threads = "--force-use-threads" if not job.is_group() else ""
+    #    use_threads = "--force-use-threads" if not job.is_group() else ""
 
-        envvars = " ".join(
-            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
-        )
+    #    envvars = " ".join(
+    #       "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
+    #    )
 
         # We need to shorten the exec_job-string, here.
         # The first part SLURM sees should be the executable, here:
         # snakemake.
-        to_exec = " ".join(self.exec_job.split(" ")[5:])
+        #print(self.exec_job)
+        #print('=' * 10)
+        #to_exec = " ".join(self.exec_job.split(" ")[5:])
+        #print(to_exec)
+        #print('=' * 10)
+        #print(kwargs)
+        #print('=' * 10)
+        #print(job)
+        #print('=' * 10)
+        #print(self.jobscript)
+        #print('=' * 10)
 
-        exec_job = self.format_job(
-            to_exec,
-            job,
-            _quote_all=True,
-            use_threads=use_threads,
-            envvars=envvars,
-            **kwargs,
-        )
-        content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
+    #    exec_job = self.format_job(
+    #        #to_exec,
+    #        self.exec_job,
+    #        job,
+    #        _quote_all=True,
+    #        use_threads=use_threads,
+    #        #envvars=envvars,
+    #        **kwargs,
+    #    )
 
-        logger.debug("Jobscript:\n{}".format(content))
-        with open(jobscript, "w") as f:
-            print(content, file=f)
+        #content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)#
 
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
+        #logger.debug("Jobscript:\n{}".format(content))
+        #with open(jobscript, "w") as f:
+        #    print(content, file=f)
+
+        #os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -179,6 +183,12 @@ class SlurmExecutor(ClusterExecutor):
         # generic part of a submission string:
         # print(self.exec_job)
         os.makedirs('.snakemake/slurm_logs', exist_ok=True)
+        #print('got here: run() in slurm_submit')
+        #sys.exit()
+
+        envvars = " ".join(
+            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
+        )
 
         try:
             call = "sbatch -A {account} -p {partition} \
@@ -220,30 +230,57 @@ class SlurmExecutor(ClusterExecutor):
             # TODO: this line will become longer
             # TODO: hence the single command, yet
             if job.threads == 0:
-                call += " -n 1 -c 1"
+                call += " -n 1 -c 1 {exec_job}".format(self.exec_job)
             else:
                 call += " -n 1 -c {threads}".format(threads=job.threads)
         else:  # job.is_group:
             pass
 
-        # as we cannot do 'sbatch ... cd {workflow.workdir_init} && python ...' as snakemake otherwise expects
+        # as we cannot do 'sbatch ... cd {workflow.workdir_init} && python ...' as snakemake otherwise expects this
+        # usually, this is default SLURM behaviour, but to ensure this working
+        # on all clusters, we make it explicit
         call += " --chdir={workdir_init}".format(
             workdir_init=self.workflow.workdir_init
         )
         # and finally the job to execute with all the snakemake parameters
 
-        jobscript = self.get_jobscript(job)
+        #jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        self.write_jobscript(
-            job, jobscript, jobfinished=jobfinished, jobfailed=jobfailed
-        )
+        #self.write_jobscript(
+        #    job, jobscript, jobfinished=jobfinished, jobfailed=jobfailed
+        #)
 
-        call += " " + jobscript
-        try:
-            out = subprocess.check_output(shlex.split(call), encoding="ascii").strip()
-        except:
-            pass  # check template
+        exec_job = self.format_job(
+            self.exec_job,
+            job,
+            envvars=envvars,
+            _quote_all=True,
+            use_threads="--force-use-threads" if not job.is_group() else "",
+        )
+        print('==================')
+        print(dir(job))
+        print('==================')
+
+        # we need to modify `exec_job`, because we can only wrap executables
+        # and not `cd` statements or tinkerings with PATH:
+        # the directory is changed anyways by SLURM, the environment is
+        # carried on, within envvars and the SLURM environment.
+        print(exec_job)
+        #exe
+        #exec_job = ' '.join(exec_job.split(' ')[8:]).replace('\\', ' ').replace(os.linesep, ' ')
+        index = exec_job.index("-m snakemake")
+        exec_job=exec_job[index:]
+        print(exec_job)
+        call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
+        print(call)
+        print('====')
+        #sys.exit()
+        #try:
+        out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
+        print(out)
+        #except:
+        #    pass  # check template
 
         jobid = out.split(" ")[-1]
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))

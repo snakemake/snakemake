@@ -260,25 +260,28 @@ class RuleRecord:
             language = "bash"
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
-            _, source, language = script.get_source(
-                self._rule.script, self._rule.basedir
+            _, source, language, _ = script.get_source(
+                self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
             sources = [source.decode()]
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
-            _, source, language = script.get_source(
+            _, source, language, _ = script.get_source(
                 wrapper.get_script(
-                    self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
-                )
+                    self._rule.wrapper,
+                    self._rule.workflow.sourcecache,
+                    prefix=self._rule.workflow.wrapper_prefix,
+                ),
+                self._rule.workflow.sourcecache,
             )
             sources = [source.decode()]
         elif self._rule.notebook is not None and not contains_wildcard(
             self._rule.notebook
         ):
-            _, source, language = script.get_source(
-                self._rule.notebook, self._rule.basedir
+            _, source, language, _ = script.get_source(
+                self._rule.notebook, self._rule.workflow.sourcecache, self._rule.basedir
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
@@ -418,7 +421,7 @@ class FileRecord:
     def png_content(self):
         assert self.is_img
 
-        convert = shutil.which("convert")
+        convert = shutil.which("magick")
         if convert is not None:
             try:
                 # 2048 aims at a reasonable balance between what displays
@@ -429,7 +432,8 @@ class FileRecord:
                 # '>' means only larger images scaled down to within max-dimensions
                 max_spec = max_width + "x" + max_height + ">"
                 png = sp.check_output(
-                    ["convert", "-resize", max_spec, self.path, "png:-"], stderr=sp.PIPE
+                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
+                    stderr=sp.PIPE,
                 )
                 return png
             except sp.CalledProcessError as e:
@@ -834,7 +838,7 @@ def auto_report(dag, path, stylesheet=None):
     # global description
     text = ""
     if dag.workflow.report_text:
-        with open(dag.workflow.report_text) as f:
+        with dag.workflow.sourcecache.open(dag.workflow.report_text) as f:
 
             class Snakemake:
                 config = dag.workflow.config
