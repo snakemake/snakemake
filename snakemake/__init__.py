@@ -1057,7 +1057,7 @@ def get_argument_parser(profile=None):
                         line options in YAML format. For example,
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles. 
+                        https://github.com/snakemake-profiles.
                         The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
@@ -1114,7 +1114,7 @@ def get_argument_parser(profile=None):
         action="store",
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
-            "an alias for --cores."
+            "an alias for --cores. Note: Set to 'unlimited' in case, this does not play a role."
         ),
     )
     group_exec.add_argument(
@@ -2552,6 +2552,8 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
+        elif args.jobs == "unlimited":
+            args.jobs = sys.maxsize
         else:
             try:
                 args.jobs = int(args.jobs)

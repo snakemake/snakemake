@@ -266,14 +266,18 @@ class SlurmExecutor(ClusterExecutor):
         # and not `cd` statements or tinkerings with PATH:
         # the directory is changed anyways by SLURM, the environment is
         # carried on, within envvars and the SLURM environment.
-        exec_job = ' '.join(exec_job.split(' ')[9:]).replace('\\', ' ').replace(os.linesep, ' ')
         print(exec_job)
-        call += ' --wrap="python -m snakemake %s"' % exec_job
+        #exe
+        #exec_job = ' '.join(exec_job.split(' ')[8:]).replace('\\', ' ').replace(os.linesep, ' ')
+        index = exec_job.index("-m snakemake")
+        exec_job=exec_job[index:]
+        print(exec_job)
+        call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
         print(call)
         print('====')
         #sys.exit()
         #try:
-        out = subprocess.check_output(shlex.split(call), encoding="ascii").strip()
+        out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
         print(out)
         #except:
         #    pass  # check template

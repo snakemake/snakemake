@@ -104,7 +104,6 @@ class DefaultResources:
     def __bool__(self):
         return bool(self.parsed)
 
-
 def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
@@ -125,25 +124,16 @@ def parse_resources(resources_args, fallback=None):
                 )
 
             # translate into supported type
-            if res in supported_keys:
-                try:
-                    val = supported_keys[res](val)
-                except ValueError:
+            functor = supported_keys.get(res, int)
+            try:
+                val = functor(val)
+            except ValueError:
+                if fallback is not None:
+                    val = fallback(val)
+                else:
                     raise ValueError(
-                        "Resource definition for '{}' requires an '{}'".format(
-                            val, supported_keys[val]
-                        )
+                        "Resource definiton must contain an {functor} after the identifier.".format(functor=functor.__name__)
                     )
-            else:  # fall back to ints
-                try:
-                    val = int(val)
-                except ValueError:
-                    if fallback is not None:
-                        val = fallback(val)
-                    else:
-                        raise ValueError(
-                            "Resource definiton must contain an integer after the identifier."
-                        )
             if res == "_cores":
                 raise ValueError(
                     "Resource _cores is already defined internally. Use a different name."

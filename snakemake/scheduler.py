@@ -206,7 +206,6 @@ class JobScheduler:
                 self._executor = SlurmJobstepExecutor(
                     workflow,
                     dag,
-                    cores=None,
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
