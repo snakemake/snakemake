@@ -776,7 +776,7 @@ class ClusterExecutor(RealExecutor):
 
         return os.path.join(self.tmpdir, f)
 
-    def format_job(self, pattern, job, **kwargs):
+    def format_job(self, pattern, job, envvars=None, **kwargs):
         wait_for_files = []
         scheduler_solver_path = ""
         if self.assume_shared_fs:
@@ -815,6 +815,7 @@ class ClusterExecutor(RealExecutor):
             latency_wait=self.latency_wait,
             waitfiles_parameter=waitfiles_parameter,
             scheduler_solver_path=scheduler_solver_path,
+            envvars=envvars or "",
             **kwargs,
         )
         try:
