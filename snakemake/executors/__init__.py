@@ -757,6 +757,7 @@ class ClusterExecutor(RealExecutor):
             latency_wait=self.latency_wait,
             wait_for_files=wait_for_files,
             path=path,
+            wildcards = self.cluster_wildcards(job),
             **kwargs,
         )
         try:

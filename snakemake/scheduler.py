@@ -191,7 +191,8 @@ class JobScheduler:
                 #keepmetadata=keepmetadata,
                 cluster_config=cluster_config,
             )
-            if slurm_jobstep:
+
+        elif slurm_jobstep:
                 self._executor = SlurmJobstepExecutor(
                     workflow,
                     dag,
@@ -204,6 +205,7 @@ class JobScheduler:
                     #keepincomplete=keepincomplete,
                     #keepmetadata=keepmetadata,
                 )
+                self._local_executor = self._executor
 
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
@@ -281,7 +283,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
+                latency_wait=latencysnakejob__wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
@@ -396,6 +398,7 @@ class JobScheduler:
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
             )
+
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
             self.rate_limiter = RateLimiter(
@@ -520,6 +523,7 @@ class JobScheduler:
                     logger.debug(
                         "Resources after job selection: {}".format(self.resources)
                     )
+
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
@@ -529,8 +533,11 @@ class JobScheduler:
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
+                print(self._executor)
                 self.run(local_runjobs, executor=self._local_executor or self._executor)
+                print(self._executor)
                 self.run(runjobs)
+                print(self._executor)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -539,8 +546,10 @@ class JobScheduler:
             return False
 
     def run(self, jobs, executor=None):
+        print(executor, self._executor)
         if executor is None:
             executor = self._executor
+
         executor.run_jobs(
             jobs,
             callback=self._finish_callback,

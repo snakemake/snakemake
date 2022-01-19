@@ -26,7 +26,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self,
         workflow,
         dag,
-        jobname="snakejob.{name}.{jobid}.sh",
+        jobname=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -37,7 +37,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         exec_job=None,
         max_status_checks_per_second=10,
     ):
-
+        logger.info('got here: jobstepexecutor')
         # overwrite the command to execute a single snakemake job if necessary
         # exec_job = "..."
 
@@ -45,7 +45,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             workflow,
             dag,
             None,
-            jobname=jobname,
+            #jobname=jobname,
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
@@ -67,7 +67,8 @@ class SlurmJobstepExecutor(ClusterExecutor):
         )
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-        super()._run(job)
+        #super()._run(job)
+        print('got here')
 
         jobsteps = dict()
 
