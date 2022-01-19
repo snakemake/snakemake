@@ -35,6 +35,7 @@ def cwl(
     use_singularity,
     bench_record,
     jobid,
+    runtime_sourcecache_path,
 ):
     """
     Load cwl from the given basedir + path and execute it.
@@ -192,7 +193,7 @@ def job_to_cwl(job, dag, outputs, inputs):
 
 
 def dag_to_cwl(dag):
-    """Convert a given DAG to a CWL workflow, which is returned as JSON object."""
+    """Convert a given DAG to a CWL workflow, which is returned as a JSON object."""
     snakemake_cwl = {
         "class": "CommandLineTool",
         "id": "#snakemake-job",
@@ -220,7 +221,7 @@ def dag_to_cwl(dag):
                 "type": "File",
                 "default": {
                     "class": "File",
-                    "location": os.path.relpath(dag.workflow.snakefile),
+                    "location": os.path.relpath(dag.workflow.main_snakefile),
                 },
                 "inputBinding": {"prefix": "--snakefile"},
             },

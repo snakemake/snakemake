@@ -13,8 +13,8 @@ import stat
 import tempfile
 import threading
 
-from snakemake.utils import format, argvquote, _find_bash_on_windows
-from snakemake.common import ON_WINDOWS
+from snakemake.utils import format, argvquote, cmd_exe_quote, find_bash_on_windows
+from snakemake.common import ON_WINDOWS, RULEFUNC_CONTEXT_MARKER
 from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
@@ -64,7 +64,7 @@ class shell:
 
     @classmethod
     def executable(cls, cmd):
-        if os.name in ("posix", "nt") and not os.path.isabs(cmd):
+        if cmd and not os.path.isabs(cmd):
             # always enforce absolute path
             cmd = shutil.which(cmd)
             if not cmd:
@@ -73,9 +73,20 @@ class shell:
                     "is not available in your "
                     "PATH.".format(cmd)
                 )
-        if os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
+        if ON_WINDOWS:
+            if cmd is None:
+                cls._process_prefix = ""
+                cls._win_command_prefix = ""
+            elif os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
+                if cmd == r"C:\Windows\System32\bash.exe":
+                    raise WorkflowError(
+                        "Cannot use WSL bash.exe on Windows. Ensure that you have "
+                        "a usable bash.exe availble on your path."
+                    )
+                cls._process_prefix = "set -euo pipefail; "
+                cls._win_command_prefix = "-c"
+        elif os.path.split(cmd)[-1].lower() == "bash":
             cls._process_prefix = "set -euo pipefail; "
-            cls._win_command_prefix = "-c"
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -89,7 +100,7 @@ class shell:
     @classmethod
     def win_command_prefix(cls, cmd):
         """The command prefix used on windows when specifing a explicit
-        shell executable. This would be "-c" for bash and "/C" for cmd.exe
+        shell executable. This would be "-c" for bash.
         Note: that if no explicit executable is set commands are executed
         with Popen(..., shell=True) which uses COMSPEC on windows where this
         is not needed.
@@ -113,23 +124,41 @@ class shell:
     ):
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
+
+        if ON_WINDOWS and not cls.get_executable():
+            # If bash is not used on Windows quoting must be handled in a special way
+            kwargs["quote_func"] = cmd_exe_quote
+
         cmd = format(cmd, *args, stepout=2, **kwargs)
-        context = inspect.currentframe().f_back.f_locals
-        # add kwargs to context (overwriting the locals of the caller)
-        context.update(kwargs)
 
         stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != "win32"
+
+        func_context = inspect.currentframe().f_back.f_locals
+
+        if func_context.get(RULEFUNC_CONTEXT_MARKER):
+            # If this comes from a rule, we expect certain information to be passed
+            # implicitly via the rule func context, which is added here.
+            context = func_context
+        else:
+            # Otherwise, context is just filled via kwargs.
+            context = dict()
+        # add kwargs to context (overwriting the locals of the caller)
+        context.update(kwargs)
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
             logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
+        conda_base_path = context.get("conda_base_path", None)
         container_img = context.get("container_img", None)
         env_modules = context.get("env_modules", None)
         shadow_dir = context.get("shadow_dir", None)
+        resources = context.get("resources", {})
+        singularity_args = context.get("singularity_args", "")
+        threads = context.get("threads", 1)
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
@@ -138,7 +167,15 @@ class shell:
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
-            cmd = Conda(container_img).shellcmd(conda_env, cmd)
+            if ON_WINDOWS and not cls.get_executable():
+                # If we use cmd.exe directly on winodws we need to prepend batch activation script.
+                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd_win(
+                    conda_env, cmd
+                )
+            else:
+                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
+                    conda_env, cmd
+                )
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
@@ -150,30 +187,49 @@ class shell:
             cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
 
         if container_img:
-            args = context.get("singularity_args", "")
             cmd = singularity.shellcmd(
                 container_img,
                 cmd,
-                args,
+                singularity_args,
                 envvars=None,
                 shell_executable=cls._process_args["executable"],
                 container_workdir=shadow_dir,
+                is_python_script=context.get("is_python_script", False),
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
             logger.info("Activating conda environment: {}".format(conda_env))
 
-        threads = str(context.get("threads", 1))
+        tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:
         # https://stackoverflow.com/a/53224849/2352071
         # https://github.com/xianyi/OpenBLAS/tree/59243d49ab8e958bb3872f16a7c0ef8c04067c0a#setting-the-number-of-threads-using-environment-variables
         envvars = dict(os.environ)
+        threads = str(threads)
         envvars["OMP_NUM_THREADS"] = threads
         envvars["GOTO_NUM_THREADS"] = threads
         envvars["OPENBLAS_NUM_THREADS"] = threads
         envvars["MKL_NUM_THREADS"] = threads
         envvars["VECLIB_MAXIMUM_THREADS"] = threads
         envvars["NUMEXPR_NUM_THREADS"] = threads
+
+        if tmpdir_resource:
+            envvars["TMPDIR"] = tmpdir_resource
+            envvars["TMP"] = tmpdir_resource
+            envvars["TEMPDIR"] = tmpdir_resource
+            envvars["TEMP"] = tmpdir_resource
+
+        if "additional_envvars" in kwargs:
+            env = kwargs["additional_envvars"]
+            if not isinstance(env, dict) or not all(
+                isinstance(v, str) for v in env.values()
+            ):
+                raise WorkflowError(
+                    "Given environment variables for shell command have to be a dict of strings, "
+                    "but the following was provided instead:\n{}".format(env)
+                )
+            envvars.update(env)
+
         if conda_env and cls.conda_block_conflicting_envvars:
             # remove envvars that conflict with conda
             for var in ["R_LIBS", "PYTHONPATH", "PERLLIB", "PERL5LIB"]:
@@ -259,3 +315,5 @@ if os.name == "posix":
             shell.executable("sh")
     else:
         shell.executable("bash")
+elif ON_WINDOWS:
+    shell.executable(None)

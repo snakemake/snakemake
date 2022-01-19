@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
 import sre_constants
@@ -24,6 +25,8 @@ from snakemake.io import (
     AnnotatedString,
     contains_wildcard_constraints,
     update_wildcard_constraints,
+    flag,
+    get_flag_value,
 )
 from snakemake.io import (
     expand,
@@ -52,7 +55,8 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDInt
+from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
+import snakemake.io
 
 
 class Rule:
@@ -101,6 +105,7 @@ class Rule:
             self.wrapper = None
             self.cwl = None
             self.norun = False
+            self.is_handover = False
             self.is_branched = False
             self.is_checkpoint = False
             self.restart_times = 0
@@ -149,6 +154,7 @@ class Rule:
             self.wrapper = other.wrapper
             self.cwl = other.cwl
             self.norun = other.norun
+            self.is_handover = other.is_handover
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
@@ -480,10 +486,21 @@ class Rule:
         name     -- an optional name for the item
         """
         inoutput = self.output if output else self.input
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
+            if ON_WINDOWS:
+                if isinstance(item, (_IOFile, AnnotatedString)):
+                    item = item.new_from(item.replace(os.sep, os.altsep))
+                else:
+                    item = item.replace(os.sep, os.altsep)
+
+            rule_dependency = None
+            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
+                rule_dependency = item.rule
+
             item = self.apply_path_modifier(
                 item, property="output" if output else "input"
             )
@@ -513,8 +530,8 @@ class Rule:
                         )
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                self.dependencies[item] = item.rule
+            if rule_dependency is not None:
+                self.dependencies[item] = rule_dependency
             if output:
                 item = self._update_item_wildcard_constraints(item)
             else:
@@ -527,8 +544,14 @@ class Rule:
                             self
                         )
                     )
+
+            if self.workflow.all_temp and output:
+                # mark as temp if all output files shall be marked as temp
+                item = snakemake.io.flag(item, "temp")
+
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -547,7 +570,7 @@ class Rule:
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
                     r = ReportObject(
-                        os.path.join(self.workflow.current_basedir, report_obj.caption),
+                        self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
                         report_obj.patterns,
@@ -681,6 +704,14 @@ class Rule:
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
+        except FileNotFoundError as e:
+            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+            # where input files are not yet present, we need to skip such cases and
+            # mark them as <TBD>.
+            if "input" in aux_params and e.filename in aux_params["input"]:
+                value = TBDString()
+            else:
+                raise e
         except (Exception, BaseException) as e:
             if raw_exceptions:
                 raise e
@@ -843,6 +874,18 @@ class Rule:
                     ]
             return p
 
+        def handle_incomplete_checkpoint(exception):
+            """If checkpoint is incomplete, target it such that it is completed
+            before this rule gets executed."""
+            print(exception.targetfile)
+            if exception.targetfile in input:
+                return TBDString()
+            else:
+                raise WorkflowError(
+                    "Rule parameter depends on checkpoint but checkpoint output is not defined as input file for the rule. "
+                    "Please add the output of the respective checkpoint to the rule inputs."
+                )
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -864,7 +907,7 @@ class Rule:
                     "output": output._plainstrings(),
                     "threads": resources._cores,
                 },
-                incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
+                incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -943,35 +986,31 @@ class Rule:
         def apply(name, res, threads=None):
             if callable(res):
                 aux = dict(rulename=self.name)
-                if threads:
+                if threads is not None:
                     aux["threads"] = threads
                 try:
-                    try:
-                        res, _ = self.apply_input_function(
-                            res,
-                            wildcards,
-                            input=input,
-                            attempt=attempt,
-                            incomplete_checkpoint_func=lambda e: 0,
-                            raw_exceptions=True,
-                            **aux
-                        )
-                    except FileNotFoundError as e:
-                        # Resources can depend on input files. Since expansion can happen during dryrun,
-                        # where input files are not yet present, we need to skip such resources and
-                        # mark them as [TBD].
-                        if e.filename in input:
-                            # use zero for resource if it cannot yet be determined
-                            res = TBDInt(0)
-                        else:
-                            raise e
+                    res, _ = self.apply_input_function(
+                        res,
+                        wildcards,
+                        input=input,
+                        attempt=attempt,
+                        incomplete_checkpoint_func=lambda e: 0,
+                        raw_exceptions=True,
+                        **aux
+                    )
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int) and not isinstance(res, str):
-                    raise WorkflowError(
-                        "Resources function did not return int or str.", rule=self
-                    )
+            if isinstance(res, float):
+                # round to integer
+                res = int(round(res))
+
+            if not isinstance(res, int) and not isinstance(res, str):
+                raise WorkflowError(
+                    "Resources function did not return int, float (floats are "
+                    "rouded to the nearest integer), or str.",
+                    rule=self,
+                )
             if isinstance(res, int):
                 global_res = self.workflow.global_resources.get(name, res)
                 if global_res is not None:
@@ -979,6 +1018,8 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if self.workflow.max_threads is not None:
+            threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
         for name, res in self.resources.items():
@@ -1159,6 +1200,9 @@ class RuleProxy:
             prefix = self.rule.workflow.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
+
+            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
+
             if (
                 self.rule.workflow.default_remote_provider is not None
                 and f.startswith(prefix)
@@ -1169,6 +1213,9 @@ class RuleProxy:
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_remote_object(f)
+
+            if modified_by is not None:
+                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
 
             return cleaned
 

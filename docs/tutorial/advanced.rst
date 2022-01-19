@@ -192,7 +192,7 @@ We modify the rule ``bwa_map`` accordingly:
     rule bwa_map:
         input:
             "data/genome.fa",
-            lambda wildcards: config["samples"][wildcards.sample]
+            get_bwa_map_input_fastqs
         output:
             "mapped_reads/{sample}.bam"
         params:
@@ -332,6 +332,10 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
         input:
             "plots/quals.svg"
 
+
+    def get_bwa_map_input_fastqs(wildcards):
+        return config["samples"][wildcards.sample]
+    
 
     rule bwa_map:
         input:

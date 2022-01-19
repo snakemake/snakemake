@@ -270,7 +270,7 @@ How do I enable syntax highlighting in Vim for Snakefiles?
 ----------------------------------------------------------
 
 Instructions for doing this are located `here
-<https://github.com/snakemake/snakemake/tree/master/misc/vim>`_.
+<https://github.com/snakemake/snakemake/tree/main/misc/vim>`_.
 
 Note that you can also format Snakefiles in Vim using :ref:`snakefmt
 <How should Snakefiles be formatted?>`, with instructions located `here
@@ -574,6 +574,26 @@ temporary file ``huge_file.csv`` could be kept at the compute node.
 .. code-block:: console
 
    $ snakemake --shadow-prefix /scratch some_summary_statistics.txt --cluster ...
+
+If you want the input files of your rule to be copied to the node-local scratch directory
+instead of just using symbolic links, you can use ``copy-minimal`` in the ``shadow`` directive.
+This is useful for example for benchmarking tools as a black-box.
+
+.. code-block:: python
+
+  rule:
+      input:
+          "input_file.txt"
+      output:
+          file = "output_file.txt",
+          benchmark = "benchmark_results.txt",
+      shadow: "copy-minimal"
+      shell:
+          """
+          /usr/bin/time -v command "{input}" "{output.file}" > "{output.benchmark}"
+          """
+
+Executing snakemake as above then leads to the shell script accessing only node-local storage.
 
 How do I access elements of input or output by a variable index?
 ----------------------------------------------------------------

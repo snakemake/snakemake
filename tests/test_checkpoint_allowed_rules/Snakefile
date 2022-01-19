@@ -1,0 +1,13 @@
+checkpoint a:
+    output: touch("a.txt")
+
+rule b:
+    output: touch("b.txt")
+
+def get_input(wildcards):
+    checkpoints.a.get()
+    return "b.txt"
+
+rule c:
+    input: get_input
+    shell: "echo {input}"

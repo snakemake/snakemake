@@ -6,13 +6,17 @@ __license__ = "MIT"
 import subprocess
 import shutil
 import os
-from urllib.parse import urlparse
 import hashlib
 from distutils.version import LooseVersion
 
 import snakemake
 from snakemake.deployment.conda import Conda
-from snakemake.common import lazy_property, SNAKEMAKE_SEARCHPATH
+from snakemake.common import (
+    is_local_file,
+    parse_uri,
+    lazy_property,
+    SNAKEMAKE_SEARCHPATH,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
@@ -53,8 +57,7 @@ class Image:
 
     @property
     def is_local(self):
-        scheme = urlparse(self.url).scheme
-        return not scheme or scheme == "file"
+        return is_local_file(self.url)
 
     @lazy_property
     def hash(self):
@@ -92,7 +95,7 @@ class Image:
     @property
     def path(self):
         if self.is_local:
-            return urlparse(self.url).path
+            return parse_uri(self.url).uri_path
         return os.path.join(self._img_dir, self.hash) + ".simg"
 
     def __hash__(self):
@@ -110,6 +113,7 @@ def shellcmd(
     envvars=None,
     shell_executable=None,
     container_workdir=None,
+    is_python_script=False,
 ):
     """Execute shell command inside singularity container given optional args
     and environment variables to be passed."""
@@ -128,8 +132,9 @@ def shellcmd(
         # because we cannot be sure where it is located in the container.
         shell_executable = os.path.split(shell_executable)[-1]
 
-    # mount host snakemake module into container
-    args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
+    if is_python_script:
+        # mount host snakemake module into container
+        args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
 
     if container_workdir:
         args += " --pwd {}".format(container_workdir)

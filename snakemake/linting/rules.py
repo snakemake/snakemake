@@ -35,7 +35,7 @@ class RuleLinter(Linter):
                 )
 
     def lint_log_directive(self, rule):
-        if not rule.log and not rule.norun:
+        if not rule.log and not rule.norun and not rule.is_handover:
             yield Lint(
                 title="No log directive defined",
                 body="Without a log directive, all output will be printed "
@@ -122,6 +122,7 @@ class RuleLinter(Linter):
     def lint_missing_software_definition(self, rule):
         if (
             not rule.norun
+            and not rule.is_handover
             and not rule.is_run
             and not (rule.conda_env or rule.container_img)
         ):

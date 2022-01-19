@@ -11,6 +11,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake import common
 
 dd = textwrap.dedent
 
@@ -483,6 +484,10 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class Handover(RuleKeywordState):
+    pass
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -502,10 +507,12 @@ class Run(RuleKeywordState):
             "def __rule_{rulename}(input, output, params, wildcards, threads, "
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
-            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook):".format(
+            "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
+            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
-                else self.snakefile.rulecount
+                else self.snakefile.rulecount,
+                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
 
@@ -600,13 +607,10 @@ class Script(AbstractCmd):
     end_func = "script"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path"
         )
 
 
@@ -615,14 +619,11 @@ class Notebook(Script):
     end_func = "notebook"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook"
+            "edit_notebook, runtime_sourcecache_path"
         )
 
 
@@ -633,9 +634,9 @@ class Wrapper(Script):
     def args(self):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, container_img, singularity_args, env_modules, "
+            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir"
+            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
         )
 
 
@@ -644,12 +645,9 @@ class CWL(Script):
     end_func = "cwl"
 
     def args(self):
-        # basedir
-        yield ", {!r}".format(os.path.abspath(os.path.dirname(self.snakefile.path)))
-        # other args
         yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid"
+            ", basedir, input, output, params, wildcards, threads, resources, log, "
+            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
         )
 
 
@@ -674,6 +672,7 @@ rule_property_subautomata = dict(
     shadow=Shadow,
     group=Group,
     cache=Cache,
+    handover=Handover,
 )
 
 
@@ -820,6 +819,10 @@ class ModuleSnakefile(ModuleKeywordState):
     pass
 
 
+class ModulePrefix(ModuleKeywordState):
+    pass
+
+
 class ModuleMetaWrapper(ModuleKeywordState):
     @property
     def keyword(self):
@@ -831,7 +834,9 @@ class ModuleConfig(ModuleKeywordState):
 
 
 class ModuleSkipValidation(ModuleKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "skip_validation"
 
 
 class ModuleReplacePrefix(ModuleKeywordState):
@@ -847,6 +852,7 @@ class Module(GlobalKeywordState):
         config=ModuleConfig,
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
+        prefix=ModulePrefix,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -1158,7 +1164,7 @@ class Python(TokenAutomaton):
 
 class Snakefile:
     def __init__(self, path, workflow, rulecount=0):
-        self.path = path
+        self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount

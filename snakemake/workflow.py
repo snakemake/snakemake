@@ -17,12 +17,13 @@ from operator import attrgetter
 import copy
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
 from urllib.request import pathname2url, url2pathname
+
 
 from snakemake.logging import logger, format_resources, format_resource_names
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
+    CreateCondaEnvironmentException,
     RuleException,
     CreateRuleException,
     UnknownRuleException,
@@ -62,7 +63,18 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 import snakemake.wrapper
-from snakemake.common import Mode, bytesto, ON_WINDOWS, is_local_file
+from snakemake.common import (
+    Mode,
+    bytesto,
+    ON_WINDOWS,
+    is_local_file,
+    parse_uri,
+    Rules,
+    Scatter,
+    Gather,
+    smart_join,
+    NOTHING_TO_BE_DONE_MSG,
+)
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
 from snakemake.resources import DefaultResources
@@ -70,7 +82,15 @@ from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import RuleInfo
-from snakemake.sourcecache import SourceCache
+from snakemake.sourcecache import (
+    GenericSourceFile,
+    LocalSourceFile,
+    SourceCache,
+    SourceFile,
+    infer_source_file,
+)
+from snakemake.deployment.conda import Conda
+from snakemake import sourcecache
 
 
 class Workflow:
@@ -86,6 +106,7 @@ class Workflow:
         overwrite_threads=None,
         overwrite_scatter=None,
         overwrite_groups=None,
+        overwrite_resources=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -119,6 +140,11 @@ class Workflow:
         max_inventory_wait_time=20,
         conda_not_block_search_path_envvars=False,
         execute_subworkflows=True,
+        scheduler_solver_path=None,
+        conda_base_path=None,
+        check_envvars=True,
+        max_threads=None,
+        all_temp=False,
     ):
         """
         Create the controller.
@@ -138,7 +164,7 @@ class Workflow:
         self.linemaps = dict()
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
-        self.snakefile = os.path.abspath(snakefile)
+        self.main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
         self.jobscript = jobscript
@@ -149,6 +175,7 @@ class Workflow:
         self.overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
         self.overwrite_threads = overwrite_threads or dict()
+        self.overwrite_resources = overwrite_resources or dict()
         self.config_args = config_args
         self.immediate_submit = None
         self._onsuccess = lambda log: None
@@ -177,7 +204,7 @@ class Workflow:
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfiles = []
+        self.configfiles = list(overwrite_configfiles) or []
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
@@ -193,9 +220,23 @@ class Workflow:
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
         self.sourcecache = SourceCache()
+        self.scheduler_solver_path = scheduler_solver_path
+        self._conda_base_path = conda_base_path
+        self.check_envvars = check_envvars
+        self.max_threads = max_threads
+        self.all_temp = all_temp
+        self.scheduler = None
 
         _globals = globals()
         _globals["workflow"] = self
+        _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
+        _globals["rules"] = Rules()
+        _globals["checkpoints"] = Checkpoints()
+        _globals["scatter"] = Scatter()
+        _globals["gather"] = Gather()
+        _globals["github"] = sourcecache.GithubFile
+        _globals["gitlab"] = sourcecache.GitlabFile
+
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
@@ -216,28 +257,28 @@ class Workflow:
         if default_resources is not None:
             self.default_resources = default_resources
         else:
-            # only _cores and _nodes
-            self.default_resources = DefaultResources()
+            # only _cores, _nodes, and _tmpdir
+            self.default_resources = DefaultResources(mode="bare")
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
-        global config
-        config = copy.deepcopy(self.overwrite_config)
-
-        global cluster_config
-        cluster_config = copy.deepcopy(self.overwrite_clusterconfig)
-
-        global rules
-        rules = Rules()
-        global checkpoints
-        checkpoints = Checkpoints()
-        global scatter
-        scatter = Scatter()
-        global gather
-        gather = Gather()
+        self.globals["config"] = copy.deepcopy(self.overwrite_config)
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def conda_base_path(self):
+        if self._conda_base_path:
+            return self._conda_base_path
+        if self.use_conda:
+            try:
+                return Conda().prefix_path
+            except CreateCondaEnvironmentException as e:
+                # Return no preset conda base path now and report error later in jobs.
+                return None
+        else:
+            return None
 
     @property
     def modifier(self):
@@ -279,16 +320,10 @@ class Workflow:
         files = set()
 
         def local_path(f):
-            if ON_WINDOWS:
-                try:
-                    f = pathname2url(f)
-                except OSError:
-                    pass  # f isn't changed if it wasn't a path
-
-            url = urlparse(f)
-            if url.scheme == "file" or url.scheme == "":
-                return url2pathname(url.path)
-            return None
+            if not isinstance(f, SourceFile) and is_local_file(f):
+                return f
+            if isinstance(f, LocalSourceFile):
+                return f.get_path_or_uri()
 
         def norm_rule_relpath(f, rule):
             if not os.path.isabs(f):
@@ -375,6 +410,19 @@ class Workflow:
 
     @property
     def cores(self):
+        if self._cores is None:
+            raise WorkflowError(
+                "Workflow requires a total number of cores to be defined (e.g. because a "
+                "rule defines its number of threads as a fraction of a total number of cores). "
+                "Please set it with --cores N with N being the desired number of cores. "
+                "Consider to use this in combination with --max-threads to avoid "
+                "jobs with too many threads for your setup. Also make sure to perform "
+                "a dryrun first."
+            )
+        return self._cores
+
+    @property
+    def _cores(self):
         return self.global_resources["_cores"]
 
     @property
@@ -409,8 +457,6 @@ class Workflow:
         """
         Add a rule.
         """
-        if name is None:
-            name = str(len(self._rules) + 1)
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
@@ -628,13 +674,18 @@ class Workflow:
             )
         )
         targetfiles = set(chain(files(targets), priorityfiles, forcefiles, untilfiles))
+
+        if ON_WINDOWS:
+            targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
+
         if forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
         rules = self.rules
         if allowed_rules:
-            rules = [rule for rule in rules if rule.name in set(allowed_rules)]
+            allowed_rules = set(allowed_rules)
+            rules = [rule for rule in rules if rule.name in allowed_rules]
 
         if wait_for_files is not None:
             try:
@@ -691,6 +742,9 @@ class Workflow:
             or delete_all_output
             or delete_temp_output,
         )
+
+        if self.mode in [Mode.subprocess, Mode.cluster]:
+            self.persistence.deactivate_cache()
 
         if cleanup_metadata:
             for f in cleanup_metadata:
@@ -757,7 +811,7 @@ class Workflow:
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
                         targets=subworkflow_targets,
-                        cores=self.cores,
+                        cores=self._cores,
                         nodes=self.nodes,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
@@ -770,7 +824,9 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: Nothing to be done.".format(subworkflow.name)
+                        "Subworkflow {}: {}".format(
+                            subworkflow.name, NOTHING_TO_BE_DONE_MSG
+                        )
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
@@ -905,7 +961,7 @@ class Workflow:
             for env in set(job.conda_env for job in dag.jobs):
                 if env:
                     print(
-                        simplify_path(env.file),
+                        env.file.simplify_path(),
                         env.container_img_url or "",
                         simplify_path(env.path),
                         sep="\t",
@@ -916,10 +972,9 @@ class Workflow:
             self.persistence.conda_cleanup_envs()
             return True
 
-        scheduler = JobScheduler(
+        self.scheduler = JobScheduler(
             self,
             dag,
-            self.cores,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -970,17 +1025,17 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
-                elif kubernetes or tibanna:
+                elif kubernetes or tibanna or google_lifesciences:
                     logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
-                    if self.cores is not None:
+                    if self._cores is not None:
                         warning = (
                             ""
-                            if self.cores > 1
+                            if self._cores > 1
                             else " (use --cores to define parallelism)"
                         )
                         logger.resources_info(
-                            "Provided cores: {}{}".format(self.cores, warning)
+                            "Provided cores: {}{}".format(self._cores, warning)
                         )
                         logger.resources_info(
                             "Rules claiming more threads " "will be scaled down."
@@ -1001,15 +1056,16 @@ class Workflow:
                 ):
                     logger.info("Singularity containers: ignored")
 
-                logger.run_info("\n".join(dag.stats()))
+                if self.mode == Mode.default:
+                    logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
-                logger.info("Nothing to be done.")
+                logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
             if quiet:
                 # in case of dryrun and quiet, just print above info and exit
@@ -1018,7 +1074,7 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = scheduler.schedule()
+        success = self.scheduler.schedule()
 
         if not immediate_submit and not dryrun:
             dag.cleanup_workdir()
@@ -1034,7 +1090,7 @@ class Workflow:
                 logger.remove_logfile()
             else:
                 if stats:
-                    scheduler.stats.to_json(stats)
+                    self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1049,7 +1105,30 @@ class Workflow:
     def current_basedir(self):
         """Basedir of currently parsed Snakefile."""
         assert self.included_stack
-        return os.path.abspath(os.path.dirname(self.included_stack[-1]))
+        snakefile = self.included_stack[-1]
+        basedir = snakefile.get_basedir()
+        if isinstance(basedir, LocalSourceFile):
+            return basedir.abspath()
+        else:
+            return basedir
+
+    def source_path(self, rel_path):
+        """Return path to source file from work dir derived from given path relative to snakefile"""
+        # TODO download to disk (use source cache) in case of remote file
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        calling_file = frame.f_code.co_filename
+        calling_dir = os.path.dirname(calling_file)
+        path = smart_join(calling_dir, rel_path)
+        return self.sourcecache.get_path(infer_source_file(path))
+
+    @property
+    def snakefile(self):
+        import inspect
+
+        frame = inspect.currentframe().f_back
+        return frame.f_code.co_filename
 
     def register_envvars(self, *envvars):
         """
@@ -1057,7 +1136,7 @@ class Workflow:
         If used multiple times, union is taken.
         """
         undefined = set(var for var in envvars if var not in os.environ)
-        if undefined:
+        if self.check_envvars and undefined:
             raise WorkflowError(
                 "The following environment variables are requested by the workflow but undefined. "
                 "Please make sure that they are correctly defined before running Snakemake:\n"
@@ -1080,16 +1159,8 @@ class Workflow:
         """
         Include a snakefile.
         """
-        if isinstance(snakefile, Path):
-            snakefile = str(snakefile)
-
-        # check if snakefile is a path to the filesystem
-        if is_local_file(snakefile):
-            if not os.path.isabs(snakefile) and self.included_stack:
-                snakefile = os.path.join(self.current_basedir, snakefile)
-            # Could still be a url if relative import was used
-            if is_local_file(snakefile):
-                snakefile = os.path.abspath(snakefile)
+        basedir = self.current_basedir if self.included_stack else None
+        snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
@@ -1109,13 +1180,14 @@ class Workflow:
         if print_compilation:
             print(code)
 
-        # insert the current directory into sys.path
-        # this allows to import modules from the workflow directory
-        sys.path.insert(0, os.path.dirname(snakefile))
+        if isinstance(snakefile, LocalSourceFile):
+            # insert the current directory into sys.path
+            # this allows to import modules from the workflow directory
+            sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
-        self.linemaps[snakefile] = linemap
+        self.linemaps[snakefile.get_path_or_uri()] = linemap
 
-        exec(compile(code, snakefile, "exec"), self.globals)
+        exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_first_rule:
             self.first_rule = first_rule
@@ -1157,8 +1229,8 @@ class Workflow:
             )
 
         for key in content:
-            setattr(scatter, key, func)
-            setattr(gather, key, func)
+            setattr(self.globals["scatter"], key, func)
+            setattr(self.globals["gather"], key, func)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1168,13 +1240,26 @@ class Workflow:
             os.chdir(workdir)
 
     def configfile(self, fp):
-        """ Update the global config with data from the given file. """
+        """Update the global config with data from the given file."""
         global config
         if not self.modifier.skip_configfile:
-            self.configfiles.append(fp)
-            c = snakemake.io.load_configfile(fp)
-            update_config(config, c)
-            update_config(config, self.overwrite_config)
+            if os.path.exists(fp):
+                self.configfiles.append(fp)
+                c = snakemake.io.load_configfile(fp)
+                update_config(config, c)
+                if self.overwrite_config:
+                    logger.info(
+                        "Config file {} is extended by additional config specified via the command line.".format(
+                            fp
+                        )
+                    )
+                    update_config(config, self.overwrite_config)
+            elif not self.overwrite_configfiles:
+                raise WorkflowError(
+                    "Workflow defines configfile {} but it is not present or accessible.".format(
+                        fp
+                    )
+                )
 
     def pepfile(self, path):
         global pep
@@ -1195,24 +1280,23 @@ class Workflow:
         except ImportError:
             raise WorkflowError("For PEP schema support, please install eido.")
 
-        if urlparse(schema).scheme == "" and not os.path.isabs(schema):
+        if is_local_file(schema) and not os.path.isabs(schema):
             # schema is relative to current Snakefile
-            schema = os.path.join(self.current_basedir, schema)
+            schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
         eido.validate_project(project=pep, schema=schema, exclude_case=True)
 
     def report(self, path):
-        """ Define a global report description in .rst format."""
-        self.report_text = os.path.join(self.current_basedir, path)
+        """Define a global report description in .rst format."""
+        self.report_text = self.current_basedir.join(path)
 
     @property
     def config(self):
-        global config
-        return config
+        return self.globals["config"]
 
     def ruleorder(self, *rulenames):
-        self._ruleorder.add(*rulenames)
+        self._ruleorder.add(*map(self.modifier.modify_rulename, rulenames))
 
     def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
         # Take absolute path of config file, because it is relative to current
@@ -1227,6 +1311,10 @@ class Workflow:
         self._localrules.update(rulenames)
 
     def rule(self, name=None, lineno=None, snakefile=None, checkpoint=False):
+        # choose a name for an unnamed rule
+        if name is None:
+            name = str(len(self._rules) + 1)
+
         if self.modifier.skip_rule(name):
 
             def decorate(ruleinfo):
@@ -1236,6 +1324,7 @@ class Workflow:
             return decorate
 
         # Optionally let the modifier change the rulename.
+        orig_name = name
         name = self.modifier.modify_rulename(name)
 
         name = self.add_rule(
@@ -1291,16 +1380,22 @@ class Workflow:
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
             if ruleinfo.shadow_depth:
-                if ruleinfo.shadow_depth not in (True, "shallow", "full", "minimal"):
+                if ruleinfo.shadow_depth not in (
+                    True,
+                    "shallow",
+                    "full",
+                    "minimal",
+                    "copy-minimal",
+                ):
                     raise RuleException(
-                        "Shadow must either be 'minimal', 'shallow', 'full', "
+                        "Shadow must either be 'minimal', 'copy-minimal', 'shallow', 'full', "
                         "or True (equivalent to 'full')",
                         rule=rule,
                     )
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|shallow|full' instead.".format(
+                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
                             rule
                         )
                     )
@@ -1323,6 +1418,9 @@ class Workflow:
                         rule=rule,
                     )
                 rule.resources.update(resources)
+            if name in self.overwrite_resources:
+                rule.resources.update(self.overwrite_resources[name])
+
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
                     ruleinfo.priority, float
@@ -1384,13 +1482,15 @@ class Workflow:
                         "(not with run).",
                         rule=rule,
                     )
-                if not (
-                    urllib.parse.urlparse(ruleinfo.conda_env).scheme
-                    or os.path.isabs(ruleinfo.conda_env)
+
+                if (
+                    ruleinfo.conda_env is not None
+                    and is_local_file(ruleinfo.conda_env)
+                    and not os.path.isabs(ruleinfo.conda_env)
                 ):
-                    ruleinfo.conda_env = os.path.join(
-                        self.current_basedir, ruleinfo.conda_env
-                    )
+                    ruleinfo.conda_env = self.current_basedir.join(
+                        ruleinfo.conda_env
+                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
@@ -1410,8 +1510,8 @@ class Workflow:
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule:
-                    # skip rules with run directive
+                if not invalid_rule and ruleinfo.container_img != False:
+                    # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
 
@@ -1427,6 +1527,21 @@ class Workflow:
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
+
+            if ruleinfo.handover:
+                if not ruleinfo.resources:
+                    # give all available resources to the rule
+                    rule.resources.update(
+                        {
+                            name: val
+                            for name, val in self.global_resources.items()
+                            if val is not None
+                        }
+                    )
+                # This becomes a local rule, which might spawn jobs to a cluster,
+                # depending on its configuration (e.g. nextflow config).
+                self._localrules.add(rule.name)
+                rule.is_handover = True
 
             if ruleinfo.cache is True:
                 if not self.enable_cache:
@@ -1445,9 +1560,14 @@ class Workflow:
 
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
-            setattr(rules, rule.name, RuleProxy(rule))
+
+            rule_proxy = RuleProxy(rule)
+            if orig_name is not None:
+                setattr(self.globals["rules"], orig_name, rule_proxy)
+            setattr(self.globals["rules"], rule.name, rule_proxy)
+
             if checkpoint:
-                checkpoints.register(rule)
+                self.globals["checkpoints"].register(rule, fallback_name=orig_name)
             rule.ruleinfo = ruleinfo
             return ruleinfo.func
 
@@ -1521,7 +1641,11 @@ class Workflow:
 
     def container(self, container_img):
         def decorate(ruleinfo):
-            ruleinfo.container_img = container_img
+            # Explicitly set container_img to False if None is passed, indicating that
+            # no container image shall be used, also not a global one.
+            ruleinfo.container_img = (
+                container_img if container_img is not None else False
+            )
             ruleinfo.is_containerized = False
             return ruleinfo
 
@@ -1599,6 +1723,13 @@ class Workflow:
 
         return decorate
 
+    def handover(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.handover = value
+            return ruleinfo
+
+        return decorate
+
     def shellcmd(self, cmd):
         def decorate(ruleinfo):
             ruleinfo.shellcmd = cmd
@@ -1659,6 +1790,7 @@ class Workflow:
         config=None,
         skip_validation=False,
         replace_prefix=None,
+        prefix=None,
     ):
         self.modules[name] = ModuleInfo(
             self,
@@ -1668,6 +1800,7 @@ class Workflow:
             config=config,
             skip_validation=skip_validation,
             replace_prefix=replace_prefix,
+            prefix=prefix,
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):
@@ -1692,11 +1825,13 @@ class Workflow:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
                     )
-                orig_rule = self._rules[rules[0]]
+                orig_rule = self._rules[self.modifier.modify_rulename(rules[0])]
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
-                    rulename_modifier=get_name_modifier_func(rules, name_modifier),
+                    rulename_modifier=get_name_modifier_func(
+                        rules, name_modifier, parent_modifier=self.modifier
+                    ),
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     self.rule(
@@ -1761,26 +1896,8 @@ class Subworkflow:
         ]
 
 
-class Rules:
-    """ A namespace for rules so that they can be accessed via dot notation. """
-
-    pass
-
-
-class Scatter:
-    """ A namespace for scatter to allow items to be accessed via dot notation."""
-
-    pass
-
-
-class Gather:
-    """ A namespace for gather to allow items to be accessed via dot notation."""
-
-    pass
-
-
 def srcdir(path):
     """Return the absolute path, relative to the source directory of the current Snakefile."""
     if not workflow.included_stack:
         return None
-    return os.path.join(os.path.dirname(workflow.included_stack[-1]), path)
+    return workflow.current_basedir.join(path).get_path_or_uri()

@@ -68,20 +68,3 @@ From Snakemake 3.2 on, if your workflow depends on a minimum Snakemake version, 
     min_version("3.2")
 
 given that your minimum required version of Snakemake is 3.2. The statement will raise a WorkflowError (and therefore abort the workflow execution) if the version is not met.
-
-
-.. _snakefiles-best_practices:
-
---------------
-Best practices
---------------
-
-Snakemake (>=5.11) comes with a code quality checker (a so called linter), that analyzes your workflow and highlights issues that should be solved in order to follow best practices, achieve maximum readability, and reproducibility.
-The linter can be invoked with 
-
-.. code-block:: bash
-
-    snakemake --lint
-
-given that a ``Snakefile`` or ``workflow/Snakefile`` is accessible from your working directory.
-It is **highly recommended** to run the linter before publishing any workflow, asking questions on Stack Overflow or filing issues on Github.

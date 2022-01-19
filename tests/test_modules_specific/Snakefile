@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 module test:
     snakefile: "module-test/Snakefile"
 

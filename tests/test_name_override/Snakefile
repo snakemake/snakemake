@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 rule all:
     input:
         txt = 'out2.txt'
