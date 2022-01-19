@@ -50,7 +50,6 @@ class SlurmExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         cluster_config=None,
     ):
-        #self.jobname = self.dag.rulename + '_' + self.dag.jobid
         # needs to be set in either case for the submission string
         if not cores:
             cores = 1
@@ -125,10 +124,9 @@ class SlurmExecutor(ClusterExecutor):
         workdir = os.getcwd()
         jobid = job.jobid
         # generic part of a submission string:
-        # print(self.exec_job)
+
         os.makedirs('.snakemake/slurm-logs', exist_ok=True)
-        #print('got here: run() in slurm_submit')
-        #sys.exit()
+
 
         try:
             call = "sbatch -A {account} -p {partition} \
@@ -145,9 +143,6 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
             sys.exit(1)
-
-        #call += " --export={}".format(",".join(self.workflow.envvars))
-        #call += ",PATH"
 
         if not job.resources.get('walltime_minutes'):
             logger.warning("No wall time limit is set, setting 'walltime_minutes' to 1.")
@@ -197,12 +192,8 @@ class SlurmExecutor(ClusterExecutor):
         )
         # and finally the job to execute with all the snakemake parameters
 
-        #jobscript = self.get_jobscript(job)
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        #self.write_jobscript(
-        #    job, jobscript, jobfinished=jobfinished, jobfailed=jobfailed
-        #)
 
         exec_job = self.format_job(
             self.exec_job,
@@ -215,12 +206,10 @@ class SlurmExecutor(ClusterExecutor):
         # and not `cd` statements or tinkerings with PATH:
         # the directory is changed anyways by SLURM, the environment is
         # carried on, within envvars and the SLURM environment.
-        #exe
-        #exec_job = ' '.join(exec_job.split(' ')[8:]).replace('\\', ' ').replace(os.linesep, ' ')
+
         index = exec_job.index("-m snakemake")
         exec_job=exec_job[index:]
         call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
-        #sys.exit()
         #try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
         #except:
