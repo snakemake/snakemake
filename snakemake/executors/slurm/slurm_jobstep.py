@@ -87,6 +87,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
                         level_job=level_job,
                         aux=aux,
                         jobid=self.jobid,
+                        mem_per_cpu=mem_per_cpu,
                         exec_job=self.format_job(level_job),
                     )
                 )
