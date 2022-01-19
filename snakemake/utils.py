@@ -413,7 +413,7 @@ def format(_pattern, *args, stepout=1, _quote_all=False, **kwargs):
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
-        if str(ex).strip("'") in variables["wildcards"].keys():
+        if "wildcards" in variables and str(ex).strip("'") in variables["wildcards"].keys():
             raise NameError(
                 "The name '{0}' is unknown in this context. "
                 "Did you mean 'wildcards.{0}'?".format(str(ex).strip("'"))
