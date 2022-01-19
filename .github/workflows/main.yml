@@ -102,7 +102,11 @@ jobs:
         env:
           CI: true
         run: |
-          docker run -e PATH="/usr/share/miniconda:\$PATH" -i -t -v /usr/share/miniconda:/usr/share/miniconda -v `pwd`:`pwd` -w `pwd` -h ernie ohsucompbio/slurm:latest /bin/bash -c "source activate snakemake; pytest tests/test_slurm.py"
+          cp .github/resources/slurm/* .
+          make setup
+          make start
+          # TODO deploy the snakemake from the host into the vagrant environment
+          vagrant ssh controller -- -t "pytest tests/test_slurm.py"
 
       - name: Build and publish docker image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
