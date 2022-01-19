@@ -333,6 +333,7 @@ class RealExecutor(AbstractExecutor):
         return additional
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
+        #mport pdb; pdb.set_trace()
         overwrite_workdir = []
         if self.workflow.overwrite_workdir:
             overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
@@ -732,6 +733,7 @@ class ClusterExecutor(RealExecutor):
         try:
             self._wait_for_jobs()
         except Exception as e:
+            print(e)
             self.workflow.scheduler.executor_error_callback(e)
 
     def shutdown(self):
@@ -801,6 +803,7 @@ class ClusterExecutor(RealExecutor):
                 "--wait-for-files {wait_for_files}",
                 wait_for_files=[repr(f) for f in wait_for_files],
             )
+        #import pdb; pdb.set_trace()
 
         format_p = partial(
             self.format_job_pattern,

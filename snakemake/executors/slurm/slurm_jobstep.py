@@ -64,10 +64,10 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         pass
 
-    def format_job(self, job):
-        return super().format_job(
-            self.exec_job, job, _quote_all=True, use_threads=True
-        )
+    #def format_job(self, job):
+#        return super().format_job(
+#            self.exec_job, job, _quote_all=True,
+#        )
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         #super()._run(job)
@@ -101,15 +101,20 @@ class SlurmJobstepExecutor(ClusterExecutor):
                 jobsteps[level_job] = subprocess.Popen(
                     get_call(level_job, level_id + 1, aux="--singleton"), shell=True
                 )
+        if job.resources.get('mpi'):
+                call = "srun "
+                if job.resources.get('bind_rank'):
+                    call += "--cpu-bind=rank "
+                call += job.shellcmd
         else:
-            if job.resources.get('mpi') and job.resources.get('bind_rank'):
-                call = "srun --cpu-bind=rank"
-            elif job.resources.get('mpi'):
-                call = "srun"
+            call = "srun --cpu-bind=q --exclusive "
+            # a non-simple job (e.g. script), should start snakemake in turn
+            if not job.is_shell:
+                call += self.format_job(self.exec_job, job,
+                                          use_threads="--force-use-threads")
             else:
-                call = "srun --cpu-bind=q --exclusive"
-            call += " {exec_job}".format(exec_job=self.format_job(job))
-            jobsteps[job] = subprocess.Popen(call, shell=True)
+                call += job.shellcmd
+        jobsteps[job] = subprocess.Popen(call, shell=True)
 
         # wait until all steps are finished
         return_codes = list()

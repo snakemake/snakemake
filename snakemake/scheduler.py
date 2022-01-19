@@ -560,11 +560,8 @@ class JobScheduler:
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
-                print(self._executor)
                 self.run(local_runjobs, executor=self._local_executor or self._executor)
-                print(self._executor)
                 self.run(runjobs)
-                print(self._executor)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."

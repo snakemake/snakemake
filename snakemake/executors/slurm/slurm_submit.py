@@ -36,7 +36,7 @@ class SlurmExecutor(ClusterExecutor):
         workflow,
         dag,
         cores,
-        jobname="snakejob_{rulenname}_{jobid}", # name and SLURM_JOB_ID will be appended
+        jobname="snakejob_{name}_{jobid}", # name and SLURM_JOB_ID will be appended
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -189,13 +189,13 @@ class SlurmExecutor(ClusterExecutor):
         envvars = " ".join(
             "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
         )
-
+        jobname = self.jobname.format()
         try:
             call = "sbatch -A {account} -p {partition} \
                     -J {jobname} \
                     -o .snakemake/slurm_logs/%x_%j.log \
                     --export=ALL".format(
-                **job.resources, jobname=self.jobname
+                **job.resources, jobname=jobname
             )
         except KeyError as e:
             logger.error(
@@ -222,19 +222,27 @@ class SlurmExecutor(ClusterExecutor):
 
         # if ressources == MPI:
         if job.resources.get("mpi", False):
-            # submit MPI job
-            # mold submissing string, submit according to generic cluster exec
-            pass
+            if job.resources.get("nodes", False):
+                call += " --nodes={}".format(job.resources.get("nodes", 1))
+            if job.resources.get("tasks", False):
+                call += " --ntasks={}".format(job.resources.get("tasks", 1))
+            if job.resources.get("threads", False):
+                call += " -c={}".format(job.resources.get("threads", 1))
         # ordinary smp application:
-        elif not job.resources.get("mpi") and not job.is_group():
+        elif not job.is_group():
             # TODO: this line will become longer
             # TODO: hence the single command, yet
             if job.threads == 0:
                 call += " -n 1 -c 1 {exec_job}".format(self.exec_job)
             else:
                 call += " -n 1 -c {threads}".format(threads=job.threads)
-        else:  # job.is_group:
-            pass
+        # job.is_group
+        else:
+            ntasks = max(map(len, job.toposorted))
+            threads = max(j.threads for j in job)
+            call += " -n {ntasks} -c {threads}".format(ntasks=ntasks,
+                                     threads=threads)
+
 
         # as we cannot do 'sbatch ... cd {workflow.workdir_init} && python ...' as snakemake otherwise expects this
         # usually, this is default SLURM behaviour, but to ensure this working
@@ -258,27 +266,19 @@ class SlurmExecutor(ClusterExecutor):
             _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "",
         )
-        print('==================')
-        print(dir(job))
-        print('==================')
 
         # we need to modify `exec_job`, because we can only wrap executables
         # and not `cd` statements or tinkerings with PATH:
         # the directory is changed anyways by SLURM, the environment is
         # carried on, within envvars and the SLURM environment.
-        print(exec_job)
         #exe
         #exec_job = ' '.join(exec_job.split(' ')[8:]).replace('\\', ' ').replace(os.linesep, ' ')
         index = exec_job.index("-m snakemake")
         exec_job=exec_job[index:]
-        print(exec_job)
         call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
-        print(call)
-        print('====')
         #sys.exit()
         #try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
-        print(out)
         #except:
         #    pass  # check template
 
