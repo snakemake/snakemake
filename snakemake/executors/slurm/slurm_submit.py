@@ -182,28 +182,27 @@ class SlurmExecutor(ClusterExecutor):
         jobid = job.jobid
         # generic part of a submission string:
         # print(self.exec_job)
-        os.makedirs('.snakemake/slurm_logs', exist_ok=True)
+        os.makedirs('.snakemake/slurm-logs', exist_ok=True)
         #print('got here: run() in slurm_submit')
         #sys.exit()
 
-        envvars = " ".join(
-            "{}={}".format(var, os.environ[var]) for var in self.workflow.envvars
-        )
-        jobname = self.jobname.format()
         try:
             call = "sbatch -A {account} -p {partition} \
                     -J {jobname} \
-                    -o .snakemake/slurm_logs/%x_%j.log \
-                    --export=ALL".format(
-                **job.resources, jobname=jobname
+                    -o .snakemake/slurm_logs/%x_%j.log".format(
+                **job.resources, jobname=self.get_jobname(job)
             )
         except KeyError as e:
+            #TODO: make explicit message for account / partition
             logger.error(
                 "Missing job submission key '{}' for job '{}'.".format(
                     e.args[0], job.name
                 )
             )
             sys.exit(1)
+
+        call += " --export={}".format(",".join(self.workflow.envvars))
+
         if not job.resources.get('walltime_minutes'):
             logger.warning("No wall time limit is set, setting 'walltime_minutes' to 1.")
         call += " -t {walltime_minutes}".format(walltime_minutes = job.resources.get('walltime_minutes', default_value=1))
@@ -262,7 +261,6 @@ class SlurmExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job,
             job,
-            envvars=envvars,
             _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "",
         )
