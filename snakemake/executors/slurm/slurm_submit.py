@@ -118,19 +118,6 @@ class SlurmExecutor(ClusterExecutor):
            its config from a config file, this SlurmExecutor
            has the internal handling via job.resources
         """
-        #print('in cluster_params():')
-        #print('========')
-        #print('type(job):')
-        #print(type(job))
-        #print('-------')
-        #print('dir(job):')
-        #print(dir(job))
-        #print('-------')
-        #cluster = job.dynamic_wildcards.copy()
-        #print('in cluster_params():')
-        ###print(cluster)
-        #sys.exit()
-
         return job.dynamic_wildcards.copy()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
