@@ -260,6 +260,36 @@ Note that you need to clean up environments manually for now. However, in many c
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
+
+.. _conda_named_env:
+
+Using already existing named conda environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes it can be handy to refer to an already existing named conda environment from a rule, instead of defining a new one from scratch.
+Importantly, one should be aware that this can **hamper reproducibility**, because the workflow then relies on this environment to be present
+**in exactly the same way** on any new system where the workflow is executed. Essentially, you will have to take care of this manually in such a case.
+Therefore, the approach using environment definition files described above is highly recommended and preferred.
+
+Nevertheless, in case you are still sure that you want to use an existing named environment, it can simply be put into the conda directive, e.g.
+
+.. code-block:: python
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "some-env-name"
+        script:
+            "scripts/plot-stuff.R"
+
+For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
+
+Note that Snakemake distinguishes file based environments from named ones as follows: 
+if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
+to be the name of an existing environment.
+
 .. _singularity:
 
 
