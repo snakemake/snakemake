@@ -342,7 +342,13 @@ class Rule:
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        self._conda_env = IOFile(conda_env, rule=self)
+        from snakemake.deployment.conda import is_conda_env_file, CondaEnvFileSpec
+
+        if is_conda_env_file(conda_env):
+            self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            raise NotImplementedError
+            # CondaEnvNameSpec(conda_env) # TODO
 
     @property
     def container_img(self):

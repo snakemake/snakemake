@@ -22,6 +22,7 @@ import uuid
 from enum import Enum
 import threading
 import shutil
+from abc import ABC, abstractmethod
 
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -29,7 +30,7 @@ from snakemake.logging import logger
 from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
-from snakemake.io import git_content
+from snakemake.io import IOFile, git_content, _IOFile
 
 
 class CondaCleanupMode(Enum):
@@ -604,3 +605,38 @@ class Conda:
 
 def is_mamba_available():
     return shutil.which("mamba") is not None
+
+
+class CondaEnvSpec(ABC):
+    @abstractmethod
+    def apply_wildcards(self, wildcards):
+        ...
+
+    @abstractmethod
+    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+        ...
+
+
+class CondaEnvFileSpec(CondaEnvSpec):
+    def __init__(self, filepath: str, rule=None):
+        if isinstance(filepath, _IOFile):
+            self.file = filepath
+        else:
+            self.file = IOFile(filepath, rule=rule)
+
+    def apply_wildcards(self, wildcards):
+        filepath = self.file.apply_wildcards(wildcards)
+        if is_local_file(filepath):
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            filepath = parse_uri(filepath).uri_path
+        return CondaEnvFileSpec(filepath)
+
+    def check(self):
+        self.file.check()
+
+    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+        return Env(self.file, workflow, env_dir, container_img, cleanup)
+
+
+def is_conda_env_file(spec: str):
+    return spec.endswith(".yaml") or spec.endswith(".yml")

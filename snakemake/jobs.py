@@ -175,7 +175,7 @@ class Job(AbstractJob):
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._conda_env_file = None
+        self._conda_env_spec = None
         self._conda_env = None
         self._group = None
 
@@ -316,23 +316,17 @@ class Job(AbstractJob):
         self._params = None
 
     @property
-    def conda_env_file(self):
-        if self._conda_env_file is None:
-            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
-            if expanded_env is not None:
-                # Normalize 'file:///my/path.yml' to '/my/path.yml'
-                if is_local_file(expanded_env):
-                    self._conda_env_file = parse_uri(expanded_env).uri_path
-                else:
-                    self._conda_env_file = expanded_env
-        return self._conda_env_file
+    def conda_env_spec(self):
+        if self._conda_env_spec is None:
+            self._conda_env_spec = self.rule.expand_conda_env(self.wildcards_dict)
+        return self._conda_env_spec
 
     @property
     def conda_env(self):
-        if self.conda_env_file:
+        if self.conda_env_spec:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_file, self.container_img_url)
+                    (self.conda_env_spec, self.container_img_url)
                 )
             return self._conda_env
         return None
@@ -343,7 +337,7 @@ class Job(AbstractJob):
 
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
-        if self.conda_env_file:
+        if self.conda_env_spec:
             return self.conda_env.create_archive()
         return None
 
