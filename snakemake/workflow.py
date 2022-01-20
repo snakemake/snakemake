@@ -353,13 +353,12 @@ class Workflow:
                     for dirpath, _, files in os.walk(script_dir)
                     for f in files
                 )
-            if rule.conda_env:
-                if rule.conda_env.is_file:
-                    f = local_path(rule.conda_env.file)
-                    if f:
-                        # url points to a local env file
-                        env_path = norm_rule_relpath(f, rule)
-                        files.add(env_path)
+            if rule.conda_env and rule.conda_env.is_file:
+                f = local_path(rule.conda_env.file)
+                if f:
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(f, rule)
+                    files.add(env_path)
 
         for f in self.configfiles:
             files.add(f)
