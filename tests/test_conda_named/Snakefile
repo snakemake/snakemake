@@ -1,0 +1,18 @@
+shell("source activate base; mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0")
+
+
+onsuccess:
+    shell("conda env remove -y -n xxx-test-env")
+
+
+onerror:
+    shell("conda env remove -y -n xxx-test-env")
+
+
+rule a:
+    output:
+        "test.out"
+    conda:
+        "xxx-test-env"
+    shell:
+        "rg --version | head -n1 > {output}"

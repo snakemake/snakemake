@@ -331,13 +331,15 @@ class Job(AbstractJob):
             return self._conda_env
         return None
 
-    @property
-    def conda_env_path(self):
-        return self.conda_env.path if self.conda_env else None
-
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
         if self.conda_env_spec:
+            if self.conda_env.is_named:
+                raise WorkflowError(
+                    "Workflow archives cannot be created for workflows using named conda environments."
+                    "Please use paths to YAML files for all your conda directives.",
+                    rule=self.rule,
+                )
             return self.conda_env.create_archive()
         return None
 
@@ -958,7 +960,7 @@ class Job(AbstractJob):
             jobid=self.dag.jobid(self),
             output=list(format_files(self, self.output, self.dynamic_output)),
             log=list(self.log),
-            conda_env=self.conda_env.path if self.conda_env else None,
+            conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
@@ -979,7 +981,8 @@ class Job(AbstractJob):
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
         if self.dag.workflow.use_conda and self.conda_env:
-            wait_for_files.append(self.conda_env_path)
+            if not self.conda_env.is_named:
+                wait_for_files.append(self.conda_env.address)
         return wait_for_files
 
     @property
@@ -1225,7 +1228,8 @@ class GroupJob(AbstractJob):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if self.dag.workflow.use_conda and job.conda_env:
-                wait_for_files.append(job.conda_env_path)
+                if not job.conda_env.is_named:
+                    wait_for_files.append(job.conda_env.address)
         return wait_for_files
 
     @property

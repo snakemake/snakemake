@@ -31,7 +31,7 @@ def containerize(workflow):
 
     envs = sorted(
         set(
-            conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
+            rule.conda_env.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
             for rule in workflow.rules
             if rule.conda_env is not None
         ),
