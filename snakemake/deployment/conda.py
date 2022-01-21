@@ -212,6 +212,8 @@ class Env:
         # importing requests locally because it interferes with instantiating conda environments
         import requests
 
+        self.check_is_file_based()
+
         env_archive = self.archive_file
         if os.path.exists(env_archive):
             return env_archive
