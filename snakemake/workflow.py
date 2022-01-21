@@ -961,7 +961,7 @@ class Workflow:
                     print(
                         env.file.simplify_path(),
                         env.container_img_url or "",
-                        simplify_path(env.path),
+                        simplify_path(env.address),
                         sep="\t",
                     )
             return True
