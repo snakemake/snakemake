@@ -166,6 +166,17 @@ def test_cluster_cancelscript_nargs1():
     assert len(scancel_lines[1].split(" ")) == 2
 
 
+@skip_on_windows
+def test_cluster_statusscript_multi():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript_multi"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./sbatch",
+        cluster_status="./status.sh",
+    )
+
+
 def test15():
     run(dpath("test15"))
 
