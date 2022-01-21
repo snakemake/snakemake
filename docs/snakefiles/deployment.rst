@@ -246,6 +246,8 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
 
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 
+Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+
 .. sidebar:: Note
 
    Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
@@ -285,6 +287,7 @@ Nevertheless, in case you are still sure that you want to use an existing named 
             "scripts/plot-stuff.R"
 
 For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
+Instead of using a concrete name, it is also possible to provide a name containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
 
 Note that Snakemake distinguishes file based environments from named ones as follows: 
 if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
