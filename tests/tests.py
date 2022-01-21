@@ -115,6 +115,17 @@ def test_cluster_statusscript():
     )
 
 
+@skip_on_windows
+def test_cluster_statusscript_multi():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript_multi"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./sbatch",
+        cluster_status="./status.sh",
+    )
+
+
 def test15():
     run(dpath("test15"))
 
