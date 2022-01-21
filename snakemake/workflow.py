@@ -957,7 +957,7 @@ class Workflow:
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
             for env in set(job.conda_env for job in dag.jobs):
-                if env and env.is_file:
+                if env and not env.is_named:
                     print(
                         env.file.simplify_path(),
                         env.container_img_url or "",
