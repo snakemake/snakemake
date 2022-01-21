@@ -30,7 +30,13 @@ from snakemake.logging import logger
 from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
-from snakemake.io import IOFile, apply_wildcards, git_content, _IOFile
+from snakemake.io import (
+    IOFile,
+    apply_wildcards,
+    contains_wildcard,
+    git_content,
+    _IOFile,
+)
 
 
 class CondaCleanupMode(Enum):
@@ -677,6 +683,11 @@ class CondaEnvSpec(ABC):
     def is_file(self):
         return False
 
+    @property
+    @abstractmethod
+    def contains_wildcard(self):
+        ...
+
 
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath: str, rule=None):
@@ -708,6 +719,10 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def is_file(self):
         return True
 
+    @property
+    def contains_wildcard(self):
+        return contains_wildcard(self.file)
+
 
 class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
@@ -728,6 +743,10 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def check(self):
         # not a file, nothing to check here
         pass
+
+    @property
+    def contains_wildcard(self):
+        return contains_wildcard(self.name)
 
 
 def is_conda_env_file(spec: str):

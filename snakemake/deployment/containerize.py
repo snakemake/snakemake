@@ -15,7 +15,7 @@ CONDA_ENV_PATH = "/conda-envs"
 
 def containerize(workflow):
     if any(
-        contains_wildcard(rule.conda_env)
+        rule.conda_env.contains_wildcard
         for rule in workflow.rules
         if rule.conda_env is not None
     ):
