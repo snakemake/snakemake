@@ -721,7 +721,6 @@ class CondaEnvFileSpec(CondaEnvSpec):
 
     @property
     def contains_wildcard(self):
-        print(self.file)
         return contains_wildcard(self.file)
 
 
@@ -747,7 +746,6 @@ class CondaEnvNameSpec(CondaEnvSpec):
 
     @property
     def contains_wildcard(self):
-        print(self.name)
         return contains_wildcard(self.name)
 
 
