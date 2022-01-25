@@ -275,37 +275,36 @@ class DAG:
     def create_conda_envs(
         self, dryrun=False, forceall=False, init_only=False, quiet=False
     ):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.container_img_url)
+            (job.conda_env_spec, job.container_img_url)
             for job in jobs
-            if job.conda_env_file
+            if job.conda_env_spec
         }
         # Then based on md5sum values
         self.conda_envs = dict()
-        for (env_file, simg_url) in env_set:
+        for (env_spec, simg_url) in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(
-                env_file,
+            env = env_spec.get_conda_env(
                 self.workflow,
                 container_img=simg,
                 cleanup=self.workflow.conda_cleanup_pkgs,
             )
-            self.conda_envs[(env_file, simg_url)] = env
+            self.conda_envs[(env_spec, simg_url)] = env
 
         if not init_only:
             for env in self.conda_envs.values():
-                if not dryrun or not quiet:
+                if (not dryrun or not quiet) and not env.is_named:
                     env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         img_set = {
             (job.container_img_url, job.is_containerized)
@@ -2075,7 +2074,7 @@ class DAG:
                 logger.info("Archiving conda environments...")
                 envs = set()
                 for job in self.jobs:
-                    if job.conda_env_file:
+                    if job.conda_env_spec:
                         env_archive = job.archive_conda_env()
                         envs.add(env_archive)
                 for env in envs:

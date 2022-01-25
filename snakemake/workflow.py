@@ -89,7 +89,7 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda
+from snakemake.deployment.conda import Conda, is_conda_env_file
 from snakemake import sourcecache
 
 
@@ -353,8 +353,8 @@ class Workflow:
                     for dirpath, _, files in os.walk(script_dir)
                     for f in files
                 )
-            if rule.conda_env:
-                f = local_path(rule.conda_env)
+            if rule.conda_env and rule.conda_env.is_file:
+                f = local_path(rule.conda_env.file)
                 if f:
                     # url points to a local env file
                     env_path = norm_rule_relpath(f, rule)
@@ -957,11 +957,11 @@ class Workflow:
         if list_conda_envs:
             print("environment", "container", "location", sep="\t")
             for env in set(job.conda_env for job in dag.jobs):
-                if env:
+                if env and not env.is_named:
                     print(
                         env.file.simplify_path(),
                         env.container_img_url or "",
-                        simplify_path(env.path),
+                        simplify_path(env.address),
                         sep="\t",
                     )
             return True
@@ -1481,6 +1481,7 @@ class Workflow:
 
                 if (
                     ruleinfo.conda_env is not None
+                    and is_conda_env_file(ruleinfo.conda_env)
                     and is_local_file(ruleinfo.conda_env)
                     and not os.path.isabs(ruleinfo.conda_env)
                 ):
