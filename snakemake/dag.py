@@ -235,14 +235,15 @@ class DAG:
                 self._jobid[job] = len(self._jobid)
 
     def cleanup_workdir(self):
-        for io_dir in set(
-            os.path.dirname(io_file)
-            for job in self.jobs
-            for io_file in chain(job.output, job.input)
-            if not os.path.exists(io_file)
-        ):
-            if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
-                os.removedirs(io_dir)
+        for job in self.jobs:
+            if not self.is_edit_notebook_job(job):
+                for io_dir in set(
+                    os.path.dirname(io_file)
+                    for io_file in chain(job.output, job.input)
+                    if not os.path.exists(io_file)
+                ):
+                    if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
+                        os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -274,37 +275,36 @@ class DAG:
     def create_conda_envs(
         self, dryrun=False, forceall=False, init_only=False, quiet=False
     ):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.container_img_url)
+            (job.conda_env_spec, job.container_img_url)
             for job in jobs
-            if job.conda_env_file
+            if job.conda_env_spec
         }
         # Then based on md5sum values
         self.conda_envs = dict()
-        for (env_file, simg_url) in env_set:
+        for (env_spec, simg_url) in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(
-                env_file,
+            env = env_spec.get_conda_env(
                 self.workflow,
                 container_img=simg,
                 cleanup=self.workflow.conda_cleanup_pkgs,
             )
-            self.conda_envs[(env_file, simg_url)] = env
+            self.conda_envs[(env_spec, simg_url)] = env
 
         if not init_only:
             for env in self.conda_envs.values():
-                if not dryrun or not quiet:
+                if (not dryrun or not quiet) and not env.is_named:
                     env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         img_set = {
             (job.container_img_url, job.is_containerized)
@@ -638,17 +638,10 @@ class DAG:
 
     def handle_log(self, job, upload_remote=True):
         for f in job.log:
+            f = job.shadowed_path(f)
             if not f.exists_local:
                 # If log file was not created during job, create an empty one.
                 f.touch_or_create()
-            if upload_remote and f.is_remote and not f.should_stay_on_remote:
-                f.upload_to_remote()
-                if not f.exists_remote:
-                    raise RemoteFileException(
-                        "The file upload was attempted, but it does not "
-                        "exist on remote. Check that your credentials have "
-                        "read AND write permissions."
-                    )
 
     def handle_remote(self, job, upload=True):
         """Remove local files if they are no longer needed and upload."""
@@ -657,6 +650,8 @@ class DAG:
             files = job.expanded_output
             if job.benchmark:
                 files = chain(job.expanded_output, (job.benchmark,))
+            if job.log:
+                files = chain(files, job.log)
             for f in files:
                 if f.is_remote and not f.should_stay_on_remote:
                     f.upload_to_remote()
@@ -2079,7 +2074,7 @@ class DAG:
                 logger.info("Archiving conda environments...")
                 envs = set()
                 for job in self.jobs:
-                    if job.conda_env_file:
+                    if job.conda_env_spec:
                         env_archive = job.archive_conda_env()
                         envs.add(env_archive)
                 for env in envs:

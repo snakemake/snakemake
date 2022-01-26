@@ -50,7 +50,7 @@ def snakemake(
     listrules=False,
     list_target_rules=False,
     cores=1,
-    nodes=1,
+    nodes=None,
     local_cores=1,
     max_threads=None,
     resources=dict(),
@@ -198,7 +198,7 @@ def snakemake(
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
         default_resources (DefaultResources):   default values for resources not defined in rules (default None)
         config (dict):              override values for workflow config
-        workdir (str):              path to working directory (default None)
+        workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
@@ -216,7 +216,7 @@ def snakemake(
         printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
-        keepgoing (bool):           keep goind upon errors (default False)
+        keepgoing (bool):           keep going upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
@@ -248,11 +248,11 @@ def snakemake(
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         wait_for_files (list):      wait for given files to be present before executing the workflow
         list_resources (bool):      list resources used in the workflow (default False)
-        summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
+        summary (bool):             list summary of all output files and their status (default False). If no option is specified a basic summary will be output. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         detailed_summary (bool):    list summary of all input and output files and their status (default False)
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               allow to use the debugger within rules
-        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as a temp after use (default False)
         keep_remote_local (bool):   keep local copies of remote files (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   do not adjust the paths of given target files relative to the working directory.
@@ -265,11 +265,11 @@ def snakemake(
         max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
         restart_times (int):        number of times to restart failing jobs (default 0)
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
-        force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
+        force_use_threads:          whether to force the use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
         use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
         use_env_modules (bool):     load environment modules if defined in rules
-        singularity_args (str):     additional arguments to pass to singularity
+        singularity_args (str):     additional arguments to pass to a singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
@@ -279,8 +279,8 @@ def snakemake(
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
-        kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        container_image (str):      Docker image to use, e.g., for kubernetes.
+        kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
+        container_image (str):      Docker image to use, e.g., for Kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -289,25 +289,25 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
+        tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
         tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
-        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
+        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as a single argument.
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
-        edit_notebook (object):     "notebook.Listen" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
+        edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
         conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         scheduler_solver_path (str): Path to Snakemake environment (this can be used to e.g. overwrite the search path for the ILP solver used during scheduling).
-        conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba and activate).
-        log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
+        conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -497,13 +497,13 @@ def snakemake(
         configfiles = []
     for f in configfiles:
         # get values to override. Later configfiles override earlier ones.
-        overwrite_config.update(load_configfile(f))
+        update_config(overwrite_config, load_configfile(f))
     # convert provided paths to absolute paths
     configfiles = list(map(os.path.abspath, configfiles))
 
     # directly specified elements override any configfiles
     if config:
-        overwrite_config.update(config)
+        update_config(overwrite_config, config)
         if config_args is None:
             config_args = unparse_config(config)
 
@@ -947,7 +947,7 @@ def parse_config(args):
                 except:
                     pass
             assert v is not None
-            config[key] = v
+            update_config(config, {key: v})
     return config
 
 
@@ -1239,7 +1239,9 @@ def get_argument_parser(profile=None):
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
             "dictionary inside the workflow. Multiple files overwrite each other in "
-            "the given order."
+            "the given order. Thereby missing keys in previous config files are extended by "
+            "following configfiles. Note that this order also includes a config file defined "
+            "in the workflow definition itself (which will come first)."
         ),
     )
     group_exec.add_argument(
@@ -1487,6 +1489,13 @@ def get_argument_parser(profile=None):
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
 
+    group_notebooks.add_argument(
+        "--draft-notebook",
+        metavar="TARGET",
+        help="Draft a skeleton notebook for the rule used to generate the given target file. This notebook "
+        "can then be opened in a jupyter server, exeucted and implemented until ready. After saving, it "
+        "will automatically be reused in non-interactive mode by Snakemake for subsequent jobs.",
+    )
     group_notebooks.add_argument(
         "--edit-notebook",
         metavar="TARGET",
@@ -2555,7 +2564,7 @@ def main(argv=None):
                 "The mamba package manager (https://github.com/mamba-org/mamba) is an "
                 "extremely fast and robust conda replacement. "
                 "It is the recommended way of using Snakemake's conda integration. "
-                "It can be installed with `conda install -n base -c conda-forge mamba."
+                "It can be installed with `conda install -n base -c conda-forge mamba`. "
                 "If you still prefer to use conda, you can enforce that by setting "
                 "`--conda-frontend conda`.",
                 file=sys.stderr,
@@ -2719,12 +2728,17 @@ def main(argv=None):
             )
             log_handler.append(wms_logger.log_handler)
 
-        if args.edit_notebook:
+        if args.draft_notebook:
+            from snakemake import notebook
+
+            args.target = [args.draft_notebook]
+            args.edit_notebook = notebook.EditMode(draft_only=True)
+        elif args.edit_notebook:
             from snakemake import notebook
 
             args.target = [args.edit_notebook]
             args.force = True
-            args.edit_notebook = notebook.Listen(args.notebook_listen)
+            args.edit_notebook = notebook.EditMode(args.notebook_listen)
 
         aggregated_wait_for_files = args.wait_for_files
         if args.wait_for_files_file is not None:

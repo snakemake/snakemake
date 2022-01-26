@@ -38,7 +38,6 @@ if sys.version_info < (3, 7):
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(coroutine)
 
-
 else:
 
     def async_run(coroutine):
@@ -67,6 +66,9 @@ class TBDString(str):
 
 
 APPDIRS = None
+
+
+RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 
 
 def get_appdirs():

@@ -115,6 +115,12 @@ class OutputFileCache(AbstractOutputFileCache):
             if not cachefile.exists():
                 return False
 
+            logger.debug(
+                "Output file {} exists as {} in the cache.".format(
+                    outputfile, cachefile
+                )
+            )
+
             self.check_readable(cachefile)
         return True
 

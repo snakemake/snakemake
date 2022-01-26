@@ -175,7 +175,7 @@ class Job(AbstractJob):
         self._log = None
         self._benchmark = None
         self._resources = None
-        self._conda_env_file = None
+        self._conda_env_spec = None
         self._conda_env = None
         self._group = None
 
@@ -244,13 +244,15 @@ class Job(AbstractJob):
             return
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
-            path = os.path.relpath(os.path.join(self.rule.basedir, path))
-        assert os.path.exists(path), "cannot find {0}".format(path)
-        script_mtime = os.lstat(path).st_mtime
-        for f in self.expanded_output:
-            if f.exists:
-                if not f.is_newer(script_mtime):
-                    yield f
+            path = self.rule.basedir.join(path).get_path_or_uri()
+        if is_local_file(path):
+            assert os.path.exists(path), "cannot find {0}".format(path)
+            script_mtime = os.lstat(path).st_mtime
+            for f in self.expanded_output:
+                if f.exists:
+                    if not f.is_newer(script_mtime):
+                        yield f
+        # TODO also handle remote file case here.
 
     @property
     def threads(self):
@@ -314,34 +316,30 @@ class Job(AbstractJob):
         self._params = None
 
     @property
-    def conda_env_file(self):
-        if self._conda_env_file is None:
-            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
-            if expanded_env is not None:
-                # Normalize 'file:///my/path.yml' to '/my/path.yml'
-                if is_local_file(expanded_env):
-                    self._conda_env_file = parse_uri(expanded_env).uri_path
-                else:
-                    self._conda_env_file = expanded_env
-        return self._conda_env_file
+    def conda_env_spec(self):
+        if self._conda_env_spec is None:
+            self._conda_env_spec = self.rule.expand_conda_env(self.wildcards_dict)
+        return self._conda_env_spec
 
     @property
     def conda_env(self):
-        if self.conda_env_file:
+        if self.conda_env_spec:
             if self._conda_env is None:
                 self._conda_env = self.dag.conda_envs.get(
-                    (self.conda_env_file, self.container_img_url)
+                    (self.conda_env_spec, self.container_img_url)
                 )
             return self._conda_env
         return None
 
-    @property
-    def conda_env_path(self):
-        return self.conda_env.path if self.conda_env else None
-
     def archive_conda_env(self):
         """Archive a conda environment into a custom local channel."""
-        if self.conda_env_file:
+        if self.conda_env_spec:
+            if self.conda_env.is_named:
+                raise WorkflowError(
+                    "Workflow archives cannot be created for workflows using named conda environments."
+                    "Please use paths to YAML files for all your conda directives.",
+                    rule=self.rule,
+                )
             return self.conda_env.create_archive()
         return None
 
@@ -962,7 +960,7 @@ class Job(AbstractJob):
             jobid=self.dag.jobid(self),
             output=list(format_files(self, self.output, self.dynamic_output)),
             log=list(self.log),
-            conda_env=self.conda_env.path if self.conda_env else None,
+            conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
@@ -982,8 +980,12 @@ class Job(AbstractJob):
 
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
-        if self.dag.workflow.use_conda and self.conda_env:
-            wait_for_files.append(self.conda_env_path)
+        if (
+            self.dag.workflow.use_conda
+            and self.conda_env
+            and not self.conda_env.is_named
+        ):
+            wait_for_files.append(self.conda_env.address)
         return wait_for_files
 
     @property
@@ -1002,6 +1004,10 @@ class Job(AbstractJob):
         latency_wait=None,
         keep_metadata=True,
     ):
+        if self.dag.is_edit_notebook_job(self):
+            # No postprocessing necessary, we have just created the skeleton notebook and
+            # execution will anyway stop afterwards.
+            return
         if assume_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)
@@ -1027,7 +1033,7 @@ class Job(AbstractJob):
                     self, keep_metadata=keep_metadata
                 )
             except IOError as e:
-                logger.warning(
+                raise WorkflowError(
                     "Error recording metadata for finished job "
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
@@ -1224,8 +1230,12 @@ class GroupJob(AbstractJob):
         for job in self.jobs:
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
-            if self.dag.workflow.use_conda and job.conda_env:
-                wait_for_files.append(job.conda_env_path)
+            if (
+                self.dag.workflow.use_conda
+                and job.conda_env
+                and not job.conda_env.is_named
+            ):
+                wait_for_files.append(job.conda_env.address)
         return wait_for_files
 
     @property

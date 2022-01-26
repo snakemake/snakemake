@@ -71,7 +71,7 @@ Consider the following example:
     module dna_seq:
         snakefile:
             # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
-            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config:
             config
 
@@ -100,7 +100,7 @@ For example, we can easily add another rule to extend the given workflow:
     module dna_seq:
         snakefile:
             # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
-            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile" tag="v2.0.1")
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config: config
 
     use rule * from dna_seq
@@ -115,6 +115,44 @@ For example, we can easily add another rule to extend the given workflow:
             "notebooks/plot-vafs.py.ipynb"
 
 Moreover, it is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
+Here, let us assume that we want to conduct another kind of analysis, say RNA-seq, using a different external workflow.
+We can extend above example in the following way:
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile:
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["dna-seq"]
+        prefix: "dna-seq"
+
+    use rule * from dna_seq as dna_seq_*
+
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
+    module rna_seq:
+        snakefile:
+            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["rna-seq"]
+        prefix: "rna-seq"
+
+    use rule * from rna_seq as rna_seq_*
+
+Above, several things have changed. First, we have added another module ``rna_seq``.
+Second, we have added a prefix to all rule names of both modules (``dna_seq_*`` and ``rna_seq_*`` in the ``use rule`` statements) in order to avoid rule name clashes.
+Third, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
+Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
 
 ----------------------------------
 Uploading workflows to WorkflowHub
@@ -208,6 +246,8 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
 
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 
+Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+
 .. sidebar:: Note
 
    Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
@@ -222,7 +262,68 @@ Note that you need to clean up environments manually for now. However, in many c
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
+
+.. _conda_named_env:
+
+Using already existing named conda environments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Sometimes it can be handy to refer to an already existing named conda environment from a rule, instead of defining a new one from scratch.
+Importantly, one should be aware that this can **hamper reproducibility**, because the workflow then relies on this environment to be present
+**in exactly the same way** on any new system where the workflow is executed. Essentially, you will have to take care of this manually in such a case.
+Therefore, the approach using environment definition files described above is highly recommended and preferred.
+
+Nevertheless, in case you are still sure that you want to use an existing named environment, it can simply be put into the conda directive, e.g.
+
+.. code-block:: python
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "some-env-name"
+        script:
+            "scripts/plot-stuff.R"
+
+For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
+Instead of using a concrete name, it is also possible to provide a name containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+
+Note that Snakemake distinguishes file based environments from named ones as follows: 
+if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
+to be the name of an existing environment.
+
 .. _singularity:
+
+
+-------------------------
+Providing post-deployment scripts
+-------------------------
+
+From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
+This might be helpful in case a conda package is missing components or requires further configuration for execution.
+Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "seqs.fastq"
+        output:
+            "results.tsv"
+        conda:
+            "envs/interproscan.yaml"
+        shell:
+            "interproscan.sh -i {input} -f tsv -o {output}"
+
+.. code-block:: none
+
+    ├── Snakefile
+    └── envs
+        ├── interproscan.yaml
+        └── interproscan.post-deploy.sh
+
+The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
 
 --------------------------
 Running jobs in containers

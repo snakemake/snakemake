@@ -293,6 +293,10 @@ class RealExecutor(AbstractExecutor):
             additional += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
         if self.workflow.use_conda:
             additional += " --use-conda "
+            if self.workflow.conda_frontend:
+                additional += " --conda-frontend {} ".format(
+                    self.workflow.conda_frontend
+                )
             if self.workflow.conda_prefix:
                 additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
             if self.workflow.conda_base_path and self.assume_shared_fs:
@@ -481,7 +485,9 @@ class CPUExecutor(RealExecutor):
     def job_args_and_prepare(self, job):
         job.prepare()
 
-        conda_env = job.conda_env_path if self.workflow.use_conda else None
+        conda_env = (
+            job.conda_env.address if self.workflow.use_conda and job.conda_env else None
+        )
         container_img = (
             job.container_img_path if self.workflow.use_singularity else None
         )
@@ -512,7 +518,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.edit_notebook,
+            self.workflow.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
@@ -2305,11 +2311,11 @@ def run_wrapper(
 
     Arguments
     job_rule   -- the ``job.rule`` member
-    input      -- list of input files
-    output     -- list of output files
+    input      -- a list of input files
+    output     -- a list of output files
     wildcards  -- so far processed wildcards
     threads    -- usable threads
-    log        -- list of log files
+    log        -- a list of log files
     shadow_dir -- optional shadow directory root
     """
     # get shortcuts to job_rule members

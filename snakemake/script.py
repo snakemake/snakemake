@@ -78,7 +78,7 @@ class Snakemake:
         """
         Return a shell redirection string to be used in `shell()` calls
 
-        This function allows scripts and wrappers support optional `log` files
+        This function allows scripts and wrappers to support optional `log` files
         specified in the calling rule.  If no `log` was specified, then an
         empty string "" is returned, regardless of the values of `stdout`,
         `stderr`, and `append`.
@@ -93,7 +93,7 @@ class Snakemake:
             Send stderr to log
 
         append : bool
-            Do not overwrite the log file. Useful for sending output of
+            Do not overwrite the log file. Useful for sending an output of
             multiple commands to the same log. Note however that the log will
             not be truncated at the start.
 
@@ -170,7 +170,7 @@ def _log_shell_redirect(
 
 
 class REncoder:
-    """Encoding Pyton data structures into R."""
+    """Encoding Python data structures into R."""
 
     @classmethod
     def encode_numeric(cls, value):
@@ -237,7 +237,7 @@ class REncoder:
 
 
 class JuliaEncoder:
-    """Encoding Pyton data structures into Julia."""
+    """Encoding Python data structures into Julia."""
 
     @classmethod
     def encode_value(cls, value):
@@ -393,10 +393,8 @@ class ScriptBase(ABC):
 
     @property
     def local_path(self):
-        path = self.path[7:]
-        if not os.path.isabs(path):
-            return smart_join(self.basedir, path)
-        return path
+        assert self.is_local
+        return self.path.get_path_or_uri()
 
     @abstractmethod
     def get_preamble(self):
