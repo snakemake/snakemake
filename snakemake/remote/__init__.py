@@ -64,16 +64,17 @@ class AbstractRemoteProvider:
     allows_directories = False
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, remote_prefix=None, **kwargs
     ):
         self.args = args
         self.stay_on_remote = stay_on_remote
         self.keep_local = keep_local
         self.is_default = is_default
+        self.remote_prefix = remote_prefix
         self.kwargs = kwargs
 
     def remote(
-        self, value, *args, keep_local=None, stay_on_remote=None, static=False, **kwargs
+        self, value, *args, keep_local=None, stay_on_remote=None, static=False, remote_prefix=None, **kwargs
     ):
         if snakemake.io.is_flagged(value, "temp"):
             raise SyntaxError("Remote and temporary flags are mutually exclusive.")
@@ -83,6 +84,8 @@ class AbstractRemoteProvider:
             keep_local = self.keep_local
         if stay_on_remote is None:
             stay_on_remote = self.stay_on_remote
+        if remote_prefix is None:
+            remote_prefix = self.remote_prefix
 
         def _set_protocol(value):
             """Adds the default protocol to `value` if it doesn't already have one"""
@@ -116,6 +119,7 @@ class AbstractRemoteProvider:
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=self,
+            remote_prefix=remote_prefix,
             **kwargs,
         )
         if static:
@@ -166,6 +170,7 @@ class AbstractRemoteObject:
         keep_local=False,
         stay_on_remote=False,
         provider=None,
+        remote_prefix=None,
         **kwargs,
     ):
         assert protocol is not None
@@ -176,6 +181,7 @@ class AbstractRemoteObject:
 
         self.keep_local = keep_local
         self.stay_on_remote = stay_on_remote
+        self.remote_prefix = remote_prefix
         self.provider = provider
         self.protocol = protocol
 
@@ -207,7 +213,7 @@ class AbstractRemoteObject:
             return self._file
 
     def remote_file(self):
-        return self.protocol + self.local_file()
+        return self.protocol + "" if self.remote_prefix is None else self.remote_prefix + self.local_file()
 
     @abstractmethod
     def close(self):

@@ -24,13 +24,14 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, is_default=False, remote_prefix=None, **kwargs
     ):
         super(RemoteProvider, self).__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
+            remote_prefix=remote_prefix,
             **kwargs,
         )
 
@@ -54,13 +55,14 @@ class RemoteObject(AbstractRemoteObject):
     """This is a class to interact with XRootD servers."""
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs
+        self, *args, keep_local=False, stay_on_remote=False, provider=None, remote_prefix=None, **kwargs
     ):
         super(RemoteObject, self).__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
+            remote_prefix=remote_prefix,
             **kwargs,
         )
 
@@ -125,6 +127,7 @@ class XRootDHelper(object):
         match = re.search(
             "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
         )
+        # TODO: ANy regexp failure returns an error, maybe some more detail exception would be useful
         if match is None:
             return None
 
