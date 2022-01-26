@@ -150,7 +150,7 @@ class RemoteObject(AbstractRemoteObject):
         source = "file://" + os.path.abspath(self.local_file())
         # disable all timeouts (file transfers can take a long time)
         self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target)
-        
+
     def remove(self):
         self._gfal("rm", "-r", self.remote_file())
 
