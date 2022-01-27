@@ -134,6 +134,8 @@ class OutputFileCache(AbstractOutputFileCache):
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
         base_path = self.path / provenance_hash
 
+        logger.debug(list(self.get_outputfiles(job))) # TODO dbg
+
         return (
             (Path(outputfile), base_path.with_suffix(ext))
             for outputfile, ext in self.get_outputfiles(job)
