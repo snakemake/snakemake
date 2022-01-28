@@ -1567,7 +1567,7 @@ class Workflow:
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
-            elif not (ruleinfo.cache is False):
+            elif not (ruleinfo.default_target is False):
                 raise WorkflowError(
                     "Invalid argument for 'default_target:' directive. Only True allowed. "
                     "Do not use the directive for rules that shall not be the default target. ",
