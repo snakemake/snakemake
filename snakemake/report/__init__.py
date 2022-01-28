@@ -44,7 +44,7 @@ from snakemake.io import (
 from snakemake.exceptions import WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
-from snakemake.common import num_if_possible, lazy_property
+from snakemake.common import is_local_file, num_if_possible, lazy_property
 from snakemake import logging
 
 
@@ -104,6 +104,8 @@ def mime_from_file(file):
 
 def data_uri_from_file(file, defaultenc="utf8"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
+    if isinstance(file, Path):
+        file = str(file)
     mime, encoding = mime_from_file(file)
     if encoding is None:
         encoding = defaultenc
@@ -591,13 +593,61 @@ def rulegraph_d3_spec(dag):
     return {"nodes": nodes, "links": links}, xmax, ymax
 
 
-def get_resource_as_string(url):
-    r = requests.get(url)
-    if r.status_code == requests.codes.ok:
-        return r.text
-    raise WorkflowError(
-        "Failed to download resource needed for " "report: {}".format(url)
-    )
+def rulegraph_spec(dag):
+    # get toposorting, and keep only one job of each rule per level
+    representatives = dict()
+    def get_representatives(level):
+        unique = dict()
+        for job in level:
+            if job.rule.name in unique:
+                representatives[job] = unique[job.rule.name]
+            else:
+                representatives[job] = job
+                unique[job.rule.name] = job
+        return sorted(unique.values(), key=lambda job: job.rule.name)
+    toposorted = [get_representatives(level) for level in dag.toposorted()]
+
+    jobs = [
+        job for level in toposorted
+        for job in level
+    ]
+
+    nodes = [
+        {"rule": job.rule.name, "fx": 10, "fy": i * 50}
+        for i, job in enumerate(jobs)
+    ]
+    idx = {job: i for i, job in enumerate(jobs)}
+
+    def get_links(direct: bool):
+        for u in jobs:
+            for v in dag.dependencies[u]:
+                target = idx[u]
+                source = idx[representatives[v]]
+                if target - source == 1:
+                    if not direct:
+                        continue
+                else:
+                    if direct:
+                        continue
+
+                yield {"target": target, "source": source, "value": 1}
+
+    xmax = 100
+    ymax = max(node["fy"] for node in nodes)
+
+    return {"nodes": nodes, "links": list(get_links(direct=False)), "links_direct": list(get_links(direct=True))}, xmax, ymax
+
+
+def get_resource_as_string(path_or_uri):
+    if is_local_file(path_or_uri):
+        return open(Path(__file__).parent / path_or_uri).read()
+    else:
+        r = requests.get(path_or_uri)
+        if r.status_code == requests.codes.ok:
+            return r.text
+        raise WorkflowError(
+            "Failed to download resource needed for " "report: {}".format(path_or_uri)
+        )
 
 
 def auto_report(dag, path, stylesheet=None):
@@ -808,6 +858,7 @@ def auto_report(dag, path, stylesheet=None):
 
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
+    rulegraph, xmax, ymax = rulegraph_spec(dag)
 
     # configfiles
     configfiles = [ConfigfileRecord(f) for f in dag.workflow.configfiles]
@@ -882,8 +933,8 @@ def auto_report(dag, path, stylesheet=None):
         text=text,
         rulegraph_nodes=rulegraph["nodes"],
         rulegraph_links=rulegraph["links"],
-        rulegraph_width=xmax + 20,
-        rulegraph_height=ymax + 20,
+        rulegraph_links_direct=rulegraph["links_direct"],
+        logo=data_uri_from_file(Path(__file__).parent / "logo.svg"),
         runtimes=runtimes,
         timeline=timeline,
         rules=[rec for recs in rules.values() for rec in recs],

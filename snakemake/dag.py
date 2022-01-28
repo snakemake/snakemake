@@ -2191,6 +2191,26 @@ class DAG:
         yield tabulate(rows, headers="keys")
         yield ""
 
+    def toposorted(self, jobs=None, inherit_pipe_dependencies=False):
+        from toposort import toposort
+        
+        if jobs is None:
+            jobs = set(self.jobs)
+
+        def get_dependencies(job):
+            for dep, files in self.dependencies[job].items():
+                if dep in jobs:
+                    yield dep
+                    if inherit_pipe_dependencies and any(is_flagged(f, "pipe") for f in files):
+                        # In case of a pipe, inherit the dependencies of the producer,
+                        # such that the two jobs end up on the same toposort level.
+                        # This is important because they are executed simulataneously.
+                        yield from get_dependencies(dep)
+
+        dag = {job: set(get_dependencies(job)) for job in jobs}
+
+        return toposort(dag)
+
     def __str__(self):
         return self.dot()
 
