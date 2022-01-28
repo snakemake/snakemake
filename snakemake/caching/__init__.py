@@ -47,7 +47,9 @@ class AbstractOutputFileCache:
             )
             yield from ((f, f[prefix_len:]) for f in job.output)
         else:
-            assert len(job.output) == 1, "bug: multiple output files in cacheable job but multiext not used for declaring them"
+            assert (
+                len(job.output) == 1
+            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
             yield (job.output[0], "")
 
     def raise_write_error(self, entry, exception=None):
