@@ -37,10 +37,10 @@ In addition to the `configfile` statement, config values can be overwritten via 
     $ snakemake --config yourparam=1.5
 
 Further, you can manually alter the config dictionary using any Python code **outside** of your rules. Changes made from within a rule won't be seen from other rules.
-Finally, you can use the `--configfile` command line argument to overwrite values from the `configfile` statement.
-Note that any values parsed into the `config` dictionary with any of above mechanisms are merged, i.e., all keys defined via a `configfile`
-statement, or the `--configfile` and `--config` command line arguments will end up in the final `config` dictionary, but if two methods define the same key, command line
-overwrites the `configfile` statement.
+Finally, you can use the ``--configfile`` command line argument to overwrite values from the `configfile` statement.
+Note that any values parsed into the ``config`` dictionary with any of above mechanisms are merged, i.e., all keys defined via a ``configfile``
+statement, or the ``--configfile`` and ``--config`` command line arguments will end up in the final `config` dictionary, but if two methods define the same key, command line
+overwrites the ``configfile`` statement.
 
 For adding config placeholders into a shell command, Python string formatting syntax requires you to leave out the quotes around the key name, like so:
 
