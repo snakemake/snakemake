@@ -95,6 +95,12 @@ class OutputFileCache(AbstractOutputFileCache):
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
+            logger.debug(
+                "Output file {} exists as {} in the cache.".format(
+                    outputfile, cachefile
+                )
+            )
+
             self.check_readable(cachefile)
             if cachefile.is_dir():
                 # For directories, create a new one and symlink each entry.

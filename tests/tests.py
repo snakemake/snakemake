@@ -1397,3 +1397,7 @@ def test_modules_ruledeps_inheritance():
 @skip_on_windows
 def test_conda_named():
     run(dpath("test_conda_named"), use_conda=True)
+
+
+def test_cache_multioutput():
+    run(dpath("test_cache_multioutput"), shouldfail=True)
