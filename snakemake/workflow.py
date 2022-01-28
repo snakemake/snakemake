@@ -1543,6 +1543,14 @@ class Workflow:
                 rule.is_handover = True
 
             if ruleinfo.cache is True:
+                if len(rule.output) > 1:
+                    if not rule.output[0].is_multiext:
+                        raise WorkflowError(
+                            "Rule is marked for between workflow caching but has multiple output files. "
+                            "This is only allowed if multiext() is used to declare them (see docs on between "
+                            "workflow caching).",
+                            rule=rule,
+                        )
                 if not self.enable_cache:
                     logger.warning(
                         "Workflow defines that rule {} is eligible for caching between workflows "
