@@ -86,7 +86,7 @@ class ModuleInfo:
             prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
         ):
-            self.workflow.include(snakefile, overwrite_first_rule=True)
+            self.workflow.include(snakefile, overwrite_default_target=True)
 
     def get_snakefile(self):
         if self.meta_wrapper:

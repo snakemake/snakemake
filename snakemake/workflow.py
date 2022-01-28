@@ -155,7 +155,7 @@ class Workflow:
         self.global_resources["_nodes"] = nodes
 
         self._rules = OrderedDict()
-        self.first_rule = None
+        self.default_target = None
         self._workdir = None
         self.overwrite_workdir = overwrite_workdir
         self.workdir_init = os.path.abspath(os.curdir)
@@ -466,8 +466,8 @@ class Workflow:
         self._rules[rule.name] = rule
         if not is_overwrite:
             self.rule_count += 1
-        if not self.first_rule:
-            self.first_rule = rule.name
+        if not self.default_target:
+            self.default_target = rule.name
         return name
 
     def is_rule(self, name):
@@ -644,7 +644,9 @@ class Workflow:
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
-            targets = [self.first_rule] if self.first_rule is not None else list()
+            targets = (
+                [self.default_target] if self.default_target is not None else list()
+            )
 
         if prioritytargets is None:
             prioritytargets = list()
@@ -1148,7 +1150,7 @@ class Workflow:
     def include(
         self,
         snakefile,
-        overwrite_first_rule=False,
+        overwrite_default_target=False,
         print_compilation=False,
         overwrite_shellcmd=None,
     ):
@@ -1164,7 +1166,7 @@ class Workflow:
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
 
-        first_rule = self.first_rule
+        default_target = self.default_target
         code, linemap, rulecount = parse(
             snakefile,
             self,
@@ -1185,8 +1187,8 @@ class Workflow:
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
-        if not overwrite_first_rule:
-            self.first_rule = first_rule
+        if not overwrite_default_target:
+            self.default_target = default_target
         self.included_stack.pop()
 
     def onstart(self, func):
@@ -1550,8 +1552,17 @@ class Workflow:
                     self.cache_rules.add(rule.name)
             elif not (ruleinfo.cache is False):
                 raise WorkflowError(
-                    "Invalid argument for 'cache:' directive. Only true allowed. "
+                    "Invalid argument for 'cache:' directive. Only True allowed. "
                     "To deactivate caching, remove directive.",
+                    rule=rule,
+                )
+
+            if ruleinfo.default_target is True:
+                self.default_target = rule.name
+            elif not (ruleinfo.cache is False):
+                raise WorkflowError(
+                    "Invalid argument for 'default_target:' directive. Only True allowed. "
+                    "Do not use the directive for rules that shall not be the default target. ",
                     rule=rule,
                 )
 
@@ -1611,6 +1622,13 @@ class Workflow:
     def cache_rule(self, cache):
         def decorate(ruleinfo):
             ruleinfo.cache = cache
+            return ruleinfo
+
+        return decorate
+
+    def default_target_rule(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.default_target = value
             return ruleinfo
 
         return decorate

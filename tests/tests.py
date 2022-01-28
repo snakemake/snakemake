@@ -1397,3 +1397,7 @@ def test_modules_ruledeps_inheritance():
 @skip_on_windows
 def test_conda_named():
     run(dpath("test_conda_named"), use_conda=True)
+
+
+def test_default_target():
+    run(dpath("test_default_target"))

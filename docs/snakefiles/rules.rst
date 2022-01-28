@@ -246,11 +246,25 @@ By default snakemake executes the first rule in the snakefile. This gives rise t
 .. code-block:: python
 
     rule all:
-      input: ["{dataset}/file.A.txt".format(dataset=dataset) for dataset in DATASETS]
+      input:
+        expand("{dataset}/file.A.txt", dataset=DATASETS)
 
 
-Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested. In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
+Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested.
+In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
 
+It is possible to overwrite this behavior to use the first rule as a default target, by explicitly marking a rule as being the default target via the ``default_target`` directive:
+
+.. code-block:: python
+
+    rule xy:
+        input:
+            expand("{dataset}/file.A.txt", dataset=DATASETS)
+        default_target: True
+
+Regardless of where this rule appears in the Snakefile, it will be the default target.
+Usually, it is still recommended to keep the default target rule (and in fact all other rules that could act as optional targets) at the top of the file, such that it can be easily found.
+The ``default_target`` directive becomes particularly useful when :ref:`combining several pre-existing workflows <use_with_modules>`.
 
 .. _snakefiles-threads:
 
