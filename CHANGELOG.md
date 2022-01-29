@@ -1,5 +1,24 @@
 # Changelog
 
+## [6.15.0](https://www.github.com/snakemake/snakemake/compare/v6.14.0...v6.15.0) (2022-01-29)
+
+
+### Features
+
+* adding default_target directive for declaring default target rules that are not the first rule in the workflow. ([#1358](https://www.github.com/snakemake/snakemake/issues/1358)) ([638ec1a](https://www.github.com/snakemake/snakemake/commit/638ec1a983741cd7ba8faaf1a9dc76ae43d012e5))
+
+
+### Bug Fixes
+
+* Draft notebook filename with wildcards and params. ([#1352](https://www.github.com/snakemake/snakemake/issues/1352)) ([11d4dc8](https://www.github.com/snakemake/snakemake/commit/11d4dc88598ffb901450bd4e076b91f4e27d37b0))
+* proper error message when defining cache eligibility for rules with multiple output files and no multiext declaration. ([#1357](https://www.github.com/snakemake/snakemake/issues/1357)) ([47b5096](https://www.github.com/snakemake/snakemake/commit/47b5096ebbdd3d94a9c99b443064b1b0de389c64))
+
+
+### Documentation
+
+* Command line arguments for configuration files ([#1343](https://www.github.com/snakemake/snakemake/issues/1343)) ([ad8aaa4](https://www.github.com/snakemake/snakemake/commit/ad8aaa4853a150211513baecc474956575d326eb))
+* fix broken link in executor_tutorial/tutorial.rst ([#1360](https://www.github.com/snakemake/snakemake/issues/1360)) ([c9be764](https://www.github.com/snakemake/snakemake/commit/c9be76482d05577c4b1528b0e52ba15fc17a1dd5))
+
 ## [6.14.0](https://www.github.com/snakemake/snakemake/compare/v6.13.1...v6.14.0) (2022-01-26)
 
 
