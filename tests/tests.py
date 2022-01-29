@@ -1399,5 +1399,10 @@ def test_conda_named():
     run(dpath("test_conda_named"), use_conda=True)
 
 
+@skip_on_windows
+def test_default_target():
+    run(dpath("test_default_target"))
+
+
 def test_cache_multioutput():
     run(dpath("test_cache_multioutput"), shouldfail=True)

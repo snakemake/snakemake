@@ -103,7 +103,7 @@ For example, we can easily add another rule to extend the given workflow:
             github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
         config: config
 
-    use rule * from dna_seq
+    use rule * from dna_seq as dna_seq_*
 
     # easily extend the workflow
     rule plot_vafs:
@@ -114,7 +114,19 @@ For example, we can easily add another rule to extend the given workflow:
         notebook:
             "notebooks/plot-vafs.py.ipynb"
 
-Moreover, it is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
+    # Define a new default target that collects both the targets from the dna_seq module as well as
+    # the new plot.
+    rule all:
+        input:
+            rules.dna_seq_all.input,
+            "results/plots/vafs.svg",
+        default_target: True
+
+Above, we have added a prefix to all rule names of the dna_seq module, such that there is no name clash with the added rules (``as dna_seq_*`` in the ``use rule`` statement).
+In addition, we have added a new rule ``all``, defining the default target in case the workflow is executed (as usually) without any specific target files or rule.
+The new target rule collects both all input files of the rule ``all`` from the dna_seq workflow, as well as additionally collecting the new plot.
+
+It is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
 Here, let us assume that we want to conduct another kind of analysis, say RNA-seq, using a different external workflow.
 We can extend above example in the following way:
 
@@ -149,10 +161,20 @@ We can extend above example in the following way:
 
     use rule * from rna_seq as rna_seq_*
 
-Above, several things have changed. First, we have added another module ``rna_seq``.
-Second, we have added a prefix to all rule names of both modules (``dna_seq_*`` and ``rna_seq_*`` in the ``use rule`` statements) in order to avoid rule name clashes.
-Third, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
-Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
+
+    # Define a new default target that collects all the targets from the dna_seq and rna_seq module.
+    rule all:
+        input:
+            rules.dna_seq_all.input,
+            rules.rna_seq_all.input,
+        default_target: True
+
+Above, several things have changed. 
+
+* First, we have added another module ``rna_seq``.
+* Second, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
+* Third, we have added a default target rule that collects both the default targets from the module ``dna_seq`` as well as the module ``rna_seq``.
+* Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
 
 ----------------------------------
 Uploading workflows to WorkflowHub

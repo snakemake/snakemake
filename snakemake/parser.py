@@ -484,6 +484,12 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class DefaultTarget(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "default_target_rule"
+
+
 class Handover(RuleKeywordState):
     pass
 
@@ -673,6 +679,7 @@ rule_property_subautomata = dict(
     group=Group,
     cache=Cache,
     handover=Handover,
+    default_target=DefaultTarget,
 )
 
 

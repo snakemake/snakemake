@@ -622,7 +622,7 @@ class DAG:
                 and not job.is_checkpoint
                 and (
                     job not in self.targetjobs
-                    or job.rule.name == self.workflow.first_rule
+                    or job.rule.name == self.workflow.default_target
                 )
             ):
                 tempfiles = (
