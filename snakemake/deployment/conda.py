@@ -101,7 +101,6 @@ class Env:
 
     def _get_content_deploy(self):
         self.check_is_file_based()
-        print(str(self.file))
         deploy_file = Path(str(self.file)).with_suffix(".post-deploy.sh")
         if deploy_file.exists():
             return self.workflow.sourcecache.open(
