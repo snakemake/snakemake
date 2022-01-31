@@ -145,7 +145,7 @@ class Env:
                     md5hash.update(self._container_img.url.encode())
                 content_deploy = self.content_deploy
                 if content_deploy:
-                    md5hash.update(self.content_deploy)
+                    md5hash.update(content_deploy)
                 md5hash.update(self.content)
                 self._hash = md5hash.hexdigest()
         return self._hash
