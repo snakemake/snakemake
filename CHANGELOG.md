@@ -1,5 +1,12 @@
 # Changelog
 
+### [6.15.1](https://www.github.com/snakemake/snakemake/compare/v6.15.0...v6.15.1) (2022-01-31)
+
+
+### Bug Fixes
+
+* consider post-deploy script for env hashing   ([#1363](https://www.github.com/snakemake/snakemake/issues/1363)) ([d50efd9](https://www.github.com/snakemake/snakemake/commit/d50efd9d16d029fb0e5b14b182882c71a20552bb))
+
 ## [6.15.0](https://www.github.com/snakemake/snakemake/compare/v6.14.0...v6.15.0) (2022-01-29)
 
 
