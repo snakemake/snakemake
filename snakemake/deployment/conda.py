@@ -65,12 +65,14 @@ class Env:
         self.post_deploy_file = None
         if env_file is not None:
             self.file = infer_source_file(env_file)
+            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
+                ".post-deploy.sh"
+            )
+            if deploy_file.exists():
+                self.post_deploy_file = infer_source_file(deploy_file)
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
             self.name = env_name
-        deploy_file = Path(self.file.get_path_or_uri()).with_suffix(".post-deploy.sh")
-        if deploy_file.exists():
-            self.post_deploy_file = infer_source_file(deploy_file)
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
