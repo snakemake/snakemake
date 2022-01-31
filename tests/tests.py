@@ -434,6 +434,12 @@ def test_deploy_script():
     run(dpath("test_deploy_script"), use_conda=True)
 
 
+@skip_on_windows
+def test_deploy_hashing():
+    tmpdir = run(dpath("test_deploy_hashing"), use_conda=True, cleanup=False)
+    assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
+
+
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
