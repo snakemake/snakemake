@@ -437,7 +437,6 @@ def test_deploy_script():
 @skip_on_windows
 def test_deploy_hashing():
     tmpdir = run(dpath("test_deploy_hashing"), use_conda=True, cleanup=False)
-    print(f"Bla {tmpdir}")
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
