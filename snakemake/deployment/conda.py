@@ -102,7 +102,11 @@ class Env:
     def _get_content_deploy(self):
         self.check_is_file_based()
         deploy_file = Path(self.file).with_suffix(".post-deploy.sh")
-        return self.workflow.sourcecache.open(deploy_file, "rb").read()
+        if deploy_file.exists():
+            return self.workflow.sourcecache.open(
+                infer_source_file(deploy_file), "rb"
+            ).read()
+        return None
 
     @property
     def _env_archive_dir(self):
@@ -139,6 +143,9 @@ class Env:
                 md5hash.update(env_dir.encode())
                 if self._container_img:
                     md5hash.update(self._container_img.url.encode())
+                content_deploy = self.content_deploy
+                if content_deploy:
+                    md5hash.update(self.content_deploy)
                 md5hash.update(self.content)
                 self._hash = md5hash.hexdigest()
         return self._hash
@@ -148,6 +155,9 @@ class Env:
         if self._content_hash is None:
             md5hash = hashlib.md5()
             md5hash.update(self.content)
+            content_deploy = self.content_deploy
+            if content_deploy:
+                md5hash.update(content_deploy)
             self._content_hash = md5hash.hexdigest()
         return self._content_hash
 
