@@ -62,11 +62,15 @@ class Env:
     ):
         self.file = None
         self.name = None
+        self.post_deploy_file = None
         if env_file is not None:
             self.file = infer_source_file(env_file)
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
             self.name = env_name
+        deploy_file = Path(self.file.get_path_or_uri()).with_suffix(".post-deploy.sh")
+        if deploy_file.exists():
+            self.post_deploy_file = infer_source_file(deploy_file)
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -101,11 +105,8 @@ class Env:
 
     def _get_content_deploy(self):
         self.check_is_file_based()
-        deploy_file = Path(self.file.get_path_or_uri()).with_suffix(".post-deploy.sh")
-        if deploy_file.exists():
-            return self.workflow.sourcecache.open(
-                infer_source_file(deploy_file), "rb"
-            ).read()
+        if self.post_deploy_file:
+            return self.workflow.sourcecache.open(self.post_deploy_file, "rb").read()
         return None
 
     @property
@@ -327,11 +328,7 @@ class Env:
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_env_file = tmp.name
-            if (
-                Path(self.file.get_path_or_uri())
-                .with_suffix(".post-deploy.sh")
-                .exists()
-            ):
+            if self.post_deploy_file:
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".post-deploy.sh"
                 ) as tmp:
@@ -341,8 +338,7 @@ class Env:
                     tmp_deploy_file = tmp.name
         else:
             env_file = env_file.get_path_or_uri()
-            if Path(env_file).with_suffix(".post-deploy.sh").exists():
-                deploy_file = Path(env_file).with_suffix(".post-deploy.sh")
+            deploy_file = self.post_deploy_file
 
         env_path = self.address
 
