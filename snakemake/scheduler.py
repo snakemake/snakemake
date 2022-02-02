@@ -606,7 +606,6 @@ class JobScheduler:
         self._toerror.clear()
 
     def run(self, jobs, executor=None):
-        print(executor, self._executor)
         if executor is None:
             executor = self._executor
 
