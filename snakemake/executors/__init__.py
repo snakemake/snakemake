@@ -130,7 +130,6 @@ class AbstractExecutor:
             args = " --default-resources {} ".format(
                 " ".join(map(fmt, self.workflow.default_resources.args))
             )
-            print(args)
             return args
         return ""
 
