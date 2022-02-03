@@ -699,6 +699,7 @@ class CondaEnvSpec(ABC):
 
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath: str, rule=None):
+        self.rule = rule
         if isinstance(filepath, _IOFile):
             self.file = filepath
         else:
@@ -709,7 +710,7 @@ class CondaEnvFileSpec(CondaEnvSpec):
         if is_local_file(filepath):
             # Normalize 'file:///my/path.yml' to '/my/path.yml'
             filepath = parse_uri(filepath).uri_path
-        return CondaEnvFileSpec(filepath)
+        return CondaEnvFileSpec(filepath, self.rule)
 
     def check(self):
         self.file.check()
