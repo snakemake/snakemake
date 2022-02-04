@@ -135,13 +135,24 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
+    def get_basedir(self):
+        root_path, file_path, ref = split_git_path(self.get_path_or_uri())
+        file_name = "{}/{}".format(root_path, file_path).replace(root_path, "")
+        return LocalGitFile("file:/{}".format(root_path), file_name, ref=ref)
+
     def get_path_or_uri(self):
         return "git+{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
     def join(self, path):
+        if isinstance(path, LocalSourceFile):
+            path = path.get_path_or_uri()
+        local_path = os.path.dirname(self.path).lstrip("/")
+        while path.startswith("../"):
+            path = path.lstrip("../")
+            local_path = os.path.dirname(local_path)
         return LocalGitFile(
             self.repo_path,
-            "/".join((self.path, path)),
+            "/".join((local_path, path)),
             tag=self.tag,
             ref=self.ref,
             commit=self.commit,
@@ -260,6 +271,10 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
+    if isinstance(basedir, LocalGitFile) and isinstance(path_or_uri, str):
+        local_base = os.path.dirname(basedir.path).lstrip("/")
+        return LocalGitFile(basedir.repo_path, "{}/{}".format(local_base, path_or_uri), ref=basedir.ref)
+
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
@@ -275,9 +290,10 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
         if not os.path.isabs(path_or_uri) and basedir is not None:
             return basedir.join(path_or_uri)
         return LocalSourceFile(path_or_uri)
+
     if path_or_uri.startswith("git+file:"):
         root_path, file_path, ref = split_git_path(path_or_uri)
-        return LocalGitFile(root_path, file_path, ref=ref)
+        return LocalGitFile("file:/" + root_path, file_path, ref=ref)
     # something else
     return GenericSourceFile(path_or_uri)
 
@@ -343,7 +359,7 @@ class SourceCache:
 
     def _do_cache(self, source_file, cache_entry):
         # open from origin
-        with self._open(source_file.get_path_or_uri(), "rb") as source:
+        with self._open(source_file, "rb") as source:
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
@@ -369,7 +385,7 @@ class SourceCache:
             import git
 
             return io.BytesIO(
-                git.Repo(path_or_uri.repo_path)
+                git.Repo(path_or_uri.repo_path.replace("file:/",""))
                 .git.show("{}:{}".format(path_or_uri.ref, path_or_uri.path))
                 .encode()
             )
