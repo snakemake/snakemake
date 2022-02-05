@@ -1050,7 +1050,7 @@ class Rule:
     def expand_conda_env(self, wildcards):
         try:
             conda_env = (
-                self.conda_env.apply_wildcards(wildcards, rule=self)
+                self.conda_env.apply_wildcards(wildcards, self)
                 if self.conda_env
                 else None
             )
