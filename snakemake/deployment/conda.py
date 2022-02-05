@@ -728,7 +728,7 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
         self.name = name
 
-    def apply_wildcards(self, wildcards):
+    def apply_wildcards(self, wildcards, _):
         return CondaEnvNameSpec(apply_wildcards(self.name, wildcards))
 
     def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
