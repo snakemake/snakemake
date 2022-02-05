@@ -1,5 +1,22 @@
 # Changelog
 
+### [6.15.2](https://www.github.com/snakemake/snakemake/compare/v6.15.1...v6.15.2) (2022-02-05)
+
+
+### Bug Fixes
+
+* avoid mutable default argument ([#1330](https://www.github.com/snakemake/snakemake/issues/1330)) ([978cc93](https://www.github.com/snakemake/snakemake/commit/978cc9327ce7deb517ad609977e1ce432c58c5e2))
+* don't raise WorkflowError when entry is empty ([#1368](https://www.github.com/snakemake/snakemake/issues/1368)) ([1fc6f7b](https://www.github.com/snakemake/snakemake/commit/1fc6f7b5d7e7d7f40baab961db89c4b59c950bf7))
+* fix assertion error in conda env file spec when applying wildcards (thanks [@ddesvillechabrol](https://www.github.com/ddesvillechabrol)) ([#1377](https://www.github.com/snakemake/snakemake/issues/1377)) ([6200652](https://www.github.com/snakemake/snakemake/commit/6200652b9aff2362a63581cee58eb9f9cae189da))
+* fix None type error when invoking Workflow object manually ([#1366](https://www.github.com/snakemake/snakemake/issues/1366)) ([fca3895](https://www.github.com/snakemake/snakemake/commit/fca3895430c206fc159e71622ee567f77566980d))
+* XRootDHelper.exists supports non posix filesystem (object store) ([#1348](https://www.github.com/snakemake/snakemake/issues/1348)) ([7a3ad2f](https://www.github.com/snakemake/snakemake/commit/7a3ad2f438586690dd40e4c8ec591d8c10b22b00))
+
+
+### Documentation
+
+* add sentence about workflow template to docs ([#1369](https://www.github.com/snakemake/snakemake/issues/1369)) ([5fabffb](https://www.github.com/snakemake/snakemake/commit/5fabffbb4af8e9e122677e5adeaebf2d6bd0eeb3))
+* fix typo in installation.rst ([#1344](https://www.github.com/snakemake/snakemake/issues/1344)) ([c45d47a](https://www.github.com/snakemake/snakemake/commit/c45d47a79b78a1afed3b1319e6cafd1b2525fe43))
+
 ### [6.15.1](https://www.github.com/snakemake/snakemake/compare/v6.15.0...v6.15.1) (2022-01-31)
 
 
