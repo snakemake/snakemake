@@ -704,12 +704,12 @@ class CondaEnvFileSpec(CondaEnvSpec):
         else:
             self.file = IOFile(filepath, rule=rule)
 
-    def apply_wildcards(self, wildcards):
+    def apply_wildcards(self, wildcards, rule):
         filepath = self.file.apply_wildcards(wildcards)
         if is_local_file(filepath):
             # Normalize 'file:///my/path.yml' to '/my/path.yml'
             filepath = parse_uri(filepath).uri_path
-        return CondaEnvFileSpec(filepath)
+        return CondaEnvFileSpec(filepath, rule)
 
     def check(self):
         self.file.check()
@@ -736,7 +736,7 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
         self.name = name
 
-    def apply_wildcards(self, wildcards):
+    def apply_wildcards(self, wildcards, _):
         return CondaEnvNameSpec(apply_wildcards(self.name, wildcards))
 
     def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
