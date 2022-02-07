@@ -1,5 +1,12 @@
 # Changelog
 
+### [6.15.3](https://www.github.com/snakemake/snakemake/compare/v6.15.2...v6.15.3) (2022-02-07)
+
+
+### Bug Fixes
+
+* skip global report caption when using a module ([#1379](https://www.github.com/snakemake/snakemake/issues/1379)) ([a755cee](https://www.github.com/snakemake/snakemake/commit/a755ceefa478d51070f926beed9090067771edf1))
+
 ### [6.15.2](https://www.github.com/snakemake/snakemake/compare/v6.15.1...v6.15.2) (2022-02-05)
 
 
