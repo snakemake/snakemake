@@ -27,12 +27,11 @@ body {
     padding-left: 0px;
     padding-right: 0px;
     height: 100vh;
+    transition: width 2s;
 }
 
 .sidebar-background {
     opacity: 80%;
-    background-color: black;
-    color: white;
 }
 
 .sidebar #nav {
