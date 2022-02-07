@@ -1844,6 +1844,8 @@ class Workflow:
                     rules,
                     name_modifier,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+                    skip_global_report_caption=self.report_text
+                    is not None,  # do not overwrite existing report text via module
                 )
             else:
                 # local inheritance
