@@ -69,7 +69,13 @@ class ModuleInfo:
         self.replace_prefix = replace_prefix
         self.prefix = prefix
 
-    def use_rules(self, rules=None, name_modifier=None, ruleinfo=None):
+    def use_rules(
+        self,
+        rules=None,
+        name_modifier=None,
+        ruleinfo=None,
+        skip_global_report_caption=False,
+    ):
         snakefile = self.get_snakefile()
         with WorkflowModifier(
             self.workflow,
@@ -77,6 +83,7 @@ class ModuleInfo:
             base_snakefile=snakefile,
             skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
+            skip_global_report_caption=skip_global_report_caption,
             rule_whitelist=self.get_rule_whitelist(rules),
             rulename_modifier=get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
@@ -129,6 +136,7 @@ class WorkflowModifier:
         base_snakefile=None,
         skip_configfile=False,
         skip_validation=False,
+        skip_global_report_caption=False,
         rulename_modifier=None,
         rule_whitelist=None,
         ruleinfo_overwrite=None,
@@ -150,6 +158,7 @@ class WorkflowModifier:
         self.skip_configfile = skip_configfile
         self.rulename_modifier = rulename_modifier
         self.skip_validation = skip_validation
+        self.skip_global_report_caption = skip_global_report_caption
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite

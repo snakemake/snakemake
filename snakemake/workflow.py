@@ -1289,7 +1289,8 @@ class Workflow:
 
     def report(self, path):
         """Define a global report description in .rst format."""
-        self.report_text = self.current_basedir.join(path)
+        if not self.modifier.skip_global_report_caption:
+            self.report_text = self.current_basedir.join(path)
 
     @property
     def config(self):
@@ -1846,6 +1847,8 @@ class Workflow:
                     rules,
                     name_modifier,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+                    skip_global_report_caption=self.report_text
+                    is not None,  # do not overwrite existing report text via module
                 )
             else:
                 # local inheritance
