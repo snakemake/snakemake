@@ -1483,6 +1483,9 @@ class Workflow:
                         rule=rule,
                     )
 
+                if isinstance(ruleinfo.conda_env, Path):
+                    ruleinfo.conda_env = str(ruleinfo.conda_env)
+
                 if (
                     ruleinfo.conda_env is not None
                     and is_conda_env_file(ruleinfo.conda_env)
