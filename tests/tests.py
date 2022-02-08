@@ -1412,3 +1412,18 @@ def test_default_target():
 
 def test_cache_multioutput():
     run(dpath("test_cache_multioutput"), shouldfail=True)
+
+
+@skip_on_windows
+def test_github_issue1384():
+    try:
+        tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
+        shell(
+            """
+            cd {tmpdir}
+            snakemake --generate-unit-tests
+            pytest -v .tests/unit
+            """
+        )
+    finally:
+        shutil.rmtree(tmpdir)
