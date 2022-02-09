@@ -1,5 +1,17 @@
 # Changelog
 
+### [6.15.4](https://www.github.com/snakemake/snakemake/compare/v6.15.3...v6.15.4) (2022-02-09)
+
+
+### Bug Fixes
+
+* fix issue when generating unit tests for rules with directory output ([#1385](https://www.github.com/snakemake/snakemake/issues/1385)) ([7db614f](https://www.github.com/snakemake/snakemake/commit/7db614fa1753179d2cdc20095df17d5ac2885ad0))
+
+
+### Documentation
+
+* fix tutorial setup instructions for MacOS. ([#1383](https://www.github.com/snakemake/snakemake/issues/1383)) ([b57b749](https://www.github.com/snakemake/snakemake/commit/b57b7493d372605323204122af859ede38864e4d))
+
 ### [6.15.3](https://www.github.com/snakemake/snakemake/compare/v6.15.2...v6.15.3) (2022-02-07)
 
 
