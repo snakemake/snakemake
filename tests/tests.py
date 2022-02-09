@@ -1434,5 +1434,6 @@ def test_github_issue1384():
         shutil.rmtree(tmpdir)
 
 
+@skip_on_windows
 def test_peppy():
     run(dpath("test_peppy"))
