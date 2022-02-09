@@ -1289,6 +1289,11 @@ def test_modules_prefix():
     run(dpath("test_modules_prefix"), targets=["a"])
 
 
+@skip_on_windows
+def test_modules_peppy():
+    run(dpath("test_modules_peppy"), targets=["a"])
+
+
 def test_modules_specific():
     run(dpath("test_modules_specific"), targets=["test_a"])
 
@@ -1427,3 +1432,8 @@ def test_github_issue1384():
         )
     finally:
         shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_peppy():
+    run(dpath("test_peppy"))

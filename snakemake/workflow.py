@@ -1241,19 +1241,18 @@ class Workflow:
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""
-        global config
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
                 c = snakemake.io.load_configfile(fp)
-                update_config(config, c)
+                update_config(self.config, c)
                 if self.overwrite_config:
                     logger.info(
                         "Config file {} is extended by additional config specified via the command line.".format(
                             fp
                         )
                     )
-                    update_config(config, self.overwrite_config)
+                    update_config(self.config, self.overwrite_config)
             elif not self.overwrite_configfiles:
                 raise WorkflowError(
                     "Workflow defines configfile {} but it is not present or accessible.".format(
@@ -1261,8 +1260,7 @@ class Workflow:
                     )
                 )
 
-    def pepfile(self, path):
-        global pep
+    def set_pepfile(self, path):
 
         try:
             import peppy
@@ -1270,11 +1268,9 @@ class Workflow:
             raise WorkflowError("For PEP support, please install peppy.")
 
         self.pepfile = path
-        pep = peppy.Project(self.pepfile)
+        self.globals["pep"] = peppy.Project(self.pepfile)
 
     def pepschema(self, schema):
-        global pep
-
         try:
             import eido
         except ImportError:
@@ -1285,7 +1281,9 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(project=pep, schema=schema, exclude_case=True)
+        eido.validate_project(
+            project=self.globals["pep"], schema=schema, exclude_case=True
+        )
 
     def report(self, path):
         """Define a global report description in .rst format."""

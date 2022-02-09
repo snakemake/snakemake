@@ -248,7 +248,9 @@ class Configfile(GlobalKeywordState):
 
 
 class Pepfile(GlobalKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "set_pepfile"
 
 
 class Pepschema(GlobalKeywordState):
