@@ -1421,7 +1421,7 @@ def test_github_issue1384():
         shell(
             """
             cd {tmpdir}
-            snakemake --generate-unit-tests
+            python -m snakemake --generate-unit-tests
             pytest -v .tests/unit
             """
         )
