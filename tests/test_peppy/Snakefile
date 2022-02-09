@@ -1,5 +1,7 @@
 pepfile: "pep/config.yaml"
-pepschema: "schemas/pep.yaml"
+pepfile: "pep/config.yaml" # test overwriting
+
+pepschema: "workflow/schemas/pep.yaml"
 
 rule all:
     input:
