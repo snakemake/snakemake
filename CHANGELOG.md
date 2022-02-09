@@ -1,5 +1,13 @@
 # Changelog
 
+### [6.15.5](https://www.github.com/snakemake/snakemake/compare/v6.15.4...v6.15.5) (2022-02-09)
+
+
+### Bug Fixes
+
+* convert conda env to string before checks ([#1382](https://www.github.com/snakemake/snakemake/issues/1382)) ([7a8da9f](https://www.github.com/snakemake/snakemake/commit/7a8da9fbf01a037a99ebaa3732fe25e87a96fcd2))
+* fix pepfile handling in case of module usage ([#1387](https://www.github.com/snakemake/snakemake/issues/1387)) ([f097a76](https://www.github.com/snakemake/snakemake/commit/f097a761472248d779113cdb22b5274395828bcb))
+
 ### [6.15.4](https://www.github.com/snakemake/snakemake/compare/v6.15.3...v6.15.4) (2022-02-09)
 
 
