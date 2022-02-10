@@ -434,6 +434,12 @@ def test_deploy_script():
     run(dpath("test_deploy_script"), use_conda=True)
 
 
+@skip_on_windows
+def test_deploy_hashing():
+    tmpdir = run(dpath("test_deploy_hashing"), use_conda=True, cleanup=False)
+    assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
+
+
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -1283,6 +1289,11 @@ def test_modules_prefix():
     run(dpath("test_modules_prefix"), targets=["a"])
 
 
+@skip_on_windows
+def test_modules_peppy():
+    run(dpath("test_modules_peppy"), targets=["a"])
+
+
 def test_modules_specific():
     run(dpath("test_modules_specific"), targets=["test_a"])
 
@@ -1392,3 +1403,37 @@ def test_checkpoint_allowed_rules():
 @skip_on_windows
 def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
+
+
+@skip_on_windows
+def test_conda_named():
+    run(dpath("test_conda_named"), use_conda=True)
+
+
+@skip_on_windows
+def test_default_target():
+    run(dpath("test_default_target"))
+
+
+def test_cache_multioutput():
+    run(dpath("test_cache_multioutput"), shouldfail=True)
+
+
+@skip_on_windows
+def test_github_issue1384():
+    try:
+        tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
+        shell(
+            """
+            cd {tmpdir}
+            python -m snakemake --generate-unit-tests
+            pytest -v .tests/unit
+            """
+        )
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_peppy():
+    run(dpath("test_peppy"))

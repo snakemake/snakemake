@@ -342,7 +342,16 @@ class Rule:
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        self._conda_env = IOFile(conda_env, rule=self)
+        from snakemake.deployment.conda import (
+            is_conda_env_file,
+            CondaEnvFileSpec,
+            CondaEnvNameSpec,
+        )
+
+        if is_conda_env_file(conda_env):
+            self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            self._conda_env = CondaEnvNameSpec(conda_env)
 
     @property
     def container_img(self):
@@ -425,7 +434,7 @@ class Rule:
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
-        on problems.
+        on problems. Does not raise if the entry is empty.
         """
         seen = dict()
         idx = None
@@ -435,10 +444,10 @@ class Rule:
                     idx = 0
                 else:
                     idx += 1
-            if value in seen:
+            if value and value in seen:
                 raise WorkflowError(
                     "Duplicate output file pattern in rule {}. First two "
-                    "duplicate for entries {} and {}".format(
+                    "duplicate for entries {} and {}.".format(
                         self.name, seen[value], name or idx
                     )
                 )
@@ -1041,7 +1050,9 @@ class Rule:
     def expand_conda_env(self, wildcards):
         try:
             conda_env = (
-                self.conda_env.apply_wildcards(wildcards) if self.conda_env else None
+                self.conda_env.apply_wildcards(wildcards, self)
+                if self.conda_env
+                else None
             )
         except WildcardError as e:
             raise WildcardError(

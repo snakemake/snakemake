@@ -591,7 +591,9 @@ def snakemake(
         success = True
 
         workflow.include(
-            snakefile, overwrite_first_rule=True, print_compilation=print_compilation
+            snakefile,
+            overwrite_default_target=True,
+            print_compilation=print_compilation,
         )
         workflow.check()
 

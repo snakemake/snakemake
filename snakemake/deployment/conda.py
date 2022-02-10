@@ -22,6 +22,7 @@ import uuid
 from enum import Enum
 import threading
 import shutil
+from abc import ABC, abstractmethod
 
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -29,7 +30,13 @@ from snakemake.logging import logger
 from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
-from snakemake.io import git_content
+from snakemake.io import (
+    IOFile,
+    apply_wildcards,
+    contains_wildcard,
+    git_content,
+    _IOFile,
+)
 
 
 class CondaCleanupMode(Enum):
@@ -45,9 +52,27 @@ class Env:
     """Conda environment from a given specification file."""
 
     def __init__(
-        self, env_file, workflow, env_dir=None, container_img=None, cleanup=None
+        self,
+        workflow,
+        env_file=None,
+        env_name=None,
+        env_dir=None,
+        container_img=None,
+        cleanup=None,
     ):
-        self.file = infer_source_file(env_file)
+        self.file = None
+        self.name = None
+        self.post_deploy_file = None
+        if env_file is not None:
+            self.file = infer_source_file(env_file)
+            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
+                ".post-deploy.sh"
+            )
+            if deploy_file.exists():
+                self.post_deploy_file = infer_source_file(deploy_file)
+        if env_name is not None:
+            assert env_file is None, "bug: both env_file and env_name specified"
+            self.name = env_name
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -68,11 +93,23 @@ class Env:
         self._singularity_args = workflow.singularity_args
 
     def _get_content(self):
-        return self.workflow.sourcecache.open(self.file, "rb").read()
+        if self.is_named:
+            from snakemake.shell import shell
+
+            content = shell.check_output(
+                "conda env export {}".format(self.address_argument),
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+            )
+            return content.encode()
+        else:
+            return self.workflow.sourcecache.open(self.file, "rb").read()
 
     def _get_content_deploy(self):
-        deploy_file = Path(self.file).with_suffix(".post-deploy.sh")
-        return self.workflow.sourcecache.open(deploy_file, "rb").read()
+        self.check_is_file_based()
+        if self.post_deploy_file:
+            return self.workflow.sourcecache.open(self.post_deploy_file, "rb").read()
+        return None
 
     @property
     def _env_archive_dir(self):
@@ -109,6 +146,9 @@ class Env:
                 md5hash.update(env_dir.encode())
                 if self._container_img:
                     md5hash.update(self._container_img.url.encode())
+                content_deploy = self.content_deploy
+                if content_deploy:
+                    md5hash.update(content_deploy)
                 md5hash.update(self.content)
                 self._hash = md5hash.hexdigest()
         return self._hash
@@ -118,34 +158,58 @@ class Env:
         if self._content_hash is None:
             md5hash = hashlib.md5()
             md5hash.update(self.content)
+            content_deploy = self.content_deploy
+            if content_deploy:
+                md5hash.update(content_deploy)
             self._content_hash = md5hash.hexdigest()
         return self._content_hash
 
     @property
     def is_containerized(self):
-
         if not self._container_img:
             return False
         return self._container_img.is_containerized
 
     @property
-    def path(self):
+    def is_named(self):
+        return self.file is None
+
+    def check_is_file_based(self):
+        assert (
+            self.file is not None
+        ), "bug: trying to access conda env file based functionality for named environment"
+
+    @property
+    def address(self):
         """Path to directory of the conda environment.
 
         First tries full hash, if it does not exist, (8-prefix) is used
         as default.
 
         """
-        hash = self.hash
-        env_dir = self._env_dir
-        get_path = lambda h: os.path.join(env_dir, h)
-        hash_candidates = [hash[:8], hash]  # [0] is the old fallback hash (shortened)
-        exists = [os.path.exists(get_path(h)) for h in hash_candidates]
-        if self.is_containerized or exists[1] or (not exists[0]):
-            # containerizes, full hash exists or fallback hash does not exist: use full hash
-            return get_path(hash_candidates[1])
-        # use fallback hash
-        return get_path(hash_candidates[0])
+        if self.is_named:
+            return self.name
+        else:
+            hash = self.hash
+            env_dir = self._env_dir
+            get_path = lambda h: os.path.join(env_dir, h)
+            hash_candidates = [
+                hash[:8],
+                hash,
+            ]  # [0] is the old fallback hash (shortened)
+            exists = [os.path.exists(get_path(h)) for h in hash_candidates]
+            if self.is_containerized or exists[1] or (not exists[0]):
+                # containerizes, full hash exists or fallback hash does not exist: use full hash
+                return get_path(hash_candidates[1])
+            # use fallback hash
+            return get_path(hash_candidates[0])
+
+    @property
+    def address_argument(self):
+        if self.is_named:
+            return "--name '{}'".format(self.address)
+        else:
+            return "--prefix '{}'".format(self.address)
 
     @property
     def archive_file(self):
@@ -167,6 +231,8 @@ class Env:
         # importing requests locally because it interferes with instantiating conda environments
         import requests
 
+        self.check_is_file_based()
+
         env_archive = self.archive_file
         if os.path.exists(env_archive):
             return env_archive
@@ -181,7 +247,7 @@ class Env:
             os.makedirs(env_archive, exist_ok=True)
             try:
                 out = shell.check_output(
-                    "conda list --explicit --prefix '{}'".format(self.path),
+                    "conda list --explicit {}".format(self.address_argument),
                     stderr=subprocess.STDOUT,
                     universal_newlines=True,
                 )
@@ -240,13 +306,15 @@ class Env:
         )
         conda = Conda(self._container_img)
         shell.check_output(
-            conda.shellcmd(self.path, "sh {}".format(deploy_file)),
+            conda.shellcmd(self.address, "sh {}".format(deploy_file)),
             stderr=subprocess.STDOUT,
         )
 
     def create(self, dryrun=False):
         """Create the conda enviroment."""
         from snakemake.shell import shell
+
+        self.check_is_file_based()
 
         # Read env file and create hash.
         env_file = self.file
@@ -262,11 +330,7 @@ class Env:
                 tmp.write(self.content)
                 env_file = tmp.name
                 tmp_env_file = tmp.name
-            if (
-                Path(self.file.get_path_or_uri())
-                .with_suffix(".post-deploy.sh")
-                .exists()
-            ):
+            if self.post_deploy_file:
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".post-deploy.sh"
                 ) as tmp:
@@ -276,11 +340,9 @@ class Env:
                     tmp_deploy_file = tmp.name
         else:
             env_file = env_file.get_path_or_uri()
-            if Path(env_file).with_suffix(".post-deploy.sh").exists():
-                deploy_file = Path(env_file).with_suffix(".post-deploy.sh")
+            deploy_file = self.post_deploy_file
 
-        env_hash = self.hash
-        env_path = self.path
+        env_path = self.address
 
         if self.is_containerized:
             if not dryrun:
@@ -462,11 +524,17 @@ class Env:
 
     def __hash__(self):
         # this hash is only for object comparison, not for env paths
-        return hash(self.file)
+        if self.is_named:
+            return hash(self.name)
+        else:
+            return hash(self.file)
 
     def __eq__(self, other):
         if isinstance(other, Env):
-            return self.file == other.file
+            if self.is_named:
+                return self.name == other.name
+            else:
+                return self.file == other.file
         return False
 
 
@@ -583,24 +651,111 @@ class Conda:
         else:
             return os.path.join(self.prefix_path, "bin")
 
-    def shellcmd(self, env_path, cmd):
+    def shellcmd(self, env_address, cmd):
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate")
 
         if ON_WINDOWS:
             activate = activate.replace("\\", "/")
-            env_path = env_path.replace("\\", "/")
+            env_address = env_address.replace("\\", "/")
 
-        return "source {} '{}'; {}".format(activate, env_path, cmd)
+        return "source {} '{}'; {}".format(activate, env_address, cmd)
 
-    def shellcmd_win(self, env_path, cmd):
+    def shellcmd_win(self, env_address, cmd):
         """Prepend the windows activate bat script."""
         # get path to activate script
         activate = os.path.join(self.bin_path(), "activate.bat").replace("\\", "/")
-        env_path = env_path.replace("\\", "/")
+        env_address = env_address.replace("\\", "/")
 
-        return '"{}" "{}"&&{}'.format(activate, env_path, cmd)
+        return '"{}" "{}"&&{}'.format(activate, env_address, cmd)
 
 
 def is_mamba_available():
     return shutil.which("mamba") is not None
+
+
+class CondaEnvSpec(ABC):
+    @abstractmethod
+    def apply_wildcards(self, wildcards):
+        ...
+
+    @abstractmethod
+    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+        ...
+
+    @abstractmethod
+    def check(self):
+        ...
+
+    @property
+    def is_file(self):
+        return False
+
+    @property
+    @abstractmethod
+    def contains_wildcard(self):
+        ...
+
+
+class CondaEnvFileSpec(CondaEnvSpec):
+    def __init__(self, filepath: str, rule=None):
+        if isinstance(filepath, _IOFile):
+            self.file = filepath
+        else:
+            self.file = IOFile(filepath, rule=rule)
+
+    def apply_wildcards(self, wildcards, rule):
+        filepath = self.file.apply_wildcards(wildcards)
+        if is_local_file(filepath):
+            # Normalize 'file:///my/path.yml' to '/my/path.yml'
+            filepath = parse_uri(filepath).uri_path
+        return CondaEnvFileSpec(filepath, rule)
+
+    def check(self):
+        self.file.check()
+
+    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+        return Env(
+            workflow,
+            env_file=self.file,
+            env_dir=env_dir,
+            container_img=container_img,
+            cleanup=cleanup,
+        )
+
+    @property
+    def is_file(self):
+        return True
+
+    @property
+    def contains_wildcard(self):
+        return contains_wildcard(self.file)
+
+
+class CondaEnvNameSpec(CondaEnvSpec):
+    def __init__(self, name: str):
+        self.name = name
+
+    def apply_wildcards(self, wildcards, _):
+        return CondaEnvNameSpec(apply_wildcards(self.name, wildcards))
+
+    def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
+        return Env(
+            workflow,
+            env_name=self.name,
+            env_dir=env_dir,
+            container_img=container_img,
+            cleanup=cleanup,
+        )
+
+    def check(self):
+        # not a file, nothing to check here
+        pass
+
+    @property
+    def contains_wildcard(self):
+        return contains_wildcard(self.name)
+
+
+def is_conda_env_file(spec: str):
+    return spec.endswith(".yaml") or spec.endswith(".yml")

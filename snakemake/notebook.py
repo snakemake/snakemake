@@ -13,6 +13,7 @@ from snakemake.logging import logger
 from snakemake.common import is_local_file
 from snakemake.common import ON_WINDOWS
 from snakemake.sourcecache import SourceCache, infer_source_file
+from snakemake.utils import format
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
@@ -262,6 +263,7 @@ def notebook(
     Load a script from the given basedir + path and execute it.
     """
     draft = False
+    path = format(path, wildcards=wildcards, params=params)
     if edit is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
