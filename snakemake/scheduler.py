@@ -63,6 +63,8 @@ class JobScheduler:
         cluster_status=None,
         cluster_config=None,
         cluster_sync=None,
+        cluster_cancel=None,
+        cluster_mcancel=None,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -194,6 +196,8 @@ class JobScheduler:
                     constructor = partial(
                         GenericClusterExecutor,
                         statuscmd=cluster_status,
+                        cancelcmd=cluster_cancel,
+                        mcancelcmd=cluster_mcancel,
                         max_status_checks_per_second=max_status_checks_per_second,
                     )
 

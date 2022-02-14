@@ -923,6 +923,8 @@ class GenericClusterExecutor(ClusterExecutor):
         cores,
         submitcmd="qsub",
         statuscmd=None,
+        cancelcmd=None,
+        mcancelcmd=None,
         cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
@@ -944,6 +946,8 @@ class GenericClusterExecutor(ClusterExecutor):
             )
 
         self.statuscmd = statuscmd
+        self.cancelcmd = cancelcmd
+        self.mcancelcmd = mcancelcmd
         self.external_jobid = dict()
 
         super().__init__(
@@ -976,8 +980,37 @@ class GenericClusterExecutor(ClusterExecutor):
             )
 
     def cancel(self):
-        logger.info("Will exit after finishing currently running jobs.")
-        self.shutdown()
+        # maximum number of jobs to cancel at once
+        max_mcancel = 1000
+        def _chunks(lst, n):
+            """Yield successive n-sized chunks from lst."""
+            for i in range(0, len(lst), n):
+                yield lst[i:i + n]
+
+        if self.cluster_mcancel or self.cluster_cancel:  # We have --cluster-[m]cancel
+            # Enumerate job IDs and create chunks.  Set size to 1 if not mcancel, else
+            # limit to a reasonable size (few cancel commands but not too long command
+            # line).
+            jobids = list(map(str, [jid for (_, jid) in self.external_jobid.keys()]))
+            if self.cluster_mcancel:
+                cmd = self.cluster_mcancel
+                chunks = _chunk(jobids, max_mcancel)
+            else:
+                cmd = self.cluster_cancel
+                chunks = _chunk(jobids, max_mcancel)
+            # Go through the chunks and cancel the jobs.
+            for chunk in chunks:
+                try:
+                    subprocess.Popen([cmd] + chunk, shell=False)
+                except:
+                    # This is common - logging a warning would probably confuse the user.
+                    pass
+        else:
+            logger.info(
+                "No --cluster-cancel/--cluster-mcancel given. "
+                "Will exit after finishing currently running jobs."
+            )
+            self.shutdown()
 
     def register_job(self, job):
         # Do not register job here.
