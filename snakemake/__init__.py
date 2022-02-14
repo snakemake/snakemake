@@ -2558,7 +2558,7 @@ def main(argv=None):
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
-    if args.cancel and args.mcancel:
+    if args.cluster_cancel and args.cluster_mcancel:
         print("--cancel and --mcancel are mutually exclusive!", file=sys.stderr)
         sys.exit(1)
 

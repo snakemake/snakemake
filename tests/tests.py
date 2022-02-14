@@ -115,6 +115,40 @@ def test_cluster_statusscript():
     )
 
 
+@skip_on_windows
+def test_cluster_cancelscript():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "-s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=2,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    assert scancel_txt == "cancel\ncancel\n"
+
+
+@skip_on_windows
+def test_cluster_mcancelscript():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-mcancel=./mscancel.sh "
+            "-s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=2,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    assert scancel_txt == "mcancel\n"
+
+
 def test15():
     run(dpath("test15"))
 
@@ -774,19 +808,13 @@ def test_singularity_conda():
 @skip_on_windows
 @connected
 def test_singularity_none():
-    run(
-        dpath("test_singularity_none"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_none"), use_singularity=True)
 
 
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(
-        dpath("test_singularity_global"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_global"), use_singularity=True)
 
 
 def test_issue612():
@@ -1381,10 +1409,7 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(
-        dpath("test_github_issue1158"),
-        cluster="./qsub.py",
-    )
+    run(dpath("test_github_issue1158"), cluster="./qsub.py")
 
 
 def test_converting_path_for_r_script():

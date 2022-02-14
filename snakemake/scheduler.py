@@ -453,7 +453,7 @@ class JobScheduler:
                 if user_kill or (not self.keepgoing and errors) or executor_error:
                     if user_kill == "graceful":
                         logger.info(
-                            "Will exit after finishing " "currently running jobs."
+                            "Will exit after finishing currently running jobs (scheduler)."
                         )
 
                     if executor_error:
@@ -585,10 +585,7 @@ class JobScheduler:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
 
-    def _proceed(
-        self,
-        job,
-    ):
+    def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
             self._tofinish.append(job)
@@ -657,10 +654,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx),
-                    lowBound=0,
-                    upBound=1,
-                    cat=pulp.LpInteger,
+                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }

@@ -108,7 +108,7 @@ class AbstractExecutor:
                     "{}:{}={}".format(rule, name, value)
                     for rule, res in self.workflow.overwrite_resources.items()
                     for name, value in res.items()
-                ),
+                )
             )
         return ""
 
@@ -982,22 +982,23 @@ class GenericClusterExecutor(ClusterExecutor):
     def cancel(self):
         # maximum number of jobs to cancel at once
         max_mcancel = 1000
+
         def _chunks(lst, n):
             """Yield successive n-sized chunks from lst."""
             for i in range(0, len(lst), n):
-                yield lst[i:i + n]
+                yield lst[i : i + n]
 
-        if self.cluster_mcancel or self.cluster_cancel:  # We have --cluster-[m]cancel
+        if self.cancelcmd or self.mcancelcmd:  # We have --cluster-[m]cancel
             # Enumerate job IDs and create chunks.  Set size to 1 if not mcancel, else
             # limit to a reasonable size (few cancel commands but not too long command
             # line).
-            jobids = list(map(str, [jid for (_, jid) in self.external_jobid.keys()]))
-            if self.cluster_mcancel:
-                cmd = self.cluster_mcancel
-                chunks = _chunk(jobids, max_mcancel)
+            jobids = [j.jobid for j in self.active_jobs]
+            if self.mcancelcmd:
+                cmd = self.mcancelcmd
+                chunks = list(_chunks(jobids, max_mcancel))
             else:
-                cmd = self.cluster_cancel
-                chunks = _chunk(jobids, max_mcancel)
+                cmd = self.cancelcmd
+                chunks = list(_chunks(jobids, 1))
             # Go through the chunks and cancel the jobs.
             for chunk in chunks:
                 try:
