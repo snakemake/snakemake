@@ -88,7 +88,7 @@ class Crc32cCalculator:
     """The Google Python client doesn't provide a way to stream a file being
     written, so we can wrap the file object in an additional class to
     do custom handling. This is so we don't need to download the file
-    and then stream read it again to calculate the hash.
+    and then stream-read it again to calculate the hash.
     """
 
     def __init__(self, fileobj):

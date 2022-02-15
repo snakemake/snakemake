@@ -175,7 +175,7 @@ class WildcardError(WorkflowError):
 
 class RuleException(Exception):
     """
-    Base class for exception occuring within the
+    Base class for exception occurring within the
     execution or definition of rules.
     """
 
