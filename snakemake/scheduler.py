@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
+import datetime
 import threading
 import operator
 import time
@@ -64,7 +65,7 @@ class JobScheduler:
         cluster_config=None,
         cluster_sync=None,
         cluster_cancel=None,
-        cluster_mcancel=None,
+        cluster_cancel_nargs=None,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -197,7 +198,7 @@ class JobScheduler:
                         GenericClusterExecutor,
                         statuscmd=cluster_status,
                         cancelcmd=cluster_cancel,
-                        mcancelcmd=cluster_mcancel,
+                        cancelnargs=cluster_cancel_nargs,
                         max_status_checks_per_second=max_status_checks_per_second,
                     )
 

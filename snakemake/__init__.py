@@ -167,7 +167,7 @@ def snakemake(
     assume_shared_fs=True,
     cluster_status=None,
     cluster_cancel=None,
-    cluster_mcancel=None,
+    cluster_cancel_nargs=None,
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
@@ -298,8 +298,8 @@ def snakemake(
         tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as a single argument.
-        cluster_cancel (str):       command to cancel multiple job IDs (like slurm 'scancel') (default None)
-        cluster_mcancel (str):      command to cancel multiple job IDs (like slurm 'scancel') (default None)
+        cluster_cancel (str):       command to cancel multiple job IDs (like SLURM 'scancel') (default None)
+        cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
@@ -696,7 +696,7 @@ def snakemake(
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     cluster_cancel=cluster_cancel,
-                    cluster_mcancel=cluster_mcancel,
+                    cluster_cancel_nargs=cluster_cancel_nargs,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
@@ -784,7 +784,7 @@ def snakemake(
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     cluster_cancel=cluster_cancel,
-                    cluster_mcancel=cluster_mcancel,
+                    cluster_cancel_nargs=cluster_cancel_nargs,
                     report=report,
                     report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
@@ -2146,11 +2146,11 @@ def get_argument_parser(profile=None):
         "The command will be passed a single argument, the job id.",
     )
     group_cluster.add_argument(
-        "--cluster-mcancel",
-        default=None,
-        help="Specify a command that can cancel multiple jobs at once.  The "
-        "command will be passed a number of arguments, each one an id of a job "
-        "to terminate/cancel.",
+        "--cluster-cancel-nargs",
+        type=int,
+        default=1000,
+        help="Specify maximal number of job ids to pass to --cluster-cancel "
+        "command, defaults to 1000.",
     )
     group_cluster.add_argument(
         "--drmaa-log-dir",
@@ -2424,9 +2424,9 @@ def main(argv=None):
                 args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
-        for arg in "cluster_status", "cluster_cancel", "cluster_mcancel":
-            if getattr(args, arg):
-                setattr(args, arg, adjust_path(getattr(arg, arg)))
+        for key in "cluster_status", "cluster_cancel":
+            if getattr(args, key):
+                setattr(args, key, adjust_path(getattr(args, key)))
         if args.report_stylesheet:
             args.report_stylesheet = adjust_path(args.report_stylesheet)
 
@@ -2557,10 +2557,6 @@ def main(argv=None):
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
-
-    if args.cluster_cancel and args.cluster_mcancel:
-        print("--cancel and --mcancel are mutually exclusive!", file=sys.stderr)
-        sys.exit(1)
 
     if args.runtime_profile:
         import yappi
@@ -2903,7 +2899,7 @@ def main(argv=None):
             assume_shared_fs=not args.no_shared_fs,
             cluster_status=args.cluster_status,
             cluster_cancel=args.cluster_cancel,
-            cluster_mcancel=args.cluster_mcancel,
+            cluster_cancel_nargs=args.cluster_cancel_nargs,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,

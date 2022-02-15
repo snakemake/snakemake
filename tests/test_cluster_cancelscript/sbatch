@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 echo --sbatch-- >> sbatch.log
 echo `date` >> sbatch.log
 tail -n1 $1 >> sbatch.log

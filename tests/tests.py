@@ -122,31 +122,40 @@ def test_cluster_cancelscript():
         snakefile="Snakefile.nonstandard",
         shellcmd=(
             "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
-            "-s Snakefile.nonstandard"
+            "--cluster-status=./status.sh -s Snakefile.nonstandard"
         ),
         shouldfail=True,
         cleanup=False,
-        sigint_after=2,
+        sigint_after=4,
     )
     scancel_txt = open("%s/scancel.txt" % outdir).read()
-    assert scancel_txt == "cancel\ncancel\n"
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 1
+    assert scancel_lines[0].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 3
 
 
 @skip_on_windows
-def test_cluster_mcancelscript():
+def test_cluster_cancelscript_nargs1():
     outdir = run(
         dpath("test_cluster_cancelscript"),
         snakefile="Snakefile.nonstandard",
         shellcmd=(
-            "snakemake -j 10 --cluster=./sbatch --cluster-mcancel=./mscancel.sh "
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "--cluster-status=./status.sh --cluster-cancel-nargs=1 "
             "-s Snakefile.nonstandard"
         ),
         shouldfail=True,
         cleanup=False,
-        sigint_after=2,
+        sigint_after=4,
     )
     scancel_txt = open("%s/scancel.txt" % outdir).read()
-    assert scancel_txt == "mcancel\n"
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 2
+    assert scancel_lines[0].startswith("cancel")
+    assert scancel_lines[1].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 2
+    assert len(scancel_lines[1].split(" ")) == 2
 
 
 def test15():

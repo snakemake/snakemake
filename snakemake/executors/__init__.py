@@ -924,7 +924,7 @@ class GenericClusterExecutor(ClusterExecutor):
         submitcmd="qsub",
         statuscmd=None,
         cancelcmd=None,
-        mcancelcmd=None,
+        cancelnargs=None,
         cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
@@ -947,8 +947,11 @@ class GenericClusterExecutor(ClusterExecutor):
 
         self.statuscmd = statuscmd
         self.cancelcmd = cancelcmd
-        self.mcancelcmd = mcancelcmd
+        self.cancelnargs = cancelnargs
         self.external_jobid = dict()
+        # We need to collect all external ids so we can properly cancel even if
+        # the status update queue is running.
+        self.all_ext_jobids = list()
 
         super().__init__(
             workflow,
@@ -980,36 +983,36 @@ class GenericClusterExecutor(ClusterExecutor):
             )
 
     def cancel(self):
-        # maximum number of jobs to cancel at once
-        max_mcancel = 1000
-
         def _chunks(lst, n):
             """Yield successive n-sized chunks from lst."""
             for i in range(0, len(lst), n):
                 yield lst[i : i + n]
 
-        if self.cancelcmd or self.mcancelcmd:  # We have --cluster-[m]cancel
-            # Enumerate job IDs and create chunks.  Set size to 1 if not mcancel, else
-            # limit to a reasonable size (few cancel commands but not too long command
-            # line).
-            jobids = [j.jobid for j in self.active_jobs]
-            if self.mcancelcmd:
-                cmd = self.mcancelcmd
-                chunks = list(_chunks(jobids, max_mcancel))
-            else:
-                cmd = self.cancelcmd
-                chunks = list(_chunks(jobids, 1))
-            # Go through the chunks and cancel the jobs.
+        if self.cancelcmd:  # We have --cluster-[m]cancel
+            # Enumerate job IDs and create chunks.  If cancelnargs evaluates to false (0/None)
+            # then pass all job ids at once
+            jobids = list(self.all_ext_jobids)
+            chunks = list(_chunks(jobids, self.cancelnargs or len(jobids)))
+            # Go through the chunks and cancel the jobs, warn in case of failures.
+            failures = 0
             for chunk in chunks:
                 try:
-                    subprocess.Popen([cmd] + chunk, shell=False)
-                except:
-                    # This is common - logging a warning would probably confuse the user.
-                    pass
+                    cancel_timeout = 2  # rather fail on timeout than miss canceling all
+                    subprocess.check_call(
+                        [self.cancelcmd] + chunk, shell=False, timeout=cancel_timeout
+                    )
+                except subprocess.SubprocessError:
+                    failures += 1
+            if failures:
+                logger.info(
+                    (
+                        "{} out of {} calls to --cluster-cancel failed.  This is safe to "
+                        "ignore in most cases."
+                    ).format(failures, len(chunks))
+                )
         else:
             logger.info(
-                "No --cluster-cancel/--cluster-mcancel given. "
-                "Will exit after finishing currently running jobs."
+                "No --cluster-cancel given. Will exit after finishing currently running jobs."
             )
             self.shutdown()
 
@@ -1042,6 +1045,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 )
                 submit_callback(job)
                 with self.lock:
+                    self.all_ext_jobids.append(ext_jobid)
                     self.active_jobs.append(
                         GenericClusterJob(
                             job,
@@ -1097,6 +1101,7 @@ class GenericClusterExecutor(ClusterExecutor):
         submit_callback(job)
 
         with self.lock:
+            self.all_ext_jobids.append(ext_jobid)
             self.active_jobs.append(
                 GenericClusterJob(
                     job,

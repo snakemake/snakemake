@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import signal
 import sys
+import shlex
 import shutil
 import time
 from os.path import join
@@ -166,11 +167,11 @@ def run(
                 success = True
             else:
                 with subprocess.Popen(
-                    shellcmd.split(" "), cwd=path if no_tmpdir else tmpdir
+                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
                 ) as process:
                     time.sleep(sigint_after)
                     process.send_signal(signal.SIGINT)
-                    process.wait(5)
+                    time.sleep(2)
                     success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
