@@ -18,6 +18,7 @@ import concurrent.futures
 import subprocess
 import signal
 import tempfile
+import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
@@ -925,6 +926,7 @@ class GenericClusterExecutor(ClusterExecutor):
         statuscmd=None,
         cancelcmd=None,
         cancelnargs=None,
+        sidecarcmd=None,
         cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
@@ -947,6 +949,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
         self.statuscmd = statuscmd
         self.cancelcmd = cancelcmd
+        self.sidecarcmd = sidecarcmd
         self.cancelnargs = cancelnargs
         self.external_jobid = dict()
         # We need to collect all external ids so we can properly cancel even if
@@ -970,6 +973,10 @@ class GenericClusterExecutor(ClusterExecutor):
             keepmetadata=keepmetadata,
         )
 
+        self.sidecar_vars = None
+        if self.sidecarcmd:
+            self._launch_sidecar()
+
         if statuscmd:
             self.exec_job += " && exit 0 || exit 1"
         elif assume_shared_fs:
@@ -982,13 +989,53 @@ class GenericClusterExecutor(ClusterExecutor):
                 "specify a cluster status command."
             )
 
+    def _launch_sidecar(self):
+        def copy_stdout(executor, process):
+            """Run sidecar process and copy it's stdout to our stdout."""
+            while process.poll() is None and executor.wait:
+                buf = process.stdout.readline()
+                if buf:
+                    self.stdout.write(buf)
+            # one final time ...
+            buf = process.stdout.readline()
+            if buf:
+                self.stdout.write(buf)
+
+        def wait(executor, process):
+            while executor.wait:
+                time.sleep(0.5)
+            process.terminate()
+            process.wait()
+            logger.info(
+                "Cluster sidecar process has terminated (retcode=%d)."
+                % process.returncode
+            )
+
+        logger.info("Launch sidecar process and read first output line.")
+        process = subprocess.Popen(
+            self.sidecarcmd, stdout=subprocess.PIPE, shell=False, encoding="utf-8"
+        )
+        self.sidecar_vars = process.stdout.readline()
+        while self.sidecar_vars and self.sidecar_vars[-1] in "\n\r":
+            self.sidecar_vars = self.sidecar_vars[:-1]
+        logger.info("Done reading first output line.")
+
+        thread_stdout = threading.Thread(
+            target=copy_stdout, name="sidecar_stdout", args=(self, process)
+        )
+        thread_stdout.start()
+        thread_wait = threading.Thread(
+            target=wait, name="sidecar_stdout", args=(self, process)
+        )
+        thread_wait.start()
+
     def cancel(self):
         def _chunks(lst, n):
             """Yield successive n-sized chunks from lst."""
             for i in range(0, len(lst), n):
                 yield lst[i : i + n]
 
-        if self.cancelcmd:  # We have --cluster-[m]cancel
+        if self.cancelcmd:  # We have --cluster-cancel
             # Enumerate job IDs and create chunks.  If cancelnargs evaluates to false (0/None)
             # then pass all job ids at once
             jobids = list(self.all_ext_jobids)
@@ -998,8 +1045,14 @@ class GenericClusterExecutor(ClusterExecutor):
             for chunk in chunks:
                 try:
                     cancel_timeout = 2  # rather fail on timeout than miss canceling all
+                    env = dict(os.environ)
+                    if self.sidecar_vars:
+                        env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
                     subprocess.check_call(
-                        [self.cancelcmd] + chunk, shell=False, timeout=cancel_timeout
+                        [self.cancelcmd] + chunk,
+                        shell=False,
+                        timeout=cancel_timeout,
+                        env=env,
                     )
                 except subprocess.SubprocessError:
                     failures += 1
@@ -1070,12 +1123,16 @@ class GenericClusterExecutor(ClusterExecutor):
             raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)
 
         try:
+            env = dict(os.environ)
+            if self.sidecar_vars:
+                env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
             ext_jobid = (
                 subprocess.check_output(
                     '{submitcmd} "{jobscript}"'.format(
                         submitcmd=submitcmd, jobscript=jobscript
                     ),
                     shell=True,
+                    env=env,
                 )
                 .decode()
                 .split("\n")
@@ -1124,11 +1181,15 @@ class GenericClusterExecutor(ClusterExecutor):
             def job_status(job, valid_returns=["running", "success", "failed"]):
                 try:
                     # this command shall return "success", "failed" or "running"
+                    env = dict(os.environ)
+                    if self.sidecar_vars:
+                        env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
                     ret = subprocess.check_output(
                         "{statuscmd} {jobid}".format(
                             jobid=job.jobid, statuscmd=self.statuscmd
                         ),
                         shell=True,
+                        env=env,
                     ).decode()
                 except subprocess.CalledProcessError as e:
                     if e.returncode < 0:

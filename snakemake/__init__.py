@@ -168,6 +168,7 @@ def snakemake(
     cluster_status=None,
     cluster_cancel=None,
     cluster_cancel_nargs=None,
+    cluster_sidecar=None,
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
@@ -300,6 +301,7 @@ def snakemake(
         cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as a single argument.
         cluster_cancel (str):       command to cancel multiple job IDs (like SLURM 'scancel') (default None)
         cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
+        cluster_sidecar (str):      command that starts a sidecar process, see cluster documentation (default None)
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
@@ -697,6 +699,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     cluster_cancel=cluster_cancel,
                     cluster_cancel_nargs=cluster_cancel_nargs,
+                    cluster_sidecar=cluster_sidecar,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
@@ -785,6 +788,7 @@ def snakemake(
                     cluster_status=cluster_status,
                     cluster_cancel=cluster_cancel,
                     cluster_cancel_nargs=cluster_cancel_nargs,
+                    cluster_sidecar=cluster_sidecar,
                     report=report,
                     report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
@@ -2153,6 +2157,12 @@ def get_argument_parser(profile=None):
         "command, defaults to 1000.",
     )
     group_cluster.add_argument(
+        "--cluster-sidecar",
+        default=None,
+        help="Optional command to start a sidecar process during cluster "
+        "execution.  Only active when --cluster is given as well.",
+    )
+    group_cluster.add_argument(
         "--drmaa-log-dir",
         metavar="DIR",
         help="Specify a directory in which stdout and stderr files of DRMAA"
@@ -2424,7 +2434,7 @@ def main(argv=None):
                 args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
-        for key in "cluster_status", "cluster_cancel":
+        for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
             if getattr(args, key):
                 setattr(args, key, adjust_path(getattr(args, key)))
         if args.report_stylesheet:
@@ -2900,6 +2910,7 @@ def main(argv=None):
             cluster_status=args.cluster_status,
             cluster_cancel=args.cluster_cancel,
             cluster_cancel_nargs=args.cluster_cancel_nargs,
+            cluster_sidecar=args.cluster_sidecar,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
