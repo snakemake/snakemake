@@ -28,6 +28,7 @@ from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
 from snakemake.resources import parse_resources, DefaultResources
+from snakemake.provenance_tracking.provenance import provenance_manager
 
 
 SNAKEFILE_CHOICES = [
@@ -1551,6 +1552,12 @@ def get_argument_parser(profile=None):
         help="Compile workflow to CWL and store it in given FILE.",
     )
     group_utils.add_argument(
+        "--provenance",
+        action="store_true",
+        help="Track workflow provenance based on the PROV W3C standard "
+        "and store provenance.trig and provenance.json files.",
+    )
+    group_utils.add_argument(
         "--list",
         "-l",
         action="store_true",
@@ -2580,6 +2587,11 @@ def main(argv=None):
         )
         sys.exit(1)
 
+    if args.provenance:
+        provenance_manager.set_activate(True)
+    else:
+        provenance_manager.set_activate(False)
+
     if args.kubernetes and (
         not args.default_remote_provider or not args.default_remote_prefix
     ):
@@ -2906,6 +2918,9 @@ def main(argv=None):
                     4: ("tavg", 8),
                 },
             )
+
+    if args.provenance:
+        provenance_manager.terminate_wf_exec()
 
     sys.exit(0 if success else 1)
 

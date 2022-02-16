@@ -33,6 +33,7 @@ from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
 from snakemake.utils import format, Unformattable, makedirs
+from snakemake.provenance_tracking.provenance import provenance_manager
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
@@ -167,6 +168,11 @@ class AbstractExecutor:
     def _run(self, job):
         job.check_protected_output()
         self.printjob(job)
+        if provenance_manager.is_active():
+            prov_mgr = provenance_manager
+            job.uri = prov_mgr.gen_uri(
+                "http://snakemake-provenance#", "activity-" + job.__str__()
+            )
 
     def rule_prefix(self, job):
         return "local " if job.is_local else ""
@@ -178,7 +184,28 @@ class AbstractExecutor:
         job.log_error(msg, **kwargs)
 
     def handle_job_success(self, job):
-        pass
+        if provenance_manager.is_active():
+            prov_mgr = provenance_manager
+            # print(job.params['biotools_id'])
+            tool_name = ""
+            if "biotools_id" in job.params.keys():
+                tool_name = job.params["biotools_id"]
+            else:
+                tool_name = job.__str__()
+            prov_mgr.add_activity(
+                tool_name=tool_name,
+                job_uri=job.uri,
+                input_id_list=job.input,
+                cmd=job.shellcmd,
+            )
+            outputs = job.output
+            for o in outputs:
+                prov_mgr.add_output(
+                    output_id=o,
+                    input_id_list=job.input,
+                    tool_name=tool_name,
+                    job_uri=job.uri,
+                )
 
     def handle_job_error(self, job):
         pass
