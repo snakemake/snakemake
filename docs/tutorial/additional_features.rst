@@ -272,6 +272,13 @@ To use this script call snakemake similar to below, where ``status.py`` is the s
     $ snakemake all --jobs 100 --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
 
 
+Using --cluster-cancel
+::::::::::::::::::::::
+
+When snakemake is terminated by pressing ``Ctrl-C``, it will cancel all currently running node when using ``--drmaa``.
+You can get the same behaviour with ``--cluster`` by adding ``--cluster-cancel`` and passing a command to use for canceling jobs by their jobid (e.g., ``scancel`` for SLURM or ``qdel`` for SGE).
+Most job schedulers can be passed multiple jobids and you can use ``--cluster-cancel-nargs`` to limit the number of arguments (default is 1000 which is reasonable for most schedulers).
+
 Constraining wildcards
 ::::::::::::::::::::::
 
