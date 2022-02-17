@@ -136,6 +136,14 @@ def test_cluster_cancelscript():
 
 
 @skip_on_windows
+def test_cluster_sidecar():
+    run(
+        dpath("test_cluster_sidecar"),
+        shellcmd=("snakemake -j 10 --cluster=./sbatch --cluster-sidecar=./sidecar.sh"),
+    )
+
+
+@skip_on_windows
 def test_cluster_cancelscript_nargs1():
     outdir = run(
         dpath("test_cluster_cancelscript"),
