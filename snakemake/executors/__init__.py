@@ -525,7 +525,11 @@ class CPUExecutor(RealExecutor):
         )
 
     def run_single_job(self, job):
-        if self.use_threads or (not job.is_shadow and not job.is_run) or job.is_template_engine:
+        if (
+            self.use_threads
+            or (not job.is_shadow and not job.is_run)
+            or job.is_template_engine
+        ):
             future = self.pool.submit(
                 self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
             )
