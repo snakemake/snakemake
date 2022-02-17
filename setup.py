@@ -47,7 +47,8 @@ setup(
         "snakemake.linting",
         "snakemake.executors",
         "snakemake.unit_tests",
-        "snakemake.unit_tests.templates"
+        "snakemake.unit_tests.templates",
+        "snakemake.template_rendering",
     ],
     entry_points={
         "console_scripts": [

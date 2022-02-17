@@ -648,6 +648,19 @@ class Wrapper(Script):
         )
 
 
+class TemplateEngine(Script):
+    start_func = "@workflow.template_engine"
+    end_func = "template_engine"
+
+    def args(self):
+        yield (
+            ", input, output, params, wildcards, threads, resources, log, "
+            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
+            "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
+            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+        )
+
+
 class CWL(Script):
     start_func = "@workflow.cwl"
     end_func = "cwl"
