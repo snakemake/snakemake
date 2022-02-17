@@ -177,12 +177,14 @@ def test_report_zip():
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
 
+
 def test_report_display_code():
     run(
         dpath("test_report_display_code"),
         report="report.html",
         check_md5=False,
     )
+
 
 def test_dynamic():
     run(dpath("test_dynamic"))
