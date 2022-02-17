@@ -1,5 +1,5 @@
 __author__ = "Chris Burr"
-__copyright__ = "Copyright 2017, Chris Burr"
+__copyright__ = "Copyright 2022, Chris Burr"
 __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 

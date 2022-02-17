@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -66,6 +66,7 @@ class JobScheduler:
         cluster_sync=None,
         cluster_cancel=None,
         cluster_cancel_nargs=None,
+        cluster_sidecar=None,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -199,6 +200,7 @@ class JobScheduler:
                         statuscmd=cluster_status,
                         cancelcmd=cluster_cancel,
                         cancelnargs=cluster_cancel_nargs,
+                        sidecarcmd=cluster_sidecar,
                         max_status_checks_per_second=max_status_checks_per_second,
                     )
 

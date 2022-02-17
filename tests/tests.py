@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -133,6 +133,14 @@ def test_cluster_cancelscript():
     assert len(scancel_lines) == 1
     assert scancel_lines[0].startswith("cancel")
     assert len(scancel_lines[0].split(" ")) == 3
+
+
+@skip_on_windows
+def test_cluster_sidecar():
+    run(
+        dpath("test_cluster_sidecar"),
+        shellcmd=("snakemake -j 10 --cluster=./sbatch --cluster-sidecar=./sidecar.sh"),
+    )
 
 
 @skip_on_windows
@@ -1479,3 +1487,7 @@ def test_github_issue1384():
 @skip_on_windows
 def test_peppy():
     run(dpath("test_peppy"))
+
+
+def test_template_engine():
+    run(dpath("test_template_engine"))
