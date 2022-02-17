@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -103,6 +103,7 @@ class Rule:
             self.script = None
             self.notebook = None
             self.wrapper = None
+            self.template_engine = None
             self.cwl = None
             self.norun = False
             self.is_handover = False
@@ -152,6 +153,7 @@ class Rule:
             self.script = other.script
             self.notebook = other.notebook
             self.wrapper = other.wrapper
+            self.template_engine = other.template_engine
             self.cwl = other.cwl
             self.norun = other.norun
             self.is_handover = other.is_handover
@@ -266,6 +268,10 @@ class Rule:
     @property
     def is_wrapper(self):
         return self.wrapper is not None
+
+    @property
+    def is_template_engine(self):
+        return self.template_engine is not None
 
     @property
     def is_cwl(self):

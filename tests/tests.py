@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -1479,3 +1479,7 @@ def test_github_issue1384():
 @skip_on_windows
 def test_peppy():
     run(dpath("test_peppy"))
+
+
+def test_template_engine():
+    run(dpath("test_template_engine"))

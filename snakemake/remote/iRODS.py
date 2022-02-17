@@ -1,5 +1,5 @@
 __author__ = "Oliver Stolpe"
-__copyright__ = "Copyright 2017, BIH Core Unit Bioinformatics"
+__copyright__ = "Copyright 2022, BIH Core Unit Bioinformatics"
 __email__ = "oliver.stolpe@bihealth.org"
 __license__ = "MIT"
 
