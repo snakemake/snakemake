@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
+import datetime
 import threading
 import operator
 import time
@@ -63,6 +64,8 @@ class JobScheduler:
         cluster_status=None,
         cluster_config=None,
         cluster_sync=None,
+        cluster_cancel=None,
+        cluster_cancel_nargs=None,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -194,6 +197,8 @@ class JobScheduler:
                     constructor = partial(
                         GenericClusterExecutor,
                         statuscmd=cluster_status,
+                        cancelcmd=cluster_cancel,
+                        cancelnargs=cluster_cancel_nargs,
                         max_status_checks_per_second=max_status_checks_per_second,
                     )
 
@@ -449,7 +454,7 @@ class JobScheduler:
                 if user_kill or (not self.keepgoing and errors) or executor_error:
                     if user_kill == "graceful":
                         logger.info(
-                            "Will exit after finishing " "currently running jobs."
+                            "Will exit after finishing currently running jobs (scheduler)."
                         )
 
                     if executor_error:
@@ -581,10 +586,7 @@ class JobScheduler:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
 
-    def _proceed(
-        self,
-        job,
-    ):
+    def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
             self._tofinish.append(job)
@@ -653,10 +655,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx),
-                    lowBound=0,
-                    upBound=1,
-                    cat=pulp.LpInteger,
+                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }

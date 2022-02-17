@@ -4,8 +4,11 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import signal
 import sys
+import shlex
 import shutil
+import time
 from os.path import join
 import tempfile
 import hashlib
@@ -98,6 +101,7 @@ def run(
     targets=None,
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
+    sigint_after=None,
     **params,
 ):
     """
@@ -156,16 +160,24 @@ def run(
             raise ValueError("shellcmd does not start with snakemake")
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
-            subprocess.check_output(
-                shellcmd,
-                cwd=path if no_tmpdir else tmpdir,
-                shell=True,
-            )
-            success = True
+            if sigint_after is None:
+                subprocess.check_output(
+                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                )
+                success = True
+            else:
+                with subprocess.Popen(
+                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                ) as process:
+                    time.sleep(sigint_after)
+                    process.send_signal(signal.SIGINT)
+                    time.sleep(2)
+                    success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stderr, file=sys.stderr)
     else:
+        assert sigint_after is None, "Cannot sent SIGINT when calling directly"
         success = snakemake(
             snakefile=original_snakefile if no_tmpdir else snakefile,
             cores=cores,
