@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2021, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from tempfile import TemporaryFile
 import tokenize
 import textwrap
 import os
@@ -650,15 +651,10 @@ class Wrapper(Script):
 
 class TemplateEngine(Script):
     start_func = "@workflow.template_engine"
-    end_func = "template_engine"
+    end_func = "render_template"
 
     def args(self):
-        yield (
-            ", input, output, params, wildcards, threads, resources, log, "
-            "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
-        )
+        yield (", input, output, params, wildcards, config")
 
 
 class CWL(Script):
@@ -705,6 +701,7 @@ class Rule(GlobalKeywordState):
         script=Script,
         notebook=Notebook,
         wrapper=Wrapper,
+        template_engine=TemplateEngine,
         cwl=CWL,
         **rule_property_subautomata,
     )
@@ -762,6 +759,8 @@ class Rule(GlobalKeywordState):
                     or token.string == "shell"
                     or token.string == "script"
                     or token.string == "wrapper"
+                    or token.string == "notebook"
+                    or token.string == "template_engine"
                     or token.string == "cwl"
                 ):
                     if self.run:
@@ -775,7 +774,7 @@ class Rule(GlobalKeywordState):
                 elif self.run:
                     raise self.error(
                         "No rule keywords allowed after "
-                        "run/shell/script/wrapper/cwl in "
+                        "run/shell/script/notebook/wrapper/template_engine/cwl in "
                         "rule {}.".format(self.rulename),
                         token,
                     )

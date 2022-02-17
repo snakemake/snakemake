@@ -7,8 +7,9 @@ class YteRenderer(TemplateRenderer):
         import yte
 
         try:
-            yte.process_yaml(
-                self.input_file, outfile=self.output_file, variables=self.variables
-            )
+            with open(self.output_file, "w") as outfile, open(
+                self.input_file, "r"
+            ) as infile:
+                yte.process_yaml(infile, outfile=outfile, variables=self.variables)
         except Exception as e:
             raise WorkflowError("Failed to render yte template.", e)

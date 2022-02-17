@@ -1437,3 +1437,7 @@ def test_github_issue1384():
 @skip_on_windows
 def test_peppy():
     run(dpath("test_peppy"))
+
+
+def test_template_engine():
+    run(dpath("test_template_engine"))

@@ -268,7 +268,7 @@ class Rule:
     @property
     def is_wrapper(self):
         return self.wrapper is not None
-    
+
     @property
     def is_template_engine(self):
         return self.template_engine is not None

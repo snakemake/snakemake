@@ -62,7 +62,7 @@ from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
-from snakemake.template_rendering import template_renderer
+from snakemake.template_rendering import render_template
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
@@ -510,7 +510,9 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (rule.name in self._localrules or rule.norun or rule.is_template_engine)
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun or rule.is_template_engine
+        )
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -1787,7 +1789,7 @@ class Workflow:
 
         return decorate
 
-    def template_engine(self, wrapper):
+    def template_engine(self, template_engine):
         def decorate(ruleinfo):
             ruleinfo.template_engine = template_engine
             return ruleinfo

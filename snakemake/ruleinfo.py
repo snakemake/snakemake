@@ -33,6 +33,7 @@ class RuleInfo:
         self.script = None
         self.notebook = None
         self.wrapper = None
+        self.template_engine = None
         self.cwl = None
         self.cache = False
         self.path_modifier = None

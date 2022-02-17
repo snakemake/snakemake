@@ -77,6 +77,8 @@ setup(
         "filelock",
         "stopit",
         "tabulate",
+        "yte",
+        "jinja2",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
