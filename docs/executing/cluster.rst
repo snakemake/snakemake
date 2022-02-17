@@ -64,7 +64,7 @@ Adapting to a specific cluster can involve quite a lot of options. It is therefo
     Are you using the SLURM job scheduler?
 
     In this case, it will be more robust to use the ``--cluster``, ``--cluster-status``, and ``--cluster-cancel`` arguments than using DRMAA.
-    The reason is that the slurm-drmaa package is not maintained by the SLURM vendor SchedMD and less wells supporte.
+    The reason is that the slurm-drmaa package is not maintained by the SLURM vendor SchedMD and less well supported.
     Effectively, you will run into timeouts in DRMAA calls sooner.
 
 --------------
