@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.16.0](https://www.github.com/snakemake/snakemake/compare/v6.15.5...v6.16.0) (2022-02-17)
+
+
+### Features
+
+* Adding --cluster-cancel and --cluster-cancel-nargs ([#1395](https://www.github.com/snakemake/snakemake/issues/1395)) ([0593de1](https://www.github.com/snakemake/snakemake/commit/0593de134499712929ba75e65f65df90491eac2e))
+* cluster sidecar ([#1397](https://www.github.com/snakemake/snakemake/issues/1397)) ([b992cd1](https://www.github.com/snakemake/snakemake/commit/b992cd19dc1c011f536e3662a3ddffc8b1bb9f67))
+
 ### [6.15.5](https://www.github.com/snakemake/snakemake/compare/v6.15.4...v6.15.5) (2022-02-09)
 
 
