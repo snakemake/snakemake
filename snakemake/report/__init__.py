@@ -949,7 +949,7 @@ def auto_report(dag, path, stylesheet=None):
         runtimes=runtimes,
         timeline=timeline,
         rules=[rec for recs in rules.values() for rec in recs],
-        version=__version__,
+        version=__version__.split("+")[0],
         now=now,
         pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
         custom_stylesheet=custom_stylesheet,

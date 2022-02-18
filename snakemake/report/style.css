@@ -77,13 +77,16 @@ body {
     align-items: center;
 }
 
-.sidebar #show-hide-button {
+#show-hide-button {
     padding-top: 3em;
     padding-bottom: 3em;
+    border: 1px solid #343a40;
 }
 
-.sidebar #show-hide-button#hover {
-    color: grey;
+#show-hide-button#hover {
+    color: black;
+    background-color: white!important;
+    border: 1px solid #343a40;
 }
 
 

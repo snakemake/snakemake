@@ -37,10 +37,11 @@
           <div id="title">
             <p id="title"><img id="logo" src="{{ logo }}"><b>Snakemake</b> Report</p>
           </div>
-          <div id="workflow-description">
-            <p>{{ text }}</p>
-          </div>
+
           <div id="nav">
+            <div id="workflow-description">
+              <p>{{ text }}</p>
+            </div>
             <div class="sidebar-sticky">
               <ul class="nav flex-column">
                 <li class="nav-item">
@@ -82,6 +83,9 @@
               </ul>
             </div>
           </div>
+
+
+
           <div id="meta">
             <ul class="nav flex-column">
               <li class="nav-item" style="padding: .5rem 1rem">{{ now }}</li>
@@ -92,14 +96,17 @@
         <div id="show-hide-container">
           <a href="#" id="show-hide-button" class="sidebar-background bg-dark text-white sidebar-background rounded-right"><span data-feather="arrow-left"></span></a>
         </div>
+
+        
+
       </div>
     </div>
 
     <div class="container-fluid">
       <div class="row">
-        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4">
-          <div class="panel" id="workflow">
-            <div class="row justify-content-center">
+        <main role="main" class="col-md-12 d-flex justify-content-end">
+          <div class="panel col-md-8" id="workflow">
+            <div class="row">
               <div class="col-xs-6">
                 <div id="rulegraph"></div>
               </div>
@@ -121,10 +128,10 @@
           </div>  
           {% endfor %}
 
-          <div class="panel" id="statistics">
+          <div class="panel col-md-8" id="statistics">
             <h2>Statistics</h2>
             If the workflow has been executed in cluster/cloud, runtimes include the waiting time in the queue.
-            <div class="row justify-content-center">
+            <div class="row justify-content-left">
               <div class="col-xs-6">
                 <div id="runtimes" class="plot"></div>
               </div>
