@@ -1130,6 +1130,11 @@ class GenericClusterExecutor(ClusterExecutor):
             env = dict(os.environ)
             if self.sidecar_vars:
                 env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
+
+            # Remove SNAKEMAKE_PROFILE from environment as the snakemake call inside
+            # of the cluster job must run locally (or complains about missing -j).
+            env.pop("SNAKEMAKE_PROFILE", None)
+
             ext_jobid = (
                 subprocess.check_output(
                     '{submitcmd} "{jobscript}"'.format(
