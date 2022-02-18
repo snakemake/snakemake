@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
@@ -150,6 +150,9 @@ class RemoteObject(AbstractRemoteObject):
         source = "file://" + os.path.abspath(self.local_file())
         # disable all timeouts (file transfers can take a long time)
         self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target)
+
+    def remove(self):
+        self._gfal("rm", "-r", self.remote_file())
 
     @property
     def list(self):

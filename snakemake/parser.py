@@ -1,8 +1,9 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from tempfile import TemporaryFile
 import tokenize
 import textwrap
 import os
@@ -248,7 +249,9 @@ class Configfile(GlobalKeywordState):
 
 
 class Pepfile(GlobalKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "set_pepfile"
 
 
 class Pepschema(GlobalKeywordState):
@@ -484,6 +487,12 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class DefaultTarget(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "default_target_rule"
+
+
 class Handover(RuleKeywordState):
     pass
 
@@ -640,6 +649,14 @@ class Wrapper(Script):
         )
 
 
+class TemplateEngine(Script):
+    start_func = "@workflow.template_engine"
+    end_func = "render_template"
+
+    def args(self):
+        yield (", input, output, params, wildcards, config")
+
+
 class CWL(Script):
     start_func = "@workflow.cwl"
     end_func = "cwl"
@@ -673,6 +690,7 @@ rule_property_subautomata = dict(
     group=Group,
     cache=Cache,
     handover=Handover,
+    default_target=DefaultTarget,
 )
 
 
@@ -683,6 +701,7 @@ class Rule(GlobalKeywordState):
         script=Script,
         notebook=Notebook,
         wrapper=Wrapper,
+        template_engine=TemplateEngine,
         cwl=CWL,
         **rule_property_subautomata,
     )
@@ -740,6 +759,8 @@ class Rule(GlobalKeywordState):
                     or token.string == "shell"
                     or token.string == "script"
                     or token.string == "wrapper"
+                    or token.string == "notebook"
+                    or token.string == "template_engine"
                     or token.string == "cwl"
                 ):
                     if self.run:
@@ -753,7 +774,7 @@ class Rule(GlobalKeywordState):
                 elif self.run:
                     raise self.error(
                         "No rule keywords allowed after "
-                        "run/shell/script/wrapper/cwl in "
+                        "run/shell/script/notebook/wrapper/template_engine/cwl in "
                         "rule {}.".format(self.rulename),
                         token,
                     )

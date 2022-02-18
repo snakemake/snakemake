@@ -30,7 +30,7 @@ def test_{{ ruletest.name }}():
             "-m",
             "snakemake", 
             "{{ ruletest.target }}",
-            "-F", 
+            "-f", 
             "-j1",
             "--keep-target-files",
             {% if configfiles %}
