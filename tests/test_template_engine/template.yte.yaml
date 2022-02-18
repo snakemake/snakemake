@@ -1,0 +1,4 @@
+?if True:
+  foo: 1
+?else:
+  bar: 2

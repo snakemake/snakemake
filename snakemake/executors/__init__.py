@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -526,7 +526,11 @@ class CPUExecutor(RealExecutor):
         )
 
     def run_single_job(self, job):
-        if self.use_threads or (not job.is_shadow and not job.is_run):
+        if (
+            self.use_threads
+            or (not job.is_shadow and not job.is_run)
+            or job.is_template_engine
+        ):
             future = self.pool.submit(
                 self.cached_or_run, job, run_wrapper, *self.job_args_and_prepare(job)
             )
@@ -1126,9 +1130,11 @@ class GenericClusterExecutor(ClusterExecutor):
             env = dict(os.environ)
             if self.sidecar_vars:
                 env["SNAKEMAKE_CLUSTER_SIDECAR_VARS"] = self.sidecar_vars
+
             # Remove SNAKEMAKE_PROFILE from environment as the snakemake call inside
             # of the cluster job must run locally (or complains about missing -j).
             env.pop("SNAKEMAKE_PROFILE", None)
+
             ext_jobid = (
                 subprocess.check_output(
                     '{submitcmd} "{jobscript}"'.format(
