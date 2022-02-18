@@ -523,6 +523,7 @@ class JobScheduler:
 
     def _finish_jobs(self):
         # must be called from within lock
+        # clear the global tofinish such that parallel calls do not interfere
         for job in self._tofinish:
             if self.handle_job_success:
                 try:
@@ -532,7 +533,7 @@ class JobScheduler:
                     # we do the same as in case of errors during execution
                     print_exception(e, self.workflow.linemaps)
                     self._handle_error(job)
-                    return
+                    continue
 
             if self.update_resources:
                 # normal jobs have len=1, group jobs have len>1
