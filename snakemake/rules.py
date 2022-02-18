@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -103,6 +103,7 @@ class Rule:
             self.script = None
             self.notebook = None
             self.wrapper = None
+            self.template_engine = None
             self.cwl = None
             self.norun = False
             self.is_handover = False
@@ -152,6 +153,7 @@ class Rule:
             self.script = other.script
             self.notebook = other.notebook
             self.wrapper = other.wrapper
+            self.template_engine = other.template_engine
             self.cwl = other.cwl
             self.norun = other.norun
             self.is_handover = other.is_handover
@@ -266,6 +268,10 @@ class Rule:
     @property
     def is_wrapper(self):
         return self.wrapper is not None
+
+    @property
+    def is_template_engine(self):
+        return self.template_engine is not None
 
     @property
     def is_cwl(self):
@@ -434,7 +440,7 @@ class Rule:
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
-        on problems.
+        on problems. Does not raise if the entry is empty.
         """
         seen = dict()
         idx = None
@@ -444,10 +450,10 @@ class Rule:
                     idx = 0
                 else:
                     idx += 1
-            if value in seen:
+            if value and value in seen:
                 raise WorkflowError(
                     "Duplicate output file pattern in rule {}. First two "
-                    "duplicate for entries {} and {}".format(
+                    "duplicate for entries {} and {}.".format(
                         self.name, seen[value], name or idx
                     )
                 )
@@ -1050,7 +1056,9 @@ class Rule:
     def expand_conda_env(self, wildcards):
         try:
             conda_env = (
-                self.conda_env.apply_wildcards(wildcards) if self.conda_env else None
+                self.conda_env.apply_wildcards(wildcards, self)
+                if self.conda_env
+                else None
             )
         except WildcardError as e:
             raise WildcardError(

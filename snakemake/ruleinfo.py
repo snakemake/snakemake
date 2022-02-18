@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -33,10 +33,12 @@ class RuleInfo:
         self.script = None
         self.notebook = None
         self.wrapper = None
+        self.template_engine = None
         self.cwl = None
         self.cache = False
         self.path_modifier = None
         self.handover = False
+        self.default_target = False
 
     def apply_modifier(
         self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}

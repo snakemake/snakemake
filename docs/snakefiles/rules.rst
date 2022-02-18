@@ -246,11 +246,25 @@ By default snakemake executes the first rule in the snakefile. This gives rise t
 .. code-block:: python
 
     rule all:
-      input: ["{dataset}/file.A.txt".format(dataset=dataset) for dataset in DATASETS]
+      input:
+        expand("{dataset}/file.A.txt", dataset=DATASETS)
 
 
-Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested. In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
+Here, for each dataset in a python list ``DATASETS`` defined before, the file ``{dataset}/file.A.txt`` is requested.
+In this example, Snakemake recognizes automatically that these can be created by multiple applications of the rule ``complex_conversion`` shown above.
 
+It is possible to overwrite this behavior to use the first rule as a default target, by explicitly marking a rule as being the default target via the ``default_target`` directive:
+
+.. code-block:: python
+
+    rule xy:
+        input:
+            expand("{dataset}/file.A.txt", dataset=DATASETS)
+        default_target: True
+
+Regardless of where this rule appears in the Snakefile, it will be the default target.
+Usually, it is still recommended to keep the default target rule (and in fact all other rules that could act as optional targets) at the top of the file, such that it can be easily found.
+The ``default_target`` directive becomes particularly useful when :ref:`combining several pre-existing workflows <use_with_modules>`.
 
 .. _snakefiles-threads:
 
@@ -1868,3 +1882,42 @@ This can be achieved by accessing their path via the ``workflow.get_source``, wh
             json=workflow.source_path("../resources/test.json")
         shell:
             "somecommand {params.json} > {output}"
+
+
+.. _snakefiles-template-integration:
+
+Template rendering integration
+------------------------------
+
+Sometimes, data analyses entail the dynamic rendering of internal configuration files that are required for certain steps.
+From Snakemake 7 on, such template rendering is directly integrated such that it can happen with minimal code and maximum performance.
+Consider the following example:
+
+.. code-block:: python
+
+    rule render_jinja2_template:
+        input:
+            "some-jinja2-template.txt"
+        output:
+            "results/{sample}.rendered-version.txt"
+        template_engine:
+            "jinja2"
+
+Here, Snakemake will automatically use the specified template engine `Jinja2 <https://jinja.palletsprojects.com/>` to render the template given as input file into the given output file.
+Template rendering rules may only have a single input and output file.
+The template_engine instruction has to be specified at the end of the rule.
+
+Apart from Jinja2, Snakemake supports YTE (YAML template engine), which is particularly designed to support templating of the ubiquitious YAML file format:
+
+.. code-block:: python
+
+    rule render_jinja2_template:
+        input:
+            "some-yte-template.yaml"
+        output:
+            "results/{sample}.rendered-version.yaml"
+        template_engine:
+            "yte"
+
+
+Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).

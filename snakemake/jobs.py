@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -427,7 +427,7 @@ class Job(AbstractJob):
 
     @property
     def is_shell(self):
-        return self.rule.shellcmd is not None
+        return self.rule.is_shell
 
     @property
     def is_norun(self):
@@ -435,19 +435,23 @@ class Job(AbstractJob):
 
     @property
     def is_script(self):
-        return self.rule.script is not None
+        return self.rule.is_script
 
     @property
     def is_notebook(self):
-        return self.rule.notebook is not None
+        return self.rule.is_notebook
 
     @property
     def is_wrapper(self):
-        return self.rule.wrapper is not None
+        return self.rule.is_wrapper
 
     @property
     def is_cwl(self):
-        return self.rule.cwl is not None
+        return self.rule.is_cwl
+
+    @property
+    def is_template_engine(self):
+        return self.rule.is_template_engine
 
     @property
     def is_run(self):

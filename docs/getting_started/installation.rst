@@ -22,7 +22,7 @@ This is the **recommended** way to install Snakemake,
 because it also enables Snakemake to :ref:`handle software dependencies of your
 workflow <integrated_package_management>`.
 
-First, you have install a Conda-based Python3 distribution.
+First, you need to install a Conda-based Python3 distribution.
 The recommended choice is Mambaforge_ which not only provides the required Python and Conda commands, 
 but also includes Mamba_ an extremely fast and robust replacement for the Conda_ package manager which is highly recommended.
 The default conda solver is a bit slow and sometimes has issues with `selecting the latest package releases <https://github.com/conda/conda/issues/9905>`_. 

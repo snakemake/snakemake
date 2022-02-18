@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -62,6 +62,7 @@ from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
+from snakemake.template_rendering import render_template
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
@@ -155,7 +156,7 @@ class Workflow:
         self.global_resources["_nodes"] = nodes
 
         self._rules = OrderedDict()
-        self.first_rule = None
+        self.default_target = None
         self._workdir = None
         self.overwrite_workdir = overwrite_workdir
         self.workdir_init = os.path.abspath(os.curdir)
@@ -204,7 +205,9 @@ class Workflow:
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
         self.default_remote_prefix = default_remote_prefix
-        self.configfiles = list(overwrite_configfiles) or []
+        self.configfiles = (
+            [] if overwrite_configfiles is None else list(overwrite_configfiles)
+        )
         self.run_local = run_local
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
@@ -466,8 +469,8 @@ class Workflow:
         self._rules[rule.name] = rule
         if not is_overwrite:
             self.rule_count += 1
-        if not self.first_rule:
-            self.first_rule = rule.name
+        if not self.default_target:
+            self.default_target = rule.name
         return name
 
     def is_rule(self, name):
@@ -507,7 +510,9 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (rule.name in self._localrules or rule.norun)
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun or rule.is_template_engine
+        )
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -613,6 +618,9 @@ class Workflow:
         conda_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
+        cluster_cancel=None,
+        cluster_cancel_nargs=None,
+        cluster_sidecar=None,
         report=None,
         report_stylesheet=None,
         export_cwl=False,
@@ -644,7 +652,9 @@ class Workflow:
                 return map(relpath, filterfalse(self.is_rule, items))
 
         if not targets:
-            targets = [self.first_rule] if self.first_rule is not None else list()
+            targets = (
+                [self.default_target] if self.default_target is not None else list()
+            )
 
         if prioritytargets is None:
             prioritytargets = list()
@@ -978,6 +988,9 @@ class Workflow:
             touch=touch,
             cluster=cluster,
             cluster_status=cluster_status,
+            cluster_cancel=cluster_cancel,
+            cluster_cancel_nargs=cluster_cancel_nargs,
+            cluster_sidecar=cluster_sidecar,
             cluster_config=cluster_config,
             cluster_sync=cluster_sync,
             jobname=jobname,
@@ -1148,7 +1161,7 @@ class Workflow:
     def include(
         self,
         snakefile,
-        overwrite_first_rule=False,
+        overwrite_default_target=False,
         print_compilation=False,
         overwrite_shellcmd=None,
     ):
@@ -1164,7 +1177,7 @@ class Workflow:
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
 
-        first_rule = self.first_rule
+        default_target = self.default_target
         code, linemap, rulecount = parse(
             snakefile,
             self,
@@ -1185,8 +1198,8 @@ class Workflow:
 
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
-        if not overwrite_first_rule:
-            self.first_rule = first_rule
+        if not overwrite_default_target:
+            self.default_target = default_target
         self.included_stack.pop()
 
     def onstart(self, func):
@@ -1237,19 +1250,18 @@ class Workflow:
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""
-        global config
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
                 c = snakemake.io.load_configfile(fp)
-                update_config(config, c)
+                update_config(self.config, c)
                 if self.overwrite_config:
                     logger.info(
                         "Config file {} is extended by additional config specified via the command line.".format(
                             fp
                         )
                     )
-                    update_config(config, self.overwrite_config)
+                    update_config(self.config, self.overwrite_config)
             elif not self.overwrite_configfiles:
                 raise WorkflowError(
                     "Workflow defines configfile {} but it is not present or accessible.".format(
@@ -1257,8 +1269,7 @@ class Workflow:
                     )
                 )
 
-    def pepfile(self, path):
-        global pep
+    def set_pepfile(self, path):
 
         try:
             import peppy
@@ -1266,11 +1277,9 @@ class Workflow:
             raise WorkflowError("For PEP support, please install peppy.")
 
         self.pepfile = path
-        pep = peppy.Project(self.pepfile)
+        self.globals["pep"] = peppy.Project(self.pepfile)
 
     def pepschema(self, schema):
-        global pep
-
         try:
             import eido
         except ImportError:
@@ -1281,11 +1290,14 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(project=pep, schema=schema, exclude_case=True)
+        eido.validate_project(
+            project=self.globals["pep"], schema=schema, exclude_case=True
+        )
 
     def report(self, path):
         """Define a global report description in .rst format."""
-        self.report_text = self.current_basedir.join(path)
+        if not self.modifier.skip_global_report_caption:
+            self.report_text = self.current_basedir.join(path)
 
     @property
     def config(self):
@@ -1458,7 +1470,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run)",
+                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
@@ -1475,9 +1487,12 @@ class Workflow:
                     raise RuleException(
                         "Conda environments are only allowed "
                         "with shell, script, notebook, or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
+
+                if isinstance(ruleinfo.conda_env, Path):
+                    ruleinfo.conda_env = str(ruleinfo.conda_env)
 
                 if (
                     ruleinfo.conda_env is not None
@@ -1501,7 +1516,7 @@ class Workflow:
                     raise RuleException(
                         "Singularity directive is only allowed "
                         "with shell, script, notebook or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
                 rule.container_img = ruleinfo.container_img
@@ -1521,6 +1536,7 @@ class Workflow:
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
+            rule.template_engine = ruleinfo.template_engine
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
@@ -1558,8 +1574,17 @@ class Workflow:
                     self.cache_rules.add(rule.name)
             elif not (ruleinfo.cache is False):
                 raise WorkflowError(
-                    "Invalid argument for 'cache:' directive. Only true allowed. "
+                    "Invalid argument for 'cache:' directive. Only True allowed. "
                     "To deactivate caching, remove directive.",
+                    rule=rule,
+                )
+
+            if ruleinfo.default_target is True:
+                self.default_target = rule.name
+            elif not (ruleinfo.default_target is False):
+                raise WorkflowError(
+                    "Invalid argument for 'default_target:' directive. Only True allowed. "
+                    "Do not use the directive for rules that shall not be the default target. ",
                     rule=rule,
                 )
 
@@ -1619,6 +1644,13 @@ class Workflow:
     def cache_rule(self, cache):
         def decorate(ruleinfo):
             ruleinfo.cache = cache
+            return ruleinfo
+
+        return decorate
+
+    def default_target_rule(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.default_target = value
             return ruleinfo
 
         return decorate
@@ -1763,6 +1795,13 @@ class Workflow:
 
         return decorate
 
+    def template_engine(self, template_engine):
+        def decorate(ruleinfo):
+            ruleinfo.template_engine = template_engine
+            return ruleinfo
+
+        return decorate
+
     def cwl(self, cwl):
         def decorate(ruleinfo):
             ruleinfo.cwl = cwl
@@ -1823,6 +1862,8 @@ class Workflow:
                     rules,
                     name_modifier,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
+                    skip_global_report_caption=self.report_text
+                    is not None,  # do not overwrite existing report text via module
                 )
             else:
                 # local inheritance
