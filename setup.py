@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 6):
-    print("At least Python 3.6 is required for Snakemake.\n", file=sys.stderr)
+if sys.version_info < (3, 7):
+    print("At least Python 3.7 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
