@@ -1455,6 +1455,7 @@ def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
 
 
+@skip_on_windows
 def test_issue1331():
     # not guaranteed to fail, so let's try multiple times
     for i in range(10):
