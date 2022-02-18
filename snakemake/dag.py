@@ -1314,7 +1314,9 @@ class DAG:
 
         # convert candidate groups to plain string IDs
         for job in visited:
-            job.group = job.group.id if isinstance(job.group, CandidateGroup) else job.group
+            job.group = (
+                job.group.id if isinstance(job.group, CandidateGroup) else job.group
+            )
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
