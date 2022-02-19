@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -175,7 +175,7 @@ class WildcardError(WorkflowError):
 
 class RuleException(Exception):
     """
-    Base class for exception occuring within the
+    Base class for exception occurring within the
     execution or definition of rules.
     """
 

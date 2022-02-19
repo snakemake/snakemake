@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -275,37 +275,36 @@ class DAG:
     def create_conda_envs(
         self, dryrun=False, forceall=False, init_only=False, quiet=False
     ):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
-            (job.conda_env_file, job.container_img_url)
+            (job.conda_env_spec, job.container_img_url)
             for job in jobs
-            if job.conda_env_file
+            if job.conda_env_spec
         }
         # Then based on md5sum values
         self.conda_envs = dict()
-        for (env_file, simg_url) in env_set:
+        for (env_spec, simg_url) in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = conda.Env(
-                env_file,
+            env = env_spec.get_conda_env(
                 self.workflow,
                 container_img=simg,
                 cleanup=self.workflow.conda_cleanup_pkgs,
             )
-            self.conda_envs[(env_file, simg_url)] = env
+            self.conda_envs[(env_spec, simg_url)] = env
 
         if not init_only:
             for env in self.conda_envs.values():
-                if not dryrun or not quiet:
+                if (not dryrun or not quiet) and not env.is_named:
                     env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
-        # First deduplicate based on job.conda_env_file
+        # First deduplicate based on job.conda_env_spec
         jobs = self.jobs if forceall else self.needrun_jobs
         img_set = {
             (job.container_img_url, job.is_containerized)
@@ -623,7 +622,7 @@ class DAG:
                 and not job.is_checkpoint
                 and (
                     job not in self.targetjobs
-                    or job.rule.name == self.workflow.first_rule
+                    or job.rule.name == self.workflow.default_target
                 )
             ):
                 tempfiles = (
@@ -1150,7 +1149,6 @@ class DAG:
         for groupid, conn_components in groups_by_id.items():
             n_components = self.workflow.group_components.get(groupid, 1)
             if n_components > 1:
-                print(n_components)
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
                         primary = chunk[0]
@@ -1181,7 +1179,8 @@ class DAG:
                 else:
                     group = self._group[job]
                     group.finalize()
-                    candidate_groups.add(group)
+                    if group not in self._running:
+                        candidate_groups.add(group)
 
         self._ready_jobs.update(
             group
@@ -1287,8 +1286,9 @@ class DAG:
 
             if len(candidate_groups) > 1:
                 if all(isinstance(group, CandidateGroup) for group in candidate_groups):
+                    group = candidate_groups.pop()
                     for g in candidate_groups:
-                        g.merge(group)
+                        group.merge(g)
                 else:
                     raise WorkflowError(
                         "An output file is marked as "
@@ -1302,15 +1302,20 @@ class DAG:
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = CandidateGroup()  # str(uuid.uuid4())
+                group = CandidateGroup()
+
+            # set group for job and all downstreams
             job.group = group
             visited.add(job)
             for j in all_depending:
                 j.group = group
                 visited.add(j)
 
+        # convert candidate groups to plain string IDs
         for job in visited:
-            job.group = group.id if isinstance(group, CandidateGroup) else group
+            job.group = (
+                job.group.id if isinstance(job.group, CandidateGroup) else job.group
+            )
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
@@ -2075,7 +2080,7 @@ class DAG:
                 logger.info("Archiving conda environments...")
                 envs = set()
                 for job in self.jobs:
-                    if job.conda_env_file:
+                    if job.conda_env_spec:
                         env_archive = job.archive_conda_env()
                         envs.add(env_archive)
                 for env in envs:

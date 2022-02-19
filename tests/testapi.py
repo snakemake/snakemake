@@ -37,7 +37,7 @@ def test_run_script_directive():
 
 
 def test_run_script_directive_async():
-    """Tests :func`snakemake.common.async_run`. The test ensure the ability to
+    """Tests :func`snakemake.common.async_run`. The test ensures the ability to
     execute Snakemake API even if an asyncio event loop is already running.
 
     """

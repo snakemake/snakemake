@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2021, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -95,6 +95,12 @@ class OutputFileCache(AbstractOutputFileCache):
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
+            logger.debug(
+                "Output file {} exists as {} in the cache.".format(
+                    outputfile, cachefile
+                )
+            )
+
             self.check_readable(cachefile)
             if cachefile.is_dir():
                 # For directories, create a new one and symlink each entry.
@@ -114,6 +120,12 @@ class OutputFileCache(AbstractOutputFileCache):
 
             if not cachefile.exists():
                 return False
+
+            logger.debug(
+                "Output file {} exists as {} in the cache.".format(
+                    outputfile, cachefile
+                )
+            )
 
             self.check_readable(cachefile)
         return True

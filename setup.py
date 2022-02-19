@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 5):
-    print("At least Python 3.5 is required for Snakemake.\n", file=sys.stderr)
+if sys.version_info < (3, 7):
+    print("At least Python 3.7 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
@@ -47,7 +47,8 @@ setup(
         "snakemake.linting",
         "snakemake.executors",
         "snakemake.unit_tests",
-        "snakemake.unit_tests.templates"
+        "snakemake.unit_tests.templates",
+        "snakemake.template_rendering",
     ],
     entry_points={
         "console_scripts": [
@@ -76,6 +77,8 @@ setup(
         "filelock",
         "stopit",
         "tabulate",
+        "yte",
+        "jinja2",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],

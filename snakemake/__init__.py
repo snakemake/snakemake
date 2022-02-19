@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -166,6 +166,9 @@ def snakemake(
     tibanna_config=False,
     assume_shared_fs=True,
     cluster_status=None,
+    cluster_cancel=None,
+    cluster_cancel_nargs=None,
+    cluster_sidecar=None,
     export_cwl=None,
     show_failed_logs=False,
     keep_incomplete=False,
@@ -198,7 +201,7 @@ def snakemake(
         resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
         default_resources (DefaultResources):   default values for resources not defined in rules (default None)
         config (dict):              override values for workflow config
-        workdir (str):              path to working directory (default None)
+        workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
@@ -216,7 +219,7 @@ def snakemake(
         printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
-        keepgoing (bool):           keep goind upon errors (default False)
+        keepgoing (bool):           keep going upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
@@ -248,11 +251,11 @@ def snakemake(
         latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
         wait_for_files (list):      wait for given files to be present before executing the workflow
         list_resources (bool):      list resources used in the workflow (default False)
-        summary (bool):             list summary of all output files and their status (default False). If no option  is specified a basic summary will be ouput. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
+        summary (bool):             list summary of all output files and their status (default False). If no option is specified a basic summary will be output. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
         detailed_summary (bool):    list summary of all input and output files and their status (default False)
         print_compilation (bool):   print the compilation of the snakefile (default False)
         debug (bool):               allow to use the debugger within rules
-        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as temp after use (default False)
+        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as a temp after use (default False)
         keep_remote_local (bool):   keep local copies of remote files (default False)
         nodeps (bool):              ignore dependencies (default False)
         keep_target_files (bool):   do not adjust the paths of given target files relative to the working directory.
@@ -265,11 +268,11 @@ def snakemake(
         max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
         restart_times (int):        number of times to restart failing jobs (default 0)
         attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
-        force_use_threads:          whether to force use of threads over processes. helpful if shared memory is full or unavailable (default False)
+        force_use_threads:          whether to force the use of threads over processes. helpful if shared memory is full or unavailable (default False)
         use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
         use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
         use_env_modules (bool):     load environment modules if defined in rules
-        singularity_args (str):     additional arguments to pass to singularity
+        singularity_args (str):     additional arguments to pass to a singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
         conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
@@ -279,8 +282,8 @@ def snakemake(
         list_conda_envs (bool):     list conda environments and their location on disk.
         mode (snakemake.common.Mode): execution mode
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
-        kubernetes (str):           submit jobs to kubernetes, using the given namespace.
-        container_image (str):      Docker image to use, e.g., for kubernetes.
+        kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
+        container_image (str):      Docker image to use, e.g., for Kubernetes.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -289,25 +292,28 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        tes (str):                  Execute workflow tasks on GA4GH TES server given by url.
+        tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
         tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
         assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
-        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as single argument.
+        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as a single argument.
+        cluster_cancel (str):       command to cancel multiple job IDs (like SLURM 'scancel') (default None)
+        cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
+        cluster_sidecar (str):      command that starts a sidecar process, see cluster documentation (default None)
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
-        edit_notebook (object):     "notebook.EditMode" object to configuring notebook server for interactive editing of a rule notebook. If None, do not edit.
+        edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
         overwrite_groups (dict):    Rule to group assignments (default None)
         group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
         conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         scheduler_solver_path (str): Path to Snakemake environment (this can be used to e.g. overwrite the search path for the ILP solver used during scheduling).
-        conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba and activate).
-        log_handler (list):         redirect snakemake output to this list of custom log handler, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
+        conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
@@ -591,7 +597,9 @@ def snakemake(
         success = True
 
         workflow.include(
-            snakefile, overwrite_first_rule=True, print_compilation=print_compilation
+            snakefile,
+            overwrite_default_target=True,
+            print_compilation=print_compilation,
         )
         workflow.check()
 
@@ -689,6 +697,9 @@ def snakemake(
                     tibanna_config=tibanna_config,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
+                    cluster_cancel=cluster_cancel,
+                    cluster_cancel_nargs=cluster_cancel_nargs,
+                    cluster_sidecar=cluster_sidecar,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
@@ -775,6 +786,9 @@ def snakemake(
                     conda_create_envs_only=conda_create_envs_only,
                     assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
+                    cluster_cancel=cluster_cancel,
+                    cluster_cancel_nargs=cluster_cancel_nargs,
+                    cluster_sidecar=cluster_sidecar,
                     report=report,
                     report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
@@ -2130,6 +2144,25 @@ def get_argument_parser(profile=None):
         "'running' if the job still runs.",
     )
     group_cluster.add_argument(
+        "--cluster-cancel",
+        default=None,
+        help="Specify a command that allows to stop currently running jobs. "
+        "The command will be passed a single argument, the job id.",
+    )
+    group_cluster.add_argument(
+        "--cluster-cancel-nargs",
+        type=int,
+        default=1000,
+        help="Specify maximal number of job ids to pass to --cluster-cancel "
+        "command, defaults to 1000.",
+    )
+    group_cluster.add_argument(
+        "--cluster-sidecar",
+        default=None,
+        help="Optional command to start a sidecar process during cluster "
+        "execution.  Only active when --cluster is given as well.",
+    )
+    group_cluster.add_argument(
         "--drmaa-log-dir",
         metavar="DIR",
         help="Specify a directory in which stdout and stderr files of DRMAA"
@@ -2401,8 +2434,9 @@ def main(argv=None):
                 args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
-        if args.cluster_status:
-            args.cluster_status = adjust_path(args.cluster_status)
+        for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
+            if getattr(args, key):
+                setattr(args, key, adjust_path(getattr(args, key)))
         if args.report_stylesheet:
             args.report_stylesheet = adjust_path(args.report_stylesheet)
 
@@ -2874,6 +2908,9 @@ def main(argv=None):
             default_remote_prefix=args.default_remote_prefix,
             assume_shared_fs=not args.no_shared_fs,
             cluster_status=args.cluster_status,
+            cluster_cancel=args.cluster_cancel,
+            cluster_cancel_nargs=args.cluster_cancel_nargs,
+            cluster_sidecar=args.cluster_sidecar,
             export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,

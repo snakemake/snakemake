@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -193,7 +193,7 @@ def job_to_cwl(job, dag, outputs, inputs):
 
 
 def dag_to_cwl(dag):
-    """Convert a given DAG to a CWL workflow, which is returned as JSON object."""
+    """Convert a given DAG to a CWL workflow, which is returned as a JSON object."""
     snakemake_cwl = {
         "class": "CommandLineTool",
         "id": "#snakemake-job",

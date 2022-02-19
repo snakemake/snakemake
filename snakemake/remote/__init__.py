@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -309,7 +309,7 @@ class DomainObject(AbstractRemoteObject):
 
 
 class PooledDomainObject(DomainObject):
-    """This adds conection pooling to DomainObjects
+    """This adds connection pooling to DomainObjects
     out of a location path specified as
     (host|IP):port/remote/location
     """

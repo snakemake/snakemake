@@ -1,5 +1,5 @@
 __author__ = "Manuel Holtgrewe"
-__copyright__ = "Copyright 2017, Manuel Holtgrewe"
+__copyright__ = "Copyright 2022, Manuel Holtgrewe"
 __email__ = "manuel.holtgrewe@bihealth.de"
 __license__ = "MIT"
 
@@ -121,7 +121,7 @@ class BenchmarkRecord:
 
 
 class DaemonTimer(threading.Thread):
-    """Variant of threading.Timer that is deaemonized"""
+    """A variant of threading.The timer that is daemonized"""
 
     def __init__(self, interval, function, args=None, kwargs=None):
         threading.Thread.__init__(self, daemon=True)
@@ -317,7 +317,7 @@ def benchmarked(pid=None, benchmark_record=None, interval=BENCHMARK_INTERVAL):
 
 
 def print_benchmark_records(records, file_):
-    """Write benchmark records to file-like object"""
+    """Write benchmark records to file-like the object"""
     print(BenchmarkRecord.get_header(), file=file_)
     for r in records:
         print(r.to_tsv(), file=file_)
