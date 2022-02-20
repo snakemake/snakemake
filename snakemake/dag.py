@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -1149,7 +1149,6 @@ class DAG:
         for groupid, conn_components in groups_by_id.items():
             n_components = self.workflow.group_components.get(groupid, 1)
             if n_components > 1:
-                print(n_components)
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
                         primary = chunk[0]
@@ -1180,7 +1179,8 @@ class DAG:
                 else:
                     group = self._group[job]
                     group.finalize()
-                    candidate_groups.add(group)
+                    if group not in self._running:
+                        candidate_groups.add(group)
 
         self._ready_jobs.update(
             group
@@ -1286,8 +1286,9 @@ class DAG:
 
             if len(candidate_groups) > 1:
                 if all(isinstance(group, CandidateGroup) for group in candidate_groups):
+                    group = candidate_groups.pop()
                     for g in candidate_groups:
-                        g.merge(group)
+                        group.merge(g)
                 else:
                     raise WorkflowError(
                         "An output file is marked as "
@@ -1301,15 +1302,20 @@ class DAG:
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = CandidateGroup()  # str(uuid.uuid4())
+                group = CandidateGroup()
+
+            # set group for job and all downstreams
             job.group = group
             visited.add(job)
             for j in all_depending:
                 j.group = group
                 visited.add(j)
 
+        # convert candidate groups to plain string IDs
         for job in visited:
-            job.group = group.id if isinstance(group, CandidateGroup) else group
+            job.group = (
+                job.group.id if isinstance(job.group, CandidateGroup) else job.group
+            )
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""

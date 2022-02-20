@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -62,6 +62,7 @@ from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
+from snakemake.template_rendering import render_template
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
@@ -509,7 +510,9 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (rule.name in self._localrules or rule.norun)
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun or rule.is_template_engine
+        )
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -615,6 +618,9 @@ class Workflow:
         conda_create_envs_only=False,
         assume_shared_fs=True,
         cluster_status=None,
+        cluster_cancel=None,
+        cluster_cancel_nargs=None,
+        cluster_sidecar=None,
         report=None,
         report_stylesheet=None,
         export_cwl=False,
@@ -982,6 +988,9 @@ class Workflow:
             touch=touch,
             cluster=cluster,
             cluster_status=cluster_status,
+            cluster_cancel=cluster_cancel,
+            cluster_cancel_nargs=cluster_cancel_nargs,
+            cluster_sidecar=cluster_sidecar,
             cluster_config=cluster_config,
             cluster_sync=cluster_sync,
             jobname=jobname,
@@ -1461,7 +1470,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run)",
+                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
@@ -1478,7 +1487,7 @@ class Workflow:
                     raise RuleException(
                         "Conda environments are only allowed "
                         "with shell, script, notebook, or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
 
@@ -1507,7 +1516,7 @@ class Workflow:
                     raise RuleException(
                         "Singularity directive is only allowed "
                         "with shell, script, notebook or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
                 rule.container_img = ruleinfo.container_img
@@ -1527,6 +1536,7 @@ class Workflow:
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
+            rule.template_engine = ruleinfo.template_engine
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
@@ -1781,6 +1791,13 @@ class Workflow:
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
+            return ruleinfo
+
+        return decorate
+
+    def template_engine(self, template_engine):
+        def decorate(ruleinfo):
+            ruleinfo.template_engine = template_engine
             return ruleinfo
 
         return decorate

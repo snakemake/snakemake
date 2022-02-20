@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -263,7 +263,7 @@ class RuleRecord:
             _, source, language, _ = script.get_source(
                 self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
@@ -276,7 +276,7 @@ class RuleRecord:
                 ),
                 self._rule.workflow.sourcecache,
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.notebook is not None and not contains_wildcard(
             self._rule.notebook
         ):
