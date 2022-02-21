@@ -1038,7 +1038,7 @@ class Rule:
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards):
+    def expand_conda_env(self, wildcards, params=None):
         try:
             conda_env = (
                 self.conda_env.apply_wildcards(wildcards) if self.conda_env else None
@@ -1050,6 +1050,9 @@ class Rule:
                 str(e),
                 rule=self,
             )
+
+        if conda_env is not None and params is not None:
+            conda_env = conda_env.apply_params(self.params)
 
         if conda_env is not None:
             conda_env.check()

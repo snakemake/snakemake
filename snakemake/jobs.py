@@ -315,11 +315,8 @@ class Job(AbstractJob):
     @property
     def conda_env_file(self):
         if self._conda_env_file is None:
-            expanded_env = self.rule.expand_conda_env(self.wildcards_dict)
+            expanded_env = self.rule.expand_conda_env(self.wildcards_dict, self.params)
             if expanded_env is not None:
-                # insert parameters
-                expanded_env = expanded_env.format(params=self.params)
-
                 # Normalize 'file:///my/path.yml' to '/my/path.yml'
                 if is_local_file(expanded_env):
                     self._conda_env_file = parse_uri(expanded_env).uri_path

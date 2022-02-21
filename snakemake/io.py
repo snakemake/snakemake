@@ -702,6 +702,24 @@ class _IOFile(str):
 
         return file_with_wildcards_applied
 
+    def apply_params(self, params):
+        f = self._file
+
+        if self._is_function:
+            f = self._file(Namedlist(fromdict=params))
+
+        # this bit ensures flags are transferred over to files after
+        # wildcards are applied
+
+        file_with_params_applied = IOFile(
+            f.format(params=params),
+            rule=self.rule,
+        )
+
+        file_with_params_applied.clone_flags(self)
+
+        return file_with_params_applied
+
     def get_wildcard_names(self):
         return get_wildcard_names(self.file)
 
