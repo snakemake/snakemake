@@ -107,6 +107,7 @@ class Rule:
             self.cwl = None
             self.norun = False
             self.is_handover = False
+            self.is_grouplocal = False
             self.is_branched = False
             self.is_checkpoint = False
             self.restart_times = 0
@@ -157,6 +158,7 @@ class Rule:
             self.cwl = other.cwl
             self.norun = other.norun
             self.is_handover = other.is_handover
+            self.is_grouplocal = other.is_grouplocal
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times

@@ -906,6 +906,10 @@ class Job(AbstractJob):
     def is_local(self):
         return self.dag.workflow.is_local(self.rule)
 
+    @property
+    def is_grouplocal(self):
+        return not self.is_local and self.rule.is_grouplocal
+
     def __repr__(self):
         return self.rule.name
 
@@ -948,6 +952,7 @@ class Job(AbstractJob):
             is_checkpoint=self.rule.is_checkpoint,
             printshellcmd=printshellcmd,
             is_handover=self.rule.is_handover,
+            is_grouplocal=self.rule.is_grouplocal,
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 

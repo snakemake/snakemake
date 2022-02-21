@@ -497,6 +497,10 @@ class Handover(RuleKeywordState):
     pass
 
 
+class Grouplocal(RuleKeywordState):
+    pass
+
+
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
@@ -690,6 +694,7 @@ rule_property_subautomata = dict(
     group=Group,
     cache=Cache,
     handover=Handover,
+    grouplocal=Grouplocal,
     default_target=DefaultTarget,
 )
 
