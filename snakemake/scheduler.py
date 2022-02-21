@@ -894,7 +894,7 @@ class JobScheduler:
             raise WorkflowError(
                 "Job needs {name}={res} but only {name}={gres} "
                 "are available. This is likely because two "
-                "jobs are connected via a pipe and have to run "
+                "jobs are connected via a pipe or a service output and have to run "
                 "simultaneously. Consider providing more "
                 "resources (e.g. via --cores).".format(name=name, res=value, gres=gres)
             )
