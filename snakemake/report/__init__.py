@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -263,7 +263,7 @@ class RuleRecord:
             _, source, language, _ = script.get_source(
                 self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
@@ -276,12 +276,16 @@ class RuleRecord:
                 ),
                 self._rule.workflow.sourcecache,
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.notebook is not None and not contains_wildcard(
             self._rule.notebook
         ):
             _, source, language, _ = script.get_source(
-                self._rule.notebook, self._rule.workflow.sourcecache, self._rule.basedir
+                self._rule.notebook,
+                self._rule.workflow.sourcecache,
+                self._rule.basedir,
+                wildcards=self.wildcards,
+                params=self.params,
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
@@ -502,7 +506,10 @@ class FileRecord:
                 )
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file of output marked for report.", e
+                    "Error loading caption file {} of output marked for report.".format(
+                        self.raw_caption.get_path_or_uri()
+                    ),
+                    e,
                 )
 
     @property
@@ -598,7 +605,7 @@ def get_resource_as_string(url):
 
 def auto_report(dag, path, stylesheet=None):
     try:
-        from jinja2 import Template, Environment, PackageLoader
+        from jinja2 import Template, Environment, PackageLoader, UndefinedError
     except ImportError as e:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
@@ -844,12 +851,20 @@ def auto_report(dag, path, stylesheet=None):
                 config = dag.workflow.config
 
             text = f.read() + rst_links
-            text = publish_parts(
-                env.from_string(text).render(
-                    snakemake=Snakemake, categories=results, files=files
-                ),
-                writer_name="html",
-            )["body"]
+            try:
+                text = publish_parts(
+                    env.from_string(text).render(
+                        snakemake=Snakemake, categories=results, files=files
+                    ),
+                    writer_name="html",
+                )["body"]
+            except UndefinedError as e:
+                raise WorkflowError(
+                    "Error rendering global report caption {}:".format(
+                        dag.workflow.report_text.get_path_or_uri()
+                    ),
+                    e,
+                )
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])

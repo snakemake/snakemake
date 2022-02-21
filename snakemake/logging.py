@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -597,8 +597,11 @@ class Logger:
             self.last_msg_was_job_info = False
 
 
-def format_dict(dict_like, omit_keys=[], omit_values=[]):
+def format_dict(dict_like, omit_keys=None, omit_values=None):
     from snakemake.io import Namedlist
+
+    omit_keys = omit_keys or []
+    omit_values = omit_values or []
 
     if isinstance(dict_like, Namedlist):
         items = dict_like.items()

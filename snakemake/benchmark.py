@@ -1,5 +1,5 @@
 __author__ = "Manuel Holtgrewe"
-__copyright__ = "Copyright 2017, Manuel Holtgrewe"
+__copyright__ = "Copyright 2022, Manuel Holtgrewe"
 __email__ = "manuel.holtgrewe@bihealth.de"
 __license__ = "MIT"
 
