@@ -970,8 +970,6 @@ def unparse_config(config):
         raise ValueError("config is not a dict")
     items = []
     for key, value in config.items():
-        if isinstance(value, dict):
-            raise ValueError("config may only be a flat dict")
         encoded = "'{}'".format(value) if isinstance(value, str) else value
         items.append("{}={}".format(key, encoded))
     return items
