@@ -576,8 +576,11 @@ class Job(AbstractJob):
                     else:
                         yield from handle_file(f)
         else:
-            for f in requested:
-                yield from handle_file(f)
+            for f in self.output:
+                # use the original output file (containing all flags, including remote)
+                # instead of the requested one, which can be just a string
+                if f in requested:
+                    yield from handle_file(f)
 
     @property
     def local_input(self):

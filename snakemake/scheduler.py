@@ -483,6 +483,7 @@ class JobScheduler:
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
                     if self.remaining_jobs:
+                        import pdb; pdb.set_trace()
                         logger.error(_ERROR_MSG_ISSUE_823)
                         logger.error(
                             "Remaining jobs:\n"

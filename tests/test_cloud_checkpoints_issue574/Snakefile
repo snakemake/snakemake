@@ -19,9 +19,16 @@ checkpoint copy:
     run:
         shell("cp {input} {output}")
 
+def get_pack_input(wildcards):
+    print("(re-) evaluate input function")
+    output = checkpoints.copy.get().output[0]
+    print("successfully evaluated dynamic output of checkpoint")
+    return output
+
+
 rule pack:
     input:
-        lambda wildcards: checkpoints.copy.get().output[0]
+        get_pack_input
     output:
         "landsat-data.txt.bz2"
     conda:
