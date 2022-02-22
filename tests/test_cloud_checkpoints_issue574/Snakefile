@@ -20,9 +20,7 @@ checkpoint copy:
         shell("cp {input} {output}")
 
 def get_pack_input(wildcards):
-    print("(re-) evaluate input function")
     output = checkpoints.copy.get().output[0]
-    print("successfully evaluated dynamic output of checkpoint")
     return output
 
 
