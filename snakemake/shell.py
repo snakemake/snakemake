@@ -115,6 +115,13 @@ class shell:
                 del cls._processes[jobid]
 
     @classmethod
+    def terminate(cls, jobid):
+        with cls._lock:
+            if jobid in cls._processes:
+                cls._processes[jobid].terminate()
+                del cls._processes[jobid]
+
+    @classmethod
     def cleanup(cls):
         with cls._lock:
             cls._processes.clear()

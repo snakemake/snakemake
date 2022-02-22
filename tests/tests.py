@@ -1503,3 +1503,8 @@ def test_peppy():
 
 def test_template_engine():
     run(dpath("test_template_engine"))
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)

@@ -790,7 +790,7 @@ _wildcard_regex = re.compile(
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
+    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -807,7 +807,10 @@ def wait_for_files(
                     and (force_stay_on_remote or f.should_stay_on_remote)
                 )
                 else os.path.exists(f)
-                if not (is_flagged(f, "pipe") and ignore_pipe)
+                if not (
+                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service
+                )
                 else True
             )
         ]
@@ -1016,6 +1019,14 @@ def pipe(value):
     if ON_WINDOWS:
         logger.warning("Pipes is not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
+
+
+def service(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "service")
 
 
 def temporary(value):

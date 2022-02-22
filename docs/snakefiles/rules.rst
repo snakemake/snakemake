@@ -1521,6 +1521,8 @@ This enables to almost arbitrarily partition the DAG, e.g. in order to safe netw
 
 For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
+.. _snakefiles-piped-output:
+
 Piped output
 ------------
 
@@ -1554,6 +1556,50 @@ Naturally, a pipe output may only have a single consumer.
 It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
+
+
+.. _snakefiles-service-rules:
+
+Service rules/jobs
+------------------
+
+From Snakemake 7.0 on, it is possible to define so-called service rules.
+Jobs spawned from such rules provide at least one special output file that is marked as ``service``, which means that it is considered to provide a resource that shall be kept available until all consuming jobs are finished.
+This can for example be the socket of a database, a shared memory device, a ramdisk, and so on.
+It can even just be a dummy file, and access to the service might happen via a different channel (e.g. a local http port).
+Service jobs are expected to not exit after creating that resource, but instead wait until Snakemake terminates them (e.g. via SIGTERM on Unixoid systems).
+
+Consider the following example:
+
+.. code-block:: python
+
+    rule the_service:
+        output:
+            service("foo.socket")
+        shell:
+            # here we simulate some kind of server process that provides data via a socket
+            "ln -s /dev/random {output}; sleep 10000" 
+
+
+    rule consumer1:
+        input:
+            "foo.socket"
+        output:
+            "test.txt"
+        shell:
+            "head -n1 {input} > {output}"
+
+
+    rule consumer2:
+        input:
+            "foo.socket"
+        output:
+            "test2.txt"
+        shell:
+            "head -n1 {input} > {output}"
+
+Snakemake will schedule the service with all consumers to the same physical node (in the future we might provide further controls and other modes of operation).
+Once all consumer jobs are finished, the service job will be terminated automatically by Snakemake, and the service output will be removed.
 
 .. _snakefiles-paramspace:
 
