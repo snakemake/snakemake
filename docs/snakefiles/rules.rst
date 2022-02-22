@@ -1521,6 +1521,68 @@ This enables to almost arbitrarily partition the DAG, e.g. in order to safe netw
 
 For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
+Group-local rules
+~~~~~~~~~~~~~~~~~
+
+From Snakemake 7.0 on, it is further possible to define a rule to be group-local.
+Jobs from such rules are automatically repeated within each group job from the same group (see above).
+Consider the following modified example from above:
+
+.. code-block:: python
+
+  samples = [1,2,3,4,5]
+
+
+  rule all:
+      input:
+          "test.out"
+
+
+  rule x:
+      output:
+          "test.txt"
+      grouplocal: True
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule a:
+      input:
+          "test.txt"
+      output:
+          "a/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule b:
+      input:
+          "a/{sample}.out"
+      output:
+          "b/{sample}.out"
+      group: "mygroup"
+      shell:
+          "touch {output}"
+
+
+  rule c:
+      input:
+          expand("b/{sample}.out", sample=samples)
+      output:
+          "test.out"
+      shell:
+          "touch {output}"
+
+
+We have here added a rule ``x`` which generates an output file ``test.txt``.
+However, since the rule is marked as ``grouplocal``, it does not connect the all the previously sample specific group jobs into a single one.
+Instead, the rule ``x`` will be executed separately in each group.
+
+Group-local rules are particularly relevant for service rule definitions, see below.
+
+
 Piped output
 ------------
 

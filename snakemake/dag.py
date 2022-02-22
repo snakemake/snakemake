@@ -1112,7 +1112,10 @@ class DAG:
         for job in self.needrun_jobs:
             if job.group is None:
                 continue
-            stop = lambda j: j.group != job.group
+            # We don't pass grouplocal jobs when determining a group
+            # TODO: Further we need to clone them into group job specific versions
+            # with non-conflicting output files.
+            stop = lambda j: j.group != job.group or job.is_grouplocal
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
