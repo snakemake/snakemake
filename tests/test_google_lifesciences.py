@@ -10,8 +10,7 @@ from common import *
 
 
 def has_google_credentials():
-    return True
-    #return "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
+    return "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
 
 
 google_credentials = pytest.mark.skipif(
