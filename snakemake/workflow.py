@@ -146,6 +146,7 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        local_groupid="local",
     ):
         """
         Create the controller.
@@ -229,6 +230,7 @@ class Workflow:
         self.max_threads = max_threads
         self.all_temp = all_temp
         self.scheduler = None
+        self.local_groupid = local_groupid
 
         _globals = globals()
         _globals["workflow"] = self
@@ -1556,9 +1558,6 @@ class Workflow:
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if not self.run_local and ruleinfo.grouplocal:
-                rule.is_grouplocal = True
-
             if ruleinfo.cache is True:
                 if len(rule.output) > 1:
                     if not rule.output[0].is_multiext:
@@ -1766,13 +1765,6 @@ class Workflow:
     def handover(self, value):
         def decorate(ruleinfo):
             ruleinfo.handover = value
-            return ruleinfo
-
-        return decorate
-
-    def grouplocal(self, value):
-        def decorate(ruleinfo):
-            ruleinfo.grouplocal = value
             return ruleinfo
 
         return decorate

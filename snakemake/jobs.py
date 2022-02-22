@@ -86,6 +86,7 @@ class JobFactory:
         format_wildcards=None,
         targetfile=None,
         update=False,
+        groupid=None,
     ):
         if rule.is_branched:
             # for distinguishing branched rules, we need input and output in addition
@@ -99,7 +100,7 @@ class JobFactory:
             key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
-            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
             self.cache[key] = obj
         else:
             try:
@@ -143,10 +144,17 @@ class Job(AbstractJob):
         "_attempt",
         "_group",
         "targetfile",
+        "incomplete_input_expand",
     ]
 
     def __init__(
-        self, rule, dag, wildcards_dict=None, format_wildcards=None, targetfile=None
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        groupid=None,
     ):
         self.rule = rule
         self.dag = dag
@@ -165,8 +173,14 @@ class Job(AbstractJob):
             else Wildcards(fromdict=format_wildcards)
         )
 
-        self.input, input_mapping, self.dependencies = self.rule.expand_input(
-            self.wildcards_dict
+        (
+            self.input,
+            input_mapping,
+            self.dependencies,
+            self.incomplete_input_expand,
+        ) = self.rule.expand_input(
+            self.wildcards_dict,
+            groupid=groupid,
         )
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
@@ -221,12 +235,22 @@ class Job(AbstractJob):
                 self.subworkflow_input[f] = sub
 
     def updated(self):
+        group = self.dag.get_job_group(self)
+        if group is None:
+            if self.dag.workflow.run_local or self.is_local:
+                groupid = self.dag.workflow.local_groupid
+            else:
+                groupid = None
+        else:
+            groupid = group.jobid
+
         job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
             update=True,
+            groupid=groupid,
         )
         job.is_updated = True
         return job
@@ -906,10 +930,6 @@ class Job(AbstractJob):
     def is_local(self):
         return self.dag.workflow.is_local(self.rule)
 
-    @property
-    def is_grouplocal(self):
-        return not self.is_local and self.rule.is_grouplocal
-
     def __repr__(self):
         return self.rule.name
 
@@ -952,7 +972,6 @@ class Job(AbstractJob):
             is_checkpoint=self.rule.is_checkpoint,
             printshellcmd=printshellcmd,
             is_handover=self.rule.is_handover,
-            is_grouplocal=self.rule.is_grouplocal,
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 

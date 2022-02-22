@@ -38,7 +38,6 @@ class RuleInfo:
         self.cache = False
         self.path_modifier = None
         self.handover = False
-        self.grouplocal = False
         self.default_target = False
 
     def apply_modifier(

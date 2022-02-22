@@ -367,6 +367,9 @@ class DAG:
     def is_edit_notebook_job(self, job):
         return self.workflow.edit_notebook and job.targetfile in self.targetfiles
 
+    def get_job_group(self, job):
+        return self._group.get(job)
+
     @property
     def dynamic_output_jobs(self):
         """Iterate over all jobs with dynamic output files."""
@@ -1112,10 +1115,7 @@ class DAG:
         for job in self.needrun_jobs:
             if job.group is None:
                 continue
-            # We don't pass grouplocal jobs when determining a group
-            # TODO: Further we need to clone them into group job specific versions
-            # with non-conflicting output files.
-            stop = lambda j: j.group != job.group or job.is_grouplocal
+            stop = lambda j: j.group != job.group
             # BFS into depending needrun jobs if in same group
             # Note: never go up here (into depending), because it may contain
             # jobs that have been sorted out due to e.g. ruleorder.
@@ -1159,6 +1159,20 @@ class DAG:
                             primary.merge(secondary)
                         for j in primary:
                             self._group[j] = primary
+
+    def update_incomplete_input_expand_jobs(self):
+        """Update (re-evaluate) all jobs which have incomplete input file expansions.
+
+        We expect these to be jobs with input functions having a groupid argument which is
+        only filled in the second pass of postprocessing.
+        """
+        updated = False
+        for job in list(self.jobs):
+            if job.incomplete_input_expand:
+                newjob = job.updated()
+                self.replace_job(job, newjob, recursive=False)
+                updated = True
+        return updated
 
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.
@@ -1210,7 +1224,9 @@ class DAG:
             if not self.needrun(job):
                 job.close_remote()
 
-    def postprocess(self, update_needrun=True):
+    def postprocess(
+        self, update_needrun=True, update_incomplete_input_expand_jobs=True
+    ):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
         self.cleanup()
@@ -1220,6 +1236,19 @@ class DAG:
         self.update_priority()
         self.handle_pipes()
         self.update_groups()
+
+        if update_incomplete_input_expand_jobs:
+            updated = self.update_incomplete_input_expand_jobs()
+            if updated:
+                # run a second pass, some jobs have been updated
+                # with potentially new input files that have dependend
+                # on group ids.
+                self.postprocess(
+                    update_needrun=True,
+                    update_incomplete_input_expand_jobs=False,
+                )
+                return
+
         self.update_ready()
         self.close_remote_objects()
         self.update_checkpoint_outputs()

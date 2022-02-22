@@ -134,6 +134,9 @@ class AbstractExecutor:
             return args
         return ""
 
+    def get_local_groupid_arg(self):
+        return f" --local-groupid {self.workflow.local_groupid} "
+
     def get_behavior_args(self):
         if self.workflow.conda_not_block_search_path_envvars:
             return " --conda-not-block-search-path-envvars "
@@ -448,6 +451,7 @@ class CPUExecutor(RealExecutor):
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_local_groupid_arg(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
                 "--notemp --quiet --no-hooks --nolock --mode {} ".format(
                     Mode.subprocess
@@ -709,6 +713,7 @@ class ClusterExecutor(RealExecutor):
             self.exec_job = exec_job
 
         self.exec_job += self.get_additional_args()
+        self.exec_job += " {job_specific_args:u} "
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
@@ -807,6 +812,9 @@ class ClusterExecutor(RealExecutor):
                 "--wait-for-files {wait_for_files}",
                 wait_for_files=[repr(f) for f in wait_for_files],
             )
+        job_specific_args = ""
+        if job.is_group:
+            job_specific_args = f"--local-groupid {job.jobid}"
 
         format_p = partial(
             self.format_job_pattern,
@@ -815,6 +823,7 @@ class ClusterExecutor(RealExecutor):
             latency_wait=self.latency_wait,
             waitfiles_parameter=waitfiles_parameter,
             scheduler_solver_path=scheduler_solver_path,
+            job_specific_args=job_specific_args,
             **kwargs,
         )
         try:

@@ -107,7 +107,6 @@ class Rule:
             self.cwl = None
             self.norun = False
             self.is_handover = False
-            self.is_grouplocal = False
             self.is_branched = False
             self.is_checkpoint = False
             self.restart_times = 0
@@ -158,7 +157,6 @@ class Rule:
             self.cwl = other.cwl
             self.norun = other.norun
             self.is_handover = other.is_handover
-            self.is_grouplocal = other.is_grouplocal
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
@@ -234,9 +232,14 @@ class Rule:
                 if len(set(values)) == 1
             )
             # TODO have a look into how to concretize dependencies here
-            branch._input, _, branch.dependencies = branch.expand_input(
+            branch._input, _, branch.dependencies, incomplete = branch.expand_input(
                 non_dynamic_wildcards
             )
+            assert not incomplete, (
+                "bug: dynamic branching resulted in incomplete input files, "
+                "please file an issue on https://github.com/snakemake/snakemake"
+            )
+
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
 
             resources = branch.expand_resources(non_dynamic_wildcards, branch._input, 1)
@@ -707,6 +710,7 @@ class Rule:
         wildcards,
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
+        groupid=None,
         **aux_params
     ):
         incomplete = False
@@ -715,7 +719,17 @@ class Rule:
         elif isinstance(func, AnnotatedString):
             func = func.callable
         sig = inspect.signature(func)
+
         _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
+
+        if "groupid" in sig.parameters:
+            if groupid is not None:
+                _aux_params["groupid"] = groupid
+            else:
+                # Return empty list of files and incomplete marker
+                # the job will be reevaluated once groupids have been determined
+                return [], True
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
         except IncompleteCheckpointException as e:
@@ -751,7 +765,9 @@ class Rule:
         property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
+        groupid=None,
     ):
+        incomplete = False
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
@@ -767,6 +783,7 @@ class Rule:
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
+                    groupid=groupid,
                     **aux_params
                 )
                 if apply_path_modifier and not incomplete:
@@ -821,8 +838,9 @@ class Rule:
                         name, start, end=len(newitems) if is_iterable else None
                     )
                     start = len(newitems)
+        return incomplete
 
-    def expand_input(self, wildcards):
+    def expand_input(self, wildcards, groupid=None):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
                 if isinstance(f, Path):
@@ -847,7 +865,7 @@ class Rule:
         input = InputFiles()
         mapping = dict()
         try:
-            self._apply_wildcards(
+            incomplete = self._apply_wildcards(
                 input,
                 self.input,
                 wildcards,
@@ -855,8 +873,12 @@ class Rule:
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
                 property="input",
+                groupid=groupid,
             )
         except WildcardError as e:
+            import pdb
+
+            pdb.set_trace()
             raise WildcardError(
                 "Wildcards in input files cannot be " "determined from output files:",
                 str(e),
@@ -877,7 +899,7 @@ class Rule:
         for f in input:
             f.check()
 
-        return input, mapping, dependencies
+        return input, mapping, dependencies, incomplete
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
