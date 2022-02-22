@@ -735,7 +735,7 @@ class _IOFile(str):
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
-        if isinstance(other._file, AnnotatedString):
+        if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if "remote_object" in self._file.flags:
                 self._file.flags["remote_object"] = copy.copy(
