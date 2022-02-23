@@ -1,5 +1,33 @@
 # Changelog
 
+## [7.0.0](https://www.github.com/snakemake/snakemake/compare/v6.15.5...v7.0.0) (2022-02-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* template rendering integration (yte and jinja2), require Python 3.6 as minimum version (f-string support) (#1410)
+
+### Features
+
+* Adding --cluster-cancel and --cluster-cancel-nargs ([#1395](https://www.github.com/snakemake/snakemake/issues/1395)) ([0593de1](https://www.github.com/snakemake/snakemake/commit/0593de134499712929ba75e65f65df90491eac2e))
+* adding service jobs, i.e. the ability to define jobs that provide a resource for consumers (like a shared memory device or a database), and will be automatically terminated by Snakemake once all consumers are finished. ([#1413](https://www.github.com/snakemake/snakemake/issues/1413)) ([a471adb](https://www.github.com/snakemake/snakemake/commit/a471adbb785e5ac7f0c854fd09781c502b577c65))
+* cluster sidecar ([#1397](https://www.github.com/snakemake/snakemake/issues/1397)) ([b992cd1](https://www.github.com/snakemake/snakemake/commit/b992cd19dc1c011f536e3662a3ddffc8b1bb9f67))
+* require at least Python 3.7 ([fd5daae](https://www.github.com/snakemake/snakemake/commit/fd5daaeff070f9987dba411a0f5262c533a2f666))
+* support for group local jobs by enabling optional groupid consideration in input functions ([#1418](https://www.github.com/snakemake/snakemake/issues/1418)) ([5d45493](https://www.github.com/snakemake/snakemake/commit/5d45493db4485af2f4b288b5002605c87315d2b7))
+* template rendering integration (yte and jinja2), require Python 3.6 as minimum version (f-string support) ([#1410](https://www.github.com/snakemake/snakemake/issues/1410)) ([e1cbde5](https://www.github.com/snakemake/snakemake/commit/e1cbde5a378a29e3e7c7c16c73e08b35afa47a56))
+
+
+### Bug Fixes
+
+* bug in pipe group handling that led to multiple assignments of the same group id to different groups; bug that accidentally added already running groups of the list of ready jobs (issue [#1331](https://www.github.com/snakemake/snakemake/issues/1331)) ([#1332](https://www.github.com/snakemake/snakemake/issues/1332)) ([1a9b483](https://www.github.com/snakemake/snakemake/commit/1a9b483a6c675315d74bff791502c2bdd74609c1))
+* display wrapper or external script code in report [#1393](https://www.github.com/snakemake/snakemake/issues/1393) ([#1404](https://www.github.com/snakemake/snakemake/issues/1404)) ([a007bd1](https://www.github.com/snakemake/snakemake/commit/a007bd11fb49a5765a643ec78e19f30b3a10dfab))
+* do not pass SNAKEMAKE_PROFILE into cluster-submit ([#1398](https://www.github.com/snakemake/snakemake/issues/1398)) ([#1407](https://www.github.com/snakemake/snakemake/issues/1407)) ([7189183](https://www.github.com/snakemake/snakemake/commit/71891839e397130fb1af3e499d30fa9a953a93f7))
+* issue with duplicated prefix for checkpoints on cloud ([#1294](https://www.github.com/snakemake/snakemake/issues/1294)) ([8ed0c8c](https://www.github.com/snakemake/snakemake/commit/8ed0c8cb453b6ebf6df138391a0681ffc8442e09))
+* keep flags with apply_wildcards on cloned IOFile ([#1416](https://www.github.com/snakemake/snakemake/issues/1416)) ([23c943f](https://www.github.com/snakemake/snakemake/commit/23c943f0e285f2dc725aa3e4a2e8798021085cb3))
+* remove raise that limits using --config with dicts ([#1341](https://www.github.com/snakemake/snakemake/issues/1341)) ([bd65057](https://www.github.com/snakemake/snakemake/commit/bd65057a782355ede86ad0bb912e063ff25a97f5))
+* Repair MREs from [#823](https://www.github.com/snakemake/snakemake/issues/823) ([#1203](https://www.github.com/snakemake/snakemake/issues/1203)) ([b007979](https://www.github.com/snakemake/snakemake/commit/b0079791718a390d1f920df15a405cf633314312))
+* warn on non-file-modification-date changes like params, code, or input files ([#1419](https://www.github.com/snakemake/snakemake/issues/1419)) ([b5f53f0](https://www.github.com/snakemake/snakemake/commit/b5f53f09ae8c01e1223d2279c3a7f59819a8b44f))
+
 ### [6.15.5](https://www.github.com/snakemake/snakemake/compare/v6.15.4...v6.15.5) (2022-02-09)
 
 
