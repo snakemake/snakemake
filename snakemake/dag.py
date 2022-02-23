@@ -27,7 +27,7 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, group_into_chunks
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
@@ -2211,10 +2211,13 @@ class DAG:
         for change_type in ["code", "input", "params"]:
             changed = self.get_outputs_with_changes(change_type)
             if changed:
+                rerun_trigger = ""
+                if not ON_WINDOWS:
+                    rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
                 logger.warning(
                     f"The {change_type} used to generate one or several output files has changed:\n"
-                    "    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'.\n"
-                    "    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)"
+                    f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
+                    f"{rerun_trigger}"
                 )
 
     def __str__(self):
