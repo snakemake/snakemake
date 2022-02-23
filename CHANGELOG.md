@@ -5,16 +5,15 @@
 
 ### ⚠ BREAKING CHANGES
 
-* template rendering integration (yte and jinja2), require Python 3.6 as minimum version (f-string support) (#1410)
+* require at least Python 3.7 ([fd5daae](https://www.github.com/snakemake/snakemake/commit/fd5daaeff070f9987dba411a0f5262c533a2f666))
 
 ### Features
 
+* adding service jobs, i.e. the ability to define jobs that provide a resource for consumers (like a shared memory device or a database), and will be automatically terminated by Snakemake once all consumers are finished. (see [docs](https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#service-rules-jobs), [#1413](https://www.github.com/snakemake/snakemake/issues/1413)) ([a471adb](https://www.github.com/snakemake/snakemake/commit/a471adbb785e5ac7f0c854fd09781c502b577c65))
+* support for group local jobs by enabling optional groupid consideration in input functions (see [docs](https://snakemake.readthedocs.io/en/latest/snakefiles/rules.html#group-local-jobs), [#1418](https://www.github.com/snakemake/snakemake/issues/1418)) ([5d45493](https://www.github.com/snakemake/snakemake/commit/5d45493db4485af2f4b288b5002605c87315d2b7))
 * Adding --cluster-cancel and --cluster-cancel-nargs ([#1395](https://www.github.com/snakemake/snakemake/issues/1395)) ([0593de1](https://www.github.com/snakemake/snakemake/commit/0593de134499712929ba75e65f65df90491eac2e))
-* adding service jobs, i.e. the ability to define jobs that provide a resource for consumers (like a shared memory device or a database), and will be automatically terminated by Snakemake once all consumers are finished. ([#1413](https://www.github.com/snakemake/snakemake/issues/1413)) ([a471adb](https://www.github.com/snakemake/snakemake/commit/a471adbb785e5ac7f0c854fd09781c502b577c65))
 * cluster sidecar ([#1397](https://www.github.com/snakemake/snakemake/issues/1397)) ([b992cd1](https://www.github.com/snakemake/snakemake/commit/b992cd19dc1c011f536e3662a3ddffc8b1bb9f67))
-* require at least Python 3.7 ([fd5daae](https://www.github.com/snakemake/snakemake/commit/fd5daaeff070f9987dba411a0f5262c533a2f666))
-* support for group local jobs by enabling optional groupid consideration in input functions ([#1418](https://www.github.com/snakemake/snakemake/issues/1418)) ([5d45493](https://www.github.com/snakemake/snakemake/commit/5d45493db4485af2f4b288b5002605c87315d2b7))
-* template rendering integration (yte and jinja2), require Python 3.6 as minimum version (f-string support) ([#1410](https://www.github.com/snakemake/snakemake/issues/1410)) ([e1cbde5](https://www.github.com/snakemake/snakemake/commit/e1cbde5a378a29e3e7c7c16c73e08b35afa47a56))
+* template rendering integration (yte and jinja2) ([#1410](https://www.github.com/snakemake/snakemake/issues/1410)) ([e1cbde5](https://www.github.com/snakemake/snakemake/commit/e1cbde5a378a29e3e7c7c16c73e08b35afa47a56))
 
 
 ### Bug Fixes
