@@ -1504,5 +1504,6 @@ def test_groupid_expand_local():
     run(dpath("test_groupid_expand"))
 
 
+@skip_on_windows
 def test_groupid_expand_cluster():
     run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
