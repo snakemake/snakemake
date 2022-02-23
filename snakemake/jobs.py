@@ -38,9 +38,11 @@ from snakemake.common import (
 def format_files(job, io, dynamicio):
     for f in io:
         if f in dynamicio:
-            yield "{} (dynamic)".format(f.format_dynamic())
+            yield f"{f.format_dynamic()} (dynamic)"
         elif is_flagged(f, "pipe"):
-            yield "{} (pipe)".format(f)
+            yield f"{f} (pipe)"
+        elif is_flagged(f, "service"):
+            yield f"{f} (service)"
         elif is_flagged(f, "checkpoint_target"):
             yield TBDString()
         else:
@@ -200,7 +202,6 @@ class Job(AbstractJob):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
-        self.pipe_output = set(f for f in self.output if is_flagged(f, "pipe"))
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -489,7 +490,11 @@ class Job(AbstractJob):
 
     @property
     def is_pipe(self):
-        return any([is_flagged(o, "pipe") for o in self.output])
+        return any(is_flagged(o, "pipe") for o in self.output)
+
+    @property
+    def is_service(self):
+        return any(is_flagged(o, "service") for o in self.output)
 
     @property
     def expanded_output(self):
@@ -585,9 +590,9 @@ class Job(AbstractJob):
 
     def missing_output(self, requested):
         def handle_file(f):
-            # pipe output is always declared as missing
+            # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
-            if f in self.pipe_output or not f.exists:
+            if is_flagged(f, "pipe") or is_flagged(f, "service") or not f.exists:
                 yield f
 
         if self.dynamic_output:
@@ -1288,7 +1293,9 @@ class GroupJob(AbstractJob):
 
             self._resources = defaultdict(int)
             self._resources["_nodes"] = 1
-            pipe_group = any([job.is_pipe for job in self.jobs])
+            pipe_or_service_group = any(
+                [job.is_pipe or job.is_service for job in self.jobs]
+            )
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
                 sibling_resources = defaultdict(int)
@@ -1319,7 +1326,7 @@ class GroupJob(AbstractJob):
                 for res, value in sibling_resources.items():
                     if isinstance(value, int):
                         if res != "_nodes":
-                            if self.dag.workflow.run_local or pipe_group:
+                            if self.dag.workflow.run_local or pipe_or_service_group:
                                 # in case of local execution, this must be a
                                 # group of jobs that are connected with pipes
                                 # and have to run simultaneously
@@ -1415,11 +1422,11 @@ class GroupJob(AbstractJob):
         if not error:
             for job in self.jobs:
                 self.dag.handle_temp(job)
-        # remove all pipe outputs since all jobs of this group are done and the
-        # pipes are no longer needed
+        # remove all pipe and service outputs since all jobs of this group are done and the
+        # outputs are no longer needed
         for job in self.jobs:
             for f in job.output:
-                if is_flagged(f, "pipe"):
+                if is_flagged(f, "pipe") or is_flagged(f, "service"):
                     f.remove()
 
     @property
@@ -1550,6 +1557,7 @@ class Reason:
         "nooutput",
         "derived",
         "pipe",
+        "service",
         "target",
         "finished",
     ]
@@ -1565,6 +1573,7 @@ class Reason:
         self.nooutput = False
         self.derived = True
         self.pipe = False
+        self.service = False
 
     @lazy_property
     def updated_input(self):
@@ -1622,6 +1631,14 @@ class Reason:
                             ", ".join(self.updated_input_run)
                         )
                     )
+                if self.pipe:
+                    s.append(
+                        "Output file is a pipe and has to be filled for consuming job."
+                    )
+                if self.service:
+                    s.append(
+                        "Job provides a service which has to be kept active until all consumers are finished."
+                    )
         s = "; ".join(s)
         if self.finished:
             return "Finished (was: {s})".format(s=s)
@@ -1636,5 +1653,6 @@ class Reason:
             or self.noio
             or self.nooutput
             or self.pipe
+            or self.service
         )
         return v and not self.finished

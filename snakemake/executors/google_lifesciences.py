@@ -62,7 +62,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Attach variables for easy access
         self.workflow = workflow
         self.quiet = quiet
-        self.workdir = os.path.dirname(self.workflow.persistence.path)
+        self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
         # Relative path for running on instance
@@ -631,7 +631,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         # Workflow sources for cloud executor must all be under same workdir root
         for filename in self.workflow_sources:
-            if self.workdir not in filename:
+            if self.workdir not in os.path.realpath(filename):
                 raise WorkflowError(
                     "All source files must be present in the working directory, "
                     "{workdir} to be uploaded to a build package that respects "

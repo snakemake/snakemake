@@ -51,6 +51,7 @@ from snakemake.io import (
     unpack,
     local,
     pipe,
+    service,
     repeat,
     report,
     multiext,
