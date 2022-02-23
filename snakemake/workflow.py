@@ -928,24 +928,22 @@ class Workflow:
             dag.clean(only_temp=True, dryrun=dryrun)
             return True
         elif list_version_changes:
-            items = list(chain(*map(self.persistence.version_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("version")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_code_changes:
-            items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
-            for j in dag.jobs:
-                items.extend(list(j.outputs_older_than_script_or_notebook()))
+            items = dag.get_outputs_with_changes("code")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_input_changes:
-            items = list(chain(*map(self.persistence.input_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("input")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_params_changes:
-            items = list(chain(*map(self.persistence.params_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("params")
             if items:
                 print(*items, sep="\n")
             return True
@@ -1029,6 +1027,7 @@ class Workflow:
         )
 
         if not dryrun:
+            dag.warn_about_changes()
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1074,6 +1073,7 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
+            dag.warn_about_changes()
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1095,14 +1095,16 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                logger.info(
-                    "This was a dry-run (flag -n). The order of jobs "
-                    "does not reflect the order of execution."
-                )
+                    logger.info(
+                        "This was a dry-run (flag -n). The order of jobs "
+                        "does not reflect the order of execution."
+                    )
+                dag.warn_about_changes()
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
+                dag.warn_about_changes()
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1110,6 +1112,7 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            dag.warn_about_changes()
             logger.logfile_hint()
             return False
 
