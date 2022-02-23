@@ -147,6 +147,7 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        local_groupid="local",
     ):
         """
         Create the controller.
@@ -230,6 +231,7 @@ class Workflow:
         self.max_threads = max_threads
         self.all_temp = all_temp
         self.scheduler = None
+        self.local_groupid = local_groupid
 
         _globals = globals()
         _globals["workflow"] = self

@@ -88,6 +88,7 @@ class JobFactory:
         format_wildcards=None,
         targetfile=None,
         update=False,
+        groupid=None,
     ):
         if rule.is_branched:
             # for distinguishing branched rules, we need input and output in addition
@@ -101,7 +102,7 @@ class JobFactory:
             key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
-            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
             self.cache[key] = obj
         else:
             try:
@@ -145,10 +146,17 @@ class Job(AbstractJob):
         "_attempt",
         "_group",
         "targetfile",
+        "incomplete_input_expand",
     ]
 
     def __init__(
-        self, rule, dag, wildcards_dict=None, format_wildcards=None, targetfile=None
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        groupid=None,
     ):
         self.rule = rule
         self.dag = dag
@@ -167,8 +175,14 @@ class Job(AbstractJob):
             else Wildcards(fromdict=format_wildcards)
         )
 
-        self.input, input_mapping, self.dependencies = self.rule.expand_input(
-            self.wildcards_dict
+        (
+            self.input,
+            input_mapping,
+            self.dependencies,
+            self.incomplete_input_expand,
+        ) = self.rule.expand_input(
+            self.wildcards_dict,
+            groupid=groupid,
         )
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
@@ -222,12 +236,21 @@ class Job(AbstractJob):
                 self.subworkflow_input[f] = sub
 
     def updated(self):
+        group = self.dag.get_job_group(self)
+        groupid = None
+        if group is None:
+            if self.dag.workflow.run_local or self.is_local:
+                groupid = self.dag.workflow.local_groupid
+        else:
+            groupid = group.jobid
+
         job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
             update=True,
+            groupid=groupid,
         )
         job.is_updated = True
         return job
@@ -1001,6 +1024,13 @@ class Job(AbstractJob):
     def jobid(self):
         return self.dag.jobid(self)
 
+    def uuid(self):
+        return str(
+            get_uuid(
+                f"{self.rule.name}:{','.join(sorted(f'{w}:{v}' for w, v in self.wildcards_dict.items()))}"
+            )
+        )
+
     def postprocess(
         self,
         upload_remote=True,
@@ -1122,6 +1152,7 @@ class GroupJob(AbstractJob):
         "_all_products",
         "_attempt",
         "toposorted",
+        "_jobid",
     ]
 
     def __init__(self, id, jobs):
@@ -1135,6 +1166,7 @@ class GroupJob(AbstractJob):
         self._inputsize = None
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
+        self._jobid = None
 
     @property
     def dag(self):
@@ -1366,7 +1398,15 @@ class GroupJob(AbstractJob):
 
     @property
     def jobid(self):
-        return str(get_uuid(",".join(str(job.jobid) for job in self.jobs)))
+        if not self._jobid:
+            # The uuid of the last job is sufficient to uniquely identify the group job.
+            # This is true because each job can only occur in one group job.
+            # Additionally, this is the most stable id we can get, even if the group
+            # changes by adding more upstream jobs, e.g. due to groupid usage in input
+            # functions (see Dag.update_incomplete_input_expand_jobs())
+            last_job = sorted(self.toposorted[-1])[-1]
+            self._jobid = last_job.uuid()
+        return self._jobid
 
     def cleanup(self):
         for job in self.jobs:

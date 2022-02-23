@@ -367,6 +367,9 @@ class DAG:
     def is_edit_notebook_job(self, job):
         return self.workflow.edit_notebook and job.targetfile in self.targetfiles
 
+    def get_job_group(self, job):
+        return self._group.get(job)
+
     @property
     def dynamic_output_jobs(self):
         """Iterate over all jobs with dynamic output files."""
@@ -1157,6 +1160,22 @@ class DAG:
                         for j in primary:
                             self._group[j] = primary
 
+        for group in self._group.values():
+            group.finalize()
+
+    def update_incomplete_input_expand_jobs(self):
+        """Update (re-evaluate) all jobs which have incomplete input file expansions.
+
+        only filled in the second pass of postprocessing.
+        """
+        updated = False
+        for job in list(self.jobs):
+            if job.incomplete_input_expand:
+                newjob = job.updated()
+                self.replace_job(job, newjob, recursive=False)
+                updated = True
+        return updated
+
     def update_ready(self, jobs=None):
         """Update information whether a job is ready to execute.
 
@@ -1178,7 +1197,6 @@ class DAG:
                     self._ready_jobs.add(job)
                 else:
                     group = self._group[job]
-                    group.finalize()
                     if group not in self._running:
                         candidate_groups.add(group)
 
@@ -1207,7 +1225,9 @@ class DAG:
             if not self.needrun(job):
                 job.close_remote()
 
-    def postprocess(self, update_needrun=True):
+    def postprocess(
+        self, update_needrun=True, update_incomplete_input_expand_jobs=True
+    ):
         """Postprocess the DAG. This has to be invoked after any change to the
         DAG topology."""
         self.cleanup()
@@ -1217,6 +1237,21 @@ class DAG:
         self.update_priority()
         self.handle_pipes_and_services()
         self.update_groups()
+
+        if update_incomplete_input_expand_jobs:
+            updated = self.update_incomplete_input_expand_jobs()
+            if updated:
+
+                # run a second pass, some jobs have been updated
+                # with potentially new input files that have depended
+                # on group ids.
+                self.postprocess(
+                    update_needrun=True,
+                    update_incomplete_input_expand_jobs=False,
+                )
+
+                return
+
         self.update_ready()
         self.close_remote_objects()
         self.update_checkpoint_outputs()
