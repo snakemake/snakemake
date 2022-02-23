@@ -1119,8 +1119,8 @@ The following shows an example job submission wrapper:
 
 .. _snakefiles-input_functions:
 
-Functions as Input Files
-------------------------
+Input functions
+---------------
 
 Instead of specifying strings or lists of strings as input files, snakemake can also make use of functions that return single **or** lists of input files:
 
@@ -1130,15 +1130,18 @@ Instead of specifying strings or lists of strings as input files, snakemake can 
         return [... a list of input files depending on given wildcards ...]
 
     rule:
-        input: myfunc
-        output: "someoutput.{somewildcard}.txt"
-        shell: "..."
+        input:
+            myfunc
+        output:
+            "someoutput.{somewildcard}.txt"
+        shell:
+            "..."
 
 The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files.
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 By this, rules can have entirely different input files (both in form and number) depending on the inferred wildcards. E.g. you can assign input files that appear in entirely different parts of your filesystem based on some wildcard value and a dictionary that maps the wildcard value to file paths.
 
-Note that the function will be executed when the rule is evaluated and before the workflow actually starts to execute. Further note that using a function as input overrides the default mechanism of replacing wildcards with their values inferred from the output files. You have to take care of that yourself with the given wildcards object.
+In additon to a single wildcards argument, input functions can optionally take a ``groupid`` (with exactly that name) as second argument, see :ref:`snakefiles_group-local` for details.
 
 Finally, when implementing the input function, it is best practice to make sure that it can properly handle all possible wildcard values your rule can have.
 In particular, input files should not be combined with very general rules that can be applied to create almost any file: Snakemake will try to apply the rule, and will report the exceptions of your input function as errors.
@@ -1159,9 +1162,12 @@ This can be done by having them return ``dict()`` objects with the names as the 
         return {'foo': '{wildcards.token}.txt'.format(wildcards=wildcards)}
 
     rule:
-        input: unpack(myfunc)
-        output: "someoutput.{token}.txt"
-        shell: "..."
+        input:
+            unpack(myfunc)
+        output:
+            "someoutput.{token}.txt"
+        shell:
+            "..."
 
 Note that ``unpack()`` is only necessary for input functions returning ``dict``.
 While it also works for ``list``, remember that lists (and nested lists) of strings are automatically flattened.
@@ -1184,54 +1190,10 @@ These restrictions do not apply when using ``unpack()``.
         input:
             *myfunc1(),
             **myfunc2(),
-        output: "..."
-        shell: "..."
-
-.. _snakefiles-version_tracking:
-
-Version Tracking
-----------------
-
-Rules can specify a version that is tracked by Snakemake together with the output files. When the version changes snakemake informs you when using the flag ``--summary`` or ``--list-version-changes``.
-The version can be specified by the version directive, which takes a string:
-
-.. code-block:: python
-
-    rule:
-        input:   ...
-        output:  ...
-        version: "1.0"
-        shell:   ...
-
-The version can of course also be filled with the output of a shell command, e.g.:
-
-.. code-block:: python
-
-    SOMECOMMAND_VERSION = subprocess.check_output("somecommand --version", shell=True)
-
-    rule:
-        version: SOMECOMMAND_VERSION
-
-Alternatively, you might want to use file modification times in case of local scripts:
-
-.. code-block:: python
-
-    SOMECOMMAND_VERSION = str(os.path.getmtime("path/to/somescript"))
-
-    rule:
-        version: SOMECOMMAND_VERSION
-
-A re-run can be automated by invoking Snakemake as follows:
-
-.. code-block:: console
-
-    $ snakemake -R `snakemake --list-version-changes`
-
-With the availability of the ``conda`` directive (see :ref:`integrated_package_management`)
-the ``version`` directive has become **obsolete** in favor of defining isolated
-software environments that can be automatically deployed via the conda package
-manager.
-
+        output:
+            "..."
+        shell:
+            "..."
 
 .. _snakefiles-code_tracking:
 
@@ -1521,6 +1483,51 @@ This enables to almost arbitrarily partition the DAG, e.g. in order to safe netw
 
 For execution on the cloud using Google Life Science API and preemptible instances, we expect all rules in the group to be homogenously set as preemptible instances (e.g., with command-line option ``--preemptible-rules``), such that a preemptible VM is requested for the execution of the group job.
 
+.. _snakefiles_group-local:
+
+Group-local jobs
+~~~~~~~~~~~~~~~~
+
+From Snakemake 7.0 on, it is further possible to ensure that jobs from a certain rule are executed separately within each :ref:`job group <job_grouping>`.
+For this purpose we use :ref:`input functions <snakefiles-input_functions>`, which, in addition to the ``wildcards`` argument can expect a ``groupid`` argument.
+In such a case, Snakemake passes the ID of the corresponding group job to the input function.
+Consider the following example
+
+.. code-block:: python
+
+    rule all:
+        input:
+            expand("bar{i}.txt", i=range(3))
+
+
+    rule grouplocal:
+        output:
+            "foo.{groupid}.txt"
+        group:
+            "foo"
+        shell:
+            "echo test > {output}"
+
+
+    def get_input(wildcards, groupid):
+        return f"foo.{groupid}.txt"
+
+
+    rule consumer:
+        input:
+            get_input
+        output:
+            "bar{i}.txt"
+        group:
+            "foo"
+        shell:
+            "cp {input} {output}"
+
+Here, the value of ``groupid`` that is passed by Snakemake to the input function is a `UUID <https://en.wikipedia.org/wiki/Universally_unique_identifier>`_ that uniquely identifies the group job in which each instance of the rule ``consumer`` is contained.
+In the input function ``get_input`` we use this ID to request the desired input file from the rule ``grouplocal``.
+Since the value of the corresponding wildcard ``groupid`` is now always a group specific unique ID, it is ensured that the rule ``grouplocal`` will run for every group job spawned from the group ``foo`` (remember that group jobs by default only span one connected component, and that this can be configured via the command line, see :ref:`job_grouping`).
+Of course, above example would also work if the groups are not specified via the rule definition but entirely via the :ref:`command line <job_grouping>`.
+
 .. _snakefiles-piped-output:
 
 Piped output
@@ -1600,6 +1607,49 @@ Consider the following example:
 
 Snakemake will schedule the service with all consumers to the same physical node (in the future we might provide further controls and other modes of operation).
 Once all consumer jobs are finished, the service job will be terminated automatically by Snakemake, and the service output will be removed.
+
+Group-local service jobs
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since Snakemake supports arbitrary partitioning of the DAG into so-called :ref:`job groups <job-grouping>`, one should consider what this implies for service jobs when running a workflow in a cluster of cloud context:
+since each group job spans at least one connected component (see :ref:`job groups <job-grouping>` and `the Snakemake paper <https://doi.org/10.12688/f1000research.29032.2>`), this means that the service job will automatically connect all consumers into one big group.
+This can be undesired, because depending on the number of consumers that group job can become too big for efficient execution on the underlying architecture.
+In case of local execution, this is not a problem because here DAG partitioning has no effect.
+
+However, to make a workflow portable across different backends, this behavior should always be considered.
+In order to circumvent it, it is possible to model service jobs as group-local, i.e. ensuring that each group job gets its own instance of the service rule.
+This works by combining the service job pattern from above with the :ref:`group-local pattern <snakefiles_group-local>` as follows:
+
+.. code-block:: python
+
+    rule the_service:
+        output:
+            service("foo.{groupid}.socket")
+        shell:
+            # here we simulate some kind of server process that provides data via a socket
+            "ln -s /dev/random {output}; sleep 10000" 
+
+
+    def get_socket(wildcards, groupid):
+        return f"foo.{groupid}.socket"
+
+
+    rule consumer1:
+        input:
+            get_socket
+        output:
+            "test.txt"
+        shell:
+            "head -n1 {input} > {output}"
+
+
+    rule consumer2:
+        input:
+            get_socket
+        output:
+            "test2.txt"
+        shell:
+            "head -n1 {input} > {output}"
 
 .. _snakefiles-paramspace:
 
