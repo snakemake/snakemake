@@ -1498,3 +1498,11 @@ def test_peppy():
 
 def test_template_engine():
     run(dpath("test_template_engine"))
+
+
+def test_groupid_expand_local():
+    run(dpath("test_groupid_expand"))
+
+
+def test_groupid_expand_cluster():
+    run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)

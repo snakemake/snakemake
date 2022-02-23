@@ -1160,10 +1160,12 @@ class DAG:
                         for j in primary:
                             self._group[j] = primary
 
+        for group in self._group.values():
+            group.finalize()
+
     def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
 
-        We expect these to be jobs with input functions having a groupid argument which is
         only filled in the second pass of postprocessing.
         """
         updated = False
@@ -1195,7 +1197,6 @@ class DAG:
                     self._ready_jobs.add(job)
                 else:
                     group = self._group[job]
-                    group.finalize()
                     if group not in self._running:
                         candidate_groups.add(group)
 
@@ -1240,13 +1241,15 @@ class DAG:
         if update_incomplete_input_expand_jobs:
             updated = self.update_incomplete_input_expand_jobs()
             if updated:
+
                 # run a second pass, some jobs have been updated
-                # with potentially new input files that have dependend
+                # with potentially new input files that have depended
                 # on group ids.
                 self.postprocess(
                     update_needrun=True,
                     update_incomplete_input_expand_jobs=False,
                 )
+
                 return
 
         self.update_ready()

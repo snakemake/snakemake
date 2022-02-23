@@ -183,7 +183,7 @@ def snakemake(
     conda_not_block_search_path_envvars=False,
     scheduler_solver_path=None,
     conda_base_path=None,
-    local_groupid=None,
+    local_groupid="local",
 ):
     """Run snakemake on a given snakefile.
 
@@ -314,7 +314,7 @@ def snakemake(
         conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         scheduler_solver_path (str): Path to Snakemake environment (this can be used to e.g. overwrite the search path for the ILP solver used during scheduling).
         conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
-        local_groupid (str):        Local groupid to use as a placeholder for groupid-referrring input functions of local jobs (internal use only).
+        local_groupid (str):        Local groupid to use as a placeholder for groupid-referrring input functions of local jobs (internal use only, default: local).
         log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
