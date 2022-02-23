@@ -539,19 +539,18 @@ class Logger:
             timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
-            fmt_msg = lambda msg: f"{msg['msg']}\n"
             if level == "info" and not self.quiet:
-                self.logger.warning(fmt_msg(msg))
+                self.logger.warning(msg["msg"])
             if level == "warning":
-                self.logger.critical(fmt_msg(msg))
+                self.logger.critical(msg["msg"])
             elif level == "error":
-                self.logger.error(fmt_msg(msg))
+                self.logger.error(msg["msg"])
             elif level == "debug":
-                self.logger.debug(fmt_msg(msg))
+                self.logger.debug(msg["msg"])
             elif level == "resources_info" and not self.quiet:
-                self.logger.warning(fmt_msg(msg))
+                self.logger.warning(msg["msg"])
             elif level == "run_info":
-                self.logger.warning(fmt_msg(msg))
+                self.logger.warning(msg["msg"])
             elif level == "progress" and not self.quiet:
                 done = msg["done"]
                 total = msg["total"]
