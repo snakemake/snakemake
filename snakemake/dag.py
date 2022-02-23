@@ -280,7 +280,7 @@ class DAG:
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in jobs
-            if job.conda_env_spec
+            if job.conda_env_spec and (self.workflow.run_local or job.is_local)
         }
         # Then based on md5sum values
         self.conda_envs = dict()
@@ -497,7 +497,7 @@ class DAG:
                     expanded_output,
                     latency_wait=wait,
                     force_stay_on_remote=force_stay_on_remote,
-                    ignore_pipe=True,
+                    ignore_pipe_or_service=True,
                 )
             except IOError as e:
                 raise MissingOutputException(
@@ -1235,7 +1235,7 @@ class DAG:
         if update_needrun:
             self.update_needrun()
         self.update_priority()
-        self.handle_pipes()
+        self.handle_pipes_and_services()
         self.update_groups()
 
         if update_incomplete_input_expand_jobs:
@@ -1256,8 +1256,8 @@ class DAG:
         self.close_remote_objects()
         self.update_checkpoint_outputs()
 
-    def handle_pipes(self):
-        """Use pipes to determine job groups. Check if every pipe has exactly
+    def handle_pipes_and_services(self):
+        """Use pipes and services to determine job groups. Check if every pipe has exactly
         one consumer"""
 
         visited = set()
@@ -1266,9 +1266,11 @@ class DAG:
             if job.group is not None:
                 candidate_groups.add(job.group)
             all_depending = set()
-            has_pipe = False
+            has_pipe_or_service = False
             for f in job.output:
-                if is_flagged(f, "pipe"):
+                is_pipe = is_flagged(f, "pipe")
+                is_service = is_flagged(f, "service")
+                if is_pipe or is_service:
                     if job.is_run:
                         raise WorkflowError(
                             "Rule defines pipe output but "
@@ -1279,11 +1281,11 @@ class DAG:
                             rule=job.rule,
                         )
 
-                    has_pipe = True
+                    has_pipe_or_service = True
                     depending = [
                         j for j, files in self.depending[job].items() if f in files
                     ]
-                    if len(depending) > 1:
+                    if is_pipe and len(depending) > 1:
                         raise WorkflowError(
                             "Output file {} is marked as pipe "
                             "but more than one job depends on "
@@ -1294,40 +1296,40 @@ class DAG:
                         )
                     elif len(depending) == 0:
                         raise WorkflowError(
-                            "Output file {} is marked as pipe "
+                            "Output file {} is marked as pipe or service "
                             "but it has no consumer. This is "
                             "invalid because it can lead to "
                             "a dead lock.".format(f),
                             rule=job.rule,
                         )
 
-                    depending = depending[0]
+                    for dep in depending:
+                        if dep.is_run:
+                            raise WorkflowError(
+                                "Rule consumes pipe or service input but "
+                                "uses a 'run' directive. This is "
+                                "not possible for technical "
+                                "reasons. Consider using 'shell' or "
+                                "'script'.",
+                                rule=job.rule,
+                            )
 
-                    if depending.is_run:
-                        raise WorkflowError(
-                            "Rule consumes pipe input but "
-                            "uses a 'run' directive. This is "
-                            "not possible for technical "
-                            "reasons. Consider using 'shell' or "
-                            "'script'.",
-                            rule=job.rule,
-                        )
-
-                    all_depending.add(depending)
-                    if depending.group is not None:
-                        candidate_groups.add(depending.group)
-            if not has_pipe:
+                        all_depending.add(dep)
+                        if dep.group is not None:
+                            candidate_groups.add(dep.group)
+            if not has_pipe_or_service:
                 continue
 
             if len(candidate_groups) > 1:
                 if all(isinstance(group, CandidateGroup) for group in candidate_groups):
+                    # all candidates are newly created groups, merge them into one
                     group = candidate_groups.pop()
                     for g in candidate_groups:
                         group.merge(g)
                 else:
                     raise WorkflowError(
                         "An output file is marked as "
-                        "pipe, but consuming jobs "
+                        "pipe or service, but consuming jobs "
                         "are part of conflicting "
                         "groups.",
                         rule=job.rule,

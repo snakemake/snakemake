@@ -536,6 +536,7 @@ class Rule:
                         "directory",
                         "touch",
                         "pipe",
+                        "service",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
@@ -916,7 +917,6 @@ class Rule:
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            print(exception.targetfile)
             if exception.targetfile in input:
                 return TBDString()
             else:

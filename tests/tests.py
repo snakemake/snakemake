@@ -888,6 +888,11 @@ def test_issue823_2():
 
 
 @skip_on_windows
+def test_issue823_3():
+    run(dpath("test_issue823_3"))
+
+
+@skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
 
@@ -1506,3 +1511,8 @@ def test_groupid_expand_local():
 
 def test_groupid_expand_cluster():
     run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)

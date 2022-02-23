@@ -544,16 +544,17 @@ class CPUExecutor(RealExecutor):
         return future
 
     def run_group_job(self, job):
-        """Run a pipe group job.
+        """Run a pipe or service group job.
 
         This lets all items run simultaneously."""
-        # we only have to consider pipe groups because in local running mode,
+        # we only have to consider pipe or service groups because in local running mode,
         # these are the only groups that will occur
 
         futures = [self.run_single_job(j) for j in job]
+        n_non_service = sum(1 for j in job if not j.is_service)
 
         while True:
-            k = 0
+            n_finished = 0
             for f in futures:
                 if f.done():
                     ex = f.exception()
@@ -565,8 +566,19 @@ class CPUExecutor(RealExecutor):
                             shell.kill(j.jobid)
                         raise ex
                     else:
-                        k += 1
-            if k == len(futures):
+                        n_finished += 1
+            if n_finished >= n_non_service:
+                # terminate all service jobs since all consumers are done
+                for j in job:
+                    if j.is_service:
+                        logger.info(
+                            f"Terminating service job {j.jobid} since all consuming jobs are finished."
+                        )
+                        shell.terminate(j.jobid)
+                        logger.info(
+                            f"Service job {j.jobid} has been successfully terminated."
+                        )
+
                 return
             time.sleep(1)
 
