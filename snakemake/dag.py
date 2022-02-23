@@ -2200,11 +2200,16 @@ class DAG:
         yield ""
 
     def get_outputs_with_changes(self, change_type):
-        is_changed = getattr(self.workflow.persistence, f"{change_type}_changed")
+        is_changed = lambda job: (
+            getattr(self.workflow.persistence, f"{change_type}_changed")(job)
+            if not job.is_group()
+            else []
+        )
         changed = list(chain(*map(is_changed, self.jobs)))
         if change_type == "code":
-            for j in self.jobs:
-                changed.extend(list(j.outputs_older_than_script_or_notebook()))
+            for job in self.jobs:
+                if not job.is_group():
+                    changed.extend(list(job.outputs_older_than_script_or_notebook()))
         return changed
 
     def warn_about_changes(self):

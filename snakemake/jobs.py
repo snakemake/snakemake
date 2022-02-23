@@ -246,13 +246,12 @@ class Job(AbstractJob):
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
-        if is_local_file(path):
-            if os.path.exists(path):
-                script_mtime = os.lstat(path).st_mtime
-                for f in self.expanded_output:
-                    if f.exists:
-                        if not f.is_newer(script_mtime):
-                            yield f
+        if is_local_file(path) and os.path.exists(path):
+            script_mtime = os.lstat(path).st_mtime
+            for f in self.expanded_output:
+                if f.exists:
+                    if not f.is_newer(script_mtime):
+                        yield f
         # TODO also handle remote file case here.
 
     @property
