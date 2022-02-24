@@ -99,7 +99,7 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
     shellcmd=None,
     sigint_after=None,
     **params,

@@ -1,1 +1,1 @@
-image: snakemake/snakemake:latest
+image: snakemake/snakemake:main
