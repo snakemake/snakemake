@@ -1694,6 +1694,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.secret_envvars = {}
         self.register_secret()
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
     def register_secret(self):
         import kubernetes.client
@@ -2156,6 +2157,7 @@ class TibannaExecutor(ClusterExecutor):
             disable_get_default_resources_args=True,
         )
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for Tibanna jobs.")
         self.tibanna_config = tibanna_config
 
     def shutdown(self):
