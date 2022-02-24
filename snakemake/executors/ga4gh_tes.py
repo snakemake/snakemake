@@ -45,6 +45,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             )
 
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for TES jobs.")
         self.container_workdir = "/tmp"
         self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
@@ -105,7 +106,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             _quote_all=False,
             use_threads=use_threads,
             envvars=envvars,
-            **kwargs
+            **kwargs,
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
