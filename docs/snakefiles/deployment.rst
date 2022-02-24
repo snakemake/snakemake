@@ -36,7 +36,7 @@ following structure:
     └── resources
 
 In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``.
-Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure. 
+Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure.
 This main structure and the recommendations below are implemented in `this Snakemake workflow template <https://github.com/snakemake-workflows/snakemake-workflow-template>`_ that you can use to `create your own workflow repository with a single click on "Use this template" <https://github.com/snakemake-workflows/snakemake-workflow-template/generate>_.
 In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``.
 Such modules should end with ``.smk``, the recommended file extension of Snakemake.
@@ -172,7 +172,7 @@ We can extend above example in the following way:
             rules.rna_seq_all.input,
         default_target: True
 
-Above, several things have changed. 
+Above, several things have changed.
 
 * First, we have added another module ``rna_seq``.
 * Second, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
@@ -277,13 +277,13 @@ Instead of using a concrete path, it is also possible to provide a path containi
 
    Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
-   
-   Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments. 
+
+   Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments.
    Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
    If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
-Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation. 
+Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
@@ -301,6 +301,7 @@ Therefore, the approach using environment definition files described above is hi
 Nevertheless, in case you are still sure that you want to use an existing named environment, it can simply be put into the conda directive, e.g.
 
 .. code-block:: python
+
     rule NAME:
         input:
             "table.txt"
@@ -314,7 +315,7 @@ Nevertheless, in case you are still sure that you want to use an existing named 
 For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
 Instead of using a concrete name, it is also possible to provide a name containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
 
-Note that Snakemake distinguishes file based environments from named ones as follows: 
+Note that Snakemake distinguishes file based environments from named ones as follows:
 if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
 to be the name of an existing environment.
 
