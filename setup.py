@@ -79,6 +79,7 @@ setup(
         "tabulate",
         "yte >=1.0,<2.0",
         "jinja2 >=3.0,<4.0",
+        "retry",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
@@ -92,7 +93,7 @@ setup(
         "pep": [
             "peppy",
             "eido",
-        ]
+        ],
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",

@@ -10,7 +10,12 @@ import subprocess as sp
 from datetime import datetime
 import time
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+    check_deprecated_retry,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
 from snakemake.logging import logger
@@ -34,7 +39,7 @@ class RemoteProvider(AbstractRemoteProvider):
         keep_local=False,
         stay_on_remote=False,
         is_default=False,
-        retry=5,
+        retry=None,
         **kwargs
     ):
         super(RemoteProvider, self).__init__(
@@ -44,7 +49,7 @@ class RemoteProvider(AbstractRemoteProvider):
             is_default=is_default,
             **kwargs
         )
-        self.retry = retry
+        check_deprecated_retry(retry)
 
     @property
     def default_protocol(self):
@@ -58,7 +63,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["gsiftp://", "srm://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     mtime_re = re.compile(r"^\s*Modify: (.+)$", flags=re.MULTILINE)
     size_re = re.compile(r"^\s*Size: ([0-9]+).*$", flags=re.MULTILINE)
 
@@ -68,35 +73,26 @@ class RemoteObject(AbstractRemoteObject):
         )
 
     def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
-        if retry is None:
-            retry = self.provider.retry
+        check_deprecated_retry(retry)
         _cmd = ["gfal-" + cmd] + list(args)
-        for i in range(retry + 1):
-            try:
-                logger.debug(_cmd)
-                return sp.run(
-                    _cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
-                ).stdout.decode()
-            except sp.CalledProcessError as e:
-                if i == retry:
-                    if raise_workflow_error:
-                        raise WorkflowError(
-                            "Error calling gfal-{}:\n{}".format(cmd, e.stderr.decode())
-                        )
-                    else:
-                        raise e
-                else:
-                    # try again after some seconds
-                    time.sleep(1)
-                    continue
+        try:
+            logger.debug(_cmd)
+            return sp.run(
+                _cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
+            ).stdout.decode()
+        except sp.CalledProcessError as e:
+            if raise_workflow_error:
+                raise WorkflowError(
+                    "Error calling gfal-{}:\n{}".format(cmd, e.stderr.decode())
+                )
+            else:
+                raise e
 
     # === Implementations of abstract class members ===
 
     def exists(self):
         try:
-            self._gfal(
-                "ls", "-a", self.remote_file(), retry=0, raise_workflow_error=False
-            )
+            self._gfal("ls", "-a", self.remote_file(), raise_workflow_error=False)
         except sp.CalledProcessError as e:
             if e.returncode == 2:
                 # exit code 2 means no such file or directory
@@ -125,7 +121,7 @@ class RemoteObject(AbstractRemoteObject):
         size = self.size_re.search(stat).group(1)
         return int(size)
 
-    def download(self):
+    def _download(self):
         if self.exists():
             if self.size() == 0:
                 # Globus erroneously thinks that a transfer is incomplete if a
@@ -145,7 +141,7 @@ class RemoteObject(AbstractRemoteObject):
             return self.local_file()
         return None
 
-    def upload(self):
+    def _upload(self):
         target = self.remote_file()
         source = "file://" + os.path.abspath(self.local_file())
         # disable all timeouts (file transfers can take a long time)

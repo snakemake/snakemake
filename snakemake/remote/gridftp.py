@@ -34,27 +34,18 @@ class RemoteProvider(gfal.RemoteProvider):
 
 class RemoteObject(gfal.RemoteObject):
     def _globus(self, *args):
-        retry = self.provider.retry
         cmd = ["globus-url-copy"] + list(args)
-        for i in range(retry + 1):
-            try:
-                logger.debug(" ".join(cmd))
-                return sp.run(
-                    cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
-                ).stdout.decode()
-            except sp.CalledProcessError as e:
-                if i == retry:
-                    raise WorkflowError(
-                        "Error calling globus-url-copy:\n{}".format(
-                            cmd, e.stderr.decode()
-                        )
-                    )
-                else:
-                    # try again after some seconds
-                    time.sleep(1)
-                    continue
+        try:
+            logger.debug(" ".join(cmd))
+            return sp.run(
+                cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
+            ).stdout.decode()
+        except sp.CalledProcessError as e:
+            raise WorkflowError(
+                "Error calling globus-url-copy:\n{}".format(cmd, e.stderr.decode())
+            )
 
-    def download(self):
+    def _download(self):
         if self.exists():
             if self.size() == 0:
                 # Globus erroneously thinks that a transfer is incomplete if a
@@ -73,7 +64,7 @@ class RemoteObject(gfal.RemoteObject):
             return self.local_file()
         return None
 
-    def upload(self):
+    def _upload(self):
         target = self.remote_file()
         source = "file://" + os.path.abspath(self.local_file())
 
