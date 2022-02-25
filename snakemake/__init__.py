@@ -2512,6 +2512,7 @@ def main(argv=None):
         or args.gui
         or args.archive
         or args.unlock
+        or args.cleanup_metadata
     )
     local_exec = not (no_exec or non_local_exec)
 
