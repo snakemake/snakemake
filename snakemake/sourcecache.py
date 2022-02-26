@@ -285,7 +285,7 @@ class SourceCache:
         os.makedirs(self.cache, exist_ok=True)
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache / "runtime-cache"
-            os.makedirs(runtime_cache_parent)
+            os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(
                 suffix="snakemake-runtime-source-cache",
                 dir=runtime_cache_parent,
