@@ -141,7 +141,7 @@ class RemoteObject(DomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             # if the destination path does not exist, make it
             if make_dest_dirs:
@@ -156,7 +156,7 @@ class RemoteObject(DomainObject):
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 
-    def upload(self):
+    def _upload(self):
         # make containing folder
         with self.webdavc() as webdavc:
             self.loop.run_until_complete(

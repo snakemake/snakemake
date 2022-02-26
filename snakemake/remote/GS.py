@@ -220,7 +220,7 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
-    def download(self):
+    def _download(self):
         """Download with maximum retry duration of 600 seconds (10 minutes)"""
         if not self.exists():
             return None
@@ -251,7 +251,7 @@ class RemoteObject(AbstractRemoteObject):
         return self.local_file()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
-    def upload(self):
+    def _upload(self):
         try:
             if not self.bucket.exists():
                 self.bucket.create()

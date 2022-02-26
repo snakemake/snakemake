@@ -14,9 +14,14 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    check_deprecated_retry,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
+from snakemake.logging import logger
 
 
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])
@@ -30,7 +35,7 @@ class RemoteProvider(AbstractRemoteProvider):
         keep_local=False,
         stay_on_remote=False,
         is_default=False,
-        retry=5,
+        retry=None,
         **kwargs
     ):
         super().__init__(
@@ -40,7 +45,7 @@ class RemoteProvider(AbstractRemoteProvider):
             is_default=is_default,
             **kwargs
         )
-        self.retry = retry
+        check_deprecated_retry(retry)
         self._token = None
         self._expires = None
         self._file_cache = dict()
@@ -193,7 +198,7 @@ class RemoteProvider(AbstractRemoteProvider):
             )
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     # === Implementations of abstract class members ===
     def _stats(self):
         return self.provider.get_files(self.parts.dataset)[self.parts.path]
@@ -209,7 +214,7 @@ class RemoteObject(AbstractRemoteObject):
         # Hence, the files are always considered to be "ancient".
         return 0
 
-    def download(self):
+    def _download(self):
         stats = self._stats()
 
         r = self.provider.api_request(
