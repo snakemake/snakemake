@@ -2120,7 +2120,8 @@ def get_argument_parser(profile=None):
         "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
-        "be filled with space separated job ids this job depends on.",
+        "be filled with space separated job ids this job depends on. "
+        "Does not work for workflows that contain checkpoint rules.",
     )
     group_cluster.add_argument(
         "--jobscript",
