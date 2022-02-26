@@ -873,6 +873,14 @@ class Workflow:
                 )
                 return False
 
+        if immediate_submit and any(dag.checkpoint_jobs):
+            logger.error(
+                "Immediate submit mode (--immediate-submit) may not be used for workflows "
+                "with checkpoint jobs, as the dependencies cannot be determined before "
+                "execution in such cases."
+            )
+            return False
+
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
         if generate_unit_tests:
