@@ -1,5 +1,25 @@
 # Changelog
 
+### [7.0.1](https://www.github.com/snakemake/snakemake/compare/v7.0.0...v7.0.1) (2022-02-26)
+
+
+### Bug Fixes
+
+* avoid incomplete remote files in case of errors and automatically retry download and upload ([#1432](https://www.github.com/snakemake/snakemake/issues/1432)) ([8fc23ed](https://www.github.com/snakemake/snakemake/commit/8fc23ed09f9c6de7519160797584ff9df3104939))
+* do not apply module prefix in case of remote files ([5645b3f](https://www.github.com/snakemake/snakemake/commit/5645b3f75066d8d1d8841b6e6732cd8ad098f67f))
+* do not require --cores or --jobs to be set when --cleanup-metadata is used. ([#1429](https://www.github.com/snakemake/snakemake/issues/1429)) ([9c73907](https://www.github.com/snakemake/snakemake/commit/9c739079bf3e6340facaa03f88f757df36f6dd91))
+* more robust place for runtime source file cache ([#1436](https://www.github.com/snakemake/snakemake/issues/1436)) ([2681f6f](https://www.github.com/snakemake/snakemake/commit/2681f6f163832dfa5214e10f5234d256f5a13407))
+* provide details on error when failing to evaluate default resources ([#1430](https://www.github.com/snakemake/snakemake/issues/1430)) ([04f39a9](https://www.github.com/snakemake/snakemake/commit/04f39a92f58c21265d859666bd63fe686e1d61f5))
+* provide proper error when using immediate submit in combination with checkpoint jobs. ([#1437](https://www.github.com/snakemake/snakemake/issues/1437)) ([865cf0f](https://www.github.com/snakemake/snakemake/commit/865cf0f22656e22cd2450e5537421ce70c1705f9))
+
+
+### Documentation
+
+* explain relative path interpretation ([#1428](https://www.github.com/snakemake/snakemake/issues/1428)) ([add9a05](https://www.github.com/snakemake/snakemake/commit/add9a05eecf10f45113bc511a1d166e1708ff756))
+* Fix problems with code blocks and broken internal link. ([#1424](https://www.github.com/snakemake/snakemake/issues/1424)) ([5d4e7d8](https://www.github.com/snakemake/snakemake/commit/5d4e7d8c4d7901c41bfb8f01c4b2c6551add59f7))
+* temaplte rendering examples and available variables ([#1431](https://www.github.com/snakemake/snakemake/issues/1431)) ([5995e9e](https://www.github.com/snakemake/snakemake/commit/5995e9ebf7b037479b3f1317cb920773410bd2f2))
+* update copyright year ([#1427](https://www.github.com/snakemake/snakemake/issues/1427)) ([6b9f5da](https://www.github.com/snakemake/snakemake/commit/6b9f5da0c986d5de444e00b45656dba85244a6c7))
+
 ## [7.0.0](https://www.github.com/snakemake/snakemake/compare/v6.15.5...v7.0.0) (2022-02-23)
 
 
