@@ -1996,14 +1996,26 @@ Consider the following example:
             "some-jinja2-template.txt"
         output:
             "results/{sample}.rendered-version.txt"
+        params:
+            foo=0.1
         template_engine:
             "jinja2"
 
-Here, Snakemake will automatically use the specified template engine `Jinja2 <https://jinja.palletsprojects.com/>` to render the template given as input file into the given output file.
+Here, Snakemake will automatically use the specified template engine `Jinja2 <https://jinja.palletsprojects.com/>`_ to render the template given as input file into the given output file.
 Template rendering rules may only have a single input and output file.
 The template_engine instruction has to be specified at the end of the rule.
 
-Apart from Jinja2, Snakemake supports YTE (YAML template engine), which is particularly designed to support templating of the ubiquitious YAML file format:
+The template itself has access to ``params``, ``wildcards``, and ``config``,
+which are the same objects you can use for example in the ``shell`` or ``run`` directive, 
+and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
+
+An example Jinja2 template could look like this:
+
+.. code-block:: jinja2
+
+    This is some text and now we access {{ params.foo }}.
+
+Apart from Jinja2, Snakemake supports `YTE <https://github.com/koesterlab/yte>`_ (YAML template engine), which is particularly designed to support templating of the ubiquitious YAML file format:
 
 .. code-block:: python
 
@@ -2012,8 +2024,24 @@ Apart from Jinja2, Snakemake supports YTE (YAML template engine), which is parti
             "some-yte-template.yaml"
         output:
             "results/{sample}.rendered-version.yaml"
+        params:
+            foo=0.1
         template_engine:
             "yte"
 
+Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and ``config``:
+
+.. code-block:: yaml
+
+    ?if params.foo < 0.5:
+      x:
+        - 1
+        - 2
+        - 3
+    ?else:
+      y:
+        - a
+        - b
+        - ?config["threshold"]
 
 Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
