@@ -55,7 +55,7 @@ class SlurmExecutor(ClusterExecutor):
             cores = 1
 
         # seems otherswise not in namespace, despite the super class init
-        self.max_status_checks_per_second = max_status_checks_per_second
+        self.mNo releasax_status_checks_per_second = max_status_checks_per_second
 
         super().__init__(
             workflow,
@@ -71,7 +71,7 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.exec_job += " --slurm-jobstep"
+        self.eNo releasxec_job += " --slurm-jobstep"
 
     def cancel(self):
         for job in self.active_jobs:
@@ -99,7 +99,6 @@ class SlurmExecutor(ClusterExecutor):
         # if groupjob:
         #    attributes of groubjobs (snakemake/jobs.py class GroupJob , _resources
         #    - see topology
-
         for job in jobs:
             # TODO replace by own code
             self.run(
@@ -126,7 +125,6 @@ class SlurmExecutor(ClusterExecutor):
         # generic part of a submission string:
 
         os.makedirs('.snakemake/slurm-logs', exist_ok=True)
-
 
         try:
             call = "sbatch -A {account} -p {partition} \
@@ -159,7 +157,21 @@ class SlurmExecutor(ClusterExecutor):
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
+        
+        exec_job = self.format_job(
+            self.exec_job,
+            job,
+            _quote_all=True,
+            use_threads="--force-use-threads" if not job.is_group() else "",
+        )
 
+        # we need to modify `exec_job`, because we can only wrap executables
+        # and not `cd` statements or tinkerings with PATH:
+        # the directory is changed anyways by SLURM, the environment is
+        # carried on, within envvars and the SLURM environment.
+
+        index = exec_job.index("-m snakemake")
+        exec_job=exec_job[index:]
         # if ressources == MPI:
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
@@ -169,6 +181,7 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("threads", False):
                 call += " -c={}".format(job.resources.get("threads", 1))
         # ordinary smp application:
+
         elif not job.is_group():
             # TODO: this line will become longer
             # TODO: hence the single command, yet
@@ -176,10 +189,9 @@ class SlurmExecutor(ClusterExecutor):
                 call += " -n 1 -c 1 {exec_job}".format(self.exec_job)
             else:
                 call += " -n 1 -c {threads}".format(threads=job.threads)
-        # job.is_group
         else:
             ntasks = max(map(len, job.toposorted))
-            threads = max(j.threads for j in job)
+            threads = sum(j.threads for j in job)
             call += " -n {ntasks} -c {threads}".format(ntasks=ntasks,
                                      threads=threads)
 
@@ -195,20 +207,6 @@ class SlurmExecutor(ClusterExecutor):
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
 
-        exec_job = self.format_job(
-            self.exec_job,
-            job,
-            _quote_all=True,
-            use_threads="--force-use-threads" if not job.is_group() else "",
-        )
-
-        # we need to modify `exec_job`, because we can only wrap executables
-        # and not `cd` statements or tinkerings with PATH:
-        # the directory is changed anyways by SLURM, the environment is
-        # carried on, within envvars and the SLURM environment.
-
-        index = exec_job.index("-m snakemake")
-        exec_job=exec_job[index:]
         call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
         #try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
