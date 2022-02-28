@@ -1020,11 +1020,11 @@ class GenericClusterExecutor(ClusterExecutor):
             while process.poll() is None and executor.wait:
                 buf = process.stdout.readline()
                 if buf:
-                    self.stdout.write(buf)
+                    sys.stdout.write(buf)
             # one final time ...
             buf = process.stdout.readline()
             if buf:
-                self.stdout.write(buf)
+                sys.stdout.write(buf)
 
         def wait(executor, process):
             while executor.wait:
