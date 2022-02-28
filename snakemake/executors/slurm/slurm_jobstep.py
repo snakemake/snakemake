@@ -45,7 +45,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
             workflow,
             dag,
             None,
-            #jobname=jobname,
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
