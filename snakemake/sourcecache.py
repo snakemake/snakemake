@@ -60,6 +60,10 @@ class SourceFile(ABC):
             path = path.get_path_or_uri()
         return self.__class__(smart_join(self.get_path_or_uri(), path))
 
+    @abstractmethod
+    def mtime(self):
+        ...  # TODO implement for all classes below
+
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
 
@@ -344,6 +348,9 @@ class SourceCache:
             cache_entry, "wb"
         ) as cache_source:
             cache_source.write(source.read())
+
+        mtime = source_file.mtime()
+        os.utime(cache_entry, times=(mtime, mtime))
 
     def _open(self, path_or_uri, mode):
         from smart_open import open
