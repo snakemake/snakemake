@@ -828,7 +828,7 @@ class Rule:
                             "Function did not return str or list " "of str.", rule=self
                         )
 
-                    if apply_path_modifier and not incomplete:
+                    if from_callable and apply_path_modifier and not incomplete:
                         item_ = self.apply_path_modifier(item_, property=property)
 
                     concrete = concretize(item_, wildcards, _is_callable)
