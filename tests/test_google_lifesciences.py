@@ -109,3 +109,20 @@ def test_cloud_checkpoints_issue574():
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
+
+
+def test_github_issue1396():
+    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    create_google_storage(bucket_name)
+    storage_prefix = "test_github_issue1396"
+    workdir = dpath("test_github_issue1396")
+    try:
+        run(
+            workdir,
+            default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
+            google_lifesciences=True,
+            google_lifesciences_cache=False,
+            dryrun=True,
+        )
+    finally:
+        cleanup_google_storage(storage_prefix, bucket_name)
