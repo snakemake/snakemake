@@ -364,6 +364,10 @@ class SourceCache:
 
         mtime = source_file.mtime()
         if mtime is None:
+            logger.debug(
+                f"Setting mtime of cached source file {source_file} to 0 as no "
+                "mtime could be determined from provider."
+            )
             mtime = 0  # start of epoch, guaranteed older than anything else
         os.utime(cache_entry, times=(mtime, mtime))
 
