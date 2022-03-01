@@ -61,7 +61,6 @@ class SourceFile(ABC):
             path = path.get_path_or_uri()
         return self.__class__(smart_join(self.get_path_or_uri(), path))
 
-    @abstractmethod
     def mtime(self):
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
