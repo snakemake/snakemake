@@ -11,6 +11,7 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
+import datetime
 
 
 from snakemake.common import (
@@ -62,7 +63,8 @@ class SourceFile(ABC):
 
     @abstractmethod
     def mtime(self):
-        ...  # TODO implement for all classes below
+        """If possible, return mtime of the file. Otherwise, return None."""
+        return None
 
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
@@ -114,6 +116,9 @@ class LocalSourceFile(SourceFile):
 
     def simplify_path(self):
         return utils.simplify_path(self.path)
+
+    def mtime(self):
+        return os.stat(self.path).st_mtime
 
     def __fspath__(self):
         return self.path
@@ -228,6 +233,14 @@ class HostingProviderFile(SourceFile):
 class GithubFile(HostingProviderFile):
     def get_path_or_uri(self):
         return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
+
+    def mtime(self):
+        import requests
+
+        url = f"https://api.github.com/repos/{self.repo}/commits?path={self.path}&page=1&per_page=1"
+        return datetime.fromisoformat(
+            requests.get(url).json()["commit"]["committer"]["date"]
+        ).timestamp()
 
 
 class GitlabFile(HostingProviderFile):
@@ -350,6 +363,8 @@ class SourceCache:
             cache_source.write(source.read())
 
         mtime = source_file.mtime()
+        if mtime is None:
+            mtime = 0  # start of epoch, guaranteed older than anything else
         os.utime(cache_entry, times=(mtime, mtime))
 
     def _open(self, path_or_uri, mode):
