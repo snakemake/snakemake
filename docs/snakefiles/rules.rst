@@ -1368,7 +1368,7 @@ The resulting tsv file can be used as input for other rules, just like any other
 Defining scatter-gather processes
 ---------------------------------
 
-Via Snakemake's powerful and abitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows well supported.
+Via Snakemake's powerful and abitrary Python based aggregation abilities (via the ``expand`` function and arbitrary Python code, see :ref:`here <snakefiles_aggregation>`), scatter-gather workflows are well supported.
 Nevertheless, it can sometimes be handy to use Snakemake's specific scatter-gather support, which allows to avoid boilerplate and offers additional configuration options.
 Scatter-gather processes can be defined via a global ``scattergather`` directive:
 
@@ -1413,7 +1413,7 @@ Then, scattering and gathering can be implemented by using globally available ``
             "cat {input} > {output}"
 
 Thereby, ``scatter.split("splitted/{scatteritem}.txt")`` yields a list of paths ``"splitted/1-of-n.txt"``, ``"splitted/2-of-n.txt"``, ..., depending on the number ``n`` of scatter items defined.
-Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.pos.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
+Analogously, ``gather.split("splitted/{scatteritem}.post.txt")``, yields a list of paths ``"splitted/0.post.txt"``, ``"splitted/1.post.txt"``, ..., which request the application of the rule ``intermediate`` to each scatter item.
 
 The default number of scatter items can be overwritten via the command line interface.
 For example
