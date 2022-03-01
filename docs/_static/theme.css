@@ -93,7 +93,7 @@
      background-color: #333333;
  }
  
- ul.simple {
+ ul.simple li {
      list-style-type: circle;
  }
  
