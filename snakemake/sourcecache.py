@@ -11,7 +11,7 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
-import datetime
+from datetime import datetime
 
 
 from snakemake.common import (
