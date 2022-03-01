@@ -362,13 +362,12 @@ class SourceCache:
             cache_source.write(source.read())
 
         mtime = source_file.mtime()
-        if mtime is None:
-            logger.debug(
-                f"Setting mtime of cached source file {source_file} to 0 as no "
-                "mtime could be determined from provider."
-            )
-            mtime = 0  # start of epoch, guaranteed older than anything else
-        os.utime(cache_entry, times=(mtime, mtime))
+        if mtime is not None:
+            # Set to mtime of original file
+            # In case we don't have that mtime, it is fine
+            # to just keep the time at the time of caching
+            # as mtime.
+            os.utime(cache_entry, times=(mtime, mtime))
 
     def _open(self, path_or_uri, mode):
         from smart_open import open
