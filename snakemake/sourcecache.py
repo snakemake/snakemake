@@ -238,7 +238,7 @@ class GithubFile(HostingProviderFile):
 
         url = f"https://api.github.com/repos/{self.repo}/commits?path={self.path}&page=1&per_page=1"
         return datetime.fromisoformat(
-            requests.get(url).json()["commit"]["committer"]["date"]
+            requests.get(url).json()[0]["commit"]["committer"]["date"]
         ).timestamp()
 
 
