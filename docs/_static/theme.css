@@ -94,7 +94,7 @@
  }
  
  ul.simple li {
-     list-style-type: circle;
+     list-style: circle;
  }
  
  ul.simple p {
