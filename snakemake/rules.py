@@ -825,7 +825,7 @@ class Rule:
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list " "of str.", rule=self
+                            "Function did not return str or list of str.", rule=self
                         )
 
                     if from_callable and apply_path_modifier and not incomplete:

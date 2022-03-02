@@ -1416,7 +1416,7 @@ class Namedlist(list):
         for name in self._allowed_overrides:
             setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
-        if toclone:
+        if toclone is not None:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
@@ -1427,7 +1427,7 @@ class Namedlist(list):
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self._take_names(toclone._get_names())
-        if fromdict:
+        if fromdict is not None:
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
