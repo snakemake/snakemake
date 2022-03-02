@@ -701,7 +701,7 @@ class CondaEnvSpec(ABC):
         ...
 
     @abstractmethod
-    def __eq__(self):
+    def __eq__(self, other):
         ...
 
 

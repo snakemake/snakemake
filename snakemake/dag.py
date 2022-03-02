@@ -1782,7 +1782,7 @@ class DAG:
         for job in self.targetjobs:
             build_ruledag(job)
 
-        return self._dot(dag.keys(), print_wildcards=False, print_types=False, dag=dag)
+        return self._dot(dag.keys())
 
     def rule_dot(self):
         graph = defaultdict(set)
