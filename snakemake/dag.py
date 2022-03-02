@@ -282,6 +282,7 @@ class DAG:
             for job in jobs
             if job.conda_env_spec and (self.workflow.run_local or job.is_local)
         }
+
         # Then based on md5sum values
         self.conda_envs = dict()
         for (env_spec, simg_url) in env_set:
