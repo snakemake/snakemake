@@ -879,9 +879,6 @@ class Rule:
                 groupid=groupid,
             )
         except WildcardError as e:
-            import pdb
-
-            pdb.set_trace()
             raise WildcardError(
                 "Wildcards in input files cannot be " "determined from output files:",
                 str(e),
