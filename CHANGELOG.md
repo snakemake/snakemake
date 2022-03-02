@@ -1,5 +1,15 @@
 # Changelog
 
+### [7.0.3](https://www.github.com/snakemake/snakemake/compare/v7.0.2...v7.0.3) (2022-03-02)
+
+
+### Bug Fixes
+
+* fix a bug leading to duplicate conda env initializations; fix display of jobs and output files with changes ([994b151](https://www.github.com/snakemake/snakemake/commit/994b1510766083df7f22d10c0e6e4bb65ffdd710))
+* preserve empty names input or output file lists in params or resource functions ([0d19ab0](https://www.github.com/snakemake/snakemake/commit/0d19ab0e6fcabe61b49d5ef9f2b293b9bcc06534))
+* remove accidental pdb statement ([9c935f1](https://www.github.com/snakemake/snakemake/commit/9c935f1566b976392393aeb00acf0e39eb159e19))
+* remove deprecated and add missing arguments to internal functions ([93a7e39](https://www.github.com/snakemake/snakemake/commit/93a7e39d9f225fac5ff5cb8cbe14500a09986ab3))
+
 ### [7.0.2](https://www.github.com/snakemake/snakemake/compare/v7.0.1...v7.0.2) (2022-03-01)
 
 
