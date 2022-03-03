@@ -15,10 +15,6 @@ from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
-def has_zenodo_token():
-    return "ZENODO_SANDBOX_PAT" in os.environ
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -1206,7 +1202,7 @@ def test_output_file_cache_remote():
 
 
 @connected
-@has_zenodo_token
+@zenodo
 def test_remote_zenodo():
     run(dpath("test_remote_zenodo"))
 
