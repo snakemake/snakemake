@@ -323,36 +323,40 @@ class Persistence:
         return self.metadata(path).get("code")
 
     def version_changed(self, job, file=None):
-        """Yields output files with changed versions of bool if file given."""
+        """Yields output files with changed versions or bool if file given."""
         return _bool_or_gen(self._version_changed, job, file=file)
 
     def code_changed(self, job, file=None):
-        """Yields output files with changed code of bool if file given."""
+        """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
 
     def input_changed(self, job, file=None):
-        """Yields output files with changed input of bool if file given."""
+        """Yields output files with changed input or bool if file given."""
         return _bool_or_gen(self._input_changed, job, file=file)
 
     def params_changed(self, job, file=None):
-        """Yields output files with changed params of bool if file given."""
+        """Yields output files with changed params or bool if file given."""
         return _bool_or_gen(self._params_changed, job, file=file)
 
     def _version_changed(self, job, file=None):
         assert file is not None
-        return self.version(file) != job.rule.version
+        recorded = self.version(file)
+        return recorded is not None and recorded != job.rule.version
 
     def _code_changed(self, job, file=None):
         assert file is not None
-        return self.code(file) != self._code(job.rule)
+        recorded = self.code(file)
+        return recorded is not None and recorded != self._code(job.rule)
 
     def _input_changed(self, job, file=None):
         assert file is not None
-        return self.input(file) != self._input(job)
+        recorded = self.input(file)
+        return recorded is not None and recorded != self._input(job)
 
     def _params_changed(self, job, file=None):
         assert file is not None
-        return self.params(file) != self._params(job)
+        recorded = self.params(file)
+        return recorded is not None and recorded != self._params(job)
 
     def noop(self, *args):
         pass

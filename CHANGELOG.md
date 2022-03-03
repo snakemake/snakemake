@@ -1,5 +1,32 @@
 # Changelog
 
+### [7.0.3](https://www.github.com/snakemake/snakemake/compare/v7.0.2...v7.0.3) (2022-03-02)
+
+
+### Bug Fixes
+
+* fix a bug leading to duplicate conda env initializations; fix display of jobs and output files with changes ([994b151](https://www.github.com/snakemake/snakemake/commit/994b1510766083df7f22d10c0e6e4bb65ffdd710))
+* preserve empty names input or output file lists in params or resource functions ([0d19ab0](https://www.github.com/snakemake/snakemake/commit/0d19ab0e6fcabe61b49d5ef9f2b293b9bcc06534))
+* remove accidental pdb statement ([9c935f1](https://www.github.com/snakemake/snakemake/commit/9c935f1566b976392393aeb00acf0e39eb159e19))
+* remove deprecated and add missing arguments to internal functions ([93a7e39](https://www.github.com/snakemake/snakemake/commit/93a7e39d9f225fac5ff5cb8cbe14500a09986ab3))
+
+### [7.0.2](https://www.github.com/snakemake/snakemake/compare/v7.0.1...v7.0.2) (2022-03-01)
+
+
+### Bug Fixes
+
+* add local marker for input files in cufflinks example. fixes issue [#1362](https://www.github.com/snakemake/snakemake/issues/1362) ([90bc88b](https://www.github.com/snakemake/snakemake/commit/90bc88b84282b477f481e368ad657056e131cbdc))
+* failure to properly apply default remote prefix in combination with the unpack marker ([#1448](https://www.github.com/snakemake/snakemake/issues/1448)) ([82666f1](https://www.github.com/snakemake/snakemake/commit/82666f1b2b043f0a8de739d7027aba66eccdaee3))
+* set mtime for cached source files [WIP] ([#1443](https://www.github.com/snakemake/snakemake/issues/1443)) ([dd27209](https://www.github.com/snakemake/snakemake/commit/dd27209b4a600d3704cabc39776dfef718129197))
+* small bug in snakemake.executors ([#1440](https://www.github.com/snakemake/snakemake/issues/1440)) ([6e64292](https://www.github.com/snakemake/snakemake/commit/6e64292cfa7d5bd9f6cb786681b3710ee51abc43))
+
+
+### Documentation
+
+* fix list display in docs ([3724367](https://www.github.com/snakemake/snakemake/commit/372436747a97496466b60dc60ee0ebe4cfef1016))
+* fix list display in docs ([2dd0e91](https://www.github.com/snakemake/snakemake/commit/2dd0e91f8b7e13d0ffcebe4ed11024a39357ebc7))
+* Fix typo and grammar mistake in scatter-gather section. ([#1441](https://www.github.com/snakemake/snakemake/issues/1441)) ([f218aaa](https://www.github.com/snakemake/snakemake/commit/f218aaad1b9b80074ea602cde0352c34c18e70b5))
+
 ### [7.0.1](https://www.github.com/snakemake/snakemake/compare/v7.0.0...v7.0.1) (2022-02-26)
 
 

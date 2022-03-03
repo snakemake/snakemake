@@ -696,6 +696,14 @@ class CondaEnvSpec(ABC):
     def contains_wildcard(self):
         ...
 
+    @abstractmethod
+    def __hash__(self):
+        ...
+
+    @abstractmethod
+    def __eq__(self, other):
+        ...
+
 
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath: str, rule=None):
@@ -731,6 +739,12 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def contains_wildcard(self):
         return contains_wildcard(self.file)
 
+    def __hash__(self):
+        return hash(self.file)
+
+    def __eq__(self, other):
+        return self.file == other.file
+
 
 class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
@@ -755,6 +769,12 @@ class CondaEnvNameSpec(CondaEnvSpec):
     @property
     def contains_wildcard(self):
         return contains_wildcard(self.name)
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, other):
+        return self.name == other.name
 
 
 def is_conda_env_file(spec: str):

@@ -11,6 +11,7 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 
 from snakemake.common import (
@@ -59,6 +60,10 @@ class SourceFile(ABC):
         if isinstance(path, SourceFile):
             path = path.get_path_or_uri()
         return self.__class__(smart_join(self.get_path_or_uri(), path))
+
+    def mtime(self):
+        """If possible, return mtime of the file. Otherwise, return None."""
+        return None
 
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
@@ -110,6 +115,9 @@ class LocalSourceFile(SourceFile):
 
     def simplify_path(self):
         return utils.simplify_path(self.path)
+
+    def mtime(self):
+        return os.stat(self.path).st_mtime
 
     def __fspath__(self):
         return self.path
@@ -224,6 +232,18 @@ class HostingProviderFile(SourceFile):
 class GithubFile(HostingProviderFile):
     def get_path_or_uri(self):
         return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
+
+    def mtime(self):
+        import requests
+
+        url = f"https://api.github.com/repos/{self.repo}/commits?path={self.path}&page=1&per_page=1"
+        mtime = requests.get(url).json()[0]["commit"]["committer"]["date"]
+        assert mtime.endswith(
+            "Z"
+        ), "bug: expected suffix Z on Github provided time stamp"
+        # assume UTC and make it understandable to fromisoformat
+        mtime = mtime[:-1] + "+00:00"
+        return datetime.fromisoformat(mtime).timestamp()
 
 
 class GitlabFile(HostingProviderFile):
@@ -344,6 +364,14 @@ class SourceCache:
             cache_entry, "wb"
         ) as cache_source:
             cache_source.write(source.read())
+
+        mtime = source_file.mtime()
+        if mtime is not None:
+            # Set to mtime of original file
+            # In case we don't have that mtime, it is fine
+            # to just keep the time at the time of caching
+            # as mtime.
+            os.utime(cache_entry, times=(mtime, mtime))
 
     def _open(self, path_or_uri, mode):
         from smart_open import open

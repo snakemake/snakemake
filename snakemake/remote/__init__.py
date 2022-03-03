@@ -52,8 +52,8 @@ class StaticRemoteObjectProxy(ObjectProxy):
         copied_wrapped = copy.copy(self.__wrapped__)
         return type(self)(copied_wrapped)
 
-    def __deepcopy__(self):
-        copied_wrapped = copy.deepcopy(self.__wrapped__)
+    def __deepcopy__(self, memo):
+        copied_wrapped = copy.deepcopy(self.__wrapped__, memo)
         return type(self)(copied_wrapped)
 
 
