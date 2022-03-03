@@ -282,6 +282,7 @@ class DAG:
             for job in jobs
             if job.conda_env_spec and (self.workflow.run_local or job.is_local)
         }
+
         # Then based on md5sum values
         self.conda_envs = dict()
         for (env_spec, simg_url) in env_set:
@@ -515,7 +516,7 @@ class DAG:
             if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
                 not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
-                raise ImproperOutputException(job.rule, [f])
+                raise ImproperOutputException(job, [f])
 
         # It is possible, due to archive expansion or cluster clock skew, that
         # the files appear older than the input.  But we know they must be new,
@@ -920,7 +921,7 @@ class DAG:
 
         if missing_input:
             self.delete_job(job, recursive=False)  # delete job from tree
-            raise MissingInputException(job.rule, missing_input)
+            raise MissingInputException(job, missing_input)
 
         if skip_until_dynamic:
             self._dynamic.add(job)
@@ -1781,7 +1782,7 @@ class DAG:
         for job in self.targetjobs:
             build_ruledag(job)
 
-        return self._dot(dag.keys(), print_wildcards=False, print_types=False, dag=dag)
+        return self._dot(dag.keys())
 
     def rule_dot(self):
         graph = defaultdict(set)

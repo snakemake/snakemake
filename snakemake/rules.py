@@ -787,8 +787,6 @@ class Rule:
                     groupid=groupid,
                     **aux_params
                 )
-                if apply_path_modifier and not incomplete:
-                    item = self.apply_path_modifier(item, property=property)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
@@ -808,14 +806,14 @@ class Rule:
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item)
+                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
                 else:
                     assert isinstance(item, dict)
-                    pairs = item.items()
+                    pairs = [(name, item, _is_callable) for name, item in item.items()]
             else:
-                pairs = [(name, item)]
+                pairs = [(name, item, _is_callable)]
 
-            for name, item in pairs:
+            for name, item, from_callable in pairs:
                 is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
@@ -827,8 +825,12 @@ class Rule:
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list " "of str.", rule=self
+                            "Function did not return str or list of str.", rule=self
                         )
+
+                    if from_callable and apply_path_modifier and not incomplete:
+                        item_ = self.apply_path_modifier(item_, property=property)
+
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
@@ -877,9 +879,6 @@ class Rule:
                 groupid=groupid,
             )
         except WildcardError as e:
-            import pdb
-
-            pdb.set_trace()
             raise WildcardError(
                 "Wildcards in input files cannot be " "determined from output files:",
                 str(e),
