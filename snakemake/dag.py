@@ -516,7 +516,7 @@ class DAG:
             if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
                 not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
-                raise ImproperOutputException(job.rule, [f])
+                raise ImproperOutputException(job, [f])
 
         # It is possible, due to archive expansion or cluster clock skew, that
         # the files appear older than the input.  But we know they must be new,
@@ -921,7 +921,7 @@ class DAG:
 
         if missing_input:
             self.delete_job(job, recursive=False)  # delete job from tree
-            raise MissingInputException(job.rule, missing_input)
+            raise MissingInputException(job, missing_input)
 
         if skip_until_dynamic:
             self._dynamic.add(job)
