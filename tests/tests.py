@@ -14,8 +14,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
+
 def has_zenodo_token():
     return "ZENODO_SANDBOX_PAT" in os.environ
+
 
 def test_list_untracked():
     run(dpath("test_list_untracked"))
