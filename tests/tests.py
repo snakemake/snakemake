@@ -1201,6 +1201,12 @@ def test_output_file_cache_remote():
     )
 
 
+@connected
+@zenodo
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 

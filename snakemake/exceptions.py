@@ -466,6 +466,11 @@ class WebDAVFileException(RuleException):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 
+class ZenodoFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
+
 class ClusterJobException(RuleException):
     def __init__(self, job_info, jobid):
         super().__init__(
