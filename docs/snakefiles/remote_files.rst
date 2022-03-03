@@ -814,14 +814,18 @@ Avoid creating uploads with too many files, and instead group and zip them to ma
     from snakemake.remote.zenodo import RemoteProvider
     import os
 
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "MYZENODO_PAT"
+
     access_token=os.environ["MYZENODO_PAT"]
-    ZEN = RemoteProvider(deposition="your deposition id", access_token=access_token)
+    zenodo = RemoteProvider(deposition="your deposition id", access_token=access_token)
 
     rule upload:
         input:
             "output/results.csv"
         output:
-            ZEN.remote("results.csv")
+            zenodo.remote("results.csv")
         shell:
             "cp {input} {output}"
 
