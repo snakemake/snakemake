@@ -703,7 +703,7 @@ class Job(AbstractJob):
     def check_protected_output(self):
         protected = list(filter(lambda f: f.protected, self.expanded_output))
         if protected:
-            raise ProtectedOutputException(self.rule, protected)
+            raise ProtectedOutputException(self, protected)
 
     def remove_existing_output(self):
         """Clean up both dynamic and regular output before rules actually run"""
