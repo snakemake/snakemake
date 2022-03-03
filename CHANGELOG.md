@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.0.4](https://www.github.com/snakemake/snakemake/compare/v7.0.3...v7.0.4) (2022-03-03)
+
+
+### Bug Fixes
+
+* more details on input and output exceptions (missing input, protected output, etc.) ([#1453](https://www.github.com/snakemake/snakemake/issues/1453)) ([8d64af2](https://www.github.com/snakemake/snakemake/commit/8d64af2cb905fef95585055c7b69fd1c45d44108))
+
 ### [7.0.3](https://www.github.com/snakemake/snakemake/compare/v7.0.2...v7.0.3) (2022-03-02)
 
 
