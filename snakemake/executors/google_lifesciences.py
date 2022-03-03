@@ -22,8 +22,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
 from snakemake.resources import DefaultResources
-import httplib2
-import google_auth_httplib2
+
 
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
 logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
