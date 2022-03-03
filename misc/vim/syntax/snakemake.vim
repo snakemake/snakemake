@@ -1,21 +1,20 @@
 " Vim syntax file
 " Language: Snakemake (extended from python.vim)
 " Maintainer: Jay Hesselberth (jay.hesselberth@gmail.com)
-" Last Change: 2019 Nov 22
+" Last Change: 2020 Oct 6
 "
 " Usage
 "
-" copy to $HOME/.vim/syntax directory and add:
-"
-" au BufNewFile,BufRead Snakefile set syntax=snakemake
-" au BufNewFile,BufRead *.snake set syntax=snakemake
-"
-" to your $HOME/.vimrc file
+" copy to $HOME/.vim/syntax directory and
+" copy to ftdetect/snakemake.vim to $HOME/.vim/ftdetect directory
 "
 " force coloring in a vim session with:
 "
 " :set syntax=snakemake
 "
+if exists("b:current_syntax")
+    finish
+endif
 
 " load settings from system python.vim (7.4)
 source $VIMRUNTIME/syntax/python.vim

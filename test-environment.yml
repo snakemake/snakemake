@@ -2,10 +2,13 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python
+  - yte
+  - stopit
   - datrie
   - boto3
   - moto
+  - junit-xml  # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
@@ -14,13 +17,14 @@ dependencies:
   - ftputil
   - pysftp
   - requests
+  - responses
   - dropbox
   - numpy
   - appdirs
   - pytools
   - docutils
   - pygments
-  - pandoc <2.0  # pandoc has changed the CLI API so that it is no longer compatible with the version of r-markdown below
+  - pandoc
   - xorg-libxrender
   - xorg-libxext
   - xorg-libxau
@@ -28,8 +32,9 @@ dependencies:
   - xorg-libsm
   - psutil
   - google-cloud-storage
-  - azure-storage
-  - azure-storage-common
+  - google-api-python-client
+  - oauth2client
+  - azure-storage-blob
   - ratelimiter
   - configargparse
   - appdirs
@@ -41,7 +46,21 @@ dependencies:
   - pygraphviz
   - python-kubernetes
   - gitpython
+  - pulp >=2.0
   - tibanna
   - environment-modules
   - nbformat
   - toposort
+  - mamba
+  - crc32c
+  - pip
+  - connection_pool
+  - py-tes
+  - requests-mock
+  - peppy
+  - eido
+  - glpk
+  - smart_open
+  - filelock
+  - tabulate
+  - retry

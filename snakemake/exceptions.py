@@ -1,12 +1,12 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2022, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 import traceback
+import textwrap
 from tokenize import TokenError
-
 from snakemake.logging import logger
 
 
@@ -44,7 +44,10 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
+        is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
+            os.path.realpath(snakemake_path)
+        )
+        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
 
 
@@ -132,6 +135,21 @@ class WorkflowError(Exception):
     def format_arg(arg):
         if isinstance(arg, str):
             return arg
+        elif isinstance(arg, WorkflowError):
+            spec = ""
+            if arg.rule is not None:
+                spec += "rule {}".format(arg.rule)
+            if arg.snakefile is not None:
+                if spec:
+                    spec += ", "
+                spec += "line {}, {}".format(arg.lineno, arg.snakefile)
+
+            if spec:
+                spec = " ({})".format(spec)
+
+            return "{}{}:\n{}".format(
+                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
+            )
         else:
             return "{}: {}".format(arg.__class__.__name__, str(arg))
 
@@ -146,13 +164,18 @@ class WorkflowError(Exception):
         self.rule = rule
 
 
+class SourceFileError(WorkflowError):
+    def __init__(self, msg):
+        super().__init__("Error in source file definition: {}".format(msg))
+
+
 class WildcardError(WorkflowError):
     pass
 
 
 class RuleException(Exception):
     """
-    Base class for exception occuring within the
+    Base class for exception occurring within the
     execution or definition of rules.
     """
 
@@ -193,11 +216,14 @@ class RuleException(Exception):
 class InputFunctionException(WorkflowError):
     def __init__(self, msg, wildcards=None, lineno=None, snakefile=None, rule=None):
         msg = (
-            self.format_arg(msg)
+            "Error:\n  "
+            + self.format_arg(msg)
             + "\nWildcards:\n"
             + "\n".join(
-                "{}={}".format(name, value) for name, value in wildcards.items()
+                "  {}={}".format(name, value) for name, value in wildcards.items()
             )
+            + "\nTraceback:\n"
+            + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
         super().__init__(msg, lineno=lineno, snakefile=snakefile, rule=rule)
 
@@ -236,10 +262,16 @@ class IOException(RuleException):
 
 class MissingOutputException(RuleException):
     def __init__(
-        self, message=None, include=None, lineno=None, snakefile=None, rule=None
+        self,
+        message=None,
+        include=None,
+        lineno=None,
+        snakefile=None,
+        rule=None,
+        jobid="",
     ):
-        message = "Job completed successfully, but some output files are missing. {}".format(
-            message
+        message = "Job {} completed successfully, but some output files are missing. {}".format(
+            message, jobid
         )
         super().__init__(message, include, lineno, snakefile, rule)
 
@@ -471,6 +503,14 @@ class CreateCondaEnvironmentException(WorkflowError):
 
 
 class SpawnedJobError(Exception):
+    pass
+
+
+class CheckSumMismatchException(WorkflowError):
+    """ "should be called to indicate that checksum of a file compared to known
+    hash does not match, typically done with large downloads, etc.
+    """
+
     pass
 
 

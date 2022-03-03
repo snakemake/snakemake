@@ -1,0 +1,68 @@
+description: "Schema for a minimal PEP"
+version: "2.0.0"
+properties:
+  name: 
+    type: string
+    pattern: "^\\S*$"
+    description: "Project name with no whitespace"
+  config:
+    pep_version:
+      description: "Version of the PEP Schema this PEP follows"
+      type: string
+    sample_table:
+      type: string
+      description: "Path to the sample annotation table with one row per sample"
+    subsample_table:
+      type: string
+      description: "Path to the subsample annotation table with one row per subsample and sample_name attribute matching an entry in the sample table"
+    sample_modifiers:
+      type: object
+      properties:
+        append:
+          type: object
+        duplicate:
+          type: object
+        imply:
+          type: array
+          items:
+            type: object
+            properties:
+              if:
+                type: object
+              then:
+                type: object
+        derive:
+          type: object
+          properties:
+            attributes:
+              type: array
+              items:
+                type: string
+            sources:
+              type: object
+    project_modifiers:
+      type: object
+      properties:
+        amend:
+          description: "Object overwriting original project attributes"
+          type: object
+        import:
+          description: "List of external PEP project config files to import"
+          type: array
+          items:
+            type: string
+    required:
+      - pep_version
+  samples:
+    type: array
+    items:
+      type: object
+      properties:
+        sample_name: 
+          type: string
+          pattern: "^\\S*$"
+          description: "Unique name of the sample with no whitespace"
+      required:
+        - sample_name
+required:
+  - samples

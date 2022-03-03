@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -8,6 +8,7 @@ import os
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
 from snakemake.exceptions import DropboxFileException, WorkflowError
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -54,9 +55,8 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["dropbox://"]
 
 
-class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with the Dropbox API.
-    """
+class RemoteObject(AbstractRemoteRetryObject):
+    """This is a class to interact with the Dropbox API."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
@@ -100,7 +100,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             # if the destination path does not exist, make it
             if make_dest_dirs:
@@ -109,13 +109,13 @@ class RemoteObject(AbstractRemoteObject):
             self._dropboxc.files_download_to_file(
                 self.local_file(), self.dropbox_file()
             )
-            os.sync()  # ensure flush to disk
+            os_sync()  # ensure flush to disk
         else:
             raise DropboxFileException(
                 "The file does not seem to exist remotely: %s" % self.dropbox_file()
             )
 
-    def upload(self, mode=dropbox.files.WriteMode("overwrite")):
+    def _upload(self, mode=dropbox.files.WriteMode("overwrite")):
         # Chunk file into 10MB slices because Dropbox does not accept more than 150MB chunks
         chunksize = 10000000
         with open(self.local_file(), mode="rb") as f:

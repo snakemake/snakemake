@@ -1,5 +1,9 @@
+from pathlib import Path
+
+
 include: 'test_rule.smk'
 include: 'test_second_rule.smk'
+include: Path('test_third_rule.smk')
 
 rule all:
-    input: rules.test_second_rule.output
+    input: rules.test_third_rule.output

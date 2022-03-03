@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -47,6 +47,9 @@ class AbstractOutputFileCache:
             )
             yield from ((f, f[prefix_len:]) for f in job.output)
         else:
+            assert (
+                len(job.output) == 1
+            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
             yield (job.output[0], "")
 
     def raise_write_error(self, entry, exception=None):

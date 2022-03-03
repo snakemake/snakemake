@@ -3,24 +3,35 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches_ignore: []
 
 jobs:
+  cancel-previous:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: khan/pull-request-workflow-cancel@1.0.0
+        with:
+          workflows: "main.yml"
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
   formatting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
 
       - name: Setup black environment
-        run: conda create --quiet --name black black
+        run: |
+          conda create -c conda-forge -y -q --name black black
 
       - name: Check formatting
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate black
-          black --check snakemake tests/*.py
+          black --check --diff snakemake tests/tests.py tests/test_tes.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
@@ -34,14 +45,23 @@ jobs:
     needs: formatting
     env:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # we need tags for versioneer to work
       
       - name: Setup Snakemake environment
-        run: conda env create --quiet --name snakemake --file test-environment.yml
-
+        run: |
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          conda install -c conda-forge -q mamba
+          mamba env create -q --name snakemake --file test-environment.yml
+          # additionally add singularity
+          mamba install -c conda-forge -n snakemake singularity
+      
       - name: Setup apt dependencies
-        run: sudo apt install -y singularity-container stress
+        run: |
+          sudo apt install -y stress git wget
         
       - name: Setup iRODS
         run: |
@@ -50,6 +70,23 @@ jobs:
           sleep 10
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
+
+      - name: Setup Gcloud
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
+        if: env.GCP_AVAILABLE
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Setup AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        if: env.AWS_AVAILABLE
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Run tests
         env:
@@ -62,16 +99,33 @@ jobs:
           
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        if: env.AWS_AVAILABLE
+      - name: Build and publish docker image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        uses: elgohr/Publish-Docker-Github-Action@2.16
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          name: snakemake/snakemake
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+          tags: ${{ env.GITHUB_SHA }}
+      
+      - name: Set container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        run: |
+          echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
+
+      - name: Test Kubernetes execution
+        if: env.GCP_AVAILABLE
+        env:
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+
+          pytest -s -v -x tests/test_kubernetes.py
 
       - name: Test AWS execution
-        if: env.AWS_AVAILABLE && success()
+        if: env.AWS_AVAILABLE
         env: 
           CI: true
         run: |
@@ -81,5 +135,66 @@ jobs:
 
           pytest -v -x tests/test_tibanna.py
 
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
+      - name: Test GA4GH TES executor
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_tes.py
+        
+      - name: Delete container image
+        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
+        run: |
+          docker run --rm lumir/remove-dockerhub-tag \
+          --user ${{ secrets.DOCKER_USERNAME }} \
+          --password ${{ secrets.DOCKER_TOKEN }} \
+          snakemake/snakemake:${{ env.GITHUB_SHA }}
+
       - name: Build container image
+        if: "!contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: docker build .
+
+
+  testing-windows:
+    runs-on: windows-latest
+    needs: formatting
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Remove unix-only dependencies
+        shell: python
+        run: |
+          import fileinput
+          excluded_on_win = ["environment-modules", "cwltool"]
+          for line in fileinput.input("test-environment.yml", inplace=True):
+              if all(pkg not in line for pkg in excluded_on_win):
+                  print(line)
+
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: snakemake
+          python-version: 3.9
+          channels: conda-forge, bioconda
+
+      - name: Setup Snakemake environment
+        run: |
+          conda install -q --name base mamba
+          mamba env update -q --file test-environment.yml
+
+      - name: Run tests
+        env:
+          CI: true
+        run: |
+          python -m pytest -v -x tests/tests.py

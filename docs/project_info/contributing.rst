@@ -44,7 +44,7 @@ Contributing a new cluster or cloud execution backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors.py <https://github.com/snakemake/snakemake/tree/master/snakemake/executors.py>`_.
+All executors are located in `snakemake/executors/ <https://github.com/snakemake/snakemake/tree/main/snakemake/executors>`_.
 In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
 Below you find a skeleton
 
@@ -90,12 +90,31 @@ Below you find a skeleton
             for job in self.active_jobs:
                 # cancel active jobs here
             self.shutdown()
+        
+        def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
+            """Run a list of jobs that is ready at a given point in time.
+
+            By default, this method just runs each job individually.
+            This behavior is inherited and therefore this method can be removed from the skeleton if the
+            default behavior is intended.
+            This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
+
+            Note that in any case, for each job, the callback functions have to be called individually!
+            """
+            for job in jobs:
+                self.run(
+                    job,
+                    callback=callback,
+                    submit_callback=submit_callback,
+                    error_callback=error_callback,
+                )
 
         def run(self, job,
                 callback=None,
                 submit_callback=None,
                 error_callback=None):
-            import kubernetes.client
+            """Run an individual job or a job group.
+            """
 
             super()._run(job)
             # obtain job execution command
@@ -177,7 +196,7 @@ To create a Pull Request you need to do these steps:
 10. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
 11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
 
-If you want to create more pull requests, first run :code:`git checkout master` and then start at step 5. with a new branch name.
+If you want to create more pull requests, first run :code:`git checkout main` and then start at step 5. with a new branch name.
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 
@@ -193,7 +212,7 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 .. code-block:: console
 
-    $ conda env create -f environment.yml -n snakemake-testing
+    $ conda env create -f test-environment.yml -n snakemake-testing
     $ conda activate snakemake-testing
     $ pip install -e .
 
@@ -275,13 +294,13 @@ Snakemake development environment via
 
     $ git clone git@github.com:snakemake/snakemake.git
     $ cd snakemake
-    $ conda env create -f environment.yml -n snakemake
+    $ conda env create -f doc-environment.yml -n snakemake
 
 Then, the docs can be built with
 
 .. code-block:: console
 
-    $ source activate snakemake
+    $ conda activate snakemake
     $ cd docs
     $ make html
     $ make clean && make html  # force rebuild

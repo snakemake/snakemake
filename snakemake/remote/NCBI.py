@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2017, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -70,8 +70,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with NCBI / GenBank.
-    """
+    """This is a class to interact with NCBI / GenBank."""
 
     def __init__(
         self,
@@ -140,7 +139,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         if self.exists():
             self._ncbi.fetch_from_ncbi(
                 [self.accession],
@@ -156,7 +155,7 @@ class RemoteObject(AbstractRemoteObject):
                 "The record does not seem to exist remotely: %s" % self.accession
             )
 
-    def upload(self):
+    def _upload(self):
         raise NCBIFileException(
             "Upload is not permitted for the NCBI remote provider. Is an output set to NCBI.RemoteProvider.remote()?"
         )
@@ -442,8 +441,8 @@ class NCBIHelper(object):
 
     def parse_accession_str(self, id_str):
         """
-            This tries to match an NCBI accession as defined here:
-                https://www.ncbi.nlm.nih.gov/Sequin/acc.html
+        This tries to match an NCBI accession as defined here:
+            https://www.ncbi.nlm.nih.gov/Sequin/acc.html
         """
         m = re.search(
             r"(?P<accession>(?:[a-zA-Z]{1,6}|NW_|NC_|NM_|NR_)\d{1,10})(?:\.(?P<version>\d+))?(?:\.(?P<file_ext>\S+))?.*",
@@ -468,7 +467,7 @@ class NCBIHelper(object):
     @staticmethod
     def _seq_chunks(seq, n):
         # https://stackoverflow.com/a/312464/190597 (Ned Batchelder)
-        """ Yield successive n-sized chunks from seq."""
+        """Yield successive n-sized chunks from seq."""
         for i in range(0, len(seq), n):
             yield seq[i : i + n]
 
@@ -546,9 +545,9 @@ class NCBIHelper(object):
         **kwargs
     ):
         """
-            This function downloads and saves files from NCBI.
-            Adapted in part from the BSD-licensed code here:
-              https://github.com/broadinstitute/viral-ngs/blob/master/util/genbank.py
+        This function downloads and saves files from NCBI.
+        Adapted in part from the BSD-licensed code here:
+          https://github.com/broadinstitute/viral-ngs/blob/master/util/genbank.py
         """
 
         max_chunk_size = 500

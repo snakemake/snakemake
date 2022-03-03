@@ -1,0 +1,14 @@
+import subprocess
+
+try:
+    shell("./setup.sh")
+except subprocess.CalledProcessError:
+    pass
+
+rule all:
+    input:
+        'Input/{file}'
+    output:
+        'Output/{file}'
+    shell:
+        'cp {input} {output}'

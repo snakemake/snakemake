@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2017, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -11,6 +11,7 @@ import functools
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject, DomainObject
 from snakemake.exceptions import WebDAVFileException, WorkflowError
+from snakemake.utils import os_sync
 
 try:
     # third-party modules
@@ -49,8 +50,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(DomainObject):
-    """ This is a class to interact with a WebDAV file store.
-    """
+    """This is a class to interact with a WebDAV file store."""
 
     def __init__(self, *args, keep_local=False, **kwargs):
         # self.loop = asyncio.get_event_loop()
@@ -141,7 +141,7 @@ class RemoteObject(DomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             # if the destination path does not exist, make it
             if make_dest_dirs:
@@ -150,13 +150,13 @@ class RemoteObject(DomainObject):
                 self.loop.run_until_complete(
                     self.conn.download(self.webdav_file, self.local_file())
                 )
-                os.sync()  # ensure flush to disk
+                os_sync()  # ensure flush to disk
         else:
             raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 
-    def upload(self):
+    def _upload(self):
         # make containing folder
         with self.webdavc() as webdavc:
             self.loop.run_until_complete(

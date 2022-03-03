@@ -1,0 +1,9 @@
+shell.executable("bash")
+
+rule all:
+   input:
+      gff_dir='references/gffs/'
+   output:
+      test_file='test.txt'
+   shell:
+      "echo b0rk > {output.test_file}"

@@ -1,0 +1,19 @@
+shell.executable("bash") 
+
+rule all:
+    input:
+        "test.out"
+
+rule a:
+    output:
+        temp("long-path-with-stange-symbols-%,._long-path-with-stange-symbols-%,._long-path-with-stange-symbols-%,._input/stange-symbols-%,._long-path/_ebio_abt3_projects_software_dev_llmga_find_refs_scratch_TEST_nyoungblut_LLMGA_find_refs_2405@30379736_2_T3_R2.fq.gz.txt")
+    shell:
+        "echo test > {output}"
+
+rule b:
+    input:
+        "long-path-with-stange-symbols-%,._long-path-with-stange-symbols-%,._long-path-with-stange-symbols-%,._input/stange-symbols-%,._long-path/_ebio_abt3_projects_software_dev_llmga_find_refs_scratch_TEST_nyoungblut_LLMGA_find_refs_2405@30379736_2_T3_R2.fq.gz.txt"
+    output:
+        "test.out"
+    shell:
+        "echo test1 > {output}"

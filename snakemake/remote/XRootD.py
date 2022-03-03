@@ -1,5 +1,5 @@
 __author__ = "Chris Burr"
-__copyright__ = "Copyright 2017, Chris Burr"
+__copyright__ = "Copyright 2022, Chris Burr"
 __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 
@@ -7,7 +7,12 @@ import os
 from os.path import abspath, join, normpath
 import re
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from stat import S_ISREG
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError, XRootDFileException
 
 try:
@@ -21,6 +26,8 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
+    supports_default = True
+
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
     ):
@@ -29,7 +36,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self._xrd = XRootDHelper()
@@ -48,8 +55,8 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["root://", "roots://", "rootk://"]
 
 
-class RemoteObject(AbstractRemoteObject):
-    """ This is a class to interact with XRootD servers."""
+class RemoteObject(AbstractRemoteRetryObject):
+    """This is a class to interact with XRootD servers."""
 
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs
@@ -59,7 +66,7 @@ class RemoteObject(AbstractRemoteObject):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
-            **kwargs
+            **kwargs,
         )
 
         if provider:
@@ -86,11 +93,11 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.remote_file(), self.file())
 
-    def upload(self):
+    def _upload(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.file(), self.remote_file())
 
@@ -121,7 +128,7 @@ class XRootDHelper(object):
 
     def _parse_url(self, url):
         match = re.search(
-            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:\_\-\.]+\:?/)(?P<path>/.+)", url
+            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
         )
         if match is None:
             return None
@@ -131,33 +138,64 @@ class XRootDHelper(object):
         dirname, filename = os.path.split(match.group("path"))
         # We need a trailing / to keep XRootD happy
         dirname += "/"
+
+        # and also make sure we supply a non-relative path
+        # (snakemake removes double-slash // characters)
+        if not dirname.startswith("/"):
+            dirname = "/" + dirname
+
         return domain, dirname, filename
 
     def exists(self, url):
+
         domain, dirname, filename = self._parse_url(url)
-        status, dirlist = self.get_client(domain).dirlist(dirname)
+
+        status, statInfo = self.get_client(domain).stat(os.path.join(dirname, filename))
+
         if not status.ok:
             if status.errno == 3011:
                 return False
-            else:
-                raise XRootDFileException(
-                    "Error listing directory "
-                    + dirname
-                    + " on domain "
-                    + domain
-                    + "\n"
-                    + repr(status)
-                    + "\n"
-                    + repr(dirlist)
-                )
-        return filename in [f.name for f in dirlist.dirlist]
+            raise XRootDFileException(
+                "Error stating URL "
+                + os.path.join(dirname, filename)
+                + " on domain "
+                + domain
+                + "\n"
+                + repr(status)
+                + "\n"
+                + repr(statInfo)
+            )
+
+        return True
+        # return not (
+        #     (statInfo.flags & StatInfoFlags.IS_DIR)
+        #     or (statInfo.flags & StatInfoFlags.OTHER)
+        # )
 
     def _get_statinfo(self, url):
         domain, dirname, filename = self._parse_url(url)
         matches = [
             f for f in self.list_directory(domain, dirname) if f.name == filename
         ]
-        assert len(matches) == 1
+
+        assert len(matches) > 0
+        if len(matches) > 1:
+            # -- check matches for consistency
+            # There is a transient effect in XRootD
+            # where a file may match more than once.
+            # This is okay as long as the statinfo
+            # is the same for all of them.
+            relevant_properties = [  # we only need to check front-facing attributes
+                x
+                for x in dir(matches[0].statinfo)
+                if not (x[:1] == "_" or x[-2:] == "__")
+            ]
+            assert all(
+                getattr(m.statinfo, p) == getattr(matches[0].statinfo, p)
+                for m in matches[1:]
+                for p in relevant_properties
+            )
+
         return matches[0].statinfo
 
     def file_last_modified(self, filename):
@@ -170,18 +208,24 @@ class XRootDHelper(object):
         # Prepare the source path for XRootD
         if not self._parse_url(source):
             source = abspath(source)
+        else:
+            domain, dirname, filename = self._parse_url(source)
+            source = f"{domain}/{dirname}/{filename}"
+
         # Prepare the destination path for XRootD
         assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
             domain, dirname, filename = self._parse_url(destination)
+            destination = f"{domain}/{dirname}/{filename}"
             self.makedirs(domain, dirname)
         else:
             destination = abspath(destination)
             if not os.path.isdir(os.path.dirname(destination)):
                 os.makedirs(os.path.dirname(destination))
+
         # Perform the copy operation
         process = client.CopyProcess()
-        process.add_job(source, destination)
+        process.add_job(source, destination, force=True)
         process.prepare()
         status, returns = process.run()
         if not status.ok or not returns[0]["status"].ok:

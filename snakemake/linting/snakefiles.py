@@ -15,7 +15,7 @@ class SnakefileLinter(Linter):
         return {"snakefile": snakefile}
 
     def read_item(self, snakefile):
-        return open(snakefile).read()
+        return self.workflow.sourcecache.open(snakefile).read()
 
     def lint_absolute_paths(self, snakefile, regex=re.compile(ABS_PATH_PATTERN)):
         for match in regex.finditer(snakefile):
@@ -61,7 +61,7 @@ class SnakefileLinter(Linter):
                 title="Path composition with '+' in line {}".format(line),
                 body="This becomes quickly unreadable. Usually, it is better to endure some "
                 "redundancy against having a more readable workflow. Hence, just repeat common "
-                'prefixes. If path composition is unavoidable, use pathlib or string formatting with f"...". ',
+                'prefixes. If path composition is unavoidable, use pathlib or (python >= 3.6) string formatting with f"...". ',
             )
 
     def lint_envvars(
@@ -92,6 +92,15 @@ class SnakefileLinter(Linter):
                 ),
                 body="Use the container directive instead (it is agnostic of the underlying container runtime).",
                 links=[links.containers],
+            )
+
+    def lint_tab_usage(self, snakefile, regex=re.compile(r"^ *\t")):
+        for match in regex.finditer(snakefile):
+            line = get_line(match, snakefile)
+            yield Lint(
+                title="Tab usage in line {}.".format(line),
+                body="Both Python and Snakemake can get confused when mixing tabs and spaces for indentation. "
+                "It is recommended to only use spaces for indentation.",
             )
 
 

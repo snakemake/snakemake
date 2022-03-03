@@ -1,33 +1,39 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import sys
 import os
+import signal
+import sys
+import shlex
 import shutil
+import time
 from os.path import join
-from subprocess import call
 import tempfile
 import hashlib
 import urllib
-from shutil import rmtree, which
-from shlex import quote
 import pytest
+import glob
 import subprocess
 
 from snakemake import snakemake
 from snakemake.shell import shell
+from snakemake.common import ON_WINDOWS
 
 
 def dpath(path):
-    """get path to a data file (relative to the directory this
-	test lives in)"""
+    """get the path to a data file (relative to the directory this
+    test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
 
-def md5sum(filename):
-    data = open(filename, "rb").read()
+def md5sum(filename, ignore_newlines=False):
+    if ignore_newlines:
+        with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
+            data = f.read().encode("utf8", errors="surrogateescape")
+    else:
+        data = open(filename, "rb").read()
     return hashlib.md5(data).hexdigest()
 
 
@@ -45,15 +51,11 @@ def is_ci():
 
 
 def has_gcloud_service_key():
-    return "GCLOUD_SERVICE_KEY" in os.environ
-
-
-def has_gcloud_cluster():
-    return "GCLOUD_CLUSTER" in os.environ
+    return "GCP_AVAILABLE" in os.environ
 
 
 gcloud = pytest.mark.skipif(
-    not is_connected() or not has_gcloud_service_key() or not has_gcloud_cluster(),
+    not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
@@ -72,6 +74,16 @@ def copy(src, dst):
         shutil.copy(src, dst)
 
 
+def get_expected_files(results_dir):
+    """Recursively walk through the expected-results directory to enumerate
+    all expected files."""
+    return [
+        os.path.relpath(f, results_dir)
+        for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
+        if not os.path.isdir(f)
+    ]
+
+
 def run(
     path,
     shouldfail=False,
@@ -79,13 +91,21 @@ def run(
     subpath=None,
     no_tmpdir=False,
     check_md5=True,
+    check_results=True,
     cores=3,
+    nodes=1,
     set_pythonpath=True,
     cleanup=True,
-    **params
+    conda_frontend="mamba",
+    config=dict(),
+    targets=None,
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
+    shellcmd=None,
+    sigint_after=None,
+    **params,
 ):
     """
-    Test the Snakefile in path.
+    Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
@@ -99,8 +119,8 @@ def run(
         del os.environ["PYTHONPATH"]
 
     results_dir = join(path, "expected-results")
-    snakefile = join(path, snakefile)
-    assert os.path.exists(snakefile)
+    original_snakefile = join(path, snakefile)
+    assert os.path.exists(original_snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(
         results_dir
     ), "{} does not exist".format(results_dir)
@@ -110,7 +130,7 @@ def run(
     tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
     os.mkdir(tmpdir)
 
-    config = {}
+    config = dict(config)
 
     # handle subworkflow
     if subpath is not None:
@@ -129,44 +149,91 @@ def run(
 
     # copy files
     for f in os.listdir(path):
-        print(f)
         copy(os.path.join(path, f), tmpdir)
 
+    # Snakefile is now in temporary directory
+    snakefile = join(tmpdir, snakefile)
+
     # run snakemake
-    success = snakemake(
-        snakefile,
-        cores=cores,
-        workdir=path if no_tmpdir else tmpdir,
-        stats="stats.txt",
-        config=config,
-        verbose=True,
-        **params
-    )
+    if shellcmd:
+        if not shellcmd.startswith("snakemake"):
+            raise ValueError("shellcmd does not start with snakemake")
+        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+        try:
+            if sigint_after is None:
+                subprocess.check_output(
+                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                )
+                success = True
+            else:
+                with subprocess.Popen(
+                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                ) as process:
+                    time.sleep(sigint_after)
+                    process.send_signal(signal.SIGINT)
+                    time.sleep(2)
+                    success = process.returncode == 0
+        except subprocess.CalledProcessError as e:
+            success = False
+            print(e.stderr, file=sys.stderr)
+    else:
+        assert sigint_after is None, "Cannot sent SIGINT when calling directly"
+        success = snakemake(
+            snakefile=original_snakefile if no_tmpdir else snakefile,
+            cores=cores,
+            nodes=nodes,
+            workdir=path if no_tmpdir else tmpdir,
+            stats="stats.txt",
+            config=config,
+            verbose=True,
+            targets=targets,
+            conda_frontend=conda_frontend,
+            container_image=container_image,
+            **params,
+        )
+
     if shouldfail:
         assert not success, "expected error on execution"
     else:
         assert success, "expected successful execution"
-        for resultfile in os.listdir(results_dir):
-            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
-                # this means tests cannot use directories as output files
-                continue
-            targetfile = join(tmpdir, resultfile)
-            expectedfile = join(results_dir, resultfile)
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
-            if check_md5:
-                # if md5sum(targetfile) != md5sum(expectedfile):
-                #     import pdb; pdb.set_trace()
-                if md5sum(targetfile) != md5sum(expectedfile):
-                    with open(targetfile) as target:
-                        content = target.read()
-                    assert False, 'wrong result produced for file "{}":\n{}'.format(
-                        resultfile, content
-                    )
+        if check_results:
+            for resultfile in get_expected_files(results_dir):
+                if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
+                    os.path.join(results_dir, resultfile)
+                ):
+                    # this means tests cannot use directories as output files
+                    continue
+                targetfile = join(tmpdir, resultfile)
+                expectedfile = join(results_dir, resultfile)
+
+                if ON_WINDOWS:
+                    if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                        continue  # Skip test if a Windows specific file exists
+                    if resultfile.endswith("_WIN"):
+                        targetfile = join(tmpdir, resultfile[:-4])
+                elif resultfile.endswith("_WIN"):
+                    # Skip win specific result files on Posix platforms
+                    continue
+
+                assert os.path.exists(
+                    targetfile
+                ), 'expected file "{}" not produced'.format(resultfile)
+                if check_md5:
+                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                    if md5target != md5expected:
+                        with open(expectedfile) as expected:
+                            expected_content = expected.read()
+                        with open(targetfile) as target:
+                            content = target.read()
+                        assert (
+                            False
+                        ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                            resultfile=resultfile,
+                            content=content,
+                            expected_content=expected_content,
+                        )
 
     if not cleanup:
         return tmpdir
-    shutil.rmtree(tmpdir)
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)

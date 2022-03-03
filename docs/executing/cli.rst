@@ -14,13 +14,13 @@ to execute, debug, and visualize workflows.
 Useful Command Line Arguments
 -----------------------------
 
-If called without parameters, i.e.
+If called with the number of cores to use, i.e.
 
 .. code-block:: console
 
-    $ snakemake
+    $ snakemake --cores 1
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (instead, the Snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
 
 By issuing
 
@@ -38,7 +38,7 @@ Further, the reason for each rule execution can be printed via
     $ snakemake -n -r
 
 Importantly, Snakemake can automatically determine which parts of the workflow can be run in parallel.
-By specifying the number of available cores, i.e.
+By specifying more than one available core, i.e.
 
 .. code-block:: console
 
@@ -55,7 +55,13 @@ This can be done by using the ``--set-threads`` argument, e.g.,
     $ snakemake --cores 4 --set-threads myrule=2
 
 would overwrite whatever number of threads has been defined for the rule ``myrule`` and use ``2`` instead.
-This can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
+Similarly, it is possible to overwrite other resource definitions in rules, via
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --set-resources myrule:partition="foo"
+
+Both mechanisms can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
 
 Dealing with very large workflows
 ---------------------------------
@@ -113,11 +119,46 @@ For example, the file
     jobs: 100
 
 would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
+The profile can be used to set a default for each option of the Snakemake command line interface.
+For this, option ``--someoption`` becomes ``someoption:`` in the profile.
+If options accept multiple arguments these must be given as YAML list in the profile.
 Under https://github.com/snakemake-profiles/doc, you can find publicly available profiles.
 Feel free to contribute your own.
 
 The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers.
 See https://github.com/snakemake-profiles/doc for examples.
+
+
+.. _getting_started-visualization:
+
+-------------
+Visualization
+-------------
+
+To visualize the workflow, one can use the option ``--dag``.
+This creates a representation of the DAG in the graphviz dot language which has to be postprocessed by the graphviz tool ``dot``.
+E.g. to visualize the DAG that would be executed, you can issue:
+
+.. code-block:: console
+
+    $ snakemake --dag | dot | display
+
+For saving this to a file, you can specify the desired format:
+
+.. code-block:: console
+
+    $ snakemake --dag | dot -Tpdf > dag.pdf
+
+To visualize the whole DAG regardless of the eventual presence of files, the ``forceall`` option can be used:
+
+.. code-block:: console
+
+    $ snakemake --forceall --dag | dot -Tpdf > dag.pdf
+
+Of course the visual appearance can be modified by providing further command line arguments to ``dot``.
+
+**Note:** The DAG is printed in DOT format straight to the standard output, along with other ``print`` statements you may have in your Snakefile. Make sure to comment these other ``print`` statements so that ``dot`` can build a visual representation of your DAG.
+
 
 .. _all_options:
 
@@ -145,5 +186,5 @@ To enable it globally, just append
 
     `snakemake --bash-completion`
 
-including the accents to your ``.bashrc``.
+including the backticks to your ``.bashrc``.
 This only works if the ``snakemake`` command is in your path.
