@@ -24,6 +24,7 @@ from snakemake.common import get_container_image, get_file_hash
 from snakemake.resources import DefaultResources
 import httplib2
 import google_auth_httplib2
+
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
 logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 
@@ -900,26 +901,37 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         import googleapiclient
         import google.auth
-        credentials, project_id = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+
+        credentials, project_id = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
         if http is None:
-            http = google_auth_httplib2.AuthorizedHttp(credentials=credentials, http=httplib2.Http())
+            http = google_auth_httplib2.AuthorizedHttp(
+                credentials=credentials, http=httplib2.Http()
+            )
         try:
             return request.execute(http=http)
         except BrokenPipeError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, http=http, timeout=timeout * 2, attempts=attempts - 1)
+                return self._retry_request(
+                    request, http=http, timeout=timeout * 2, attempts=attempts - 1
+                )
             raise ex
         except googleapiclient.errors.HttpError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, http=http, timeout=timeout * 2, attempts=attempts - 1)
+                return self._retry_request(
+                    request, http=http, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
         except Exception as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, http=http, timeout=timeout * 2, attempts=attempts - 1)
+                return self._retry_request(
+                    request, http=http, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
 
