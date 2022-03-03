@@ -153,7 +153,7 @@ class ZENHelper(object):
             else:
                 return r
         except HTTPError as e:
-            print(e)
+            raise WorkflowError("Failed to connect to zenodo", e)
 
     def create_deposition(self):
         resp = self._api_request(
