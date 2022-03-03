@@ -929,7 +929,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         import googleapiclient
 
         try:
-            return request.execute(http=http)
+            return request.execute()
         except BrokenPipeError as ex:
             if attempts > 0:
                 time.sleep(timeout)
