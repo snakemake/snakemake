@@ -233,18 +233,6 @@ class GithubFile(HostingProviderFile):
     def get_path_or_uri(self):
         return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
 
-    def mtime(self):
-        import requests
-
-        url = f"https://api.github.com/repos/{self.repo}/commits?path={self.path}&page=1&per_page=1"
-        mtime = requests.get(url).json()[0]["commit"]["committer"]["date"]
-        assert mtime.endswith(
-            "Z"
-        ), "bug: expected suffix Z on Github provided time stamp"
-        # assume UTC and make it understandable to fromisoformat
-        mtime = mtime[:-1] + "+00:00"
-        return datetime.fromisoformat(mtime).timestamp()
-
 
 class GitlabFile(HostingProviderFile):
     def __init__(
