@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.1.0](https://www.github.com/snakemake/snakemake/compare/v7.0.4...v7.1.0) (2022-03-04)
+
+
+### Features
+
+* Zenodo remote provider for transparent storage on and retrieval from Zenodo ([#1455](https://www.github.com/snakemake/snakemake/issues/1455)) ([4586ef7](https://www.github.com/snakemake/snakemake/commit/4586ef7c9e5945568e9994a013235574c24d582f))
+
+
+### Bug Fixes
+
+* disable mtime retrieval from github api for now. This quickly exceeds rate limits. ([1858bb9](https://www.github.com/snakemake/snakemake/commit/1858bb912823da2021f88a9c0cdabe1ee1083575))
+* display change warnings only for jobs that won't be executed otherwise ([086f60f](https://www.github.com/snakemake/snakemake/commit/086f60f142721a6085b105bc4bbe12cccc9cee02))
+* work around segfault with >100 jobs in google life sciences backend ([#1451](https://www.github.com/snakemake/snakemake/issues/1451)) ([2c0fee2](https://www.github.com/snakemake/snakemake/commit/2c0fee2faec33185ca7fcd2276901977857e2c64))
+
 ### [7.0.4](https://www.github.com/snakemake/snakemake/compare/v7.0.3...v7.0.4) (2022-03-03)
 
 
