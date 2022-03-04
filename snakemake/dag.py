@@ -2235,10 +2235,10 @@ class DAG:
         yield tabulate(rows, headers="keys")
         yield ""
 
-    def get_outputs_with_changes(self, change_type):
+    def get_outputs_with_changes(self, change_type, include_needrun=True):
         is_changed = lambda job: (
             getattr(self.workflow.persistence, f"{change_type}_changed")(job)
-            if not job.is_group()
+            if not job.is_group() and (include_needrun or not self.needrun(job))
             else []
         )
         changed = list(chain(*map(is_changed, self.jobs)))
@@ -2251,7 +2251,9 @@ class DAG:
     def warn_about_changes(self, quiet=False):
         if not quiet:
             for change_type in ["code", "input", "params"]:
-                changed = self.get_outputs_with_changes(change_type)
+                changed = self.get_outputs_with_changes(
+                    change_type, include_needrun=False
+                )
                 if changed:
                     rerun_trigger = ""
                     if not ON_WINDOWS:
