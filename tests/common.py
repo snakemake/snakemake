@@ -54,6 +54,10 @@ def has_gcloud_service_key():
     return "GCP_AVAILABLE" in os.environ
 
 
+def has_zenodo_token():
+    return "ZENODO_SANDBOX_PAT" in os.environ
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -65,6 +69,10 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
+
+zenodo = pytest.mark.skipid(
+    not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"
+)
 
 
 def copy(src, dst):
