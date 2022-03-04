@@ -8,7 +8,11 @@ import hashlib
 from collections import namedtuple
 import requests
 from requests.exceptions import HTTPError
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import ZenodoFileException, WorkflowError
 from snakemake.common import lazy_property
 
@@ -32,10 +36,10 @@ class RemoteProvider(AbstractRemoteProvider):
 
     @property
     def available_protocols(self):
-        return ["http://", "https://"]
+        return ["https://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs
     ):
@@ -69,7 +73,7 @@ class RemoteObject(AbstractRemoteObject):
         # Hence, the files are always considered to be "ancient".
         return 0
 
-    def download(self):
+    def _download(self):
         stats = self._stats()
         download_url = stats.download
         r = self._zen._api_request(download_url)
@@ -88,7 +92,7 @@ class RemoteObject(AbstractRemoteObject):
                 "File checksums do not match for remote file id: {}".format(stats.id)
             )
 
-    def upload(self):
+    def _upload(self):
         with open(self.local_file(), "rb") as lf:
             self._zen._api_request(
                 self._zen.bucket + "/{}".format(os.path.basename(self.remote_file())),
