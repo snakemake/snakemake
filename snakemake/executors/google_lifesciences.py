@@ -23,6 +23,7 @@ from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
 from snakemake.resources import DefaultResources
 
+
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
 logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
 
@@ -139,28 +140,56 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         for storage.
         """
         from googleapiclient.discovery import build as discovery_build
-        from oauth2client.client import (
-            GoogleCredentials,
-            ApplicationDefaultCredentialsError,
-        )
         from google.cloud import storage
+        import google.auth
+        import google_auth_httplib2
+        import httplib2
+        import googleapiclient
 
         # Credentials must be exported to environment
         try:
-            creds = GoogleCredentials.get_application_default()
-        except ApplicationDefaultCredentialsError as ex:
+            # oauth2client is deprecated, see: https://google-auth.readthedocs.io/en/master/oauth2client-deprecation.html
+            # google.auth is replacement
+            # not sure about scopes here. this cover all cloud services
+            creds, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+        except google.auth.DefaultCredentialsError as ex:
             log_verbose_traceback(ex)
             raise ex
 
+        def build_request(http, *args, **kwargs):
+            """
+            See https://googleapis.github.io/google-api-python-client/docs/thread_safety.html
+            """
+            new_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http())
+            return googleapiclient.http.HttpRequest(new_http, *args, **kwargs)
+
         # Discovery clients for Google Cloud Storage and Life Sciences API
+        # create authorized http for building services
+        authorized_http = google_auth_httplib2.AuthorizedHttp(
+            creds, http=httplib2.Http()
+        )
         self._storage_cli = discovery_build(
-            "storage", "v1", credentials=creds, cache_discovery=False
+            "storage",
+            "v1",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._compute_cli = discovery_build(
-            "compute", "v1", credentials=creds, cache_discovery=False
+            "compute",
+            "v1",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._api = discovery_build(
-            "lifesciences", "v2beta", credentials=creds, cache_discovery=False
+            "lifesciences",
+            "v2beta",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._bucket_service = storage.Client()
 
@@ -903,18 +932,24 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         except BrokenPipeError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             raise ex
         except googleapiclient.errors.HttpError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
         except Exception as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
 
