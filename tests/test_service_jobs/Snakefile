@@ -1,0 +1,29 @@
+rule all:
+    input:
+        "test.txt",
+        "test2.txt",
+
+
+rule a:
+    output:
+        service("foo.socket")
+    shell:
+        "ln -s /dev/random {output}; sleep 10000"
+
+
+rule b:
+    input:
+        "foo.socket"
+    output:
+        "test.txt"
+    shell:
+        "head -n1 {input} > {output}"
+
+
+rule c:
+    input:
+        "foo.socket"
+    output:
+        "test2.txt"
+    shell:
+        "head -n1 {input} > {output}"

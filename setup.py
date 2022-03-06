@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 6):
-    print("At least Python 3.6 is required for Snakemake.\n", file=sys.stderr)
+if sys.version_info < (3, 7):
+    print("At least Python 3.7 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
@@ -77,8 +77,9 @@ setup(
         "filelock",
         "stopit",
         "tabulate",
-        "yte",
-        "jinja2",
+        "yte >=1.0,<2.0",
+        "jinja2 >=3.0,<4.0",
+        "retry",
     ],
     extras_require={
         "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
@@ -92,7 +93,7 @@ setup(
         "pep": [
             "peppy",
             "eido",
-        ]
+        ],
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",

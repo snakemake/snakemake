@@ -139,7 +139,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         if self.exists():
             self._ncbi.fetch_from_ncbi(
                 [self.accession],
@@ -155,7 +155,7 @@ class RemoteObject(AbstractRemoteObject):
                 "The record does not seem to exist remotely: %s" % self.accession
             )
 
-    def upload(self):
+    def _upload(self):
         raise NCBIFileException(
             "Upload is not permitted for the NCBI remote provider. Is an output set to NCBI.RemoteProvider.remote()?"
         )

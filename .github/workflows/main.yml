@@ -91,6 +91,7 @@ jobs:
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
@@ -195,5 +196,6 @@ jobs:
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           python -m pytest -v -x tests/tests.py

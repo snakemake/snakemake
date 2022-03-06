@@ -43,6 +43,11 @@ _ERROR_MSG_FINAL = (
     "Exiting because a job execution failed. " "Look above for error message"
 )
 
+_ERROR_MSG_ISSUE_823 = (
+    "BUG: Out of jobs ready to be started, but not all files built yet."
+    " Please check https://github.com/snakemake/snakemake/issues/823 for more information."
+)
+
 
 class DummyRateLimiter(ContextDecorator):
     def __enter__(self):
@@ -470,11 +475,23 @@ class JobScheduler:
                         return False
                     continue
 
-                # normal shutdown because all jobs have been finished
+                # all runnable jobs have finished, normal shutdown
                 if not needrun and (not running or self.workflow.immediate_submit):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
+                    # we still have unfinished jobs. this is not good. direct
+                    # user to github issue
+                    if self.remaining_jobs:
+                        logger.error(_ERROR_MSG_ISSUE_823)
+                        logger.error(
+                            "Remaining jobs:\n"
+                            + "\n".join(
+                                " - " + str(job) + ": " + ", ".join(job.output)
+                                for job in self.remaining_jobs
+                            )
+                        )
+                        return False
                     return not errors
 
                 # continue if no new job needs to be executed
@@ -894,7 +911,7 @@ class JobScheduler:
             raise WorkflowError(
                 "Job needs {name}={res} but only {name}={gres} "
                 "are available. This is likely because two "
-                "jobs are connected via a pipe and have to run "
+                "jobs are connected via a pipe or a service output and have to run "
                 "simultaneously. Consider providing more "
                 "resources (e.g. via --cores).".format(name=name, res=value, gres=gres)
             )

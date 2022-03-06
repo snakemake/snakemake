@@ -1,0 +1,30 @@
+shell.executable("bash")
+
+
+rule all:
+    input:
+        expand("bar{i}.txt", i=range(3)),
+
+
+rule grouplocal:
+    output:
+        "foo.{groupid}.txt",
+    group:
+        "foo"
+    shell:
+        "echo {wildcards.groupid} > {output}"
+
+
+def get_input(wildcards, groupid):
+    return f"foo.{groupid}.txt"
+
+
+rule consumer:
+    input:
+        get_input,
+    output:
+        "bar{i}.txt",
+    group:
+        "foo"
+    shell:
+        "cp {input} {output}"

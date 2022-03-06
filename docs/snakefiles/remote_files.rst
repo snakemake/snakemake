@@ -798,8 +798,42 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
 
+Zenodo
+======
 
-AUTO
+`Zenodo <https://zenodo.org>`_ is a catch-all open data and software repository. 
+Snakemake allows file upload and download from Zenodo. 
+To access your Zenodo files you need to set up Zenodo account and create a personal access token with at least write scope.
+Personal access token must be supplied as ``access_token`` argument.
+You need to supply deposition id as ``deposition`` to upload or download files from your deposition.
+If no deposition id is supplied, Snakemake creates a new deposition for upload.
+Zenodo UI and REST API responses were designed with having in mind uploads of a total of 20-30 files.
+Avoid creating uploads with too many files, and instead group and zip them to make it easier their distribution to end-users.
+
+.. code-block:: python
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "MYZENODO_PAT"
+
+    access_token=os.environ["MYZENODO_PAT"]
+    zenodo = RemoteProvider(deposition="your deposition id", access_token=access_token)
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
+Using sandbox environment requires setting up sandbox account with its personal access token.
+
+Auto
 ====
 
 A wrapper which automatically selects an appropriate remote provider based on the url's scheme.

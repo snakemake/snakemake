@@ -888,6 +888,11 @@ def test_issue823_2():
 
 
 @skip_on_windows
+def test_issue823_3():
+    run(dpath("test_issue823_3"))
+
+
+@skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
 
@@ -1196,6 +1201,12 @@ def test_output_file_cache_remote():
     )
 
 
+@connected
+@zenodo
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 
@@ -1498,3 +1509,17 @@ def test_peppy():
 
 def test_template_engine():
     run(dpath("test_template_engine"))
+
+
+def test_groupid_expand_local():
+    run(dpath("test_groupid_expand"))
+
+
+@skip_on_windows
+def test_groupid_expand_cluster():
+    run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)

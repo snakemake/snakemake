@@ -183,6 +183,7 @@ def snakemake(
     conda_not_block_search_path_envvars=False,
     scheduler_solver_path=None,
     conda_base_path=None,
+    local_groupid="local",
 ):
     """Run snakemake on a given snakefile.
 
@@ -313,6 +314,7 @@ def snakemake(
         conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
         scheduler_solver_path (str): Path to Snakemake environment (this can be used to e.g. overwrite the search path for the ILP solver used during scheduling).
         conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
+        local_groupid (str):        Local groupid to use as a placeholder for groupid-referrring input functions of local jobs (internal use only, default: local).
         log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
 
             :level:
@@ -593,6 +595,7 @@ def snakemake(
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
             all_temp=all_temp,
+            local_groupid=local_groupid,
         )
         success = True
 
@@ -706,6 +709,7 @@ def snakemake(
                     group_components=group_components,
                     max_inventory_wait_time=max_inventory_wait_time,
                     conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
+                    local_groupid=local_groupid,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -970,8 +974,6 @@ def unparse_config(config):
         raise ValueError("config is not a dict")
     items = []
     for key, value in config.items():
-        if isinstance(value, dict):
-            raise ValueError("config may only be a flat dict")
         encoded = "'{}'".format(value) if isinstance(value, str) else value
         items.append("{}={}".format(key, encoded))
     return items
@@ -1909,6 +1911,11 @@ def get_argument_parser(profile=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
+        "--local-groupid",
+        default="local",
+        help="Name for local groupid, meant for internal use only.",
+    )
+    group_behavior.add_argument(
         "--max-jobs-per-second",
         default=10,
         type=float,
@@ -2113,7 +2120,8 @@ def get_argument_parser(profile=None):
         "$ snakemake --cluster 'sbatch --dependency {dependencies}.\n"
         "Assuming that your submit script (here sbatch) outputs the "
         "generated job id to the first stdout line, {dependencies} will "
-        "be filled with space separated job ids this job depends on.",
+        "be filled with space separated job ids this job depends on. "
+        "Does not work for workflows that contain checkpoint rules.",
     )
     group_cluster.add_argument(
         "--jobscript",
@@ -2505,6 +2513,7 @@ def main(argv=None):
         or args.gui
         or args.archive
         or args.unlock
+        or args.cleanup_metadata
     )
     local_exec = not (no_exec or non_local_exec)
 
@@ -2925,6 +2934,7 @@ def main(argv=None):
             conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
             scheduler_solver_path=args.scheduler_solver_path,
             conda_base_path=args.conda_base_path,
+            local_groupid=args.local_groupid,
         )
 
     if args.runtime_profile:

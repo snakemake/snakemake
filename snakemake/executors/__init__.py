@@ -134,6 +134,9 @@ class AbstractExecutor:
             return args
         return ""
 
+    def get_local_groupid_arg(self):
+        return f" --local-groupid {self.workflow.local_groupid} "
+
     def get_behavior_args(self):
         if self.workflow.conda_not_block_search_path_envvars:
             return " --conda-not-block-search-path-envvars "
@@ -448,6 +451,7 @@ class CPUExecutor(RealExecutor):
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_local_groupid_arg(),
                 "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
                 "--notemp --quiet --no-hooks --nolock --mode {} ".format(
                     Mode.subprocess
@@ -540,16 +544,17 @@ class CPUExecutor(RealExecutor):
         return future
 
     def run_group_job(self, job):
-        """Run a pipe group job.
+        """Run a pipe or service group job.
 
         This lets all items run simultaneously."""
-        # we only have to consider pipe groups because in local running mode,
+        # we only have to consider pipe or service groups because in local running mode,
         # these are the only groups that will occur
 
         futures = [self.run_single_job(j) for j in job]
+        n_non_service = sum(1 for j in job if not j.is_service)
 
         while True:
-            k = 0
+            n_finished = 0
             for f in futures:
                 if f.done():
                     ex = f.exception()
@@ -561,8 +566,19 @@ class CPUExecutor(RealExecutor):
                             shell.kill(j.jobid)
                         raise ex
                     else:
-                        k += 1
-            if k == len(futures):
+                        n_finished += 1
+            if n_finished >= n_non_service:
+                # terminate all service jobs since all consumers are done
+                for j in job:
+                    if j.is_service:
+                        logger.info(
+                            f"Terminating service job {j.jobid} since all consuming jobs are finished."
+                        )
+                        shell.terminate(j.jobid)
+                        logger.info(
+                            f"Service job {j.jobid} has been successfully terminated."
+                        )
+
                 return
             time.sleep(1)
 
@@ -709,6 +725,7 @@ class ClusterExecutor(RealExecutor):
             self.exec_job = exec_job
 
         self.exec_job += self.get_additional_args()
+        self.exec_job += " {job_specific_args:u} "
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
@@ -807,6 +824,9 @@ class ClusterExecutor(RealExecutor):
                 "--wait-for-files {wait_for_files}",
                 wait_for_files=[repr(f) for f in wait_for_files],
             )
+        job_specific_args = ""
+        if job.is_group:
+            job_specific_args = f"--local-groupid {job.jobid}"
 
         format_p = partial(
             self.format_job_pattern,
@@ -815,6 +835,7 @@ class ClusterExecutor(RealExecutor):
             latency_wait=self.latency_wait,
             waitfiles_parameter=waitfiles_parameter,
             scheduler_solver_path=scheduler_solver_path,
+            job_specific_args=job_specific_args,
             **kwargs,
         )
         try:
@@ -999,11 +1020,11 @@ class GenericClusterExecutor(ClusterExecutor):
             while process.poll() is None and executor.wait:
                 buf = process.stdout.readline()
                 if buf:
-                    self.stdout.write(buf)
+                    sys.stdout.write(buf)
             # one final time ...
             buf = process.stdout.readline()
             if buf:
-                self.stdout.write(buf)
+                sys.stdout.write(buf)
 
         def wait(executor, process):
             while executor.wait:
@@ -1673,6 +1694,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.secret_envvars = {}
         self.register_secret()
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
     def register_secret(self):
         import kubernetes.client
@@ -2135,6 +2157,7 @@ class TibannaExecutor(ClusterExecutor):
             disable_get_default_resources_args=True,
         )
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for Tibanna jobs.")
         self.tibanna_config = tibanna_config
 
     def shutdown(self):

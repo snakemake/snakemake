@@ -15,6 +15,7 @@
 
 import sys
 import os
+from datetime import datetime
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -60,7 +61,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Snakemake'
-copyright = '2014-2021, Johannes Koester'
+date = datetime.now()
+copyright = '2014-{year}, Johannes Koester'.format(year=date.timetuple()[0])
 
 import snakemake
 # The version info for the project you're documenting, acts as replacement for

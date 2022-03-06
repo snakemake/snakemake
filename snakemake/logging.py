@@ -30,7 +30,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         "WARNING": YELLOW,
         "INFO": GREEN,
         "DEBUG": BLUE,
-        "CRITICAL": RED,
+        "CRITICAL": MAGENTA,
         "ERROR": RED,
     }
 
@@ -542,7 +542,7 @@ class Logger:
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":
-                self.logger.warning(msg["msg"])
+                self.logger.critical(msg["msg"])
             elif level == "error":
                 self.logger.error(msg["msg"])
             elif level == "debug":

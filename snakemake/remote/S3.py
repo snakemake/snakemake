@@ -11,7 +11,11 @@ import functools
 import concurrent.futures
 
 # module-specific
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError, S3FileException
 from snakemake.utils import os_sync
 
@@ -59,7 +63,7 @@ class RemoteProvider(
         return ["s3://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with the AWS S3 object store."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -97,11 +101,11 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
         os_sync()  # ensure flush to disk
 
-    def upload(self):
+    def _upload(self):
         self._s3c.upload_to_s3(
             self.s3_bucket,
             self.local_file(),

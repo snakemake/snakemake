@@ -232,9 +232,14 @@ class Rule:
                 if len(set(values)) == 1
             )
             # TODO have a look into how to concretize dependencies here
-            branch._input, _, branch.dependencies = branch.expand_input(
+            branch._input, _, branch.dependencies, incomplete = branch.expand_input(
                 non_dynamic_wildcards
             )
+            assert not incomplete, (
+                "bug: dynamic branching resulted in incomplete input files, "
+                "please file an issue on https://github.com/snakemake/snakemake"
+            )
+
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
 
             resources = branch.expand_resources(non_dynamic_wildcards, branch._input, 1)
@@ -531,6 +536,7 @@ class Rule:
                         "directory",
                         "touch",
                         "pipe",
+                        "service",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
@@ -705,6 +711,7 @@ class Rule:
         wildcards,
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
+        groupid=None,
         **aux_params
     ):
         incomplete = False
@@ -713,7 +720,17 @@ class Rule:
         elif isinstance(func, AnnotatedString):
             func = func.callable
         sig = inspect.signature(func)
+
         _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
+
+        if "groupid" in sig.parameters:
+            if groupid is not None:
+                _aux_params["groupid"] = groupid
+            else:
+                # Return empty list of files and incomplete marker
+                # the job will be reevaluated once groupids have been determined
+                return [], True
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
         except IncompleteCheckpointException as e:
@@ -749,7 +766,9 @@ class Rule:
         property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
+        groupid=None,
     ):
+        incomplete = False
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
@@ -765,10 +784,9 @@ class Rule:
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
+                    groupid=groupid,
                     **aux_params
                 )
-                if apply_path_modifier:
-                    item = self.apply_path_modifier(item, property=property)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
@@ -788,14 +806,14 @@ class Rule:
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item)
+                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
                 else:
                     assert isinstance(item, dict)
-                    pairs = item.items()
+                    pairs = [(name, item, _is_callable) for name, item in item.items()]
             else:
-                pairs = [(name, item)]
+                pairs = [(name, item, _is_callable)]
 
-            for name, item in pairs:
+            for name, item, from_callable in pairs:
                 is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
@@ -807,8 +825,12 @@ class Rule:
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list " "of str.", rule=self
+                            "Function did not return str or list of str.", rule=self
                         )
+
+                    if from_callable and apply_path_modifier and not incomplete:
+                        item_ = self.apply_path_modifier(item_, property=property)
+
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
@@ -819,8 +841,9 @@ class Rule:
                         name, start, end=len(newitems) if is_iterable else None
                     )
                     start = len(newitems)
+        return incomplete
 
-    def expand_input(self, wildcards):
+    def expand_input(self, wildcards, groupid=None):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
                 if isinstance(f, Path):
@@ -845,7 +868,7 @@ class Rule:
         input = InputFiles()
         mapping = dict()
         try:
-            self._apply_wildcards(
+            incomplete = self._apply_wildcards(
                 input,
                 self.input,
                 wildcards,
@@ -853,6 +876,7 @@ class Rule:
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
                 property="input",
+                groupid=groupid,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -875,7 +899,7 @@ class Rule:
         for f in input:
             f.check()
 
-        return input, mapping, dependencies
+        return input, mapping, dependencies, incomplete
 
     def expand_params(self, wildcards, input, output, resources, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
@@ -892,7 +916,6 @@ class Rule:
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
             before this rule gets executed."""
-            print(exception.targetfile)
             if exception.targetfile in input:
                 return TBDString()
             else:

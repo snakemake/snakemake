@@ -120,7 +120,7 @@ class RemoteObject(PooledDomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         with self.connection_pool.item() as sftpc:
             if self.exists():
                 # if the destination path does not exist
@@ -156,7 +156,7 @@ class RemoteObject(PooledDomainObject):
                     sftpc.mkdir(part)
                     sftpc.chdir(part)
 
-    def upload(self):
+    def _upload(self):
         if self.provider.mkdir_remote:
             self.mkdir_remote_path()
 

@@ -245,18 +245,23 @@ class ChildIOException(WorkflowError):
 
 
 class IOException(RuleException):
-    def __init__(self, prefix, rule, files, include=None, lineno=None, snakefile=None):
-        message = (
-            "{} for rule {}:\n{}".format(prefix, rule, "\n".join(files))
-            if files
-            else ""
-        )
+    def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
+        from snakemake.logging import format_wildcards
+
+        msg = ""
+        if files:
+            msg = f"{prefix} for rule {job.rule}:"
+            if job.output:
+                msg += "\n" + f"    output: {', '.join(job.output)}"
+            if job.wildcards:
+                msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
+            msg += "\n    affected files:\n        " + "\n        ".join(files)
         super().__init__(
-            message=message,
+            message=msg,
             include=include,
             lineno=lineno,
             snakefile=snakefile,
-            rule=rule,
+            rule=job.rule,
         )
 
 
@@ -277,8 +282,9 @@ class MissingOutputException(RuleException):
 
 
 class MissingInputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         msg = "Missing input files"
+
         if any(map(lambda f: f.startswith("~"), files)):
             msg += (
                 "(Using '~' in your paths is not allowed as such platform "
@@ -286,7 +292,7 @@ class MissingInputException(IOException):
                 "try sticking to relative paths for everything inside the "
                 "working directory.)"
             )
-        super().__init__(msg, rule, files, include, lineno=lineno, snakefile=snakefile)
+        super().__init__(msg, job, files, include, lineno=lineno, snakefile=snakefile)
 
 
 class PeriodicWildcardError(RuleException):
@@ -294,10 +300,10 @@ class PeriodicWildcardError(RuleException):
 
 
 class ProtectedOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         super().__init__(
             "Write-protected output files",
-            rule,
+            job,
             files,
             include,
             lineno=lineno,
@@ -306,24 +312,11 @@ class ProtectedOutputException(IOException):
 
 
 class ImproperOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         super().__init__(
             "Outputs of incorrect type (directories when expecting files or vice versa). "
             "Output directories must be flagged with directory().",
-            rule,
-            files,
-            include,
-            lineno=lineno,
-            snakefile=snakefile,
-        )
-
-
-class UnexpectedOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
-        super().__init__(
-            "Unexpectedly present output files "
-            "(accidentally created by other rule?)",
-            rule,
+            job,
             files,
             include,
             lineno=lineno,
@@ -469,6 +462,11 @@ class NCBIFileException(RuleException):
 
 
 class WebDAVFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
+
+class ZenodoFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 

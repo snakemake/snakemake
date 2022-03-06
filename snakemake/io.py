@@ -735,7 +735,7 @@ class _IOFile(str):
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
-        if isinstance(other._file, AnnotatedString):
+        if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if "remote_object" in self._file.flags:
                 self._file.flags["remote_object"] = copy.copy(
@@ -790,7 +790,7 @@ _wildcard_regex = re.compile(
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
+    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -807,7 +807,10 @@ def wait_for_files(
                     and (force_stay_on_remote or f.should_stay_on_remote)
                 )
                 else os.path.exists(f)
-                if not (is_flagged(f, "pipe") and ignore_pipe)
+                if not (
+                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service
+                )
                 else True
             )
         ]
@@ -1016,6 +1019,14 @@ def pipe(value):
     if ON_WINDOWS:
         logger.warning("Pipes is not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
+
+
+def service(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "service")
 
 
 def temporary(value):
@@ -1405,7 +1416,7 @@ class Namedlist(list):
         for name in self._allowed_overrides:
             setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
-        if toclone:
+        if toclone is not None:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
@@ -1416,7 +1427,7 @@ class Namedlist(list):
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self._take_names(toclone._get_names())
-        if fromdict:
+        if fromdict is not None:
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
