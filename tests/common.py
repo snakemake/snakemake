@@ -55,7 +55,7 @@ def has_gcloud_service_key():
 
 
 def has_zenodo_token():
-    return "ZENODO_SANDBOX_PAT" in os.environ
+    return os.environ.get("ZENODO_SANDBOX_PAT")
 
 
 gcloud = pytest.mark.skipif(
@@ -70,7 +70,7 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
 
-zenodo = pytest.mark.skipid(
+zenodo = pytest.mark.skipif(
     not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"
 )
 
