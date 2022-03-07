@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.1.1](https://www.github.com/snakemake/snakemake/compare/v7.1.0...v7.1.1) (2022-03-07)
+
+
+### Bug Fixes
+
+* quote jobid passed to status script to support multi-cluster Slurm setup ([#1459](https://www.github.com/snakemake/snakemake/issues/1459)) ([0232201](https://www.github.com/snakemake/snakemake/commit/023220160c6146810e3da2b277439441e8af9827))
+
 ## [7.1.0](https://www.github.com/snakemake/snakemake/compare/v7.0.4...v7.1.0) (2022-03-04)
 
 
