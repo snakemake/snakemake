@@ -987,6 +987,13 @@ def ancient(value):
     return flag(value, "ancient")
 
 
+def missing(value):
+    """
+    Re run if new input files are missing; ie missing files will be generated first and then the considered rule is regenerated.
+    """
+    return flag(value, "missing")
+
+
 def directory(value):
     """
     A flag to specify that output is a directory, rather than a file or named pipe.

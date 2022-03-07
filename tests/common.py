@@ -98,6 +98,7 @@ def run(
     snakefile="Snakefile",
     subpath=None,
     no_tmpdir=False,
+    tmpdir=None,
     check_md5=True,
     check_results=True,
     cores=3,
@@ -134,9 +135,10 @@ def run(
     ), "{} does not exist".format(results_dir)
 
     # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
+    if not tmpdir:
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
+        os.mkdir(tmpdir)
 
     config = dict(config)
 

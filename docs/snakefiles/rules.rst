@@ -23,7 +23,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
     To avoid evaluation and replacement, you have to mask the braces by doubling them,
     i.e. ``{{input}}``.
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. 
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_.
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
@@ -141,7 +141,7 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             ["{dataset}/a.txt".format(dataset=dataset) for dataset in DATASETS]
         output:
             "aggregated.txt"
@@ -158,7 +158,7 @@ The expand function
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             expand("{dataset}/a.txt", dataset=DATASETS)
         output:
             "aggregated.txt"
@@ -172,7 +172,7 @@ The ``expand`` function also allows us to combine different variables, e.g.
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             expand("{dataset}/a.{ext}", dataset=DATASETS, ext=FORMATS)
         output:
             "aggregated.txt"
@@ -225,7 +225,7 @@ The multiext function
 .. code-block:: python
 
     rule plot:
-        input: 
+        input:
             ...
         output:
             multiext("some/plot", ".pdf", ".svg", ".png")
@@ -284,11 +284,11 @@ Further, a rule can be given a number of threads to use, i.e.
 .. sidebar:: Note
 
     On a cluster node, Snakemake uses as many cores as available on that node.
-    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. 
+    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node.
     Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the main node.
 
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
-In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
+In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``).
 
 Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
@@ -401,12 +401,12 @@ There are three **standard resources**, for total memory, disk usage and the tem
 The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
 When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
 
-Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+Since it would be cumbersome to define such standard resources them for every rule, you can set default values at
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``,
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 
@@ -447,7 +447,7 @@ Note that this is currently implemented for the Google Life Sciences API.
 GPU Resources
 ~~~~~~~~~~~~~
 
-The Google Life Sciences API currently has support for 
+The Google Life Sciences API currently has support for
 `NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
 
 
@@ -961,7 +961,7 @@ When using other languages than Python in the notebook, one needs to additionall
 
 When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
 Instead of firing up a notebook server, ``--draft-notebook`` just creates a skeleton notebook for editing within the IDE.
-In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the 
+In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the
 Conda environment defined in the corresponding rule.
 For example, running
 
@@ -1000,6 +1000,61 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
             temp("path/to/outputfile")
         shell:
             "somecommand {input} {output}"
+
+.. _snakefiles-missing-input:
+
+Handling New Input files
+------------------------
+
+When using a rule that aggregates many input files with the output already existing because of a previous run, if non existing new input files are added to the rule, the generation of these new files and the rerun of the rule will not be triggered automatically.
+
+A first solution is to ask Snakemake to list input changes and force the targets as follow:
+
+.. code-block:: console
+
+    $ snakemake -n -R `snakemake --list-input-changes`
+
+Another solution is to mark input files as ``missing``, thus newly added files will be generated and the rule will be re-run to update the rule's output.
+
+Let's consider the following Snakefile:
+
+.. code-block:: python
+
+   NAMES = config.get("names", "john").split(",")
+
+   rule all:
+       input:
+           lambda wildcards: [f"hello-{name}" for name in NAMES]
+       output: "all.txt"
+       run:
+           with open(output[0], "w") as fout:
+               fout.write("\n".join(input))
+
+   rule A:
+       output: touch("hello-{name}")
+
+The first Snakemake run is done using the command `snakemake -j1`, it produces the file `hello-john` and consequently the file `all.txt` with the line `hello-john` inside.
+
+A second Snakemake run is done using the command `snakemake -j1 --config names=john,doe` but neither the file `hello-doe` nor the file `all.txt` are (re)generated. Moreover Snakemake warns that the input files have changed.
+
+By marking input files in the `all` rule as `missing`, missing (new) input files will be generated using the rule `A` and then the rule `all` will be rerun.
+
+
+.. code-block:: python
+
+   NAMES = config.get("names", "john").split(",")
+
+   rule all:
+       input:
+           missing(lambda wildcards: [f"hello-{name}" for name in NAMES])
+       output: "all.txt"
+       run:
+           with open(output[0], "w") as fout:
+               fout.write("\n".join(input))
+
+   rule A:
+       output: touch("hello-{name}")
+
 
 Directories as outputs
 ----------------------
@@ -1422,7 +1477,7 @@ For example
 
     snakemake --set-scatter split=2
 
-would set the number of scatter items for the split process defined above to 2 instead of 8. 
+would set the number of scatter items for the split process defined above to 2 instead of 8.
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
 .. _snakefiles-grouping:
@@ -1585,7 +1640,7 @@ Consider the following example:
             service("foo.socket")
         shell:
             # here we simulate some kind of server process that provides data via a socket
-            "ln -s /dev/random {output}; sleep 10000" 
+            "ln -s /dev/random {output}; sleep 10000"
 
 
     rule consumer1:
@@ -1627,7 +1682,7 @@ This works by combining the service job pattern from above with the :ref:`group-
             service("foo.{groupid}.socket")
         shell:
             # here we simulate some kind of server process that provides data via a socket
-            "ln -s /dev/random {output}; sleep 10000" 
+            "ln -s /dev/random {output}; sleep 10000"
 
 
     def get_socket(wildcards, groupid):
@@ -1657,7 +1712,7 @@ Parameter space exploration
 ---------------------------
 
 The basic Snakemake functionality already provides everything to handle parameter spaces in any way (sub-spacing for certain rules and even depending on wildcard values, the ability to read or generate spaces on the fly or from files via pandas, etc.).
-However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands. 
+However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands.
 From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), this is solved via the Paramspace helper, which can be used as follows:
 
 .. code-block:: python
@@ -1672,14 +1727,14 @@ From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), th
     rule all:
         input:
             # Aggregate over entire parameter space (or a subset thereof if needed)
-            # of course, something like this can happen anywhere in the workflow (not 
+            # of course, something like this can happen anywhere in the workflow (not
             # only at the end).
             expand("results/plots/{params}.pdf", params=paramspace.instance_patterns)
 
 
     rule simulate:
         output:
-            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}" 
+            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}"
             # into a file path, with alpha, beta, gamma being the columns of the data frame
             f"results/simulations/{paramspace.wildcard_pattern}.tsv"
         params:
@@ -1717,35 +1772,35 @@ This workflow will run as follows:
 
     [Fri Nov 27 20:57:27 2020]
     rule simulate:
-        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
-        jobid: 4                                                                                                                                                                               
-        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv
+        jobid: 4
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9
 
     [Fri Nov 27 20:57:27 2020]
     rule simulate:
-        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
-        jobid: 2                                                                                                                                                                               
-        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv
+        jobid: 2
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99
 
     [Fri Nov 27 20:57:27 2020]
     rule plot:
-        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
-        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
-        jobid: 3                                                                                                                                                                               
-        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv
+        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf
+        jobid: 3
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9
 
 
     [Fri Nov 27 20:57:27 2020]
     rule plot:
-        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
-        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
-        jobid: 1                                                                                                                                                                               
-        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv
+        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf
+        jobid: 1
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99
 
 
     [Fri Nov 27 20:57:27 2020]
     localrule all:
-        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
+        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf
         jobid: 0
 
 
@@ -2006,7 +2061,7 @@ Template rendering rules may only have a single input and output file.
 The template_engine instruction has to be specified at the end of the rule.
 
 The template itself has access to ``params``, ``wildcards``, and ``config``,
-which are the same objects you can use for example in the ``shell`` or ``run`` directive, 
+which are the same objects you can use for example in the ``shell`` or ``run`` directive,
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 
 An example Jinja2 template could look like this:

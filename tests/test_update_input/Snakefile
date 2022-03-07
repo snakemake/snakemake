@@ -1,0 +1,34 @@
+rule all:
+    input: "A1.txt", "A2.txt"
+
+rule A:
+    input: "A{index}.tmp"
+    output: "A{index}.txt"
+    shell: "cp {input} {output}"
+
+
+rule A_TMP_1:
+    input:
+        "B-fred.txt"
+
+    output:
+        temp("A1.tmp")
+
+    run:
+        f = open(output[0], "w")
+        f.write(' '.join(input) + "\n")
+
+rule A_TMP_2:
+    input:
+        missing(lambda wildcards: [rules.B.output[0].format(name=name)
+                                   for name in config.get("names", "john").split(",")])
+    output:
+        temp("A2.tmp")
+
+    run:
+        f = open(output[0], "w")
+        f.write(' '.join(input) + "\n")
+
+rule B:
+    output:
+        touch("B-{name}.txt")

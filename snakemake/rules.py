@@ -20,6 +20,7 @@ from snakemake.io import (
     _IOFile,
     protected,
     temp,
+    missing,
     dynamic,
     Namedlist,
     AnnotatedString,
@@ -774,6 +775,7 @@ class Rule:
         for name, item in olditems._allitems():
             start = len(newitems)
             is_unpack = is_flagged(item, "unpack")
+            is_missing = is_flagged(item, "missing")
             _is_callable = is_callable(item)
 
             if _is_callable:
@@ -830,6 +832,10 @@ class Rule:
 
                     if from_callable and apply_path_modifier and not incomplete:
                         item_ = self.apply_path_modifier(item_, property=property)
+
+                    # Forward the missing flag is necessary
+                    if is_missing:
+                        item_ = missing(item_)
 
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)

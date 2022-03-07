@@ -41,6 +41,7 @@ from snakemake.io import (
     temp,
     temporary,
     ancient,
+    missing,
     directory,
     expand,
     dynamic,

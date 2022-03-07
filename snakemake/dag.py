@@ -996,7 +996,12 @@ class DAG:
                 output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
                     updated_input = [
-                        f for f in job.input if f.exists and f.is_newer(output_mintime_)
+                        f
+                        for f in job.input
+                        if (
+                            (f.exists and f.is_newer(output_mintime_))
+                            or (not f.exists and is_flagged(f, "missing"))
+                        )
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:

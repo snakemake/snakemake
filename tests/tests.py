@@ -1534,3 +1534,35 @@ def test_groupid_expand_cluster():
 @skip_on_windows
 def test_service_jobs():
     run(dpath("test_service_jobs"), check_md5=False)
+
+
+def test_update_input():
+    try:
+        # First run
+        tmpdir = run(dpath("test_update_input"), cleanup=False, check_results=False)
+        a1_txt = os.path.join(tmpdir, "A1.txt")
+        a2_txt = os.path.join(tmpdir, "A2.txt")
+        john_txt = os.path.join(tmpdir, "B-john.txt")
+        mtime_a1_txt = os.path.getmtime(a1_txt)
+        mtime_a2_txt = os.path.getmtime(a2_txt)
+        mtime_john_txt = os.path.getmtime(john_txt)
+
+        # Prepare the update run with new values in the input function of rule A_TMP_2
+        shutil.rmtree(os.path.join(tmpdir, "expected-results"))
+        shutil.rmtree(os.path.join(tmpdir, ".snakemake"))
+        run(
+            dpath("test_update_input"),
+            config={"names": "john,doe"},
+            cores=1,
+            tmpdir=tmpdir,
+            cleanup=False,
+        )
+
+        # Check that A1.txt is left untouched.
+        assert os.path.getmtime(a1_txt) == mtime_a1_txt
+        # Check that A2.txt has been regenerated
+        assert os.path.getmtime(a2_txt) > mtime_a2_txt
+        # Check that john.txt has left untouched
+        assert os.path.getmtime(john_txt) == mtime_john_txt
+    finally:
+        shutil.rmtree(tmpdir)

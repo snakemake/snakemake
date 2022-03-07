@@ -48,7 +48,7 @@ For debugging such cases, Snakemake provides the command line flag ``--debug-dag
 
 In addition, it is advisable to check whether certain intermediate files would be created by targetting them individually via the command line.
 
-Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``. 
+Finally, it is possible to constrain the rules that are considered for DAG creating via ``--allowed-rules``.
 This way, you can easily check rule by rule if it does what you expect.
 However, note that ``--allowed-rules`` is only meant for debugging.
 A workflow should always work fine without it.
@@ -285,7 +285,7 @@ This will cause Snakemake to re-run all jobs of that rule and everything downstr
 How should Snakefiles be formatted?
 --------------------------------------
 
-To ensure readability and consistency, you can format Snakefiles with our tool `snakefmt <https://github.com/snakemake/snakefmt>`_. 
+To ensure readability and consistency, you can format Snakefiles with our tool `snakefmt <https://github.com/snakemake/snakefmt>`_.
 
 Python code gets formatted with `black <https://github.com/psf/black>`_ and Snakemake-specific blocks are formatted using similar principles (such as `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_).
 
@@ -483,6 +483,8 @@ Snakemake has a kind of "lazy" policy about added input files if their modificat
     $ snakemake -n -R `snakemake --list-input-changes`
 
 Here, ``snakemake --list-input-changes`` returns the list of output files with changed input files, which is fed into ``-R`` to trigger a re-run.
+
+It is worth mentioning that if the additional input files does not yet exist and can be found in outputs of another rules, the input files can be marked as `missing` to generate the missing dependencies and re-run the rule (see :ref:`snakefiles-missing-input`).
 
 
 How do I trigger re-runs for rules with updated code or parameters?
