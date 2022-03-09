@@ -5,7 +5,7 @@
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined };
+        this.state = { navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined };
         this.setView = this.setView.bind(this);
     }
 
@@ -21,11 +21,12 @@ class App extends React.Component {
         this.setState({
             navbarMode: view.navbarMode || this.state.navbarMode,
             content: view.content || this.state.content,
-            ruleinfo: view.ruleinfo,
-            category: view.category,
-            subcategory: view.subcategory,
-            searchTerm: view.searchTerm,
-            resultPath: view.resultPath
+            ruleinfo: view.ruleinfo || this.state.ruleinfo,
+            category: view.category || this.state.category,
+            subcategory: view.subcategory || this.state.subcategory,
+            searchTerm: view.searchTerm || this.state.searchTerm,
+            resultPath: view.resultPath || this.state.resultPath,
+            contentPath: view.contentPath || this.state.contentPath,
         })
     }
 }

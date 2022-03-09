@@ -7,6 +7,7 @@ class ResultInfo extends React.Component {
             {},
             this.getDescriptor(),
             this.getCaption(),
+            this.getSize(),
             this.getRule(),
             this.getParamsAndWildcards(),
         )
@@ -143,5 +144,19 @@ class ResultInfo extends React.Component {
         } else {
             return [];
         }
+    }
+
+    getSize() {
+        return [
+            e(
+                ListHeading,
+                { key: "size-heading", text: "Size" }
+            ),
+            e(
+                ListItem,
+                { key: "size" },
+                this.getResult().size
+            )
+        ];
     }
 }

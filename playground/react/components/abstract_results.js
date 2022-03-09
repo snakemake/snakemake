@@ -95,7 +95,7 @@ class AbstractResults extends React.Component {
                 e(
                     "div",
                     { className: "inline-flex gap-1", role: "group" },
-                    _this.renderButton("eye", { href: entry.data_uri(), download: entry.name }),
+                    _this.getViewButton(path, entry),
                     _this.renderButton(
                         "information-circle",
                         {
@@ -137,6 +137,35 @@ class AbstractResults extends React.Component {
         })
     }
 
+    getViewButton(resultPath, entry) {
+        const mimeType = this.getResultMimeType(resultPath);
+        let setView = this.props.setView;
+
+        let props = undefined;
+
+        switch (mimeType) {
+            case "image/svg+xml":
+            case "image/png":
+            case "image/jpeg":
+                props = {
+                    href: "#",
+                    onClick: function () {
+                        setView({
+                            content: "img",
+                            contentPath: entry.data_uri()
+                        })
+                    }
+                };
+                break;
+            default:
+                props = {
+                    href: entry.data_uri(),
+                    download: entry.name
+                };
+        }
+        return this.renderButton("eye", props);
+    }
+
     renderButton(iconName, props) {
         return e(
             "a",
@@ -147,5 +176,9 @@ class AbstractResults extends React.Component {
 
     showResultInfo(resultPath) {
         this.props.setView({ navbarMode: "resultinfo", resultPath: resultPath, category: this.getCategory(), subcategory: this.getSubcategory(), searchTerm: this.getSearchTerm() });
+    }
+
+    getResultMimeType(resultPath) {
+        return results[resultPath].mime_type
     }
 }

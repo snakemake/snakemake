@@ -62,6 +62,7 @@ var results = {
         filename: "fig1.svg",
         path: "fig1.svg",
         size: "28.3 kB",
+        mime_type: "image/svg+xml",
         caption: "<p>This is a caption with a <a class=\"reference external\" href=\"https://www.google.com\">link</a>.</p>\n",
         job_properties: {
             rule: "a",
@@ -78,6 +79,7 @@ var results = {
         filename: "testmodel.fig2.png",
         path: "testmodel.fig2.png",
         size: "9.1 kB",
+        mime_type: "image/png",
         caption: "<p>Some math <span class=\"formula\"><span class=\"limits\"><span class=\"limit\">\u2211</span></span><sub><i>i</i></sub><i>i</i><sup>2</sup></span>.</p>\n",
         job_properties: {
             rule: "b",

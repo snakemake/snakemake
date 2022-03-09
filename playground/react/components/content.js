@@ -22,6 +22,11 @@ class ContentDisplay extends React.Component {
                 return e(RuleGraph, { setView: setView });
             case "stats":
                 return e(Stats)
+            case "img":
+                return e(
+                    "img",
+                    { src: this.props.app.state.contentPath }
+                )
         }
     }
 }
