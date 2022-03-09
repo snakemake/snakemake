@@ -5,18 +5,28 @@
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { content: "rulegraph", ruleinfo: undefined };
+        this.state = { navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined };
+        this.setView = this.setView.bind(this);
     }
 
     render() {
         return [
-            e(Navbar, { app: this, ruleinfo: this.state.ruleinfo }),
+            e(Navbar, { app: this }),
             e(ContentDisplay, { show: this.state.content })
         ];
     }
 
     setView(view) {
-        this.setState({ content: view.content, ruleinfo: view.ruleinfo })
+        event.preventDefault();
+        this.setState({
+            navbarMode: view.mode || this.state.navbarMode,
+            content: view.content || this.state.content,
+            ruleinfo: view.ruleinfo,
+            category: view.category,
+            subcategory: view.subcategory,
+            searchTerm: view.searchTerm,
+            resultPath: view.resultPath
+        })
     }
 }
 

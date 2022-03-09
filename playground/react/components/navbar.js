@@ -4,8 +4,6 @@
 class Navbar extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { mode: "menu", category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined };
-        this.setView = this.setView.bind(this);
     }
 
     render() {
@@ -40,26 +38,26 @@ class Navbar extends React.Component {
     }
 
     renderContent() {
-        let setView = this.setView;
-        switch (this.state.mode) {
+        let setView = this.props.app.setView;
+        switch (this.props.app.state.navbarMode) {
             case "menu":
                 return e(Menu, { setView: setView, app: this.props.app });
             case "category":
-                if (this.state.subcategory !== undefined) {
-                    return e(Subcategory, { setView: setView, category: this.state.category, subcategory: this.state.subcategory });
+                if (this.props.app.state.subcategory !== undefined) {
+                    return e(Subcategory, { setView: setView, category: this.props.app.state.category, subcategory: this.props.app.state.subcategory });
                 } else {
-                    return e(Category, { setView: setView, category: this.state.category });
+                    return e(Category, { setView: setView, category: this.props.app.state.category });
                 }
             case "searchresults":
-                return e(SearchResults, { setView: setView, searchTerm: this.state.searchTerm });
+                return e(SearchResults, { setView: setView, searchTerm: this.props.app.state.searchTerm });
             case "resultinfo":
-                return e(ResultInfo, { resultPath: this.state.resultPath });
+                return e(ResultInfo, { resultPath: this.props.app.state.resultPath });
         }
     }
 
     renderBreadcrumbs() {
-        let setView = this.setView;
-        switch (this.state.mode) {
+        let setView = this.props.app.setView;
+        switch (this.props.app.state.navbarMode) {
             case "menu":
                 return e(
                     Breadcrumbs,
@@ -84,33 +82,37 @@ class Navbar extends React.Component {
     }
 
     getMenuBreadcrumb() {
-        let _this = this;
-        return { name: "menu", icon: "home", func: function () { _this.setView({ mode: "menu", category: undefined, subcategory: undefined }) } };
+        let setView = this.props.app.setView;
+        return { name: "menu", icon: "home", func: function () { setView({ mode: "menu", category: undefined, subcategory: undefined }) } };
     }
 
     getCategoryBreadcrumb() {
-        if (this.state.category === undefined) {
+        let category = this.props.app.state.category;
+        if (category === undefined) {
             return undefined;
         }
         let subcategory = undefined;
-        if (isSingleSubcategory(this.state.category)) {
-            subcategory = this.state.subcategory;
+        if (isSingleSubcategory(category)) {
+            subcategory = this.props.app.state.subcategory;
         }
         let _this = this;
 
-        let name = this.state.category;
+        let name = this.props.app.state.category;
         if (isSingleDefaultCategory()) {
             name = "Results";
         }
-        return { name: name, func: function () { _this.setView({ mode: "category", category: _this.state.category, subcategory: subcategory }) } };
+        let setView = this.props.app.setView;
+        return { name: name, func: function () { setView({ mode: "category", category: category, subcategory: subcategory }) } };
     }
 
     getSubcategoryBreadcrumb() {
-        if (this.state.subcategory === undefined || isSingleSubcategory(this.state.category)) {
+        let subcategory = this.props.app.state.subcategory;
+        let category = this.props.app.state.category;
+        if (subcategory === undefined || isSingleSubcategory(category)) {
             return undefined;
         }
-        let _this = this;
-        return { name: this.state.subcategory, func: function () { _this.setView({ mode: "category", category: _this.state.category, subcategory: _this.state.subcategory }) } };
+        let setView = this.props.app.setView;
+        return { name: this.props.app.state.subcategory, func: function () { setView({ mode: "category", category: category, subcategory: subcategory }) } };
     }
 
     getResultBreadcrumb() {
@@ -121,11 +123,11 @@ class Navbar extends React.Component {
     }
 
     getSearchResultsBreadcrumb() {
-        let searchTerm = this.state.searchTerm;
+        let searchTerm = this.props.app.state.searchTerm;
         if (searchTerm === undefined) {
             return undefined;
         }
-        let setView = this.setView;
+        let setView = this.props.app.setView;
         return {
             name: "Search results", func: function () {
                 setView({ mode: "searchresults", searchTerm: searchTerm })
@@ -138,7 +140,7 @@ class Navbar extends React.Component {
     }
 
     getWidth() {
-        switch (this.state.mode) {
+        switch (this.props.app.state.navbarMode) {
             case "menu":
                 return "w-1/5"
             case "category":
@@ -146,10 +148,5 @@ class Navbar extends React.Component {
             case "resultinfo":
                 return "w-3/4"
         }
-    }
-
-    setView(view) {
-        event.preventDefault();
-        this.setState({ mode: view.mode, category: view.category, subcategory: view.subcategory, searchTerm: view.searchTerm, resultPath: view.resultPath })
     }
 }
