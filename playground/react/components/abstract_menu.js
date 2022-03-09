@@ -9,6 +9,7 @@ class AbstractMenu extends React.Component {
     }
 
     getMenuItem(label, iconName, onClick) {
+        console.log(label, onClick);
         return e(
             "li",
             { key: label },

@@ -10,7 +10,7 @@ class Category extends AbstractMenu {
     }
 
     showSubcategory(subcategory) {
-        this.props.setView({ navbarMode: "category", category: this.props.category, subcategory: subcategory })
+        this.props.setView({ navbarMode: "subcategory", category: this.props.category, subcategory: subcategory })
     }
 
     getSubcategoryMenuitems() {

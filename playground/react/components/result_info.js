@@ -83,7 +83,6 @@ class ResultInfo extends React.Component {
 
     getCaption() {
         const caption = this.getResult().caption;
-        console.log(caption)
         if (caption) {
             return [
                 e(
@@ -105,6 +104,8 @@ class ResultInfo extends React.Component {
     }
 
     getRule() {
+        const setView = this.props.setView;
+        const rule = this.getResult().job_properties.rule;
         return [
             e(
                 ListHeading,
@@ -112,8 +113,12 @@ class ResultInfo extends React.Component {
             ),
             e(
                 ListItem,
-                { key: "rulename" },
-                this.getResult().job_properties.rule
+                { key: "rulename", className: "" },
+                e(
+                    "a",
+                    { type: "button", href: "#", className: "p-1 transition-all hover:text-emerald-500 rounded hover:bg-slate-800", onClick: () => setView({ navbarMode: "ruleinfo", ruleinfo: rule }) },
+                    rule
+                )
             )
         ]
     }

@@ -5,7 +5,7 @@
 class App extends React.Component {
     constructor(props) {
         super(props);
-        this.state = { navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined };
+        this.state = { hideNavbar: false, navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined };
         this.setView = this.setView.bind(this);
     }
 
@@ -19,6 +19,7 @@ class App extends React.Component {
     setView(view) {
         event.preventDefault();
         this.setState({
+            hideNavbar: view.hideNavbar || this.hideNavbar,
             navbarMode: view.navbarMode || this.state.navbarMode,
             content: view.content || this.state.content,
             ruleinfo: view.ruleinfo || this.state.ruleinfo,

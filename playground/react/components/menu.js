@@ -39,10 +39,12 @@ class Menu extends AbstractMenu {
 
     showCategory(category) {
         let subcategory = undefined;
+        let mode = "category";
         if (isSingleSubcategory(category)) {
             subcategory = Object.keys(categories[category])[0];
+            mode = "subcategory";
         }
-        this.props.setView({ navbarMode: "category", category: category, subcategory: subcategory })
+        this.props.setView({ navbarMode: mode, category: category, subcategory: subcategory })
     }
 
     getCategoryMenumitems() {
