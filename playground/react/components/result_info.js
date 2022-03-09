@@ -83,7 +83,8 @@ class ResultInfo extends React.Component {
 
     getCaption() {
         const caption = this.getResult().caption;
-        if (caption !== undefined) {
+        console.log(caption)
+        if (caption) {
             return [
                 e(
                     ListHeading,
