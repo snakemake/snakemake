@@ -46,6 +46,7 @@ from snakemake.script import Snakemake
 from snakemake import __version__
 from snakemake.common import is_local_file, num_if_possible, lazy_property
 from snakemake import logging
+from snakemake.report import data
 
 
 class EmbeddedMixin(object):
@@ -599,6 +600,7 @@ def rulegraph_d3_spec(dag):
 def rulegraph_spec(dag):
     # get toposorting, and keep only one job of each rule per level
     representatives = dict()
+
     def get_representatives(level):
         unique = dict()
         for job in level:
@@ -608,16 +610,13 @@ def rulegraph_spec(dag):
                 representatives[job] = job
                 unique[job.rule.name] = job
         return sorted(unique.values(), key=lambda job: job.rule.name)
+
     toposorted = [get_representatives(level) for level in dag.toposorted()]
 
-    jobs = [
-        job for level in toposorted
-        for job in level
-    ]
+    jobs = [job for level in toposorted for job in level]
 
     nodes = [
-        {"rule": job.rule.name, "fx": 10, "fy": i * 50}
-        for i, job in enumerate(jobs)
+        {"rule": job.rule.name, "fx": 10, "fy": i * 50} for i, job in enumerate(jobs)
     ]
     idx = {job: i for i, job in enumerate(jobs)}
 
@@ -638,7 +637,15 @@ def rulegraph_spec(dag):
     xmax = 100
     ymax = max(node["fy"] for node in nodes)
 
-    return {"nodes": nodes, "links": list(get_links(direct=False)), "links_direct": list(get_links(direct=True))}, xmax, ymax
+    return (
+        {
+            "nodes": nodes,
+            "links": list(get_links(direct=False)),
+            "links_direct": list(get_links(direct=True)),
+        },
+        xmax,
+        ymax,
+    )
 
 
 def get_resource_as_string(path_or_uri):
@@ -678,7 +685,7 @@ def auto_report(dag, path, stylesheet=None):
     logger.info("Creating report...")
 
     env = Environment(
-        loader=PackageLoader("snakemake", "report"),
+        loader=PackageLoader("snakemake", "report", "template"),
         trim_blocks=True,
         lstrip_blocks=True,
     )
@@ -933,27 +940,33 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    template = env.get_template("report.html.jinja2")
+    results = data.results.render_results(results)
+    categories = data.categories.render_categories(results)
+    rulegraph = data.rulegraph.render_rulegraph(
+        rulegraph["nodes"], rulegraph["links"], rulegraph["links_direct"]
+    )
+    rules = data.rules.render_rules(rules.values())
+    runtimes = data.runtimes.render_runtimes(runtimes)
+    timeline = data.timeline.render_timeline(timeline)
+
+    template = env.get_template("index.html.jinja2")
 
     logger.info("Downloading resources and rendering HTML.")
 
     rendered = template.render(
         results=results,
-        results_size=results_size,
-        configfiles=configfiles,
-        text=text,
-        rulegraph_nodes=rulegraph["nodes"],
-        rulegraph_links=rulegraph["links"],
-        rulegraph_links_direct=rulegraph["links_direct"],
-        logo=data_uri_from_file(Path(__file__).parent / "logo.svg"),
+        categories=categories,
+        rulegraph=rulegraph,
+        rules=rules,
         runtimes=runtimes,
         timeline=timeline,
-        rules=[rec for recs in rules.values() for rec in recs],
-        version=__version__.split("+")[0],
+        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+        custom_stylesheet=custom_stylesheet,
+        logo=data_uri_from_file(Path(__file__).parent / "logo.svg"),
         now=now,
         pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
         custom_stylesheet=custom_stylesheet,
-        mode_embedded=mode_embedded,
+        version=__version__.split("+")[0],
     )
 
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)

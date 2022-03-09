@@ -1,0 +1,4 @@
+.vega-embed summary {
+    z-index: 49 !important;
+    /* ensure that menu is always below navbar*/
+}

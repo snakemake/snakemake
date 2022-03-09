@@ -56,7 +56,7 @@ setup(
             "snakemake-bash-completion = snakemake:bash_completion",
         ]
     },
-    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2"]},
+    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]},
     install_requires=[
         "wrapt",
         "requests",

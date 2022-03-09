@@ -152,7 +152,7 @@ class AbstractResults extends React.Component {
                     onClick: function () {
                         setView({
                             content: "img",
-                            contentPath: entry.data_uri()
+                            contentPath: entry.data_uri
                         })
                     }
                 };
@@ -163,14 +163,14 @@ class AbstractResults extends React.Component {
                     onClick: function () {
                         setView({
                             content: "html",
-                            contentPath: entry.data_uri()
+                            contentPath: entry.data_uri
                         })
                     }
                 };
                 break;
             default:
                 props = {
-                    href: entry.data_uri(),
+                    href: entry.data_uri,
                     download: entry.name
                 };
         }
