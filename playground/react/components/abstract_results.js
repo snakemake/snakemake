@@ -146,6 +146,6 @@ class AbstractResults extends React.Component {
     }
 
     showResultInfo(resultPath) {
-        this.props.setView({ mode: "resultinfo", resultPath: resultPath, category: this.getCategory(), subcategory: this.getSubcategory(), searchTerm: this.getSearchTerm() });
+        this.props.setView({ navbarMode: "resultinfo", resultPath: resultPath, category: this.getCategory(), subcategory: this.getSubcategory(), searchTerm: this.getSearchTerm() });
     }
 }

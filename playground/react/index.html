@@ -5,8 +5,9 @@
 
     <title>Snakemake Report</title>
     <style>
-        #navbar {
-            transition-property: width;
+        .vega-embed summary {
+            z-index: 49 !important;
+            /* ensure that menu is always below navbar*/
         }
     </style>
 </head>
@@ -27,6 +28,7 @@
     <script src="rulegraph.js"></script>
     <script src="runtimes.js"></script>
     <script src="timeline.js"></script>
+    <script src="rules.js"></script>
 
     <script src="components/common.js"></script>
     <script src="components/list_item.js"></script>
@@ -40,7 +42,8 @@
     <script src="components/subcategory.js"></script>
     <script src="components/search_results.js"></script>
     <script src="components/result_info.js"></script>
-    <script src="components/rulegraph.js"></script>
+    <script src="components/rule_graph.js"></script>
+    <script src="components/rule_info.js"></script>
     <script src="components/stats.js"></script>
     <script src="components/content.js"></script>
     <script src="components/navbar.js"></script>

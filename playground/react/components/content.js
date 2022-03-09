@@ -16,9 +16,10 @@ class ContentDisplay extends React.Component {
     }
 
     renderContent() {
-        switch (this.props.show) {
+        let setView = this.props.app.setView;
+        switch (this.props.app.state.content) {
             case "rulegraph":
-                return e(RuleGraph);
+                return e(RuleGraph, { setView: setView });
             case "stats":
                 return e(Stats)
         }

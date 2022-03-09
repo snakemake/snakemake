@@ -24,11 +24,10 @@ class ResultInfo extends React.Component {
             return [
                 e(
                     ListHeading,
-                    { text: "Result" }
+                    { text: "Result", key: "result" }
                 ),
                 e(
-                    "li",
-                    {},
+                    ListItem,
                     e(
                         "table",
                         {},
@@ -70,11 +69,11 @@ class ResultInfo extends React.Component {
             return [
                 e(
                     ListHeading,
-                    { text: "Result" }
+                    { text: "Result", key: "result" }
                 ),
                 e(
-                    "li",
-                    { className: "p-1" },
+                    ListItem,
+                    { key: "path" },
                     this.props.resultPath
                 )
             ];
@@ -87,11 +86,12 @@ class ResultInfo extends React.Component {
             return [
                 e(
                     ListHeading,
-                    { text: "Description" }
+                    { key: "caption-heading", text: "Description" }
                 ),
                 e(
-                    "li",
+                    ListItem,
                     {
+                        key: "caption",
                         className: "p-1",
                         dangerouslySetInnerHTML: { __html: caption }
                     }
@@ -106,11 +106,11 @@ class ResultInfo extends React.Component {
         return [
             e(
                 ListHeading,
-                { text: "Snakemake rule" }
+                { key: "rule-heading", text: "Snakemake rule" }
             ),
             e(
                 ListItem,
-                {},
+                { key: "rulename" },
                 this.getResult().job_properties.rule
             )
         ]
@@ -118,12 +118,11 @@ class ResultInfo extends React.Component {
 
     getParamsAndWildcards() {
         const jobProperties = this.getResult().job_properties;
-        console.log(jobProperties)
         if (jobProperties.params || jobProperties.wildcards) {
             let items = [
                 e(
                     ListHeading,
-                    { text: "Job parameters" }
+                    { key: "params-heading", text: "Job parameters" }
                 ),
             ];
             if (jobProperties.wildcards) {

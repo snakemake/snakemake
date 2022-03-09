@@ -98,6 +98,6 @@ class Breadcrumbs extends React.Component {
     }
 
     showSearchResults() {
-        this.props.setView({ mode: "searchresults", searchTerm: this.state.searchTerm })
+        this.props.setView({ navbarMode: "searchresults", searchTerm: this.state.searchTerm })
     }
 }

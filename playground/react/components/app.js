@@ -11,15 +11,15 @@ class App extends React.Component {
 
     render() {
         return [
-            e(Navbar, { app: this }),
-            e(ContentDisplay, { show: this.state.content })
+            e(Navbar, { key: "navbar", app: this }),
+            e(ContentDisplay, { key: "content", app: this })
         ];
     }
 
     setView(view) {
         event.preventDefault();
         this.setState({
-            navbarMode: view.mode || this.state.navbarMode,
+            navbarMode: view.navbarMode || this.state.navbarMode,
             content: view.content || this.state.content,
             ruleinfo: view.ruleinfo,
             category: view.category,

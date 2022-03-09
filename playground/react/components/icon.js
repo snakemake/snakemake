@@ -32,11 +32,11 @@ class Icon extends React.Component {
         return e(
             "svg",
             { xmlns: "http://www.w3.org/2000/svg", className: `h-4 w-4 ${this.props.className}`, viewBox: "0 0 20 20", fill: "currentColor", },
-            this.renderPath().map(function (item) {
+            this.renderPath().map(function (item, index) {
 
                 return e(
                     "path",
-                    { fillRule: item.rule, clipRule: item.rule, d: item.path }
+                    { fillRule: item.rule, clipRule: item.rule, d: item.path, key: index }
                 );
             })
         )

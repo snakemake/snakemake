@@ -52,6 +52,8 @@ class Navbar extends React.Component {
                 return e(SearchResults, { setView: setView, searchTerm: this.props.app.state.searchTerm });
             case "resultinfo":
                 return e(ResultInfo, { resultPath: this.props.app.state.resultPath });
+            case "ruleinfo":
+                return e(RuleInfo, { rule: this.props.app.state.ruleinfo });
         }
     }
 
@@ -78,12 +80,25 @@ class Navbar extends React.Component {
                     Breadcrumbs,
                     { entries: [this.getMenuBreadcrumb(), this.getSearchResultsBreadcrumb()], setView: setView }
                 )
+            case "ruleinfo":
+                return e(
+                    Breadcrumbs,
+                    { entries: [this.getMenuBreadcrumb(), this.getRuleBreadcrumb(), this.getRuleinfoBreadcrumb()], setView: setView }
+                )
         }
     }
 
     getMenuBreadcrumb() {
         let setView = this.props.app.setView;
-        return { name: "menu", icon: "home", func: function () { setView({ mode: "menu", category: undefined, subcategory: undefined }) } };
+        return { name: "menu", icon: "home", func: function () { setView({ navbarMode: "menu", category: undefined, subcategory: undefined }) } };
+    }
+
+    getRuleBreadcrumb() {
+        return { name: "Rule", func: undefined }
+    }
+
+    getRuleinfoBreadcrumb() {
+        return { name: this.props.app.state.ruleinfo, func: undefined }
     }
 
     getCategoryBreadcrumb() {
@@ -102,7 +117,7 @@ class Navbar extends React.Component {
             name = "Results";
         }
         let setView = this.props.app.setView;
-        return { name: name, func: function () { setView({ mode: "category", category: category, subcategory: subcategory }) } };
+        return { name: name, func: function () { setView({ navbarMode: "category", category: category, subcategory: subcategory }) } };
     }
 
     getSubcategoryBreadcrumb() {
@@ -112,7 +127,7 @@ class Navbar extends React.Component {
             return undefined;
         }
         let setView = this.props.app.setView;
-        return { name: this.props.app.state.subcategory, func: function () { setView({ mode: "category", category: category, subcategory: subcategory }) } };
+        return { name: this.props.app.state.subcategory, func: function () { setView({ navbarMode: "category", category: category, subcategory: subcategory }) } };
     }
 
     getResultBreadcrumb() {
@@ -130,7 +145,7 @@ class Navbar extends React.Component {
         let setView = this.props.app.setView;
         return {
             name: "Search results", func: function () {
-                setView({ mode: "searchresults", searchTerm: searchTerm })
+                setView({ navbarMode: "searchresults", searchTerm: searchTerm })
             }
         };
     }

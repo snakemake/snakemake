@@ -3,6 +3,7 @@
 class RuleGraph extends React.Component {
     constructor(props) {
         super(props);
+        this.showRuleProperties = this.showRuleProperties.bind(this);
     }
 
     render() {
@@ -24,8 +25,10 @@ class RuleGraph extends React.Component {
         });
     }
 
-
-    showRuleProperties() {
-
+    showRuleProperties(rule) {
+        this.props.setView({
+            navbarMode: "ruleinfo",
+            ruleinfo: rule
+        });
     }
 }

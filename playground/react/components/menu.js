@@ -42,7 +42,7 @@ class Menu extends AbstractMenu {
         if (isSingleSubcategory(category)) {
             subcategory = Object.keys(categories[category])[0];
         }
-        this.props.setView({ mode: "category", category: category, subcategory: subcategory })
+        this.props.setView({ navbarMode: "category", category: category, subcategory: subcategory })
     }
 
     getCategoryMenumitems() {
