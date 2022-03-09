@@ -27,6 +27,11 @@ class ContentDisplay extends React.Component {
                     "img",
                     { src: this.props.app.state.contentPath }
                 )
+            case "html":
+                return e(
+                    "iframe",
+                    { src: this.props.add.state.contentPath, className: "w-screen h-screen" }
+                )
         }
     }
 }
