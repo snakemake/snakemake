@@ -10,7 +10,7 @@ class ContentDisplay extends React.Component {
     render() {
         return e(
             "div",
-            { className: "flex items-center justify-center min-h-screen z-0" },
+            { className: "flex items-center justify-center min-h-screen z-0 p-3" },
             this.renderContent()
         )
     }
