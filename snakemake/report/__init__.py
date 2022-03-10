@@ -287,7 +287,6 @@ class RuleRecord:
                 self._rule.notebook,
                 self._rule.workflow.sourcecache,
                 self._rule.basedir,
-                wildcards=self.wildcards,
                 params=self.params,
             )
             language = language.split("_")[1]
