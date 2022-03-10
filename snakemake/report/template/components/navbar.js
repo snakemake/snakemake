@@ -21,7 +21,7 @@ class Navbar extends React.Component {
             ),
             e(
                 "nav",
-                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} min-w-fit max-w-screen text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-auto` },
+                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen` },
                 e(
                     "h1",
                     { className: "sticky bg-blur bg-white opacity-80 text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },
@@ -41,11 +41,15 @@ class Navbar extends React.Component {
                     ),
                     this.getHideButton()
                 ),
-                this.renderBreadcrumbs(),
                 e(
                     "div",
-                    { className: "p-3" },
-                    this.renderContent()
+                    { className: "overflow-auto" },
+                    this.renderBreadcrumbs(),
+                    e(
+                        "div",
+                        { className: "p-3" },
+                        this.renderContent()
+                    )
                 )
             )
         ];
@@ -220,11 +224,17 @@ class Navbar extends React.Component {
     getWidth() {
         switch (this.props.app.state.navbarMode) {
             case "menu":
-                return "w-1/5"
+                return "w-1/5 min-w-fit"
             case "category":
-                return "w-1/3"
+            case "subcategory":
+            case "searchresults":
+                return "w-1/4 min-w-fit"
             case "resultinfo":
-                return "w-3/4"
+                return "w-1/2"
+            case "ruleinfo":
+                return "w-1/2"
+            default:
+                return "w-1/5 min-w-fit"
         }
     }
 }
