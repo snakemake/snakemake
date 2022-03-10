@@ -21,7 +21,7 @@ class Navbar extends React.Component {
             ),
             e(
                 "nav",
-                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} min-w-fit text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-y-auto` },
+                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} min-w-fit max-w-screen text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-auto` },
                 e(
                     "h1",
                     { className: "sticky bg-blur bg-white opacity-80 text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },

@@ -325,14 +325,11 @@ class RuleRecord:
         try:
             lexer = get_lexer_by_name(language)
 
-            highlighted = [
-                highlight(
-                    source,
-                    lexer,
-                    HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-                )
-                for source in sources
-            ]
+            highlighted = highlight(
+                "\n\n".join(sources),
+                lexer,
+                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+            )
 
             return highlighted
         except pygments.util.ClassNotFound:

@@ -43,16 +43,14 @@ class RuleInfo extends React.Component {
                     ListHeading,
                     { key: "code-heading", text: "Code" }
                 ),
-                rule.code.map(function (block) {
-                    return e(
-                        ListItem,
-                        {
-                            key: "code",
-                            className: "p-1",
-                            dangerouslySetInnerHTML: { __html: block }
-                        }
-                    )
-                })
+                e(
+                    ListItem,
+                    {
+                        key: "code",
+                        className: "p-1",
+                        dangerouslySetInnerHTML: { __html: rule.code }
+                    }
+                )
             ];
         } else {
             return [];
