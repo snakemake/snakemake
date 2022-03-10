@@ -121,7 +121,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     if stylesheet is None:
         os.path.join(os.path.dirname(__file__), "report.css")
@@ -400,7 +400,8 @@ class FileRecord:
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
-        logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
+        self.size_mb = f"{self.size / 1e6:.2g} MB"
+        logger.info(f"Adding {self.name} ({self.size_mb}).")
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
         self.workflow = workflow
@@ -504,9 +505,7 @@ class FileRecord:
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
-                self.caption = json.dumps(
-                    publish_parts(caption, writer_name="html")["body"]
-                )
+                self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError(
                     "Error loading caption file {} of output marked for report.".format(
@@ -650,7 +649,7 @@ def rulegraph_spec(dag):
 
 def get_resource_as_string(path_or_uri):
     if is_local_file(path_or_uri):
-        return open(Path(__file__).parent / path_or_uri).read()
+        return open(Path(__file__).parent / "template" / path_or_uri).read()
     else:
         r = requests.get(path_or_uri)
         if r.status_code == requests.codes.ok:
@@ -685,7 +684,7 @@ def auto_report(dag, path, stylesheet=None):
     logger.info("Creating report...")
 
     env = Environment(
-        loader=PackageLoader("snakemake", "report", "template"),
+        loader=PackageLoader("snakemake", "report/template"),
         trim_blocks=True,
         lstrip_blocks=True,
     )
@@ -865,6 +864,9 @@ def auto_report(dag, path, stylesheet=None):
                     break
             if not merged:
                 rules[rec.rule].append(rule)
+    # In theory there could be more than one rule with the same name kept from above.
+    # For now, we just keep the first.
+    rules = {rulename: items[0] for rulename, items in rules.items()}
 
     # rulegraph
     rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
@@ -940,14 +942,14 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    results = data.results.render_results(results)
-    categories = data.categories.render_categories(results)
-    rulegraph = data.rulegraph.render_rulegraph(
+    categories = data.render_categories(results)
+    results = data.render_results(results)
+    rulegraph = data.render_rulegraph(
         rulegraph["nodes"], rulegraph["links"], rulegraph["links_direct"]
     )
-    rules = data.rules.render_rules(rules.values())
-    runtimes = data.runtimes.render_runtimes(runtimes)
-    timeline = data.timeline.render_timeline(timeline)
+    rules = data.render_rules(rules)
+    runtimes = data.render_runtimes(runtimes)
+    timeline = data.render_timeline(timeline)
 
     template = env.get_template("index.html.jinja2")
 
@@ -960,12 +962,10 @@ def auto_report(dag, path, stylesheet=None):
         rules=rules,
         runtimes=runtimes,
         timeline=timeline,
-        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+        pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
         custom_stylesheet=custom_stylesheet,
-        logo=data_uri_from_file(Path(__file__).parent / "logo.svg"),
+        logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
         now=now,
-        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
-        custom_stylesheet=custom_stylesheet,
         version=__version__.split("+")[0],
     )
 

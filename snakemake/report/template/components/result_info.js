@@ -93,7 +93,7 @@ class ResultInfo extends React.Component {
                     ListItem,
                     {
                         key: "caption",
-                        className: "p-1",
+                        className: "p-1 prose prose-invert prose-sm",
                         dangerouslySetInnerHTML: { __html: caption }
                     }
                 )

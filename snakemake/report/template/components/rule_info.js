@@ -7,34 +7,79 @@ class RuleInfo extends React.Component {
 
     render() {
         let rule = rules[this.props.rule];
+        if (rule === undefined) {
+            return e(
+                "span",
+                { className: "p-1" },
+                `No metadata available for rule ${this.props.rule}`
+            );
+        }
+
         return e(
             "ol",
             {},
             this.renderItems("Input", rule.input, {}, false),
-            this.renderItems("Output", rule.input),
-            this.renderItems("Software", rule.conda),
+            this.renderItems("Output", rule.output),
+            this.renderSoftware(),
             this.renderItems("Container", [rule.container]),
-            this.renderItems("Code", rule.code),
+            this.renderCode(),
         )
     }
 
-    renderItems(heading, items, props = {}, margin = true) {
-        let headingProps = {};
-        if (margin) {
-            headingProps = { className: "" }
+    renderSoftware() {
+        let rule = rules[this.props.rule];
+        if (rule.conda_env) {
+            return this.renderItems("Software", rule.conda_env.dependencies);
+        } else {
+            return [];
         }
-        return [
-            e(
-                ListHeading,
-                { text: heading, ...headingProps }
-            ),
-            items.map(function (item) {
-                return e(
-                    ListItem,
-                    props,
-                    item
-                );
-            })
-        ];
+    }
+
+    renderCode() {
+        let rule = rules[this.props.rule];
+        if (rule.code.length) {
+            return [
+                e(
+                    ListHeading,
+                    { key: "code-heading", text: "Code" }
+                ),
+                rule.code.map(function (block) {
+                    return e(
+                        ListItem,
+                        {
+                            key: "code",
+                            className: "p-1",
+                            dangerouslySetInnerHTML: { __html: block }
+                        }
+                    )
+                })
+            ];
+        } else {
+            return [];
+        }
+    }
+
+    renderItems(heading, items, props = {}, margin = true) {
+        if (items.length && items.every((item) => item !== undefined)) {
+            let headingProps = {};
+            if (margin) {
+                headingProps = { className: "" }
+            }
+            return [
+                e(
+                    ListHeading,
+                    { text: heading, ...headingProps }
+                ),
+                items.map(function (item) {
+                    return e(
+                        ListItem,
+                        props,
+                        item
+                    );
+                })
+            ];
+        } else {
+            return [];
+        }
     }
 }

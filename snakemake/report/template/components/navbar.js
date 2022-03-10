@@ -16,7 +16,7 @@ class Navbar extends React.Component {
         return [
             e(
                 "div",
-                { className: `fixed z-50 p-3 transition-translate ${translateShowButton}` },
+                { className: `fixed z-50 p-3 transition-translate bg-white backdrop-blur-sm rounded-br-lg ${translateShowButton}` },
                 this.getShowButton()
             ),
             e(
@@ -27,7 +27,7 @@ class Navbar extends React.Component {
                     { className: "sticky bg-blur bg-white opacity-80 text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },
                     e(
                         "img",
-                        { src: "logo.svg", className: "h-4" }
+                        { src: logo_uri, className: "h-4" }
                     ),
                     e(
                         "span",
@@ -213,7 +213,7 @@ class Navbar extends React.Component {
     getResultinfoBreadcrumb() {
         let setView = this.props.app.setView;
         return {
-            name: "resultinfo", icon: "eye", func: function () { setView({ navbarMode: "resultinfo" }) }
+            name: this.props.app.state.resultPath, func: function () { setView({ navbarMode: "resultinfo" }) }
         };
     }
 

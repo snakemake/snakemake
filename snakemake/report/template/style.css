@@ -2,3 +2,7 @@
     z-index: 49 !important;
     /* ensure that menu is always below navbar*/
 }
+
+.source {
+    background-color: transparent!important;
+}
