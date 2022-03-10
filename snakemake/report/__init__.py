@@ -233,7 +233,6 @@ class Category:
 
 
 def render_iofile(iofile):
-    print(iofile, is_callable(iofile))
     if is_callable(iofile):
         return "<function>"
     else:
