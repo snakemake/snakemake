@@ -1080,12 +1080,12 @@ def checkpoint_target(value):
 
 
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
+    "ReportObject", ["caption", "category", "subcategory", "columns", "patterns", "htmlindex"]
 )
 
 
 def report(
-    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+    value, caption=None, category=None, subcategory=None, columns=None, patterns=[], htmlindex=None
 ):
     """Flag output file or directory as to be included into reports.
 
@@ -1095,14 +1095,14 @@ def report(
     value -- File or directory.
     caption -- Path to a .rst file with a textual description of the result.
     category -- Name of the category in which the result should be displayed in the report.
-    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+    patterns -- Wildcard patterns for selecting files if a directory is given (this is used as
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
     return flag(
         value,
         "report",
-        ReportObject(caption, category, subcategory, patterns, htmlindex),
+        ReportObject(caption, category, subcategory, columns, patterns, htmlindex),
     )
 
 

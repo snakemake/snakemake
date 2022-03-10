@@ -400,7 +400,9 @@ class FileRecord:
         mode_embedded=True,
         aux_files=None,
         name_overwrite=None,
+        columns=None,
     ):
+        self.columns = columns
         self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
@@ -585,6 +587,19 @@ def get_resource_as_string(path_or_uri):
         )
 
 
+def expand_columns(columns, wildcards, job):
+    if columns is None:
+        return None
+    if not isinstance(columns, list) or not all(
+        isinstance(col, str) for col in columns
+    ):
+        raise WorkflowError(
+            "Expected list of strings as columns argument given to report flag.",
+            rule=job.rule,
+        )
+    return [apply_wildcards(col, wildcards) for col in columns]
+
+
 def auto_report(dag, path, stylesheet=None):
     try:
         from jinja2 import Template, Environment, PackageLoader, UndefinedError
@@ -639,6 +654,7 @@ def auto_report(dag, path, stylesheet=None):
                     subcategory = Category(
                         report_obj.subcategory, wildcards=wildcards, job=job
                     )
+                    columns = expand_columns(report_obj.columns, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
@@ -652,6 +668,7 @@ def auto_report(dag, path, stylesheet=None):
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
                             name_overwrite=name_overwrite,
+                            columns=columns,
                         )
                     )
                     recorded_files.add(f)
