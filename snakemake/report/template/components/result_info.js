@@ -110,11 +110,27 @@ class ResultInfo extends React.Component {
             ),
             e(
                 ListItem,
-                { key: "rulename", className: "" },
+                { key: "rulename" },
                 e(
-                    "a",
-                    { type: "button", href: "#", className: "p-1 transition-all hover:text-emerald-500 rounded hover:bg-slate-800", onClick: () => setView({ navbarMode: "ruleinfo", ruleinfo: rule }) },
-                    rule
+                    "span",
+                    { className: "flex items-center gap-1" },
+                    [
+                        e(
+                            "span",
+                            {},
+                            rule
+                        ),
+                        e(
+                            "a",
+                            {
+                                type: "button",
+                                href: "#",
+                                className: `transition-all inline-block p-1 text-emerald-500 rounded hover:bg-slate-800`,
+                                onClick: () => setView({ navbarMode: "ruleinfo", ruleinfo: rule })
+                            },
+                            e(Icon, { iconName: "information-circle" })
+                        )
+                    ]
                 )
             )
         ]
