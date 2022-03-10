@@ -6,3 +6,25 @@
 .source {
     background-color: transparent!important;
 }
+
+#loading-screen {
+    background-color: white;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    padding-top: 50vh;
+}
+
+#loading-screen .animation {
+    animation: fadeinout 2.5s infinite;
+    text-align: center;
+    font-size: 200%;
+}
+
+#loading-screen #jswarning {
+    text-align: center;
+    color: red;
+}

@@ -20,6 +20,14 @@
 
 <body>
 
+    <div id="loading-screen">
+      <p class="animation">Loading Snakemake Report...</p>
+      <p id="jswarning">Please enable Javascript in your browser to see this report.</p>
+    </div>
+    <script>
+    document.querySelector('#loading-screen #jswarning').style.display = "none";
+    </script>
+
     <div id="app">
     </div>
 
@@ -78,6 +86,10 @@
     <script>{{"components/content.js"|get_resource_as_string}}</script>
     <script>{{"components/navbar.js"|get_resource_as_string}}</script>
     <script>{{"components/app.js"|get_resource_as_string}}</script>
+
+    <script>
+    document.querySelector('#loading-screen').style.display = "none";
+    </script>
 
 </body>
 
