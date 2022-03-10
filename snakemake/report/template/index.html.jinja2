@@ -9,7 +9,7 @@
     <meta name="author" content="">
     <title>Snakemake Report</title>
 
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>{{ "https://cdn.tailwindcss.com?plugins=forms,typography"|get_resource_as_string }}</script>
     <style>{{ pygments_css|safe }}</style>
     <style>{{ "style.css"|get_resource_as_string }}</style>
 
