@@ -1081,7 +1081,7 @@ def checkpoint_target(value):
 
 ReportObject = collections.namedtuple(
     "ReportObject",
-    ["caption", "category", "subcategory", "columns", "patterns", "htmlindex"],
+    ["caption", "category", "subcategory", "labels", "patterns", "htmlindex"],
 )
 
 
@@ -1090,7 +1090,7 @@ def report(
     caption=None,
     category=None,
     subcategory=None,
-    columns=None,
+    labels=None,
     patterns=[],
     htmlindex=None,
 ):
@@ -1111,7 +1111,7 @@ def report(
     return flag(
         value,
         "report",
-        ReportObject(caption, category, subcategory, columns, patterns, htmlindex),
+        ReportObject(caption, category, subcategory, labels, patterns, htmlindex),
     )
 
 

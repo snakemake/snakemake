@@ -38,26 +38,26 @@ class AbstractResults extends React.Component {
         throw new Error("Unimplemented!");
     }
 
-    getColumns() {
-        return Array.from(new Set(this.getResults().map(function ([path, result]) { return Object.keys(result.columns) }).flat())).sort();
+    getLabels() {
+        return Array.from(new Set(this.getResults().map(function ([path, result]) { return Object.keys(result.labels) }).flat())).sort();
     }
 
-    isColumnBased() {
+    isLabelled() {
         return this.getResults().every(function ([path, result]) {
-            return result.columns;
+            return result.labels;
         });
     }
 
     renderHeader() {
-        if (this.isColumnBased()) {
+        if (this.isLabelled()) {
             return e(
                 "tr",
                 {},
-                this.getColumns().map(function (column) {
+                this.getLabels().map(function (label) {
                     return e(
                         "th",
                         { className: "text-left p-1 uppercase" },
-                        column
+                        label
                     )
                 }),
                 e(
@@ -84,9 +84,9 @@ class AbstractResults extends React.Component {
 
     renderEntries() {
         let _this = this;
-        let columns = undefined;
-        if (this.isColumnBased()) {
-            columns = this.getColumns();
+        let labels = undefined;
+        if (this.isLabelled()) {
+            labels = this.getLabels();
         }
         return this.getResults().map(function ([path, entry]) {
             let actions = e(
@@ -106,19 +106,19 @@ class AbstractResults extends React.Component {
                 )
             );
 
-            let entryColumns = undefined;
+            let entryLabels = undefined;
             let key = undefined;
-            if (columns !== undefined) {
-                entryColumns = columns.map(function (column) {
+            if (labels !== undefined) {
+                entryLabels = labels.map(function (label) {
                     return e(
                         "td",
                         { className: "p-1" },
-                        entry.columns[column] || ""
+                        entry.labels[label] || ""
                     );
                 });
-                key = columns.join();
+                key = labels.join();
             } else {
-                entryColumns = e(
+                entryLabels = e(
                     "td",
                     { className: "p-1" },
                     path
@@ -130,7 +130,7 @@ class AbstractResults extends React.Component {
                 e(
                     "tr",
                     { key: key },
-                    entryColumns,
+                    entryLabels,
                     actions
                 )
             ];

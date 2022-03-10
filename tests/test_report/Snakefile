@@ -23,7 +23,7 @@ rule a:
     input:
         expand("test.{i}.out", i=range(10))
     output:
-        report("fig1.svg", caption="report/fig1.rst", category="Step 1", columns=lambda w, params: {"type": "figure", "num": "1"})
+        report("fig1.svg", caption="report/fig1.rst", category="Step 1", labels=lambda w, params: {"type": "figure", "num": "1"})
     shell:
         "sleep `shuf -i 1-3 -n 1`; cp data/fig1.svg {output}"
 
@@ -32,7 +32,7 @@ rule b:
     input:
         expand("test.{i}.out", i=range(10))
     output:
-        report("{model}.fig2.png", caption="report/fig2.rst", category=lambda w: "Step 2", subcategory="{model}", columns={"type": "figure", "model": "{model}"})
+        report("{model}.fig2.png", caption="report/fig2.rst", category=lambda w: "Step 2", subcategory="{model}", labels={"type": "figure", "model": "{model}"})
     shell:
         "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
 

@@ -418,9 +418,9 @@ class FileRecord:
         mode_embedded=True,
         aux_files=None,
         name_overwrite=None,
-        columns=None,
+        labels=None,
     ):
-        self.columns = columns
+        self.labels = labels
         self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
@@ -605,21 +605,21 @@ def get_resource_as_string(path_or_uri):
         )
 
 
-def expand_columns(columns, wildcards, job):
-    if columns is None:
+def expand_labels(labels, wildcards, job):
+    if labels is None:
         return None
-    columns = expand_report_argument(columns, wildcards, job)
+    labels = expand_report_argument(labels, wildcards, job)
 
-    if not isinstance(columns, dict) or not all(
-        isinstance(col, str) for col in columns.values()
+    if not isinstance(labels, dict) or not all(
+        isinstance(col, str) for col in labels.values()
     ):
         raise WorkflowError(
-            "Expected dict of strings as columns argument given to report flag.",
+            "Expected dict of strings as labels argument given to report flag.",
             rule=job.rule,
         )
     return {
         name: expand_report_argument(col, wildcards, job)
-        for name, col in columns.items()
+        for name, col in labels.items()
     }
 
 
@@ -677,7 +677,7 @@ def auto_report(dag, path, stylesheet=None):
                     subcategory = Category(
                         report_obj.subcategory, wildcards=wildcards, job=job
                     )
-                    columns = expand_columns(report_obj.columns, wildcards, job)
+                    labels = expand_labels(report_obj.labels, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
@@ -691,7 +691,7 @@ def auto_report(dag, path, stylesheet=None):
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
                             name_overwrite=name_overwrite,
-                            columns=columns,
+                            labels=labels,
                         )
                     )
                     recorded_files.add(f)

@@ -7,7 +7,7 @@ def render_results(results):
             res.path: {
                 "name": res.name,
                 "filename": res.filename,
-                "columns": res.columns,
+                "labels": res.labels,
                 "size": res.size_mb,
                 "caption": res.caption,
                 "mime_type": res.mime,

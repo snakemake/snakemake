@@ -20,8 +20,8 @@ class ResultInfo extends React.Component {
     getDescriptor() {
         let result = this.getResult();
 
-        if (result.columns) {
-            const columns = Object.keys(result.columns).sort();
+        if (result.labels) {
+            const labels = Object.keys(result.labels).sort();
             return [
                 e(
                     ListItem,
@@ -35,11 +35,11 @@ class ResultInfo extends React.Component {
                             e(
                                 "tr",
                                 {},
-                                columns.map(function (column) {
+                                labels.map(function (label) {
                                     return e(
                                         "th",
                                         { className: "text-left uppercase pr-2" },
-                                        column
+                                        label
                                     );
                                 })
                             )
@@ -50,8 +50,8 @@ class ResultInfo extends React.Component {
                             e(
                                 "tr",
                                 {},
-                                columns.map(function (column) {
-                                    const value = result.columns[column];
+                                labels.map(function (label) {
+                                    const value = result.labels[label];
                                     return e(
                                         "td",
                                         { className: "pr-2" },
