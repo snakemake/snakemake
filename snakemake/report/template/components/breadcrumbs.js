@@ -61,7 +61,10 @@ class Breadcrumbs extends React.Component {
                     e(
                         "li",
                         { key: `sep-${index}` },
-                        "/"
+                        e(
+                            Icon,
+                            { iconName: "chevron-right", className: "text-emerald-500" }
+                        )
                     )
                 ];
             }
