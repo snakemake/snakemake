@@ -20,18 +20,15 @@ class ResultInfo extends React.Component {
     getDescriptor() {
         let result = this.getResult();
 
-        if (result.columns !== undefined) {
+        if (result.columns) {
             const columns = Object.keys(result.columns).sort();
             return [
                 e(
-                    ListHeading,
-                    { text: "Result", key: "result" }
-                ),
-                e(
                     ListItem,
+                    {},
                     e(
                         "table",
-                        {},
+                        { className: "table-auto text-white text-sm" },
                         e(
                             "thead",
                             {},
@@ -41,7 +38,7 @@ class ResultInfo extends React.Component {
                                 columns.map(function (column) {
                                     return e(
                                         "th",
-                                        {},
+                                        { className: "text-left uppercase pr-2" },
                                         column
                                     );
                                 })
@@ -57,7 +54,7 @@ class ResultInfo extends React.Component {
                                     const value = result.columns[column];
                                     return e(
                                         "td",
-                                        {},
+                                        { className: "pr-2" },
                                         value
                                     );
                                 })
@@ -70,7 +67,7 @@ class ResultInfo extends React.Component {
             return [
                 e(
                     ListHeading,
-                    { text: "Result", key: "result" }
+                    { text: "Path", key: "result" }
                 ),
                 e(
                     ListItem,

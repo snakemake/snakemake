@@ -39,12 +39,12 @@ class AbstractResults extends React.Component {
     }
 
     getColumns() {
-        return Array.from(new Set(this.getResults().map(function ([path, result]) { Object.keys(result.columns) }).flat())).sort();
+        return Array.from(new Set(this.getResults().map(function ([path, result]) { return Object.keys(result.columns) }).flat())).sort();
     }
 
     isColumnBased() {
         return this.getResults().every(function ([path, result]) {
-            "columns" in result
+            return result.columns;
         });
     }
 
@@ -56,7 +56,7 @@ class AbstractResults extends React.Component {
                 this.getColumns().map(function (column) {
                     return e(
                         "th",
-                        { className: "text-left p-1" },
+                        { className: "text-left p-1 uppercase" },
                         column
                     )
                 }),

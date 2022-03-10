@@ -590,14 +590,14 @@ def get_resource_as_string(path_or_uri):
 def expand_columns(columns, wildcards, job):
     if columns is None:
         return None
-    if not isinstance(columns, list) or not all(
-        isinstance(col, str) for col in columns
+    if not isinstance(columns, dict) or not all(
+        isinstance(col, str) for col in columns.values()
     ):
         raise WorkflowError(
-            "Expected list of strings as columns argument given to report flag.",
+            "Expected dict of strings as columns argument given to report flag.",
             rule=job.rule,
         )
-    return [apply_wildcards(col, wildcards) for col in columns]
+    return {name: apply_wildcards(col, wildcards) for name, col in columns.items()}
 
 
 def auto_report(dag, path, stylesheet=None):

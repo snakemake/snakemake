@@ -594,6 +594,7 @@ class Rule:
                         self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
+                        report_obj.columns,
                         report_obj.patterns,
                         report_obj.htmlindex,
                     )
