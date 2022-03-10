@@ -234,6 +234,7 @@ class Category:
 
 def render_iofile(iofile):
     if is_callable(iofile):
+        print("func")
         return "<function>"
     else:
         return str(iofile)
