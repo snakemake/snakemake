@@ -423,7 +423,6 @@ class FileRecord:
         self.aux_files = aux_files or []
 
         self.data_uri = self._data_uri()
-        self.png_uri = self._png_uri()
 
     def _data_uri(self):
         if self.mode_embedded:
