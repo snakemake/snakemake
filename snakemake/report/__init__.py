@@ -34,6 +34,7 @@ from snakemake import script, wrapper, notebook
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
+    is_callable,
     is_flagged,
     get_flag_value,
     glob_wildcards,
@@ -231,6 +232,13 @@ class Category:
         return self.name.__lt__(other.name)
 
 
+def render_iofile(iofile):
+    if is_callable(iofile):
+        return "<function>"
+    else:
+        return str(iofile)
+
+
 class RuleRecord:
     def __init__(self, job, job_rec):
         import yaml
@@ -320,11 +328,11 @@ class RuleRecord:
 
     @property
     def output(self):
-        return self._rule.output
+        return [render_iofile(f) for f in self._rule.output]
 
     @property
     def input(self):
-        return self._rule.input
+        return [render_iofile(f) for f in self._rule.input]
 
     def __eq__(self, other):
         return (
