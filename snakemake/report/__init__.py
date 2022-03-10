@@ -42,10 +42,15 @@ from snakemake.io import (
     apply_wildcards,
     contains_wildcard,
 )
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
-from snakemake.common import is_local_file, num_if_possible, lazy_property
+from snakemake.common import (
+    get_input_function_aux_params,
+    is_local_file,
+    num_if_possible,
+    lazy_property,
+)
 from snakemake import logging
 from snakemake.report import data
 
@@ -204,6 +209,22 @@ def report(
     )
 
 
+def expand_report_argument(item, wildcards, job):
+    if is_callable(item):
+        aux_params = get_input_function_aux_params(item, {"params": job.params})
+        try:
+            item = item(wildcards, **aux_params)
+        except Exception as e:
+            raise InputFunctionException(e, rule=job.rule, wildcards=wildcards)
+    if isinstance(item, str):
+        try:
+            return apply_wildcards(item, wildcards)
+        except AttributeError as e:
+            raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
+    else:
+        return item
+
+
 class Category:
     def __init__(self, name, wildcards, job):
         if name is None:
@@ -211,10 +232,7 @@ class Category:
             self.is_other = True
         else:
             self.is_other = False
-            try:
-                name = apply_wildcards(name, wildcards)
-            except AttributeError as e:
-                raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
+            name = expand_report_argument(name, wildcards, job)
         self.name = name
         h = hashlib.sha256()
         h.update(name.encode())
@@ -590,6 +608,8 @@ def get_resource_as_string(path_or_uri):
 def expand_columns(columns, wildcards, job):
     if columns is None:
         return None
+    columns = expand_report_argument(columns, wildcards, job)
+
     if not isinstance(columns, dict) or not all(
         isinstance(col, str) for col in columns.values()
     ):
@@ -597,7 +617,10 @@ def expand_columns(columns, wildcards, job):
             "Expected dict of strings as columns argument given to report flag.",
             rule=job.rule,
         )
-    return {name: apply_wildcards(col, wildcards) for name, col in columns.items()}
+    return {
+        name: expand_report_argument(col, wildcards, job)
+        for name, col in columns.items()
+    }
 
 
 def auto_report(dag, path, stylesheet=None):
