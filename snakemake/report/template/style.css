@@ -18,13 +18,25 @@
     padding-top: 50vh;
 }
 
-#loading-screen .animation {
+@keyframes fadeinout {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+#loading-animation {
     animation: fadeinout 2.5s infinite;
     text-align: center;
     font-size: 200%;
 }
 
-#loading-screen #jswarning {
+#jswarning {
     text-align: center;
     color: red;
 }
