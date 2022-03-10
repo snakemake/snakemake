@@ -84,7 +84,7 @@ setup(
         "retry",
     ],
     extras_require={
-        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "reports": ["jinja2", "pygments"],
         "messaging": ["slacker"],
         "google-cloud": [
             "oauth2client",

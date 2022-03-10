@@ -425,50 +425,6 @@ class FileRecord:
         self.data_uri = self._data_uri()
         self.png_uri = self._png_uri()
 
-    @lazy_property
-    def png_content(self):
-        assert self.is_img
-
-        convert = shutil.which("magick")
-        if convert is not None:
-            try:
-                # 2048 aims at a reasonable balance between what displays
-                # can show in a png-preview image and what renders quick
-                # into a small enough png
-                max_width = "2048"
-                max_height = "2048"
-                # '>' means only larger images scaled down to within max-dimensions
-                max_spec = max_width + "x" + max_height + ">"
-                png = sp.check_output(
-                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
-                    stderr=sp.PIPE,
-                )
-                return png
-            except sp.CalledProcessError as e:
-                logger.warning(
-                    "Failed to convert image to png with "
-                    "imagemagick convert: {}".format(e.stderr)
-                )
-        else:
-            logger.warning(
-                "Command convert not in $PATH. Install "
-                "imagemagick in order to have embedded "
-                "images and pdfs in the report."
-            )
-
-    def _png_uri(self):
-        if self.is_img:
-            png = self.png_content
-            if self.mode_embedded:
-                if png is not None:
-                    uri = data_uri(
-                        png, os.path.basename(self.path) + ".png", mime="image/png"
-                    )
-                    return uri
-            else:
-                if png is not None:
-                    return os.path.join("data/thumbnails", self.id)
-
     def _data_uri(self):
         if self.mode_embedded:
             return data_uri_from_file(self.path)
@@ -559,41 +515,6 @@ class FileRecord:
     @property
     def filename(self):
         return os.path.basename(self.path)
-
-
-def rulegraph_d3_spec(dag):
-    try:
-        import networkx as nx
-        from networkx.drawing.nx_agraph import graphviz_layout
-        from networkx.readwrite import json_graph
-    except ImportError as e:
-        raise WorkflowError(
-            "Python packages networkx and pygraphviz must be "
-            "installed to create reports.",
-            e,
-        )
-
-    g = nx.DiGraph()
-    g.add_nodes_from(sorted(job.rule.name for job in dag.jobs))
-
-    for job in dag.jobs:
-        target = job.rule.name
-        for dep in dag.dependencies[job]:
-            source = dep.rule.name
-            g.add_edge(source, target)
-
-    pos = graphviz_layout(g, "dot", args="-Grankdir=BT")
-    xmax = max(x for x, y in pos.values()) + 100  # add offset to account for labels
-    ymax = max(y for x, y in pos.values())
-
-    def encode_node(node):
-        x, y = pos[node]
-        return {"rule": node, "fx": x, "fy": y}
-
-    nodes = list(map(encode_node, g.nodes))
-    idx = {node: i for i, node in enumerate(g.nodes)}
-    links = [{"target": idx[u], "source": idx[v], "value": 1} for u, v in g.edges]
-    return {"nodes": nodes, "links": links}, xmax, ymax
 
 
 def rulegraph_spec(dag):
@@ -817,7 +738,6 @@ def auto_report(dag, path, stylesheet=None):
                 rec.container_img_url = meta["container_img_url"]
                 rec.output.append(f)
             except KeyError as e:
-                print(e)
                 logger.warning(
                     "Metadata for file {} was created with a too "
                     "old Snakemake version.".format(f)
@@ -869,7 +789,6 @@ def auto_report(dag, path, stylesheet=None):
     rules = {rulename: items[0] for rulename, items in rules.items()}
 
     # rulegraph
-    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
     rulegraph, xmax, ymax = rulegraph_spec(dag)
 
     # configfiles
@@ -980,11 +899,6 @@ def auto_report(dag, path, stylesheet=None):
                     for result in catresults:
                         # write raw data
                         zipout.write(result.path, str(folder.joinpath(result.data_uri)))
-                        # write thumbnail
-                        if result.is_img and result.png_content:
-                            zipout.writestr(
-                                str(folder.joinpath(result.png_uri)), result.png_content
-                            )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
                         for aux_path in result.aux_files:
