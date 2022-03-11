@@ -921,6 +921,7 @@ def auto_report(dag, path, stylesheet=None):
         categories=categories,
         rulegraph=rulegraph,
         rules=rules,
+        workflow_desc=json.dumps(text),
         runtimes=runtimes,
         timeline=timeline,
         pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),

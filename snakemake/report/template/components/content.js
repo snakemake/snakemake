@@ -21,8 +21,15 @@ class ContentDisplay extends React.Component {
             case "rulegraph":
                 return e(
                     "div",
-                    { className: "p-3" },
-                    e(RuleGraph, { setView: setView })
+                    { className: "flex gap-3 p-3 items-start" },
+                    e(RuleGraph, { setView: setView }),
+                    e(
+                        "div",
+                        {
+                            className: "prose prose-sm max-w-lg",
+                            dangerouslySetInnerHTML: { __html: workflow_desc }
+                        }
+                    )
                 );
             case "stats":
                 return e(
