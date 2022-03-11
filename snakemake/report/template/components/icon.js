@@ -43,7 +43,6 @@ class Icon extends React.Component {
     }
 
     render() {
-        let _this = this;
         return e(
             "svg",
             { xmlns: "http://www.w3.org/2000/svg", className: `h-4 w-4 ${this.props.className}`, viewBox: "0 0 20 20", fill: "currentColor", },

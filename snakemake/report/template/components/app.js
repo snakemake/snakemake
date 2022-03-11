@@ -17,7 +17,6 @@ class App extends React.Component {
     }
 
     setView(view) {
-        event.preventDefault();
         this.setState({
             hideNavbar: view.hideNavbar || this.hideNavbar,
             navbarMode: view.navbarMode || this.state.navbarMode,

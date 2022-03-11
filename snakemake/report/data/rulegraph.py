@@ -76,12 +76,15 @@ def render_rulegraph(nodes, links, links_direct):
                 {
                     "type": "path",
                     "from": {"data": "link-data-direct"},
-                    "interactive": False,
+                    "interactive": True,
                     "encode": {
                         "update": {
                             "stroke": {"value": "#ccc"},
                             "strokeWidth": {"value": 1.0},
-                        }
+                        },
+                        "hover": {
+                            "strokeWidth": {"value": 4.0},
+                        },
                     },
                     "transform": [
                         {
@@ -97,12 +100,20 @@ def render_rulegraph(nodes, links, links_direct):
                 {
                     "type": "path",
                     "from": {"data": "link-data"},
-                    "interactive": False,
+                    "interactive": True,
                     "encode": {
+                        "enter": {
+                            "tooltip": {
+                                "signal": "{\"from rule\": datum['sourcerule'], \"to rule\": datum['targetrule']}"
+                            },
+                        },
                         "update": {
                             "stroke": {"value": "#ccc"},
                             "strokeWidth": {"value": 1.0},
-                        }
+                        },
+                        "hover": {
+                            "strokeWidth": {"value": 4.0},
+                        },
                     },
                     "transform": [
                         {

@@ -174,7 +174,6 @@ class Navbar extends React.Component {
             subcategory = this.props.app.state.subcategory;
             mode = "subcategory";
         }
-        let _this = this;
 
         let name = this.props.app.state.category;
         if (isSingleDefaultCategory()) {

@@ -53,6 +53,7 @@ from snakemake.common import (
 )
 from snakemake import logging
 from snakemake.report import data
+from snakemake.report.rulegraph_spec import rulegraph_spec
 
 
 class EmbeddedMixin(object):
@@ -537,57 +538,6 @@ class FileRecord:
     @property
     def filename(self):
         return os.path.basename(self.path)
-
-
-def rulegraph_spec(dag):
-    # get toposorting, and keep only one job of each rule per level
-    representatives = dict()
-
-    def get_representatives(level):
-        unique = dict()
-        for job in level:
-            if job.rule.name in unique:
-                representatives[job] = unique[job.rule.name]
-            else:
-                representatives[job] = job
-                unique[job.rule.name] = job
-        return sorted(unique.values(), key=lambda job: job.rule.name)
-
-    toposorted = [get_representatives(level) for level in dag.toposorted()]
-
-    jobs = [job for level in toposorted for job in level]
-
-    nodes = [
-        {"rule": job.rule.name, "fx": 10, "fy": i * 50} for i, job in enumerate(jobs)
-    ]
-    idx = {job: i for i, job in enumerate(jobs)}
-
-    def get_links(direct: bool):
-        for u in jobs:
-            for v in dag.dependencies[u]:
-                target = idx[u]
-                source = idx[representatives[v]]
-                if target - source == 1:
-                    if not direct:
-                        continue
-                else:
-                    if direct:
-                        continue
-
-                yield {"target": target, "source": source, "value": 1}
-
-    xmax = 100
-    ymax = max(node["fy"] for node in nodes)
-
-    return (
-        {
-            "nodes": nodes,
-            "links": list(get_links(direct=False)),
-            "links_direct": list(get_links(direct=True)),
-        },
-        xmax,
-        ymax,
-    )
 
 
 def get_resource_as_string(path_or_uri):

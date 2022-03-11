@@ -22,7 +22,7 @@ class SearchResults extends AbstractResults {
                 return [path, result];
             }
             const columns = result.columns || [];
-            for (columnValue in columns) {
+            for (const columnValue in columns) {
                 if (searchFunc(columnValue)) {
                     return [path, result];
                 }
