@@ -344,7 +344,10 @@ class SourceCache:
     def _do_cache(self, source_file, cache_entry):
         # open from origin
         with self._open(source_file.get_path_or_uri(), "rb") as source:
-            tmp_source = tempfile.NamedTemporaryFile(prefix=str(cache_entry))
+            tmp_source = tempfile.NamedTemporaryFile(
+                prefix=str(cache_entry),
+                delete=False,  # no need to delete since we move it below
+            )
             tmp_source.write(source.read())
             tmp_source.flush()
             # Atomic move to right name.
