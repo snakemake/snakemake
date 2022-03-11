@@ -16,7 +16,7 @@ class Navbar extends React.Component {
         return [
             e(
                 "div",
-                { className: `fixed z-50 p-3 transition-translate bg-white backdrop-blur-sm rounded-br-lg ${translateShowButton}` },
+                { className: `fixed z-50 p-2 transition-translate bg-white/70 backdrop-blur-sm rounded-br-lg ${translateShowButton}` },
                 this.getShowButton()
             ),
             e(

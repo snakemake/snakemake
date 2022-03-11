@@ -10,7 +10,7 @@ class ContentDisplay extends React.Component {
     render() {
         return e(
             "div",
-            { className: "flex items-center justify-center min-h-screen z-0 p-3" },
+            { className: "flex items-center justify-center min-h-screen z-0" },
             this.renderContent()
         )
     }
@@ -19,18 +19,31 @@ class ContentDisplay extends React.Component {
         let setView = this.props.app.setView;
         switch (this.props.app.state.content) {
             case "rulegraph":
-                return e(RuleGraph, { setView: setView });
+                return e(
+                    "div",
+                    { className: "p-3" },
+                    e(RuleGraph, { setView: setView })
+                );
             case "stats":
-                return e(Stats)
+                return e(
+                    "div",
+                    { className: "p-3" },
+                    e(Stats)
+                );
             case "img":
                 return e(
-                    "img",
-                    { src: this.props.app.state.contentPath }
-                )
+                    "div",
+                    { className: "p-3" },
+                    e(
+                        "img",
+                        { src: this.props.app.state.contentPath }
+                    )
+                );
             case "html":
+            case "pdf":
                 return e(
                     "iframe",
-                    { src: this.props.add.state.contentPath, className: "w-screen h-screen" }
+                    { src: this.props.app.state.contentPath, className: "w-screen h-screen" }
                 )
         }
     }

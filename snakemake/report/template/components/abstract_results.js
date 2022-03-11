@@ -168,6 +168,17 @@ class AbstractResults extends React.Component {
                     }
                 };
                 break;
+            case "application/pdf":
+                props = {
+                    href: "#",
+                    onClick: function () {
+                        setView({
+                            content: "pdf",
+                            contentPath: entry.data_uri
+                        })
+                    }
+                };
+                break;
             default:
                 props = {
                     href: entry.data_uri,
