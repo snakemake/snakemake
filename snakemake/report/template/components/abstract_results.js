@@ -84,6 +84,7 @@ class AbstractResults extends React.Component {
 
     renderEntries() {
         let _this = this;
+        let app = this.props.app;
         let labels = undefined;
         if (this.isLabelled()) {
             labels = this.getLabels();
@@ -95,12 +96,16 @@ class AbstractResults extends React.Component {
                 e(
                     "div",
                     { className: "inline-flex gap-1", role: "group" },
-                    _this.getViewButton(path, entry),
-                    _this.renderButton(
-                        "information-circle",
+                    e(
+                        ResultViewButton,
+                        { resultPath: path }
+                    ),
+                    e(
+                        Button,
                         {
                             href: "#",
-                            onClick: () => _this.showResultInfo(path)
+                            onClick: () => app.showResultInfo(path),
+                            iconName: "information-circle"
                         }
                     )
                 )
@@ -135,70 +140,6 @@ class AbstractResults extends React.Component {
                 )
             ];
         })
-    }
-
-    getViewButton(resultPath, entry) {
-        const mimeType = this.getResultMimeType(resultPath);
-        let setView = this.props.setView;
-
-        let props = undefined;
-
-        switch (mimeType) {
-            case "image/svg+xml":
-            case "image/png":
-            case "image/jpeg":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "img",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            case "text/html":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "html",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            case "application/pdf":
-                props = {
-                    href: "#",
-                    onClick: function () {
-                        setView({
-                            content: "pdf",
-                            contentPath: entry.data_uri
-                        })
-                    }
-                };
-                break;
-            default:
-                props = {
-                    href: entry.data_uri,
-                    download: entry.name,
-                    target: "_blank"
-                };
-        }
-        return this.renderButton("eye", props);
-    }
-
-    renderButton(iconName, props) {
-        return e(
-            "a",
-            { type: "button", className: `transition-all inline-block p-1 text-emerald-500 rounded hover:bg-slate-800`, ...props },
-            e(Icon, { iconName: iconName })
-        )
-    }
-
-    showResultInfo(resultPath) {
-        this.props.setView({ navbarMode: "resultinfo", resultPath: resultPath, category: this.getCategory(), subcategory: this.getSubcategory(), searchTerm: this.getSearchTerm() });
     }
 
     getResultMimeType(resultPath) {

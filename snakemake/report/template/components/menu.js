@@ -3,8 +3,8 @@
 class Menu extends AbstractMenu {
     constructor(props) {
         super(props);
-        this.showWorkflow = this.showWorkflow.bind(this)
-        this.showStatistics = this.showStatistics.bind(this)
+        this.showWorkflow = this.showWorkflow.bind(this);
+        this.showStatistics = this.showStatistics.bind(this);
     }
 
     render() {
@@ -37,20 +37,12 @@ class Menu extends AbstractMenu {
         }
     }
 
-    showCategory(category) {
-        let subcategory = undefined;
-        let mode = "category";
-        if (isSingleSubcategory(category)) {
-            subcategory = Object.keys(categories[category])[0];
-            mode = "subcategory";
-        }
-        this.props.setView({ navbarMode: mode, category: category, subcategory: subcategory })
-    }
-
     getCategoryMenumitems() {
+        let _this = this;
+        let app = this.props.app;
         if (isSingleCategory()) {
             let category = Object.keys(categories)[0];
-            return this.getMenuItem("Results", "folder", () => this.showCategory(category));
+            return this.getMenuItem("Results", "folder", () => app.showCategory(category));
         } else if (isNoResults()) {
             return [];
         } else {
@@ -60,9 +52,8 @@ class Menu extends AbstractMenu {
                 "Results"
             )];
 
-            let _this = this
             items.push(...Object.keys(categories).map(function (category) {
-                return _this.getMenuItem(category, "folder", () => _this.showCategory(category));
+                return _this.getMenuItem(category, "folder", () => app.showCategory(category));
             }));
 
             return items;

@@ -1,12 +1,18 @@
 'use strict';
 
 
+var app = undefined;
+
 
 class App extends React.Component {
     constructor(props) {
         super(props);
         this.state = { hideNavbar: false, navbarMode: "menu", content: "rulegraph", ruleinfo: undefined, category: undefined, subcategory: undefined, searchTerm: undefined, resultPath: undefined, contentPath: undefined };
         this.setView = this.setView.bind(this);
+        this.showCategory = this.showCategory.bind(this);
+        this.showResultInfo = this.showResultInfo.bind(this);
+        // store in global variable
+        app = this;
     }
 
     render() {
@@ -28,6 +34,20 @@ class App extends React.Component {
             resultPath: view.resultPath || this.state.resultPath,
             contentPath: view.contentPath || this.state.contentPath,
         })
+    }
+
+    showCategory(category) {
+        let subcategory = undefined;
+        let mode = "category";
+        if (isSingleSubcategory(category)) {
+            subcategory = Object.keys(categories[category])[0];
+            mode = "subcategory";
+        }
+        this.setView({ navbarMode: mode, category: category, subcategory: subcategory })
+    }
+
+    showResultInfo(resultPath) {
+        this.setView({ navbarMode: "resultinfo", resultPath: resultPath });
     }
 }
 

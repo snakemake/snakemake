@@ -21,10 +21,10 @@ class Navbar extends React.Component {
             ),
             e(
                 "nav",
-                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen` },
+                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-auto` },
                 e(
                     "h1",
-                    { className: "sticky bg-blur bg-white opacity-80 text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },
+                    { className: "sticky relative top-0 left-0 bg-white/80 backdrop-blur-sm text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },
                     e(
                         "img",
                         { src: logo_uri, className: "h-4" }
@@ -43,7 +43,7 @@ class Navbar extends React.Component {
                 ),
                 e(
                     "div",
-                    { className: "overflow-auto" },
+                    {},
                     this.renderBreadcrumbs(),
                     e(
                         "div",
@@ -93,13 +93,13 @@ class Navbar extends React.Component {
         let setView = this.props.app.setView;
         switch (this.props.app.state.navbarMode) {
             case "menu":
-                return e(Menu, { setView: setView, app: this.props.app });
+                return e(Menu, { app: this.props.app });
             case "category":
                 return e(Category, { setView: setView, category: this.props.app.state.category });
             case "subcategory":
-                return e(Subcategory, { setView: setView, category: this.props.app.state.category, subcategory: this.props.app.state.subcategory });
+                return e(Subcategory, { app: this.props.app, setView: setView, category: this.props.app.state.category, subcategory: this.props.app.state.subcategory });
             case "searchresults":
-                return e(SearchResults, { setView: setView, searchTerm: this.props.app.state.searchTerm });
+                return e(SearchResults, { app: this.props.app, setView: setView, searchTerm: this.props.app.state.searchTerm });
             case "resultinfo":
                 return e(ResultInfo, { resultPath: this.props.app.state.resultPath, setView: setView });
             case "ruleinfo":

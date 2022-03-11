@@ -801,10 +801,10 @@ def auto_report(dag, path, stylesheet=None):
     .. _Workflow: javascript:show_panel('workflow')
     .. _Statistics: javascript:show_panel('statistics')
     {% for cat, catresults in categories|dictsort %}
-    .. _{{ cat.name }}: javascript:show_panel("{{ cat.id }}")
+    .. _{{ cat.name }}: javascript:app.showCategory("{{ cat.name }}")
     {% endfor %}
     {% for res in files %}
-    .. _{{ res.target }}: javascript:show_panel("{{ res.category.id }}")
+    .. _{{ res.target }}: javascript:showResultInfo("{{ res.path }}")
     {% endfor %}
     """
     )

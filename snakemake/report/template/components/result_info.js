@@ -41,7 +41,8 @@ class ResultInfo extends React.Component {
                                         { className: "text-left uppercase pr-2" },
                                         label
                                     );
-                                })
+                                }),
+                                e("th", {})
                             )
                         ),
                         e(
@@ -57,7 +58,11 @@ class ResultInfo extends React.Component {
                                         { className: "pr-2" },
                                         value
                                     );
-                                })
+                                }),
+                                e(
+                                    ResultViewButton,
+                                    { resultPath: this.props.resultPath }
+                                )
                             )
                         )
                     )
@@ -73,6 +78,10 @@ class ResultInfo extends React.Component {
                     ListItem,
                     { key: "path" },
                     this.props.resultPath
+                ),
+                e(
+                    ResultViewButton,
+                    { resultPath: this.props.resultPath }
                 )
             ];
         }

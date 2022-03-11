@@ -9,7 +9,7 @@ class Breadcrumbs extends React.Component {
     render() {
         return e(
             "nav",
-            { className: "text-white align-middle text-xs m-2 p-2 rounded bg-slate-800" },
+            { className: "text-white whitespace-nowrap align-middle text-xs m-2 p-2 rounded bg-slate-800 min-w-fit" },
             e(
                 "ol",
                 { className: "list-reset flex items-center gap-1" },
