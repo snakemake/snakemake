@@ -1,5 +1,14 @@
 # Changelog
 
+### [7.1.2](https://www.github.com/snakemake/snakemake/compare/v7.1.1...v7.1.2) (2022-03-11)
+
+
+### Bug Fixes
+
+* always deploy conda envs in main process when assuming a shared file system (fixes issue [#1463](https://www.github.com/snakemake/snakemake/issues/1463)) ([#1472](https://www.github.com/snakemake/snakemake/issues/1472)) ([79788eb](https://www.github.com/snakemake/snakemake/commit/79788eb5e8bd404e507ef7e54a0caa6103d90c4e))
+* do not wait for named or containerized conda envs ([#1473](https://www.github.com/snakemake/snakemake/issues/1473)) ([6b1d09c](https://www.github.com/snakemake/snakemake/commit/6b1d09c1e270348e8ef77d6ad8c24e1ca540215c))
+* implement lock-free source file caching. This avoids hangs on network file systems like NFS. ([#1464](https://www.github.com/snakemake/snakemake/issues/1464)) ([9520e98](https://www.github.com/snakemake/snakemake/commit/9520e988a32f0c5369b4f2c68fdb741f21daa1a4))
+
 ### [7.1.1](https://www.github.com/snakemake/snakemake/compare/v7.1.0...v7.1.1) (2022-03-07)
 
 
