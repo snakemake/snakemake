@@ -1179,7 +1179,9 @@ class GroupJob(AbstractJob):
         from toposort import toposort
 
         if self.toposorted is None:
-            self.toposorted = list(self.dag.toposorted(jobs=self.jobs, inherit_pipe_dependencies=True))
+            self.toposorted = list(
+                self.dag.toposorted(jobs=self.jobs, inherit_pipe_dependencies=True)
+            )
 
     @property
     def all_products(self):
