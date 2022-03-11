@@ -349,7 +349,7 @@ class SourceCache:
                 delete=False,  # no need to delete since we move it below
             )
             tmp_source.write(source.read())
-            tmp_source.flush()
+            tmp_source.close()
             # Atomic move to right name.
             # This way we avoid the need to lock.
             shutil.move(tmp_source.name, cache_entry)
