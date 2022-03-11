@@ -62,3 +62,4 @@ dependencies:
   - filelock
   - tabulate
   - retry
+  - graphviz
