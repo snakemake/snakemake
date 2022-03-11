@@ -131,6 +131,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
+        assume_shared_fs=True,
         default_resources=None,
         cache=None,
         nodes=1,
@@ -211,6 +212,7 @@ class Workflow:
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
         self.run_local = run_local
+        self.assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self.edit_notebook = edit_notebook
@@ -619,7 +621,6 @@ class Workflow:
         no_hooks=False,
         force_use_threads=False,
         conda_create_envs_only=False,
-        assume_shared_fs=True,
         cluster_status=None,
         cluster_cancel=None,
         cluster_cancel_nargs=None,
@@ -959,13 +960,12 @@ class Workflow:
             dag.list_untracked()
             return True
 
-        if self.use_singularity:
-            if assume_shared_fs:
-                dag.pull_container_imgs(
-                    dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
-                )
+        if self.use_singularity and self.assume_shared_fs:
+            dag.pull_container_imgs(
+                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+            )
         if self.use_conda:
-            if assume_shared_fs:
+            if self.assume_shared_fs:
                 dag.create_conda_envs(
                     dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
                     quiet=list_conda_envs,
@@ -1027,7 +1027,7 @@ class Workflow:
             latency_wait=latency_wait,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            assume_shared_fs=assume_shared_fs,
+            assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
             keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,

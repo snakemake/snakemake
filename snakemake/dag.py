@@ -280,7 +280,7 @@ class DAG:
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in jobs
-            if job.conda_env_spec and (self.workflow.run_local or job.is_local)
+            if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
