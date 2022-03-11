@@ -1015,11 +1015,11 @@ class Job(AbstractJob):
             self.dag.workflow.use_conda
             and self.conda_env
             and not self.conda_env.is_named
+            and not self.conda_env.is_containerized
         ):
-            if not (self.conda_env.is_named or self.conda_env.is_containerized):
-                # Named or containerized envs are not present on the host FS,
-                # hence we don't need to wait for them.
-                wait_for_files.append(self.conda_env.address)
+            # Named or containerized envs are not present on the host FS,
+            # hence we don't need to wait for them.
+            wait_for_files.append(self.conda_env.address)
         return wait_for_files
 
     @property
