@@ -395,6 +395,8 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
+    if kubernetes:
+        assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
     if preemption_default or preemptible_rules and not google_lifesciences:
@@ -581,6 +583,7 @@ def snakemake(
             default_remote_provider=_default_remote_provider,
             default_remote_prefix=default_remote_prefix,
             run_local=run_local,
+            assume_shared_fs=assume_shared_fs,
             default_resources=default_resources,
             cache=cache,
             cores=cores,
@@ -788,7 +791,6 @@ def snakemake(
                     no_hooks=no_hooks,
                     force_use_threads=use_threads,
                     conda_create_envs_only=conda_create_envs_only,
-                    assume_shared_fs=assume_shared_fs,
                     cluster_status=cluster_status,
                     cluster_cancel=cluster_cancel,
                     cluster_cancel_nargs=cluster_cancel_nargs,
