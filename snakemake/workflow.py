@@ -960,11 +960,10 @@ class Workflow:
             dag.list_untracked()
             return True
 
-        if self.use_singularity:
-            if self.assume_shared_fs:
-                dag.pull_container_imgs(
-                    dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
-                )
+        if self.use_singularity and self.assume_shared_fs:
+            dag.pull_container_imgs(
+                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+            )
         if self.use_conda:
             if self.assume_shared_fs:
                 dag.create_conda_envs(
