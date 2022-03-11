@@ -171,7 +171,8 @@ class AbstractResults extends React.Component {
             default:
                 props = {
                     href: entry.data_uri,
-                    download: entry.name
+                    download: entry.name,
+                    target: "_blank"
                 };
         }
         return this.renderButton("eye", props);

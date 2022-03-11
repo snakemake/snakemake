@@ -904,7 +904,7 @@ def auto_report(dag, path, stylesheet=None):
         )
 
     categories = data.render_categories(results)
-    results = data.render_results(results)
+    rendered_results = data.render_results(results)
     rulegraph = data.render_rulegraph(
         rulegraph["nodes"], rulegraph["links"], rulegraph["links_direct"]
     )
@@ -917,7 +917,7 @@ def auto_report(dag, path, stylesheet=None):
     logger.info("Downloading resources and rendering HTML.")
 
     rendered = template.render(
-        results=results,
+        results=rendered_results,
         categories=categories,
         rulegraph=rulegraph,
         rules=rules,
