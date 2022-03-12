@@ -83,7 +83,6 @@ class AbstractResults extends React.Component {
     }
 
     renderEntries() {
-        let _this = this;
         let app = this.props.app;
         let labels = undefined;
         if (this.isLabelled()) {
