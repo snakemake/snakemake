@@ -98,7 +98,7 @@ class AbstractResults extends React.Component {
                     { className: "inline-flex gap-1", role: "group" },
                     e(
                         ResultViewButton,
-                        { resultPath: path }
+                        { resultPath: path, app: app }
                     ),
                     e(
                         Button,
@@ -140,9 +140,5 @@ class AbstractResults extends React.Component {
                 )
             ];
         })
-    }
-
-    getResultMimeType(resultPath) {
-        return results[resultPath].mime_type
     }
 }

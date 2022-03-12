@@ -801,10 +801,10 @@ def auto_report(dag, path, stylesheet=None):
     .. _Workflow: javascript:show_panel('workflow')
     .. _Statistics: javascript:show_panel('statistics')
     {% for cat, catresults in categories|dictsort %}
-    .. _{{ cat.name }}: javascript:app.showCategory("{{ cat.name }}")
+    .. _{{ cat.name }}: javascript:app.showCategory('{{ cat.name|urlencode }}')
     {% endfor %}
     {% for res in files %}
-    .. _{{ res.target }}: javascript:showResultInfo("{{ res.path }}")
+    .. _{{ res.target }}: javascript:app.showResultInfo('{{ res.path|urlencode }}')
     {% endfor %}
     """
     )
@@ -822,6 +822,7 @@ def auto_report(dag, path, stylesheet=None):
                 config = dag.workflow.config
 
             text = f.read() + rst_links
+
             try:
                 text = publish_parts(
                     env.from_string(text).render(

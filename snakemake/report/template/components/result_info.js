@@ -19,6 +19,8 @@ class ResultInfo extends React.Component {
 
     getDescriptor() {
         let result = this.getResult();
+        let resultPath = this.props.resultPath;
+        let app = this.props.app;
 
         if (result.labels) {
             const labels = Object.keys(result.labels).sort();
@@ -28,7 +30,7 @@ class ResultInfo extends React.Component {
                     {},
                     e(
                         "table",
-                        { className: "table-auto text-white text-sm" },
+                        { className: "table-auto text-white text-sm items-center" },
                         e(
                             "thead",
                             {},
@@ -51,18 +53,27 @@ class ResultInfo extends React.Component {
                             e(
                                 "tr",
                                 {},
-                                labels.map(function (label) {
+                                labels.map(function (label, index) {
                                     const value = result.labels[label];
+                                    let item = value;
+                                    if (index == labels.length - 1) {
+                                        item = e(
+                                            "span",
+                                            { className: "flex items-center gap-2" },
+                                            e("span", {}, value),
+                                            e(
+                                                ResultViewButton,
+                                                { resultPath: resultPath, app: app }
+                                            )
+                                        );
+                                    }
+
                                     return e(
                                         "td",
                                         { className: "pr-2" },
-                                        value
+                                        item
                                     );
                                 }),
-                                e(
-                                    ResultViewButton,
-                                    { resultPath: this.props.resultPath }
-                                )
                             )
                         )
                     )
@@ -77,12 +88,20 @@ class ResultInfo extends React.Component {
                 e(
                     ListItem,
                     { key: "path" },
-                    this.props.resultPath
+                    e(
+                        "span",
+                        { className: "flex items-center gap-2" },
+                        e(
+                            "span",
+                            {},
+                            this.props.resultPath
+                        ),
+                        e(
+                            ResultViewButton,
+                            { resultPath: this.props.resultPath, app: app }
+                        )
+                    )
                 ),
-                e(
-                    ResultViewButton,
-                    { resultPath: this.props.resultPath }
-                )
             ];
         }
     }
@@ -110,7 +129,7 @@ class ResultInfo extends React.Component {
     }
 
     getRule() {
-        const setView = this.props.setView;
+        const setView = this.props.app.setView;
         const rule = this.getResult().job_properties.rule;
         return [
             e(

@@ -14,7 +14,7 @@ class ResultViewButton extends React.Component {
 
     getViewButton(resultPath, entry) {
         const mimeType = this.getResultMimeType(resultPath);
-        let setView = this.props.setView;
+        let setView = this.props.app.setView;
 
         let props = undefined;
 
@@ -65,5 +65,9 @@ class ResultViewButton extends React.Component {
             Button,
             { iconName: "eye", ...props }
         );
+    }
+
+    getResultMimeType(resultPath) {
+        return results[resultPath].mime_type
     }
 }

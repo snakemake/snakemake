@@ -101,7 +101,7 @@ class Navbar extends React.Component {
             case "searchresults":
                 return e(SearchResults, { app: this.props.app, setView: setView, searchTerm: this.props.app.state.searchTerm });
             case "resultinfo":
-                return e(ResultInfo, { resultPath: this.props.app.state.resultPath, setView: setView });
+                return e(ResultInfo, { resultPath: this.props.app.state.resultPath, app: this.props.app });
             case "ruleinfo":
                 return e(RuleInfo, { rule: this.props.app.state.ruleinfo });
         }

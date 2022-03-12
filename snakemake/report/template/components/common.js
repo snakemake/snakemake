@@ -13,5 +13,6 @@ function isSingleDefaultCategory() {
 }
 
 function isSingleSubcategory(category) {
+    console.log(categories, category);
     return Object.keys(categories[category]).length == 1;
 }

@@ -25,10 +25,18 @@ class ContentDisplay extends React.Component {
                     e(RuleGraph, { setView: setView }),
                     e(
                         "div",
-                        {
-                            className: "prose prose-sm max-w-lg",
-                            dangerouslySetInnerHTML: { __html: workflow_desc }
-                        }
+                        {},
+                        e(
+                            "div",
+                            {
+                                className: "prose prose-sm max-w-lg",
+                                dangerouslySetInnerHTML: { __html: workflow_desc }
+                            }
+                        ),
+                        e(
+                            "div",
+                            { id: "brand" }
+                        )
                     )
                 );
             case "stats":
