@@ -55,7 +55,14 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, ON_WINDOWS, lazy_property, TBDString
+from snakemake.common import (
+    Mode,
+    ON_WINDOWS,
+    get_function_params,
+    get_input_function_aux_params,
+    lazy_property,
+    TBDString,
+)
 import snakemake.io
 
 
@@ -594,6 +601,7 @@ class Rule:
                         self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
+                        report_obj.labels,
                         report_obj.patterns,
                         report_obj.htmlindex,
                     )
@@ -719,17 +727,16 @@ class Rule:
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
             func = func.callable
-        sig = inspect.signature(func)
 
-        _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
-
-        if "groupid" in sig.parameters:
+        if "groupid" in get_function_params(func):
             if groupid is not None:
-                _aux_params["groupid"] = groupid
+                aux_params["groupid"] = groupid
             else:
                 # Return empty list of files and incomplete marker
                 # the job will be reevaluated once groupids have been determined
                 return [], True
+
+        _aux_params = get_input_function_aux_params(func, aux_params)
 
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)

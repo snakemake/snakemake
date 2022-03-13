@@ -42,8 +42,6 @@ dependencies:
   - cwltool
   - jsonschema
   - pandas
-  - networkx
-  - pygraphviz
   - python-kubernetes
   - gitpython
   - pulp >=2.0
@@ -64,3 +62,4 @@ dependencies:
   - filelock
   - tabulate
   - retry
+  - graphviz

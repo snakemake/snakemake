@@ -41,6 +41,8 @@ setup(
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.report.template",
+        "snakemake.report.data",
         "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
@@ -56,7 +58,7 @@ setup(
             "snakemake-bash-completion = snakemake:bash_completion",
         ]
     },
-    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2"]},
+    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]},
     install_requires=[
         "wrapt",
         "requests",
@@ -81,7 +83,7 @@ setup(
         "retry",
     ],
     extras_require={
-        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "reports": ["jinja2", "pygments"],
         "messaging": ["slacker"],
         "google-cloud": [
             "oauth2client",
