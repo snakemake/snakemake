@@ -87,3 +87,18 @@ Instead of conda, snakemake can be installed with pip.
 However, note that snakemake has non-python dependencies, such that the pip based installation has a limited functionality if those dependencies are not manually installed in addition.
 
 A list of Snakemake's dependencies can be found within its `meta.yaml conda recipe <https://bioconda.github.io/recipes/snakemake/README.html>`_.
+
+
+Installation of a development version via pip
+=============================================
+
+If you want to quickly try out an unreleased version from the snakemake repository (which you cannot get via bioconda, yet), for example to check whether a bug fix works for you workflow, you can get the current state of the main branch with:
+
+.. code-block:: console
+
+    $ mamba create --only-deps -n snakemake-main snakemake
+    $ conda activate snakemake-main
+    $ pip install git+https://github.com/snakemake/snakemake
+
+You can also install the current state of another branch or the repository state at a particular commit.
+For information on the syntax for this, see `the pip documentation on git support <https://pip.pypa.io/en/stable/topics/vcs-support/#git>`_.
