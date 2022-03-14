@@ -45,6 +45,7 @@ setup(
         "snakemake.remote",
         "snakemake.report",
         "snakemake.report.template",
+        "snakemake.report.template.components",
         "snakemake.report.data",
         "snakemake.common",
         "snakemake.caching",
