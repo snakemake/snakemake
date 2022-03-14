@@ -37,6 +37,9 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
+    project_urls={
+        "Source": "https://github.com/snakemake/snakemake",
+    },
     packages=[
         "snakemake",
         "snakemake.remote",
