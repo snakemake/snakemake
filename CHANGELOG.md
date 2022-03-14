@@ -1,5 +1,17 @@
 # Changelog
 
+### [7.2.1](https://www.github.com/snakemake/snakemake/compare/v7.2.0...v7.2.1) (2022-03-14)
+
+
+### Bug Fixes
+
+* add missing report.templates.components module to setup.py ([cb4e3fe](https://www.github.com/snakemake/snakemake/commit/cb4e3feaa192ed9c53ddb7c965cb5b71297710c9))
+
+
+### Documentation
+
+* add install info of development (git) version to docs ([#1477](https://www.github.com/snakemake/snakemake/issues/1477)) ([2a2d6cd](https://www.github.com/snakemake/snakemake/commit/2a2d6cd15cf48278ff17470c7c1323e7ebc40bbd))
+
 ## [7.2.0](https://www.github.com/snakemake/snakemake/compare/v7.1.1...v7.2.0) (2022-03-13)
 
 
