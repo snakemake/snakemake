@@ -235,7 +235,8 @@ And finally, we overwrite the input directive of the rule ``bwa_mem`` such that 
 Sub-Workflows
 -------------
 
-In addition to including rules of another workflow, Snakemake allows to depend on the output of other workflows as sub-workflows.
+Snakemake allows to depend on the output of other workflows as sub-workflows.
+However, note that sub-workflows are deprecated in favor of :ref:`modules <snakefiles-modules>`.
 A sub-workflow is executed independently before the current workflow is executed.
 Thereby, Snakemake ensures that all files the current workflow depends on are created or updated if necessary.
 This allows to create links between otherwise separate data analyses.
@@ -267,6 +268,8 @@ This function automatically determines the absolute path to the file (here ``../
 When executing, snakemake first tries to create (or update, if necessary) ``test.txt`` (and all other possibly mentioned dependencies) by executing the subworkflow.
 Then the current workflow is executed.
 This can also happen recursively, since the subworkflow may have its own subworkflows as well.
+
+Note that subworkflow rules will not be displayed in a :ref:`Snakemake report <snakefiles-reports>` generated from the surrounding workflow.
 
 
 .. _snakefile-code-hosting-providers:
