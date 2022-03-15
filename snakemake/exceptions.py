@@ -49,6 +49,8 @@ def cut_traceback(ex):
         )
         if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
+        else:
+            yield line  # TODO debugging only, show all lines
 
 
 def format_traceback(tb, linemaps):
