@@ -492,6 +492,8 @@ class FileRecord:
                     ),
                     e,
                 )
+        else:
+            self.caption = ""
 
     @property
     def is_img(self):
