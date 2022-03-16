@@ -171,7 +171,7 @@ class RemoteObject(AbstractRemoteObject):
         iterate over the entire bucket once (and then not need to again).
         This includes:
          - cache.exist_remote
-         - cache_mtime
+         - cache.mtime
          - cache.size
         """
         if cache.remaining_wait_time <= 0:
@@ -184,7 +184,7 @@ class RemoteObject(AbstractRemoteObject):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
-            cache.mtime[name] = blob.updated.timestamp()
+            cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
 
         cache.remaining_wait_time -= time.time() - start_time
