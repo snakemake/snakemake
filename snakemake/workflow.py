@@ -1159,14 +1159,15 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
-        whitespace_envvars = [
-            envvar for envvar in envvars if re.search("\s", envvar) is not None
+        invalid_envvars = [
+            envvar
+            for envvar in envvars
+            if re.match("^\w+$", envvar, flags=re.ASCII) is None
         ]
-        if whitespace_envvars:
+        if invalid_envvars:
             raise WorkflowError(
-                f"Invalid environment variables requested: {', '.join(map(repr, whitespace_envvars))}. "
-                "Environment variable names containing whitespace characters "
-                "are not allowed."
+                f"Invalid environment variables requested: {', '.join(map(repr, invalid_envvars))}. "
+                "Environment variable names may only contain alphanumeric characters and the underscore. "
             )
         undefined = set(var for var in envvars if var not in os.environ)
         if self.check_envvars and undefined:
