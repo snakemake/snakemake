@@ -1038,7 +1038,6 @@ class Job(AbstractJob):
         upload_remote=True,
         handle_log=True,
         handle_touch=True,
-        handle_temp=True,
         error=False,
         ignore_missing_output=False,
         assume_shared_fs=True,
@@ -1079,11 +1078,6 @@ class Job(AbstractJob):
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
                 )
-            if handle_temp:
-                # temp handling has to happen after calling finished(),
-                # because we need to access temp output files to record
-                # start and end times.
-                self.dag.handle_temp(self)
 
     @property
     def name(self):
@@ -1405,14 +1399,7 @@ class GroupJob(AbstractJob):
 
     def postprocess(self, error=False, **kwargs):
         for job in self.jobs:
-            job.postprocess(handle_temp=False, error=error, **kwargs)
-        # Handle temp after per-job postprocess.
-        # This is necessary because group jobs are not topologically sorted,
-        # and we might otherwise delete a temp input file before it has been
-        # postprocessed by the outputting job in the same group.
-        if not error:
-            for job in self.jobs:
-                self.dag.handle_temp(job)
+            job.postprocess(error=error, **kwargs)
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:
