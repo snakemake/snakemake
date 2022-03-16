@@ -22,6 +22,7 @@ import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg
 from snakemake.io import _IOFile
 import random
 import base64
@@ -67,7 +68,6 @@ class AbstractExecutor:
         printthreads=True,
         latency_wait=3,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         self.workflow = workflow
         self.dag = dag
@@ -77,7 +77,6 @@ class AbstractExecutor:
         self.printthreads = printthreads
         self.latency_wait = latency_wait
         self.keepincomplete = keepincomplete
-        self.keepmetadata = keepmetadata
 
     def get_default_remote_provider_args(self):
         if self.workflow.default_remote_provider:
@@ -224,7 +223,6 @@ class RealExecutor(AbstractExecutor):
         latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
-        keepmetadata=False,
     ):
         super().__init__(
             workflow,
@@ -234,7 +232,6 @@ class RealExecutor(AbstractExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
@@ -273,7 +270,7 @@ class RealExecutor(AbstractExecutor):
             ignore_missing_output=ignore_missing_output,
             latency_wait=self.latency_wait,
             assume_shared_fs=self.assume_shared_fs,
-            keep_metadata=self.keepmetadata,
+            keep_metadata=self.workflow.keep_metadata,
         )
         self.stats.report_job_end(job)
 
@@ -284,86 +281,77 @@ class RealExecutor(AbstractExecutor):
             latency_wait=self.latency_wait,
         )
 
+    def workflow_property_to_arg(
+        self, property, flag=None, quote=True, skip=False, invert=False
+    ):
+        if skip:
+            return ""
+        value = getattr(self.workflow, property)
+        if flag is None:
+            flag = f"--{property.replace('_', '-')}"
+
+        if invert and isinstance(value, bool):
+            value = not value
+
+        return format_cli_arg(flag, value, quote=quote)
+
     def get_additional_args(self):
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
         code. Both have base class of the RealExecutor.
         """
-        additional = ""
-        if not self.workflow.cleanup_scripts:
-            additional += " --skip-script-cleanup "
-        if self.workflow.shadow_prefix:
-            additional += " --shadow-prefix {} ".format(self.workflow.shadow_prefix)
-        if self.workflow.use_conda:
-            additional += " --use-conda "
-            if self.workflow.conda_frontend:
-                additional += " --conda-frontend {} ".format(
-                    self.workflow.conda_frontend
-                )
-            if self.workflow.conda_prefix:
-                additional += " --conda-prefix {} ".format(self.workflow.conda_prefix)
-            if self.workflow.conda_base_path and self.assume_shared_fs:
-                additional += " --conda-base-path {} ".format(
-                    self.workflow.conda_base_path
-                )
-        if self.workflow.use_singularity:
-            additional += " --use-singularity "
-            if self.workflow.singularity_prefix:
-                additional += " --singularity-prefix {} ".format(
-                    self.workflow.singularity_prefix
-                )
-            if self.workflow.singularity_args:
-                additional += ' --singularity-args "{}"'.format(
-                    self.workflow.singularity_args
-                )
-        if not self.workflow.execute_subworkflows:
-            additional += " --no-subworkflows "
+        w2a = self.workflow_property_to_arg
 
-        if self.workflow.max_threads is not None:
-            additional += " --max-threads {} ".format(self.workflow.max_threads)
+        additional = "".join(
+            [
+                w2a("cleanup_scripts", flag="--skip-script-cleanup"),
+                w2a("shadow_prefix"),
+                w2a("use_conda"),
+                w2a("conda_frontend"),
+                w2a("conda_prefix"),
+                w2a("conda_base_path", skip=not self.assume_shared_fs),
+                w2a("use_singularity"),
+                w2a("singularity_prefix"),
+                w2a("singularity_args"),
+                w2a("execute_subworkflows", flag="--no-subworkflows", invert=True),
+                w2a("max_threads"),
+                w2a("use_env_modules", flag="--use-envmodules"),
+                w2a("keep_metadata", flag="--drop-metadata", invert=True),
+                w2a("wrapper_prefix"),
+            ]
+        )
 
         additional += self.get_set_resources_args()
         additional += self.get_set_scatter_args()
         additional += self.get_set_threads_args()
         additional += self.get_behavior_args()
 
-        if self.workflow.use_env_modules:
-            additional += " --use-envmodules "
-        if not self.keepmetadata:
-            additional += " --drop-metadata "
-
         return additional
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
-        overwrite_workdir = []
-        if self.workflow.overwrite_workdir:
-            overwrite_workdir.extend(("--directory", self.workflow.overwrite_workdir))
+        overwrite_workdir = self.workflow_property_to_arg(
+            "overwrite_workdir", flag="--directory"
+        )
 
-        overwrite_config = []
-        if self.workflow.overwrite_configfiles:
-            # add each of the overwriting configfiles in the original order
-            if self.workflow.overwrite_configfiles:
-                overwrite_config.append("--configfiles")
-                overwrite_config.extend(self.workflow.overwrite_configfiles)
-        if self.workflow.config_args:
-            overwrite_config.append("--config")
-            overwrite_config.extend(self.workflow.config_args)
+        overwrite_configfiles = self.workflow_property_to_arg(
+            "overwrite_configfiles",
+            flag="--configfiles",
+        )
+        overwrite_config = overwrite_configfiles + self.workflow_property_to_arg(
+            "config_args", flag="--config"
+        )
 
-        printshellcmds = ""
-        if self.workflow.printshellcmds:
-            printshellcmds = "-p"
+        printshellcmds = self.workflow_property_to_arg("printshellcmds")
 
+        rules = ""
         if not job.is_branched and not job.is_updated:
             # Restrict considered rules. This does not work for updated jobs
             # because they need to be updated in the spawned process as well.
-            rules = ["--allowed-rules"]
-            rules.extend(job.rules)
-        else:
-            rules = []
+            format_cli_arg("--allowed-rules", job.rules, quote=False)
 
-        target = kwargs.get("target", job.get_targets())
-        snakefile = kwargs.get("snakefile", self.snakefile)
+        target = format_cli_pos_arg(kwargs.get("target", job.get_targets()))
+        snakefile = format_cli_pos_arg(kwargs.get("snakefile", self.snakefile))
         cores = kwargs.get("cores", self.cores)
         if "target" in kwargs:
             del kwargs["target"]
@@ -427,7 +415,6 @@ class CPUExecutor(RealExecutor):
         latency_wait=3,
         cores=1,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -437,7 +424,6 @@ class CPUExecutor(RealExecutor):
             printshellcmds=printshellcmds,
             latency_wait=latency_wait,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
 
         self.exec_job = "\\\n".join(
@@ -446,7 +432,7 @@ class CPUExecutor(RealExecutor):
                 "{sys.executable} -m snakemake {target} --snakefile {snakefile} ",
                 "--force --cores {cores} --keep-target-files --keep-remote ",
                 "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
-                "--force-use-threads --wrapper-prefix {workflow.wrapper_prefix} ",
+                "--force-use-threads ",
                 "--max-inventory-time 0 --ignore-incomplete ",
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
@@ -584,9 +570,7 @@ class CPUExecutor(RealExecutor):
 
     def spawn_job(self, job):
         exec_job = self.exec_job
-        cmd = self.format_job_pattern(
-            exec_job, job=job, _quote_all=True, latency_wait=self.latency_wait
-        )
+        cmd = self.format_job_pattern(exec_job, job=job, latency_wait=self.latency_wait)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
@@ -669,7 +653,6 @@ class ClusterExecutor(RealExecutor):
         disable_default_remote_provider_args=False,
         disable_get_default_resources_args=False,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         from ratelimiter import RateLimiter
 
@@ -683,7 +666,6 @@ class ClusterExecutor(RealExecutor):
             latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
 
         if not self.assume_shared_fs:
@@ -715,7 +697,6 @@ class ClusterExecutor(RealExecutor):
                     "--force --cores {cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
-                    "--wrapper-prefix {workflow.wrapper_prefix} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
                     "--nocolor --notemp --no-hooks --nolock {scheduler_solver_path:u} ",
                     "--mode {} ".format(Mode.cluster),
@@ -804,8 +785,8 @@ class ClusterExecutor(RealExecutor):
             # This way, we ensure that the snakemake process in the cluster node runs
             # in the same environment as the current process.
             # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            scheduler_solver_path = "--scheduler-solver-path {}".format(
-                os.path.dirname(sys.executable)
+            scheduler_solver_path = format_cli_arg(
+                "--scheduler-solver-path", os.path.dirname(sys.executable)
             )
 
         # Only create extra file if we have more than 20 input files.
@@ -813,20 +794,16 @@ class ClusterExecutor(RealExecutor):
         if len(wait_for_files) > 20:
             wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
             with open(wait_for_files_file, "w") as fd:
-                fd.write("\n".join(wait_for_files))
+                print(wait_for_files, sep="\n", file=fd)
 
-            waitfiles_parameter = format(
-                "--wait-for-files-file {wait_for_files_file}",
-                wait_for_files_file=repr(wait_for_files_file),
+            waitfiles_parameter = format_cli_arg(
+                "--wait-for-files-file", wait_for_files_file
             )
         else:
-            waitfiles_parameter = format(
-                "--wait-for-files {wait_for_files}",
-                wait_for_files=[repr(f) for f in wait_for_files],
-            )
-        job_specific_args = ""
-        if job.is_group:
-            job_specific_args = f"--local-groupid {job.jobid}"
+            waitfiles_parameter = format_cli_arg("--wait-for-files", wait_for_files)
+        job_specific_args = format_cli_arg(
+            "--local-groupid", job.jobid, skip=not job.is_group()
+        )
 
         format_p = partial(
             self.format_job_pattern,
@@ -858,7 +835,6 @@ class ClusterExecutor(RealExecutor):
         exec_job = self.format_job(
             self.exec_job,
             job,
-            _quote_all=True,
             use_threads=use_threads,
             envvars=envvars,
             **kwargs,
@@ -962,7 +938,6 @@ class GenericClusterExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
-        keepmetadata=True,
     ):
 
         self.submitcmd = submitcmd
@@ -995,7 +970,6 @@ class GenericClusterExecutor(ClusterExecutor):
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
 
         self.sidecar_vars = None
@@ -1326,7 +1300,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
         restart_times=0,
         assume_shared_fs=True,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1342,7 +1315,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=10,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
@@ -1438,7 +1410,6 @@ class DRMAAExecutor(ClusterExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         super().__init__(
             workflow,
@@ -1454,7 +1425,6 @@ class DRMAAExecutor(ClusterExecutor):
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
         )
         try:
             import drmaa
@@ -1640,7 +1610,6 @@ class KubernetesExecutor(ClusterExecutor):
         local_input=None,
         restart_times=None,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         self.workflow = workflow
 
@@ -1650,7 +1619,6 @@ class KubernetesExecutor(ClusterExecutor):
             "--force --cores {cores} --keep-target-files  --keep-remote "
             "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
             " --attempt {attempt} {use_threads} --max-inventory-time 0 "
-            "--wrapper-prefix {workflow.wrapper_prefix} "
             "{overwrite_config} {printshellcmds} {rules} --nocolor "
             "--notemp --no-hooks --nolock "
         )
@@ -1832,7 +1800,6 @@ class KubernetesExecutor(ClusterExecutor):
         exec_job = self.format_job(
             self.exec_job,
             job,
-            _quote_all=True,
             use_threads="--force-use-threads" if not job.is_group() else "",
         )
         # Kubernetes silently does not submit a job if the name is too long
@@ -2097,7 +2064,6 @@ class TibannaExecutor(ClusterExecutor):
         restart_times=None,
         max_status_checks_per_second=1,
         keepincomplete=False,
-        keepmetadata=True,
     ):
         self.workflow = workflow
         self.workflow_sources = []

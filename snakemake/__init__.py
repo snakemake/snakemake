@@ -599,6 +599,7 @@ def snakemake(
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
             all_temp=all_temp,
             local_groupid=local_groupid,
+            keep_metadata=keep_metadata,
         )
         success = True
 
@@ -800,7 +801,6 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
-                    keepmetadata=keep_metadata,
                 )
 
     except BrokenPipeError:

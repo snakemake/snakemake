@@ -149,6 +149,7 @@ class Workflow:
         max_threads=None,
         all_temp=False,
         local_groupid="local",
+        keep_metadata=True,
     ):
         """
         Create the controller.
@@ -234,6 +235,7 @@ class Workflow:
         self.all_temp = all_temp
         self.scheduler = None
         self.local_groupid = local_groupid
+        self.keep_metadata = keep_metadata
 
         _globals = globals()
         _globals["workflow"] = self
@@ -630,7 +632,6 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
-        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -1029,7 +1030,6 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )

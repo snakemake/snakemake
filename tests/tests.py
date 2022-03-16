@@ -101,6 +101,7 @@ def test13():
 @skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
+    os.environ["TESTVAR2"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
