@@ -605,6 +605,11 @@ class DAG:
         if self.notemp:
             return
 
+        if job.is_group():
+            for j in job:
+                self.handle_temp(j)
+            return
+
         is_temp = lambda f: is_flagged(f, "temp")
 
         # handle temp input
@@ -1465,6 +1470,8 @@ class DAG:
             if self.workflow.use_conda:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
+
+        self.handle_temp(job)
 
         return potential_new_ready_jobs
 

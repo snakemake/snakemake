@@ -150,6 +150,7 @@ class Workflow:
         all_temp=False,
         local_groupid="local",
         keep_metadata=True,
+        latency_wait=3,
     ):
         """
         Create the controller.
@@ -236,6 +237,7 @@ class Workflow:
         self.scheduler = None
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
+        self.latency_wait = latency_wait
 
         _globals = globals()
         _globals["workflow"] = self
@@ -601,7 +603,6 @@ class Workflow:
         delete_all_output=False,
         delete_temp_output=False,
         detailed_summary=False,
-        latency_wait=3,
         wait_for_files=None,
         nolock=False,
         unlock=False,
@@ -702,7 +703,9 @@ class Workflow:
 
         if wait_for_files is not None:
             try:
-                snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
+                snakemake.io.wait_for_files(
+                    wait_for_files, latency_wait=self.latency_wait
+                )
             except IOError as e:
                 logger.error(str(e))
                 return False
@@ -966,11 +969,10 @@ class Workflow:
                 dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
             )
         if self.use_conda:
-            if self.assume_shared_fs:
-                dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                    quiet=list_conda_envs,
-                )
+            dag.create_conda_envs(
+                dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
+                quiet=list_conda_envs,
+            )
             if conda_create_envs_only:
                 return True
 
@@ -1025,7 +1027,6 @@ class Workflow:
             container_image=container_image,
             printreason=printreason,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             greediness=greediness,
             force_use_threads=force_use_threads,
             assume_shared_fs=self.assume_shared_fs,

@@ -600,6 +600,7 @@ def snakemake(
             all_temp=all_temp,
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
+            latency_wait=latency_wait,
         )
         success = True
 
@@ -772,7 +773,6 @@ def snakemake(
                     archive=archive,
                     delete_all_output=delete_all_output,
                     delete_temp_output=delete_temp_output,
-                    latency_wait=latency_wait,
                     wait_for_files=wait_for_files,
                     detailed_summary=detailed_summary,
                     nolock=not lock,
