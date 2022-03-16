@@ -965,11 +965,10 @@ class Workflow:
                 dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
             )
         if self.use_conda:
-            if self.assume_shared_fs:
-                dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                    quiet=list_conda_envs,
-                )
+            dag.create_conda_envs(
+                dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
+                quiet=list_conda_envs,
+            )
             if conda_create_envs_only:
                 return True
 
