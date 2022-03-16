@@ -14,5 +14,7 @@ def format_cli_arg(flag, value, quote=True, skip=False):
 def format_cli_pos_arg(value, quote=True):
     if not_iterable(value):
         return repr(value)
+    elif isinstance(value, dict):
+        return " ".join(repr(f"{key}={val}") for key, val in value)
     else:
         return " ".join(repr(v) for v in value)

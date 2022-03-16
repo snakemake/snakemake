@@ -78,67 +78,24 @@ class AbstractExecutor:
         self.keepincomplete = keepincomplete
 
     def get_default_remote_provider_args(self):
-        if self.workflow.default_remote_provider:
-            return (
-                " --default-remote-provider {} " "--default-remote-prefix {} "
-            ).format(
-                self.workflow.default_remote_provider.__module__.split(".")[-1],
-                self.workflow.default_remote_prefix,
-            )
-        return ""
-
-    def _format_key_value_args(self, flag, kwargs):
-        if kwargs:
-            return " {} {} ".format(
-                flag,
-                " ".join("{}={}".format(key, value) for key, value in kwargs.items()),
-            )
-        return ""
-
-    def get_set_threads_args(self):
-        return self._format_key_value_args(
-            "--set-threads", self.workflow.overwrite_threads
-        )
+        return self.workflow_property_to_arg(
+            "default_remote_prefix"
+        ) + self.workflow_property_to_arg("default_remote_provider", attr="name")
 
     def get_set_resources_args(self):
-        if self.workflow.overwrite_resources:
-            return " --set-resources {} ".format(
-                " ".join(
-                    "{}:{}={}".format(rule, name, value)
-                    for rule, res in self.workflow.overwrite_resources.items()
-                    for name, value in res.items()
-                )
-            )
-        return ""
-
-    def get_set_scatter_args(self):
-        return self._format_key_value_args(
-            "--set-scatter", self.workflow.overwrite_scatter
+        return format_cli_arg(
+            "--set-resources",
+            [
+                f"{rule}:{name}={value}"
+                for rule, res in self.workflow.overwrite_resources.items()
+                for name, value in res.items()
+            ],
+            skip=not self.workflow.overwrite_resources,
         )
 
     def get_default_resources_args(self, default_resources=None):
-        if default_resources is None:
-            default_resources = self.workflow.default_resources
-        if default_resources:
-
-            def fmt(res):
-                if isinstance(res, str):
-                    res = res.replace('"', r"\"")
-                return '"{}"'.format(res)
-
-            args = " --default-resources {} ".format(
-                " ".join(map(fmt, self.workflow.default_resources.args))
-            )
-            return args
-        return ""
-
-    def get_local_groupid_arg(self):
-        return f" --local-groupid {self.workflow.local_groupid} "
-
-    def get_behavior_args(self):
-        if self.workflow.conda_not_block_search_path_envvars:
-            return " --conda-not-block-search-path-envvars "
-        return ""
+        default_resources = default_resources or self.workflow.default_resources
+        return format_cli_arg("--default-resources", default_resources.args)
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
@@ -279,11 +236,16 @@ class RealExecutor(AbstractExecutor):
         )
 
     def workflow_property_to_arg(
-        self, property, flag=None, quote=True, skip=False, invert=False
+        self, property, flag=None, quote=True, skip=False, invert=False, attr=None
     ):
         if skip:
             return ""
+
         value = getattr(self.workflow, property)
+
+        if value is not None and attr is not None:
+            value = getattr(value, attr)
+
         if flag is None:
             flag = f"--{property.replace('_', '-')}"
 
@@ -316,6 +278,10 @@ class RealExecutor(AbstractExecutor):
                 w2a("use_env_modules", flag="--use-envmodules"),
                 w2a("keep_metadata", flag="--drop-metadata", invert=True),
                 w2a("wrapper_prefix"),
+                w2a("overwrite_threads", flag="--set-threads"),
+                w2a("overwrite_scatter", flag="--set-scatter"),
+                w2a("local_groupid"),
+                w2a("conda_not_block_search_path_envvars"),
                 format_cli_arg(
                     "--scheduler-solver-path",
                     os.path.dirname(sys.executable),
@@ -325,9 +291,6 @@ class RealExecutor(AbstractExecutor):
         )
 
         additional += self.get_set_resources_args()
-        additional += self.get_set_scatter_args()
-        additional += self.get_set_threads_args()
-        additional += self.get_behavior_args()
 
         return additional
 
@@ -442,9 +405,8 @@ class CPUExecutor(RealExecutor):
                 "--latency-wait {latency_wait} ",
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
-                self.get_local_groupid_arg(),
-                "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} ",
-                "--notemp --quiet --no-hooks --nolock --mode {} ".format(
+                "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} {job_specific_args}",
+                "--notemp --quiet --no-hooks --nolock --mode {}".format(
                     Mode.subprocess
                 ),
             )
@@ -698,7 +660,7 @@ class ClusterExecutor(RealExecutor):
                     "{sys.executable} " if assume_shared_fs else "python ",
                     "-m snakemake {target} --snakefile {snakefile} ",
                     "--force --cores {cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
-                    "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
+                    "{waitfiles_parameter} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
                     "--nocolor --notemp --no-hooks --nolock ",
@@ -709,7 +671,6 @@ class ClusterExecutor(RealExecutor):
             self.exec_job = exec_job
 
         self.exec_job += self.get_additional_args()
-        self.exec_job += " {job_specific_args:u} "
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
