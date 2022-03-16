@@ -300,7 +300,7 @@ class RealExecutor(AbstractExecutor):
         """
         w2a = self.workflow_property_to_arg
 
-        additional = "".join(
+        additional = " ".join(
             [
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
@@ -316,6 +316,11 @@ class RealExecutor(AbstractExecutor):
                 w2a("use_env_modules", flag="--use-envmodules"),
                 w2a("keep_metadata", flag="--drop-metadata", invert=True),
                 w2a("wrapper_prefix"),
+                format_cli_arg(
+                    "--scheduler-solver-path",
+                    os.path.dirname(sys.executable),
+                    skip=not self.assume_shared_fs,
+                ),
             ]
         )
 
@@ -361,34 +366,6 @@ class RealExecutor(AbstractExecutor):
         if "cores" in kwargs:
             del kwargs["cores"]
 
-        # wait for files and scheduler
-        scheduler_solver_path = ""
-        waitfiles_parameter = ""
-        if self.assume_shared_fs:
-            wait_for_files = []
-            wait_for_files.append(self.tmpdir)
-            wait_for_files.extend(job.get_wait_for_files())
-            # Prepend PATH of current python executable to PATH.
-            # This way, we ensure that the snakemake process in the cluster node runs
-            # in the same environment as the current process.
-            # This is necessary in order to find the pulp solver backends (e.g. coincbc).
-            scheduler_solver_path = format_cli_arg(
-                "--scheduler-solver-path", os.path.dirname(sys.executable)
-            )
-
-            # Only create extra file if we have more than 20 input files.
-            # This should not require the file creation in most cases.
-            if len(wait_for_files) > 20:
-                wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
-                with open(wait_for_files_file, "w") as fd:
-                    print(wait_for_files, sep="\n", file=fd)
-
-                waitfiles_parameter = format_cli_arg(
-                    "--wait-for-files-file", wait_for_files_file
-                )
-            else:
-                waitfiles_parameter = format_cli_arg("--wait-for-files", wait_for_files)
-
         cmd = format(
             pattern,
             job=job,
@@ -403,8 +380,6 @@ class RealExecutor(AbstractExecutor):
             target=target,
             rules=rules,
             job_specific_args=job_specific_args,
-            scheduler_solver_path=scheduler_solver_path,
-            waitfiles_parameter=waitfiles_parameter,
             **kwargs,
         )
         return cmd
@@ -726,7 +701,7 @@ class ClusterExecutor(RealExecutor):
                     "{waitfiles_parameter:u} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
                     "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
-                    "--nocolor --notemp --no-hooks --nolock {scheduler_solver_path:u} ",
+                    "--nocolor --notemp --no-hooks --nolock ",
                     "--mode {} ".format(Mode.cluster),
                 )
             )
@@ -758,6 +733,29 @@ class ClusterExecutor(RealExecutor):
 
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
+        )
+
+    def format_job_pattern(self, pattern, job=None, **kwargs):
+        waitfiles_parameter = ""
+        if self.assume_shared_fs:
+            wait_for_files = []
+            wait_for_files.append(self.tmpdir)
+            wait_for_files.extend(job.get_wait_for_files())
+
+            # Only create extra file if we have more than 20 input files.
+            # This should not require the file creation in most cases.
+            if len(wait_for_files) > 20:
+                wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
+                with open(wait_for_files_file, "w") as fd:
+                    print(wait_for_files, sep="\n", file=fd)
+
+                waitfiles_parameter = format_cli_arg(
+                    "--wait-for-files-file", wait_for_files_file
+                )
+            else:
+                waitfiles_parameter = format_cli_arg("--wait-for-files", wait_for_files)
+        return super().format_job_pattern(
+            pattern, job=job, waitfiles_parameter=waitfiles_parameter, **kwargs
         )
 
     def _wait_thread(self):
@@ -1076,7 +1074,7 @@ class GenericClusterExecutor(ClusterExecutor):
         jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
         jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
         self.write_jobscript(
-            job, jobscript, jobfinished=jobfinished, jobfailed=jobfailed
+            job, jobscript, jobfinished=repr(jobfinished), jobfailed=repr(jobfailed)
         )
 
         if self.statuscmd:

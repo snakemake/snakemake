@@ -7,7 +7,7 @@ def format_cli_arg(flag, value, quote=True, skip=False):
             value = ""
         else:
             value = format_cli_pos_arg(value, quote=quote)
-        return f"{flag} {value}"
+        return f" {flag} {value} "
     return ""
 
 
