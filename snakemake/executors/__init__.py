@@ -65,7 +65,6 @@ class AbstractExecutor:
         quiet=False,
         printshellcmds=False,
         printthreads=True,
-        latency_wait=3,
         keepincomplete=False,
         keepmetadata=True,
     ):
@@ -75,7 +74,7 @@ class AbstractExecutor:
         self.printreason = printreason
         self.printshellcmds = printshellcmds
         self.printthreads = printthreads
-        self.latency_wait = latency_wait
+        self.latency_wait = workflow.latency_wait
         self.keepincomplete = keepincomplete
         self.keepmetadata = keepmetadata
 
@@ -221,7 +220,6 @@ class RealExecutor(AbstractExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         assume_shared_fs=True,
         keepincomplete=False,
         keepmetadata=False,
@@ -232,7 +230,6 @@ class RealExecutor(AbstractExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             keepincomplete=keepincomplete,
             keepmetadata=keepmetadata,
         )
@@ -424,7 +421,6 @@ class CPUExecutor(RealExecutor):
         quiet=False,
         printshellcmds=False,
         use_threads=False,
-        latency_wait=3,
         cores=1,
         keepincomplete=False,
         keepmetadata=True,
@@ -435,7 +431,6 @@ class CPUExecutor(RealExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             keepincomplete=keepincomplete,
             keepmetadata=keepmetadata,
         )
@@ -659,7 +654,6 @@ class ClusterExecutor(RealExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         cluster_config=None,
         local_input=None,
         restart_times=None,
@@ -680,7 +674,6 @@ class ClusterExecutor(RealExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
             keepmetadata=keepmetadata,
@@ -957,7 +950,6 @@ class GenericClusterExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
@@ -989,7 +981,6 @@ class GenericClusterExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
@@ -1322,7 +1313,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         restart_times=0,
         assume_shared_fs=True,
         keepincomplete=False,
@@ -1336,7 +1326,6 @@ class SynchronousClusterExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
@@ -1432,7 +1421,6 @@ class DRMAAExecutor(ClusterExecutor):
         printshellcmds=False,
         drmaa_args="",
         drmaa_log_dir=None,
-        latency_wait=3,
         cluster_config=None,
         restart_times=0,
         assume_shared_fs=True,
@@ -1448,7 +1436,6 @@ class DRMAAExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
@@ -1635,7 +1622,6 @@ class KubernetesExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         cluster_config=None,
         local_input=None,
         restart_times=None,
@@ -1663,7 +1649,6 @@ class KubernetesExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
@@ -2092,7 +2077,6 @@ class TibannaExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         local_input=None,
         restart_times=None,
         max_status_checks_per_second=1,
@@ -2147,7 +2131,6 @@ class TibannaExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             local_input=local_input,
             restart_times=restart_times,
             exec_job=exec_job,

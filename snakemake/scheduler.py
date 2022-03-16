@@ -94,7 +94,6 @@ class JobScheduler:
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
-        latency_wait=3,
         greediness=1.0,
         force_use_threads=False,
         assume_shared_fs=True,
@@ -169,7 +168,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
             )
         elif touch:
             self._executor = TouchExecutor(
@@ -178,7 +176,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
             )
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
@@ -191,7 +188,6 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
                     keepmetadata=keepmetadata,
@@ -219,7 +215,6 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     assume_shared_fs=assume_shared_fs,
                     keepincomplete=keepincomplete,
                     keepmetadata=keepmetadata,
@@ -240,7 +235,6 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     cluster_config=cluster_config,
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
@@ -255,7 +249,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
@@ -269,7 +262,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cluster_config=cluster_config,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
@@ -283,7 +275,6 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
@@ -300,7 +291,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
             )
@@ -312,7 +302,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
             )
 
@@ -327,7 +316,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
             )
@@ -339,7 +327,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
             )
@@ -351,7 +338,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 tes_url=tes,
                 container_image=container_image,
             )
@@ -365,7 +351,6 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                latency_wait=latency_wait,
                 cores=cores,
                 keepincomplete=keepincomplete,
                 keepmetadata=keepmetadata,
