@@ -825,7 +825,7 @@ class ClusterExecutor(RealExecutor):
         use_threads = "--force-use-threads" if not job.is_group() else ""
 
         envvars = " ".join(
-            repr(f"{var}={os.environ[var]}") for var in self.workflow.envvars
+            f"{var}={repr(os.environ[var])}" for var in self.workflow.envvars
         )
 
         exec_job = self.format_job(
