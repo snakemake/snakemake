@@ -21,6 +21,7 @@ from snakemake.io import (
     _IOFile,
     is_flagged,
     get_flag_value,
+    wait_for_files,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
@@ -763,6 +764,9 @@ class Job(AbstractJob):
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
+
+        # wait for input files
+        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
 
         if not self.is_shadow:
             return
