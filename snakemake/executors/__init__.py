@@ -818,7 +818,7 @@ class ClusterExecutor(RealExecutor):
                 wait_for_files=[repr(f) for f in wait_for_files],
             )
         job_specific_args = ""
-        if job.is_group:
+        if job.is_group():
             job_specific_args = f"--local-groupid {job.jobid}"
 
         format_p = partial(
