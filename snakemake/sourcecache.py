@@ -15,6 +15,7 @@ import io
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from retry import retry
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -67,6 +68,11 @@ class SourceFile(ABC):
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
 
+    @property
+    @abstractmethod
+    def is_local(self):
+        ...
+
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
 
@@ -93,6 +99,10 @@ class GenericSourceFile(SourceFile):
         return os.path.basename(self.path_or_uri)
 
     def is_persistently_cacheable(self):
+        return False
+
+    @property
+    def is_local(self):
         return False
 
 
@@ -123,6 +133,10 @@ class LocalSourceFile(SourceFile):
 
     def __fspath__(self):
         return self.path
+
+    @property
+    def is_local(self):
+        return True
 
 
 class LocalGitFile(SourceFile):
@@ -166,6 +180,10 @@ class LocalGitFile(SourceFile):
     @property
     def ref(self):
         return self.tag or self.commit or self._ref
+
+    @property
+    def is_local(self):
+        return True
 
 
 class HostingProviderFile(SourceFile):
@@ -238,6 +256,10 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
         )
+
+    @property
+    def is_local(self):
+        return False
 
 
 class GithubFile(HostingProviderFile):
@@ -376,6 +398,16 @@ class SourceCache:
             # to just keep the time at the time of caching
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
+
+    def _open_local_or_remote(self, source_file, mode):
+        if source_file.is_local:
+            return self._open(source_file, mode)
+        else:
+            return self._open_retry(source_file, mode)
+
+    @retry(tries=3, delay=3, backoff=2, logger=logger)
+    def _open_retry(self, source_file, mode):
+        return self._open(source_file, mode)
 
     def _open(self, source_file, mode):
         from smart_open import open
