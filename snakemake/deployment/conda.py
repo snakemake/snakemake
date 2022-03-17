@@ -6,7 +6,12 @@ __license__ = "MIT"
 import os
 from pathlib import Path
 import re
-from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
+from snakemake.sourcecache import (
+    LocalGitFile,
+    LocalSourceFile,
+    SourceFile,
+    infer_source_file,
+)
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -706,8 +711,12 @@ class CondaEnvSpec(ABC):
 
 
 class CondaEnvFileSpec(CondaEnvSpec):
-    def __init__(self, filepath: str, rule=None):
-        if isinstance(filepath, _IOFile):
+    def __init__(self, filepath, rule=None):
+        if isinstance(filepath, SourceFile):
+            self.file = IOFile(
+                str(rule.workflow.sourcecache.get_path(filepath)), rule=rule
+            )
+        elif isinstance(filepath, _IOFile):
             self.file = filepath
         else:
             self.file = IOFile(filepath, rule=rule)
@@ -777,5 +786,8 @@ class CondaEnvNameSpec(CondaEnvSpec):
         return self.name == other.name
 
 
-def is_conda_env_file(spec: str):
+def is_conda_env_file(spec):
+    if isinstance(spec, SourceFile):
+        spec = spec.get_filename()
+
     return spec.endswith(".yaml") or spec.endswith(".yml")

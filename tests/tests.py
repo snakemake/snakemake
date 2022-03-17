@@ -526,9 +526,25 @@ def test_conda_cmd_exe():
     run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
-@skip_on_windows  # Conda support is partly broken on Win
+@skip_on_windows  # wrappers are for linux and macos only
 def test_wrapper():
     run(dpath("test_wrapper"), use_conda=True)
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+def test_wrapper_local_git_prefix():
+    import git
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = git.Repo.clone_from(
+            "https://github.com/snakemake/snakemake-wrappers", tmpdir
+        )
+
+        run(
+            dpath("test_wrapper"),
+            use_conda=True,
+            wrapper_prefix=f"git+file://{tmpdir}",
+        )
 
 
 def test_get_log_none():

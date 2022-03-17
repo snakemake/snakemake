@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import hashlib
 from pathlib import Path
+import posixpath
 import re
 import os
 import shutil
@@ -136,7 +137,7 @@ class LocalGitFile(SourceFile):
         self.path = path
 
     def get_path_or_uri(self):
-        return "git+{}/{}@{}".format(self.repo_path, self.path, self.ref)
+        return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
     def join(self, path):
         return LocalGitFile(
@@ -147,11 +148,20 @@ class LocalGitFile(SourceFile):
             commit=self.commit,
         )
 
+    def get_basedir(self):
+        return self.__class__(
+            repo_path=self.repo_path,
+            path=os.path.dirname(self.path),
+            tag=self.tag,
+            commit=self.commit,
+            ref=self.ref,
+        )
+
     def is_persistently_cacheable(self):
         return False
 
     def get_filename(self):
-        return os.path.basename(self.path)
+        return posixpath.basename(self.path)
 
     @property
     def ref(self):
@@ -276,7 +286,12 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return basedir.join(path_or_uri)
         return LocalSourceFile(path_or_uri)
     if path_or_uri.startswith("git+file:"):
-        root_path, file_path, ref = split_git_path(path_or_uri)
+        try:
+            root_path, file_path, ref = split_git_path(path_or_uri)
+        except Exception as e:
+            raise WorkflowError(
+                f"Failed to read source {path_or_uri} from git repo.", e
+            )
         return LocalGitFile(root_path, file_path, ref=ref)
     # something else
     return GenericSourceFile(path_or_uri)
@@ -311,7 +326,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open(cache_entry, mode)
+        return self._open(LocalSourceFile(cache_entry), mode)
 
     def exists(self, source_file):
         try:
@@ -343,7 +358,7 @@ class SourceCache:
 
     def _do_cache(self, source_file, cache_entry):
         # open from origin
-        with self._open(source_file.get_path_or_uri(), "rb") as source:
+        with self._open(source_file, "rb") as source:
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
@@ -362,20 +377,19 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open(self, path_or_uri, mode):
+    def _open(self, source_file, mode):
         from smart_open import open
 
-        if isinstance(path_or_uri, LocalGitFile):
+        if isinstance(source_file, LocalGitFile):
             import git
 
             return io.BytesIO(
-                git.Repo(path_or_uri.repo_path)
-                .git.show("{}:{}".format(path_or_uri.ref, path_or_uri.path))
+                git.Repo(source_file.repo_path)
+                .git.show("{}:{}".format(source_file.ref, source_file.path))
                 .encode()
             )
 
-        if isinstance(path_or_uri, SourceFile):
-            path_or_uri = path_or_uri.get_path_or_uri()
+        path_or_uri = source_file.get_path_or_uri()
 
         try:
             return open(path_or_uri, mode)
