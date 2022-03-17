@@ -254,7 +254,11 @@ class RealExecutor(AbstractExecutor):
 
         return format_cli_arg(flag, value, quote=quote)
 
-    def get_additional_args(self):
+    @property
+    def job_specific_local_groupid(self):
+        return False
+
+    def get_general_args(self):
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
@@ -262,8 +266,16 @@ class RealExecutor(AbstractExecutor):
         """
         w2a = self.workflow_property_to_arg
 
-        additional = " ".join(
+        return " ".join(
             [
+                "--force",
+                "--keep-target-files",
+                "--keep-remote",
+                "--max-inventory-time 0",
+                "--nocolor",
+                "--notemp",
+                "--no-hooks",
+                "--nolock",
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
                 w2a("use_conda"),
@@ -280,69 +292,50 @@ class RealExecutor(AbstractExecutor):
                 w2a("wrapper_prefix"),
                 w2a("overwrite_threads", flag="--set-threads"),
                 w2a("overwrite_scatter", flag="--set-scatter"),
-                w2a("local_groupid"),
+                w2a("local_groupid", skip=self.job_specific_local_groupid),
                 w2a("conda_not_block_search_path_envvars"),
+                w2a("overwrite_workdir", flag="--directory"),
+                w2a("overwrite_configfiles", flag="--configfiles"),
+                w2a("config_args", flag="--config"),
+                w2a("printshellcmds"),
+                w2a("latency_wait"),
+                w2a("scheduler_type", flag="--scheduler"),
                 format_cli_arg(
                     "--scheduler-solver-path",
                     os.path.dirname(sys.executable),
                     skip=not self.assume_shared_fs,
                 ),
+                self.get_set_resources_args(),
             ]
         )
 
-        additional += self.get_set_resources_args()
-
-        return additional
+    def get_job_args(self, job, **kwargs):
+        return " ".join(
+            [
+                # Restrict considered rules for faster DAG computation.
+                # This does not work for updated jobs because they need
+                # to be updated in the spawned process as well.
+                format_cli_arg(
+                    "--allowed-rules",
+                    job.rules,
+                    quote=False,
+                    skip=job.is_branched or job.is_updated,
+                ),
+                # Ensure that a group uses its proper local groupid.
+                format_cli_arg("--local-groupid", job.jobid, skip=not job.is_group()),
+                format_cli_pos_arg(kwargs.get("target", job.get_targets())),
+                format_cli_pos_arg(kwargs.get("snakefile", self.snakefile)),
+                format_cli_arg("--cores", kwargs.get("cores", self.cores)),
+                format_cli_arg("--attempt", job.attempt),
+            ]
+        )
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
-        overwrite_workdir = self.workflow_property_to_arg(
-            "overwrite_workdir", flag="--directory"
-        )
-
-        overwrite_configfiles = self.workflow_property_to_arg(
-            "overwrite_configfiles",
-            flag="--configfiles",
-        )
-        overwrite_config = overwrite_configfiles + self.workflow_property_to_arg(
-            "config_args", flag="--config"
-        )
-
-        printshellcmds = self.workflow_property_to_arg("printshellcmds")
-
-        rules = ""
-        if not job.is_branched and not job.is_updated:
-            # Restrict considered rules. This does not work for updated jobs
-            # because they need to be updated in the spawned process as well.
-            rules = format_cli_arg("--allowed-rules", job.rules, quote=False)
-
-        job_specific_args = format_cli_arg(
-            "--local-groupid", job.jobid, skip=not job.is_group()
-        )
-
-        target = format_cli_pos_arg(kwargs.get("target", job.get_targets()))
-        snakefile = format_cli_pos_arg(kwargs.get("snakefile", self.snakefile))
-        cores = kwargs.get("cores", self.cores)
-        if "target" in kwargs:
-            del kwargs["target"]
-        if "snakefile" in kwargs:
-            del kwargs["snakefile"]
-        if "cores" in kwargs:
-            del kwargs["cores"]
+        args = f"{self.get_job_args(job, **kwargs)} {self.get_general_args()}"
 
         cmd = format(
             pattern,
-            job=job,
-            attempt=job.attempt,
-            overwrite_workdir=overwrite_workdir,
-            overwrite_config=overwrite_config,
-            printshellcmds=printshellcmds,
-            workflow=self.workflow,
-            snakefile=snakefile,
-            cores=cores,
-            benchmark_repeats=job.benchmark_repeats if not job.is_group() else None,
-            target=target,
-            rules=rules,
-            job_specific_args=job_specific_args,
+            args=args,
             **kwargs,
         )
         return cmd
@@ -412,7 +405,7 @@ class CPUExecutor(RealExecutor):
             )
         )
 
-        self.exec_job += self.get_additional_args()
+        self.exec_job += self.get_general_args()
         self.use_threads = use_threads
         self.cores = cores
 
@@ -662,7 +655,7 @@ class ClusterExecutor(RealExecutor):
                     "--force --cores {cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
                     "{waitfiles_parameter} --latency-wait {latency_wait} ",
                     " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
-                    "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} "
+                    "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} {job_specific_args} "
                     "--nocolor --notemp --no-hooks --nolock ",
                     "--mode {} ".format(Mode.cluster),
                 )
@@ -670,7 +663,7 @@ class ClusterExecutor(RealExecutor):
         else:
             self.exec_job = exec_job
 
-        self.exec_job += self.get_additional_args()
+        self.exec_job += self.get_general_args(skip_local_groupid=True)
         if not disable_default_remote_provider_args:
             self.exec_job += self.get_default_remote_provider_args()
         if not disable_get_default_resources_args:
@@ -695,6 +688,10 @@ class ClusterExecutor(RealExecutor):
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
         )
+
+    @property
+    def job_specific_local_groupid(self):
+        return True
 
     def format_job_pattern(self, pattern, job=None, **kwargs):
         waitfiles_parameter = ""
@@ -2048,7 +2045,7 @@ class TibannaExecutor(ClusterExecutor):
             "--force --cores {cores} --keep-target-files  --keep-remote "
             "--latency-wait 0 --scheduler {workflow.scheduler_type} "
             "--attempt 1 {use_threads} --max-inventory-time 0 "
-            "{overwrite_config} {rules} --nocolor "
+            "{overwrite_config} {rules} {job_specific_args} --nocolor "
             "--notemp --no-hooks --nolock "
         )
 

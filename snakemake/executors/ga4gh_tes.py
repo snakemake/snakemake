@@ -65,7 +65,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 "--latency-wait 10 ",
                 "--attempt 1 ",
                 "{use_threads}",
-                "{overwrite_config} {rules} ",
+                "{overwrite_config} {rules} {job_specific_args} ",
                 "--nocolor ",
                 "--notemp ",
                 "--no-hooks ",
