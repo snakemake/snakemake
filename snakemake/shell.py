@@ -205,7 +205,9 @@ class shell:
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
-            logger.info("Activating conda environment: {}".format(conda_env))
+            logger.info(
+                "Activating conda environment: {}".format(os.path.relpath(conda_env))
+            )
 
         tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:

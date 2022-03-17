@@ -503,9 +503,7 @@ class Env:
 
                 logger.debug(out)
                 logger.info(
-                    "Environment for {} created (location: {})".format(
-                        os.path.relpath(env_file), os.path.relpath(env_path)
-                    )
+                    f"Environment for {self.file.get_path_or_uri()} created (location: {os.path.relpath(env_path)})"
                 )
             except subprocess.CalledProcessError as e:
                 # remove potential partially installed environment
@@ -713,9 +711,7 @@ class CondaEnvSpec(ABC):
 class CondaEnvFileSpec(CondaEnvSpec):
     def __init__(self, filepath, rule=None):
         if isinstance(filepath, SourceFile):
-            self.file = IOFile(
-                str(rule.workflow.sourcecache.get_path(filepath)), rule=rule
-            )
+            self.file = IOFile(str(filepath.get_path_or_uri()), rule=rule)
         elif isinstance(filepath, _IOFile):
             self.file = filepath
         else:

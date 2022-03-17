@@ -536,9 +536,11 @@ def test_wrapper_local_git_prefix():
     import git
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        print("Cloning wrapper repo...")
         repo = git.Repo.clone_from(
             "https://github.com/snakemake/snakemake-wrappers", tmpdir
         )
+        print("Cloning complete.")
 
         run(
             dpath("test_wrapper"),
