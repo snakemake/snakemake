@@ -1,0 +1,29 @@
+module module:
+    snakefile: "module/Snakefile"
+    config: config
+
+
+use rule * from module1 as module1_*
+
+
+# provide a prefix for all paths in module2
+module module2:
+    snakefile: "module2/Snakefile"
+    config: config
+    prefix: "module2"
+
+
+use rule * from module2 as module2_*
+
+# overwrite the input to remove the module2 prefix specified above
+use rule b from module2 as module2_b with:
+    input:
+        "test.txt"
+
+
+rule joint_all:
+    input:
+        "test2.txt",
+        "test3.txt",
+        "test4.txt",
+    default_target: True
