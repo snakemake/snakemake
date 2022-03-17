@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import os
 import sys
 import contextlib
@@ -45,7 +46,13 @@ from snakemake.exceptions import (
     SpawnedJobError,
     CacheMissException,
 )
-from snakemake.common import Mode, __version__, get_container_image, get_uuid
+from snakemake.common import (
+    Mode,
+    __version__,
+    get_container_image,
+    get_uuid,
+    lazy_property,
+)
 
 
 # TODO move each executor into a separate submodule
@@ -254,11 +261,8 @@ class RealExecutor(AbstractExecutor):
 
         return format_cli_arg(flag, value, quote=quote)
 
-    @property
-    def job_specific_local_groupid(self):
-        return False
-
-    def get_general_args(self):
+    @lazy_property
+    def general_args(self):
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
@@ -306,6 +310,9 @@ class RealExecutor(AbstractExecutor):
                     skip=not self.assume_shared_fs,
                 ),
                 self.get_set_resources_args(),
+                self.get_default_remote_provider_args(),
+                self.get_default_resources_args(),
+                format_cli_arg("--mode", self.get_exec_mode()),
             ]
         )
 
@@ -323,22 +330,61 @@ class RealExecutor(AbstractExecutor):
                 ),
                 # Ensure that a group uses its proper local groupid.
                 format_cli_arg("--local-groupid", job.jobid, skip=not job.is_group()),
-                format_cli_pos_arg(kwargs.get("target", job.get_targets())),
+                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
                 format_cli_pos_arg(kwargs.get("snakefile", self.snakefile)),
                 format_cli_arg("--cores", kwargs.get("cores", self.cores)),
                 format_cli_arg("--attempt", job.attempt),
+                format_cli_arg("--force-use-threads", not job.is_group()),
             ]
         )
 
-    def format_job_pattern(self, pattern, job=None, **kwargs):
-        args = f"{self.get_job_args(job, **kwargs)} {self.get_general_args()}"
+    @property
+    def job_specific_local_groupid(self):
+        return True
 
-        cmd = format(
-            pattern,
-            args=args,
-            **kwargs,
+    def get_snakefile(self):
+        return self.snakefile
+
+    def get_job_targets(self, job):
+        return job.get_targets()
+
+    @abstractmethod
+    def get_python_executable(self):
+        ...
+
+    @abstractmethod
+    def get_exec_mode(self):
+        ...
+
+    @abstractmethod
+    def get_envvar_declations(self):
+        ...
+
+    def get_job_exec_prefix(self, job):
+        return ""
+
+    def get_job_exec_suffix(self, job):
+        return ""
+
+    def format_job_exec(self, job):
+        prefix = self.get_job_exec_prefix(job)
+        if prefix:
+            prefix += " &&"
+        suffix = self.get_job_exec_suffix(job)
+        if suffix:
+            suffix = f"&& {suffix}"
+        return " ".join(
+            [
+                prefix,
+                self.get_envvar_declarations(),
+                self.get_python_executable(),
+                "-m snakemake",
+                format_cli_arg("--snakefile", self.get_snakefile()),
+                self.get_job_args(job),
+                self.general_args,
+                suffix,
+            ]
         )
-        return cmd
 
 
 class TouchExecutor(RealExecutor):
@@ -387,25 +433,6 @@ class CPUExecutor(RealExecutor):
             keepincomplete=keepincomplete,
         )
 
-        self.exec_job = "\\\n".join(
-            (
-                "cd {workflow.workdir_init} && ",
-                "{sys.executable} -m snakemake {target} --snakefile {snakefile} ",
-                "--force --cores {cores} --keep-target-files --keep-remote ",
-                "--attempt {attempt} --scheduler {workflow.scheduler_type} ",
-                "--force-use-threads ",
-                "--max-inventory-time 0 --ignore-incomplete ",
-                "--latency-wait {latency_wait} ",
-                self.get_default_remote_provider_args(),
-                self.get_default_resources_args(),
-                "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} {job_specific_args}",
-                "--notemp --quiet --no-hooks --nolock --mode {}".format(
-                    Mode.subprocess
-                ),
-            )
-        )
-
-        self.exec_job += self.get_general_args()
         self.use_threads = use_threads
         self.cores = cores
 
@@ -413,6 +440,22 @@ class CPUExecutor(RealExecutor):
         # Hence we need to reserve additional workers for them.
         self.workers = workers + 5
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
+
+    @property
+    def job_specific_local_groupid(self):
+        return False
+
+    def get_job_exec_prefix(self, job):
+        return f"cd {self.workflow.workdir_init} &&"
+
+    def get_exec_mode(self):
+        return Mode.subprocess
+
+    def get_python_executable(self):
+        return sys.executable
+
+    def get_envvar_declations(self):
+        return ""
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -529,8 +572,7 @@ class CPUExecutor(RealExecutor):
             time.sleep(1)
 
     def spawn_job(self, job):
-        exec_job = self.exec_job
-        cmd = self.format_job_pattern(exec_job, job=job, latency_wait=self.latency_wait)
+        cmd = self.format_job_exec(job)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
@@ -610,7 +652,8 @@ class ClusterExecutor(RealExecutor):
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
-        disable_get_default_resources_args=False,
+        disable_default_resources_args=False,
+        disable_envvar_declarations=False,
         keepincomplete=False,
     ):
         from ratelimiter import RateLimiter
@@ -630,9 +673,11 @@ class ClusterExecutor(RealExecutor):
             # use relative path to Snakefile
             self.snakefile = os.path.relpath(workflow.main_snakefile)
 
+        self.is_default_jobscript = False
         jobscript = workflow.jobscript
         if jobscript is None:
             jobscript = os.path.join(os.path.dirname(__file__), self.default_jobscript)
+            self.is_default_jobscript = True
         try:
             with open(jobscript) as f:
                 self.jobscript = f.read()
@@ -643,31 +688,6 @@ class ClusterExecutor(RealExecutor):
             raise WorkflowError(
                 'Defined jobname ("{}") has to contain the wildcard {jobid}.'
             )
-
-        if exec_job is None:
-            self.exec_job = "\\\n".join(
-                (
-                    "{envvars} " "cd {workflow.workdir_init} && "
-                    if assume_shared_fs
-                    else "",
-                    "{sys.executable} " if assume_shared_fs else "python ",
-                    "-m snakemake {target} --snakefile {snakefile} ",
-                    "--force --cores {cores} --keep-target-files --keep-remote --max-inventory-time 0 ",
-                    "{waitfiles_parameter} --latency-wait {latency_wait} ",
-                    " --attempt {attempt} {use_threads} --scheduler {workflow.scheduler_type} ",
-                    "{overwrite_workdir} {overwrite_config} {printshellcmds} {rules} {job_specific_args} "
-                    "--nocolor --notemp --no-hooks --nolock ",
-                    "--mode {} ".format(Mode.cluster),
-                )
-            )
-        else:
-            self.exec_job = exec_job
-
-        self.exec_job += self.get_general_args(skip_local_groupid=True)
-        if not disable_default_remote_provider_args:
-            self.exec_job += self.get_default_remote_provider_args()
-        if not disable_get_default_resources_args:
-            self.exec_job += self.get_default_resources_args()
 
         self.jobname = jobname
         self._tmpdir = None
@@ -683,17 +703,43 @@ class ClusterExecutor(RealExecutor):
         self.wait_thread.daemon = True
         self.wait_thread.start()
 
+        self.disable_default_remote_provider_args = disable_default_remote_provider_args
+        self.disable_default_resources_args = disable_default_resources_args
+        self.disable_envvar_declarations = disable_envvar_declarations
+
         self.max_status_checks_per_second = max_status_checks_per_second
 
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
         )
 
-    @property
-    def job_specific_local_groupid(self):
-        return True
+    def get_default_remote_provider_args(self):
+        if not self.disable_default_remote_provider_args:
+            return super().get_default_remote_provider_args()
+        else:
+            return ""
 
-    def format_job_pattern(self, pattern, job=None, **kwargs):
+    def get_default_resources_args(self, default_resources=None):
+        if not self.disable_default_resources_args:
+            return super().get_default_resources_args(default_resources)
+        else:
+            return ""
+
+    def get_envvar_declations(self):
+        if not self.disable_envvar_declarations:
+            return " ".join(
+                f"{var}={repr(os.environ[var])}" for var in self.workflow.envvars
+            )
+        else:
+            return ""
+
+    def get_python_executable(self):
+        return sys.executable if self.assume_shared_fs else "python"
+
+    def get_exec_mode(self):
+        return Mode.cluster
+
+    def get_job_args(self, job):
         waitfiles_parameter = ""
         if self.assume_shared_fs:
             wait_for_files = []
@@ -712,9 +758,8 @@ class ClusterExecutor(RealExecutor):
                 )
             else:
                 waitfiles_parameter = format_cli_arg("--wait-for-files", wait_for_files)
-        return super().format_job_pattern(
-            pattern, job=job, waitfiles_parameter=waitfiles_parameter, **kwargs
-        )
+
+        return f"{super().get_job_args(job)} {waitfiles_parameter}"
 
     def _wait_thread(self):
         try:
@@ -759,39 +804,23 @@ class ClusterExecutor(RealExecutor):
 
         return os.path.join(self.tmpdir, f)
 
-    def format_job(self, pattern, job, **kwargs):
-        format_p = partial(
-            self.format_job_pattern,
-            job=job,
-            properties=job.properties(cluster=self.cluster_params(job)),
-            latency_wait=self.latency_wait,
-            **kwargs,
-        )
+    def write_jobscript(self, job, jobscript):
+        exec_job = self.format_job_exec(job)
+
         try:
-            return format_p(pattern)
-        except KeyError as e:
-            raise WorkflowError(
-                "Error formatting job: {} not found\n"
-                "Make sure that your custom jobscript is up to date.".format(e)
+            content = self.jobscript.format(
+                properties=job.properties(cluster=self.cluster_params(job)),
+                exec_job=exec_job,
             )
+        except KeyError as e:
+            if self.is_default_jobscript:
+                raise e
+            else:
+                raise WorkflowError(
+                    f"Error formatting custom jobscript {self.workflow.jobscript}: value for {e} not found.\n"
+                    "Make sure that your custom jobscript is defined as expected."
+                )
 
-    def write_jobscript(self, job, jobscript, **kwargs):
-        # only force threads if this is not a group job
-        # otherwise we want proper process handling
-        use_threads = "--force-use-threads" if not job.is_group() else ""
-
-        envvars = " ".join(
-            f"{var}={repr(os.environ[var])}" for var in self.workflow.envvars
-        )
-
-        exec_job = self.format_job(
-            self.exec_job,
-            job,
-            use_threads=use_threads,
-            envvars=envvars,
-            **kwargs,
-        )
-        content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))
         with open(jobscript, "w") as f:
             print(content, file=f)
@@ -926,17 +955,36 @@ class GenericClusterExecutor(ClusterExecutor):
         if self.sidecarcmd:
             self._launch_sidecar()
 
-        if statuscmd:
-            self.exec_job += " && exit 0 || exit 1"
-        elif assume_shared_fs:
-            # TODO wrap with watch and touch {jobrunning}
-            # check modification date of {jobrunning} in the wait_for_job method
-            self.exec_job += " && touch {jobfinished} || (touch {jobfailed}; exit 1)"
-        else:
+        if not statuscmd and not assume_shared_fs:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
                 "specify a cluster status command."
             )
+
+    def get_job_exec_prefix(self, job):
+        if self.assume_shared_fs:
+            return f"cd {self.workflow.workdir_init}"
+        else:
+            return ""
+
+    def get_job_exec_suffix(self, job):
+        if self.statuscmd:
+            return " && exit 0 || exit 1"
+        elif self.assume_shared_fs:
+            # TODO wrap with watch and touch {jobrunning}
+            # check modification date of {jobrunning} in the wait_for_job method
+
+            return (
+                f" && touch {repr(self.get_jobfinished_marker(job))} || "
+                f"(touch {repr(self.get_jobfailed_marker(job))}; exit 1)"
+            )
+        assert False, "bug: neither statuscmd defined nor shared FS"
+
+    def get_jobfinished_marker(self, job):
+        return os.path.join(self.tmpdir, "{}.jobfinished".format(job.jobid))
+
+    def get_jobfailed_marker(self, job):
+        return os.path.join(self.tmpdir, "{}.jobfailed".format(job.jobid))
 
     def _launch_sidecar(self):
         def copy_stdout(executor, process):
@@ -1029,11 +1077,7 @@ class GenericClusterExecutor(ClusterExecutor):
         jobid = job.jobid
 
         jobscript = self.get_jobscript(job)
-        jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
-        jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-        self.write_jobscript(
-            job, jobscript, jobfinished=repr(jobfinished), jobfailed=repr(jobfailed)
-        )
+        self.write_jobscript(job, jobscript)
 
         if self.statuscmd:
             ext_jobid = self.dag.incomplete_external_jobid(job)
@@ -1055,8 +1099,8 @@ class GenericClusterExecutor(ClusterExecutor):
                             callback,
                             error_callback,
                             jobscript,
-                            jobfinished,
-                            jobfailed,
+                            self.get_jobfinished_marker(job),
+                            self.get_jobfailed_marker(job),
                         )
                     )
                 return
@@ -1267,14 +1311,18 @@ class SynchronousClusterExecutor(ClusterExecutor):
         self.submitcmd = submitcmd
         self.external_jobid = dict()
 
+    def get_job_exec_prefix(self, job):
+        if self.assume_shared_fs:
+            return f"cd {self.workflow.workdir_init}"
+        else:
+            return ""
+
     def cancel(self):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
-        workdir = os.getcwd()
-        jobid = job.jobid
 
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
@@ -1386,6 +1434,12 @@ class DRMAAExecutor(ClusterExecutor):
         self.drmaa_log_dir = drmaa_log_dir
         self.session.initialize()
         self.submitted = list()
+
+    def get_job_exec_prefix(self, job):
+        if self.assume_shared_fs:
+            return f"cd {self.workflow.workdir_init}"
+        else:
+            return ""
 
     def cancel(self):
         from drmaa.const import JobControlAction
@@ -1558,16 +1612,6 @@ class KubernetesExecutor(ClusterExecutor):
     ):
         self.workflow = workflow
 
-        exec_job = (
-            "cp -rf /source/. . && "
-            "snakemake {target} --snakefile {snakefile} "
-            "--force --cores {cores} --keep-target-files  --keep-remote "
-            "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-            " --attempt {attempt} {use_threads} --max-inventory-time 0 "
-            "{overwrite_config} {printshellcmds} {rules} --nocolor "
-            "--notemp --no-hooks --nolock "
-        )
-
         super().__init__(
             workflow,
             dag,
@@ -1582,6 +1626,7 @@ class KubernetesExecutor(ClusterExecutor):
             exec_job=exec_job,
             assume_shared_fs=False,
             max_status_checks_per_second=10,
+            disable_envvar_declarations=True,
         )
         # use relative path to Snakefile
         self.snakefile = os.path.relpath(workflow.main_snakefile)
@@ -1607,6 +1652,9 @@ class KubernetesExecutor(ClusterExecutor):
         self.register_secret()
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Kubernetes jobs.")
+
+    def get_job_exec_prefix(self, job):
+        return "cp -rf /source/. . &&"
 
     def register_secret(self):
         import kubernetes.client
@@ -1741,11 +1789,8 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
 
         super()._run(job)
-        exec_job = self.format_job(
-            self.exec_job,
-            job,
-            use_threads="--force-use-threads" if not job.is_group() else "",
-        )
+        exec_job = self.format_job_exec(job)
+
         # Kubernetes silently does not submit a job if the name is too long
         # therefore, we ensure that it is not longer than snakejob+uuid.
         jobid = "snakejob-{}".format(
@@ -2040,14 +2085,6 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("bucket=" + self.s3_bucket)
         logger.debug("subdir=" + self.s3_subdir)
         self.quiet = quiet
-        exec_job = (
-            "snakemake {target} --snakefile {snakefile} "
-            "--force --cores {cores} --keep-target-files  --keep-remote "
-            "--latency-wait 0 --scheduler {workflow.scheduler_type} "
-            "--attempt 1 {use_threads} --max-inventory-time 0 "
-            "{overwrite_config} {rules} {job_specific_args} --nocolor "
-            "--notemp --no-hooks --nolock "
-        )
 
         super().__init__(
             workflow,
@@ -2058,11 +2095,11 @@ class TibannaExecutor(ClusterExecutor):
             printshellcmds=printshellcmds,
             local_input=local_input,
             restart_times=restart_times,
-            exec_job=exec_job,
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
             disable_get_default_resources_args=True,
+            disable_envvar_declarations=True,
         )
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Tibanna jobs.")
@@ -2109,31 +2146,22 @@ class TibannaExecutor(ClusterExecutor):
     def remove_prefix(self, s):
         return re.sub("^{}/{}/".format(self.s3_bucket, self.s3_subdir), "", s)
 
-    def handle_remote(self, target):
-        if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
-            return self.remove_prefix(target)
-        else:
-            return target
+    def get_job_targets(self, job):
+        def handle_target(target):
+            if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
+                return self.remove_prefix(target)
+            else:
+                return target
+
+        return [handle_target(target) for target in job.get_targets()]
+
+    def get_snakefile(self):
+        return os.path.basename(self.snakefile)
 
     def add_command(self, job, tibanna_args, tibanna_config):
-        # snakefile, with file name remapped
-        snakefile_fname = tibanna_args.snakemake_main_filename
-        # targets, with file name remapped
-        targets = job.get_targets()
-        if not isinstance(targets, list):
-            targets = [targets]
-        targets_default = " ".join([self.handle_remote(t) for t in targets])
-        # use_threads
-        use_threads = "--force-use-threads" if not job.is_group() else ""
         # format command
-        command = self.format_job_pattern(
-            self.exec_job,
-            job,
-            target=targets_default,
-            snakefile=snakefile_fname,
-            use_threads=use_threads,
-            cores=tibanna_config["cpu"],
-        )
+        command = self.format_job_exec(job)
+
         if self.precommand:
             command = self.precommand + "; " + command
         logger.debug("command = " + str(command))

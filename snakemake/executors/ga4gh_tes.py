@@ -90,6 +90,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
         )
 
+    def get_job_exec_prefix(self, job):
+        return
+
     def write_jobscript(self, job, jobscript, **kwargs):
 
         use_threads = "--force-use-threads" if not job.is_group() else ""

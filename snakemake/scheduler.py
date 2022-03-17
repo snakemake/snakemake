@@ -140,13 +140,7 @@ class JobScheduler:
             self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
-        use_threads = (
-            force_use_threads
-            or (os.name != "posix")
-            or cluster
-            or cluster_sync
-            or drmaa
-        )
+        use_threads = force_use_threads or (os.name != "posix")
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
