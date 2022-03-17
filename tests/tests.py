@@ -1392,9 +1392,8 @@ def test_module_complex2():
 
 def test_module_no_prefixing_modified_paths():
     run(
-        dpath(
-            test_module_no_prefixing_modified_paths, targets=["module2/test_final.txt"]
-        )
+        dpath(test_module_no_prefixing_modified_paths),
+        targets=["module2/test_final.txt"],
     )
 
 
