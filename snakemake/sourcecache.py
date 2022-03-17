@@ -15,8 +15,6 @@ import io
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from retry import retry
-
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
@@ -400,14 +398,19 @@ class SourceCache:
             os.utime(cache_entry, times=(mtime, mtime))
 
     def _open_local_or_remote(self, source_file, mode):
+        from retry import retry_call
+
         if source_file.is_local:
             return self._open(source_file, mode)
         else:
-            return self._open_retry(source_file, mode)
-
-    @retry(tries=3, delay=3, backoff=2, logger=logger)
-    def _open_retry(self, source_file, mode):
-        return self._open(source_file, mode)
+            return retry_call(
+                self._open,
+                [source_file, mode],
+                tries=3,
+                delay=3,
+                backoff=2,
+                logger=logger,
+            )
 
     def _open(self, source_file, mode):
         from smart_open import open
