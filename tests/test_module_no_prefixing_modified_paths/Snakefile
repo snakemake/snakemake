@@ -1,5 +1,5 @@
-module module:
-    snakefile: "module/Snakefile"
+module module1:
+    snakefile: "module1/Snakefile"
     config: config
 
 
