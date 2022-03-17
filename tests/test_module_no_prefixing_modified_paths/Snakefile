@@ -23,7 +23,5 @@ use rule b from module2 as module2_b with:
 
 rule joint_all:
     input:
-        "test2.txt",
-        "test3.txt",
-        "test4.txt",
+        "test_final.txt",
     default_target: True
