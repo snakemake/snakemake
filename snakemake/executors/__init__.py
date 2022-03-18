@@ -1626,7 +1626,6 @@ class KubernetesExecutor(ClusterExecutor):
             cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
-            exec_job=exec_job,
             assume_shared_fs=False,
             max_status_checks_per_second=10,
             disable_envvar_declarations=True,
