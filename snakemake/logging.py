@@ -349,7 +349,7 @@ class Logger:
     def logfile_hint(self):
         if self.mode == Mode.default:
             logfile = self.get_logfile()
-            self.info("Complete log: {}".format(logfile))
+            self.info("Complete log: {}".format(os.path.relpath(logfile)))
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
