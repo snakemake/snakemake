@@ -23,7 +23,7 @@ import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
 from snakemake.io import _IOFile
 import random
 import base64
@@ -270,7 +270,7 @@ class RealExecutor(AbstractExecutor):
         """
         w2a = self.workflow_property_to_arg
 
-        return " ".join(
+        return join_cli_args(
             [
                 "--force",
                 "--keep-target-files",
@@ -280,6 +280,7 @@ class RealExecutor(AbstractExecutor):
                 "--notemp",
                 "--no-hooks",
                 "--nolock",
+                "--ignore-incomplete",
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
                 w2a("use_conda"),
@@ -317,8 +318,9 @@ class RealExecutor(AbstractExecutor):
         )
 
     def get_job_args(self, job, **kwargs):
-        return " ".join(
+        return join_cli_args(
             [
+                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
                 # to be updated in the spawned process as well.
@@ -330,8 +332,6 @@ class RealExecutor(AbstractExecutor):
                 ),
                 # Ensure that a group uses its proper local groupid.
                 format_cli_arg("--local-groupid", job.jobid, skip=not job.is_group()),
-                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
-                format_cli_pos_arg(kwargs.get("snakefile", self.snakefile)),
                 format_cli_arg("--cores", kwargs.get("cores", self.cores)),
                 format_cli_arg("--attempt", job.attempt),
                 format_cli_arg("--force-use-threads", not job.is_group()),
@@ -357,7 +357,7 @@ class RealExecutor(AbstractExecutor):
         ...
 
     @abstractmethod
-    def get_envvar_declations(self):
+    def get_envvar_declarations(self):
         ...
 
     def get_job_exec_prefix(self, job):
@@ -373,7 +373,7 @@ class RealExecutor(AbstractExecutor):
         suffix = self.get_job_exec_suffix(job)
         if suffix:
             suffix = f"&& {suffix}"
-        return " ".join(
+        return join_cli_args(
             [
                 prefix,
                 self.get_envvar_declarations(),
@@ -446,7 +446,7 @@ class CPUExecutor(RealExecutor):
         return False
 
     def get_job_exec_prefix(self, job):
-        return f"cd {self.workflow.workdir_init} &&"
+        return f"cd {self.workflow.workdir_init}"
 
     def get_exec_mode(self):
         return Mode.subprocess
@@ -454,7 +454,7 @@ class CPUExecutor(RealExecutor):
     def get_python_executable(self):
         return sys.executable
 
-    def get_envvar_declations(self):
+    def get_envvar_declarations(self):
         return ""
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -573,6 +573,7 @@ class CPUExecutor(RealExecutor):
 
     def spawn_job(self, job):
         cmd = self.format_job_exec(job)
+        print(cmd)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
@@ -725,7 +726,7 @@ class ClusterExecutor(RealExecutor):
         else:
             return ""
 
-    def get_envvar_declations(self):
+    def get_envvar_declarations(self):
         if not self.disable_envvar_declarations:
             return " ".join(
                 f"{var}={repr(os.environ[var])}" for var in self.workflow.envvars
@@ -1653,7 +1654,7 @@ class KubernetesExecutor(ClusterExecutor):
         logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
     def get_job_exec_prefix(self, job):
-        return "cp -rf /source/. . &&"
+        return "cp -rf /source/. ."
 
     def register_secret(self):
         import kubernetes.client
