@@ -85,9 +85,12 @@ class AbstractExecutor:
         self.keepincomplete = keepincomplete
 
     def get_default_remote_provider_args(self):
-        return self.workflow_property_to_arg(
-            "default_remote_prefix"
-        ) + self.workflow_property_to_arg("default_remote_provider", attr="name")
+        return join_cli_args(
+            [
+                self.workflow_property_to_arg("default_remote_prefix"),
+                self.workflow_property_to_arg("default_remote_provider", attr="name"),
+            ]
+        )
 
     def get_set_resources_args(self):
         return format_cli_arg(
@@ -1792,7 +1795,6 @@ class KubernetesExecutor(ClusterExecutor):
 
         super()._run(job)
         exec_job = self.format_job_exec(job)
-        logger.debug(exec_job)
 
         # Kubernetes silently does not submit a job if the name is too long
         # therefore, we ensure that it is not longer than snakejob+uuid.
