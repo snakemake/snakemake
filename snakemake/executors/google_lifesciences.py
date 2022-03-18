@@ -53,7 +53,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         cache=False,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         preemption_default=None,
         preemptible_rules=None,
@@ -115,7 +114,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             restart_times=restart_times,
-            exec_job=exec_job,
             assume_shared_fs=False,
             max_status_checks_per_second=10,
         )

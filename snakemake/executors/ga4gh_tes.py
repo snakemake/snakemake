@@ -63,7 +63,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
-            exec_job=exec_job,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
         )
