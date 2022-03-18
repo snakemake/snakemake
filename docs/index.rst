@@ -103,6 +103,9 @@ Resources
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
+`Snakemake API documentation <https://snakemake-api.readthedocs.io>`_
+    The documentation of the Snakemake API for programmatic access and developement on Snakemake.
+
 `Conda-Forge <https://conda-forge.org>`_
     Conda-Forge is a community driven distribution of Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
 
