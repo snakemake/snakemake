@@ -1079,6 +1079,9 @@ class GenericClusterExecutor(ClusterExecutor):
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
 
+        jobfinished = self.get_jobfinished_marker(job)
+        jobfailed = self.get_jobfailed_marker(job)
+
         if self.statuscmd:
             ext_jobid = self.dag.incomplete_external_jobid(job)
             if ext_jobid:
@@ -1099,8 +1102,8 @@ class GenericClusterExecutor(ClusterExecutor):
                             callback,
                             error_callback,
                             jobscript,
-                            self.get_jobfinished_marker(job),
-                            self.get_jobfailed_marker(job),
+                            jobfinished,
+                            jobfailed,
                         )
                     )
                 return
