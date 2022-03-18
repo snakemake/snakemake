@@ -48,7 +48,7 @@ autodoc_default_options = {"exclude-members": "lazy_property"}
 html_css_files = ["theme.css"]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
+templates_path = ["../_templates"]
 
 # The suffix of source filenames.
 source_suffix = [".rst", ".md"]
@@ -57,10 +57,10 @@ source_suffix = [".rst", ".md"]
 # source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = "index-api"
+master_doc = "index"
 
 # General information about the project.
-project = "Snakemake"
+project = "Snakemake-API"
 date = datetime.now()
 copyright = "2014-{year}, Johannes Koester".format(year=date.timetuple()[0])
 
@@ -153,7 +153,7 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["../_static"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -248,7 +248,9 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [("index", "snakemake", "Snakemake Documentation", ["Johannes Koester"], 1)]
+man_pages = [
+    ("index", "snakemake-api", "Snakemake API Documentation", ["Johannes Koester"], 1)
+]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False

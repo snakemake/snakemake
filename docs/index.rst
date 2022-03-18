@@ -153,16 +153,6 @@ Resources
     snakefiles/testing
     snakefiles/foreign_wms
 
-
-.. toctree::
-    :caption: API Reference
-    :name: api-reference
-    :hidden:
-    :maxdepth: 1
-
-    api_reference/snakemake_utils
-
-
 .. toctree::
     :caption: Project Info
     :name: project-info
