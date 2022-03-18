@@ -1,5 +1,24 @@
 # Changelog
 
+### [7.2.2](https://www.github.com/snakemake/snakemake/compare/v7.2.1...v7.2.2) (2022-03-18)
+
+
+### Bug Fixes
+
+* always wait for input files before starting jobs, also upon local execution and within group jobs. This should add further robustness against NFS latency issues. ([#1486](https://www.github.com/snakemake/snakemake/issues/1486)) ([cab2adb](https://www.github.com/snakemake/snakemake/commit/cab2adbc2278a2c1689414d2a3f172bb1d5c84d1))
+* do not skip local conda env creation per se when having no shared FS, because it is still needed for local jobs. Instead, decide for each env whether it is needed locally or not. ([#1490](https://www.github.com/snakemake/snakemake/issues/1490)) ([3f03c5d](https://www.github.com/snakemake/snakemake/commit/3f03c5d303fbdd9e05aa13a4d93bce08cade32b2))
+* fixed temp file deletion for group jobs ([#1487](https://www.github.com/snakemake/snakemake/issues/1487)) ([d030443](https://www.github.com/snakemake/snakemake/commit/d030443548a9851a82bcce618b24a9e24a8b545d))
+* improve robustness when retrieving remote source files, fixed usage of local git repos as wrapper prefixes (in collaboration with [@cokelaer](https://www.github.com/cokelaer) and @Smeds) ([#1495](https://www.github.com/snakemake/snakemake/issues/1495)) ([e16531d](https://www.github.com/snakemake/snakemake/commit/e16531d6d35b5eb3f7d19008e3e9c4432c4b2e69))
+* mtime inventory for google storage was accidentally setting a float instead of a proper mtime object ([#1484](https://www.github.com/snakemake/snakemake/issues/1484)) ([7c762c7](https://www.github.com/snakemake/snakemake/commit/7c762c7e5204f95ca85157ba5fe5ab061b8abdfa))
+* render empty caption if nothing defined in report flag ([013a6e8](https://www.github.com/snakemake/snakemake/commit/013a6e8459d0659e05546c849f84151860686004))
+
+
+### Documentation
+
+* clarify namespacing when using modules. ([dbed4a3](https://www.github.com/snakemake/snakemake/commit/dbed4a3f160106feb15a51d2e8cfcafae531ea57))
+* separate api docs ([ded7da9](https://www.github.com/snakemake/snakemake/commit/ded7da90258284f06d4e9263e667cd632cdc12ae))
+* separate api docs ([#1499](https://www.github.com/snakemake/snakemake/issues/1499)) ([5cf275a](https://www.github.com/snakemake/snakemake/commit/5cf275ab9c556dd1828a0618799bcdba0c561e70))
+
 ### [7.2.1](https://www.github.com/snakemake/snakemake/compare/v7.2.0...v7.2.1) (2022-03-14)
 
 
