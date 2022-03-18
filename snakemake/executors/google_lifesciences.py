@@ -120,7 +120,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
 
-    def get_default_resources_args(self):
+    def get_default_resources_args(self, default_resources=None):
+        assert default_resources is None
         return super().get_default_resources_args(
             default_resources=self.default_resources
         )
