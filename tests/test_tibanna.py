@@ -20,5 +20,5 @@ def test_tibanna():
         default_remote_prefix="snakemake-tibanna-test/1",
         tibanna=True,
         tibanna_sfn="tibanna_unicorn_johannes",
-        tibanna_config="spot_instance=true",
+        tibanna_config=["spot_instance=true"],
     )
