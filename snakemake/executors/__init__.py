@@ -1073,7 +1073,6 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
-        workdir = os.getcwd()
         jobid = job.jobid
 
         jobscript = self.get_jobscript(job)
@@ -2098,7 +2097,7 @@ class TibannaExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
-            disable_get_default_resources_args=True,
+            disable_default_resources_args=True,
             disable_envvar_declarations=True,
         )
         self.container_image = container_image or get_container_image()

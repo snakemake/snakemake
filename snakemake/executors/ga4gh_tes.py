@@ -52,28 +52,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         logger.info("[TES] Job execution on TES: {url}".format(url=self.tes_url))
 
-        exec_job = "\\\n".join(
-            (
-                "{envvars} ",
-                "mkdir /tmp/conda && cd /tmp && ",
-                "snakemake {target} ",
-                "--snakefile {snakefile} ",
-                "--verbose ",
-                "--force --cores {cores} ",
-                "--keep-target-files ",
-                "--keep-remote ",
-                "--latency-wait 10 ",
-                "--attempt 1 ",
-                "{use_threads}",
-                "{overwrite_config} {rules} {job_specific_args} ",
-                "--nocolor ",
-                "--notemp ",
-                "--no-hooks ",
-                "--nolock ",
-                "--mode {} ".format(Mode.cluster),
-            )
-        )
-
         super().__init__(
             workflow,
             dag,
@@ -91,29 +69,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         )
 
     def get_job_exec_prefix(self, job):
-        return
-
-    def write_jobscript(self, job, jobscript, **kwargs):
-
-        use_threads = "--force-use-threads" if not job.is_group() else ""
-        envvars = "\\\n".join(
-            "export {}={};".format(var, os.environ[var])
-            for var in self.workflow.envvars
-        )
-
-        exec_job = self.format_job(
-            self.exec_job,
-            job,
-            _quote_all=False,
-            use_threads=use_threads,
-            envvars=envvars,
-            **kwargs,
-        )
-        content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
-        logger.debug("Jobscript:\n{}".format(content))
-        with open(jobscript, "w") as f:
-            print(content, file=f)
-        os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR)
+        return "mkdir /tmp/conda && cd /tmp"
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary
