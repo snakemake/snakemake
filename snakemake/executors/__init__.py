@@ -970,13 +970,13 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def get_job_exec_suffix(self, job):
         if self.statuscmd:
-            return " && exit 0 || exit 1"
+            return "exit 0 || exit 1"
         elif self.assume_shared_fs:
             # TODO wrap with watch and touch {jobrunning}
             # check modification date of {jobrunning} in the wait_for_job method
 
             return (
-                f" && touch {repr(self.get_jobfinished_marker(job))} || "
+                f"touch {repr(self.get_jobfinished_marker(job))} || "
                 f"(touch {repr(self.get_jobfailed_marker(job))}; exit 1)"
             )
         assert False, "bug: neither statuscmd defined nor shared FS"
