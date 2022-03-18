@@ -1792,6 +1792,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         super()._run(job)
         exec_job = self.format_job_exec(job)
+        logger.debug(exec_job)
 
         # Kubernetes silently does not submit a job if the name is too long
         # therefore, we ensure that it is not longer than snakejob+uuid.
