@@ -134,7 +134,7 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
 
-          pytest -v -x tests/test_tibanna.py
+          pytest -v -x -s tests/test_tibanna.py
 
       # TODO reactivate in April (we have no free resources left this month)
       # - name: Test Google Life Sciences Executor
