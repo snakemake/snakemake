@@ -2293,9 +2293,10 @@ class TibannaExecutor(ClusterExecutor):
             op_rel = self.adjust_filepath(op)
             output_target[os.path.join(file_prefix, op_rel)] = "s3://" + op
 
-        # mem & cpu
+        # mem & cpu & disk
         mem = job.resources["mem_mb"] / 1024 if "mem_mb" in job.resources.keys() else 1
         cpu = job.threads
+        disk = job.resources["disk_mb"] / 1024 if "disk_mb" in job.resources.keys() else 1
 
         # jobid, grouping, run_name
         jobid = tibanna_core.create_jobid()
@@ -2309,7 +2310,7 @@ class TibannaExecutor(ClusterExecutor):
             "run_name": run_name,
             "mem": mem,
             "cpu": cpu,
-            "ebs_size": math.ceil(job.resources["disk_mb"] / 1024),
+            "ebs_size": math.ceil(disk),
             "log_bucket": self.s3_bucket,
         }
         logger.debug("additional tibanna config: " + str(self.tibanna_config))
