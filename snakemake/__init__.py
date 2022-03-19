@@ -436,6 +436,9 @@ def snakemake(
             # clean up all previously recorded jobids.
             shell.cleanup()
     else:
+        if default_resources is None:
+            # use full default resources if in cluster or cloud mode
+            default_resources = DefaultResources(mode="full")
         if edit_notebook:
             raise WorkflowError(
                 "Notebook edit mode is only allowed with local execution."
