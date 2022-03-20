@@ -14,6 +14,7 @@ from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
 import snakemake.io
 from snakemake.utils import os_sync
+from snakemake.logging import logger
 
 try:
     import google.cloud
@@ -123,7 +124,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self.client = storage.Client(*args, **kwargs)
@@ -200,6 +201,12 @@ class RemoteObject(AbstractRemoteObject):
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
+        flags = (
+            self.file().flags if isinstance(self.file(), snakemake.io._IOFile) else ""
+        )
+        logger.debug(
+            f"Checking existence of {self.bucket_name}/{self.blob.name} ({flags})."
+        )
         return self.blob.exists()
 
     def mtime(self):
