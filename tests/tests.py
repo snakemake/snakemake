@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -115,6 +115,68 @@ def test_cluster_statusscript():
     )
 
 
+@skip_on_windows
+def test_cluster_cancelscript():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "--cluster-status=./status.sh -s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=4,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 1
+    assert scancel_lines[0].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 3
+
+
+@skip_on_windows
+def test_cluster_sidecar():
+    run(
+        dpath("test_cluster_sidecar"),
+        shellcmd=("snakemake -j 10 --cluster=./sbatch --cluster-sidecar=./sidecar.sh"),
+    )
+
+
+@skip_on_windows
+def test_cluster_cancelscript_nargs1():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "--cluster-status=./status.sh --cluster-cancel-nargs=1 "
+            "-s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=4,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 2
+    assert scancel_lines[0].startswith("cancel")
+    assert scancel_lines[1].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 2
+    assert len(scancel_lines[1].split(" ")) == 2
+
+
+@skip_on_windows
+def test_cluster_statusscript_multi():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript_multi"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./sbatch",
+        cluster_status="./status.sh",
+    )
+
+
 def test15():
     run(dpath("test15"))
 
@@ -176,6 +238,14 @@ def test_report_zip():
 
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
+
+
+def test_report_display_code():
+    run(
+        dpath("test_report_display_code"),
+        report="report.html",
+        check_md5=False,
+    )
 
 
 def test_dynamic():
@@ -456,9 +526,27 @@ def test_conda_cmd_exe():
     run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
-@skip_on_windows  # Conda support is partly broken on Win
+@skip_on_windows  # wrappers are for linux and macos only
 def test_wrapper():
     run(dpath("test_wrapper"), use_conda=True)
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+def test_wrapper_local_git_prefix():
+    import git
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print("Cloning wrapper repo...")
+        repo = git.Repo.clone_from(
+            "https://github.com/snakemake/snakemake-wrappers", tmpdir
+        )
+        print("Cloning complete.")
+
+        run(
+            dpath("test_wrapper"),
+            use_conda=True,
+            wrapper_prefix=f"git+file://{tmpdir}",
+        )
 
 
 def test_get_log_none():
@@ -774,19 +862,13 @@ def test_singularity_conda():
 @skip_on_windows
 @connected
 def test_singularity_none():
-    run(
-        dpath("test_singularity_none"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_none"), use_singularity=True)
 
 
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(
-        dpath("test_singularity_global"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_global"), use_singularity=True)
 
 
 def test_issue612():
@@ -832,6 +914,11 @@ def test_issue823_1():
 @skip_on_windows
 def test_issue823_2():
     run(dpath("test_issue823_2"))
+
+
+@skip_on_windows
+def test_issue823_3():
+    run(dpath("test_issue823_3"))
 
 
 @skip_on_windows
@@ -1143,6 +1230,12 @@ def test_output_file_cache_remote():
     )
 
 
+@connected
+@zenodo
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 
@@ -1381,10 +1474,7 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(
-        dpath("test_github_issue1158"),
-        cluster="./qsub.py",
-    )
+    run(dpath("test_github_issue1158"), cluster="./qsub.py")
 
 
 def test_converting_path_for_r_script():
@@ -1403,6 +1493,13 @@ def test_checkpoint_allowed_rules():
 @skip_on_windows
 def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
+
+
+@skip_on_windows
+def test_issue1331():
+    # not guaranteed to fail, so let's try multiple times
+    for i in range(10):
+        run(dpath("test_issue1331"), cores=4)
 
 
 @skip_on_windows
@@ -1437,3 +1534,21 @@ def test_github_issue1384():
 @skip_on_windows
 def test_peppy():
     run(dpath("test_peppy"))
+
+
+def test_template_engine():
+    run(dpath("test_template_engine"))
+
+
+def test_groupid_expand_local():
+    run(dpath("test_groupid_expand"))
+
+
+@skip_on_windows
+def test_groupid_expand_cluster():
+    run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)

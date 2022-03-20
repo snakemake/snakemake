@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
@@ -257,3 +257,13 @@ class Gather:
     """A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
+
+
+def get_function_params(func):
+    return inspect.signature(func).parameters
+
+
+def get_input_function_aux_params(func, candidate_params):
+    func_params = get_function_params(func)
+
+    return {k: v for k, v in candidate_params.items() if k in func_params}

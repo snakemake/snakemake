@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -179,7 +179,7 @@ class RemoteObject(PooledDomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         with self.connection_pool.item() as ftpc:
             if self.exists():
                 # if the destination path does not exist
@@ -197,7 +197,7 @@ class RemoteObject(PooledDomainObject):
                     "The file does not seem to exist remotely: %s" % self.local_file()
                 )
 
-    def upload(self):
+    def _upload(self):
         with self.connection_pool.item() as ftpc:
             ftpc.synchronize_times()
             ftpc.upload(source=self.local_path, target=self.remote_path)

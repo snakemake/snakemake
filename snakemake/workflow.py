@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -51,6 +51,7 @@ from snakemake.io import (
     unpack,
     local,
     pipe,
+    service,
     repeat,
     report,
     multiext,
@@ -62,6 +63,7 @@ from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
+from snakemake.template_rendering import render_template
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
@@ -129,6 +131,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
+        assume_shared_fs=True,
         default_resources=None,
         cache=None,
         nodes=1,
@@ -145,6 +148,8 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        local_groupid="local",
+        latency_wait=3,
     ):
         """
         Create the controller.
@@ -208,6 +213,7 @@ class Workflow:
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
         self.run_local = run_local
+        self.assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self.edit_notebook = edit_notebook
@@ -228,6 +234,8 @@ class Workflow:
         self.max_threads = max_threads
         self.all_temp = all_temp
         self.scheduler = None
+        self.local_groupid = local_groupid
+        self.latency_wait = latency_wait
 
         _globals = globals()
         _globals["workflow"] = self
@@ -509,7 +517,9 @@ class Workflow:
                 logger.info(resource)
 
     def is_local(self, rule):
-        return rule.group is None and (rule.name in self._localrules or rule.norun)
+        return rule.group is None and (
+            rule.name in self._localrules or rule.norun or rule.is_template_engine
+        )
 
     def check_localrules(self):
         undefined = self._localrules - set(rule.name for rule in self.rules)
@@ -591,7 +601,6 @@ class Workflow:
         delete_all_output=False,
         delete_temp_output=False,
         detailed_summary=False,
-        latency_wait=3,
         wait_for_files=None,
         nolock=False,
         unlock=False,
@@ -613,8 +622,10 @@ class Workflow:
         no_hooks=False,
         force_use_threads=False,
         conda_create_envs_only=False,
-        assume_shared_fs=True,
         cluster_status=None,
+        cluster_cancel=None,
+        cluster_cancel_nargs=None,
+        cluster_sidecar=None,
         report=None,
         report_stylesheet=None,
         export_cwl=False,
@@ -691,7 +702,9 @@ class Workflow:
 
         if wait_for_files is not None:
             try:
-                snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
+                snakemake.io.wait_for_files(
+                    wait_for_files, latency_wait=self.latency_wait
+                )
             except IOError as e:
                 logger.error(str(e))
                 return False
@@ -864,6 +877,14 @@ class Workflow:
                 )
                 return False
 
+        if immediate_submit and any(dag.checkpoint_jobs):
+            logger.error(
+                "Immediate submit mode (--immediate-submit) may not be used for workflows "
+                "with checkpoint jobs, as the dependencies cannot be determined before "
+                "execution in such cases."
+            )
+            return False
+
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
         if generate_unit_tests:
@@ -919,24 +940,22 @@ class Workflow:
             dag.clean(only_temp=True, dryrun=dryrun)
             return True
         elif list_version_changes:
-            items = list(chain(*map(self.persistence.version_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("version")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_code_changes:
-            items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
-            for j in dag.jobs:
-                items.extend(list(j.outputs_older_than_script_or_notebook()))
+            items = dag.get_outputs_with_changes("code")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_input_changes:
-            items = list(chain(*map(self.persistence.input_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("input")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_params_changes:
-            items = list(chain(*map(self.persistence.params_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("params")
             if items:
                 print(*items, sep="\n")
             return True
@@ -944,17 +963,15 @@ class Workflow:
             dag.list_untracked()
             return True
 
-        if self.use_singularity:
-            if assume_shared_fs:
-                dag.pull_container_imgs(
-                    dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
-                )
+        if self.use_singularity and self.assume_shared_fs:
+            dag.pull_container_imgs(
+                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+            )
         if self.use_conda:
-            if assume_shared_fs:
-                dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                    quiet=list_conda_envs,
-                )
+            dag.create_conda_envs(
+                dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
+                quiet=list_conda_envs,
+            )
             if conda_create_envs_only:
                 return True
 
@@ -982,6 +999,9 @@ class Workflow:
             touch=touch,
             cluster=cluster,
             cluster_status=cluster_status,
+            cluster_cancel=cluster_cancel,
+            cluster_cancel_nargs=cluster_cancel_nargs,
+            cluster_sidecar=cluster_sidecar,
             cluster_config=cluster_config,
             cluster_sync=cluster_sync,
             jobname=jobname,
@@ -1006,10 +1026,9 @@ class Workflow:
             container_image=container_image,
             printreason=printreason,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            assume_shared_fs=assume_shared_fs,
+            assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
             keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
@@ -1017,6 +1036,7 @@ class Workflow:
         )
 
         if not dryrun:
+            dag.warn_about_changes(quiet)
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1062,6 +1082,7 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
+            dag.warn_about_changes(quiet)
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1083,14 +1104,16 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                logger.info(
-                    "This was a dry-run (flag -n). The order of jobs "
-                    "does not reflect the order of execution."
-                )
+                    logger.info(
+                        "This was a dry-run (flag -n). The order of jobs "
+                        "does not reflect the order of execution."
+                    )
+                dag.warn_about_changes(quiet)
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
+                dag.warn_about_changes(quiet)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1098,6 +1121,7 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            dag.warn_about_changes(quiet)
             logger.logfile_hint()
             return False
 
@@ -1461,7 +1485,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run)",
+                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
@@ -1478,7 +1502,7 @@ class Workflow:
                     raise RuleException(
                         "Conda environments are only allowed "
                         "with shell, script, notebook, or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
 
@@ -1507,7 +1531,7 @@ class Workflow:
                     raise RuleException(
                         "Singularity directive is only allowed "
                         "with shell, script, notebook or wrapper directives "
-                        "(not with run).",
+                        "(not with run or template_engine).",
                         rule=rule,
                     )
                 rule.container_img = ruleinfo.container_img
@@ -1527,6 +1551,7 @@ class Workflow:
             rule.script = ruleinfo.script
             rule.notebook = ruleinfo.notebook
             rule.wrapper = ruleinfo.wrapper
+            rule.template_engine = ruleinfo.template_engine
             rule.cwl = ruleinfo.cwl
             rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
@@ -1781,6 +1806,13 @@ class Workflow:
     def wrapper(self, wrapper):
         def decorate(ruleinfo):
             ruleinfo.wrapper = wrapper
+            return ruleinfo
+
+        return decorate
+
+    def template_engine(self, template_engine):
+        def decorate(ruleinfo):
+            ruleinfo.template_engine = template_engine
             return ruleinfo
 
         return decorate

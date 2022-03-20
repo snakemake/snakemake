@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -30,7 +30,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         "WARNING": YELLOW,
         "INFO": GREEN,
         "DEBUG": BLUE,
-        "CRITICAL": RED,
+        "CRITICAL": MAGENTA,
         "ERROR": RED,
     }
 
@@ -349,7 +349,7 @@ class Logger:
     def logfile_hint(self):
         if self.mode == Mode.default:
             logfile = self.get_logfile()
-            self.info("Complete log: {}".format(logfile))
+            self.info("Complete log: {}".format(os.path.relpath(logfile)))
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
@@ -542,7 +542,7 @@ class Logger:
             if level == "info" and not self.quiet:
                 self.logger.warning(msg["msg"])
             if level == "warning":
-                self.logger.warning(msg["msg"])
+                self.logger.critical(msg["msg"])
             elif level == "error":
                 self.logger.error(msg["msg"])
             elif level == "debug":

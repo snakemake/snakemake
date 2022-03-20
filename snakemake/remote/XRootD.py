@@ -1,5 +1,5 @@
 __author__ = "Chris Burr"
-__copyright__ = "Copyright 2017, Chris Burr"
+__copyright__ = "Copyright 2022, Chris Burr"
 __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 
@@ -8,7 +8,11 @@ from os.path import abspath, join, normpath
 import re
 
 from stat import S_ISREG
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError, XRootDFileException
 
 try:
@@ -51,7 +55,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["root://", "roots://", "rootk://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with XRootD servers."""
 
     def __init__(
@@ -89,11 +93,11 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.remote_file(), self.file())
 
-    def upload(self):
+    def _upload(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.file(), self.remote_file())
 
