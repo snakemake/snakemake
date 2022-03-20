@@ -721,13 +721,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
-
         # Save logs from /google/logs/output to source/logs in bucket
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
-            % (self.bucket.name, self.gs_logs, job.name),
+            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/%s"
+            % (self.bucket.name, self.gs_logs, job.name, job.jobid),
         ]
 
         # Always run the action to generate log output
@@ -738,6 +737,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "labels": self._generate_pipeline_labels(job),
             "alwaysRun": True,
         }
+
         return action
 
     def _generate_job_action(self, job):
