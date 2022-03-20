@@ -725,7 +725,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/%s"
+            "wget -O /gls.py https://raw.githubusercontent.com/cademirch/snakemake/1485-save-multiple-gsl-logs/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/jobid_%s"
             % (self.bucket.name, self.gs_logs, job.name, job.jobid),
         ]
 

@@ -56,7 +56,8 @@ def save_files(bucket_name, source_path, destination_path):
         print(
             "{filename} -> {full_path}".format(filename=filename, full_path=full_path)
         )
-
+        if os.path.basename(filename) in ["output", "stderr", "stdout"]:
+            filename += ".txt"
         # Get the blob
         blob = bucket.blob(storage_path)
         print("Uploading %s to %s" % (filename, full_path))
