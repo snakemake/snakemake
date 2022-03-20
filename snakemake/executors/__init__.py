@@ -302,7 +302,6 @@ class RealExecutor(AbstractExecutor):
                 w2a("overwrite_scatter", flag="--set-scatter"),
                 w2a("local_groupid", skip=self.job_specific_local_groupid),
                 w2a("conda_not_block_search_path_envvars"),
-                w2a("overwrite_workdir", flag="--directory"),
                 w2a("overwrite_configfiles", flag="--configfiles"),
                 w2a("config_args", flag="--config"),
                 w2a("printshellcmds"),
@@ -316,9 +315,13 @@ class RealExecutor(AbstractExecutor):
                 self.get_set_resources_args(),
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_workdir_arg(),
                 format_cli_arg("--mode", self.get_exec_mode()),
             ]
         )
+
+    def get_workdir_arg(self):
+        return self.workflow_property_to_arg("overwrite_workdir", flag="--directory")
 
     def get_job_args(self, job, **kwargs):
         return join_cli_args(
@@ -728,6 +731,11 @@ class ClusterExecutor(RealExecutor):
             return super().get_default_resources_args(default_resources)
         else:
             return ""
+
+    def get_workdir_arg(self):
+        if self.assume_shared_fs:
+            return super().get_workdir_arg()
+        return ""
 
     def get_envvar_declarations(self):
         if not self.disable_envvar_declarations:

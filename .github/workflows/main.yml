@@ -126,14 +126,14 @@ jobs:
           pytest -s -v -x tests/test_kubernetes.py
 
       # TODO temporarily deactivate and fix in separate PR.
-      # - name: Test AWS execution
-      #   if: env.AWS_AVAILABLE
-      #   env: 
-      #     CI: true
-      #   run: |
-      #     # activate conda env
-      #     export PATH="/usr/share/miniconda/bin:$PATH"
-      #     source activate snakemake
+      - name: Test Tibanna (AWS) execution
+        if: env.AWS_AVAILABLE
+        env: 
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
 
       #     pytest -v -x -s tests/test_tibanna.py
 
