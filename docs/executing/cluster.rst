@@ -48,8 +48,7 @@ and forward it to the cluster scheduler:
 
 In order to avoid specifying ``runtime_min`` for each rule, you can make use of the ``--default-resources`` flag, see ``snakemake --help``.
 
-If your cluster system supports `DRMAA <https://www.drmaa.org/>`_, Snakemake can make use of that to increase the control over jobs.
-E.g. jobs can be cancelled upon pressing ``Ctrl+C``, which is not possible with the generic ``--cluster`` support.
+If your cluster system supports `DRMAA <https://www.drmaa.org/>`_, Snakemake can make use of that to control jobs.
 With DRMAA, no ``qsub`` command needs to be provided, but system specific arguments can still be given as a string, e.g.
 
 .. code-block:: console
@@ -60,6 +59,13 @@ Note that the string has to contain a leading whitespace.
 Else, the arguments will be interpreted as part of the normal Snakemake arguments, and execution will fail.
 
 Adapting to a specific cluster can involve quite a lot of options. It is therefore a good idea to setup a :ref:`a profile <profiles>`.
+
+.. note::
+    Are you using the SLURM job scheduler?
+
+    In this case, it will be more robust to use the ``--cluster``, ``--cluster-status``, and ``--cluster-cancel`` arguments than using DRMAA.
+    The reason is that the slurm-drmaa package is not maintained by the SLURM vendor SchedMD and less well supported.
+    Effectively, you will run into timeouts in DRMAA calls sooner.
 
 --------------
 Job Properties

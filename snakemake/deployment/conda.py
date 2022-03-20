@@ -1,12 +1,17 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 from pathlib import Path
 import re
-from snakemake.sourcecache import LocalGitFile, LocalSourceFile, infer_source_file
+from snakemake.sourcecache import (
+    LocalGitFile,
+    LocalSourceFile,
+    SourceFile,
+    infer_source_file,
+)
 import subprocess
 import tempfile
 from urllib.request import urlopen
@@ -498,9 +503,7 @@ class Env:
 
                 logger.debug(out)
                 logger.info(
-                    "Environment for {} created (location: {})".format(
-                        os.path.relpath(env_file), os.path.relpath(env_path)
-                    )
+                    f"Environment for {self.file.get_path_or_uri()} created (location: {os.path.relpath(env_path)})"
                 )
             except subprocess.CalledProcessError as e:
                 # remove potential partially installed environment
@@ -696,10 +699,20 @@ class CondaEnvSpec(ABC):
     def contains_wildcard(self):
         ...
 
+    @abstractmethod
+    def __hash__(self):
+        ...
+
+    @abstractmethod
+    def __eq__(self, other):
+        ...
+
 
 class CondaEnvFileSpec(CondaEnvSpec):
-    def __init__(self, filepath: str, rule=None):
-        if isinstance(filepath, _IOFile):
+    def __init__(self, filepath, rule=None):
+        if isinstance(filepath, SourceFile):
+            self.file = IOFile(str(filepath.get_path_or_uri()), rule=rule)
+        elif isinstance(filepath, _IOFile):
             self.file = filepath
         else:
             self.file = IOFile(filepath, rule=rule)
@@ -731,6 +744,12 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def contains_wildcard(self):
         return contains_wildcard(self.file)
 
+    def __hash__(self):
+        return hash(self.file)
+
+    def __eq__(self, other):
+        return self.file == other.file
+
 
 class CondaEnvNameSpec(CondaEnvSpec):
     def __init__(self, name: str):
@@ -756,6 +775,15 @@ class CondaEnvNameSpec(CondaEnvSpec):
     def contains_wildcard(self):
         return contains_wildcard(self.name)
 
+    def __hash__(self):
+        return hash(self.name)
 
-def is_conda_env_file(spec: str):
+    def __eq__(self, other):
+        return self.name == other.name
+
+
+def is_conda_env_file(spec):
+    if isinstance(spec, SourceFile):
+        spec = spec.get_filename()
+
     return spec.endswith(".yaml") or spec.endswith(".yml")

@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -21,6 +21,7 @@ from snakemake.io import (
     _IOFile,
     is_flagged,
     get_flag_value,
+    wait_for_files,
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
@@ -38,9 +39,11 @@ from snakemake.common import (
 def format_files(job, io, dynamicio):
     for f in io:
         if f in dynamicio:
-            yield "{} (dynamic)".format(f.format_dynamic())
+            yield f"{f.format_dynamic()} (dynamic)"
         elif is_flagged(f, "pipe"):
-            yield "{} (pipe)".format(f)
+            yield f"{f} (pipe)"
+        elif is_flagged(f, "service"):
+            yield f"{f} (service)"
         elif is_flagged(f, "checkpoint_target"):
             yield TBDString()
         else:
@@ -86,6 +89,7 @@ class JobFactory:
         format_wildcards=None,
         targetfile=None,
         update=False,
+        groupid=None,
     ):
         if rule.is_branched:
             # for distinguishing branched rules, we need input and output in addition
@@ -99,7 +103,7 @@ class JobFactory:
             key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
-            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile)
+            obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
             self.cache[key] = obj
         else:
             try:
@@ -143,10 +147,17 @@ class Job(AbstractJob):
         "_attempt",
         "_group",
         "targetfile",
+        "incomplete_input_expand",
     ]
 
     def __init__(
-        self, rule, dag, wildcards_dict=None, format_wildcards=None, targetfile=None
+        self,
+        rule,
+        dag,
+        wildcards_dict=None,
+        format_wildcards=None,
+        targetfile=None,
+        groupid=None,
     ):
         self.rule = rule
         self.dag = dag
@@ -165,8 +176,14 @@ class Job(AbstractJob):
             else Wildcards(fromdict=format_wildcards)
         )
 
-        self.input, input_mapping, self.dependencies = self.rule.expand_input(
-            self.wildcards_dict
+        (
+            self.input,
+            input_mapping,
+            self.dependencies,
+            self.incomplete_input_expand,
+        ) = self.rule.expand_input(
+            self.wildcards_dict,
+            groupid=groupid,
         )
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
@@ -186,7 +203,6 @@ class Job(AbstractJob):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
-        self.pipe_output = set(f for f in self.output if is_flagged(f, "pipe"))
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
@@ -221,12 +237,21 @@ class Job(AbstractJob):
                 self.subworkflow_input[f] = sub
 
     def updated(self):
+        group = self.dag.get_job_group(self)
+        groupid = None
+        if group is None:
+            if self.dag.workflow.run_local or self.is_local:
+                groupid = self.dag.workflow.local_groupid
+        else:
+            groupid = group.jobid
+
         job = self.dag.job_factory.new(
             self.rule,
             self.dag,
             wildcards_dict=self.wildcards_dict,
             targetfile=self.targetfile,
             update=True,
+            groupid=groupid,
         )
         job.is_updated = True
         return job
@@ -245,8 +270,7 @@ class Job(AbstractJob):
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
             path = self.rule.basedir.join(path).get_path_or_uri()
-        if is_local_file(path):
-            assert os.path.exists(path), "cannot find {0}".format(path)
+        if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
             for f in self.expanded_output:
                 if f.exists:
@@ -427,7 +451,7 @@ class Job(AbstractJob):
 
     @property
     def is_shell(self):
-        return self.rule.shellcmd is not None
+        return self.rule.is_shell
 
     @property
     def is_norun(self):
@@ -435,19 +459,23 @@ class Job(AbstractJob):
 
     @property
     def is_script(self):
-        return self.rule.script is not None
+        return self.rule.is_script
 
     @property
     def is_notebook(self):
-        return self.rule.notebook is not None
+        return self.rule.is_notebook
 
     @property
     def is_wrapper(self):
-        return self.rule.wrapper is not None
+        return self.rule.is_wrapper
 
     @property
     def is_cwl(self):
-        return self.rule.cwl is not None
+        return self.rule.is_cwl
+
+    @property
+    def is_template_engine(self):
+        return self.rule.is_template_engine
 
     @property
     def is_run(self):
@@ -462,7 +490,11 @@ class Job(AbstractJob):
 
     @property
     def is_pipe(self):
-        return any([is_flagged(o, "pipe") for o in self.output])
+        return any(is_flagged(o, "pipe") for o in self.output)
+
+    @property
+    def is_service(self):
+        return any(is_flagged(o, "service") for o in self.output)
 
     @property
     def expanded_output(self):
@@ -558,9 +590,9 @@ class Job(AbstractJob):
 
     def missing_output(self, requested):
         def handle_file(f):
-            # pipe output is always declared as missing
+            # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
-            if f in self.pipe_output or not f.exists:
+            if is_flagged(f, "pipe") or is_flagged(f, "service") or not f.exists:
                 yield f
 
         if self.dynamic_output:
@@ -672,7 +704,7 @@ class Job(AbstractJob):
     def check_protected_output(self):
         protected = list(filter(lambda f: f.protected, self.expanded_output))
         if protected:
-            raise ProtectedOutputException(self.rule, protected)
+            raise ProtectedOutputException(self, protected)
 
     def remove_existing_output(self):
         """Clean up both dynamic and regular output before rules actually run"""
@@ -732,6 +764,9 @@ class Job(AbstractJob):
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
+
+        # wait for input files
+        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
 
         if not self.is_shadow:
             return
@@ -984,7 +1019,10 @@ class Job(AbstractJob):
             self.dag.workflow.use_conda
             and self.conda_env
             and not self.conda_env.is_named
+            and not self.conda_env.is_containerized
         ):
+            # Named or containerized envs are not present on the host FS,
+            # hence we don't need to wait for them.
             wait_for_files.append(self.conda_env.address)
         return wait_for_files
 
@@ -992,12 +1030,18 @@ class Job(AbstractJob):
     def jobid(self):
         return self.dag.jobid(self)
 
+    def uuid(self):
+        return str(
+            get_uuid(
+                f"{self.rule.name}:{','.join(sorted(f'{w}:{v}' for w, v in self.wildcards_dict.items()))}"
+            )
+        )
+
     def postprocess(
         self,
         upload_remote=True,
         handle_log=True,
         handle_touch=True,
-        handle_temp=True,
         error=False,
         ignore_missing_output=False,
         assume_shared_fs=True,
@@ -1038,11 +1082,6 @@ class Job(AbstractJob):
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
                 )
-            if handle_temp:
-                # temp handling has to happen after calling finished(),
-                # because we need to access temp output files to record
-                # start and end times.
-                self.dag.handle_temp(self)
 
     @property
     def name(self):
@@ -1113,6 +1152,7 @@ class GroupJob(AbstractJob):
         "_all_products",
         "_attempt",
         "toposorted",
+        "_jobid",
     ]
 
     def __init__(self, id, jobs):
@@ -1126,6 +1166,7 @@ class GroupJob(AbstractJob):
         self._inputsize = None
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
+        self._jobid = None
 
     @property
     def dag(self):
@@ -1139,20 +1180,9 @@ class GroupJob(AbstractJob):
         from toposort import toposort
 
         if self.toposorted is None:
-
-            def get_dependencies(job):
-                for dep, files in self.dag.dependencies[job].items():
-                    if dep in self.jobs:
-                        yield dep
-                        if any(is_flagged(f, "pipe") for f in files):
-                            # In case of a pipe, inherit the dependencies of the producer,
-                            # such that the two jobs end up on the same toposort level.
-                            # This is important because they are executed simulataneously.
-                            yield from get_dependencies(dep)
-
-            dag = {job: set(get_dependencies(job)) for job in self.jobs}
-
-            self.toposorted = list(toposort(dag))
+            self.toposorted = list(
+                self.dag.toposorted(jobs=self.jobs, inherit_pipe_dependencies=True)
+            )
 
     @property
     def all_products(self):
@@ -1252,7 +1282,9 @@ class GroupJob(AbstractJob):
 
             self._resources = defaultdict(int)
             self._resources["_nodes"] = 1
-            pipe_group = any([job.is_pipe for job in self.jobs])
+            pipe_or_service_group = any(
+                [job.is_pipe or job.is_service for job in self.jobs]
+            )
             # iterate over siblings that can be executed in parallel
             for siblings in self.toposorted:
                 sibling_resources = defaultdict(int)
@@ -1283,7 +1315,7 @@ class GroupJob(AbstractJob):
                 for res, value in sibling_resources.items():
                     if isinstance(value, int):
                         if res != "_nodes":
-                            if self.dag.workflow.run_local or pipe_group:
+                            if self.dag.workflow.run_local or pipe_or_service_group:
                                 # in case of local execution, this must be a
                                 # group of jobs that are connected with pipes
                                 # and have to run simultaneously
@@ -1355,7 +1387,15 @@ class GroupJob(AbstractJob):
 
     @property
     def jobid(self):
-        return str(get_uuid(",".join(str(job.jobid) for job in self.jobs)))
+        if not self._jobid:
+            # The uuid of the last job is sufficient to uniquely identify the group job.
+            # This is true because each job can only occur in one group job.
+            # Additionally, this is the most stable id we can get, even if the group
+            # changes by adding more upstream jobs, e.g. due to groupid usage in input
+            # functions (see Dag.update_incomplete_input_expand_jobs())
+            last_job = sorted(self.toposorted[-1])[-1]
+            self._jobid = last_job.uuid()
+        return self._jobid
 
     def cleanup(self):
         for job in self.jobs:
@@ -1363,19 +1403,12 @@ class GroupJob(AbstractJob):
 
     def postprocess(self, error=False, **kwargs):
         for job in self.jobs:
-            job.postprocess(handle_temp=False, error=error, **kwargs)
-        # Handle temp after per-job postprocess.
-        # This is necessary because group jobs are not topologically sorted,
-        # and we might otherwise delete a temp input file before it has been
-        # postprocessed by the outputting job in the same group.
-        if not error:
-            for job in self.jobs:
-                self.dag.handle_temp(job)
-        # remove all pipe outputs since all jobs of this group are done and the
-        # pipes are no longer needed
+            job.postprocess(error=error, **kwargs)
+        # remove all pipe and service outputs since all jobs of this group are done and the
+        # outputs are no longer needed
         for job in self.jobs:
             for f in job.output:
-                if is_flagged(f, "pipe"):
+                if is_flagged(f, "pipe") or is_flagged(f, "service"):
                     f.remove()
 
     @property
@@ -1506,6 +1539,7 @@ class Reason:
         "nooutput",
         "derived",
         "pipe",
+        "service",
         "target",
         "finished",
     ]
@@ -1521,6 +1555,7 @@ class Reason:
         self.nooutput = False
         self.derived = True
         self.pipe = False
+        self.service = False
 
     @lazy_property
     def updated_input(self):
@@ -1578,6 +1613,14 @@ class Reason:
                             ", ".join(self.updated_input_run)
                         )
                     )
+                if self.pipe:
+                    s.append(
+                        "Output file is a pipe and has to be filled for consuming job."
+                    )
+                if self.service:
+                    s.append(
+                        "Job provides a service which has to be kept active until all consumers are finished."
+                    )
         s = "; ".join(s)
         if self.finished:
             return "Finished (was: {s})".format(s=s)
@@ -1592,5 +1635,6 @@ class Reason:
             or self.noio
             or self.nooutput
             or self.pipe
+            or self.service
         )
         return v and not self.finished

@@ -1,0 +1,42 @@
+.vega-embed summary {
+    z-index: 49 !important;
+    /* ensure that menu is always below navbar*/
+}
+
+.source {
+    background-color: transparent!important;
+}
+
+#loading-screen {
+    background-color: white;
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    padding-top: 50vh;
+}
+
+@keyframes fadeinout {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+#loading-animation {
+    animation: fadeinout 2.5s infinite;
+    text-align: center;
+    font-size: 200%;
+}
+
+#jswarning {
+    text-align: center;
+    color: red;
+}

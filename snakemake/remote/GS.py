@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
@@ -171,7 +171,7 @@ class RemoteObject(AbstractRemoteObject):
         iterate over the entire bucket once (and then not need to again).
         This includes:
          - cache.exist_remote
-         - cache_mtime
+         - cache.mtime
          - cache.size
         """
         if cache.remaining_wait_time <= 0:
@@ -184,7 +184,7 @@ class RemoteObject(AbstractRemoteObject):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
-            cache.mtime[name] = blob.updated.timestamp()
+            cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
 
         cache.remaining_wait_time -= time.time() - start_time
@@ -220,7 +220,7 @@ class RemoteObject(AbstractRemoteObject):
             return self._iofile.size_local
 
     @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
-    def download(self):
+    def _download(self):
         """Download with maximum retry duration of 600 seconds (10 minutes)"""
         if not self.exists():
             return None
@@ -251,7 +251,7 @@ class RemoteObject(AbstractRemoteObject):
         return self.local_file()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
-    def upload(self):
+    def _upload(self):
         try:
             if not self.bucket.exists():
                 self.bucket.create()

@@ -1,5 +1,5 @@
 __author__ = "Sven Twardziok, Alex Kanitz, Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -28,7 +28,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         cluster_config=None,
         local_input=None,
         restart_times=None,
@@ -45,6 +44,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             )
 
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for TES jobs.")
         self.container_workdir = "/tmp"
         self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
@@ -82,7 +82,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
@@ -105,7 +104,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             _quote_all=False,
             use_threads=use_threads,
             envvars=envvars,
-            **kwargs
+            **kwargs,
         )
         content = self.format_job(self.jobscript, job, exec_job=exec_job, **kwargs)
         logger.debug("Jobscript:\n{}".format(content))

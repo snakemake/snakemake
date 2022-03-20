@@ -17,6 +17,29 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
+How does Snakemake interpret relative paths?
+--------------------------------------------
+
+Relative paths in Snakemake are interpreted depending on their context.
+
+* Input, output, log, and benchmark files are considered to be relative to the working directory (either the directory in which you have invoked Snakemake or whatever was specified for ``--directory`` or the ``workdir:`` directive).
+* Any other directives (e.g. ``conda:``, ``include:``, ``script:``, ``notebook:``) consider paths to be relative to the Snakefile they are defined in.
+
+If you have to manually specify a file that has to be relative to the currently evaluated Snakefile, you can use ``workflow.source_path(filepath)``.
+
+.. code-block:: python
+
+    rule read_a_file_relative_to_snakefile:
+        input:
+            workflow.get_source("resources/some-file.txt")
+        output:
+            "results/some-output.txt"
+        shell:
+            "somecommand {input} {output}"
+
+
+This will in particular also work in combination with :ref:`modules <snakefiles-modules>`.
+
 Snakemake does not connect my rules as I have expected, what can I do to debug my dependency structure?
 -------------------------------------------------------------------------------------------------------
 

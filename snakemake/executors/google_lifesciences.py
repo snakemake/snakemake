@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -22,6 +22,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import get_container_image, get_file_hash
 from snakemake.resources import DefaultResources
+
 
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
 logging.getLogger("googleapiclient.discovery_cache").setLevel(logging.ERROR)
@@ -50,7 +51,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         regions=None,
         location=None,
         cache=False,
-        latency_wait=3,
         local_input=None,
         restart_times=None,
         exec_job=None,
@@ -62,7 +62,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Attach variables for easy access
         self.workflow = workflow
         self.quiet = quiet
-        self.workdir = os.path.dirname(self.workflow.persistence.path)
+        self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
         # Relative path for running on instance
@@ -93,6 +93,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Akin to Kubernetes, create a run namespace, default container image
         self.run_namespace = str(uuid.uuid4())
         self.container_image = container_image or get_container_image()
+        logger.info(f"Using {self.container_image} for Google Life Science jobs.")
         self.regions = regions or ["us-east1", "us-west1", "us-central1"]
 
         # The project name is required, either from client or environment
@@ -125,7 +126,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             restart_times=restart_times,
             exec_job=exec_job,
             assume_shared_fs=False,
@@ -138,28 +138,56 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         for storage.
         """
         from googleapiclient.discovery import build as discovery_build
-        from oauth2client.client import (
-            GoogleCredentials,
-            ApplicationDefaultCredentialsError,
-        )
         from google.cloud import storage
+        import google.auth
+        import google_auth_httplib2
+        import httplib2
+        import googleapiclient
 
         # Credentials must be exported to environment
         try:
-            creds = GoogleCredentials.get_application_default()
-        except ApplicationDefaultCredentialsError as ex:
+            # oauth2client is deprecated, see: https://google-auth.readthedocs.io/en/master/oauth2client-deprecation.html
+            # google.auth is replacement
+            # not sure about scopes here. this cover all cloud services
+            creds, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+        except google.auth.DefaultCredentialsError as ex:
             log_verbose_traceback(ex)
             raise ex
 
+        def build_request(http, *args, **kwargs):
+            """
+            See https://googleapis.github.io/google-api-python-client/docs/thread_safety.html
+            """
+            new_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http())
+            return googleapiclient.http.HttpRequest(new_http, *args, **kwargs)
+
         # Discovery clients for Google Cloud Storage and Life Sciences API
+        # create authorized http for building services
+        authorized_http = google_auth_httplib2.AuthorizedHttp(
+            creds, http=httplib2.Http()
+        )
         self._storage_cli = discovery_build(
-            "storage", "v1", credentials=creds, cache_discovery=False
+            "storage",
+            "v1",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._compute_cli = discovery_build(
-            "compute", "v1", credentials=creds, cache_discovery=False
+            "compute",
+            "v1",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._api = discovery_build(
-            "lifesciences", "v2beta", credentials=creds, cache_discovery=False
+            "lifesciences",
+            "v2beta",
+            cache_discovery=False,
+            requestBuilder=build_request,
+            http=authorized_http,
         )
         self._bucket_service = storage.Client()
 
@@ -631,7 +659,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         # Workflow sources for cloud executor must all be under same workdir root
         for filename in self.workflow_sources:
-            if self.workdir not in filename:
+            if self.workdir not in os.path.realpath(filename):
                 raise WorkflowError(
                     "All source files must be present in the working directory, "
                     "{workdir} to be uploaded to a build package that respects "
@@ -902,18 +930,24 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         except BrokenPipeError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             raise ex
         except googleapiclient.errors.HttpError as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
         except Exception as ex:
             if attempts > 0:
                 time.sleep(timeout)
-                return self._retry_request(request, timeout * 2, attempts - 1)
+                return self._retry_request(
+                    request, timeout=timeout * 2, attempts=attempts - 1
+                )
             log_verbose_traceback(ex)
             raise ex
 

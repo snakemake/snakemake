@@ -120,12 +120,17 @@ a full machine type:
 
     --default-resources "machine_type=n1-standard"
 
+For individual jobs, the default machine type can also be overwritten via
 
-If you want to specify the machine type as a resource, you can do that too:
+.. code-block:: console
+
+    --set-resources "somerule:machine_type=n1-standard"
+
+If you want to specify the machine type as a resource in the workflow definition, you can do that too (although it is not recommended in general because it ties your workflow to the used platform):
 
 .. code-block:: python
 
-    rule a:
+    rule somerule:
         output:
             "test.txt"
         resources:
