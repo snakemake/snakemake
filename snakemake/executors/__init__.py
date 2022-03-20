@@ -2134,6 +2134,7 @@ class TibannaExecutor(ClusterExecutor):
         f = os.path.abspath(filename)
         if checkdir:
             checkdir = checkdir.rstrip("/")
+            logger.debug((checkdir, f, filename))
             if f.startswith(checkdir):
                 fname = re.sub("^{}/".format(checkdir), "", f)
                 fdir = checkdir
