@@ -59,9 +59,8 @@ def save_files(bucket_name, source_path, destination_path):
 
         # Get the blob
         blob = bucket.blob(storage_path)
-        if not blob.exists():
-            print("Uploading %s to %s" % (filename, full_path))
-            blob.upload_from_filename(filename)
+        print("Uploading %s to %s" % (filename, full_path))
+        blob.upload_from_filename(filename)
 
 
 def get_source_files(source_path):
