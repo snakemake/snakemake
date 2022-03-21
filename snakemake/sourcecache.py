@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import hashlib
 from pathlib import Path
-import posixpath
 import re
 import os
 import shutil
@@ -14,6 +13,7 @@ import tempfile
 import io
 from abc import ABC, abstractmethod
 from datetime import datetime
+
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -66,11 +66,6 @@ class SourceFile(ABC):
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
 
-    @property
-    @abstractmethod
-    def is_local(self):
-        ...
-
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
 
@@ -97,10 +92,6 @@ class GenericSourceFile(SourceFile):
         return os.path.basename(self.path_or_uri)
 
     def is_persistently_cacheable(self):
-        return False
-
-    @property
-    def is_local(self):
         return False
 
 
@@ -132,10 +123,6 @@ class LocalSourceFile(SourceFile):
     def __fspath__(self):
         return self.path
 
-    @property
-    def is_local(self):
-        return True
-
 
 class LocalGitFile(SourceFile):
     def __init__(
@@ -158,7 +145,7 @@ class LocalGitFile(SourceFile):
         )
 
     def get_path_or_uri(self):
-        return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
+        return "git+{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
     def join(self, path):
         return LocalGitFile(
@@ -169,28 +156,15 @@ class LocalGitFile(SourceFile):
             commit=self.commit,
         )
 
-    def get_basedir(self):
-        return self.__class__(
-            repo_path=self.repo_path,
-            path=os.path.dirname(self.path),
-            tag=self.tag,
-            commit=self.commit,
-            ref=self.ref,
-        )
-
     def is_persistently_cacheable(self):
         return False
 
     def get_filename(self):
-        return posixpath.basename(self.path)
+        return os.path.basename(self.path)
 
     @property
     def ref(self):
         return self.tag or self.commit or self._ref
-
-    @property
-    def is_local(self):
-        return True
 
 
 class HostingProviderFile(SourceFile):
@@ -264,10 +238,6 @@ class HostingProviderFile(SourceFile):
             branch=self.branch,
         )
 
-    @property
-    def is_local(self):
-        return False
-
 
 class GithubFile(HostingProviderFile):
     def get_path_or_uri(self):
@@ -295,7 +265,11 @@ class GitlabFile(HostingProviderFile):
 
 def infer_source_file(path_or_uri, basedir: SourceFile = None):
     if isinstance(path_or_uri, SourceFile):
-        if basedir is None or isinstance(path_or_uri, HostingProviderFile) or isinstance(path_or_uri, LocalGitFile):
+        if (
+            basedir is None
+            or isinstance(path_or_uri, HostingProviderFile)
+            or isinstance(path_or_uri, LocalGitFile)
+        ):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
@@ -318,12 +292,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return basedir.join(path_or_uri)
         return LocalSourceFile(path_or_uri)
     if path_or_uri.startswith("git+file:"):
-        try:
-            root_path, file_path, ref = split_git_path(path_or_uri)
-        except Exception as e:
-            raise WorkflowError(
-                f"Failed to read source {path_or_uri} from git repo.", e
-            )
+        root_path, file_path, ref = split_git_path(path_or_uri)
         return LocalGitFile(root_path, file_path, ref=ref)
     # something else
     return GenericSourceFile(path_or_uri)
@@ -358,7 +327,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open(LocalSourceFile(cache_entry), mode)
+        return self._open(cache_entry, mode)
 
     def exists(self, source_file):
         try:
@@ -409,34 +378,20 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file, mode):
-        from retry import retry_call
-
-        if source_file.is_local:
-            return self._open(source_file, mode)
-        else:
-            return retry_call(
-                self._open,
-                [source_file, mode],
-                tries=3,
-                delay=3,
-                backoff=2,
-                logger=logger,
-            )
-
-    def _open(self, source_file, mode):
+    def _open(self, path_or_uri, mode):
         from smart_open import open
 
-        if isinstance(source_file, LocalGitFile):
+        if isinstance(path_or_uri, LocalGitFile):
             import git
 
             return io.BytesIO(
-                git.Repo(source_file.repo_path)
-                .git.show("{}:{}".format(source_file.ref, source_file.path))
+                git.Repo(path_or_uri.repo_path)
+                .git.show("{}:{}".format(path_or_uri.ref, path_or_uri.path))
                 .encode()
             )
 
-        path_or_uri = source_file.get_path_or_uri()
+        if isinstance(path_or_uri, SourceFile):
+            path_or_uri = path_or_uri.get_path_or_uri()
 
         try:
             return open(path_or_uri, mode)
