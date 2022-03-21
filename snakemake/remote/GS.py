@@ -213,6 +213,7 @@ class RemoteObject(AbstractRemoteObject):
     def mtime(self):
         if self.exists():
             if self.is_directory():
+                logger.debug(self.directory_entries())
                 return max(
                     blob.updated.timestamp() for blob in self.directory_entries()
                 )
