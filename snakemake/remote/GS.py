@@ -213,7 +213,6 @@ class RemoteObject(AbstractRemoteObject):
     def mtime(self):
         if self.exists():
             if self.is_directory():
-                logger.debug(self.directory_entries())
                 return max(
                     blob.updated.timestamp() for blob in self.directory_entries()
                 )
@@ -264,7 +263,7 @@ class RemoteObject(AbstractRemoteObject):
         # Create the directory locally
         os.makedirs(self.local_file(), exist_ok=True)
 
-        for blob in self.client.list_blobs(self.bucket_name, prefix=self.key):
+        for blob in self.directory_entries():
             local_name = "{}/{}".format(blob.bucket.name, blob.name)
 
             # Don't try to create "directory blob"
@@ -336,11 +335,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def key(self):
-        key = self.parse().group("key")
-        f = self.file()
-        if snakemake.io.is_flagged(f, "directory"):
-            key = key if f.endswith("/") else key + "/"
-        return key
+        return self.parse().group("key")
 
     def parse(self):
         m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
@@ -352,4 +347,8 @@ class RemoteObject(AbstractRemoteObject):
         return m
 
     def directory_entries(self):
-        return self.client.list_blobs(self.bucket_name, prefix=self.key + "/")
+        prefix = self.key
+        if not prefix.endswith("/"):
+            prefix += "/"
+
+        return self.client.list_blobs(self.bucket_name, prefix=prefix)
