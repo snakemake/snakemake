@@ -1100,7 +1100,7 @@ class Job(AbstractJob):
         return products
 
     def get_targets(self):
-        return self.targetfile or [self.rule.name]
+        return [self.targetfile or self.rule.name]
 
     @property
     def is_branched(self):

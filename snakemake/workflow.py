@@ -149,6 +149,7 @@ class Workflow:
         max_threads=None,
         all_temp=False,
         local_groupid="local",
+        keep_metadata=True,
         latency_wait=3,
     ):
         """
@@ -235,6 +236,7 @@ class Workflow:
         self.all_temp = all_temp
         self.scheduler = None
         self.local_groupid = local_groupid
+        self.keep_metadata = keep_metadata
         self.latency_wait = latency_wait
 
         _globals = globals()
@@ -631,7 +633,6 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
-        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -1030,7 +1031,6 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )
@@ -1159,6 +1159,16 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
+        invalid_envvars = [
+            envvar
+            for envvar in envvars
+            if re.match("^\w+$", envvar, flags=re.ASCII) is None
+        ]
+        if invalid_envvars:
+            raise WorkflowError(
+                f"Invalid environment variables requested: {', '.join(map(repr, invalid_envvars))}. "
+                "Environment variable names may only contain alphanumeric characters and the underscore. "
+            )
         undefined = set(var for var in envvars if var not in os.environ)
         if self.check_envvars and undefined:
             raise WorkflowError(
@@ -1249,7 +1259,7 @@ class Workflow:
             return expand(
                 *args,
                 scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
-                **wildcards
+                **wildcards,
             )
 
         for key in content:
@@ -1369,7 +1379,7 @@ class Workflow:
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
-                    **ruleinfo.wildcard_constraints[1]
+                    **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
                 rule.name = ruleinfo.name
