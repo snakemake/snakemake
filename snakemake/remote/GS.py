@@ -187,6 +187,7 @@ class RemoteObject(AbstractRemoteObject):
             cache.exists_remote[name] = True
             cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
+            # TODO cache "is directory" information
 
         cache.remaining_wait_time -= time.time() - start_time
 
@@ -201,19 +202,18 @@ class RemoteObject(AbstractRemoteObject):
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
-        flags = (
-            self.file().flags if isinstance(self.file(), snakemake.io._IOFile) else ""
-        )
-        logger.debug(
-            f"Checking existence of {self.bucket_name}/{self.blob.name} ({flags})."
-        )
-        return self.blob.exists()
+        if self.is_directory():
+            # directory check happens remotely, hence it has to exist
+            return True
+        else:
+            return self.blob.exists()
 
     def mtime(self):
         if self.exists():
             self.update_blob()
-            t = self.blob.updated
-            return t.timestamp()
+            return self.blob.updated.timestamp()
+        elif self.is_directory():
+            return max(blob.updated.timestamp() for blob in self.directory_entries())
         else:
             raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.local_file()
@@ -233,9 +233,18 @@ class RemoteObject(AbstractRemoteObject):
             return None
 
         # Create just a directory, or a file itself
-        if snakemake.io.is_flagged(self.local_file(), "directory"):
+        if self.is_directory():
             return self._download_directory()
         return download_blob(self.blob, self.local_file())
+
+    @retry.Retry(predicate=google_cloud_retry_predicate)
+    def is_directory(self):
+        if snakemake.io.is_flagged(self.file(), "directory"):
+            return True
+        elif self.blob.exists():
+            return False
+        else:
+            return any(self.directory_entries())
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def _download_directory(self):
@@ -318,7 +327,7 @@ class RemoteObject(AbstractRemoteObject):
     @property
     def key(self):
         key = self.parse().group("key")
-        f = self.local_file()
+        f = self.file()
         if snakemake.io.is_flagged(f, "directory"):
             key = key if f.endswith("/") else key + "/"
         return key
@@ -331,3 +340,6 @@ class RemoteObject(AbstractRemoteObject):
                 "<bucket>/<key>.".format(self.local_file())
             )
         return m
+
+    def directory_entries(self):
+        return self.client.list_blobs(self.bucket_name, prefix=self.key + "/")
