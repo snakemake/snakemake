@@ -161,8 +161,6 @@ class LocalGitFile(SourceFile):
         return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
     def join(self, path):
-        if isinstance(path, LocalSourceFile):
-            path = path.get_path_or_uri()
         return LocalGitFile(
             self.repo_path,
             os.path.normpath("/".join((self.path, path))),
@@ -301,7 +299,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
-    if isinstance(basedir, LocalGitFile) and isinstance(path_or_uri, str):
+    if isinstance(basedir, LocalGitFile):
         return basedir.join(path_or_uri)
 
     if isinstance(path_or_uri, Path):
