@@ -98,7 +98,6 @@ class JobScheduler:
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
-        keepmetadata=True,
         scheduler_type=None,
         scheduler_ilp_solver=None,
     ):
@@ -122,7 +121,6 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
-        self.keepmetadata = keepmetadata
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
@@ -142,13 +140,7 @@ class JobScheduler:
             self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
-        use_threads = (
-            force_use_threads
-            or (os.name != "posix")
-            or cluster
-            or cluster_sync
-            or drmaa
-        )
+        use_threads = force_use_threads or (os.name != "posix")
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
@@ -190,7 +182,6 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -217,7 +208,6 @@ class JobScheduler:
                     printshellcmds=printshellcmds,
                     assume_shared_fs=assume_shared_fs,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
                 if workflow.immediate_submit:
                     self.update_dynamic = False
@@ -239,7 +229,6 @@ class JobScheduler:
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
         elif kubernetes:
             self._local_executor = CPUExecutor(
@@ -251,7 +240,6 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
 
             self._executor = KubernetesExecutor(
@@ -264,7 +252,6 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cluster_config=cluster_config,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
@@ -277,7 +264,6 @@ class JobScheduler:
                 use_threads=use_threads,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
 
             self._executor = TibannaExecutor(
@@ -292,7 +278,6 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
@@ -353,7 +338,6 @@ class JobScheduler:
                 use_threads=use_threads,
                 cores=cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
