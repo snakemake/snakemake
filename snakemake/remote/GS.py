@@ -202,27 +202,36 @@ class RemoteObject(AbstractRemoteObject):
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
-        if self.is_directory():
-            # directory check happens remotely, hence it has to exist
+        if self.blob.exists():
+            return True
+        elif any(self.directory_entries()):
             return True
         else:
-            return self.blob.exists()
+            return False
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def mtime(self):
         if self.exists():
-            self.update_blob()
-            return self.blob.updated.timestamp()
-        elif self.is_directory():
-            return max(blob.updated.timestamp() for blob in self.directory_entries())
+            if self.is_directory():
+                return max(
+                    blob.updated.timestamp() for blob in self.directory_entries()
+                )
+            else:
+                self.update_blob()
+                return self.blob.updated.timestamp()
         else:
             raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def size(self):
         if self.exists():
-            self.update_blob()
-            return self.blob.size // 1024
+            if self.is_directory():
+                return 0
+            else:
+                self.update_blob()
+                return self.blob.size // 1024
         else:
             return self._iofile.size_local
 
