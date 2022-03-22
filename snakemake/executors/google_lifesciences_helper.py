@@ -49,7 +49,6 @@ def save_files(bucket_name, source_path, destination_path):
 
         # The relative path of the filename from the source path
         relative_path = filename.replace(source_path, "", 1).strip("/")
-        print(f"{filename=}, {type(filename)=}")
         # The path in storage includes relative path from destination_path
         storage_path = os.path.join(destination_path, relative_path)
         full_path = os.path.join(bucket_name, storage_path)
