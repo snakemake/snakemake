@@ -11,6 +11,7 @@ class App extends React.Component {
         this.setView = this.setView.bind(this);
         this.showCategory = this.showCategory.bind(this);
         this.showResultInfo = this.showResultInfo.bind(this);
+        this.showReportInfo = this.showReportInfo.bind(this);
         // store in global variable
         app = this;
     }
@@ -33,6 +34,7 @@ class App extends React.Component {
             searchTerm: view.searchTerm || this.state.searchTerm,
             resultPath: view.resultPath || this.state.resultPath,
             contentPath: view.contentPath || this.state.contentPath,
+            contentText: view.contentText || this.state.contentText,
         })
     }
 
@@ -46,8 +48,19 @@ class App extends React.Component {
         this.setView({ navbarMode: mode, category: category, subcategory: subcategory })
     }
 
+    showReportInfo() {
+        this.setView({ navbarMode: "reportinfo" });
+    }
+
     showResultInfo(resultPath) {
         this.setView({ navbarMode: "resultinfo", resultPath: resultPath });
+    }
+
+    showLicense(package_name) {
+        this.setView({
+            content: "text",
+            contentText: packages[package_name].license
+        });
     }
 }
 
