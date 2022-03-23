@@ -1390,6 +1390,7 @@ def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
 
 
+@skip_on_windows
 def test_module_no_prefixing_modified_paths():
     run(
         dpath("test_module_no_prefixing_modified_paths"),
