@@ -1249,7 +1249,7 @@ class Workflow:
             return expand(
                 *args,
                 scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
-                **wildcards
+                **wildcards,
             )
 
         for key in content:
@@ -1369,18 +1369,21 @@ class Workflow:
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
-                    **ruleinfo.wildcard_constraints[1]
+                    **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
                 rule.name = ruleinfo.name
                 del self._rules[name]
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
-            rule.path_modifier = ruleinfo.path_modifier
             if ruleinfo.input:
-                rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
+                pos_files, keyword_files, modifier = ruleinfo.input
+                rule.input_modifier = modifier
+                rule.set_input(*pos_files, **keyword_files)
             if ruleinfo.output:
-                rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
+                pos_files, keyword_files, modifier = ruleinfo.output
+                rule.output_modifier = modifier
+                rule.set_output(*pos_files, **keyword_files)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
@@ -1418,9 +1421,9 @@ class Workflow:
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
-                            rule
-                        )
+                        f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
+                        "It's encouraged to use the more explicit options "
+                        "'minimal|copy-minimal|shallow|full' instead."
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
@@ -1455,11 +1458,15 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                rule.set_log(*ruleinfo.log[0], **ruleinfo.log[1])
+                pos_files, keyword_files, modifier = ruleinfo.log
+                rule.log_modifier = modifier
+                rule.set_log(*pos_files, **keyword_files)
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
-                rule.benchmark = ruleinfo.benchmark
+                benchmark, modifier = ruleinfo.benchmark
+                rule.benchmark_modifier = modifier
+                rule.benchmark = benchmark
             if not self.run_local:
                 group = self.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
@@ -1627,14 +1634,14 @@ class Workflow:
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = (paths, kwpaths)
+            ruleinfo.input = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = (paths, kwpaths)
+            ruleinfo.output = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1679,7 +1686,7 @@ class Workflow:
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
-            ruleinfo.benchmark = benchmark
+            ruleinfo.benchmark = (benchmark, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1770,7 +1777,7 @@ class Workflow:
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = (logs, kwlogs)
+            ruleinfo.log = (logs, kwlogs, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
