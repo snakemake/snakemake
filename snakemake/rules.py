@@ -1008,7 +1008,12 @@ class Rule:
 
         try:
             self._apply_wildcards(
-                log, self.log, wildcards, concretize=concretize_logfile, path_modifier=self.log_modifier, property="log"
+                log,
+                self.log,
+                wildcards,
+                concretize=concretize_logfile,
+                path_modifier=self.log_modifier,
+                property="log",
             )
         except WildcardError as e:
             raise WildcardError(
