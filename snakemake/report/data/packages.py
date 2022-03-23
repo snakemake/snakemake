@@ -48,6 +48,10 @@ def get_packages():
                 url="https://cdnjs.cloudflare.com/ajax/libs/vega-embed/6.20.8/vega-embed.js",
                 license_url="https://raw.githubusercontent.com/vega/vega-embed/next/LICENSE",
             ),
+            "heroicons": Package(
+                version="1.0.6",
+                license_url="https://raw.githubusercontent.com/tailwindlabs/heroicons/master/LICENSE",
+            ),
         }
     )
 
