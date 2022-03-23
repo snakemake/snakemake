@@ -4,3 +4,4 @@ from .rulegraph import render_rulegraph
 from .rules import render_rules
 from .runtimes import render_runtimes
 from .timeline import render_timeline
+from .packages import get_packages

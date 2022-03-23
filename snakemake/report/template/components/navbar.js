@@ -104,6 +104,8 @@ class Navbar extends React.Component {
                 return e(ResultInfo, { resultPath: this.props.app.state.resultPath, app: this.props.app });
             case "ruleinfo":
                 return e(RuleInfo, { rule: this.props.app.state.ruleinfo });
+            case "reportinfo":
+                return e(ReportInfo, { app: this.props.app });
         }
     }
 
@@ -147,12 +149,22 @@ class Navbar extends React.Component {
                         { entries: [this.getMenuBreadcrumb(), this.getRuleBreadcrumb(), this.getRuleinfoBreadcrumb()], setView: setView }
                     )
                 }
+            case "reportinfo":
+                return e(
+                    Breadcrumbs,
+                    { entries: [this.getMenuBreadcrumb(), this.getReportInfoBreadcrumb()], setView: setView }
+                )
         }
     }
 
     getMenuBreadcrumb() {
         let setView = this.props.app.setView;
         return { name: "menu", icon: "home", func: function () { setView({ navbarMode: "menu", category: undefined, subcategory: undefined }) } };
+    }
+
+    getReportInfoBreadcrumb() {
+        let setView = this.props.app.setView;
+        return { name: "reportinfo", icon: "information-circle", func: function () { setView({ navbarMode: "reportinfo", category: undefined, subcategory: undefined }) } };
     }
 
     getRuleBreadcrumb() {

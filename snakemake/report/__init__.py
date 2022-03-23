@@ -31,6 +31,7 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
 from snakemake import script, wrapper, notebook
+from snakemake.report.data.common import get_resource_as_string
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
@@ -542,18 +543,6 @@ class FileRecord:
         return os.path.basename(self.path)
 
 
-def get_resource_as_string(path_or_uri):
-    if is_local_file(path_or_uri):
-        return open(Path(__file__).parent / "template" / path_or_uri).read()
-    else:
-        r = requests.get(path_or_uri)
-        if r.status_code == requests.codes.ok:
-            return r.text
-        raise WorkflowError(
-            "Failed to download resource needed for " "report: {}".format(path_or_uri)
-        )
-
-
 def expand_labels(labels, wildcards, job):
     if labels is None:
         return None
@@ -864,6 +853,7 @@ def auto_report(dag, path, stylesheet=None):
     rules = data.render_rules(rules)
     runtimes = data.render_runtimes(runtimes)
     timeline = data.render_timeline(timeline)
+    packages = data.get_packages()
 
     template = env.get_template("index.html.jinja2")
 
@@ -877,11 +867,11 @@ def auto_report(dag, path, stylesheet=None):
         workflow_desc=json.dumps(text),
         runtimes=runtimes,
         timeline=timeline,
+        packages=packages,
         pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
         custom_stylesheet=custom_stylesheet,
         logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
         now=now,
-        version=__version__.split("+")[0],
     )
 
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)

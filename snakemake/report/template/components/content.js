@@ -59,7 +59,17 @@ class ContentDisplay extends React.Component {
                 return e(
                     "iframe",
                     { src: this.props.app.state.contentPath, className: "w-screen h-screen" }
-                )
+                );
+            case "text":
+                return e(
+                    "div",
+                    { className: "p-3 w-3/4" },
+                    e(
+                        "pre",
+                        { className: "whitespace-pre-line text-sm" },
+                        this.props.app.state.contentText
+                    )
+                );
         }
     }
 }
