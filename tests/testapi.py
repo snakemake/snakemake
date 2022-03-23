@@ -53,10 +53,7 @@ def test_run_script_directive_async():
         async_run(dummy_task())
         test_run_script_directive()
 
-    if sys.version_info < (3, 7):
-        async_run(main())
-    else:
-        asyncio.run(main())
+    asyncio.run(main())
 
 
 def test_dicts_in_config():
