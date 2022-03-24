@@ -76,7 +76,7 @@ def test_google_lifesciences():
 )
 @google_credentials
 def test_touch_remote_prefix():
-    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    bucket_name = "snakemake-testing-%s-bucket" % next(tempfile._get_candidate_names())
     create_google_storage(bucket_name)
     storage_prefix = "test_touch_remote_prefix"
     workdir = dpath("test_touch_remote_prefix")
