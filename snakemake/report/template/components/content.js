@@ -21,14 +21,14 @@ class ContentDisplay extends React.Component {
             case "rulegraph":
                 return e(
                     "div",
-                    { className: "flex gap-3 p-3 items-start w-full h-full" },
+                    { className: "flex gap-3 p-3 items-start w-screen" },
                     e(
                         "div",
                         { className: "w-1/5" }
                     ),
                     e(
                         "div",
-                        { className: "overflow-auto max-h-full" },
+                        { className: "overflow-auto max-h-screen" },
                         e(
                             "div",
                             {
