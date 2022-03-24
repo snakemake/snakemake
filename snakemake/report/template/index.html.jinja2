@@ -9,7 +9,7 @@
     <meta name="author" content="">
     <title>Snakemake Report</title>
 
-    <script>{{ "https://cdn.tailwindcss.com?plugins=forms,typography"|get_resource_as_string }}</script>
+    <script>{{ packages["tailwindcss"].url|get_resource_as_string }}</script>
     <style>{{ pygments_css|safe }}</style>
     <style>{{ "style.css"|get_resource_as_string }}</style>
 
@@ -31,11 +31,11 @@
     <div id="app">
     </div>
 
-    <script>{{"https://unpkg.com/react@17/umd/react.development.js"|get_resource_as_string}}</script>
-    <script>{{"https://unpkg.com/react-dom@17/umd/react-dom.development.js"|get_resource_as_string}}</script>
-    <script>{{"https://cdnjs.cloudflare.com/ajax/libs/vega/5.21.0/vega.js"|get_resource_as_string}}</script>
-    <script>{{"https://cdnjs.cloudflare.com/ajax/libs/vega-lite/5.2.0/vega-lite.js"|get_resource_as_string}}</script>
-    <script>{{"https://cdnjs.cloudflare.com/ajax/libs/vega-embed/6.20.8/vega-embed.js"|get_resource_as_string}}</script>
+    <script>{{packages["react"].urls["main"]|get_resource_as_string}}</script>
+    <script>{{packages["react"].urls["dom"]|get_resource_as_string}}</script>
+    <script>{{packages["vega"].url|get_resource_as_string}}</script>
+    <script>{{packages["vega-lite"].url|get_resource_as_string}}</script>
+    <script>{{packages["vega-embed"].url|get_resource_as_string}}</script>
 
     <script id="workflow-desc">
     var workflow_desc = {{workflow_desc}};
@@ -65,6 +65,10 @@
     var rules = {{rules}};
     </script>
 
+    <script id="packages">
+    var packages = {{packages.get_json()}};
+    </script>
+
     <script id="logo">
     var logo_uri = "{{logo}}";
     </script>
@@ -79,6 +83,7 @@
     <script>{{"components/abstract_results.js"|get_resource_as_string}}</script>
     <script>{{"components/breadcrumbs.js"|get_resource_as_string}}</script>
     <script>{{"components/menu.js"|get_resource_as_string}}</script>
+    <script>{{"components/report_info.js"|get_resource_as_string}}</script>
     <script>{{"components/category.js"|get_resource_as_string}}</script>
     <script>{{"components/subcategory.js"|get_resource_as_string}}</script>
     <script>{{"components/search_results.js"|get_resource_as_string}}</script>

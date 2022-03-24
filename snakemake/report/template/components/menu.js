@@ -14,6 +14,7 @@ class Menu extends AbstractMenu {
             this.getHeading(),
             this.getMenuItem("Workflow", "share", this.showWorkflow),
             this.getMenuItem("Statistics", "chart", this.showStatistics),
+            this.getMenuItem("About", "information-circle", this.props.app.showReportInfo),
             this.getCategoryMenumitems()
         )
     }
@@ -47,9 +48,8 @@ class Menu extends AbstractMenu {
             return [];
         } else {
             let items = [e(
-                "li",
-                { key: "Results", className: "uppercase font-bold p-1 mt-2" },
-                "Results"
+                ListHeading,
+                { key: "Results", text: "Result" }
             )];
 
             items.push(...Object.keys(categories).map(function (category) {

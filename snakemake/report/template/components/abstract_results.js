@@ -39,7 +39,24 @@ class AbstractResults extends React.Component {
     }
 
     getLabels() {
-        return Array.from(new Set(this.getResults().map(function ([path, result]) { return Object.keys(result.labels) }).flat())).sort();
+        let first_index = {};
+        console.log(this.getResults());
+        this.getResults().map(function ([path, result]) {
+            console.log(path, result);
+            let i = 0;
+            for (let key in result.labels) {
+                if (!(key in first_index)) {
+                    first_index[key] = i;
+                }
+                i += 1;
+            }
+        })
+        let labels = Object.keys(first_index);
+
+        return labels.sort(function (a, b) {
+            return first_index[a] - first_index[b];
+        });
+        //return Array.from(new Set(this.getResults().map(function ([path, result]) { return Object.keys(result.labels) }).flat())).sort();
     }
 
     isLabelled() {
