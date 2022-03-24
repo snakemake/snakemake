@@ -21,11 +21,14 @@ class ContentDisplay extends React.Component {
             case "rulegraph":
                 return e(
                     "div",
-                    { className: "flex gap-3 p-3 items-start" },
-                    e(RuleGraph, { setView: setView }),
+                    { className: "flex gap-3 p-3 items-start w-full h-full" },
                     e(
                         "div",
-                        {},
+                        { className: "w-1/5" }
+                    ),
+                    e(
+                        "div",
+                        { className: "overflow-auto max-h-full" },
                         e(
                             "div",
                             {
@@ -37,7 +40,8 @@ class ContentDisplay extends React.Component {
                             "div",
                             { id: "brand" }
                         )
-                    )
+                    ),
+                    e(RuleGraph, { setView: setView })
                 );
             case "stats":
                 return e(

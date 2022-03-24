@@ -9,7 +9,7 @@ class RuleGraph extends React.Component {
     render() {
         return e(
             "div",
-            { id: "rulegraph" }
+            { id: "rulegraph", className: "overflow-auto max-h-full" }
         )
     }
 
