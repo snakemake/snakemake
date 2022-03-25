@@ -1336,7 +1336,16 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
         shell:
             "somecommand {input} {output}"
 
-benchmarks the CPU and wall clock time of the command ``somecommand`` for the given output and input files.
+benchmarks the 
+
+* CPU time (in seconds),
+* wall clock time,
+* memory usage (`RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_, `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_, `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_, `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_ in megabytes),
+* CPU load (CPU time divided by wall clock time),
+* I/O (in bytes)
+
+of the command ``somecommand`` for the given output and input files.
+
 For this, the shell or run body of the rule is executed on that data, and all run times are stored into the given benchmark tsv file (which will contain a tab-separated table of run times and memory usage in MiB).
 Per default, Snakemake executes the job once, generating one run time.
 However, the benchmark file can be annotated with the desired number of repeats, e.g.,
