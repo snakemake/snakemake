@@ -1,5 +1,18 @@
 # Changelog
 
+### [7.3.2](https://www.github.com/snakemake/snakemake/compare/v7.3.1...v7.3.2) (2022-03-25)
+
+
+### Bug Fixes
+
+* fixed code change detection ([#1513](https://www.github.com/snakemake/snakemake/issues/1513)) ([67298c6](https://www.github.com/snakemake/snakemake/commit/67298c6167ccaef5f9fbd03ec6b4fe65d86e9ca3))
+* modify dag and workflow display in report to also work for big DAGs ([#1517](https://www.github.com/snakemake/snakemake/issues/1517)) ([1364dfb](https://www.github.com/snakemake/snakemake/commit/1364dfbc9db58541aaf5600bca61230f9eb4ecbc))
+
+
+### Documentation
+
+* Clarify the use of conda with notebook directive ([#1515](https://www.github.com/snakemake/snakemake/issues/1515)) ([aefb1eb](https://www.github.com/snakemake/snakemake/commit/aefb1eb0a2d62faa6108670f3a11d58a1d797c41))
+
 ### [7.3.1](https://www.github.com/snakemake/snakemake/compare/v7.3.0...v7.3.1) (2022-03-23)
 
 
