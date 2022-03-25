@@ -530,3 +530,7 @@ class IncompleteCheckpointException(Exception):
 
 class CacheMissException(Exception):
     pass
+
+
+class PluginException(Exception):
+    pass
