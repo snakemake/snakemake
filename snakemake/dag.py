@@ -2273,7 +2273,7 @@ class DAG:
         changed = list(chain(*map(is_changed, self.jobs)))
         if change_type == "code":
             for job in self.jobs:
-                if not job.is_group():
+                if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
         return changed
 
