@@ -23,22 +23,55 @@ def find_plugins(prefix):
             yield importlib.import_module(name)
 
 
-def verify_module_attrs(
+def verify_plugin(
     mod,
-    mod_attrs=["__version__", "__copyright__", "__email__", "__licence__"],
+    mod_attrs=[
+        "__version__", "__author__", "__copyright__", "__email__", "__licence__"
+    ],
     extra_attrs=[],
+    checks={}
 ):
     """Confirms a module (just an object) has the required attributes
 
     Raises a PluginException if this is not true.
+
+    Also takes a checks dictionary with a function and an optional exception.
+    The check should return None or False to pass.
     """
+    package_name = cached_packages_distributions()[mod.__name__][0]
     for a in mod_attrs + extra_attrs:
         if not hasattr(mod, a):
-            package_name = cached_packages_distributions()[mod.__name__][0]
             raise PluginException(
                 f"Plugin {package_name} does not provide attribute {a}."
             )
+    for check, exception in checks.items():
+        if check(mod):
+            raise (
+                exception
+                or PluginException(
+                    f"Plugin {package_name} fails check {check.__name__}."
+                )
+            )
 
+
+def load_plugins(plugin_modules, globals_dict, extra_attrs, checks):
+    """Load plugins into the globals dict, yielding all the modules in the process.
+    Additionally some checks are performed on the plugins.
+    NB. Don't forget to exhaust the created generated to have an effect."""
+    for plugin_module in plugin_modules:
+        if plugin_module.__name__ in globals_dict:
+            logger.debug("Plugin {plugin_module.name} already loaded.")
+            continue
+
+        try:
+            verify_plugin(plugin_module, extra_attrs=extra_attrs, checks=checks)
+        except PluginException as e:
+            logger.warning(f"Plugin {plugin_module.name} incorrect: {e}")
+            continue
+
+        yield plugin_module
+        globals_dict[plugin_module.__name__] = plugin_module
+        globals_dict[plugin_module.__name__.lower()] = plugin_module
 
 @lru_cache(max_size=None)
 def cached_packages_distributions():
