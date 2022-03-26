@@ -3,6 +3,9 @@ __copyright__ = "Copyright 2022, Hielke Walinga"
 __email__ = "hielkewalinga@gmail.com"
 __license__ = "MIT"
 
+from os import path
+import sys
+import logger
 import importlib
 import pkgutil
 from functools import lru_cache
@@ -14,12 +17,13 @@ from snakemake.exceptions import PluginException
 def find_plugins(prefix):
     """Iterator to find all plugins by their prefix of the package name."""
     for finder, name, ispkg in pkgutil.iter_modules():
-        # Check if the *package name* of the module start with the correct prefix.
+        # Check if the *package name* of the module
+        # start with the correct prefix.
         if cached_packages_distributions()[name][0].startswith(prefix):
             yield importlib.import_module(name)
 
 
-def confirm_mod_has_correct_attrs(
+def verify_module_attrs(
     mod,
     mod_attrs=["__version__", "__copyright__", "__email__", "__licence__"],
     extra_attrs=[],
@@ -31,7 +35,9 @@ def confirm_mod_has_correct_attrs(
     for a in mod_attrs + extra_attrs:
         if not hasattr(mod, a):
             package_name = cached_packages_distributions()[mod.__name__][0]
-            raise PluginException(f"Plugin {package_name} does not provide attribute {a}.")
+            raise PluginException(
+                f"Plugin {package_name} does not provide attribute {a}."
+            )
 
 
 @lru_cache(max_size=None)
@@ -53,7 +59,8 @@ def cached_packages_distributions():
     if hasattr(importlib, 'metadata'):
         from importlib.metadata import distributions
     else:
-        # We are older than 3.8, import from external importlib_metadata instead.
+        # We are older than 3.8,
+        # import from external importlib_metadata instead.
         from importlib_metadata import distributions
 
     pkg_to_dist = collections.defaultdict(list)
@@ -61,3 +68,28 @@ def cached_packages_distributions():
         for pkg in (dist.read_text('top_level.txt') or '').split():
             pkg_to_dist[pkg].append(dist.metadata['Name'])
     return dict(pkg_to_dist)
+
+
+def internal_submodules(paths):
+    for remote_submodule in pkgutil.iter_modules(paths):
+        module_name = remote_submodule.name
+
+        if module_name == 'common':  # Does not have a specific RemoteProvider
+            continue
+
+        module_path = (
+            path.join(remote_submodule.module_finder.path, module_name)
+            + ".py"
+        )
+
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        module = importlib.util.module_from_spec(spec)
+
+        try:
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+        except Exception as e:
+            logger.debug(f"Autoloading {module_name} failed: {e}")
+            continue
+
+        yield module
