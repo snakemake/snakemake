@@ -23,11 +23,14 @@ def find_plugins(prefix):
             yield importlib.import_module(name)
 
 
+plugin_required_mod_attrs = [
+    "__version__", "__author__", "__copyright__", "__email__", "__license__"
+]
+
+
 def verify_plugin(
     mod,
-    mod_attrs=[
-        "__version__", "__author__", "__copyright__", "__email__", "__licence__"
-    ],
+    mod_attrs=plugin_required_mod_attrs,
     extra_attrs=[],
     checks={}
 ):
@@ -59,19 +62,25 @@ def load_plugins(plugin_modules, globals_dict, extra_attrs, checks):
     Additionally some checks are performed on the plugins.
     NB. Don't forget to exhaust the created generated to have an effect."""
     for plugin_module in plugin_modules:
+        plugin_name = plugin_module.__name__
+        package_name = cached_packages_distributions()[plugin_name][0]
         if plugin_module.__name__ in globals_dict:
-            logger.debug("Plugin {plugin_module.name} already loaded.")
+            logger.debug("Plugin {package_name} already loaded.")
             continue
 
         try:
             verify_plugin(plugin_module, extra_attrs=extra_attrs, checks=checks)
         except PluginException as e:
-            logger.warning(f"Plugin {plugin_module.name} incorrect: {e}")
+            logger.warning(f"Plugin {package_name} incorrect: {e}")
             continue
 
         yield plugin_module
-        globals_dict[plugin_module.__name__] = plugin_module
-        globals_dict[plugin_module.__name__.lower()] = plugin_module
+        snakemake_submodule_name = (
+            getattr(plugin_module, "snakemake_submodule_name") or plugin_name
+        )
+        globals_dict[snakemake_submodule_name] = plugin_module
+        globals_dict[snakemake_submodule_name.lower()] = plugin_module
+
 
 @lru_cache(max_size=None)
 def cached_packages_distributions():
