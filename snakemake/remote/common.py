@@ -60,7 +60,8 @@ class AbstractRemoteProvider:
     and are then passed to RemoteObjects.
     """
 
-    __metaclass__ = ABCMeta
+    __metaclass__ = ABCMeta  # TODO: This is Python2 style, should derive from abc.ABC
+    # Also check if everything is actually correct now. (Add a test that just instantiates)
 
     supports_default = False
     allows_directories = False
@@ -148,7 +149,7 @@ class AbstractRemoteProvider:
         """List of valid protocols for this remote provider."""
         pass
 
-    @abstractmethod
+    @abstractmethod  # TODO: Does not seem to be always implemented
     def remote_interface(self):
         pass
 
@@ -163,7 +164,8 @@ class AbstractRemoteObject:
     Amazon AWS S3 and Google Cloud Storage, both derived from this common base class.
     """
 
-    __metaclass__ = ABCMeta
+    __metaclass__ = ABCMeta  # TODO: This is Python2 style, should derive from abc.ABC
+    # Also check if everything is actually correct now. (Add a test that just instantiates)
 
     def __init__(
         self,
@@ -215,7 +217,7 @@ class AbstractRemoteObject:
     def remote_file(self):
         return self.protocol + self.local_file()
 
-    @abstractmethod
+    @abstractmethod  # TODO: Does not seem to be used
     def close(self):
         pass
 
@@ -256,19 +258,20 @@ class AbstractRemoteObject:
     def _upload(self, *args, **kwargs):
         pass
 
+    @property  # TODO: This is always implemented as property, so we should specify
     @abstractmethod
     def list(self, *args, **kwargs):
         pass
 
-    @abstractmethod
+    @abstractmethod  # TODO: Does not seem to be used
     def name(self, *args, **kwargs):
         pass
 
-    @abstractmethod
+    @abstractmethod  # TODO: Does not seem to be used
     def remote(self, value, keep_local=False, stay_on_remote=False):
         pass
 
-    @abstractmethod
+    @abstractmethod  # TODO: Thus, it does not _have_ to be implemented?
     def remove(self):
         raise NotImplementedError("Removal of files is unavailable for this remote")
 
