@@ -15,7 +15,7 @@ from snakemake.utils import min_version, raise_
 
 plugin_checks = {
     lambda mod: min_version(mod.__min_snakemake_version__): None,
-    lambda mod: not isinstance(
+    lambda mod: not issubclass(
         mod.RemoteObject, AbstractRemoteObject
     ): lambda mod: raise_(
         PluginException(
@@ -23,7 +23,7 @@ plugin_checks = {
             "is not an instance of AbstractRemoteObject"
         )
     ),
-    lambda mod: not isinstance(
+    lambda mod: not issubclass(
         mod.RemoteProvider, AbstractRemoteProvider
     ): lambda mod: raise_(
         PluginException(
