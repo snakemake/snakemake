@@ -624,6 +624,7 @@ class Conda:
         try:
             version = shell.check_output(
                 self._get_cmd("conda --version"),
+                stderr=subprocess.PIPE,
                 universal_newlines=True,
             )
             version_matches = re.findall("\d+.\d+.\d+", version)
@@ -641,7 +642,7 @@ class Conda:
                 )
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                "Unable to check conda version:\n" + e.output.decode()
+                "Unable to check conda version:\n" + e.stderr.decode()
             )
 
     def bin_path(self):
