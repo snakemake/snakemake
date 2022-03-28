@@ -509,7 +509,7 @@ class Env:
                 # remove potential partially installed environment
                 shutil.rmtree(env_path, ignore_errors=True)
                 raise CreateCondaEnvironmentException(
-                    f"Could not create conda environment from {env_file}:\nCommand:\n{env_file}\nOutput:\n{e.output}"
+                    f"Could not create conda environment from {env_file}:\nCommand:\n{cmd}\nOutput:\n{e.output}"
                 )
 
         if tmp_env_file:
