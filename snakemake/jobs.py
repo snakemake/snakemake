@@ -25,7 +25,6 @@ from snakemake.io import (
 )
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import (
-    IncompleteParamsException,
     RuleException,
     ProtectedOutputException,
     WorkflowError,
@@ -989,11 +988,7 @@ class Job(AbstractJob):
             printshellcmd=printshellcmd,
             is_handover=self.rule.is_handover,
         )
-        try:
-            logger.shellcmd(self.shellcmd, indent=indent)
-        except IncompleteParamsException as e:
-            # do not log the shell command if params cannot yet be determined
-            pass
+        logger.shellcmd(self.shellcmd, indent=indent)
 
         if self.dynamic_output:
             logger.info(

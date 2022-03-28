@@ -47,7 +47,6 @@ from snakemake.io import (
     ReportObject,
 )
 from snakemake.exceptions import (
-    IncompleteParamsException,
     RuleException,
     IOFileException,
     WildcardError,
@@ -733,7 +732,6 @@ class Rule:
         wildcards,
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
-        raise_incomplete_params_exception=False,
         groupid=None,
         **aux_params
     ):
@@ -763,8 +761,6 @@ class Rule:
             # where input files are not yet present, we need to skip such cases and
             # mark them as <TBD>.
             if "input" in aux_params and e.filename in aux_params["input"]:
-                if raise_incomplete_params_exception:
-                    raise IncompleteParamsException(e)
                 value = TBDString()
             else:
                 raise e
@@ -791,7 +787,6 @@ class Rule:
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
         groupid=None,
-        raise_incomplete_params_exception=False,
     ):
         incomplete = False
         if aux_params is None:
@@ -810,7 +805,6 @@ class Rule:
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
                     groupid=groupid,
-                    raise_incomplete_params_exception=raise_incomplete_params_exception,
                     **aux_params
                 )
 
@@ -974,7 +968,6 @@ class Rule:
                     "threads": resources._cores,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
-                raise_incomplete_params_exception=True,
             )
         except WildcardError as e:
             raise WildcardError(
