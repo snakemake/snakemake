@@ -624,18 +624,15 @@ class Conda:
         try:
             version = shell.check_output(
                 self._get_cmd("conda --version"),
-                stderr=subprocess.STDOUT,
                 universal_newlines=True,
             )
-            if self.container_img:
-                version = "\n".join(
-                    filter(
-                        lambda line: not line.startswith("WARNING:")
-                        and not line.startswith("ERROR:"),
-                        version.splitlines(),
-                    )
+            version_matches = re.findall("\d+.\d+.\d+", version)
+            if len(version_matches) != 1:
+                raise WorkflowError(
+                    f"Unable to determine conda version. 'conda --version' returned {version}"
                 )
-            version = re.findall('\d+.\d+.\d+', version)[0]
+            else:
+                version = version_matches[0]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
                     "Conda must be version 4.2 or later, found version {}.".format(
