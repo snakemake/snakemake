@@ -635,8 +635,7 @@ class Conda:
                         version.splitlines(),
                     )
                 )
-
-            version = version.split()[1]
+            version = re.findall('\d+.\d+.\d+', version)[0]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
                     "Conda must be version 4.2 or later, found version {}.".format(
