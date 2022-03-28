@@ -1469,6 +1469,10 @@ class GroupJob(AbstractJob):
             raise WorkflowError(
                 "IndexError with group job {}: {}".format(self.jobid, str(ex))
             )
+        except Exception as ex:
+            raise WorkflowError(
+                f"Error when formatting {string} for rule {self.rule.name}. {ex}"
+            )
 
     @property
     def threads(self):
