@@ -24,7 +24,12 @@ from snakemake.io import (
     wait_for_files,
 )
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import (
+    IncompleteParamsException,
+    RuleException,
+    ProtectedOutputException,
+    WorkflowError,
+)
 from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
@@ -904,6 +909,10 @@ class Job(AbstractJob):
             raise RuleException("NameError: " + str(ex), rule=self.rule)
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
+        except Exception as ex:
+            raise WorkflowError(
+                f"Error when formatting '{string}' for rule {self.rule.name}. {ex}"
+            )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
@@ -980,7 +989,11 @@ class Job(AbstractJob):
             printshellcmd=printshellcmd,
             is_handover=self.rule.is_handover,
         )
-        logger.shellcmd(self.shellcmd, indent=indent)
+        try:
+            logger.shellcmd(self.shellcmd, indent=indent)
+        except IncompleteParamsException as e:
+            # do not log the shell command if params cannot yet be determined
+            pass
 
         if self.dynamic_output:
             logger.info(
@@ -1471,7 +1484,7 @@ class GroupJob(AbstractJob):
             )
         except Exception as ex:
             raise WorkflowError(
-                f"Error when formatting {string} for rule {self.rule.name}. {ex}"
+                f"Error when formatting {string} for group job {self.jobid}: {ex}"
             )
 
     @property

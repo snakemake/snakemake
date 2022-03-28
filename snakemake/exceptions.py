@@ -528,5 +528,15 @@ class IncompleteCheckpointException(Exception):
         self.targetfile = checkpoint_target(targetfile)
 
 
+class IncompleteParamsException(Exception):
+    def __init__(self, cause):
+        super().__init__(
+            "Failed to evaluate parameter function because of the "
+            "following error. If you see this message, you experience a bug in Snakemake.\n",
+            str(cause),
+        )
+        self.cause = cause
+
+
 class CacheMissException(Exception):
     pass
