@@ -217,7 +217,7 @@ class AbstractRemoteObject:
     def remote_file(self):
         return self.protocol + self.local_file()
 
-    @abstractmethod  # TODO: Does not seem to be used
+    @abstractmethod  # TODO: Does not seem to be implemented much, not needed.
     def close(self):
         pass
 
@@ -229,7 +229,7 @@ class AbstractRemoteObject:
     def mtime(self):
         pass
 
-    @abstractmethod
+    @abstractmethod  # TODO: Does not seem to used, not needed.
     def size(self):
         pass
 
