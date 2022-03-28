@@ -16,13 +16,14 @@ import collections
 from pathlib import Path
 
 from snakemake._version import get_versions
+from snakemake.common.tbdstring import TBDString
 
 __version__ = get_versions()["version"]
 del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
-DYNAMIC_FILL = "__snakemake_dynamic__"
+DYNAMIC_FILL = "__othernakemake_dynamic__"
 SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
@@ -45,13 +46,6 @@ def async_run(coroutine):
         asyncio.run(coroutine)
     else:
         asyncio.create_task(coroutine)
-
-
-# A string that prints as TBD
-class TBDString(str):
-    # the second arg is necessary to avoid problems when pickling
-    def __new__(cls, _=None):
-        return str.__new__(cls, "<TBD>")
 
 
 APPDIRS = None
@@ -178,7 +172,7 @@ class Mode:
 
 
 class lazy_property(property):
-    __slots__ = ["method", "cached", "__doc__"]
+    __otherlots__ = ["method", "cached", "__doc__"]
 
     @staticmethod
     def clean(instance, method):
