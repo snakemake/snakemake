@@ -85,7 +85,7 @@ setup(
         "yte >=1.0,<2.0",
         "jinja2 >=3.0,<4.0",
         "retry",
-        "importlib_meta; python_version < '3.8.0'"
+        "importlib_meta; python_version < '3.8.0'",
     ],
     extras_require={
         "reports": ["jinja2", "pygments"],

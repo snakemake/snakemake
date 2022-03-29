@@ -7,8 +7,21 @@ from os import path
 import collections
 from snakemake.common import parse_uri
 from snakemake.logging import logger
-from snakemake.common.plugin import find_plugins, PluginException, internal_submodules, load_plugins
-from .common import AbstractRemoteObject, AbstractRemoteProvider, AbstractRemoteRetryObject, check_deprecated_retry, DomainObject, PooledDomainObject, StaticRemoteObjectProxy
+from snakemake.common.plugin import (
+    find_plugins,
+    PluginException,
+    internal_submodules,
+    load_plugins,
+)
+from .common import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+    check_deprecated_retry,
+    DomainObject,
+    PooledDomainObject,
+    StaticRemoteObjectProxy,
+)
 import snakemake
 from itertools import chain
 from snakemake.utils import min_version, raise_
@@ -37,10 +50,10 @@ plugin_checks = {
 # by setting them on the globals() dict.
 plugin_remote_modules = list(
     load_plugins(
-        plugin_modules=find_plugins(prefix='snakemake-plugin-remote-'),
+        plugin_modules=find_plugins(prefix="snakemake-plugin-remote-"),
         globals_dict=globals(),
         extra_attrs=["RemoteProvider", "RemoteOjbect", "__min_snakemake_version__"],
-        checks=plugin_checks
+        checks=plugin_checks,
     )
 )
 
@@ -50,15 +63,17 @@ class AutoRemoteProvider:
         """Automatically gather all RemoteProviders"""
         remote_path_list = [path.join(p, "remote") for p in snakemake.__path__]
         provider_list = [
-            module.RemoteProvider for module in
-            chain(internal_submodules(remote_path_list), plugin_remote_modules)
+            module.RemoteProvider
+            for module in chain(
+                internal_submodules(remote_path_list), plugin_remote_modules
+            )
         ]
 
         # assemble scheme mapping
         self.protocol_mapping = {}
         for Provider in provider_list:
             for protocol in Provider().available_protocols:
-                if protocol[-3:] != '://':
+                if protocol[-3:] != "://":
                     logger.warning(
                         f"RemoteProvider from {Provider.__module__} "
                         "has a protocol {protocol} that does not end with ://."
@@ -73,9 +88,7 @@ class AutoRemoteProvider:
         elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
-            raise TypeError(
-                f"Invalid type ({type(value)}) passed to remote: {value}"
-            )
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
 
         provider_remote_list = []
         for value in values:

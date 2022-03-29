@@ -24,16 +24,15 @@ def find_plugins(prefix):
 
 
 plugin_required_mod_attrs = [
-    "__version__", "__author__", "__copyright__", "__email__", "__license__"
+    "__version__",
+    "__author__",
+    "__copyright__",
+    "__email__",
+    "__license__",
 ]
 
 
-def verify_plugin(
-    mod,
-    mod_attrs=plugin_required_mod_attrs,
-    extra_attrs=[],
-    checks={}
-):
+def verify_plugin(mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], checks={}):
     """Confirms a module (just an object) has the required attributes
 
     Raises a PluginException if this is not true.
@@ -98,11 +97,12 @@ def cached_packages_distributions():
 
     try:
         from importlib.metadata import packages_distributions as pkgs_dist
+
         return pkgs_dist()
     except ImportError:
         ...  # We are older than 3.10, import distributions instead.
 
-    if hasattr(importlib, 'metadata'):
+    if hasattr(importlib, "metadata"):
         from importlib.metadata import distributions
     else:
         # We are older than 3.8,
@@ -111,8 +111,8 @@ def cached_packages_distributions():
 
     pkg_to_dist = collections.defaultdict(list)
     for dist in distributions():
-        for pkg in (dist.read_text('top_level.txt') or '').split():
-            pkg_to_dist[pkg].append(dist.metadata['Name'])
+        for pkg in (dist.read_text("top_level.txt") or "").split():
+            pkg_to_dist[pkg].append(dist.metadata["Name"])
     return dict(pkg_to_dist)
 
 
@@ -120,12 +120,11 @@ def internal_submodules(paths):
     for remote_submodule in pkgutil.iter_modules(paths):
         module_name = remote_submodule.name
 
-        if module_name == 'common':  # Does not have a specific RemoteProvider
+        if module_name == "common":  # Does not have a specific RemoteProvider
             continue
 
         module_path = (
-            path.join(remote_submodule.module_finder.path, module_name)
-            + ".py"
+            path.join(remote_submodule.module_finder.path, module_name) + ".py"
         )
 
         spec = importlib.util.spec_from_file_location(module_name, module_path)
