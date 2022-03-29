@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 from os import path
 import sys
-import logger
+from snakemake.logging import logger
 import importlib
 import pkgutil
 from functools import lru_cache
@@ -19,7 +19,11 @@ def find_plugins(prefix):
     for finder, name, ispkg in pkgutil.iter_modules():
         # Check if the *package name* of the module
         # start with the correct prefix.
-        if cached_packages_distributions()[name][0].startswith(prefix):
+        try:
+            packages = cached_packages_distributions()[name]
+        except KeyError:
+            continue
+        if packages[0].startswith(prefix):
             yield importlib.import_module(name)
 
 
@@ -85,7 +89,7 @@ def load_plugins(
         globals_dict[snakemake_submodule_name.lower()] = plugin_module
 
 
-@lru_cache(max_size=None)
+@lru_cache(maxsize=None)
 def cached_packages_distributions():
     """Return a mapping of top-level packages to their distributions."""
 
