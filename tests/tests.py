@@ -1566,3 +1566,7 @@ def test_service_jobs():
 @skip_on_windows
 def test_shell_exec():
     run(dpath("test_shell_exec"))
+
+
+def test_incomplete_params():
+    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
