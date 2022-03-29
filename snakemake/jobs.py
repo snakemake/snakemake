@@ -24,7 +24,11 @@ from snakemake.io import (
     wait_for_files,
 )
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
+from snakemake.exceptions import (
+    RuleException,
+    ProtectedOutputException,
+    WorkflowError,
+)
 from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
@@ -904,6 +908,10 @@ class Job(AbstractJob):
             raise RuleException("NameError: " + str(ex), rule=self.rule)
         except IndexError as ex:
             raise RuleException("IndexError: " + str(ex), rule=self.rule)
+        except Exception as ex:
+            raise WorkflowError(
+                f"Error when formatting '{string}' for rule {self.rule.name}. {ex}"
+            )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
@@ -1100,7 +1108,7 @@ class Job(AbstractJob):
         return products
 
     def get_targets(self):
-        return self.targetfile or [self.rule.name]
+        return [self.targetfile or self.rule.name]
 
     @property
     def is_branched(self):
@@ -1468,6 +1476,10 @@ class GroupJob(AbstractJob):
         except IndexError as ex:
             raise WorkflowError(
                 "IndexError with group job {}: {}".format(self.jobid, str(ex))
+            )
+        except Exception as ex:
+            raise WorkflowError(
+                f"Error when formatting {string} for group job {self.jobid}: {ex}"
             )
 
     @property

@@ -21,11 +21,14 @@ class ContentDisplay extends React.Component {
             case "rulegraph":
                 return e(
                     "div",
-                    { className: "flex gap-3 p-3 items-start" },
-                    e(RuleGraph, { setView: setView }),
+                    { className: "flex gap-3 p-3 items-start w-screen" },
                     e(
                         "div",
-                        {},
+                        { className: "w-1/5" }
+                    ),
+                    e(
+                        "div",
+                        { className: "overflow-auto max-h-screen" },
                         e(
                             "div",
                             {
@@ -37,7 +40,8 @@ class ContentDisplay extends React.Component {
                             "div",
                             { id: "brand" }
                         )
-                    )
+                    ),
+                    e(RuleGraph, { setView: setView })
                 );
             case "stats":
                 return e(
@@ -59,7 +63,17 @@ class ContentDisplay extends React.Component {
                 return e(
                     "iframe",
                     { src: this.props.app.state.contentPath, className: "w-screen h-screen" }
-                )
+                );
+            case "text":
+                return e(
+                    "div",
+                    { className: "p-3 w-3/4" },
+                    e(
+                        "pre",
+                        { className: "whitespace-pre-line text-sm" },
+                        this.props.app.state.contentText
+                    )
+                );
         }
     }
 }

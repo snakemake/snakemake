@@ -149,6 +149,7 @@ class Workflow:
         max_threads=None,
         all_temp=False,
         local_groupid="local",
+        keep_metadata=True,
         latency_wait=3,
     ):
         """
@@ -235,6 +236,7 @@ class Workflow:
         self.all_temp = all_temp
         self.scheduler = None
         self.local_groupid = local_groupid
+        self.keep_metadata = keep_metadata
         self.latency_wait = latency_wait
 
         _globals = globals()
@@ -632,7 +634,6 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
-        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -1031,7 +1032,6 @@ class Workflow:
             force_use_threads=force_use_threads,
             assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )
@@ -1160,6 +1160,16 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
+        invalid_envvars = [
+            envvar
+            for envvar in envvars
+            if re.match("^\w+$", envvar, flags=re.ASCII) is None
+        ]
+        if invalid_envvars:
+            raise WorkflowError(
+                f"Invalid environment variables requested: {', '.join(map(repr, invalid_envvars))}. "
+                "Environment variable names may only contain alphanumeric characters and the underscore. "
+            )
         undefined = set(var for var in envvars if var not in os.environ)
         if self.check_envvars and undefined:
             raise WorkflowError(
@@ -1250,7 +1260,7 @@ class Workflow:
             return expand(
                 *args,
                 scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
-                **wildcards
+                **wildcards,
             )
 
         for key in content:
@@ -1370,18 +1380,21 @@ class Workflow:
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
-                    **ruleinfo.wildcard_constraints[1]
+                    **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
                 rule.name = ruleinfo.name
                 del self._rules[name]
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
-            rule.path_modifier = ruleinfo.path_modifier
             if ruleinfo.input:
-                rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
+                pos_files, keyword_files, modifier = ruleinfo.input
+                rule.input_modifier = modifier
+                rule.set_input(*pos_files, **keyword_files)
             if ruleinfo.output:
-                rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
+                pos_files, keyword_files, modifier = ruleinfo.output
+                rule.output_modifier = modifier
+                rule.set_output(*pos_files, **keyword_files)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
@@ -1419,9 +1432,9 @@ class Workflow:
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
-                            rule
-                        )
+                        f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
+                        "It's encouraged to use the more explicit options "
+                        "'minimal|copy-minimal|shallow|full' instead."
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
@@ -1456,11 +1469,15 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                rule.set_log(*ruleinfo.log[0], **ruleinfo.log[1])
+                pos_files, keyword_files, modifier = ruleinfo.log
+                rule.log_modifier = modifier
+                rule.set_log(*pos_files, **keyword_files)
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
-                rule.benchmark = ruleinfo.benchmark
+                benchmark, modifier = ruleinfo.benchmark
+                rule.benchmark_modifier = modifier
+                rule.benchmark = benchmark
             if not self.run_local:
                 group = self.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
@@ -1628,14 +1645,14 @@ class Workflow:
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = (paths, kwpaths)
+            ruleinfo.input = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = (paths, kwpaths)
+            ruleinfo.output = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1680,7 +1697,7 @@ class Workflow:
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
-            ruleinfo.benchmark = benchmark
+            ruleinfo.benchmark = (benchmark, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1771,7 +1788,7 @@ class Workflow:
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = (logs, kwlogs)
+            ruleinfo.log = (logs, kwlogs, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate

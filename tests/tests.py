@@ -101,6 +101,7 @@ def test13():
 @skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
+    os.environ["TESTVAR2"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
@@ -1427,6 +1428,14 @@ def test_module_use_local_git_repo_missing_rule_and_schema():
     untar_folder(dpath("test_module_local_git/module.tar.gz"), dpath("test_module_local_git/module"))
     run(dpath("test_module_local_git"), snakefile="Snakefile_main_missing_rule_and_schema", dryrun=True, shouldfail=True)
 
+    
+@skip_on_windows
+def test_module_no_prefixing_modified_paths():
+    run(
+        dpath("test_module_no_prefixing_modified_paths"),
+        targets=["module2/test_final.txt"],
+    )
+
 
 def test_module_with_script():
     run(dpath("test_module_with_script"))
@@ -1572,3 +1581,7 @@ def test_groupid_expand_cluster():
 @skip_on_windows
 def test_service_jobs():
     run(dpath("test_service_jobs"), check_md5=False)
+
+
+def test_incomplete_params():
+    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)

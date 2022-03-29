@@ -154,6 +154,10 @@ class AbstractRemoteProvider:
     def remote_interface(self):
         pass
 
+    @property
+    def name(self):
+        return self.__module__.split(".")[-1]
+
 
 class AbstractRemoteObject:
     """This is an abstract class to be used to derive remote object classes for

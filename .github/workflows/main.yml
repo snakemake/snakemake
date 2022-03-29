@@ -114,18 +114,19 @@ jobs:
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
 
       # TODO reactivate in April (we have no free resources left this month)
-      # - name: Test Kubernetes execution
-      #   if: env.GCP_AVAILABLE
-      #   env:
-      #     CI: true
-      #   run: |
-      #     # activate conda env
-      #     export PATH="/usr/share/miniconda/bin:$PATH"
-      #     source activate snakemake
+      - name: Test Kubernetes execution
+        if: env.GCP_AVAILABLE
+        env:
+          CI: true
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
 
-      #     pytest -s -v -x tests/test_kubernetes.py
+          pytest -s -v -x tests/test_kubernetes.py
 
-      - name: Test AWS execution
+      # TODO temporarily deactivate and fix in separate PR.
+      - name: Test Tibanna (AWS) execution
         if: env.AWS_AVAILABLE
         env: 
           CI: true
@@ -134,16 +135,16 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
 
-          pytest -v -x tests/test_tibanna.py
+      #     pytest -v -x -s tests/test_tibanna.py
 
       # TODO reactivate in April (we have no free resources left this month)
-      # - name: Test Google Life Sciences Executor
-      #   if: env.GCP_AVAILABLE
-      #   run: |
-      #     # activate conda env
-      #     export PATH="/usr/share/miniconda/bin:$PATH"
-      #     source activate snakemake
-      #     pytest -s -v -x tests/test_google_lifesciences.py
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
 
       - name: Test GA4GH TES executor
         run: |

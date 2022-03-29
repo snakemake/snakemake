@@ -3,7 +3,8 @@ from snakemake import shell
 chromosomes = [1,2,3,4,5]
 
 envvars:
-    "TESTVAR"
+    "TESTVAR",
+	"TESTVAR2"
 
 
 

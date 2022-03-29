@@ -108,6 +108,35 @@ defined as ``mem_mb`` to kubernetes. Further, it will propagate the number of th
 a job intends to use, such that kubernetes can allocate it to the correct cloud
 computing node.
 
+Machine Types
+~~~~~~~~~~~~~
+
+To specify an exact `machine type <https://cloud.google.com/compute/docs/machine-types>`_
+or a prefix to filter down to and then select based on other resource needs, 
+you can set a default resource on the command line, either for a prefix or 
+a full machine type:
+
+.. code-block:: console
+
+    --default-resources "machine_type=n1-standard"
+
+For individual jobs, the default machine type can also be overwritten via
+
+.. code-block:: console
+
+    --set-resources "somerule:machine_type=n1-standard"
+
+If you want to specify the machine type as a resource in the workflow definition, you can do that too (although it is not recommended in general because it ties your workflow to the used platform):
+
+.. code-block:: python
+
+    rule somerule:
+        output:
+            "test.txt"
+        resources:
+            machine_type="n1-standard-8"
+        shell:
+            "somecommand ..."
 
 -------------------------------------------------------------
 Executing a Snakemake workflow via Google Cloud Life Sciences

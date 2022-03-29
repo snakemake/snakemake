@@ -436,6 +436,9 @@ def snakemake(
             # clean up all previously recorded jobids.
             shell.cleanup()
     else:
+        if default_resources is None:
+            # use full default resources if in cluster or cloud mode
+            default_resources = DefaultResources(mode="full")
         if edit_notebook:
             raise WorkflowError(
                 "Notebook edit mode is only allowed with local execution."
@@ -599,6 +602,7 @@ def snakemake(
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
             all_temp=all_temp,
             local_groupid=local_groupid,
+            keep_metadata=keep_metadata,
             latency_wait=latency_wait,
         )
         success = True
@@ -800,7 +804,6 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
-                    keepmetadata=keep_metadata,
                 )
 
     except BrokenPipeError:

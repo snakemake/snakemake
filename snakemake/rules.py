@@ -118,7 +118,10 @@ class Rule:
             self.is_checkpoint = False
             self.restart_times = 0
             self.basedir = None
-            self.path_modifer = None
+            self.input_modifier = None
+            self.output_modifier = None
+            self.log_modifier = None
+            self.benchmark_modifier = None
             self.ruleinfo = None
         elif len(args) == 1:
             other = args[0]
@@ -168,7 +171,10 @@ class Rule:
             self.is_checkpoint = other.is_checkpoint
             self.restart_times = other.restart_times
             self.basedir = other.basedir
-            self.path_modifier = other.path_modifier
+            self.input_modifier = other.input_modifier
+            self.output_modifier = other.output_modifier
+            self.log_modifier = other.log_modifier
+            self.benchmark_modifier = other.benchmark_modifier
             self.ruleinfo = other.ruleinfo
 
     def dynamic_branch(self, wildcards, input=True):
@@ -348,7 +354,9 @@ class Rule:
         if isinstance(benchmark, Path):
             benchmark = str(benchmark)
         if not callable(benchmark):
-            benchmark = self.apply_path_modifier(benchmark, property="benchmark")
+            benchmark = self.apply_path_modifier(
+                benchmark, self.benchmark_modifier, property="benchmark"
+            )
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
@@ -471,9 +479,9 @@ class Rule:
                 )
             seen[value] = name or idx
 
-    def apply_path_modifier(self, item, property=None):
-        assert self.path_modifier is not None
-        apply = partial(self.path_modifier.modify, property=property)
+    def apply_path_modifier(self, item, path_modifier, property=None):
+        assert path_modifier is not None
+        apply = partial(path_modifier.modify, property=property)
 
         assert not callable(item)
         if isinstance(item, dict):
@@ -528,9 +536,14 @@ class Rule:
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
                 rule_dependency = item.rule
 
-            item = self.apply_path_modifier(
-                item, property="output" if output else "input"
-            )
+            if output:
+                path_modifier = self.output_modifier
+                property = "output"
+            else:
+                path_modifier = self.input_modifier
+                property = "input"
+
+            item = self.apply_path_modifier(item, path_modifier, property=property)
 
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
@@ -685,7 +698,7 @@ class Rule:
             item = str(item)
         if isinstance(item, str) or callable(item):
             if not callable(item):
-                item = self.apply_path_modifier(item, property="log")
+                item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
             self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
@@ -769,7 +782,7 @@ class Rule:
         mapping=None,
         no_flattening=False,
         aux_params=None,
-        apply_path_modifier=True,
+        path_modifier=None,
         property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
@@ -835,8 +848,10 @@ class Rule:
                             "Function did not return str or list of str.", rule=self
                         )
 
-                    if from_callable and apply_path_modifier and not incomplete:
-                        item_ = self.apply_path_modifier(item_, property=property)
+                    if from_callable and path_modifier is not None and not incomplete:
+                        item_ = self.apply_path_modifier(
+                            item_, path_modifier, property=property
+                        )
 
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
@@ -882,6 +897,7 @@ class Rule:
                 concretize=concretize_iofile,
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
+                path_modifier=self.input_modifier,
                 property="input",
                 groupid=groupid,
             )
@@ -944,7 +960,6 @@ class Rule:
                 omit_callable=omit_callable,
                 allow_unpack=False,
                 no_flattening=True,
-                apply_path_modifier=False,
                 property="params",
                 aux_params={
                     "input": input._plainstrings(),
@@ -993,7 +1008,12 @@ class Rule:
 
         try:
             self._apply_wildcards(
-                log, self.log, wildcards, concretize=concretize_logfile, property="log"
+                log,
+                self.log,
+                wildcards,
+                concretize=concretize_logfile,
+                path_modifier=self.log_modifier,
+                property="log",
             )
         except WildcardError as e:
             raise WildcardError(

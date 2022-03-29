@@ -53,7 +53,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         cache=False,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
         preemption_default=None,
         preemptible_rules=None,
@@ -65,20 +64,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
-        # Relative path for running on instance
-        self._set_snakefile()
-
         # Prepare workflow sources for build package
         self._set_workflow_sources()
-
-        exec_job = exec_job or (
-            "snakemake {target} --snakefile %s "
-            "--force --cores {cores} --keep-target-files --keep-remote "
-            "--latency-wait {latency_wait} --scheduler {workflow.scheduler_type} "
-            "--attempt 1 {use_threads} --max-inventory-time 0 "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock " % self.snakefile
-        )
 
         # Set preemptible instances
         self._set_preemptible_rules(preemption_default, preemptible_rules)
@@ -127,9 +114,14 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             quiet=quiet,
             printshellcmds=printshellcmds,
             restart_times=restart_times,
-            exec_job=exec_job,
             assume_shared_fs=False,
             max_status_checks_per_second=10,
+        )
+
+    def get_default_resources_args(self, default_resources=None):
+        assert default_resources is None
+        return super().get_default_resources_args(
+            default_resources=self.default_resources
         )
 
     def _get_services(self):
@@ -448,7 +440,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             gpu_count = 1
 
         # Update default resources using decided memory and disk
-
+        # TODO why is this needed??
         self.default_resources = DefaultResources(
             from_other=self.workflow.default_resources
         )
@@ -623,14 +615,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         return keepers[smallest]
 
-    def _set_snakefile(self):
-        """The snakefile must be a relative path, which should be derived
-        from the self.workflow.main_snakefile.
-        """
+    def get_snakefile(self):
         assert os.path.exists(self.workflow.main_snakefile)
-        self.snakefile = self.workflow.main_snakefile.replace(self.workdir, "").strip(
-            os.sep
-        )
+        return self.workflow.main_snakefile.replace(self.workdir, "").strip(os.sep)
 
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
@@ -721,13 +708,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
-
         # Save logs from /google/logs/output to source/logs in bucket
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s"
-            % (self.bucket.name, self.gs_logs, job.name),
+            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/jobid_%s"
+            % (self.bucket.name, self.gs_logs, job.name, job.jobid),
         ]
 
         # Always run the action to generate log output
@@ -738,30 +724,28 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "labels": self._generate_pipeline_labels(job),
             "alwaysRun": True,
         }
+
         return action
 
     def _generate_job_action(self, job):
         """generate a single action to execute the job."""
-        # Derive the entrypoint command, the same content that might be written by self.get_jobscript(job)
-        use_threads = "--force-use-threads" if not job.is_group() else ""
+        exec_job = self.format_job_exec(job)
 
-        exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads
-        )
-
-        # Now that we've parsed the job resource requirements, add to exec
-        exec_job += self.get_default_resources_args(self.default_resources)
-
-        # script should be changed to this when added to version control!
-        # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
         # The full command to download the archive, extract, and run
         # For snakemake bases, we must activate the conda environment, but
         # for custom images we must allow this to fail (hence || true)
         commands = [
             "/bin/bash",
             "-c",
-            "mkdir -p /workdir && cd /workdir && wget -O /download.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /download.py && source activate snakemake || true && python /download.py download %s %s /tmp/workdir.tar.gz && tar -xzvf /tmp/workdir.tar.gz && %s"
-            % (self.bucket.name, self.pipeline_package, exec_job),
+            "mkdir -p /workdir && "
+            "cd /workdir && "
+            "wget -O /download.py "
+            "https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && "
+            "chmod +x /download.py && "
+            "source activate snakemake || true && "
+            f"python /download.py download {self.bucket.name} {self.pipeline_package} "
+            "/tmp/workdir.tar.gz && "
+            f"tar -xzvf /tmp/workdir.tar.gz && {exec_job}",
         ]
 
         # We are only generating one action, one job per run

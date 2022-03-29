@@ -1,5 +1,68 @@
 # Changelog
 
+### [7.3.3](https://www.github.com/snakemake/snakemake/compare/v7.3.2...v7.3.3) (2022-03-28)
+
+
+### Bug Fixes
+
+* better error message in case of failing to create conda env ([#1526](https://www.github.com/snakemake/snakemake/issues/1526)) ([e7a461c](https://www.github.com/snakemake/snakemake/commit/e7a461ce7b5626e603784da27aa4c87649f5edec))
+* fix singularity logging messages causing conda fail ([#1523](https://www.github.com/snakemake/snakemake/issues/1523)) ([7797595](https://www.github.com/snakemake/snakemake/commit/77975952ce7df346729f76a767ad4f475b385306))
+* more robust handling of incompletely evaluated parameters (any interaction with them will result in a string <TBD> now). ([#1525](https://www.github.com/snakemake/snakemake/issues/1525)) ([3d4c768](https://www.github.com/snakemake/snakemake/commit/3d4c768aafbdca67a9032ad9e3b73449a1fadb0d))
+
+
+### Documentation
+
+* details on benchmarked results ([64fea09](https://www.github.com/snakemake/snakemake/commit/64fea0921f6a35dbea96435debb114012603ffc2))
+
+### [7.3.2](https://www.github.com/snakemake/snakemake/compare/v7.3.1...v7.3.2) (2022-03-25)
+
+
+### Bug Fixes
+
+* fixed code change detection ([#1513](https://www.github.com/snakemake/snakemake/issues/1513)) ([67298c6](https://www.github.com/snakemake/snakemake/commit/67298c6167ccaef5f9fbd03ec6b4fe65d86e9ca3))
+* modify dag and workflow display in report to also work for big DAGs ([#1517](https://www.github.com/snakemake/snakemake/issues/1517)) ([1364dfb](https://www.github.com/snakemake/snakemake/commit/1364dfbc9db58541aaf5600bca61230f9eb4ecbc))
+
+
+### Documentation
+
+* Clarify the use of conda with notebook directive ([#1515](https://www.github.com/snakemake/snakemake/issues/1515)) ([aefb1eb](https://www.github.com/snakemake/snakemake/commit/aefb1eb0a2d62faa6108670f3a11d58a1d797c41))
+
+### [7.3.1](https://www.github.com/snakemake/snakemake/compare/v7.3.0...v7.3.1) (2022-03-23)
+
+
+### Bug Fixes
+
+* add about page to report, including embedded packages and licenses ([#1511](https://www.github.com/snakemake/snakemake/issues/1511)) ([142a452](https://www.github.com/snakemake/snakemake/commit/142a45256f1b192246dd8e9843abedb24badecc6))
+* in google live science backend, save multiple logs per rule name and overwrite existing logs ([#1504](https://www.github.com/snakemake/snakemake/issues/1504)) ([9e92d63](https://www.github.com/snakemake/snakemake/commit/9e92d63b9e68b29ccd680c34171994b0a2041efb))
+* in rules from imported modules, exclude modified paths from module prefixing ([#1494](https://www.github.com/snakemake/snakemake/issues/1494)) ([1e73db0](https://www.github.com/snakemake/snakemake/commit/1e73db0325f407529108acc689a915ff23611b5a))
+* Replaced pathlib relative_to with os.relpath ([#1505](https://www.github.com/snakemake/snakemake/issues/1505)) ([dc65e29](https://www.github.com/snakemake/snakemake/commit/dc65e2921163e9b069c13f79dc0488be21452905))
+* update for minimum of Python 3.7 ([#1509](https://www.github.com/snakemake/snakemake/issues/1509)) ([62024e2](https://www.github.com/snakemake/snakemake/commit/62024e2bfd6d5735763f37a0f4bf43a16f229443))
+
+## [7.3.0](https://www.github.com/snakemake/snakemake/compare/v7.2.1...v7.3.0) (2022-03-21)
+
+
+### Features
+
+* Support for machine_type for kubernetes executor ([#1291](https://www.github.com/snakemake/snakemake/issues/1291)) ([12d6f67](https://www.github.com/snakemake/snakemake/commit/12d6f67a19a55ead092c80b2e5b49e1836fb4e5f))
+
+
+### Bug Fixes
+
+* always wait for input files before starting jobs, also upon local execution and within group jobs. This should add further robustness against NFS latency issues. ([#1486](https://www.github.com/snakemake/snakemake/issues/1486)) ([cab2adb](https://www.github.com/snakemake/snakemake/commit/cab2adbc2278a2c1689414d2a3f172bb1d5c84d1))
+* cleaned up and rewritten execution backend structure, (fixing [#1475](https://www.github.com/snakemake/snakemake/issues/1475), [#860](https://www.github.com/snakemake/snakemake/issues/860), [#1007](https://www.github.com/snakemake/snakemake/issues/1007), [#1008](https://www.github.com/snakemake/snakemake/issues/1008)) (PR [#1491](https://www.github.com/snakemake/snakemake/issues/1491)) ([e87cc97](https://www.github.com/snakemake/snakemake/commit/e87cc979bea0567e1cd97722d385f472857df83c))
+* do not skip local conda env creation per se when having no shared FS, because it is still needed for local jobs. Instead, decide for each env whether it is needed locally or not. ([#1490](https://www.github.com/snakemake/snakemake/issues/1490)) ([3f03c5d](https://www.github.com/snakemake/snakemake/commit/3f03c5d303fbdd9e05aa13a4d93bce08cade32b2))
+* fixed temp file deletion for group jobs ([#1487](https://www.github.com/snakemake/snakemake/issues/1487)) ([d030443](https://www.github.com/snakemake/snakemake/commit/d030443548a9851a82bcce618b24a9e24a8b545d))
+* improve robustness when retrieving remote source files, fixed usage of local git repos as wrapper prefixes (in collaboration with [@cokelaer](https://www.github.com/cokelaer) and @Smeds) ([#1495](https://www.github.com/snakemake/snakemake/issues/1495)) ([e16531d](https://www.github.com/snakemake/snakemake/commit/e16531d6d35b5eb3f7d19008e3e9c4432c4b2e69))
+* mtime inventory for google storage was accidentally setting a float instead of a proper mtime object ([#1484](https://www.github.com/snakemake/snakemake/issues/1484)) ([7c762c7](https://www.github.com/snakemake/snakemake/commit/7c762c7e5204f95ca85157ba5fe5ab061b8abdfa))
+* render empty caption if nothing defined in report flag ([013a6e8](https://www.github.com/snakemake/snakemake/commit/013a6e8459d0659e05546c849f84151860686004))
+
+
+### Documentation
+
+* clarify namespacing when using modules. ([dbed4a3](https://www.github.com/snakemake/snakemake/commit/dbed4a3f160106feb15a51d2e8cfcafae531ea57))
+* separate api docs ([ded7da9](https://www.github.com/snakemake/snakemake/commit/ded7da90258284f06d4e9263e667cd632cdc12ae))
+* separate api docs ([#1499](https://www.github.com/snakemake/snakemake/issues/1499)) ([5cf275a](https://www.github.com/snakemake/snakemake/commit/5cf275ab9c556dd1828a0618799bcdba0c561e70))
+
 ### [7.2.1](https://www.github.com/snakemake/snakemake/compare/v7.2.0...v7.2.1) (2022-03-14)
 
 

@@ -12,6 +12,10 @@ from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
 
 S3 = S3RemoteProvider()
 
+
+configfile: "config.json"
+
+
 # envvars:
 #    "TEST_ENVVAR1",
 #    "TEST_ENVVAR2"
