@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import os
 import re
+import types
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
@@ -753,6 +754,11 @@ class Rule:
 
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
+            if isinstance(value, types.GeneratorType):
+                # generators should be immediately collected here,
+                # otherwise we would miss any exceptions and
+                # would have to capture them again later.
+                value = list(value)
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
