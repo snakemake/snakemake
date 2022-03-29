@@ -1565,3 +1565,11 @@ def test_service_jobs():
 
 def test_incomplete_params():
     run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
+
+
+def test_pipe_depend():
+    run(dpath("test_pipe_depend"), shouldfail=True)
+
+
+def test_pipe_depend_target_file():
+    run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)
