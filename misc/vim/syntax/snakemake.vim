@@ -47,7 +47,7 @@ source $VIMRUNTIME/indent/python.vim
 syn keyword pythonStatement include workdir onsuccess onerror onstart
 syn keyword pythonStatement ruleorder localrules configfile group 
 syn keyword pythonStatement wrapper conda shadow
-syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints
+syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints container
 syn keyword pythonStatement version run shell benchmark snakefile log script
 syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
 syn keyword pythonBuiltinObj config checkpoints rules
