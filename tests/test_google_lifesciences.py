@@ -20,7 +20,7 @@ google_credentials = pytest.mark.skipif(
 )
 
 
-def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
+def cleanup_google_storage(prefix, bucket_name="snakemake-testing", restrict_to=None):
     """Given a storage prefix and a bucket, recursively delete files there
     This is intended to run after testing to ensure that
     the bucket is cleaned up.
@@ -34,9 +34,14 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing"):
     blobs = bucket.list_blobs(prefix="source")
     for blob in blobs:
         blob.delete()
-    # Using API we get an exception about bucket deletion
-    shell("gsutil -m rm -r gs://{bucket.name}/* || true")
-    bucket.delete()
+    blobs = bucket.list_blobs(prefix=prefix)
+    for blob in blobs:
+        if restrict_to is None or f"{bucket_name}/{blob.name}" in restrict_to:
+            blob.delete()
+    if restrict_to is None:
+        # Using API we get an exception about bucket deletion
+        shell("gsutil -m rm -r gs://{bucket.name}/* || true")
+        bucket.delete()
 
 
 def create_google_storage(bucket_name="snakemake-testing"):
@@ -123,6 +128,38 @@ def test_github_issue1396():
             google_lifesciences=True,
             google_lifesciences_cache=False,
             dryrun=True,
+        )
+    finally:
+        cleanup_google_storage(storage_prefix, bucket_name)
+
+
+def test_github_issue1460():
+    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    create_google_storage(bucket_name)
+    storage_prefix = "test_github_issue1460"
+    prefix = "%s/%s" % (bucket_name, storage_prefix)
+    workdir = dpath("test_github_issue1460")
+    try:
+        run(
+            workdir,
+            default_remote_prefix=prefix,
+            google_lifesciences=True,
+            google_lifesciences_cache=False,
+        )
+        cleanup_google_storage(
+            storage_prefix,
+            bucket_name,
+            restrict_to=[
+                f"{prefix}/test.txt",
+                f"{prefix}/blob.txt",
+                f"{prefix}/pretest.txt",
+            ],
+        )
+        run(
+            workdir,
+            default_remote_prefix=prefix,
+            google_lifesciences=True,
+            google_lifesciences_cache=False,
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
