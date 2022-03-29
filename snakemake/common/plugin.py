@@ -57,7 +57,9 @@ def verify_plugin(
             )
 
 
-def load_plugins(plugin_modules, globals_dict, extra_attrs, checks):
+def load_plugins(
+    plugin_modules, globals_dict, extra_attrs, checks, alternative_mod_name=None
+):
     """Load plugins into the globals dict, yielding all the modules in the process.
     Additionally some checks are performed on the plugins.
     NB. Don't forget to exhaust the created generated to have an effect."""
@@ -75,8 +77,10 @@ def load_plugins(plugin_modules, globals_dict, extra_attrs, checks):
             continue
 
         yield plugin_module
-        snakemake_submodule_name = (
-            getattr(plugin_module, "snakemake_submodule_name") or plugin_name
+        snakemake_submodule_name = getattr(
+            plugin_module,
+            alternative_mod_name or "snakemake_submodule_name",
+            plugin_name,
         )
         globals_dict[snakemake_submodule_name] = plugin_module
         globals_dict[snakemake_submodule_name.lower()] = plugin_module
