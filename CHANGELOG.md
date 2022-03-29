@@ -1,5 +1,19 @@
 # Changelog
 
+### [7.3.3](https://www.github.com/snakemake/snakemake/compare/v7.3.2...v7.3.3) (2022-03-28)
+
+
+### Bug Fixes
+
+* better error message in case of failing to create conda env ([#1526](https://www.github.com/snakemake/snakemake/issues/1526)) ([e7a461c](https://www.github.com/snakemake/snakemake/commit/e7a461ce7b5626e603784da27aa4c87649f5edec))
+* fix singularity logging messages causing conda fail ([#1523](https://www.github.com/snakemake/snakemake/issues/1523)) ([7797595](https://www.github.com/snakemake/snakemake/commit/77975952ce7df346729f76a767ad4f475b385306))
+* more robust handling of incompletely evaluated parameters (any interaction with them will result in a string <TBD> now). ([#1525](https://www.github.com/snakemake/snakemake/issues/1525)) ([3d4c768](https://www.github.com/snakemake/snakemake/commit/3d4c768aafbdca67a9032ad9e3b73449a1fadb0d))
+
+
+### Documentation
+
+* details on benchmarked results ([64fea09](https://www.github.com/snakemake/snakemake/commit/64fea0921f6a35dbea96435debb114012603ffc2))
+
 ### [7.3.2](https://www.github.com/snakemake/snakemake/compare/v7.3.1...v7.3.2) (2022-03-25)
 
 
