@@ -96,6 +96,7 @@ def wrapper(
     cleanup_scripts,
     shadow_dir,
     runtime_sourcecache_path,
+    shell_exec,
 ):
     """
     Load a wrapper from https://github.com/snakemake/snakemake-wrappers under
@@ -133,4 +134,5 @@ def wrapper(
         cleanup_scripts,
         shadow_dir,
         runtime_sourcecache_path,
+        shell_exec,
     )

@@ -1561,3 +1561,8 @@ def test_groupid_expand_cluster():
 @skip_on_windows
 def test_service_jobs():
     run(dpath("test_service_jobs"), check_md5=False)
+
+
+@skip_on_windows
+def test_shell_exec():
+    run(dpath("test_shell_exec"))

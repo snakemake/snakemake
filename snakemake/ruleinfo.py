@@ -39,6 +39,7 @@ class RuleInfo:
         self.path_modifier = None
         self.handover = False
         self.default_target = False
+        self.shell_exec = None
 
     def apply_modifier(
         self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}

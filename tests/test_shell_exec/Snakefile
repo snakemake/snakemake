@@ -1,0 +1,8 @@
+rule a:
+    output:
+        "test.out",
+    container:
+        "docker://alpine"
+    shell_exec: "sh"
+    shell:
+        "echo test > {output}"

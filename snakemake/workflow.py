@@ -1396,6 +1396,7 @@ class Workflow:
                 rule.set_output(*pos_files, **keyword_files)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
+            rule.shell_exec = ruleinfo.shell_exec
             # handle default resources
             if self.default_resources is not None:
                 rule.resources = copy.deepcopy(self.default_resources.parsed)
@@ -1746,6 +1747,13 @@ class Workflow:
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
+            return ruleinfo
+
+        return decorate
+
+    def shellexec(self, shell_exec):
+        def decorate(ruleinfo):
+            ruleinfo.shell_exec = shell_exec
             return ruleinfo
 
         return decorate

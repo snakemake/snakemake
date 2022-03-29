@@ -132,12 +132,6 @@ class shell:
         if "stepout" in kwargs:
             raise KeyError("Argument stepout is not allowed in shell command.")
 
-        if ON_WINDOWS and not cls.get_executable():
-            # If bash is not used on Windows quoting must be handled in a special way
-            kwargs["quote_func"] = cmd_exe_quote
-
-        cmd = format(cmd, *args, stepout=2, **kwargs)
-
         stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != "win32"
@@ -155,8 +149,6 @@ class shell:
         context.update(kwargs)
 
         jobid = context.get("jobid")
-        if not context.get("is_shell"):
-            logger.shellcmd(cmd)
 
         conda_env = context.get("conda_env", None)
         conda_base_path = context.get("conda_base_path", None)
@@ -167,6 +159,19 @@ class shell:
         singularity_args = context.get("singularity_args", "")
         threads = context.get("threads", 1)
 
+        process_args = dict(cls._process_args)
+        shell_exec = context.get("shell_exec") or process_args["executable"]
+        process_args["executable"] = shell_exec
+
+        if ON_WINDOWS and not shell_exec:
+            # If bash is not used on Windows quoting must be handled in a special way
+            kwargs["quote_func"] = cmd_exe_quote
+
+        cmd = format(cmd, *args, stepout=2, **kwargs)
+
+        if not context.get("is_shell"):
+            logger.shellcmd(cmd)
+
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
         if env_modules:
@@ -174,7 +179,7 @@ class shell:
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
-            if ON_WINDOWS and not cls.get_executable():
+            if ON_WINDOWS and not shell_exec:
                 # If we use cmd.exe directly on winodws we need to prepend batch activation script.
                 cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd_win(
                     conda_env, cmd
@@ -191,7 +196,7 @@ class shell:
             with open(script, "w") as script_fd:
                 print(cmd, file=script_fd)
             os.chmod(script, os.stat(script).st_mode | stat.S_IXUSR | stat.S_IRUSR)
-            cmd = '"{}" "{}"'.format(cls.get_executable() or "/bin/sh", script)
+            cmd = '"{}" "{}"'.format(shell_exec or "/bin/sh", script)
 
         if container_img:
             cmd = singularity.shellcmd(
@@ -199,7 +204,7 @@ class shell:
                 cmd,
                 singularity_args,
                 envvars=None,
-                shell_executable=cls._process_args["executable"],
+                shell_executable=shell_exec,
                 container_workdir=shadow_dir,
                 is_python_script=context.get("is_python_script", False),
             )
@@ -248,13 +253,13 @@ class shell:
                     pass
 
         use_shell = True
-        if ON_WINDOWS and cls.get_executable():
+        if ON_WINDOWS and shell_exec:
             # If executable is set on Windows shell mode can not be used
             # and the executable should be prepended the command together
             # with a command prefix (e.g. -c for bash).
             use_shell = False
             cmd = '"{}" {} {}'.format(
-                cls.get_executable(), cls._win_command_prefix, argvquote(cmd)
+                shell_exec, cls._win_command_prefix, argvquote(cmd)
             )
 
         proc = sp.Popen(
@@ -264,7 +269,7 @@ class shell:
             stdout=stdout,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
-            **cls._process_args,
+            **process_args,
             env=envvars,
         )
 
