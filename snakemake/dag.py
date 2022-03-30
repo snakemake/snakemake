@@ -1308,6 +1308,12 @@ class DAG:
                             "a dead lock.".format(f),
                             rule=job.rule,
                         )
+                    elif is_pipe and depending[0].is_norun:
+                        raise WorkflowError(
+                            f"Output file {f} is marked as pipe but is requested by a rule that "
+                            "does not execute anything. This is not allowed because it would lead "
+                            "to a dead lock."
+                        )
 
                     for dep in depending:
                         if dep.is_run:
