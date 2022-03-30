@@ -51,6 +51,15 @@ class shell:
     def get_executable(cls):
         return cls._process_args.get("executable", None)
 
+    def get_process_prefix(cls, shell_exec):
+        prefix = cls._process_prefix
+        shell_exec = shell_exec or cls.get_executable()
+        if shell_exec.endswith("bash") or (
+            ON_WINDOWS and shell_exec.endswith("bash.exe")
+        ):
+            prefix = "set -euo pipefail; " + prefix
+        return prefix
+
     @classmethod
     def check_output(cls, cmd, **kwargs):
         executable = cls.get_executable()
@@ -75,7 +84,6 @@ class shell:
                 )
         if ON_WINDOWS:
             if cmd is None:
-                cls._process_prefix = ""
                 cls._win_command_prefix = ""
             elif os.path.split(cmd)[-1].lower() in ("bash", "bash.exe"):
                 if cmd == r"C:\Windows\System32\bash.exe":
@@ -83,10 +91,7 @@ class shell:
                         "Cannot use WSL bash.exe on Windows. Ensure that you have "
                         "a usable bash.exe availble on your path."
                     )
-                cls._process_prefix = "set -euo pipefail; "
                 cls._win_command_prefix = "-c"
-        elif os.path.split(cmd)[-1].lower() == "bash":
-            cls._process_prefix = "set -euo pipefail; "
         cls._process_args["executable"] = cmd
 
     @classmethod
@@ -172,7 +177,9 @@ class shell:
         if not context.get("is_shell"):
             logger.shellcmd(cmd)
 
-        cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
+        cmd = " ".join(
+            (cls.get_process_prefix(shell_exec), cmd, cls._process_suffix)
+        ).strip()
 
         if env_modules:
             cmd = env_modules.shellcmd(cmd)
