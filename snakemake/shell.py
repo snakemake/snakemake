@@ -51,6 +51,7 @@ class shell:
     def get_executable(cls):
         return cls._process_args.get("executable", None)
 
+    @classmethod
     def get_process_prefix(cls, shell_exec):
         prefix = cls._process_prefix
         shell_exec = shell_exec or cls.get_executable()
