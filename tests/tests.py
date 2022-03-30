@@ -1561,3 +1561,17 @@ def test_groupid_expand_cluster():
 @skip_on_windows
 def test_service_jobs():
     run(dpath("test_service_jobs"), check_md5=False)
+
+
+def test_incomplete_params():
+    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend():
+    run(dpath("test_pipe_depend"), shouldfail=True)
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend_target_file():
+    run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)

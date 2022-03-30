@@ -509,8 +509,7 @@ class Env:
                 # remove potential partially installed environment
                 shutil.rmtree(env_path, ignore_errors=True)
                 raise CreateCondaEnvironmentException(
-                    "Could not create conda environment from {}:\n".format(env_file)
-                    + e.output
+                    f"Could not create conda environment from {env_file}:\nCommand:\n{e.cmd}\nOutput:\n{e.output}"
                 )
 
         if tmp_env_file:
@@ -565,7 +564,9 @@ class Conda:
 
             if prefix_path is None or container_img is not None:
                 self.prefix_path = json.loads(
-                    shell.check_output(self._get_cmd("conda info --json"))
+                    shell.check_output(
+                        self._get_cmd("conda info --json"), universal_newlines=True
+                    )
                 )["conda_prefix"]
             else:
                 self.prefix_path = prefix_path
@@ -624,19 +625,16 @@ class Conda:
         try:
             version = shell.check_output(
                 self._get_cmd("conda --version"),
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.PIPE,
                 universal_newlines=True,
             )
-            if self.container_img:
-                version = "\n".join(
-                    filter(
-                        lambda line: not line.startswith("WARNING:")
-                        and not line.startswith("ERROR:"),
-                        version.splitlines(),
-                    )
+            version_matches = re.findall("\d+.\d+.\d+", version)
+            if len(version_matches) != 1:
+                raise WorkflowError(
+                    f"Unable to determine conda version. 'conda --version' returned {version}"
                 )
-
-            version = version.split()[1]
+            else:
+                version = version_matches[0]
             if StrictVersion(version) < StrictVersion("4.2"):
                 raise CreateCondaEnvironmentException(
                     "Conda must be version 4.2 or later, found version {}.".format(
@@ -645,7 +643,7 @@ class Conda:
                 )
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                "Unable to check conda version:\n" + e.output.decode()
+                "Unable to check conda version:\n" + e.stderr.decode()
             )
 
     def bin_path(self):
