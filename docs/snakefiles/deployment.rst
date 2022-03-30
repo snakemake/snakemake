@@ -384,19 +384,8 @@ However, ``docker://`` is preferred, as other container runtimes will be support
    Note that singularity integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
    The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
 
-It is possible to enforce a particular shell to be used inside of the container (by default Snakemake uses ``bash``).
-This can be useful when the container image does not have bash installed:
-
-.. code-block:: python
-
-    rule a:
-        output:
-            "test.out",
-        container:
-            "docker://alpine"
-        shell_exec: "sh"
-        shell:
-            "echo test > {output}"
+It is possible to enforce a particular shell to be used inside of the container (by default Snakemake uses ``bash``, see :ref:`snakefiles_shell_exec`).
+This can be useful when the container image does not have bash installed.
 
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
