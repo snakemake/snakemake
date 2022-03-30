@@ -824,10 +824,12 @@ def wait_for_files(
             if not get_missing():
                 return
             time.sleep(1)
+        missing = "\n".join(get_missing())
         raise IOError(
-            "Missing files after {} seconds:\n{}".format(
-                latency_wait, "\n".join(get_missing())
-            )
+            f"Missing files after {latency_wait} seconds. This might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait:\n"
+            f"{missing}"
         )
 
 
