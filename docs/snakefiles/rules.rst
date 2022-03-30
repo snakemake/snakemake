@@ -764,7 +764,7 @@ As such, the script must be a valid ``rust-script`` script and ``rust-script``
 must be available in the environment the rule is run in.
 The minimum required ``rust-script`` version is 1.15.0, so in the example above, the contents of ``rust.yaml`` might look like this:
 
-.. code block:: yaml
+.. code-block:: yaml
 
     channels:
       - conda-forge
@@ -774,8 +774,6 @@ The minimum required ``rust-script`` version is 1.15.0, so in the example above,
       - openssl
       - c-compiler
       - pkg-config
-
-
 
 Some example scripts can be found in the
 `tests directory <https://github.com/snakemake/snakemake/tree/main/tests/test_script/scripts>`_.
