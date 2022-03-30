@@ -392,7 +392,8 @@ class Workflow:
                 )
             else:
                 raise WorkflowError(
-                    "Error executing git:\n{}".format(e.stderr.decode())
+                    "Error executing git (Snakemake requires git to be installed for "
+                    "remote execution without shared filesystem):\n" + e.stderr.decode()
                 )
 
         return files
