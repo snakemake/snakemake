@@ -59,7 +59,7 @@ jobs:
           # additionally add singularity
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1: cannot open shared object file: No such file or directory
-          mamba install -c conda-forge -n snakemake singularity<=3.8.6
+          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
       
       - name: Setup apt dependencies
         run: |
