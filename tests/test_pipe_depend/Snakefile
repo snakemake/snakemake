@@ -1,0 +1,11 @@
+rule all:
+    input:
+        "test.txt"
+
+
+rule a:
+    output:
+        pipe("test.txt")
+    shell:
+        "echo test > {output}"
+
