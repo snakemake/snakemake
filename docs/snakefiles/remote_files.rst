@@ -364,6 +364,12 @@ For different types of authentication, you can pass in a Python ```requests.auth
 
 Since remote servers do not present directory contents uniformly, ``glob_wildcards()`` is __not__ supported by the HTTP provider.
 
+.. note::
+
+    Snakemake automatically decompresses http remote files if they are marked as `Content-Encoding: gzip` by the server and **not** end with ``.gz``.
+    The reason is that for those files the rule obviously expects the uncompressed version.
+    If in contrast the file ends on ``.gz`` the compressed version is expected and therefore no automatic decompression happens.
+
 File Transfer Protocol (FTP)
 ============================
 
