@@ -15,6 +15,7 @@ from snakemake.common.plugin import (
     find_plugins,
     internal_submodules,
     load_plugins,
+    verify_plugin,
 )
 from snakemake.common.remote import (
     AbstractRemoteObject,
@@ -28,8 +29,14 @@ from snakemake.common.remote import (
 from snakemake.logging import logger
 from snakemake.utils import min_version, raise_
 
+
+def snakemake_min_version(mod):
+    """raises WorkFlowError"""
+    min_version(mod.__min_snakemake_version__)
+
+
 plugin_checks = {
-    lambda mod: min_version(mod.__min_snakemake_version__): None,
+    snakemake_min_version: None,
     lambda mod: not issubclass(
         mod.RemoteObject, AbstractRemoteObject
     ): lambda mod: raise_(
@@ -47,6 +54,19 @@ plugin_checks = {
         )
     ),
 }
+
+remote_plugin_prefix = "snakemake-plugin-remote-"
+
+
+def verify_remote_plugin(mod):
+    verify_plugin(
+        mod,
+        extra_attrs=["RemoteProvider", "RemoteObject"],
+        checks=plugin_checks,
+        prefix=remote_plugin_prefix,
+    )
+
+
 # Load remote plugins in a list,
 # Also have them available for direct importing
 # by setting them on the globals() dict.
@@ -54,8 +74,7 @@ plugin_remote_modules = list(
     load_plugins(
         plugin_modules=find_plugins(prefix="snakemake-plugin-remote-"),
         globals_dict=globals(),
-        extra_attrs=["RemoteProvider", "RemoteObject"],
-        checks=plugin_checks,
+        verify_func=verify_remote_plugin,
     )
 )
 

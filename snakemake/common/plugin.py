@@ -41,7 +41,9 @@ plugin_required_mod_attrs = [
 ]
 
 
-def verify_plugin(mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], checks={}):
+def verify_plugin(
+    mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], checks={}, prefix=None
+):
     """Confirms a module (just an object) has the required attributes
 
     Raises a PluginException if this is not true.
@@ -50,6 +52,12 @@ def verify_plugin(mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], chec
     The check should return None or False to pass.
     """
     package_name = cached_packages_distributions[mod.__name__][0]
+    if prefix:
+        if not package_name.starswith(prefix):
+            raise PluginException(
+                f"Plugin {package_name} is not distributed "
+                f"with a package starting with {prefix}."
+            )
     for a in mod_attrs + extra_attrs:
         if not hasattr(mod, a):
             raise PluginException(
@@ -65,9 +73,7 @@ def verify_plugin(mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], chec
             )
 
 
-def load_plugins(
-    plugin_modules, globals_dict, extra_attrs, checks, alternative_mod_name=None
-):
+def load_plugins(plugin_modules, globals_dict, verify_func, alternative_mod_name=None):
     """Load plugins into the globals dict, yielding all the modules in the process.
     Additionally some checks are performed on the plugins.
     NB. Don't forget to exhaust the created generated to have an effect."""
@@ -79,7 +85,7 @@ def load_plugins(
             continue
 
         try:
-            verify_plugin(plugin_module, extra_attrs=extra_attrs, checks=checks)
+            verify_func(plugin_module)
         except PluginException as e:
             logger.warning(f"Plugin {package_name} incorrect: {e}")
             continue

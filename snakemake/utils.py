@@ -725,4 +725,5 @@ class Paramspace:
 
 
 def raise_(e):
+    """If you want to use raise as a function."""
     raise e
