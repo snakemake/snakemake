@@ -25,7 +25,6 @@ def find_plugins(prefix):
         # start with the correct prefix.
         try:
             packages = cached_packages_distributions[name]
-            print(packages)
         except KeyError:
             continue
         if packages[0].startswith(prefix):
