@@ -1567,6 +1567,11 @@ def test_incomplete_params():
     run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
 
 
+@skip_on_windows
+def test_github_issue261():
+    run(dpath("test_github_issue261"), targets=["test1/target1/config1.done"])
+
+
 @skip_on_windows  # no pipe support on windows
 def test_pipe_depend():
     run(dpath("test_pipe_depend"), shouldfail=True)
@@ -1575,3 +1580,7 @@ def test_pipe_depend():
 @skip_on_windows  # no pipe support on windows
 def test_pipe_depend_target_file():
     run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)
+
+
+def test_github_issue1542():
+    run(dpath("test_github_issue1542"), dryrun=True)

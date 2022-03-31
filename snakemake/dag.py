@@ -502,10 +502,7 @@ class DAG:
                 )
             except IOError as e:
                 raise MissingOutputException(
-                    str(e) + "\nThis might be due to "
-                    "filesystem latency. If that is the case, consider to increase the "
-                    "wait time with --latency-wait."
-                    + "\nJob id: {jobid}".format(jobid=job.jobid),
+                    str(e),
                     rule=job.rule,
                     jobid=self.jobid(job),
                 )
@@ -642,8 +639,11 @@ class DAG:
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
-            logger.info("Removing temporary output file {}.".format(f))
-            f.remove(remove_non_empty_dir=True)
+            if self.dryrun:
+                logger.info(f"Would remove temporary output {f}")
+            else:
+                logger.info("Removing temporary output {}.".format(f))
+                f.remove(remove_non_empty_dir=True)
 
     def handle_log(self, job, upload_remote=True):
         for f in job.log:
