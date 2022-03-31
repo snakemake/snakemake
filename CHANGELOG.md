@@ -1,5 +1,18 @@
 # Changelog
 
+### [7.3.5](https://www.github.com/snakemake/snakemake/compare/v7.3.4...v7.3.5) (2022-03-31)
+
+
+### Bug Fixes
+
+* do not remove existing temp files in case of dryrun ([#1543](https://www.github.com/snakemake/snakemake/issues/1543)) ([e820f97](https://www.github.com/snakemake/snakemake/commit/e820f973ad8ca99822be69c927c7d7bf6a89f54e))
+* fixed bug in missing input file handling for cluster jobs ([#1544](https://www.github.com/snakemake/snakemake/issues/1544)) ([40e2eb2](https://www.github.com/snakemake/snakemake/commit/40e2eb2e6c6e31c7cc590c8d643e0640e9377aa4))
+
+
+### Documentation
+
+* explain automatic decompression strategy for http remote provider ([e6826b6](https://www.github.com/snakemake/snakemake/commit/e6826b6a740ba5b8877f12732c4ad95194833e07))
+
 ### [7.3.4](https://www.github.com/snakemake/snakemake/compare/v7.3.3...v7.3.4) (2022-03-30)
 
 
