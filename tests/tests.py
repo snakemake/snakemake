@@ -1580,3 +1580,7 @@ def test_pipe_depend():
 @skip_on_windows  # no pipe support on windows
 def test_pipe_depend_target_file():
     run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)
+
+
+def test_github_issue1542():
+    run(dpath("test_github_issue1542"), dryrun=True)
