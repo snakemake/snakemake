@@ -1585,3 +1585,7 @@ def test_pipe_depend_target_file():
 @skip_on_windows  # platform independent issue
 def test_github_issue1500():
     run(dpath("test_github_issue1500"), dryrun=True)
+
+
+def test_github_issue1542():
+    run(dpath("test_github_issue1542"), dryrun=True)
