@@ -12,7 +12,9 @@ rule all:
 	input: 'test.predictions', 'test.2.inter2'
 
 rule compute1:
-	input: '{name}.in'
+	input:
+            '{name}.in',
+            expand("raw.{i}.txt", i=range(22))
 	output: ['{name}.%s.inter'%c for c in chromosomes]
         params: prefix="{name}"
 	run:
