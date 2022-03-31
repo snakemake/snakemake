@@ -465,6 +465,9 @@ class CPUExecutor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
+    def get_job_args(self, job, **kwargs):
+        return f"{super().get_job_args(job, **kwargs)} --quiet"
+
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
 
@@ -581,7 +584,6 @@ class CPUExecutor(RealExecutor):
 
     def spawn_job(self, job):
         cmd = self.format_job_exec(job)
-        print(cmd)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
@@ -765,7 +767,7 @@ class ClusterExecutor(RealExecutor):
             if len(wait_for_files) > 20:
                 wait_for_files_file = self.get_jobscript(job) + ".waitforfilesfile.txt"
                 with open(wait_for_files_file, "w") as fd:
-                    print(wait_for_files, sep="\n", file=fd)
+                    print(*wait_for_files, sep="\n", file=fd)
 
                 waitfiles_parameter = format_cli_arg(
                     "--wait-for-files-file", wait_for_files_file

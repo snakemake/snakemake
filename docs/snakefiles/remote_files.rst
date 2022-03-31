@@ -26,6 +26,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* Zenodo: ``snakemake.remote.zenodo``
 * AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
@@ -362,6 +363,12 @@ For different types of authentication, you can pass in a Python ```requests.auth
             HTTP.remote("example.com/interactive.php", auth=requests.auth.HTTPDigestAuth("myusername", "mypassword"), keep_local=True)
 
 Since remote servers do not present directory contents uniformly, ``glob_wildcards()`` is __not__ supported by the HTTP provider.
+
+.. note::
+
+    Snakemake automatically decompresses http remote files if they are marked as `Content-Encoding: gzip` by the server and **not** end with ``.gz``.
+    The reason is that for those files the rule obviously expects the uncompressed version.
+    If in contrast the file ends on ``.gz`` the compressed version is expected and therefore no automatic decompression happens.
 
 File Transfer Protocol (FTP)
 ============================
@@ -811,6 +818,7 @@ Zenodo UI and REST API responses were designed with having in mind uploads of a 
 Avoid creating uploads with too many files, and instead group and zip them to make it easier their distribution to end-users.
 
 .. code-block:: python
+
     from snakemake.remote.zenodo import RemoteProvider
     import os
 
@@ -818,7 +826,7 @@ Avoid creating uploads with too many files, and instead group and zip them to ma
     envvars:
         "MYZENODO_PAT"
 
-    access_token=os.environ["MYZENODO_PAT"]
+    access_token = os.environ["MYZENODO_PAT"]
     zenodo = RemoteProvider(deposition="your deposition id", access_token=access_token)
 
     rule upload:

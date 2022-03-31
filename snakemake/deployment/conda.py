@@ -564,7 +564,9 @@ class Conda:
 
             if prefix_path is None or container_img is not None:
                 self.prefix_path = json.loads(
-                    shell.check_output(self._get_cmd("conda info --json"))
+                    shell.check_output(
+                        self._get_cmd("conda info --json"), universal_newlines=True
+                    )
                 )["conda_prefix"]
             else:
                 self.prefix_path = prefix_path

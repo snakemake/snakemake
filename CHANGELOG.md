@@ -1,5 +1,35 @@
 # Changelog
 
+### [7.3.5](https://www.github.com/snakemake/snakemake/compare/v7.3.4...v7.3.5) (2022-03-31)
+
+
+### Bug Fixes
+
+* do not remove existing temp files in case of dryrun ([#1543](https://www.github.com/snakemake/snakemake/issues/1543)) ([e820f97](https://www.github.com/snakemake/snakemake/commit/e820f973ad8ca99822be69c927c7d7bf6a89f54e))
+* fixed bug in missing input file handling for cluster jobs ([#1544](https://www.github.com/snakemake/snakemake/issues/1544)) ([40e2eb2](https://www.github.com/snakemake/snakemake/commit/40e2eb2e6c6e31c7cc590c8d643e0640e9377aa4))
+
+
+### Documentation
+
+* explain automatic decompression strategy for http remote provider ([e6826b6](https://www.github.com/snakemake/snakemake/commit/e6826b6a740ba5b8877f12732c4ad95194833e07))
+
+### [7.3.4](https://www.github.com/snakemake/snakemake/compare/v7.3.3...v7.3.4) (2022-03-30)
+
+
+### Bug Fixes
+
+* better error messages in case of missing files after latency period ([#1528](https://www.github.com/snakemake/snakemake/issues/1528)) ([5b394c0](https://www.github.com/snakemake/snakemake/commit/5b394c0319cfc5f8000b616d0f3c911a9091d05b))
+* correct handling of exceptions in input functions that are generators ([#1536](https://www.github.com/snakemake/snakemake/issues/1536)) ([d9a56aa](https://www.github.com/snakemake/snakemake/commit/d9a56aaf75c5f70ba0217d9d461d839fa3013f2e))
+* obtaining conda prefix when using in combination with singularity ([#1535](https://www.github.com/snakemake/snakemake/issues/1535)) ([99b22d3](https://www.github.com/snakemake/snakemake/commit/99b22d33f2100a7e4cf2d080a2272959a712d055))
+* proper error message in case of missing git when checking for source files ([#1534](https://www.github.com/snakemake/snakemake/issues/1534)) ([92887a3](https://www.github.com/snakemake/snakemake/commit/92887a33dc3674f942bd0355edfbba53b810f18f))
+* throw error message in case of target rule that depends on a pipe. ([#1532](https://www.github.com/snakemake/snakemake/issues/1532)) ([b9e9a7e](https://www.github.com/snakemake/snakemake/commit/b9e9a7eff4b6e3349dde6b90eec9f5a37ef69ce7))
+
+
+### Documentation
+
+* display rust-script env. ([950d8ba](https://www.github.com/snakemake/snakemake/commit/950d8ba785a384fa47fcda3d6fb948799a259e0e))
+* zenodo example ([76159ae](https://www.github.com/snakemake/snakemake/commit/76159ae22539e38923712e487371a5f32d7cb3cf))
+
 ### [7.3.3](https://www.github.com/snakemake/snakemake/compare/v7.3.2...v7.3.3) (2022-03-28)
 
 
