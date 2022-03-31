@@ -3,15 +3,16 @@ __copyright__ = "Copyright 2022, Hielke Walinga"
 __email__ = "hielkewalinga@gmail.com"
 __license__ = "MIT"
 
-from os import path
-import sys
-from snakemake.logging import logger
 import importlib
 import pkgutil
-from functools import lru_cache
-import collections
+import sys
+from os import path
 
+from snakemake.common.future import packages_distributions
 from snakemake.exceptions import PluginException
+from snakemake.logging import logger
+
+cached_packages_distributions = packages_distributions()
 
 
 def find_plugins(prefix):
@@ -20,7 +21,10 @@ def find_plugins(prefix):
         # Check if the *package name* of the module
         # start with the correct prefix.
         try:
-            packages = cached_packages_distributions()[name]
+            print("--")
+            print(name)
+            packages = cached_packages_distributions[name]
+            print(packages)
         except KeyError:
             continue
         if packages[0].startswith(prefix):
@@ -33,6 +37,7 @@ plugin_required_mod_attrs = [
     "__copyright__",
     "__email__",
     "__license__",
+    "__min_snakemake_version__",
 ]
 
 
@@ -44,7 +49,7 @@ def verify_plugin(mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], chec
     Also takes a checks dictionary with a function and an optional exception.
     The check should return None or False to pass.
     """
-    package_name = cached_packages_distributions()[mod.__name__][0]
+    package_name = cached_packages_distributions[mod.__name__][0]
     for a in mod_attrs + extra_attrs:
         if not hasattr(mod, a):
             raise PluginException(
@@ -68,7 +73,7 @@ def load_plugins(
     NB. Don't forget to exhaust the created generated to have an effect."""
     for plugin_module in plugin_modules:
         plugin_name = plugin_module.__name__
-        package_name = cached_packages_distributions()[plugin_name][0]
+        package_name = cached_packages_distributions[plugin_name][0]
         if plugin_module.__name__ in globals_dict:
             logger.debug("Plugin {package_name} already loaded.")
             continue
@@ -87,37 +92,6 @@ def load_plugins(
         )
         globals_dict[snakemake_submodule_name] = plugin_module
         globals_dict[snakemake_submodule_name.lower()] = plugin_module
-
-
-@lru_cache(maxsize=None)
-def cached_packages_distributions():
-    """Return a mapping of top-level packages to their distributions."""
-
-    # Source: https://github.com/python/cpython/blob/9006b4471cc4d74d0cbf782d841a330b0f46a3d0/Lib/importlib/metadata/__init__.py#L1031
-
-    # TODO: Transition instructions:
-    # importlib.metadata becomes part of stdlib from 3.8 onwards
-    # importlib.metadata will have package_distributions from 3.10 onwards
-
-    try:
-        from importlib.metadata import packages_distributions as pkgs_dist
-
-        return pkgs_dist()
-    except ImportError:
-        ...  # We are older than 3.10, import distributions instead.
-
-    if hasattr(importlib, "metadata"):
-        from importlib.metadata import distributions
-    else:
-        # We are older than 3.8,
-        # import from external importlib_metadata instead.
-        from importlib_metadata import distributions
-
-    pkg_to_dist = collections.defaultdict(list)
-    for dist in distributions():
-        for pkg in (dist.read_text("top_level.txt") or "").split():
-            pkg_to_dist[pkg].append(dist.metadata["Name"])
-    return dict(pkg_to_dist)
 
 
 def internal_submodules(paths):

@@ -3,27 +3,29 @@ __copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-from os import path
 import collections
+from itertools import chain
+from os import path
+
+import snakemake
 from snakemake.common import parse_uri
-from snakemake.logging import logger
+from snakemake.common.future import cached_property
 from snakemake.common.plugin import (
-    find_plugins,
     PluginException,
+    find_plugins,
     internal_submodules,
     load_plugins,
 )
-from .common import (
+from snakemake.common.remote import (
     AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
-    check_deprecated_retry,
     DomainObject,
     PooledDomainObject,
     StaticRemoteObjectProxy,
+    check_deprecated_retry,
 )
-import snakemake
-from itertools import chain
+from snakemake.logging import logger
 from snakemake.utils import min_version, raise_
 
 plugin_checks = {
@@ -52,15 +54,17 @@ plugin_remote_modules = list(
     load_plugins(
         plugin_modules=find_plugins(prefix="snakemake-plugin-remote-"),
         globals_dict=globals(),
-        extra_attrs=["RemoteProvider", "RemoteOjbect", "__min_snakemake_version__"],
+        extra_attrs=["RemoteProvider", "RemoteObject"],
         checks=plugin_checks,
     )
 )
 
 
 class AutoRemoteProvider:
-    def __init__(self):
-        """Automatically gather all RemoteProviders"""
+    """Automatically gather all RemoteProviders and find the correct one based on the protocol"""
+
+    @cached_property
+    def protocol_mapping(self):
         remote_path_list = [path.join(p, "remote") for p in snakemake.__path__]
         provider_list = [
             module.RemoteProvider
@@ -70,17 +74,23 @@ class AutoRemoteProvider:
         ]
 
         # assemble scheme mapping
-        self.protocol_mapping = {}
+        mapping = {}
         for Provider in provider_list:
-            for protocol in Provider().available_protocols:
-                if protocol[-3:] != "://":
-                    logger.warning(
-                        f"RemoteProvider from {Provider.__module__} "
-                        "has a protocol {protocol} that does not end with ://."
-                    )
-                    continue
-                protocol_short = protocol[:-3]  # remove "://" suffix
-                self.protocol_mapping[protocol_short] = Provider
+            try:
+                available_protocols = Provider.available_protocols.__get__(Provider)
+                for protocol in available_protocols:
+                    if protocol[-3:] != "://":
+                        logger.warning(
+                            f"RemoteProvider from {Provider.__module__} "
+                            "has a protocol {protocol} that does not end with ://."
+                        )
+                        continue
+                    protocol_short = protocol[:-3]  # remove "://" suffix
+                    mapping[protocol_short] = Provider
+            except Exception:
+                logger.debug(f"Something went wrong with loading {Provider}")
+                continue
+        return maping
 
     def remote(self, value, *args, provider_kws=None, **kwargs):
         if isinstance(value, str):
