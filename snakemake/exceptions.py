@@ -510,7 +510,7 @@ class CheckSumMismatchException(WorkflowError):
 class IncompleteCheckpointException(Exception):
     def __init__(self, rule, targetfile):
         super().__init__(
-            "The requested checkpoint output is not yet created."
+            "The requested checkpoint output is not yet created. "
             "If you see this error, you have likely tried to use "
             "checkpoint output outside of an input function, or "
             "you have tried to call an input function directly "
