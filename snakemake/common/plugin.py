@@ -53,7 +53,7 @@ def verify_plugin(
     """
     package_name = cached_packages_distributions[mod.__name__][0]
     if prefix:
-        if not package_name.starswith(prefix):
+        if not package_name.startswith(prefix):
             raise PluginException(
                 f"Plugin {package_name} is not distributed "
                 f"with a package starting with {prefix}."
