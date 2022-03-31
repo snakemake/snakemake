@@ -8,15 +8,18 @@ import pkgutil
 import sys
 from os import path
 
+# TODO: When 3.9 deprecated, import from importlib.metadata
 from snakemake.common.future import packages_distributions
 from snakemake.exceptions import PluginException
 from snakemake.logging import logger
+from snakemake.utils import min_version
 
 cached_packages_distributions = packages_distributions()
 
 
 def find_plugins(prefix):
     """Iterator to find all plugins by their prefix of the package name."""
+    plugins = []
     for finder, name, ispkg in pkgutil.iter_modules():
         # Check if the *package name* of the module
         # start with the correct prefix.
@@ -26,7 +29,9 @@ def find_plugins(prefix):
         except KeyError:
             continue
         if packages[0].startswith(prefix):
-            yield importlib.import_module(name)
+            plugins.append(importlib.import_module(name))
+
+    return plugins
 
 
 plugin_required_mod_attrs = [
@@ -40,7 +45,7 @@ plugin_required_mod_attrs = [
 
 
 def verify_plugin(
-    mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], checks={}, prefix=None
+    mod, mod_attrs=plugin_required_mod_attrs, extra_attrs=[], prefix=None
 ):
     """Confirms a module (just an object) has the required attributes
 
@@ -61,49 +66,53 @@ def verify_plugin(
             raise PluginException(
                 f"Plugin {package_name} does not provide attribute {a}."
             )
-    for check, exception in checks.items():
-        if check(mod):
-            raise (
-                exception
-                or PluginException(
-                    f"Plugin {package_name} fails check {check.__name__}."
-                )
-            )
-
-
-def load_plugins(plugin_modules, globals_dict, verify_func, alternative_mod_name=None):
-    """Load plugins into the globals dict, yielding all the modules in the process.
-    Additionally some checks are performed on the plugins.
-    NB. Don't forget to exhaust the created generated to have an effect."""
-    for plugin_module in plugin_modules:
-        plugin_name = plugin_module.__name__
-        package_name = cached_packages_distributions[plugin_name][0]
-        if plugin_module.__name__ in globals_dict:
-            logger.debug("Plugin {package_name} already loaded.")
-            continue
-
-        try:
-            verify_func(plugin_module)
-        except PluginException as e:
-            logger.warning(f"Plugin {package_name} incorrect: {e}")
-            continue
-
-        yield plugin_module
-        snakemake_submodule_name = getattr(
-            plugin_module,
-            alternative_mod_name or "snakemake_submodule_name",
-            plugin_name,
+    try:
+        min_version(mod.__min_snakemake_version__)
+    except Exception:
+        raise PluginException(
+            "Plugin {mod.__name__} needs minimum Snakemake version {mod.__min_snakemake_version__}."
         )
-        globals_dict[snakemake_submodule_name] = plugin_module
-        globals_dict[snakemake_submodule_name.lower()] = plugin_module
+
+
+def load_plugin(plugin_module, globals_dict, verify_func, alternative_mod_name=None):
+    """Load plugins into the globals dict.
+    Additionally some checks are performed on the plugins.
+    The module is bround with the name and the lowercase of the name.
+
+    plugin_module: module of the plugin
+    globals_dict: result of globals to the set module on
+    verify_func: function that verifies plugin or throw PluginException if wrong
+    alternative_mod_name: source name on the plugin module that provides the name
+        to assign the module on the globals_dict.
+
+    returns True if plugin is loaded.
+    """
+    plugin_name = plugin_module.__name__
+    package_name = cached_packages_distributions[plugin_name][0]
+    if plugin_module.__name__ in globals_dict:
+        logger.debug("Plugin {package_name} already loaded.")
+        return True
+
+    try:
+        verify_func(plugin_module)
+    except PluginException as e:
+        logger.warning(f"Plugin {package_name} incorrect: {e}")
+        return False
+
+    snakemake_submodule_name = getattr(
+        plugin_module,
+        alternative_mod_name or "snakemake_submodule_name",
+        plugin_name,
+    )
+    globals_dict[snakemake_submodule_name] = plugin_module
+    globals_dict[snakemake_submodule_name.lower()] = plugin_module
+    return True
 
 
 def internal_submodules(paths):
+    submodules = []
     for remote_submodule in pkgutil.iter_modules(paths):
         module_name = remote_submodule.name
-
-        if module_name == "common":  # Does not have a specific RemoteProvider
-            continue
 
         module_path = (
             path.join(remote_submodule.module_finder.path, module_name) + ".py"
@@ -119,4 +128,6 @@ def internal_submodules(paths):
             logger.debug(f"Autoloading {module_name} failed: {e}")
             continue
 
-        yield module
+        submodules(module)
+
+    return submodules

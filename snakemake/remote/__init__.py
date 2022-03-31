@@ -9,12 +9,14 @@ from os import path
 
 import snakemake
 from snakemake.common import parse_uri
+
+# TODO: When 3.7 deprecated, import from functools
 from snakemake.common.future import cached_property
 from snakemake.common.plugin import (
     PluginException,
     find_plugins,
     internal_submodules,
-    load_plugins,
+    load_plugin,
     verify_plugin,
 )
 from snakemake.common.remote import (
@@ -27,33 +29,7 @@ from snakemake.common.remote import (
     check_deprecated_retry,
 )
 from snakemake.logging import logger
-from snakemake.utils import min_version, raise_
 
-
-def snakemake_min_version(mod):
-    """raises WorkFlowError"""
-    min_version(mod.__min_snakemake_version__)
-
-
-plugin_checks = {
-    snakemake_min_version: None,
-    lambda mod: not issubclass(
-        mod.RemoteObject, AbstractRemoteObject
-    ): lambda mod: raise_(
-        PluginException(
-            "RemoteObject from plugin {mod.__name__} "
-            "is not an instance of AbstractRemoteObject"
-        )
-    ),
-    lambda mod: not issubclass(
-        mod.RemoteProvider, AbstractRemoteProvider
-    ): lambda mod: raise_(
-        PluginException(
-            f"RemoteProvider from plugin {mod.__name__} "
-            "is not an instance of AbstractRemoteProvider"
-        )
-    ),
-}
 
 remote_plugin_prefix = "snakemake-plugin-remote-"
 
@@ -62,21 +38,30 @@ def verify_remote_plugin(mod):
     verify_plugin(
         mod,
         extra_attrs=["RemoteProvider", "RemoteObject"],
-        checks=plugin_checks,
         prefix=remote_plugin_prefix,
     )
+    if not issubclass(mod.RemoteObject, AbstractRemoteObject):
+        raise PluginException(
+            "RemoteObject from plugin {mod.__name__} "
+            "is not an instance of AbstractRemoteObject"
+        )
+    if not issubclass(mod.RemoteProvider, AbstractRemoteProvider):
+        raise PluginException(
+            f"RemoteProvider from plugin {mod.__name__} "
+            "is not an instance of AbstractRemoteProvider"
+        )
 
 
-# Load remote plugins in a list,
-# Also have them available for direct importing
-# by setting them on the globals() dict.
-plugin_remote_modules = list(
-    load_plugins(
-        plugin_modules=find_plugins(prefix="snakemake-plugin-remote-"),
+plugin_remote_modules = []
+
+for mod in find_plugins(prefix=remote_plugin_prefix):
+    loaded = load_plugin(
+        mod,
         globals_dict=globals(),
         verify_func=verify_remote_plugin,
     )
-)
+    if loaded:
+        plugin_remote_modules.append(mod)
 
 
 class AutoRemoteProvider:

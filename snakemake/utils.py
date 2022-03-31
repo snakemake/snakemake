@@ -722,8 +722,3 @@ class Paramspace:
         if isinstance(ret, pd.DataFrame):
             return Paramspace(ret)
         return ret
-
-
-def raise_(e):
-    """If you want to use raise as a function."""
-    raise e
