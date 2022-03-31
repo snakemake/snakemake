@@ -821,12 +821,13 @@ def wait_for_files(
             "Waiting at most {} seconds for missing files.".format(latency_wait)
         )
         for _ in range(latency_wait):
-            if not get_missing():
+            missing = get_missing()
+            if not missing:
                 return
             time.sleep(1)
         raise IOError(
             "Missing files after {} seconds:\n{}".format(
-                latency_wait, "\n".join(get_missing())
+                latency_wait, "\n".join(missing)
             )
         )
 
