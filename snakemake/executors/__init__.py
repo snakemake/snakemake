@@ -979,7 +979,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job):
         if self.assume_shared_fs:
-            return f"cd {self.workflow.workdir_init}"
+            return f"cd {repr(self.workflow.workdir_init)}"
         else:
             return ""
 
