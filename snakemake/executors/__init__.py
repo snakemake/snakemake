@@ -767,7 +767,6 @@ class ClusterExecutor(RealExecutor):
         ]
         return format_cli_arg("--resources", resources)
 
-
     def get_python_executable(self):
         return sys.executable if self.assume_shared_fs else "python"
 

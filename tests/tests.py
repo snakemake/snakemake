@@ -9,6 +9,8 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
+from snakemake.resources import DefaultResources
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
@@ -947,6 +949,7 @@ def test_group_jobs_resources(mocker):
         cores=6,
         resources={"typo": 23, "mem_mb": 60000},
         group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
     )
     assert set(spy.spy_return.items()) == {
         ("_nodes", 1),
@@ -955,6 +958,7 @@ def test_group_jobs_resources(mocker):
         ("tmpdir", "/tmp"),
         ("mem_mb", 60000),
         ("fake_res", 400),
+        ("disk_mb", 2000),
     }
 
 
@@ -968,6 +972,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
         resources={"mem_mb": 60000},
         max_threads=1,
         group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
     )
     assert set(spy.spy_return.items()) == {
         ("_nodes", 1),
@@ -976,6 +981,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
         ("tmpdir", "/tmp"),
         ("mem_mb", 60000),
         ("fake_res", 1200),
+        ("disk_mb", 3000),
     }
 
 
@@ -989,6 +995,7 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         resources={"mem_mb": 10000},
         max_threads=1,
         group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
     )
     assert set(spy.spy_return.items()) == {
         ("_nodes", 1),
@@ -997,7 +1004,9 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         ("tmpdir", "/tmp"),
         ("mem_mb", 10000),
         ("fake_res", 400),
+        ("disk_mb", 1000),
     }
+
 
 @skip_on_windows
 def test_multiple_group_jobs_submit_ignoring_resource_constraints():
@@ -1011,12 +1020,14 @@ def test_multiple_group_jobs_submit_ignoring_resource_constraints():
         resources={"typo": 23, "mem_mb": 50000},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
         shouldfail=True,
     )
-    with (Path(tmp)/'qsub.log').open('r') as f:
+    with (Path(tmp) / "qsub.log").open("r") as f:
         lines = [l for l in f.readlines() if not l == "\n"]
     assert len(lines) == 2
     shutil.rmtree(tmp)
+
 
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
@@ -1029,6 +1040,7 @@ def test_group_job_resources_with_pipe(mocker):
             "mem_mb": 60000,
         },
         group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
     )
     assert set(spy.spy_return.items()) == {
         ("_nodes", 1),
@@ -1036,6 +1048,7 @@ def test_group_job_resources_with_pipe(mocker):
         ("runtime", 280),
         ("tmpdir", "/tmp"),
         ("mem_mb", 50000),
+        ("disk_mb", 1000),
     }
 
 
@@ -1050,6 +1063,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         },
         group_components={0: 5},
         shouldfail=True,
+        default_resources=DefaultResources(["mem_mb=0"]),
     )
 
 

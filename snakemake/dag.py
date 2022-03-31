@@ -1481,12 +1481,12 @@ class DAG:
             # All pipe groups should be contained within one user-defined group
             if len(user_groups) > 1:
                 raise WorkflowError(
-                        "An output file is marked as "
-                        "pipe or service, but consuming jobs "
-                        "are part of conflicting "
-                        "groups.",
-                        rule=job.rule,
-                    )
+                    "An output file is marked as "
+                    "pipe or service, but consuming jobs "
+                    "are part of conflicting "
+                    "groups.",
+                    rule=job.rule,
+                )
 
             if len(candidate_groups) > 1:
                 # Merge multiple pipe groups together
