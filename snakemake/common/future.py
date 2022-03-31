@@ -46,6 +46,8 @@ def packages_distributions():
     return dict(pkg_to_dist)
 
 
+# Source: https://github.com/python/cpython/blob/625f6704c0d783360574bbab2f78b0b9bbed5891/Lib/functools.py#L945
+
 # TODO: Transition instructions:
 #
 # Deprecation of 3.7
