@@ -28,10 +28,10 @@ def find_plugins(prefix):
         except KeyError:
             continue
         for p in packages[1:]:
-            if p.starswith(prefix):
+            if p.startswith(prefix):
                 raise PluginException(
                     "A plugin is installed onto a module namespace taken. "
-                    "These packages conflict: {packages}."
+                    f"These packages conflict: {packages}."
                 )
         if packages[0].startswith(prefix):
             plugins.append(importlib.import_module(name))
