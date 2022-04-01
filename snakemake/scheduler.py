@@ -471,6 +471,12 @@ class JobScheduler:
                 if self.dryrun:
                     run = needrun
                 else:
+                    # Reset params and resources because they might still contain TBDs
+                    # or old values from before files have been regenerated.
+                    # Now, they can be recalculated as all input is present and up to date.
+                    for job in needrun:
+                        job.reset_params_and_resources()
+
                     logger.debug(
                         "Resources before job selection: {}".format(self.resources)
                     )
@@ -496,11 +502,6 @@ class JobScheduler:
                     self.running.update(run)
                     # remove from ready_jobs
                     self.dag.register_running(run)
-
-                # reset params and resources because they might contain TBDs
-                if not self.dryrun:
-                    for job in run:
-                        job.reset_params_and_resources()
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
