@@ -265,16 +265,10 @@ class GitlabFile(HostingProviderFile):
 
 def infer_source_file(path_or_uri, basedir: SourceFile = None):
     if isinstance(path_or_uri, SourceFile):
-        if (
-            basedir is None
-            or isinstance(path_or_uri, HostingProviderFile)
-            or isinstance(path_or_uri, LocalGitFile)
-        ):
+        if basedir is None or isinstance(path_or_uri, HostingProviderFile):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
-    if isinstance(basedir, LocalGitFile):
-        return basedir.join(path_or_uri)
 
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
@@ -332,7 +326,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open(cache_entry, mode)
+        return self._open(LocalSourceFile(cache_entry), mode)
 
     def exists(self, source_file):
         try:
@@ -383,20 +377,19 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open(self, path_or_uri, mode):
+    def _open(self, source_file, mode):
         from smart_open import open
 
-        if isinstance(path_or_uri, LocalGitFile):
+        if isinstance(source_file, LocalGitFile):
             import git
 
             return io.BytesIO(
-                git.Repo(path_or_uri.repo_path)
-                .git.show("{}:{}".format(path_or_uri.ref, path_or_uri.path))
+                git.Repo(source_file.repo_path)
+                .git.show("{}:{}".format(source_file.ref, source_file.path))
                 .encode()
             )
 
-        if isinstance(path_or_uri, SourceFile):
-            path_or_uri = path_or_uri.get_path_or_uri()
+        path_or_uri = source_file.get_path_or_uri()
 
         try:
             return open(path_or_uri, mode)
