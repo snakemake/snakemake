@@ -54,12 +54,11 @@ def verify_plugin(
     The check should return None or False to pass.
     """
     package_name = cached_packages_distributions[mod.__name__][0]
-    if prefix:
-        if not package_name.startswith(prefix):
-            raise PluginException(
-                f"Plugin {package_name} is not distributed "
-                f"with a package starting with {prefix}."
-            )
+    if prefix and not package_name.startswith(prefix):
+        raise PluginException(
+            f"Plugin {package_name} is not distributed "
+            f"with a package starting with {prefix}."
+        )
     for a in mod_attrs + extra_attrs:
         if not hasattr(mod, a):
             raise PluginException(
