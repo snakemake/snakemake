@@ -1,0 +1,22 @@
+rule all:
+    input:
+        "results/all.done",
+
+
+module other:
+    snakefile:
+        "module.smk"
+    prefix:
+        "results/other"
+
+
+use rule * from other as other_*
+
+
+rule all_impl:
+    output:
+        out=touch("results/all.done"),
+    input:
+        b=rules.other_b.output.b,
+    shell:
+        "cp {input} {output}"

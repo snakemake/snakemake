@@ -1603,5 +1603,9 @@ def test_github_issue1550():
     )
 
 
+def test_github_issue1498():
+    run(dpath("test_github_issue1498"))
+
+
 def test_cleanup_metadata_fail():
     run(dpath("test09"), cleanup_metadata=["xyz"])

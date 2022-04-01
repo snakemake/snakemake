@@ -734,7 +734,7 @@ class Rule:
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
         groupid=None,
-        **aux_params
+        **aux_params,
     ):
         incomplete = False
         if isinstance(func, _IOFile):
@@ -811,7 +811,7 @@ class Rule:
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
                     groupid=groupid,
-                    **aux_params
+                    **aux_params,
                 )
 
             if is_unpack and not incomplete:
@@ -819,16 +819,19 @@ class Rule:
                     raise WorkflowError(
                         "unpack() is not allowed with params. "
                         "Simply return a dictionary which can be directly ."
-                        "used, e.g. via {params[mykey]}."
+                        "used, e.g. via {params[mykey]}.",
+                        rule=self,
                     )
                 # Sanity checks before interpreting unpack()
                 if not isinstance(item, (list, dict)):
                     raise WorkflowError(
-                        "Can only use unpack() on list and dict", rule=self
+                        f"Can only use unpack() on list and dict, but {item} was returned.",
+                        rule=self,
                     )
                 if name:
                     raise WorkflowError(
-                        "Cannot combine named input file with unpack()", rule=self
+                        f"Cannot combine named input file (name {name}) with unpack()",
+                        rule=self,
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
@@ -1067,7 +1070,7 @@ class Rule:
                         attempt=attempt,
                         incomplete_checkpoint_func=lambda e: 0,
                         raw_exceptions=True,
-                        **aux
+                        **aux,
                     )
                 except (Exception, BaseException) as e:
                     raise InputFunctionException(e, rule=self, wildcards=wildcards)
