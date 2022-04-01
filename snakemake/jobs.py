@@ -152,6 +152,7 @@ class Job(AbstractJob):
         "_group",
         "targetfile",
         "incomplete_input_expand",
+        "_params_and_resources_resetted",
     ]
 
     def __init__(
@@ -203,6 +204,7 @@ class Job(AbstractJob):
         self.shadow_dir = None
         self._inputsize = None
         self.is_updated = False
+        self._params_and_resources_resetted = False
 
         self._attempt = self.dag.workflow.attempt
 
@@ -340,8 +342,10 @@ class Job(AbstractJob):
         return self._resources
 
     def reset_params_and_resources(self):
-        self._resources = None
-        self._params = None
+        if not self._params_and_resources_resetted:
+            self._resources = None
+            self._params = None
+            self._params_and_resources_resetted = True
 
     @property
     def conda_env_spec(self):
