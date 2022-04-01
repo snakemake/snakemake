@@ -1450,8 +1450,18 @@ class GroupJob(AbstractJob):
     def is_local(self):
         return all(job.is_local for job in self.jobs)
 
+    def merged_wildcards(self):
+        merged_wildcards = Wildcards(toclone=self.jobs[0].wildcards)
+        for job in self.jobs[1:]:
+            for name, value in job.wildcards.items():
+                if name not in merged_wildcards.keys():
+                    merged_wildcards.append(value)
+                    merged_wildcards._set_name(name)
+        return merged_wildcards
+
     def format_wildcards(self, string, **variables):
         """Format a string with variables from the job."""
+
         _variables = dict()
         _variables.update(self.dag.workflow.globals)
         _variables.update(
@@ -1459,6 +1469,7 @@ class GroupJob(AbstractJob):
                 input=self.input,
                 output=self.output,
                 threads=self.threads,
+                wildcards=self.merged_wildcards(),
                 jobid=self.jobid,
                 name=self.name,
                 rule="GROUP",
