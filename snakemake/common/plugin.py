@@ -27,11 +27,13 @@ def find_plugins(prefix):
             packages = cached_packages_distributions[name]
         except KeyError:
             continue
-        for p in package[1:]:
+        for p in packages[1:]:
             if p.starswith(prefix):
-                raise PluginException("A plugin is installed onto a module namespace taken. These packages conflict: {packages}.")
+                raise PluginException(
+                    "A plugin is installed onto a module namespace taken. "
+                    "These packages conflict: {packages}."
+                )
         if packages[0].startswith(prefix):
-            if packages
             plugins.append(importlib.import_module(name))
 
     return plugins
