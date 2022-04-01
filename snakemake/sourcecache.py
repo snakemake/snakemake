@@ -292,7 +292,12 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return basedir.join(path_or_uri)
         return LocalSourceFile(path_or_uri)
     if path_or_uri.startswith("git+file:"):
-        root_path, file_path, ref = split_git_path(path_or_uri)
+        try:
+            root_path, file_path, ref = split_git_path(path_or_uri)
+        except Exception as e:
+            raise WorkflowError(
+                f"Failed to read source {path_or_uri} from git repo.", e
+            )
         return LocalGitFile(root_path, file_path, ref=ref)
     # something else
     return GenericSourceFile(path_or_uri)
