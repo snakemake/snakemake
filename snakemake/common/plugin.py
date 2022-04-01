@@ -127,6 +127,6 @@ def internal_submodules(paths):
             logger.debug(f"Autoloading {module_name} failed: {e}")
             continue
 
-        submodules(module)
+        submodules.append(module)
 
     return submodules
