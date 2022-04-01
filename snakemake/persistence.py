@@ -186,7 +186,7 @@ class Persistence:
         shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
-        self._delete_record(self._metadata_path, path)
+        return self._delete_record(self._metadata_path, path)
 
     def cleanup_shadow(self):
         if os.path.exists(self.shadow_path):
@@ -403,9 +403,14 @@ class Persistence:
             recdirs = os.path.relpath(os.path.dirname(recpath), start=subject)
             if recdirs != ".":
                 os.removedirs(recdirs)
+            return True
         except OSError as e:
-            if e.errno != 2:  # not missing
+            if e.errno != 2:
+                # not missing
                 raise e
+            else:
+                # file is missing, report failure
+                return False
 
     @lru_cache()
     def _read_record_cached(self, subject, id):

@@ -764,8 +764,18 @@ class Workflow:
             self.persistence.deactivate_cache()
 
         if cleanup_metadata:
+            failed = []
             for f in cleanup_metadata:
-                self.persistence.cleanup_metadata(f)
+                success = self.persistence.cleanup_metadata(f)
+                if not success:
+                    failed.append(f)
+            if failed:
+                logger.warning(
+                    "Failed to clean up metadata for the following files because the metadata was not present.\n"
+                    "If this is expected, there is nothing to do.\nOtherwise, the reason might be file system latency "
+                    "or still running jobs.\nConsider running metadata cleanup again.\nFiles:\n"
+                    + "\n".join(failed)
+                )
             return True
 
         if unlock:
