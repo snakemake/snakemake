@@ -160,7 +160,7 @@ class LocalGitFile(SourceFile):
         return False
 
     def get_filename(self):
-        return os.path.basename(self.path)
+        return posixpath.basename(self.path)
 
     @property
     def ref(self):
