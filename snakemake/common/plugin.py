@@ -108,6 +108,7 @@ def load_plugin(plugin_module, globals_dict, verify_func, alternative_mod_name=N
 
 
 def internal_submodules(paths):
+    """Loads all modules found on the paths and returns them as a list."""
     submodules = []
     for remote_submodule in pkgutil.iter_modules(paths):
         module_name = remote_submodule.name
