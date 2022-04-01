@@ -1597,3 +1597,8 @@ def test_github_issue1498():
 
 def test_cleanup_metadata_fail():
     run(dpath("test09"), cleanup_metadata=["xyz"])
+
+
+@skip_on_windows  # same on win, no need to test
+def test_github_issue1389():
+    run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)

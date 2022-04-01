@@ -1081,13 +1081,23 @@ class Rule:
 
             if not isinstance(res, int) and not isinstance(res, str):
                 raise WorkflowError(
-                    "Resources function did not return int, float (floats are "
-                    "rouded to the nearest integer), or str.",
+                    f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
                     rule=self,
                 )
-            if isinstance(res, int):
-                global_res = self.workflow.global_resources.get(name, res)
-                if global_res is not None:
+
+            global_res = self.workflow.global_resources.get(name)
+            if global_res is not None:
+                if not isinstance(res, TBDString) and type(res) != type(global_res):
+                    global_type = (
+                        "an int" if isinstance(global_res, int) else type(global_res)
+                    )
+                    raise WorkflowError(
+                        f"Resource {name} is of type {type(res).__name__} but global resource constraint "
+                        f"defines {global_type} with value {global_res}. "
+                        "Resources with the same name need to have the same types (int, float, or str are allowed).",
+                        rule=self,
+                    )
+                if isinstance(res, int):
                     res = min(global_res, res)
             return res
 
