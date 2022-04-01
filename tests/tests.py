@@ -1589,3 +1589,7 @@ def test_github_issue1500():
 
 def test_github_issue1542():
     run(dpath("test_github_issue1542"), dryrun=True)
+
+
+def test_cleanup_metadata_fail():
+    run(dpath("test09"), cleanup_metadata=["xyz"])
