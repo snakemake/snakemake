@@ -72,4 +72,11 @@ def test_dicts_in_config():
                 ),
                 file=f,
             )
-        snakemake(path, workdir=tmpdir, config={"this_option": "does_not_break", "test": {'this_dict':'shoult_not_either'}})
+        snakemake(
+            path,
+            workdir=tmpdir,
+            config={
+                "this_option": "does_not_break",
+                "test": {"this_dict": "shoult_not_either"},
+            },
+        )
