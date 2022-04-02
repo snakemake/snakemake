@@ -269,13 +269,6 @@ class _IOFile(str):
     def inventory(self):
         async_run(self._inventory())
 
-    async def _remote_inventory(self):
-        """Force a cache update for the remote inventory, which always changes."""
-        cache = self.rule.workflow.iocache
-        if not self.is_remote or not cache.active:
-            return
-        await asyncio.gather(*[self.remote_object.inventory(cache)])
-
     async def _inventory(self):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
@@ -612,9 +605,6 @@ class _IOFile(str):
             logger.info("Uploading to remote: {}".format(self.file))
             self.remote_object.upload()
             logger.info("Finished upload.")
-
-            # Ensure we update the remote cache
-            async_run(self._remote_inventory())
 
     def prepare(self):
         path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
