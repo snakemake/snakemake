@@ -28,6 +28,7 @@ def cleanup_google_storage(prefix, bucket_name="snakemake-testing", restrict_to=
     Arguments:
       prefix (str) : the "subfolder" or prefix for some files in the buckets
       bucket_name (str) : the name of the bucket, default snakemake-testing
+      restrict_to (list) : only delete files in these paths (None deletes all)
     """
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
