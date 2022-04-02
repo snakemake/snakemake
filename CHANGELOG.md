@@ -1,5 +1,18 @@
 # Changelog
 
+### [7.3.6](https://www.github.com/snakemake/snakemake/compare/v7.3.5...v7.3.6) (2022-04-02)
+
+
+### Bug Fixes
+
+* always recalculate job resources before job is scheduled as input might have changed or not have been present initially ([#1552](https://www.github.com/snakemake/snakemake/issues/1552)) ([44aacdb](https://www.github.com/snakemake/snakemake/commit/44aacdbb35879e1d7914aa105401541465387955))
+* fixed handling of input functions and unpack when using the prefix setting of module definitions ([#1553](https://www.github.com/snakemake/snakemake/issues/1553)) ([d561e04](https://www.github.com/snakemake/snakemake/commit/d561e041a8919717046be0d39f197b2c6b937cb7))
+* fixed parsing of subsequent use rule statements directly beneath each other ([#1548](https://www.github.com/snakemake/snakemake/issues/1548)) ([77d5a08](https://www.github.com/snakemake/snakemake/commit/77d5a08ab49d67b8cbd8ea4b6b6b7792edb38e3b))
+* issue1460 intermediate files existing (or not) ([#1541](https://www.github.com/snakemake/snakemake/issues/1541)) ([1b3ede1](https://www.github.com/snakemake/snakemake/commit/1b3ede19159856a982de65e6293ab064c0987352))
+* proper error message if resource types do not match ([#1556](https://www.github.com/snakemake/snakemake/issues/1556)) ([1112321](https://www.github.com/snakemake/snakemake/commit/11123213188672a3b6e5acfffed18d9e0ccc8819))
+* quote workdir in job exec prefix to allow to spaces in the workdir ([#1547](https://www.github.com/snakemake/snakemake/issues/1547)) ([c3a593e](https://www.github.com/snakemake/snakemake/commit/c3a593e8f7fc8e0dccec4e025f4cd9743bd80bc3))
+* report error and possible cause if metadata cleanup fails ([#1554](https://www.github.com/snakemake/snakemake/issues/1554)) ([6866134](https://www.github.com/snakemake/snakemake/commit/68661341efa0a3de4e03de3fb1b8f3117de66efe))
+
 ### [7.3.5](https://www.github.com/snakemake/snakemake/compare/v7.3.4...v7.3.5) (2022-03-31)
 
 
