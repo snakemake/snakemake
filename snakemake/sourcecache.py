@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import hashlib
 from pathlib import Path
+import posixpath
 import re
 import os
 import shutil
@@ -93,6 +94,10 @@ class GenericSourceFile(SourceFile):
 
     def is_persistently_cacheable(self):
         return False
+    
+    @property
+    def is_local(self):
+        return False
 
 
 class LocalSourceFile(SourceFile):
@@ -122,6 +127,10 @@ class LocalSourceFile(SourceFile):
 
     def __fspath__(self):
         return self.path
+    
+    @property
+    def is_local(self):
+        return True
 
 
 class LocalGitFile(SourceFile):
@@ -165,6 +174,10 @@ class LocalGitFile(SourceFile):
     @property
     def ref(self):
         return self.tag or self.commit or self._ref
+    
+    @property
+    def is_local(self):
+        return True
 
 
 class HostingProviderFile(SourceFile):
@@ -237,6 +250,10 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
         )
+    
+    @property
+    def is_local(self):
+        return False
 
 
 class GithubFile(HostingProviderFile):
