@@ -15,7 +15,6 @@ import io
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
@@ -66,7 +65,7 @@ class SourceFile(ABC):
     def mtime(self):
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
-    
+
     @property
     @abstractmethod
     def is_local(self):
@@ -99,7 +98,7 @@ class GenericSourceFile(SourceFile):
 
     def is_persistently_cacheable(self):
         return False
-    
+
     @property
     def is_local(self):
         return False
@@ -132,7 +131,7 @@ class LocalSourceFile(SourceFile):
 
     def __fspath__(self):
         return self.path
-    
+
     @property
     def is_local(self):
         return True
@@ -179,7 +178,7 @@ class LocalGitFile(SourceFile):
     @property
     def ref(self):
         return self.tag or self.commit or self._ref
-    
+
     @property
     def is_local(self):
         return True
@@ -255,7 +254,7 @@ class HostingProviderFile(SourceFile):
             commit=self.commit,
             branch=self.branch,
         )
-    
+
     @property
     def is_local(self):
         return False
@@ -291,7 +290,6 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
-
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
