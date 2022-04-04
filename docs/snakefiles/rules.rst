@@ -999,6 +999,8 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+.. _snakefiles-directory_output:
+
 Directories as outputs
 ----------------------
 
@@ -1884,6 +1886,7 @@ Consider the following example where an arbitrary number of files is generated b
           "mkdir my_directory/;"
           "for i in 1 2 3; do touch $i.txt; done"
 
+
   # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
   def aggregate_input(wildcards):
       checkpoint_output = checkpoints.export_sequences.get(**wildcards).output[0]
@@ -1898,7 +1901,7 @@ Consider the following example where an arbitrary number of files is generated b
           "aggegated.txt"
       shell cat {input} > {output}
 
-Because the number of output files is unknown beforehand, the checkpoint only defines an output ``directory``.
+Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
 This time, instead of explicitly writing
 
 .. code-block:: python
@@ -1915,8 +1918,9 @@ which automatically unpacks the wildcards as keyword arguments (this is standard
 If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensure that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
+Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
 
-A less artificial example is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
+A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
 In this example the clusters are being processed by an intermediate rule before being aggregated:
 
 .. code-block:: python
@@ -1966,9 +1970,8 @@ In this example the clusters are being processed by an intermediate rule before 
           "cat {input} > {output}"
 
 Here a new directory will be created for each sample by the checkpoint.
-After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previosuly. 
+After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously. 
 The values of the wildcard ``i`` is this time used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
-These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
 
 .. _snakefiles-rule-inheritance:
