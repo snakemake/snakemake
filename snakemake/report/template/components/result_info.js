@@ -40,7 +40,7 @@ class ResultInfo extends React.Component {
                                 labels.map(function (label) {
                                     return e(
                                         "th",
-                                        { className: "text-left uppercase pr-2" },
+                                        { className: "text-left uppercase pr-2 whitespace-nowrap" },
                                         label
                                     );
                                 }),
