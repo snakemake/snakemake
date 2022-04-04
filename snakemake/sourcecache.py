@@ -66,6 +66,11 @@ class SourceFile(ABC):
     def mtime(self):
         """If possible, return mtime of the file. Otherwise, return None."""
         return None
+    
+    @property
+    @abstractmethod
+    def is_local(self):
+        ...
 
     def __hash__(self):
         return self.get_path_or_uri().__hash__()
