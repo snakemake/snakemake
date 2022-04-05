@@ -579,7 +579,7 @@ class _IOFile(str):
         Returns None if file does not exist."""
         if self.size < 100000 and self.exists_local:  # less than 100000 bytes
             checksum = sha256()
-            with open(self.file) as f:
+            with open(self.file, "rb") as f:
                 checksum.update(f.read())
             return checksum.hexdigest()
         else:
