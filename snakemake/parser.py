@@ -955,11 +955,12 @@ class UseRule(GlobalKeywordState):
         )
         yield "\n"
 
-        # yield with block
-        yield from self._with_block
+        if self._with_block:
+            # yield with block
+            yield from self._with_block
 
-        yield "@workflow.run"
-        yield "\n"
+            yield "@workflow.run"
+            yield "\n"
 
         rulename = self.rules[0]
         if rulename == "*":
