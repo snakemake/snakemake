@@ -50,6 +50,9 @@ def format_files(job, io, dynamicio):
             yield f"{f} (service)"
         elif is_flagged(f, "checkpoint_target"):
             yield TBDString()
+        elif is_flagged(f, "sourcecache_entry"):
+            orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
+            yield f"{orig_path_or_uri} (cached)"
         else:
             yield f
 
@@ -1594,6 +1597,15 @@ class Reason:
         self.finished = True
 
     def __str__(self):
+        def format_file(f):
+            if is_flagged(f, "sourcecache_entry"):
+                return f"{get_flag_value(f, 'sourcecache_entry')} (cached)"
+            else:
+                return f
+
+        def format_files(files):
+            return ", ".join(map(format_file, files))
+
         s = list()
         if self.forced:
             s.append("Forced execution")
@@ -1610,24 +1622,18 @@ class Reason:
             else:
                 if self._missing_output:
                     s.append(
-                        "Missing output files: {}".format(
-                            ", ".join(self.missing_output)
-                        )
+                        f"Missing output files: {format_files(self.missing_output)}"
                     )
                 if self._incomplete_output:
                     s.append(
-                        "Incomplete output files: {}".format(
-                            ", ".join(self.incomplete_output)
-                        )
+                        f"Incomplete output files: {format_files(self.incomplete_output)}"
                     )
                 if self._updated_input:
                     updated_input = self.updated_input - self.updated_input_run
-                    s.append("Updated input files: {}".format(", ".join(updated_input)))
+                    s.append(f"Updated input files: {format_files(updated_input)}")
                 if self._updated_input_run:
                     s.append(
-                        "Input files updated by another job: {}".format(
-                            ", ".join(self.updated_input_run)
-                        )
+                        f"Input files updated by another job: {format_files(self.updated_input_run)}"
                     )
                 if self.pipe:
                     s.append(
@@ -1639,7 +1645,7 @@ class Reason:
                     )
         s = "; ".join(s)
         if self.finished:
-            return "Finished (was: {s})".format(s=s)
+            return f"Finished (was: {s})"
         return s
 
     def __bool__(self):
