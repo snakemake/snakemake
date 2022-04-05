@@ -346,7 +346,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open(LocalSourceFile(cache_entry), mode)
+        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode)
 
     def exists(self, source_file):
         try:
@@ -378,7 +378,7 @@ class SourceCache:
 
     def _do_cache(self, source_file, cache_entry):
         # open from origin
-        with self._open(source_file, "rb") as source:
+        with self._open_local_or_remote(source_file, "rb") as source:
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
@@ -398,7 +398,7 @@ class SourceCache:
             os.utime(cache_entry, times=(mtime, mtime))
 
     def _open_local_or_remote(self, source_file, mode):
-        from retry import retry_call
+        from retry.api import retry_call
 
         if source_file.is_local:
             return self._open(source_file, mode)
@@ -409,7 +409,6 @@ class SourceCache:
                 tries=3,
                 delay=3,
                 backoff=2,
-                logger=logger,
             )
 
     def _open(self, source_file, mode):
