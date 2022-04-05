@@ -575,8 +575,9 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def checksum(self):
-        """Return checksum if file is small enough, else None."""
-        if self.size < 100000:  # less than 100000 bytes
+        """Return checksum if file is small enough, else None.
+        Returns None if file does not exist."""
+        if self.size < 100000 and self.exists_local:  # less than 100000 bytes
             checksum = sha256()
             with open(self.file) as f:
                 checksum.update(f.read())

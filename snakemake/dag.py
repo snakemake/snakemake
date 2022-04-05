@@ -954,6 +954,16 @@ class DAG:
                         return
                 output_mintime[job] = None
 
+        is_same_checksum_cache = dict()
+
+        def is_same_checksum(f):
+            try:
+                return is_same_checksum_cache[f]
+            except KeyError:
+                is_same = f.is_same_checksum(self.workflow.persistence.checksum(f))
+                is_same_checksum_cache[f] = is_same
+                return is_same
+
         def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
@@ -1007,7 +1017,7 @@ class DAG:
                         for f in job.input
                         if f.exists
                         and f.is_newer(output_mintime_)
-                        and not f.is_same_checksum(self.workflow.persistence.checksum(f))
+                        and not is_same_checksum(f)
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
