@@ -223,7 +223,7 @@ class HostingProviderFile(SourceFile):
         self.path = path.strip("/")
 
     def is_persistently_cacheable(self):
-        return self.tag or self.commit
+        return bool(self.tag or self.commit)
 
     def get_filename(self):
         return os.path.basename(self.path)
@@ -331,7 +331,6 @@ class SourceCache:
             runtime_cache_parent = self.cache / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(
-                suffix="snakemake-runtime-source-cache",
                 dir=runtime_cache_parent,
             )
             self._runtime_cache_path = None
@@ -357,7 +356,7 @@ class SourceCache:
 
     def get_path(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return cache_entry
+        return str(cache_entry)
 
     def _cache_entry(self, source_file):
         urihash = source_file.get_uri_hash()
