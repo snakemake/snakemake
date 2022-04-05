@@ -261,11 +261,13 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
+
     def get_path_or_uri(self):
         return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
 
 
 class GitlabFile(HostingProviderFile):
+
     def __init__(
         self,
         repo: str,
@@ -290,6 +292,8 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
             return path_or_uri
         else:
             path_or_uri = path_or_uri.get_path_or_uri()
+    if path_or_uri.endswith("scenario.yaml"):
+        import pdb; pdb.set_trace()
     if isinstance(path_or_uri, Path):
         path_or_uri = str(path_or_uri)
     if not isinstance(path_or_uri, str):
