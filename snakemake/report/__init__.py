@@ -229,12 +229,12 @@ def expand_report_argument(item, wildcards, job):
 
 class Category:
     def __init__(self, name, wildcards, job):
+        if name is not None:
+            name = expand_report_argument(name, wildcards, job)
         if name is None:
             name = "Other"
-            self.is_other = True
-        else:
-            self.is_other = False
-            name = expand_report_argument(name, wildcards, job)
+
+        self.is_other = name == "Other"
         self.name = name
         h = hashlib.sha256()
         h.update(name.encode())
@@ -547,6 +547,9 @@ def expand_labels(labels, wildcards, job):
     if labels is None:
         return None
     labels = expand_report_argument(labels, wildcards, job)
+
+    if labels is None:
+        return None
 
     if not isinstance(labels, dict) or not all(
         isinstance(col, str) for col in labels.values()
