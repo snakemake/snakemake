@@ -206,8 +206,10 @@ class RemoteObject(AbstractRemoteObject):
             return True
         elif any(self.directory_entries()):
             return True
-        else:
-            return False
+
+        # The blob object can get out of sync, one last try!
+        self.update_blob()
+        return self.blob.exists()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def mtime(self):

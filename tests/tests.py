@@ -1611,5 +1611,26 @@ def test_github_issue1542():
     run(dpath("test_github_issue1542"), dryrun=True)
 
 
+def test_github_issue1550():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_github_issue1550"),
+        resources={"mem_mb": 4000},
+        default_resources=DefaultResources(
+            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+        ),
+    )
+
+
+def test_github_issue1498():
+    run(dpath("test_github_issue1498"))
+
+
 def test_cleanup_metadata_fail():
     run(dpath("test09"), cleanup_metadata=["xyz"])
+
+
+@skip_on_windows  # same on win, no need to test
+def test_github_issue1389():
+    run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)

@@ -223,7 +223,7 @@ class HostingProviderFile(SourceFile):
         self.path = path.strip("/")
 
     def is_persistently_cacheable(self):
-        return self.tag or self.commit
+        return bool(self.tag or self.commit)
 
     def get_filename(self):
         return os.path.basename(self.path)
@@ -331,7 +331,6 @@ class SourceCache:
             runtime_cache_parent = self.cache / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(
-                suffix="snakemake-runtime-source-cache",
                 dir=runtime_cache_parent,
             )
             self._runtime_cache_path = None
@@ -346,7 +345,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open(LocalSourceFile(cache_entry), mode)
+        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode)
 
     def exists(self, source_file):
         try:
@@ -357,7 +356,7 @@ class SourceCache:
 
     def get_path(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return cache_entry
+        return str(cache_entry)
 
     def _cache_entry(self, source_file):
         urihash = source_file.get_uri_hash()
@@ -378,7 +377,7 @@ class SourceCache:
 
     def _do_cache(self, source_file, cache_entry):
         # open from origin
-        with self._open(source_file, "rb") as source:
+        with self._open_local_or_remote(source_file, "rb") as source:
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
@@ -396,6 +395,20 @@ class SourceCache:
             # to just keep the time at the time of caching
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
+
+    def _open_local_or_remote(self, source_file, mode):
+        from retry.api import retry_call
+
+        if source_file.is_local:
+            return self._open(source_file, mode)
+        else:
+            return retry_call(
+                self._open,
+                [source_file, mode],
+                tries=3,
+                delay=3,
+                backoff=2,
+            )
 
     def _open(self, source_file, mode):
         from smart_open import open
