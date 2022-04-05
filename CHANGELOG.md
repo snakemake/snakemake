@@ -1,5 +1,15 @@
 # Changelog
 
+### [7.3.7](https://www.github.com/snakemake/snakemake/compare/v7.3.6...v7.3.7) (2022-04-05)
+
+
+### Bug Fixes
+
+* allow labels function to return None ([#1565](https://www.github.com/snakemake/snakemake/issues/1565)) ([fef74d6](https://www.github.com/snakemake/snakemake/commit/fef74d6406a04e29c115a699e76ac96e4a37cf9e))
+* do not wrap whitespace in result info headers of reports ([653d0d0](https://www.github.com/snakemake/snakemake/commit/653d0d0b92d2556e0fa04a8208f37fd982dcb829))
+* fixed detection of norun rules inside of modules ([#1566](https://www.github.com/snakemake/snakemake/issues/1566)) ([d2223d4](https://www.github.com/snakemake/snakemake/commit/d2223d41dfba057ab735395eac8339c27866c2ae))
+* properly use retry mechanism in source cache ([#1564](https://www.github.com/snakemake/snakemake/issues/1564)) ([624a83d](https://www.github.com/snakemake/snakemake/commit/624a83d1bfc592a2a1878d5191e09f6c3d7ee7c2))
+
 ### [7.3.6](https://www.github.com/snakemake/snakemake/compare/v7.3.5...v7.3.6) (2022-04-02)
 
 
