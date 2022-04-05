@@ -1000,8 +1000,14 @@ class DAG:
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
+                    # Input is updated if it is newer that the oldest output file
+                    # and does not have the same checksum as the one previously recorded.
                     updated_input = [
-                        f for f in job.input if f.exists and f.is_newer(output_mintime_)
+                        f
+                        for f in job.input
+                        if f.exists
+                        and f.is_newer(output_mintime_)
+                        and not f.is_same_checksum(self.workflow.persistence.checksum(f))
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:

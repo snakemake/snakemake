@@ -256,6 +256,7 @@ class Persistence:
                     "job_hash": hash(job),
                     "conda_env": conda_env,
                     "container_img_url": job.container_img_url,
+                    "checksum": f.checksum(),
                 },
                 f,
             )
@@ -321,6 +322,9 @@ class Persistence:
 
     def code(self, path):
         return self.metadata(path).get("code")
+
+    def checksum(self, path):
+        return self.metadata(path).get("checksum")
 
     def version_changed(self, job, file=None):
         """Yields output files with changed versions or bool if file given."""

@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+from hashlib import sha256
 import os
 import shutil
 from pathlib import Path
@@ -572,6 +573,23 @@ class _IOFile(str):
         # follow symlinks but throw error if invalid
         self.check_broken_symlink()
         return os.path.getsize(self.file)
+
+    def checksum(self):
+        """Return checksum if file is small enough, else None."""
+        if self.size < 100000:  # less than 100000 bytes
+            checksum = sha256()
+            with open(self.file) as f:
+                checksum.update(f.read())
+            return checksum.hexdigest()
+        else:
+            return None
+
+    def is_same_checksum(self, other_checksum):
+        checksum = self.checksum()
+        if checksum is None:
+            return False
+        else:
+            return checksum == other_checksum
 
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
