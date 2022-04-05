@@ -50,6 +50,9 @@ def format_files(job, io, dynamicio):
             yield f"{f} (service)"
         elif is_flagged(f, "checkpoint_target"):
             yield TBDString()
+        elif is_flagged(f, "sourcecache_entry"):
+            orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
+            yield f"{orig_path_or_uri} (cached)"
         else:
             yield f
 
