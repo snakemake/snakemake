@@ -1082,6 +1082,10 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
+def sourcecache_entry(value, orig_path_or_uri):
+    return flag(value, "sourcecache_entry", orig_path_or_uri)
+
+
 ReportObject = collections.namedtuple(
     "ReportObject",
     ["caption", "category", "subcategory", "labels", "patterns", "htmlindex"],

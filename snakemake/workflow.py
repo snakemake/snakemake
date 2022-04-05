@@ -56,6 +56,7 @@ from snakemake.io import (
     report,
     multiext,
     IOFile,
+    sourcecache_entry,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -1156,7 +1157,7 @@ class Workflow:
         calling_file = frame.f_code.co_filename
         calling_dir = os.path.dirname(calling_file)
         path = smart_join(calling_dir, rel_path)
-        return self.sourcecache.get_path(infer_source_file(path))
+        return sourcecache_entry(self.sourcecache.get_path(infer_source_file(path)), path)
 
     @property
     def snakefile(self):
