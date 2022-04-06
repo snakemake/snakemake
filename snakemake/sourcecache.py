@@ -159,7 +159,7 @@ class LocalGitFile(SourceFile):
             ref=self._ref,
             commit=self.commit,
         )
-    
+
     def get_basedir(self):
         return self.__class__(
             tag=self.tag,
