@@ -2009,10 +2009,11 @@ Consider the following example:
             "jinja2"
 
 Here, Snakemake will automatically use the specified template engine `Jinja2 <https://jinja.palletsprojects.com/>`_ to render the template given as input file into the given output file.
-Template rendering rules may only have a single input and output file.
+Template rendering rules may only have a single output file.
+They may have multiple input files, but the first input file (without a name specified), will be used as the template.
 The template_engine instruction has to be specified at the end of the rule.
 
-The template itself has access to ``params``, ``wildcards``, and ``config``,
+The template itself has access to ``input``, ``params``, ``wildcards``, and ``config``,
 which are the same objects you can use for example in the ``shell`` or ``run`` directive, 
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 
