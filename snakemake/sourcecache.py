@@ -148,15 +148,6 @@ class LocalGitFile(SourceFile):
         self.repo_path = repo_path
         self.path = path
 
-    def get_basedir(self):
-        return self.__class__(
-            tag=self.tag,
-            commit=self.commit,
-            ref=self._ref,
-            repo_path=self.repo_path,
-            path=os.path.dirname(self.path),
-        )
-
     def get_path_or_uri(self):
         return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
@@ -167,6 +158,15 @@ class LocalGitFile(SourceFile):
             tag=self.tag,
             ref=self._ref,
             commit=self.commit,
+        )
+    
+    def get_basedir(self):
+        return self.__class__(
+            tag=self.tag,
+            commit=self.commit,
+            ref=self._ref,
+            repo_path=self.repo_path,
+            path=os.path.dirname(self.path),
         )
 
     def is_persistently_cacheable(self):
