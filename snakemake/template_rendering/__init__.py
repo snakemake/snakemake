@@ -9,9 +9,18 @@ class TemplateRenderer(ABC):
             raise ValueError(
                 "More than one output file specified for template_engine rule."
             )
+        if len(input) != 1:
+            if "template" not in input.keys():
+                raise ValueError(
+                    "More than one input file specified for template engine rule, but no "
+                    "input file named as 'template'."
+                )
+            else:
+                self.input_file = input.template
+        else:
+            self.input_file = input[0]
 
         self.input = input
-        self.input_file = input[0]
         self.output_file = output[0]
         self.params = params
         self.wildcards = wildcards
