@@ -473,7 +473,7 @@ class FileRecord:
                 job.threads,
                 job.resources,
                 job.log,
-                job.dag.workflow.config,
+                job.rule.module_globals["config"],
                 job.rule.name,
                 None,
             )
