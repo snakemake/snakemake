@@ -152,9 +152,14 @@ class LocalGitFile(SourceFile):
         return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
 
     def join(self, path):
+        path = os.path.normpath("/".join((self.path, path)))
+        if ON_WINDOWS:
+            # convert back to URL separators 
+            # (win specific separators are introduced by normpath above)
+            path = path.replace("\\", "/")
         return LocalGitFile(
             self.repo_path,
-            os.path.normpath("/".join((self.path, path))),
+            path,
             tag=self.tag,
             ref=self._ref,
             commit=self.commit,
