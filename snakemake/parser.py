@@ -654,7 +654,7 @@ class TemplateEngine(Script):
     end_func = "render_template"
 
     def args(self):
-        yield (", input, output, params, wildcards, config")
+        yield (", input, output, params, wildcards, config, rule")
 
 
 class CWL(Script):
