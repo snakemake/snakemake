@@ -23,6 +23,7 @@ echo "10.10.10.4    server" >> /etc/hosts
 ln -s /vagrant/slurm.conf /etc/slurm-llnl/slurm.conf
 pip install pytest
 pip install -e .
+apt install -y libopenmpi-dev openmpi-bin
 SCRIPT
 
 Vagrant.configure("2") do |global_config|
