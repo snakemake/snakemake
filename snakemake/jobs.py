@@ -195,7 +195,13 @@ class Job(AbstractJob):
         )
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
-        self._place_holders = set(os.path.join(os.path.dirname(outfile), '.' + str(self.rule) + '.' + str(self.wildcards.__hash__())) for outfile in self.output)
+        self._place_holders = set(
+            os.path.join(
+                os.path.dirname(outfile),
+                "." + str(self.rule) + "." + str(self.wildcards.__hash__()),
+            )
+            for outfile in self.output
+        )
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
         self._log = None
