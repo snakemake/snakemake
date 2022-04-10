@@ -195,6 +195,7 @@ class Job(AbstractJob):
         )
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
+        self._place_holders = set(os.path.join(os.path.dirname(outfile), '.' + str(self.rule) + '.' + str(self.wildcards.__hash__())) for outfile in self.output)
         # other properties are lazy to be able to use additional parameters and check already existing files
         self._params = None
         self._log = None
@@ -762,6 +763,10 @@ class Job(AbstractJob):
 
         self.remove_existing_output()
 
+        # Create place holder directory to prevent output directory from being prematurely deleted
+        for dir in self._place_holders:
+            os.makedirs(dir, exist_ok=True)
+
         # Create tmpdir if necessary
         if self.resources.get("tmpdir"):
             os.makedirs(self.resources.tmpdir, exist_ok=True)
@@ -1063,6 +1068,10 @@ class Job(AbstractJob):
         latency_wait=None,
         keep_metadata=True,
     ):
+        # Remove place holders so output directory can be deleted if approriate
+        for dir in self._place_holders:
+            if os.path.exists(dir):
+                os.rmdir(dir)
         if self.dag.is_edit_notebook_job(self):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
