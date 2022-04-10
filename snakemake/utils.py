@@ -686,7 +686,7 @@ class Paramspace:
                     for name, value in row._asdict().items()
                 )
             )
-            for row in self.dataframe.itertuples(index = False)
+            for row in self.dataframe.itertuples(index=False)
         )
 
     def instance(self, wildcards):
