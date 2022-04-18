@@ -44,16 +44,64 @@ source $VIMRUNTIME/indent/python.vim
 " group       = "group" ":" stringliteral
 
 
-syn keyword pythonStatement include workdir onsuccess onerror onstart
-syn keyword pythonStatement ruleorder localrules configfile group 
-syn keyword pythonStatement wrapper conda shadow
-syn keyword pythonStatement input output params wildcards priority message
-syn keyword pythonStatement threads resources singularity container wildcard_constraints
-syn keyword pythonStatement version run shell benchmark snakefile log script
-syn keyword pythonStatement default_target template_engine
-syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
-syn keyword pythonBuiltinObj config checkpoints rules
-syn keyword pythonBuiltinFunc directory ancient pipe unpack expand temp touch protected
+" general directives (e.g. input)
+syn keyword pythonStatement 
+      \ benchmark
+      \ conda
+      \ configfile
+      \ container
+      \ default_target
+      \ group
+      \ include
+      \ input
+      \ localrules
+      \ log
+      \ message
+      \ onerror
+      \ onstart
+      \ onsuccess
+      \ output
+      \ params
+      \ priority
+      \ resources
+      \ ruleorder
+      \ run
+      \ script
+      \ shadow
+      \ shell
+      \ singularity
+      \ snakefile
+      \ template_engine
+      \ threads
+      \ version
+      \ wildcard_constraints
+      \ wildcards
+      \ workdir
+      \ wrapper
+
+" directives with a label (e.g. rule)
+syn keyword pythonStatement 
+      \ checkpoint
+      \ rule
+      \ subworkflow
+      \ nextgroup=pythonFunction skipwhite
+
+" common snakemake objects
+syn keyword pythonBuiltinObj 
+      \ checkpoints
+      \ config
+      \ rules
+
+" snakemake functions
+syn keyword pythonBuiltinFunc 
+      \ ancient
+      \ directory
+      \ expand
+      \ pipe
+      \ protected
+      \ temp
+      \ touch
+      \ unpack
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class
