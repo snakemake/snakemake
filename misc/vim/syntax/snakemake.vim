@@ -57,6 +57,7 @@ syn keyword pythonStatement
       \ localrules
       \ log
       \ message
+      \ notebook
       \ onerror
       \ onstart
       \ onsuccess
@@ -66,6 +67,7 @@ syn keyword pythonStatement
       \ resources
       \ ruleorder
       \ run
+      \ scattergather
       \ script
       \ shadow
       \ shell
@@ -88,17 +90,24 @@ syn keyword pythonStatement
 
 " common snakemake objects
 syn keyword pythonBuiltinObj 
+      \ Paramspace
       \ checkpoints
       \ config
+      \ gather
       \ rules
+      \ scatter
+      \ workflow
 
 " snakemake functions
 syn keyword pythonBuiltinFunc 
       \ ancient
       \ directory
       \ expand
+      \ multiext
       \ pipe
       \ protected
+      \ read_job_properties
+      \ service
       \ temp
       \ touch
       \ unpack
