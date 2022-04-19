@@ -1,0 +1,21 @@
+rule all:
+    input:
+        expand("rendered.{engine}", engine=["yte", "jinja2"])
+
+
+rule render_yte_template:
+    input:
+        "template.yte.yaml"
+    output:
+        "rendered.yte"
+    template_engine:
+        "yte"
+
+
+rule render_jinja2_template:
+    input:
+        "template.jinja2.txt"
+    output:
+        "rendered.jinja2"
+    template_engine:
+        "jinja2"

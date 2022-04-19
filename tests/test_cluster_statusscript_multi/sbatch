@@ -1,0 +1,8 @@
+#!/bin/bash
+echo `date` >> sbatch.log
+tail -n1 $1 >> sbatch.log
+# simulate printing of job id by a random number plus the name
+# of the cluster
+echo "$RANDOM;name-of-cluster"
+cat $1 >> sbatch.log
+sh $1

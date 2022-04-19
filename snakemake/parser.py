@@ -1,8 +1,9 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from tempfile import TemporaryFile
 import tokenize
 import textwrap
 import os
@@ -161,11 +162,11 @@ class KeywordState(TokenAutomaton):
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
 
-    def block(self, token):
+    def block(self, token, force_block_end=False):
         if self.lasttoken == "\n" and is_comment(token):
             # ignore lines containing only comments
             self.line -= 1
-        if self.is_block_end(token):
+        if force_block_end or self.is_block_end(token):
             yield from self.decorate_end(token)
             yield "\n", token
             raise StopAutomaton(token)
@@ -248,7 +249,9 @@ class Configfile(GlobalKeywordState):
 
 
 class Pepfile(GlobalKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "set_pepfile"
 
 
 class Pepschema(GlobalKeywordState):
@@ -484,6 +487,12 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class DefaultTarget(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "default_target_rule"
+
+
 class Handover(RuleKeywordState):
     pass
 
@@ -640,6 +649,14 @@ class Wrapper(Script):
         )
 
 
+class TemplateEngine(Script):
+    start_func = "@workflow.template_engine"
+    end_func = "render_template"
+
+    def args(self):
+        yield (", input, output, params, wildcards, config, rule")
+
+
 class CWL(Script):
     start_func = "@workflow.cwl"
     end_func = "cwl"
@@ -673,6 +690,7 @@ rule_property_subautomata = dict(
     group=Group,
     cache=Cache,
     handover=Handover,
+    default_target=DefaultTarget,
 )
 
 
@@ -683,6 +701,7 @@ class Rule(GlobalKeywordState):
         script=Script,
         notebook=Notebook,
         wrapper=Wrapper,
+        template_engine=TemplateEngine,
         cwl=CWL,
         **rule_property_subautomata,
     )
@@ -740,6 +759,8 @@ class Rule(GlobalKeywordState):
                     or token.string == "shell"
                     or token.string == "script"
                     or token.string == "wrapper"
+                    or token.string == "notebook"
+                    or token.string == "template_engine"
                     or token.string == "cwl"
                 ):
                     if self.run:
@@ -753,7 +774,7 @@ class Rule(GlobalKeywordState):
                 elif self.run:
                     raise self.error(
                         "No rule keywords allowed after "
-                        "run/shell/script/wrapper/cwl in "
+                        "run/shell/script/notebook/wrapper/template_engine/cwl in "
                         "rule {}.".format(self.rulename),
                         token,
                     )
@@ -819,6 +840,10 @@ class ModuleSnakefile(ModuleKeywordState):
     pass
 
 
+class ModulePrefix(ModuleKeywordState):
+    pass
+
+
 class ModuleMetaWrapper(ModuleKeywordState):
     @property
     def keyword(self):
@@ -848,6 +873,7 @@ class Module(GlobalKeywordState):
         config=ModuleConfig,
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
+        prefix=ModulePrefix,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -929,11 +955,12 @@ class UseRule(GlobalKeywordState):
         )
         yield "\n"
 
-        # yield with block
-        yield from self._with_block
+        if self._with_block:
+            # yield with block
+            yield from self._with_block
 
-        yield "@workflow.run"
-        yield "\n"
+            yield "@workflow.run"
+            yield "\n"
 
         rulename = self.rules[0]
         if rulename == "*":
@@ -1037,7 +1064,7 @@ class UseRule(GlobalKeywordState):
                 )
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting either 'as', 'with' or end of line in 'use rule' statement.",
@@ -1066,7 +1093,7 @@ class UseRule(GlobalKeywordState):
             yield from ()
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting rulename modifying pattern (e.g. modulename_*) after 'as' keyword.",

@@ -2,7 +2,7 @@
 """
 
 __author__ = "Sebastian Kurscheid"
-__copyright__ = "Copyright 2021, Sebastian Kurscheid"
+__copyright__ = "Copyright 2022, Sebastian Kurscheid"
 __email__ = "sebastian.kurscheid@anu.edu.au"
 __license__ = "MIT"
 
@@ -15,7 +15,11 @@ import re
 
 # module specific
 from snakemake.exceptions import WorkflowError, AzureFileException
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 
 # service provider support
 try:
@@ -60,7 +64,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["ab://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
@@ -95,7 +99,7 @@ class RemoteObject(AbstractRemoteObject):
             return self._as.blob_size(self.container_name, self.blob_name)
         return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         if self.exists():
             os.makedirs(os.path.dirname(self.local_file()), exist_ok=True)
             self._as.download_from_azure_storage(
@@ -105,7 +109,7 @@ class RemoteObject(AbstractRemoteObject):
             return self.local_file()
         return None
 
-    def upload(self):
+    def _upload(self):
         self._as.upload_to_azure_storage(
             container_name=self.container_name,
             blob_name=self.blob_name,

@@ -132,14 +132,17 @@ With Snakemake 6.0 and later, it is possible to define external workflows as mod
     
     use rule * from other_workflow as other_*
 
-The first statement registers the external workflow as a module, by defining the path to the main snakefile.
+The ``module other_workflow:`` statement registers the external workflow as a module, by defining the path to the main snakefile of ``other_workflow``.
 Here, plain paths, HTTP/HTTPS URLs and special markers for code hosting providers like Github or Gitlab are possible (see :ref:`snakefile-code-hosting-providers`).
-The second statement declares all rules of that module to be used in the current one.
-Thereby, the ``as other_*`` at the end renames all those rule with a common prefix.
+The second statement, ``use rule * from other_workflow as other_*``, declares all rules of that module to be used in the current one.
+Thereby, the ``as other_*`` at the end renames all those rules with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
+
 The module is evaluated in a separate namespace, and only the selected rules are added to the current workflow.
 Non-rule Python statements inside the module are also evaluated in that separate namespace.
-They are available in the module-defining workflow under the name of the module (e.g. here ``other_workflow.myfunction()`` would call the function ``myfunction`` that has been define in the model, e.g. in ``other_workflow/Snakefile``).
+They are available in the module-defining workflow under the name of the module (e.g. here ``other_workflow.myfunction()`` would call the function ``myfunction`` that has been defined in the model, e.g. in ``other_workflow/Snakefile``).
+Also note that this means that any Python variables and functions available in the module-defining namespace will **not** be visible from inside the module.
+However, it is possible to pass information to the module using the ``config`` mechanism described in the following.
 
 It is possible to overwrite the global config dictionary for the module, which is usually filled by the ``configfile`` statement (see :ref:`snakefiles_standard_configuration`):
 
@@ -159,6 +162,8 @@ It is possible to overwrite the global config dictionary for the module, which i
 
 In this case, any ``configfile`` statements inside the module are ignored.
 In addition, it is possible to skip any :ref:`validation <snakefiles_config_validation>` statements in the module, by specifying ``skip_validation: True`` in the module statment.
+Moreover, one can automatically move all relative input and output files of a module into a dedicated folder: by specifying ``prefix: "foo"`` in the module definition, e.g. any output file ``path/to/output.txt`` in the module would be stored under ``foo/path/to/output.txt`` instead.
+This becomes particularly usefull when combining multiple modules, see :ref:`use_with_modules`.
 
 Instead of using all rules, it is possible to import specific rules.
 Specific rules may even be modified before using them, via a final ``with:`` followed by a block that lists items to overwrite.
@@ -186,7 +191,7 @@ Note that the second use statement has to use the original rule name, not the on
 In order to overwrite the rule ``some_task`` that has been imported with the first ``use rule`` statement, it is crucial to ensure that the rule is used with the same name in the second statement, by adding an equivalent ``as`` clause (here ``other_some_task``).
 Otherwise, you will have two versions of the same rule, which might be unintended (a common symptom of such unintended repeated uses would be ambiguous rule exceptions thrown by Snakemake).
 
-Of course, it is possible to combine the use of rules from multiple modules, and via modifying statements they can be rewired and reconfigured in an arbitrary way.
+Of course, it is possible to combine the use of rules from multiple modules (see :ref:`use_with_modules`), and via modifying statements they can be rewired and reconfigured in an arbitrary way.
 
 ..  _snakefiles-meta-wrappers:
 
@@ -233,7 +238,8 @@ And finally, we overwrite the input directive of the rule ``bwa_mem`` such that 
 Sub-Workflows
 -------------
 
-In addition to including rules of another workflow, Snakemake allows to depend on the output of other workflows as sub-workflows.
+Snakemake allows to depend on the output of other workflows as sub-workflows.
+However, note that sub-workflows are deprecated in favor of :ref:`modules <snakefiles-modules>`.
 A sub-workflow is executed independently before the current workflow is executed.
 Thereby, Snakemake ensures that all files the current workflow depends on are created or updated if necessary.
 This allows to create links between otherwise separate data analyses.
@@ -265,6 +271,8 @@ This function automatically determines the absolute path to the file (here ``../
 When executing, snakemake first tries to create (or update, if necessary) ``test.txt`` (and all other possibly mentioned dependencies) by executing the subworkflow.
 Then the current workflow is executed.
 This can also happen recursively, since the subworkflow may have its own subworkflows as well.
+
+Note that subworkflow rules will not be displayed in a :ref:`Snakemake report <snakefiles-reports>` generated from the surrounding workflow.
 
 
 .. _snakefile-code-hosting-providers:

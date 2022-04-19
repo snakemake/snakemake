@@ -1,11 +1,14 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+import signal
 import sys
+import shlex
 import shutil
+import time
 from os.path import join
 import tempfile
 import hashlib
@@ -20,7 +23,7 @@ from snakemake.common import ON_WINDOWS
 
 
 def dpath(path):
-    """get path to a data file (relative to the directory this
+    """get the path to a data file (relative to the directory this
     test lives in)"""
     return os.path.realpath(join(os.path.dirname(__file__), path))
 
@@ -51,6 +54,10 @@ def has_gcloud_service_key():
     return "GCP_AVAILABLE" in os.environ
 
 
+def has_zenodo_token():
+    return os.environ.get("ZENODO_SANDBOX_PAT")
+
+
 gcloud = pytest.mark.skipif(
     not is_connected() or not has_gcloud_service_key(),
     reason="Skipping GCLOUD tests because not on "
@@ -63,6 +70,10 @@ connected = pytest.mark.skipif(not is_connected(), reason="no internet connectio
 ci = pytest.mark.skipif(not is_ci(), reason="not in CI")
 not_ci = pytest.mark.skipif(is_ci(), reason="skipped in CI")
 
+zenodo = pytest.mark.skipif(
+    not has_zenodo_token(), reason="no ZENODO_SANDBOX_PAT provided"
+)
+
 
 def copy(src, dst):
     if os.path.isdir(src):
@@ -73,7 +84,7 @@ def copy(src, dst):
 
 def get_expected_files(results_dir):
     """Recursively walk through the expected-results directory to enumerate
-    all excpected files."""
+    all expected files."""
     return [
         os.path.relpath(f, results_dir)
         for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
@@ -96,12 +107,13 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
     shellcmd=None,
+    sigint_after=None,
     **params,
 ):
     """
-    Test the Snakefile in path.
+    Test the Snakefile in the path.
     There must be a Snakefile in the path and a subdirectory named
     expected-results. If cleanup is False, we return the temporary
     directory to the calling test for inspection, and the test should
@@ -156,16 +168,24 @@ def run(
             raise ValueError("shellcmd does not start with snakemake")
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
-            subprocess.check_output(
-                shellcmd,
-                cwd=path if no_tmpdir else tmpdir,
-                shell=True,
-            )
-            success = True
+            if sigint_after is None:
+                subprocess.check_output(
+                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                )
+                success = True
+            else:
+                with subprocess.Popen(
+                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                ) as process:
+                    time.sleep(sigint_after)
+                    process.send_signal(signal.SIGINT)
+                    time.sleep(2)
+                    success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
             print(e.stderr, file=sys.stderr)
     else:
+        assert sigint_after is None, "Cannot sent SIGINT when calling directly"
         success = snakemake(
             snakefile=original_snakefile if no_tmpdir else snakefile,
             cores=cores,

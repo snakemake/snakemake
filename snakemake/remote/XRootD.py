@@ -1,5 +1,5 @@
 __author__ = "Chris Burr"
-__copyright__ = "Copyright 2017, Chris Burr"
+__copyright__ = "Copyright 2022, Chris Burr"
 __email__ = "christopher.burr@cern.ch"
 __license__ = "MIT"
 
@@ -7,7 +7,12 @@ import os
 from os.path import abspath, join, normpath
 import re
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from stat import S_ISREG
+from snakemake.remote import (
+    AbstractRemoteObject,
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError, XRootDFileException
 
 try:
@@ -50,7 +55,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["root://", "roots://", "rootk://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with XRootD servers."""
 
     def __init__(
@@ -88,11 +93,11 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.remote_file(), self.file())
 
-    def upload(self):
+    def _upload(self):
         assert not self.stay_on_remote
         self._xrd.copy(self.file(), self.remote_file())
 
@@ -142,23 +147,30 @@ class XRootDHelper(object):
         return domain, dirname, filename
 
     def exists(self, url):
+
         domain, dirname, filename = self._parse_url(url)
-        status, dirlist = self.get_client(domain).dirlist(dirname)
+
+        status, statInfo = self.get_client(domain).stat(os.path.join(dirname, filename))
+
         if not status.ok:
             if status.errno == 3011:
                 return False
-            else:
-                raise XRootDFileException(
-                    "Error listing directory "
-                    + dirname
-                    + " on domain "
-                    + domain
-                    + "\n"
-                    + repr(status)
-                    + "\n"
-                    + repr(dirlist)
-                )
-        return filename in [f.name for f in dirlist.dirlist]
+            raise XRootDFileException(
+                "Error stating URL "
+                + os.path.join(dirname, filename)
+                + " on domain "
+                + domain
+                + "\n"
+                + repr(status)
+                + "\n"
+                + repr(statInfo)
+            )
+
+        return True
+        # return not (
+        #     (statInfo.flags & StatInfoFlags.IS_DIR)
+        #     or (statInfo.flags & StatInfoFlags.OTHER)
+        # )
 
     def _get_statinfo(self, url):
         domain, dirname, filename = self._parse_url(url)

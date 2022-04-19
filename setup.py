@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -11,8 +11,8 @@ import sys
 import versioneer
 
 
-if sys.version_info < (3, 5):
-    print("At least Python 3.5 is required for Snakemake.\n", file=sys.stderr)
+if sys.version_info < (3, 7):
+    print("At least Python 3.7 is required for Snakemake.\n", file=sys.stderr)
     exit(1)
 
 
@@ -37,17 +37,24 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
+    project_urls={
+        "Source": "https://github.com/snakemake/snakemake",
+    },
     packages=[
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.report.template",
+        "snakemake.report.template.components",
+        "snakemake.report.data",
         "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
         "snakemake.linting",
         "snakemake.executors",
         "snakemake.unit_tests",
-        "snakemake.unit_tests.templates"
+        "snakemake.unit_tests.templates",
+        "snakemake.template_rendering",
     ],
     entry_points={
         "console_scripts": [
@@ -55,7 +62,7 @@ setup(
             "snakemake-bash-completion = snakemake:bash_completion",
         ]
     },
-    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2"]},
+    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]},
     install_requires=[
         "wrapt",
         "requests",
@@ -73,12 +80,14 @@ setup(
         "connection_pool >=0.0.3",
         "pulp >=2.0",
         "smart_open >=3.0",
-        "filelock",
         "stopit",
         "tabulate",
+        "yte >=1.0,<2.0",
+        "jinja2 >=3.0,<4.0",
+        "retry",
     ],
     extras_require={
-        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "reports": ["jinja2", "pygments"],
         "messaging": ["slacker"],
         "google-cloud": [
             "oauth2client",
@@ -89,7 +98,7 @@ setup(
         "pep": [
             "peppy",
             "eido",
-        ]
+        ],
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -97,7 +106,7 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
 )

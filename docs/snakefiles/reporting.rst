@@ -52,7 +52,11 @@ Consider the following example:
 
   rule d:
       output:
-          report(directory("testdir"), patterns=["{name}.txt"], caption="report/somedata.rst", category="Step 3")
+          report(
+              directory("testdir"), 
+              patterns=["{name}.txt"], 
+              caption="report/somedata.rst", 
+              category="Step 3")
       shell:
           "mkdir {output}; for i in 1 2 3; do echo $i > {output}/$i.txt; done"
 
@@ -89,8 +93,44 @@ This works as follows:
             echo \"alert('test')\" > test/js/test.js
             """
 
+Defining file labels
+~~~~~~~~~~~~~~~~~~~~~
 
-Moreover, in every ``.rst`` document, you can link to
+In addition to category, and subcategory, it is possible to define a dictionary of labels for each report item.
+By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
+This can lead to less technical reports that abstract away the fact that the results of the analysis are actually files.
+Consider the following modification of rule ``b`` from above:
+
+.. code-block:: python
+
+    rule b:
+      input:
+          expand("{model}.{i}.out", i=range(10))
+      output:
+          report(
+              "fig2.png", 
+              caption="report/fig2.rst", 
+              category="Step 2", 
+              subcategory="{model}",
+              labels={
+                  "model": "{model}",
+                  "figure": "some plot"
+              }
+          )
+      shell:
+          "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
+
+
+Determining category, subcategory, and labels dynamically via functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Similar to e.g. with input file and parameter definition (see :ref:`snakefiles-input_functions`), ``category`` and a ``subcategory`` and ``labels`` can be specified by pointing to a function which is expected to return a string.
+
+
+Linking between items
+~~~~~~~~~~~~~~~~~~~~~
+
+In every ``.rst`` document, you can link to
 
 * the **Workflow** panel (with ``Rules_``),
 * the **Statistics** panel (with ``Statistics_``),
@@ -98,6 +138,9 @@ Moreover, in every ``.rst`` document, you can link to
 * any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
 
 For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`_.
+
+Rendering reports
+~~~~~~~~~~~~~~~~~
 
 To create the report simply run
 

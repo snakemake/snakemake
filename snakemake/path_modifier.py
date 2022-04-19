@@ -1,22 +1,28 @@
 __authors__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
 
 
 PATH_MODIFIER_FLAG = "path_modified"
 
 
 class PathModifier:
-    def __init__(self, replace_prefix: dict, workflow):
+    def __init__(self, replace_prefix: dict, prefix: str, workflow):
         self.skip_properties = set()
         self.workflow = workflow
 
         self.trie = None
+        self.prefix = None
+        assert not (prefix and replace_prefix)
+        if prefix:
+            if not prefix.endswith("/"):
+                prefix += "/"
+            self.prefix = prefix
         if replace_prefix:
             import datrie
 
@@ -46,25 +52,36 @@ class PathModifier:
         return modified_path
 
     def replace_prefix(self, path, property=None):
-        if self.trie is None or property in self.skip_properties:
+        if (self.trie is None and self.prefix is None) or (
+            property in self.skip_properties
+            or os.path.isabs(path)
+            or path.startswith("..")
+            or is_flagged(path, "remote_object")
+            or is_callable(path)
+        ):
             # no replacement
             return path
-        prefixes = self.trie.prefix_items(str(path))
-        if len(prefixes) > 1:
-            # ambiguous prefixes
-            raise WorkflowError(
-                "Multiple prefixes ({}) match the path {}. Make sure that the replace_prefix statement "
-                "in your module definition does not yield ambiguous matches.".format(
-                    ", ".join(prefix[0] for prefix in prefixes), path
+
+        if self.trie is not None:
+            prefixes = self.trie.prefix_items(str(path))
+            if len(prefixes) > 1:
+                # ambiguous prefixes
+                raise WorkflowError(
+                    "Multiple prefixes ({}) match the path {}. Make sure that the replace_prefix statement "
+                    "in your module definition does not yield ambiguous matches.".format(
+                        ", ".join(prefix[0] for prefix in prefixes), path
+                    )
                 )
-            )
-        elif prefixes:
-            # replace prefix
-            prefix, replacement = prefixes[0]
-            return replacement + path[len(prefix) :]
+            elif prefixes:
+                # replace prefix
+                prefix, replacement = prefixes[0]
+                return replacement + path[len(prefix) :]
+            else:
+                # no matching prefix
+                return path
         else:
-            # no matching prefix
-            return path
+            # prefix case
+            return self.prefix + path
 
     def apply_default_remote(self, path):
         """Apply the defined default remote provider to the given path and return the updated _IOFile.

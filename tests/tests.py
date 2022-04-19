@@ -1,5 +1,5 @@
 __authors__ = ["Tobias Marschall", "Marcel Martin", "Johannes Köster"]
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -101,6 +101,7 @@ def test13():
 @skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
+    os.environ["TESTVAR2"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
@@ -111,6 +112,68 @@ def test_cluster_statusscript():
         dpath("test_cluster_statusscript"),
         snakefile="Snakefile.nonstandard",
         cluster="./qsub",
+        cluster_status="./status.sh",
+    )
+
+
+@skip_on_windows
+def test_cluster_cancelscript():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "--cluster-status=./status.sh -s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=4,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 1
+    assert scancel_lines[0].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 3
+
+
+@skip_on_windows
+def test_cluster_sidecar():
+    run(
+        dpath("test_cluster_sidecar"),
+        shellcmd=("snakemake -j 10 --cluster=./sbatch --cluster-sidecar=./sidecar.sh"),
+    )
+
+
+@skip_on_windows
+def test_cluster_cancelscript_nargs1():
+    outdir = run(
+        dpath("test_cluster_cancelscript"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+            "--cluster-status=./status.sh --cluster-cancel-nargs=1 "
+            "-s Snakefile.nonstandard"
+        ),
+        shouldfail=True,
+        cleanup=False,
+        sigint_after=4,
+    )
+    scancel_txt = open("%s/scancel.txt" % outdir).read()
+    scancel_lines = scancel_txt.splitlines()
+    assert len(scancel_lines) == 2
+    assert scancel_lines[0].startswith("cancel")
+    assert scancel_lines[1].startswith("cancel")
+    assert len(scancel_lines[0].split(" ")) == 2
+    assert len(scancel_lines[1].split(" ")) == 2
+
+
+@skip_on_windows
+def test_cluster_statusscript_multi():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript_multi"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./sbatch",
         cluster_status="./status.sh",
     )
 
@@ -176,6 +239,14 @@ def test_report_zip():
 
 def test_report_dir():
     run(dpath("test_report_dir"), report="report.zip", check_md5=False)
+
+
+def test_report_display_code():
+    run(
+        dpath("test_report_display_code"),
+        report="report.html",
+        check_md5=False,
+    )
 
 
 def test_dynamic():
@@ -429,6 +500,17 @@ def test_upstream_conda():
     run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
 
 
+@skip_on_windows
+def test_deploy_script():
+    run(dpath("test_deploy_script"), use_conda=True)
+
+
+@skip_on_windows
+def test_deploy_hashing():
+    tmpdir = run(dpath("test_deploy_hashing"), use_conda=True, cleanup=False)
+    assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
+
+
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
@@ -445,9 +527,27 @@ def test_conda_cmd_exe():
     run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
-@skip_on_windows  # Conda support is partly broken on Win
+@skip_on_windows  # wrappers are for linux and macos only
 def test_wrapper():
     run(dpath("test_wrapper"), use_conda=True)
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+def test_wrapper_local_git_prefix():
+    import git
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print("Cloning wrapper repo...")
+        repo = git.Repo.clone_from(
+            "https://github.com/snakemake/snakemake-wrappers", tmpdir
+        )
+        print("Cloning complete.")
+
+        run(
+            dpath("test_wrapper"),
+            use_conda=True,
+            wrapper_prefix=f"git+file://{tmpdir}",
+        )
 
 
 def test_get_log_none():
@@ -585,7 +685,7 @@ def test_restartable_job_cmd_exit_1_one_restart():
 def test_restartable_job_qsub_exit_1():
     """Test the restartable job feature when qsub fails
 
-    The qsub in the sub directory will fail the first time and succeed the
+    The qsub in the subdirectory will fail the first time and succeed the
     second time.
     """
     # Even two consecutive times should fail as files are cleared
@@ -674,10 +774,10 @@ def test_gs_requester_pays(
     Parameters
     ----------
     requesting_project: Optional[str]
-        User project to bill for download. None will not provide project for
+        User project to bill for download. None will not provide the project for
         requester-pays as is the usual default
     requesting_url: str
-        URL of bucket to download. Default will match expected output, but is a
+        URL of the bucket to download. The default will match the expected output but is a
         bucket that doesn't require requester pays.
     """
     # create temporary config file
@@ -763,19 +863,13 @@ def test_singularity_conda():
 @skip_on_windows
 @connected
 def test_singularity_none():
-    run(
-        dpath("test_singularity_none"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_none"), use_singularity=True)
 
 
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(
-        dpath("test_singularity_global"),
-        use_singularity=True,
-    )
+    run(dpath("test_singularity_global"), use_singularity=True)
 
 
 def test_issue612():
@@ -821,6 +915,11 @@ def test_issue823_1():
 @skip_on_windows
 def test_issue823_2():
     run(dpath("test_issue823_2"))
+
+
+@skip_on_windows
+def test_issue823_3():
+    run(dpath("test_issue823_3"))
 
 
 @skip_on_windows
@@ -1132,6 +1231,12 @@ def test_output_file_cache_remote():
     )
 
 
+@connected
+@zenodo
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 
@@ -1273,6 +1378,16 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
 
 
+@skip_on_windows
+def test_modules_prefix():
+    run(dpath("test_modules_prefix"), targets=["a"])
+
+
+@skip_on_windows
+def test_modules_peppy():
+    run(dpath("test_modules_peppy"), targets=["a"])
+
+
 def test_modules_specific():
     run(dpath("test_modules_specific"), targets=["test_a"])
 
@@ -1292,6 +1407,14 @@ def test_module_complex():
 
 def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
+
+
+@skip_on_windows
+def test_module_no_prefixing_modified_paths():
+    run(
+        dpath("test_module_no_prefixing_modified_paths"),
+        targets=["module2/test_final.txt"],
+    )
 
 
 def test_module_with_script():
@@ -1360,10 +1483,7 @@ def test_strict_mode():
 
 @needs_strace
 def test_github_issue1158():
-    run(
-        dpath("test_github_issue1158"),
-        cluster="./qsub.py",
-    )
+    run(dpath("test_github_issue1158"), cluster="./qsub.py")
 
 
 def test_converting_path_for_r_script():
@@ -1382,3 +1502,115 @@ def test_checkpoint_allowed_rules():
 @skip_on_windows
 def test_modules_ruledeps_inheritance():
     run(dpath("test_modules_ruledeps_inheritance"))
+
+
+@skip_on_windows
+def test_issue1331():
+    # not guaranteed to fail, so let's try multiple times
+    for i in range(10):
+        run(dpath("test_issue1331"), cores=4)
+
+
+@skip_on_windows
+def test_conda_named():
+    run(dpath("test_conda_named"), use_conda=True)
+
+
+@skip_on_windows
+def test_default_target():
+    run(dpath("test_default_target"))
+
+
+def test_cache_multioutput():
+    run(dpath("test_cache_multioutput"), shouldfail=True)
+
+
+@skip_on_windows
+def test_github_issue1384():
+    try:
+        tmpdir = run(dpath("test_github_issue1384"), cleanup=False)
+        shell(
+            """
+            cd {tmpdir}
+            python -m snakemake --generate-unit-tests
+            pytest -v .tests/unit
+            """
+        )
+    finally:
+        shutil.rmtree(tmpdir)
+
+
+@skip_on_windows
+def test_peppy():
+    run(dpath("test_peppy"))
+
+
+def test_template_engine():
+    run(dpath("test_template_engine"))
+
+
+def test_groupid_expand_local():
+    run(dpath("test_groupid_expand"))
+
+
+@skip_on_windows
+def test_groupid_expand_cluster():
+    run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)
+
+
+def test_incomplete_params():
+    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
+
+
+@skip_on_windows
+def test_github_issue261():
+    run(dpath("test_github_issue261"), targets=["test1/target1/config1.done"])
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend():
+    run(dpath("test_pipe_depend"), shouldfail=True)
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend_target_file():
+    run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)
+
+
+@skip_on_windows  # platform independent issue
+def test_github_issue1500():
+    run(dpath("test_github_issue1500"), dryrun=True)
+
+
+def test_github_issue1542():
+    run(dpath("test_github_issue1542"), dryrun=True)
+
+
+def test_github_issue1550():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_github_issue1550"),
+        resources={"mem_mb": 4000},
+        default_resources=DefaultResources(
+            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+        ),
+    )
+
+
+def test_github_issue1498():
+    run(dpath("test_github_issue1498"))
+
+
+def test_cleanup_metadata_fail():
+    run(dpath("test09"), cleanup_metadata=["xyz"])
+
+
+@skip_on_windows  # same on win, no need to test
+def test_github_issue1389():
+    run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
