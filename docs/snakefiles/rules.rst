@@ -2009,10 +2009,24 @@ Consider the following example:
             "jinja2"
 
 Here, Snakemake will automatically use the specified template engine `Jinja2 <https://jinja.palletsprojects.com/>`_ to render the template given as input file into the given output file.
-Template rendering rules may only have a single input and output file.
 The template_engine instruction has to be specified at the end of the rule.
+Template rendering rules may only have a single output file.
+If the rule needs more than one input file, there has to be one input file called ``template``, pointing to the main template to be used for the rendering:
 
-The template itself has access to ``params``, ``wildcards``, and ``config``,
+.. code-block:: python
+
+    rule render_jinja2_template:
+        input:
+            template="some-jinja2-template.txt",
+            other_file="some-other-input-file-used-by-the-template.txt"
+        output:
+            "results/{sample}.rendered-version.txt"
+        params:
+            foo=0.1
+        template_engine:
+            "jinja2"
+
+The template itself has access to ``input``, ``params``, ``wildcards``, and ``config``,
 which are the same objects you can use for example in the ``shell`` or ``run`` directive, 
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 

@@ -124,6 +124,7 @@ class Rule:
             self.log_modifier = None
             self.benchmark_modifier = None
             self.ruleinfo = None
+            self.module_globals = None
         elif len(args) == 1:
             other = args[0]
             self.name = other.name
@@ -177,6 +178,7 @@ class Rule:
             self.log_modifier = other.log_modifier
             self.benchmark_modifier = other.benchmark_modifier
             self.ruleinfo = other.ruleinfo
+            self.module_globals = other.module_globals
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):

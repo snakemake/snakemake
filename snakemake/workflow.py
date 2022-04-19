@@ -1392,6 +1392,7 @@ class Workflow:
         )
         rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
+        rule.module_globals = self.modifier.globals
 
         def decorate(ruleinfo):
             nonlocal name

@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.3.8](https://www.github.com/snakemake/snakemake/compare/v7.3.7...v7.3.8) (2022-04-06)
+
+
+### Bug Fixes
+
+* support multiple input files for template_engine rules ([#1571](https://www.github.com/snakemake/snakemake/issues/1571)) ([aee7cf2](https://www.github.com/snakemake/snakemake/commit/aee7cf236611e5201feda152f5b7357b49b9f15b))
+
 ### [7.3.7](https://www.github.com/snakemake/snakemake/compare/v7.3.6...v7.3.7) (2022-04-05)
 
 
