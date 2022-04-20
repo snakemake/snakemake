@@ -1524,7 +1524,7 @@ class DAG:
         self.replace_job(job, newjob)
         for job_ in depending:
             needs_update = any(
-                f.get_wildcard_names() & dynamic_wildcards.keys()
+                f.get_wildcard_names()[0] & dynamic_wildcards.keys()
                 for f in job_.rule.dynamic_input
             )
 
