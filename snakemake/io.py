@@ -21,8 +21,6 @@ import string
 import collections
 import asyncio
 
-from numpy import character
-
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -801,7 +799,6 @@ _illegal_wildcard_name_regex = re.compile(
     """,
     re.VERBOSE,
 )
-
 
 def wait_for_files(
     files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
