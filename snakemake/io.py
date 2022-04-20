@@ -21,6 +21,8 @@ import string
 import collections
 import asyncio
 
+from numpy import character
+
 from snakemake.exceptions import (
     MissingOutputException,
     WorkflowError,
@@ -788,6 +790,18 @@ _wildcard_regex = re.compile(
     re.VERBOSE,
 )
 
+_illegal_wildcard_name_regex = re.compile(
+    r"""
+    \{(?!\{) # Start matching from the second {, otherwise \W will match the second {
+        \s*
+        (?P<name>
+            .*?\W[^,\{\}]*
+        ),?[^,\{\}]*? # Do we see any non-word character before comma?
+    \}
+    """,
+    re.VERBOSE,
+)
+
 
 def wait_for_files(
     files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
@@ -835,7 +849,16 @@ def wait_for_files(
 
 
 def get_wildcard_names(pattern):
-    return set(match.group("name") for match in _wildcard_regex.finditer(pattern))
+    match = set(match.group("name") for match in _wildcard_regex.finditer(pattern))
+    illegal_name = False
+    if not match:
+        match = set(
+            match.group("name")
+            for match in _illegal_wildcard_name_regex.finditer(pattern)
+        )
+        if match:
+            illegal_name = True
+    return (match, illegal_name)
 
 
 def contains_wildcard(path):

@@ -19,6 +19,7 @@ from functools import partial
 from snakemake.io import (
     IOFile,
     _IOFile,
+    get_wildcard_names,
     protected,
     temp,
     dynamic,
@@ -363,7 +364,7 @@ class Rule:
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
-        self.register_wildcards(self._benchmark.get_wildcard_names())
+        self.register_wildcards(self._benchmark)
 
     @property
     def conda_env(self):
@@ -417,7 +418,18 @@ class Rule:
         else:
             return chain(self.output, self.log)
 
-    def register_wildcards(self, wildcard_names):
+    def register_wildcards(self, item):
+        wildcard_names, illegal_name = item.get_wildcard_names()
+        if illegal_name:
+            logger.warning(
+                "Warning:\nIt looks like you may have used a wildcard name that contains unsupported character.\n"
+                + "Wildcard names can only contain alphanumeric characters and underscores.\n"
+                + "Rule name: {rulename};\tWildcard name: {wildcardname}\n".format(
+                    rulename=self.name,
+                    wildcardname=",".join([name for name in wildcard_names]),
+                )
+                + "If that is the case, you will see a MissingInputException below.\n"
+            )
         if self._wildcard_names is None:
             self._wildcard_names = wildcard_names
         else:
@@ -456,7 +468,7 @@ class Rule:
                     "A rule with dynamic output may not define any "
                     "non-dynamic output files."
                 )
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
         # Check output file name list for duplicates
         self.check_output_duplicates()
         self.check_caching()
@@ -693,7 +705,7 @@ class Rule:
             self._set_log_item(item, name=name)
 
         for item in self.log:
-            self.register_wildcards(item.get_wildcard_names())
+            self.register_wildcards(item)
 
     def _set_log_item(self, item, name=None):
         # Pathlib compatibility
