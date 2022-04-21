@@ -53,11 +53,33 @@ def test_run_script_directive_async():
         async_run(dummy_task())
         test_run_script_directive()
 
-    if sys.version_info < (3, 7):
-        async_run(main())
-    else:
-        asyncio.run(main())
+    asyncio.run(main())
 
+
+def test_dicts_in_config():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "Snakefile")
+        with open(path, "w") as f:
+            print(
+                dedent(
+                    """
+                rule:
+                    output: 'result.txt'
+                    run:
+                        with open(output[0], 'w') as f:
+                            print("hello, this option " + config["this_option"] + "; this test dictionary " + config["test"]["this_dict"], file=f)
+                """
+                ),
+                file=f,
+            )
+        snakemake(
+            path,
+            workdir=tmpdir,
+            config={
+                "this_option": "does_not_break",
+                "test": {"this_dict": "shoult_not_either"},
+            },
+        )
 
 def test_lockexception():
     from snakemake.persistence import Persistence

@@ -38,12 +38,10 @@ dependencies:
   - ratelimiter
   - configargparse
   - appdirs
-  - python-irodsclient
+  - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
   - cwltool
   - jsonschema
   - pandas
-  - networkx
-  - pygraphviz
   - python-kubernetes
   - gitpython
   - pulp >=2.0
@@ -63,3 +61,5 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
+  - retry
+  - graphviz

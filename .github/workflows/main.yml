@@ -57,7 +57,9 @@ jobs:
           conda install -c conda-forge -q mamba
           mamba env create -q --name snakemake --file test-environment.yml
           # additionally add singularity
-          mamba install -c conda-forge -n snakemake singularity
+          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
+          # bin/unsquashfs: error while loading shared libraries: libz.so.1: cannot open shared object file: No such file or directory
+          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
       
       - name: Setup apt dependencies
         run: |
@@ -91,6 +93,7 @@ jobs:
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
@@ -112,6 +115,16 @@ jobs:
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
 
+      # TODO reactivate in April (we have no free resources left this month)
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
+      # TODO reactivate in April (we have no free resources left this month)
       - name: Test Kubernetes execution
         if: env.GCP_AVAILABLE
         env:
@@ -123,7 +136,8 @@ jobs:
 
           pytest -s -v -x tests/test_kubernetes.py
 
-      - name: Test AWS execution
+      # TODO temporarily deactivate and fix in separate PR.
+      - name: Test Tibanna (AWS) execution
         if: env.AWS_AVAILABLE
         env: 
           CI: true
@@ -132,15 +146,7 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
 
-          pytest -v -x tests/test_tibanna.py
-
-      - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_google_lifesciences.py
+      #     pytest -v -x -s tests/test_tibanna.py
 
       - name: Test GA4GH TES executor
         run: |
@@ -195,5 +201,6 @@ jobs:
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           python -m pytest -v -x tests/tests.py

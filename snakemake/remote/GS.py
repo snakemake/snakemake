@@ -14,6 +14,7 @@ from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
 import snakemake.io
 from snakemake.utils import os_sync
+from snakemake.logging import logger
 
 try:
     import google.cloud
@@ -123,7 +124,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self.client = storage.Client(*args, **kwargs)
@@ -171,7 +172,7 @@ class RemoteObject(AbstractRemoteObject):
         iterate over the entire bucket once (and then not need to again).
         This includes:
          - cache.exist_remote
-         - cache_mtime
+         - cache.mtime
          - cache.size
         """
         if cache.remaining_wait_time <= 0:
@@ -184,8 +185,9 @@ class RemoteObject(AbstractRemoteObject):
             # By way of being listed, it exists. mtime is a datetime object
             name = "{}/{}".format(blob.bucket.name, blob.name)
             cache.exists_remote[name] = True
-            cache.mtime[name] = blob.updated.timestamp()
+            cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
+            # TODO cache "is directory" information
 
         cache.remaining_wait_time -= time.time() - start_time
 
@@ -200,35 +202,60 @@ class RemoteObject(AbstractRemoteObject):
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
+        if self.blob.exists():
+            return True
+        elif any(self.directory_entries()):
+            return True
+
+        # The blob object can get out of sync, one last try!
+        self.update_blob()
         return self.blob.exists()
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def mtime(self):
         if self.exists():
-            self.update_blob()
-            t = self.blob.updated
-            return t.timestamp()
+            if self.is_directory():
+                return max(
+                    blob.updated.timestamp() for blob in self.directory_entries()
+                )
+            else:
+                self.update_blob()
+                return self.blob.updated.timestamp()
         else:
             raise WorkflowError(
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
+    @retry.Retry(predicate=google_cloud_retry_predicate)
     def size(self):
         if self.exists():
-            self.update_blob()
-            return self.blob.size // 1024
+            if self.is_directory():
+                return 0
+            else:
+                self.update_blob()
+                return self.blob.size // 1024
         else:
             return self._iofile.size_local
 
     @retry.Retry(predicate=google_cloud_retry_predicate, deadline=600)
-    def download(self):
+    def _download(self):
         """Download with maximum retry duration of 600 seconds (10 minutes)"""
         if not self.exists():
             return None
 
         # Create just a directory, or a file itself
-        if snakemake.io.is_flagged(self.local_file(), "directory"):
+        if self.is_directory():
             return self._download_directory()
         return download_blob(self.blob, self.local_file())
+
+    @retry.Retry(predicate=google_cloud_retry_predicate)
+    def is_directory(self):
+        if snakemake.io.is_flagged(self.file(), "directory"):
+            return True
+        elif self.blob.exists():
+            return False
+        else:
+            return any(self.directory_entries())
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def _download_directory(self):
@@ -238,7 +265,7 @@ class RemoteObject(AbstractRemoteObject):
         # Create the directory locally
         os.makedirs(self.local_file(), exist_ok=True)
 
-        for blob in self.client.list_blobs(self.bucket_name, prefix=self.key):
+        for blob in self.directory_entries():
             local_name = "{}/{}".format(blob.bucket.name, blob.name)
 
             # Don't try to create "directory blob"
@@ -251,7 +278,7 @@ class RemoteObject(AbstractRemoteObject):
         return self.local_file()
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
-    def upload(self):
+    def _upload(self):
         try:
             if not self.bucket.exists():
                 self.bucket.create()
@@ -310,11 +337,7 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def key(self):
-        key = self.parse().group("key")
-        f = self.local_file()
-        if snakemake.io.is_flagged(f, "directory"):
-            key = key if f.endswith("/") else key + "/"
-        return key
+        return self.parse().group("key")
 
     def parse(self):
         m = re.search("(?P<bucket>[^/]*)/(?P<key>.*)", self.local_file())
@@ -324,3 +347,10 @@ class RemoteObject(AbstractRemoteObject):
                 "<bucket>/<key>.".format(self.local_file())
             )
         return m
+
+    def directory_entries(self):
+        prefix = self.key
+        if not prefix.endswith("/"):
+            prefix += "/"
+
+        return self.client.list_blobs(self.bucket_name, prefix=prefix)

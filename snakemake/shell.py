@@ -115,6 +115,13 @@ class shell:
                 del cls._processes[jobid]
 
     @classmethod
+    def terminate(cls, jobid):
+        with cls._lock:
+            if jobid in cls._processes:
+                cls._processes[jobid].terminate()
+                del cls._processes[jobid]
+
+    @classmethod
     def cleanup(cls):
         with cls._lock:
             cls._processes.clear()
@@ -198,7 +205,9 @@ class shell:
             )
             logger.info("Activating singularity image {}".format(container_img))
         if conda_env:
-            logger.info("Activating conda environment: {}".format(conda_env))
+            logger.info(
+                "Activating conda environment: {}".format(os.path.relpath(conda_env))
+            )
 
         tmpdir_resource = resources.get("tmpdir", None)
         # environment variable lists for linear algebra libraries taken from:

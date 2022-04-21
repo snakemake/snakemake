@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 import os
 from snakemake.exceptions import WorkflowError
-from snakemake.io import is_flagged, AnnotatedString, flag, get_flag_value
+from snakemake.io import is_callable, is_flagged, AnnotatedString, flag, get_flag_value
 
 
 PATH_MODIFIER_FLAG = "path_modified"
@@ -52,11 +52,16 @@ class PathModifier:
         return modified_path
 
     def replace_prefix(self, path, property=None):
-        if (
-            self.trie is None and self.prefix is None
-        ) or property in self.skip_properties:
+        if (self.trie is None and self.prefix is None) or (
+            property in self.skip_properties
+            or os.path.isabs(path)
+            or path.startswith("..")
+            or is_flagged(path, "remote_object")
+            or is_callable(path)
+        ):
             # no replacement
             return path
+
         if self.trie is not None:
             prefixes = self.trie.prefix_items(str(path))
             if len(prefixes) > 1:
@@ -74,11 +79,9 @@ class PathModifier:
             else:
                 # no matching prefix
                 return path
-        # prefix case
-        if os.path.isabs(path) or path.startswith(".."):
-            # do not apply prefix if path is not within the workdir
-            return path
-        return self.prefix + path
+        else:
+            # prefix case
+            return self.prefix + path
 
     def apply_default_remote(self, path):
         """Apply the defined default remote provider to the given path and return the updated _IOFile.

@@ -162,11 +162,11 @@ class KeywordState(TokenAutomaton):
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
 
-    def block(self, token):
+    def block(self, token, force_block_end=False):
         if self.lasttoken == "\n" and is_comment(token):
             # ignore lines containing only comments
             self.line -= 1
-        if self.is_block_end(token):
+        if force_block_end or self.is_block_end(token):
             yield from self.decorate_end(token)
             yield "\n", token
             raise StopAutomaton(token)
@@ -654,7 +654,7 @@ class TemplateEngine(Script):
     end_func = "render_template"
 
     def args(self):
-        yield (", input, output, params, wildcards, config")
+        yield (", input, output, params, wildcards, config, rule")
 
 
 class CWL(Script):
@@ -955,11 +955,12 @@ class UseRule(GlobalKeywordState):
         )
         yield "\n"
 
-        # yield with block
-        yield from self._with_block
+        if self._with_block:
+            # yield with block
+            yield from self._with_block
 
-        yield "@workflow.run"
-        yield "\n"
+            yield "@workflow.run"
+            yield "\n"
 
         rulename = self.rules[0]
         if rulename == "*":
@@ -1063,7 +1064,7 @@ class UseRule(GlobalKeywordState):
                 )
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting either 'as', 'with' or end of line in 'use rule' statement.",
@@ -1092,7 +1093,7 @@ class UseRule(GlobalKeywordState):
             yield from ()
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting rulename modifying pattern (e.g. modulename_*) after 'as' keyword.",

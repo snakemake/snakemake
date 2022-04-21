@@ -101,6 +101,7 @@ def test13():
 @skip_on_windows
 def test14():
     os.environ["TESTVAR"] = "test"
+    os.environ["TESTVAR2"] = "test"
     run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
 
 
@@ -164,6 +165,17 @@ def test_cluster_cancelscript_nargs1():
     assert scancel_lines[1].startswith("cancel")
     assert len(scancel_lines[0].split(" ")) == 2
     assert len(scancel_lines[1].split(" ")) == 2
+
+
+@skip_on_windows
+def test_cluster_statusscript_multi():
+    os.environ["TESTVAR"] = "test"
+    run(
+        dpath("test_cluster_statusscript_multi"),
+        snakefile="Snakefile.nonstandard",
+        cluster="./sbatch",
+        cluster_status="./status.sh",
+    )
 
 
 def test15():
@@ -515,9 +527,27 @@ def test_conda_cmd_exe():
     run(dpath("test_conda_cmd_exe"), use_conda=True)
 
 
-@skip_on_windows  # Conda support is partly broken on Win
+@skip_on_windows  # wrappers are for linux and macos only
 def test_wrapper():
     run(dpath("test_wrapper"), use_conda=True)
+
+
+@skip_on_windows  # wrappers are for linux and macos only
+def test_wrapper_local_git_prefix():
+    import git
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        print("Cloning wrapper repo...")
+        repo = git.Repo.clone_from(
+            "https://github.com/snakemake/snakemake-wrappers", tmpdir
+        )
+        print("Cloning complete.")
+
+        run(
+            dpath("test_wrapper"),
+            use_conda=True,
+            wrapper_prefix=f"git+file://{tmpdir}",
+        )
 
 
 def test_get_log_none():
@@ -888,6 +918,11 @@ def test_issue823_2():
 
 
 @skip_on_windows
+def test_issue823_3():
+    run(dpath("test_issue823_3"))
+
+
+@skip_on_windows
 def test_pathlib():
     run(dpath("test_pathlib"))
 
@@ -1196,6 +1231,12 @@ def test_output_file_cache_remote():
     )
 
 
+@connected
+@zenodo
+def test_remote_zenodo():
+    run(dpath("test_remote_zenodo"))
+
+
 def test_multiext():
     run(dpath("test_multiext"))
 
@@ -1368,6 +1409,14 @@ def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
 
 
+@skip_on_windows
+def test_module_no_prefixing_modified_paths():
+    run(
+        dpath("test_module_no_prefixing_modified_paths"),
+        targets=["module2/test_final.txt"],
+    )
+
+
 def test_module_with_script():
     run(dpath("test_module_with_script"))
 
@@ -1498,3 +1547,70 @@ def test_peppy():
 
 def test_template_engine():
     run(dpath("test_template_engine"))
+
+
+def test_groupid_expand_local():
+    run(dpath("test_groupid_expand"))
+
+
+@skip_on_windows
+def test_groupid_expand_cluster():
+    run(dpath("test_groupid_expand_cluster"), cluster="./qsub", nodes=3)
+
+
+@skip_on_windows
+def test_service_jobs():
+    run(dpath("test_service_jobs"), check_md5=False)
+
+
+def test_incomplete_params():
+    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
+
+
+@skip_on_windows
+def test_github_issue261():
+    run(dpath("test_github_issue261"), targets=["test1/target1/config1.done"])
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend():
+    run(dpath("test_pipe_depend"), shouldfail=True)
+
+
+@skip_on_windows  # no pipe support on windows
+def test_pipe_depend_target_file():
+    run(dpath("test_pipe_depend"), targets=["test.txt"], shouldfail=True)
+
+
+@skip_on_windows  # platform independent issue
+def test_github_issue1500():
+    run(dpath("test_github_issue1500"), dryrun=True)
+
+
+def test_github_issue1542():
+    run(dpath("test_github_issue1542"), dryrun=True)
+
+
+def test_github_issue1550():
+    from snakemake.resources import DefaultResources
+
+    run(
+        dpath("test_github_issue1550"),
+        resources={"mem_mb": 4000},
+        default_resources=DefaultResources(
+            ["mem_mb=max(2*input.size, 1000)", "disk_mb=max(2*input.size, 1000)"]
+        ),
+    )
+
+
+def test_github_issue1498():
+    run(dpath("test_github_issue1498"))
+
+
+def test_cleanup_metadata_fail():
+    run(dpath("test09"), cleanup_metadata=["xyz"])
+
+
+@skip_on_windows  # same on win, no need to test
+def test_github_issue1389():
+    run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)

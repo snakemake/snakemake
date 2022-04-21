@@ -16,7 +16,7 @@ from functools import partial
 from operator import attrgetter
 import copy
 import subprocess
-from pathlib import Path
+from pathlib import Path, PosixPath
 from urllib.request import pathname2url, url2pathname
 
 
@@ -51,10 +51,12 @@ from snakemake.io import (
     unpack,
     local,
     pipe,
+    service,
     repeat,
     report,
     multiext,
     IOFile,
+    sourcecache_entry,
 )
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
@@ -130,6 +132,7 @@ class Workflow:
         default_remote_provider=None,
         default_remote_prefix="",
         run_local=True,
+        assume_shared_fs=True,
         default_resources=None,
         cache=None,
         nodes=1,
@@ -146,6 +149,9 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        local_groupid="local",
+        keep_metadata=True,
+        latency_wait=3,
     ):
         """
         Create the controller.
@@ -209,6 +215,7 @@ class Workflow:
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
         self.run_local = run_local
+        self.assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self.edit_notebook = edit_notebook
@@ -229,6 +236,9 @@ class Workflow:
         self.max_threads = max_threads
         self.all_temp = all_temp
         self.scheduler = None
+        self.local_groupid = local_groupid
+        self.keep_metadata = keep_metadata
+        self.latency_wait = latency_wait
 
         _globals = globals()
         _globals["workflow"] = self
@@ -383,7 +393,8 @@ class Workflow:
                 )
             else:
                 raise WorkflowError(
-                    "Error executing git:\n{}".format(e.stderr.decode())
+                    "Error executing git (Snakemake requires git to be installed for "
+                    "remote execution without shared filesystem):\n" + e.stderr.decode()
                 )
 
         return files
@@ -594,7 +605,6 @@ class Workflow:
         delete_all_output=False,
         delete_temp_output=False,
         detailed_summary=False,
-        latency_wait=3,
         wait_for_files=None,
         nolock=False,
         unlock=False,
@@ -616,7 +626,6 @@ class Workflow:
         no_hooks=False,
         force_use_threads=False,
         conda_create_envs_only=False,
-        assume_shared_fs=True,
         cluster_status=None,
         cluster_cancel=None,
         cluster_cancel_nargs=None,
@@ -626,7 +635,6 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
-        keepmetadata=True,
     ):
 
         self.check_localrules()
@@ -697,7 +705,9 @@ class Workflow:
 
         if wait_for_files is not None:
             try:
-                snakemake.io.wait_for_files(wait_for_files, latency_wait=latency_wait)
+                snakemake.io.wait_for_files(
+                    wait_for_files, latency_wait=self.latency_wait
+                )
             except IOError as e:
                 logger.error(str(e))
                 return False
@@ -755,8 +765,18 @@ class Workflow:
             self.persistence.deactivate_cache()
 
         if cleanup_metadata:
+            failed = []
             for f in cleanup_metadata:
-                self.persistence.cleanup_metadata(f)
+                success = self.persistence.cleanup_metadata(f)
+                if not success:
+                    failed.append(f)
+            if failed:
+                logger.warning(
+                    "Failed to clean up metadata for the following files because the metadata was not present.\n"
+                    "If this is expected, there is nothing to do.\nOtherwise, the reason might be file system latency "
+                    "or still running jobs.\nConsider running metadata cleanup again.\nFiles:\n"
+                    + "\n".join(failed)
+                )
             return True
 
         if unlock:
@@ -857,6 +877,14 @@ class Workflow:
                 )
                 return False
 
+        if immediate_submit and any(dag.checkpoint_jobs):
+            logger.error(
+                "Immediate submit mode (--immediate-submit) may not be used for workflows "
+                "with checkpoint jobs, as the dependencies cannot be determined before "
+                "execution in such cases."
+            )
+            return False
+
         updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
 
         if generate_unit_tests:
@@ -912,24 +940,22 @@ class Workflow:
             dag.clean(only_temp=True, dryrun=dryrun)
             return True
         elif list_version_changes:
-            items = list(chain(*map(self.persistence.version_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("version")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_code_changes:
-            items = list(chain(*map(self.persistence.code_changed, dag.jobs)))
-            for j in dag.jobs:
-                items.extend(list(j.outputs_older_than_script_or_notebook()))
+            items = dag.get_outputs_with_changes("code")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_input_changes:
-            items = list(chain(*map(self.persistence.input_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("input")
             if items:
                 print(*items, sep="\n")
             return True
         elif list_params_changes:
-            items = list(chain(*map(self.persistence.params_changed, dag.jobs)))
+            items = dag.get_outputs_with_changes("params")
             if items:
                 print(*items, sep="\n")
             return True
@@ -937,17 +963,15 @@ class Workflow:
             dag.list_untracked()
             return True
 
-        if self.use_singularity:
-            if assume_shared_fs:
-                dag.pull_container_imgs(
-                    dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
-                )
+        if self.use_singularity and self.assume_shared_fs:
+            dag.pull_container_imgs(
+                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+            )
         if self.use_conda:
-            if assume_shared_fs:
-                dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                    quiet=list_conda_envs,
-                )
+            dag.create_conda_envs(
+                dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
+                quiet=list_conda_envs,
+            )
             if conda_create_envs_only:
                 return True
 
@@ -1002,17 +1026,16 @@ class Workflow:
             container_image=container_image,
             printreason=printreason,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            assume_shared_fs=assume_shared_fs,
+            assume_shared_fs=self.assume_shared_fs,
             keepincomplete=keepincomplete,
-            keepmetadata=keepmetadata,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
         )
 
         if not dryrun:
+            dag.warn_about_changes(quiet)
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1058,6 +1081,7 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
+            dag.warn_about_changes(quiet)
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1079,14 +1103,16 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                logger.info(
-                    "This was a dry-run (flag -n). The order of jobs "
-                    "does not reflect the order of execution."
-                )
+                    logger.info(
+                        "This was a dry-run (flag -n). The order of jobs "
+                        "does not reflect the order of execution."
+                    )
+                dag.warn_about_changes(quiet)
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
+                dag.warn_about_changes(quiet)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1094,6 +1120,7 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+            dag.warn_about_changes(quiet)
             logger.logfile_hint()
             return False
 
@@ -1115,9 +1142,19 @@ class Workflow:
 
         frame = inspect.currentframe().f_back
         calling_file = frame.f_code.co_filename
-        calling_dir = os.path.dirname(calling_file)
-        path = smart_join(calling_dir, rel_path)
-        return self.sourcecache.get_path(infer_source_file(path))
+
+        if calling_file == self.included_stack[-1].get_path_or_uri():
+            # called from current snakefile, we can try to keep the original source
+            # file annotation
+            path = self.current_basedir.join(rel_path)
+        else:
+            # heuristically determine path
+            calling_dir = os.path.dirname(calling_file)
+            path = smart_join(calling_dir, rel_path)
+
+        return sourcecache_entry(
+            self.sourcecache.get_path(infer_source_file(path)), path
+        )
 
     @property
     def snakefile(self):
@@ -1131,6 +1168,16 @@ class Workflow:
         Register environment variables that shall be passed to jobs.
         If used multiple times, union is taken.
         """
+        invalid_envvars = [
+            envvar
+            for envvar in envvars
+            if re.match("^\w+$", envvar, flags=re.ASCII) is None
+        ]
+        if invalid_envvars:
+            raise WorkflowError(
+                f"Invalid environment variables requested: {', '.join(map(repr, invalid_envvars))}. "
+                "Environment variable names may only contain alphanumeric characters and the underscore. "
+            )
         undefined = set(var for var in envvars if var not in os.environ)
         if self.check_envvars and undefined:
             raise WorkflowError(
@@ -1221,7 +1268,7 @@ class Workflow:
             return expand(
                 *args,
                 scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
-                **wildcards
+                **wildcards,
             )
 
         for key in content:
@@ -1331,6 +1378,7 @@ class Workflow:
         )
         rule = self.get_rule(name)
         rule.is_checkpoint = checkpoint
+        rule.module_globals = self.modifier.globals
 
         def decorate(ruleinfo):
             nonlocal name
@@ -1341,18 +1389,21 @@ class Workflow:
             if ruleinfo.wildcard_constraints:
                 rule.set_wildcard_constraints(
                     *ruleinfo.wildcard_constraints[0],
-                    **ruleinfo.wildcard_constraints[1]
+                    **ruleinfo.wildcard_constraints[1],
                 )
             if ruleinfo.name:
                 rule.name = ruleinfo.name
                 del self._rules[name]
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
-            rule.path_modifier = ruleinfo.path_modifier
             if ruleinfo.input:
-                rule.set_input(*ruleinfo.input[0], **ruleinfo.input[1])
+                pos_files, keyword_files, modifier = ruleinfo.input
+                rule.input_modifier = modifier
+                rule.set_input(*pos_files, **keyword_files)
             if ruleinfo.output:
-                rule.set_output(*ruleinfo.output[0], **ruleinfo.output[1])
+                pos_files, keyword_files, modifier = ruleinfo.output
+                rule.output_modifier = modifier
+                rule.set_output(*pos_files, **keyword_files)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
@@ -1390,9 +1441,9 @@ class Workflow:
                 if ruleinfo.shadow_depth is True:
                     rule.shadow_depth = "full"
                     logger.warning(
-                        "Shadow is set to True in rule {} (equivalent to 'full'). It's encouraged to use the more explicit options 'minimal|copy-minimal|shallow|full' instead.".format(
-                            rule
-                        )
+                        f"Shadow is set to True in rule {rule} (equivalent to 'full'). "
+                        "It's encouraged to use the more explicit options "
+                        "'minimal|copy-minimal|shallow|full' instead."
                     )
                 else:
                     rule.shadow_depth = ruleinfo.shadow_depth
@@ -1427,11 +1478,15 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                rule.set_log(*ruleinfo.log[0], **ruleinfo.log[1])
+                pos_files, keyword_files, modifier = ruleinfo.log
+                rule.log_modifier = modifier
+                rule.set_log(*pos_files, **keyword_files)
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
-                rule.benchmark = ruleinfo.benchmark
+                benchmark, modifier = ruleinfo.benchmark
+                rule.benchmark_modifier = modifier
+                rule.benchmark = benchmark
             if not self.run_local:
                 group = self.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
@@ -1599,14 +1654,14 @@ class Workflow:
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = (paths, kwpaths)
+            ruleinfo.input = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = (paths, kwpaths)
+            ruleinfo.output = (paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1651,7 +1706,7 @@ class Workflow:
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
-            ruleinfo.benchmark = benchmark
+            ruleinfo.benchmark = (benchmark, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1742,7 +1797,7 @@ class Workflow:
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = (logs, kwlogs)
+            ruleinfo.log = (logs, kwlogs, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate

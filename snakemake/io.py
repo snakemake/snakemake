@@ -735,7 +735,7 @@ class _IOFile(str):
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
-        if isinstance(other._file, AnnotatedString):
+        if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if "remote_object" in self._file.flags:
                 self._file.flags["remote_object"] = copy.copy(
@@ -790,7 +790,7 @@ _wildcard_regex = re.compile(
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
+    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -807,7 +807,10 @@ def wait_for_files(
                     and (force_stay_on_remote or f.should_stay_on_remote)
                 )
                 else os.path.exists(f)
-                if not (is_flagged(f, "pipe") and ignore_pipe)
+                if not (
+                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service
+                )
                 else True
             )
         ]
@@ -818,13 +821,16 @@ def wait_for_files(
             "Waiting at most {} seconds for missing files.".format(latency_wait)
         )
         for _ in range(latency_wait):
-            if not get_missing():
+            missing = get_missing()
+            if not missing:
                 return
             time.sleep(1)
+        missing = "\n".join(get_missing())
         raise IOError(
-            "Missing files after {} seconds:\n{}".format(
-                latency_wait, "\n".join(get_missing())
-            )
+            f"Missing files after {latency_wait} seconds. This might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait:\n"
+            f"{missing}"
         )
 
 
@@ -1018,6 +1024,14 @@ def pipe(value):
     return flag(value, "pipe", not ON_WINDOWS)
 
 
+def service(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "service")
+
+
 def temporary(value):
     """An alias for temp."""
     return temp(value)
@@ -1068,13 +1082,24 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
+def sourcecache_entry(value, orig_path_or_uri):
+    return flag(value, "sourcecache_entry", orig_path_or_uri)
+
+
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
+    "ReportObject",
+    ["caption", "category", "subcategory", "labels", "patterns", "htmlindex"],
 )
 
 
 def report(
-    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+    value,
+    caption=None,
+    category=None,
+    subcategory=None,
+    labels=None,
+    patterns=[],
+    htmlindex=None,
 ):
     """Flag output file or directory as to be included into reports.
 
@@ -1083,15 +1108,17 @@ def report(
     Arguments
     value -- File or directory.
     caption -- Path to a .rst file with a textual description of the result.
-    category -- Name of the category in which the result should be displayed in the report.
-    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+    category -- Name of the (optional) category in which the result should be displayed in the report.
+    subcategory -- Name of the (optional) subcategory
+    columns  -- Dict of strings (may contain wildcard expressions) that will be used as columns when displaying result tables
+    patterns -- Wildcard patterns for selecting files if a directory is given (this is used as
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
     return flag(
         value,
         "report",
-        ReportObject(caption, category, subcategory, patterns, htmlindex),
+        ReportObject(caption, category, subcategory, labels, patterns, htmlindex),
     )
 
 
@@ -1405,7 +1432,7 @@ class Namedlist(list):
         for name in self._allowed_overrides:
             setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
-        if toclone:
+        if toclone is not None:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
@@ -1416,7 +1443,7 @@ class Namedlist(list):
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self._take_names(toclone._get_names())
-        if fromdict:
+        if fromdict is not None:
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)

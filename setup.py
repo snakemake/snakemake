@@ -37,10 +37,16 @@ setup(
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
+    project_urls={
+        "Source": "https://github.com/snakemake/snakemake",
+    },
     packages=[
         "snakemake",
         "snakemake.remote",
         "snakemake.report",
+        "snakemake.report.template",
+        "snakemake.report.template.components",
+        "snakemake.report.data",
         "snakemake.common",
         "snakemake.caching",
         "snakemake.deployment",
@@ -56,7 +62,7 @@ setup(
             "snakemake-bash-completion = snakemake:bash_completion",
         ]
     },
-    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2"]},
+    package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]},
     install_requires=[
         "wrapt",
         "requests",
@@ -74,14 +80,14 @@ setup(
         "connection_pool >=0.0.3",
         "pulp >=2.0",
         "smart_open >=3.0",
-        "filelock",
         "stopit",
         "tabulate",
-        "yte",
-        "jinja2",
+        "yte >=1.0,<2.0",
+        "jinja2 >=3.0,<4.0",
+        "retry",
     ],
     extras_require={
-        "reports": ["jinja2", "networkx", "pygments", "pygraphviz"],
+        "reports": ["jinja2", "pygments"],
         "messaging": ["slacker"],
         "google-cloud": [
             "oauth2client",
@@ -92,7 +98,7 @@ setup(
         "pep": [
             "peppy",
             "eido",
-        ]
+        ],
     },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -100,7 +106,7 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
     ],
 )

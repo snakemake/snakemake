@@ -5,6 +5,11 @@ def some_func():
     return 15
 
 
+rule all:
+    input:
+        "results/test.out"
+
+
 rule a:
     output:
         "results/test.out"

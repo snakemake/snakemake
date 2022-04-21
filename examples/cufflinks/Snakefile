@@ -22,7 +22,7 @@ rule all:
 
 rule assembly:
     input:
-        'mapped/{sample}.bam'
+        local('mapped/{sample}.bam')
     output:
         'assembly/{sample}/transcripts.gtf',
         dir='assembly/{sample}'
