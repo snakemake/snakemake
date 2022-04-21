@@ -693,10 +693,10 @@ class Paramspace:
             self.pattern.format(
                 *(
                     self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row._asdict().items()
+                    for name, value in row.items()
                 )
             )
-            for row in self.dataframe.itertuples(index=False)
+            for index, row in self.dataframe.iterrows()
         )
 
     def instance(self, wildcards):
