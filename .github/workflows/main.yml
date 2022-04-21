@@ -54,7 +54,9 @@ jobs:
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
-          conda install -c conda-forge -q mamba=0.15.1
+          conda install -c conda-forge -q mamba
+          # ensure that mamba is happy to write into the cache
+          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
           mamba env create -q --name snakemake --file test-environment.yml
           # additionally add singularity
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
