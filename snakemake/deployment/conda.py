@@ -522,8 +522,10 @@ class Env:
 
     @classmethod
     def get_singularity_envvars(self):
-        return {"CONDA_PKGS_DIRS": "{}/conda/{}".format(tempfile.gettempdir(), uuid.uuid4())}
-
+        return {
+            "CONDA_PKGS_DIRS": "{}/conda/{}".format(tempfile.gettempdir(), uuid.uuid4())
+        }
+    
     def __hash__(self):
         # this hash is only for object comparison, not for env paths
         if self.is_named:
