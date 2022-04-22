@@ -6,11 +6,10 @@ ENV PATH /opt/conda/bin:${PATH}
 ENV LANG C.UTF-8
 ENV SHELL /bin/bash
 RUN install_packages wget curl bzip2 ca-certificates gnupg2 squashfs-tools git
-RUN /bin/bash -c "curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh && \
-    bash miniconda.sh -b -p /opt/conda && \
-    rm miniconda.sh"
-RUN /bin/bash -c "conda install -y -c conda-forge mamba && \
-    mamba create -q -y -c conda-forge -c bioconda -n snakemake snakemake snakemake-minimal --only-deps && \
+RUN /bin/bash -c "curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh > mambaforge.sh && \
+    bash mambaforge.sh -b -p /opt/conda && \
+    rm mambaforge.sh"
+RUN /bin/bash -c "mamba create -q -y -c conda-forge -c bioconda -n snakemake snakemake snakemake-minimal --only-deps && \
     source activate snakemake && \
     mamba install -q -y -c conda-forge singularity && \
     conda clean --all -y && \
