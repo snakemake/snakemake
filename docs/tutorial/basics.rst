@@ -363,7 +363,7 @@ But for now, this is enough so that we can add the following rule to our Snakefi
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
@@ -546,7 +546,7 @@ In total, the resulting workflow looks like this:
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 
