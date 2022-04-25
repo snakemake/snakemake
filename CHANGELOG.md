@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.4.1](https://www.github.com/snakemake/snakemake/compare/v7.4.0...v7.4.1) (2022-04-25)
+
+
+### Documentation
+
+* checkpoint documentation ([#1562](https://www.github.com/snakemake/snakemake/issues/1562)) ([4cbfb47](https://www.github.com/snakemake/snakemake/commit/4cbfb4786a729a0c899a0a3e0427c1c1f0796c15))
+
 ## [7.4.0](https://www.github.com/snakemake/snakemake/compare/v7.3.8...v7.4.0) (2022-04-22)
 
 
