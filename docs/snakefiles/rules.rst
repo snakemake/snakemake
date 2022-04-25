@@ -1899,7 +1899,8 @@ Consider the following example where an arbitrary number of files is generated b
           aggregate_input
       output:
           "aggegated.txt"
-      shell cat {input} > {output}
+      shell:
+          "cat {input} > {output}"
 
 Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
 This time, instead of explicitly writing
