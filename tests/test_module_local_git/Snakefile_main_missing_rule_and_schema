@@ -1,12 +1,15 @@
 from snakemake.utils import min_version
+import os
 
 min_version("6.1.1")
 
 configfile: "config.yaml"
 
+module_path = os.path.join(os.getcwd(), "repo/module")
+
 module local_git_module:
     snakefile:
-        gitfile("./module", path="workflow/Snakefile", tag="main")
+        gitfile(module_path, path="workflow/Snakefile", tag="main")
     config:
         config
 
