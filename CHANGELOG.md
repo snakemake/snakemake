@@ -1,5 +1,22 @@
 # Changelog
 
+## [7.5.0](https://www.github.com/snakemake/snakemake/compare/v7.4.0...v7.5.0) (2022-04-26)
+
+
+### Features
+
+* vim syntax updates ([#1584](https://www.github.com/snakemake/snakemake/issues/1584)) ([b8c77f6](https://www.github.com/snakemake/snakemake/commit/b8c77f6a2a1372a5c3ad8077ad36facf393bfacf))
+
+
+### Bug Fixes
+
+* properly use configfiles specified via CLI also if configfile specified via configfile directive is not present ([1e0649a](https://www.github.com/snakemake/snakemake/commit/1e0649ac37176a68bb2d8f4d1508ac8bb02463ff))
+
+
+### Documentation
+
+* checkpoint documentation ([#1562](https://www.github.com/snakemake/snakemake/issues/1562)) ([4cbfb47](https://www.github.com/snakemake/snakemake/commit/4cbfb4786a729a0c899a0a3e0427c1c1f0796c15))
+
 ## [7.4.0](https://www.github.com/snakemake/snakemake/compare/v7.3.8...v7.4.0) (2022-04-22)
 
 
