@@ -206,7 +206,12 @@ def run(
             **params,
         )
 
-    def check_results():
+    if shouldfail:
+        assert not success, "expected error on execution"
+    else:
+        assert success, "expected successful execution"
+
+    if check_results:
         for resultfile in get_expected_files(results_dir):
             if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
                 os.path.join(results_dir, resultfile)
@@ -243,14 +248,6 @@ def run(
                         content=content,
                         expected_content=expected_content,
                     )
-
-    if shouldfail:
-        assert not success, "expected error on execution"
-    else:
-        assert success, "expected successful execution"
-
-    if check_results:
-        check_results()
 
     if not cleanup:
         return tmpdir
