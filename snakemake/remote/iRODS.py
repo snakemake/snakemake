@@ -1,5 +1,5 @@
 __author__ = "Oliver Stolpe"
-__copyright__ = "Copyright 2017, BIH Core Unit Bioinformatics"
+__copyright__ = "Copyright 2022, BIH Core Unit Bioinformatics"
 __email__ = "oliver.stolpe@bihealth.org"
 __license__ = "MIT"
 
@@ -11,7 +11,11 @@ from datetime import datetime, timedelta
 from pytz import timezone
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
+from snakemake.remote import (
+    AbstractRemoteProvider,
+    AbstractRemoteObject,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.utils import os_sync
 
@@ -87,7 +91,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["irods://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with an iRODS server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -169,7 +173,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             if make_dest_dirs:
                 os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
@@ -190,7 +194,7 @@ class RemoteObject(AbstractRemoteObject):
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
-    def upload(self):
+    def _upload(self):
         # get current local timestamp
         stat = os.stat(self.local_path)
 

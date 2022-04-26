@@ -1,0 +1,13 @@
+from snakemake import shell
+
+envvars:
+    "TESTVAR"
+
+
+
+rule all:
+	input: 'output.txt'
+
+rule compute:
+	output: 'output.txt'
+	shell: 'touch {output}'

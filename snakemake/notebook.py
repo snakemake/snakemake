@@ -1,4 +1,6 @@
+from abc import abstractmethod
 import os, sys
+from pathlib import Path
 from urllib.error import URLError
 import tempfile
 import re
@@ -10,14 +12,18 @@ from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file
 from snakemake.common import ON_WINDOWS
+from snakemake.sourcecache import SourceCache, infer_source_file
+from snakemake.utils import format
 
 KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
-class Listen:
-    def __init__(self, arg):
-        self.ip, self.port = arg.split(":")
+class EditMode:
+    def __init__(self, server_addr=None, draft_only=False):
+        if server_addr is not None:
+            self.ip, self.port = server_addr.split(":")
+        self.draft_only = draft_only
 
 
 def get_cell_sources(source):
@@ -32,7 +38,7 @@ class JupyterNotebook(ScriptBase):
 
     editable = True
 
-    def draft(self, listen):
+    def draft(self):
         import nbformat
 
         preamble = self.get_preamble()
@@ -40,11 +46,15 @@ class JupyterNotebook(ScriptBase):
         self.insert_preamble_cell(preamble, nb)
 
         nb["cells"].append(nbformat.v4.new_code_cell("# start coding here"))
+        nb["metadata"] = {"language_info": {"name": self.get_language_name()}}
 
         os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
 
         with open(self.local_path, "wb") as out:
             out.write(nbformat.writes(nb).encode())
+
+    def draft_and_edit(self, listen):
+        self.draft()
 
         self.source = open(self.local_path).read()
 
@@ -70,37 +80,44 @@ class JupyterNotebook(ScriptBase):
             fname_out = os.path.join(os.getcwd(), fname_out)
             output_parameter = "--output {fname_out:q}"
 
-        if edit is not None:
-            logger.info("Opening notebook for editing.")
-            cmd = (
-                "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
-                "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
-            )
-        else:
-            cmd = (
-                "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
-                "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                    output_parameter=output_parameter
+        with tempfile.TemporaryDirectory() as tmp:
+            if edit is not None:
+                assert not edit.draft_only
+                logger.info("Opening notebook for editing.")
+                cmd = (
+                    "jupyter notebook --browser ':' --no-browser --log-level ERROR --ip {edit.ip} --port {edit.port} "
+                    "--NotebookApp.quit_button=True {{fname:q}}".format(edit=edit)
                 )
+            else:
+                cmd = (
+                    "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
+                    "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
+                        output_parameter=output_parameter,
+                    )
+                )
+
+            if ON_WINDOWS:
+                fname = fname.replace("\\", "/")
+                fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+
+            self._execute_cmd(
+                cmd,
+                fname_out=fname_out,
+                fname=fname,
+                additional_envvars={"IPYTHONDIR": tmp},
             )
 
-        if ON_WINDOWS:
-            fname = fname.replace("\\", "/")
-            fname_out = fname_out.replace("\\", "/") if fname_out else fname_out
+            if edit:
+                logger.info("Saving modified notebook.")
+                nb = nbformat.read(fname, as_version=4)
 
-        self._execute_cmd(cmd, fname_out=fname_out, fname=fname)
+                self.remove_preamble_cell(nb)
 
-        if edit:
-            logger.info("Saving modified notebook.")
-            nb = nbformat.read(fname, as_version=4)
+                # clean up all outputs
+                for cell in nb["cells"]:
+                    cell["outputs"] = []
 
-            self.remove_preamble_cell(nb)
-
-            # clean up all outputs
-            for cell in nb["cells"]:
-                cell["outputs"] = []
-
-            nbformat.write(nb, self.local_path)
+                nbformat.write(nb, self.local_path)
 
     def insert_preamble_cell(self, preamble, notebook):
         import nbformat
@@ -124,6 +141,14 @@ class JupyterNotebook(ScriptBase):
             preamble = preambles[0]
             # remove old preamble
             del notebook["cells"][preamble]
+
+    @abstractmethod
+    def get_language_name(self):
+        ...
+
+    @abstractmethod
+    def get_interpreter_exec(self):
+        ...
 
 
 class PythonJupyterNotebook(JupyterNotebook):
@@ -152,8 +177,15 @@ class PythonJupyterNotebook(JupyterNotebook):
             self.bench_iteration,
             self.cleanup_scripts,
             self.shadow_dir,
+            self.is_local,
             preamble_addendum=preamble_addendum,
         )
+
+    def get_language_name(self):
+        return "python"
+
+    def get_interpreter_exec(self):
+        return "python"
 
 
 class RJupyterNotebook(JupyterNotebook):
@@ -184,6 +216,12 @@ class RJupyterNotebook(JupyterNotebook):
             self.shadow_dir,
             preamble_addendum=preamble_addendum,
         )
+
+    def get_language_name(self):
+        return "r"
+
+    def get_interpreter_exec(self):
+        return "RScript"
 
 
 def get_exec_class(language):
@@ -218,12 +256,14 @@ def notebook(
     bench_iteration,
     cleanup_scripts,
     shadow_dir,
-    edit=None,
+    edit,
+    runtime_sourcecache_path,
 ):
     """
     Load a script from the given basedir + path and execute it.
     """
     draft = False
+    path = format(path, wildcards=wildcards, params=params)
     if edit is not None:
         if is_local_file(path):
             if not os.path.isabs(path):
@@ -251,9 +291,13 @@ def notebook(
             )
 
     if not draft:
-        path, source, language = get_source(path, basedir, wildcards, params)
+        path, source, language, is_local = get_source(
+            path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
+        )
     else:
         source = None
+        is_local = True
+        path = infer_source_file(path)
 
     exec_class = get_exec_class(language)
 
@@ -280,9 +324,27 @@ def notebook(
         bench_iteration,
         cleanup_scripts,
         shadow_dir,
+        is_local,
     )
 
-    if draft:
-        executor.draft(listen=edit)
+    if edit is None:
+        executor.evaluate(edit=edit)
+    elif edit.draft_only:
+        executor.draft()
+        msg = "Generated skeleton notebook:\n{} ".format(path)
+        if conda_env and not container_img:
+            msg += (
+                "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"
+                "\n{}\n".format(
+                    str(Path(conda_env) / "bin" / executor.get_interpreter_exec())
+                )
+            )
+            msg += (
+                "\nEditing with Jupyter CLI:"
+                "\nconda activate {}\njupyter notebook {}\n".format(conda_env, path)
+            )
+        logger.info(msg)
+    elif draft:
+        executor.draft_and_edit(listen=edit)
     else:
         executor.evaluate(edit=edit)

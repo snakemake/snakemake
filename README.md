@@ -13,11 +13,11 @@
 # Snakemake
 
 The Snakemake workflow management system is a tool to create **reproducible and scalable** data analyses.
-Snakemake is highly popular, with on average more than 6 new citations per week, and over 200k downloads.
+Snakemake is highly popular, with on average more than 7 new citations per week in 2021, and almost 400k downloads.
 Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
 **Homepage: https://snakemake.github.io**
 
-Copyright (c) 2012-2021 Johannes Köster <johannes.koester@uni-due.com> (see LICENSE)
+Copyright (c) 2012-2022 Johannes Köster <johannes.koester@uni-due.com> (see LICENSE)

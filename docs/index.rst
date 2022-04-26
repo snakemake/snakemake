@@ -44,7 +44,7 @@ Workflows are described via a human readable, Python based language.
 They can be seamlessly scaled to server, cluster, grid and cloud environments, without the need to modify the workflow definition.
 Finally, Snakemake workflows can entail a description of required software, which will be automatically deployed to any execution environment.
 
-Snakemake is **highly popular**, with `>5 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
+Snakemake is **highly popular**, with `>7 new citations per week <https://badge.dimensions.ai/details/id/pub.1018944052>`_.
 For an introduction, please visit https://snakemake.github.io.
 
 
@@ -103,6 +103,9 @@ Resources
     This project provides Snakemake configuration profiles for various execution environments.
     Please consider contributing your own if it is still missing.
 
+`Snakemake API documentation <https://snakemake-api.readthedocs.io>`_
+    The documentation of the Snakemake API for programmatic access and developement on Snakemake.
+
 `Conda-Forge <https://conda-forge.org>`_
     Conda-Forge is a community driven distribution of Conda packages that can be used from Snakemake for creating completely reproducible workflows by defining the used software versions and providing binaries.
 
@@ -152,18 +155,6 @@ Resources
     snakefiles/reporting
     snakefiles/testing
     snakefiles/foreign_wms
-
-
-.. toctree::
-    :caption: API Reference
-    :name: api-reference
-    :hidden:
-    :maxdepth: 1
-
-    api_reference/snakemake
-    api_reference/snakemake_utils
-    api_reference/internal/modules
-
 
 .. toctree::
     :caption: Project Info

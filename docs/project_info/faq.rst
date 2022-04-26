@@ -17,6 +17,29 @@ The key idea is very similar to GNU Make. The workflow is determined automatical
 When you start using Snakemake, please make sure to walk through the :ref:`official tutorial <tutorial>`.
 It is crucial to understand how to properly use the system.
 
+How does Snakemake interpret relative paths?
+--------------------------------------------
+
+Relative paths in Snakemake are interpreted depending on their context.
+
+* Input, output, log, and benchmark files are considered to be relative to the working directory (either the directory in which you have invoked Snakemake or whatever was specified for ``--directory`` or the ``workdir:`` directive).
+* Any other directives (e.g. ``conda:``, ``include:``, ``script:``, ``notebook:``) consider paths to be relative to the Snakefile they are defined in.
+
+If you have to manually specify a file that has to be relative to the currently evaluated Snakefile, you can use ``workflow.source_path(filepath)``.
+
+.. code-block:: python
+
+    rule read_a_file_relative_to_snakefile:
+        input:
+            workflow.get_source("resources/some-file.txt")
+        output:
+            "results/some-output.txt"
+        shell:
+            "somecommand {input} {output}"
+
+
+This will in particular also work in combination with :ref:`modules <snakefiles-modules>`.
+
 Snakemake does not connect my rules as I have expected, what can I do to debug my dependency structure?
 -------------------------------------------------------------------------------------------------------
 
@@ -356,7 +379,7 @@ Because of the cluster support and the ability to resume a workflow where you st
         run:
             storage.store("myvar", 3.14)
 
-Here, the output rule b has to be temp in order to ensure that ``myvar`` is stored in each run of the workflow as rule a relies on it. In other words, the PersistentDict is persistent between the job processes, but not between different runs of this workflow. If you need to conserve information between different runs, use output files for them.
+Here, the output rule b has to be temp in order to ensure that ``myvar`` is stored in each run of the workflow as rule a relies on it. In other words, the `PersistentDict` is persistent between the job processes, but not between different runs of this workflow. If you need to conserve information between different runs, use output files for them.
 
 Why do my global variables behave strangely when I run my job on a cluster?
 ---------------------------------------------------------------------------
@@ -453,7 +476,7 @@ With the command line option ``--nolock``, you can disable this mechanism on you
 Snakemake does not trigger re-runs if I add additional input files. What can I do?
 ----------------------------------------------------------------------------------
 
-Snakemake has a kind of "lazy" policy about added input files if their modification date is older than that of the output files. One reason is that information what to do cannot be inferred just from the input and output files. You need additional information about the last run to be stored. Since behaviour would be inconsistent between cases where that information is available and where it is not, this functionality has been encoded as an extra switch. To trigger updates for jobs with changed input files, you can use the command line argument --list-input-changes in the following way:
+Snakemake has a kind of "lazy" policy about added input files if their modification date is older than that of the output files. One reason is that information cannot be inferred just from the input and output files. You need additional information about the last run to be stored. Since behaviour would be inconsistent between cases where that information is available and where it is not, this functionality has been encoded as an extra switch. To trigger updates for jobs with changed input files, you can use the command line argument ``--list-input-changes`` in the following way:
 
 .. code-block:: console
 
@@ -575,6 +598,26 @@ temporary file ``huge_file.csv`` could be kept at the compute node.
 
    $ snakemake --shadow-prefix /scratch some_summary_statistics.txt --cluster ...
 
+If you want the input files of your rule to be copied to the node-local scratch directory
+instead of just using symbolic links, you can use ``copy-minimal`` in the ``shadow`` directive.
+This is useful for example for benchmarking tools as a black-box.
+
+.. code-block:: python
+
+  rule:
+      input:
+          "input_file.txt"
+      output:
+          file = "output_file.txt",
+          benchmark = "benchmark_results.txt",
+      shadow: "copy-minimal"
+      shell:
+          """
+          /usr/bin/time -v command "{input}" "{output.file}" > "{output.benchmark}"
+          """
+
+Executing snakemake as above then leads to the shell script accessing only node-local storage.
+
 How do I access elements of input or output by a variable index?
 ----------------------------------------------------------------
 
@@ -589,7 +632,7 @@ Assuming you have something like the following rule
               for i in range(20):
                   shell("echo test > {output[i]}")
 
-Snakemake will fail upon execution with the error ``'OutputFiles' object has no attribute 'i'``. The reason is that the shell command is using the `Python format mini language <https://docs.python.org/3/library/string.html#formatspec>`_, which does only allow indexing via constants, e.g., ``output[1]``, but not via variables. Variables are treated as attribute names instead. The solution is to write
+Snakemake will fail upon execution with the error ``'OutputFiles' object has no attribute 'i'``. The reason is that the shell command is using the `Python format mini language <https://docs.python.org/3/library/string.html#formatspec>`_, which only allows indexing via constants, e.g., ``output[1]``, but not via variables. Variables are treated as attribute names instead. The solution is to write
 
    .. code-block:: python
 

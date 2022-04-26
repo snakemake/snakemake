@@ -4,7 +4,7 @@
 Snakemake Executor Tutorials
 ============================
 
-.. _cloud executors: https://snakemake.readthedocs.io/en/stable/executing/cluster-cloud.html
+.. _cloud executors: https://snakemake.readthedocs.io/en/stable/executing/cloud.html
 .. _tutorial: https://snakemake.readthedocs.io/en/stable/tutorial/tutorial.html
 
 This set of tutorials are intended to introduce you to executing `cloud executors`_.

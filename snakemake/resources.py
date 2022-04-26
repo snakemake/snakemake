@@ -1,6 +1,8 @@
 import re
 import tempfile
 
+from snakemake.exceptions import WorkflowError
+
 
 class DefaultResources:
     defaults = {
@@ -58,6 +60,20 @@ class DefaultResources:
                     # Triggers for string arguments like n1-standard-4
                     except NameError:
                         return val
+                    except Exception as e:
+                        if not (
+                            isinstance(e, FileNotFoundError) and e.filename in input
+                        ):
+                            # Missing input files are handled by the caller
+                            raise WorkflowError(
+                                "Failed to evaluate default resources value "
+                                "'{}'.\n"
+                                "    String arguments may need additional "
+                                "quoting. Ex: --default-resources "
+                                "\"tmpdir='/home/user/tmp'\".".format(val),
+                                e,
+                            )
+                        raise e
                     return value
 
                 return callable

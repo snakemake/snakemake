@@ -113,6 +113,10 @@ In other words, Snakemake will replace ``{input}`` with ``data/genome.fa data/sa
 The shell command invokes ``bwa mem`` with reference genome and reads, and pipes the output into ``samtools`` which creates a compressed `BAM <https://en.wikipedia.org/wiki/Binary_Alignment_Map>`_ file containing the alignments.
 The output of ``samtools`` is redirected into the output file defined by the rule with ``>``.
 
+.. sidebar:: Note
+
+  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
+
 When a workflow is executed, Snakemake tries to generate given **target** files.
 Target files can be specified via the command line.
 By executing
@@ -136,7 +140,7 @@ Nevertheless, we can **execute our workflow** with
     $ snakemake --cores 1 mapped_reads/A.bam
 
 Whenever executing a workflow, you need to specify the number of cores to use.
-For this tutorial, we will use a single core for now. 
+For this tutorial, we will use a single core for now.
 Later you will see how parallelization works.
 Note that, after completion of above command, Snakemake will not try to create ``mapped_reads/A.bam`` again, because it is already present in the file system.
 Snakemake **only re-runs jobs if one of the input files is newer than one of the output files or one of the input files will be updated by another job**.
@@ -227,7 +231,9 @@ We add the following rule beneath the ``bwa_map`` rule:
 
 .. sidebar:: Note
 
-  It is best practice to have subsequent steps of a workflow in separate, unique, output folders. This keeps the working directory structured. Further, such unique prefixes allow Snakemake to quickly discard most rules in its search for rules that can provide the requested input. This accelerates the resolution of the rule dependencies in a workflow.
+  In the shell command above we split the string into two lines, which are however automatically concatenated into one by Python.
+  This is a handy pattern to avoid too long shell command lines. When using this, make sure to have a trailing whitespace in each line but the last,
+  in order to avoid arguments to become not properly separated.
 
 This rule will take the input file from the ``mapped_reads`` directory and store a sorted version in the ``sorted_reads`` directory.
 Note that Snakemake **automatically creates missing directories** before jobs are executed.
@@ -277,7 +283,7 @@ By executing
 
 .. sidebar:: Note
 
-  If you went with: `Run tutorial for free in the cloud via Gitpod`_, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
+  If you went with: :ref:`tutorial-free-on-gitpod`, you can easily view the resulting ``dag.svg`` by right-clicking on the file in the explorer panel on the left and selecting ``Open With -> Preview``.
 
 
 we create a **visualization of the DAG** using the ``dot`` command provided by Graphviz_.
@@ -357,23 +363,8 @@ But for now, this is enough so that we can add the following rule to our Snakefi
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
-
-
-.. sidebar:: Note
-
-  When **splitting long shell commands across multiple lines**, make sure to **include whitespace at the end of each line**.
-  As the strings from each line are simply concatenated, this can otherwise lead to erroneous shell commands and weird errors.
-  For example, further splitting the first of the commands in the current example should not be done like this:
-
-  .. code:: python
-
-      "samtools mpileup"
-      "-g -f {input.fa} {input.bam}"
-
-  This would concatenate to the command ``"samtools mpileup-g -f {input.fa} {input.bam}"`` and consequently throw the error: ``[main] unrecognized command 'mpileup-g'``.
-
 
 With multiple input or output files, it is sometimes handy to refer to them separately in the shell command.
 This can be done by **specifying names for input or output files**, for example with ``fa=...``.
@@ -555,7 +546,7 @@ In total, the resulting workflow looks like this:
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 
