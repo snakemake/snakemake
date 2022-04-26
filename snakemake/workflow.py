@@ -1315,6 +1315,9 @@ class Workflow:
                         fp
                     )
                 )
+            else:
+                # CLI configfiles have been specified, do not throw an error but update with their values
+                update_config(self.config, self.overwrite_config)
 
     def set_pepfile(self, path):
 
