@@ -1616,5 +1616,6 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
+@skip_on_windows
 def test_github_issue1261():
     run(dpath("test_github_issue1261"), shouldfail=True, check_results=True)
