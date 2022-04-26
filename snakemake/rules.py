@@ -1038,21 +1038,25 @@ class Rule:
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards, params=None):
-        try:
-            conda_env = (
-                self.conda_env.apply_wildcards(wildcards) if self.conda_env else None
+    def expand_conda_env(self, wildcards, params, input):
+        if callable(self.conda_env):
+            conda_env, _ = self.apply_input_function(
+                self.conda_env, wildcards, params, input
             )
-        except WildcardError as e:
-            raise WildcardError(
-                "Wildcards in conda environment file cannot be "
-                "determined from output files:",
-                str(e),
-                rule=self,
-            )
-
-        if conda_env is not None and params is not None:
-            conda_env = conda_env.apply_params(self.params)
+        else:
+            try:
+                conda_env = (
+                    self.conda_env.apply_wildcards(wildcards)
+                    if self.conda_env
+                    else None
+                )
+            except WildcardError as e:
+                raise WildcardError(
+                    "Wildcards in conda environment file cannot be "
+                    "determined from output files:",
+                    str(e),
+                    rule=self,
+                )
 
         if conda_env is not None:
             conda_env.check()
