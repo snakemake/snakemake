@@ -108,6 +108,7 @@ class Rule:
             self.snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
+            self.shell_exec = None
             self.script = None
             self.notebook = None
             self.wrapper = None
@@ -162,6 +163,7 @@ class Rule:
             self.snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
+            self.shell_exec = other.shell_exec
             self.script = other.script
             self.notebook = other.notebook
             self.wrapper = other.wrapper

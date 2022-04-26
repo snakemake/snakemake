@@ -36,6 +36,7 @@ def cwl(
     bench_record,
     jobid,
     runtime_sourcecache_path,
+    shell_exec,
 ):
     """
     Load cwl from the given basedir + path and execute it.
@@ -76,7 +77,7 @@ def cwl(
         json.dump(inputs, input_file)
         input_file.flush()
         cmd = "cwltool {} {} {}".format(args, sourceurl, input_file.name)
-        shell(cmd, bench_record=bench_record)
+        shell(cmd, bench_record=bench_record, shell_exec=shell_exec)
 
 
 def job_to_cwl(job, dag, outputs, inputs):

@@ -527,6 +527,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
+            job.rule.shell_exec,
         )
 
     def run_single_job(self, job):
@@ -2400,6 +2401,7 @@ def run_wrapper(
     conda_base_path,
     basedir,
     runtime_sourcecache_path,
+    shell_exec,
 ):
     """
     Wrapper around the run method that handles exceptions and benchmarking.
@@ -2481,6 +2483,7 @@ def run_wrapper(
                             conda_base_path,
                             basedir,
                             runtime_sourcecache_path,
+                            shell_exec,
                         )
                     else:
                         # The benchmarking is started here as we have a run section
@@ -2512,6 +2515,7 @@ def run_wrapper(
                                 conda_base_path,
                                 basedir,
                                 runtime_sourcecache_path,
+                                shell_exec,
                             )
                     # Store benchmark record for this iteration
                     bench_records.append(bench_record)
@@ -2541,6 +2545,7 @@ def run_wrapper(
                     conda_base_path,
                     basedir,
                     runtime_sourcecache_path,
+                    shell_exec,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
         # Re-raise the keyboard interrupt in order to record an error in the

@@ -10,9 +10,14 @@ Most commonly, rules consist of a name, input files, output files, and a shell c
 .. code-block:: python
 
     rule NAME:
-        input: "path/to/inputfile", "path/to/other/inputfile"
-        output: "path/to/outputfile", "path/to/another/outputfile"
-        shell: "somecommand {input} {output}"
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile",
+        shell:
+            "somecommand {input} {output}"
 
 The name is optional and can be left out, creating an anonymous rule. It can also be overridden by setting a rule's ``name`` attribute.
 
@@ -27,6 +32,9 @@ Inside the shell command, all local and global variables, especially input and o
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
+By default, Snakemake will use the `bash <https://en.wikipedia.org/wiki/Bash_(Unix_shell)>`_ shell for all shell commands on \*nix systems (e.g. Linux or macOS), regardless of your system settings.
+This ensures reproducibility as bash is universally available.
+This behavior can however be overwritten per rule, see :ref:`snakefiles_shell_exec`.
 
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -2104,3 +2112,32 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - ?config["threshold"]
 
 Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+
+
+.. _snakefiles_shell_exec:
+
+Defining custom shell per rule
+------------------------------
+
+By default, Snakemake will use the `bash <https://en.wikipedia.org/wiki/Bash_(Unix_shell)>`_ shell for all shell commands on \*nix systems (e.g. Linux or macOS), regardless of your system settings.
+This ensures reproducibility as bash is universally available.
+This behavior can be overwritten per rule:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "path/to/inputfile",
+            "path/to/other/inputfile",
+        output:
+            "path/to/outputfile",
+            "path/to/another/outputfile",
+        shell_exec: "sh"
+        shell:
+            "somecommand {input} {output}"
+
+Above, the shell is set to ``sh``.
+Note that usually this is not a good idea, as it can e.g. interfere with other peoples settings.
+It can be helpful though when using a :ref:`container image <singularity>` which does not have ``bash`` shell installed (Snakemake's default).
+Also note that, naturally, Snakemake won't use `bash strict mode <http://redsymbol.net/articles/unofficial-bash-strict-mode/>`_ in such a case.
+You will have to take care of such behavior manually.

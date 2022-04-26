@@ -427,6 +427,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class ShellExec(RuleKeywordState):
+    pass
+
+
 class Shadow(RuleKeywordState):
     pass
 
@@ -517,7 +521,7 @@ class Run(RuleKeywordState):
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
+            "conda_base_path, basedir, runtime_sourcecache_path, shell_exec, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
                 else self.snakefile.rulecount,
@@ -619,7 +623,8 @@ class Script(AbstractCmd):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path, "
+            "shell_exec"
         )
 
 
@@ -632,7 +637,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook, runtime_sourcecache_path"
+            "edit_notebook, runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -645,7 +650,7 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
+            "cleanup_scripts, shadow_dir, runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -664,7 +669,7 @@ class CWL(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
+            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path, shell_exec"
         )
 
 
@@ -675,6 +680,7 @@ rule_property_subautomata = dict(
     params=Params,
     threads=Threads,
     resources=Resources,
+    shell_exec=ShellExec,
     priority=Priority,
     version=Version,
     log=Log,
