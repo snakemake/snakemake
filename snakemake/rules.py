@@ -367,20 +367,14 @@ class Rule:
 
     @property
     def conda_env(self):
+        if self._conda_env is None:
+            raise RuntimeError("Conda env has not been expanded")
+
         return self._conda_env
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        from snakemake.deployment.conda import (
-            is_conda_env_file,
-            CondaEnvFileSpec,
-            CondaEnvNameSpec,
-        )
-
-        if is_conda_env_file(conda_env):
-            self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
-        else:
-            self._conda_env = CondaEnvNameSpec(conda_env)
+        self._conda_env = conda_env
 
     @property
     def container_img(self):
@@ -1125,15 +1119,39 @@ class Rule:
             return self.group
 
     def expand_conda_env(self, wildcards, params, input):
-        if callable(self.conda_env):
+        from snakemake.deployment.conda import (
+            is_conda_env_file,
+            CondaEnvFileSpec,
+            CondaEnvNameSpec,
+        )
+
+        if callable(self._conda_env):
             conda_env, _ = self.apply_input_function(
-                self.conda_env, wildcards, params, input
+                self._conda_env, wildcards, params, input
             )
+
+            if is_conda_env_file(conda_env):
+                self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
+            else:
+                self._conda_env = CondaEnvNameSpec(conda_env)
         else:
+            if (
+                conda_env is not None
+                and is_conda_env_file(conda_env)
+                and is_local_file(conda_env)
+                and not os.path.isabs(conda_env)
+            ):
+                conda_env = self.basedir.join(conda_env).get_path_or_uri()
+
+            if is_conda_env_file(conda_env):
+                self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
+            else:
+                self._conda_env = CondaEnvNameSpec(conda_env)
+
             try:
-                conda_env = (
-                    self.conda_env.apply_wildcards(wildcards)
-                    if self.conda_env
+                self._conda_env = (
+                    self._conda_env.apply_wildcards(wildcards)
+                    if self._conda_env
                     else None
                 )
             except WildcardError as e:
@@ -1144,10 +1162,10 @@ class Rule:
                     rule=self,
                 )
 
-        if conda_env is not None:
-            conda_env.check()
+        if self._conda_env is not None:
+            self._conda_env.check()
 
-        return conda_env
+        return self._conda_env
 
     def is_producer(self, requested_output):
         """

@@ -1552,15 +1552,6 @@ class Workflow:
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
-                if (
-                    ruleinfo.conda_env is not None
-                    and is_conda_env_file(ruleinfo.conda_env)
-                    and is_local_file(ruleinfo.conda_env)
-                    and not os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = self.current_basedir.join(
-                        ruleinfo.conda_env
-                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
