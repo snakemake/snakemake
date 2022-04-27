@@ -24,7 +24,7 @@ try:
     from irods.session import iRODSSession
     from irods.meta import iRODSMeta
     from irods.models import DataObject
-    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist
+    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist, CAT_NO_ACCESS_PERMISSION
     import irods.keywords as kw
 except ImportError as e:
     raise WorkflowError(
@@ -90,6 +90,9 @@ class RemoteProvider(AbstractRemoteProvider):
         """List of valid protocols for this remote provider."""
         return ["irods://"]
 
+    def glob_wildcards(self, pattern, *args, **kwargs):
+        remote_pattern = os.path.join(os.sep, self._irods_session.zone, pattern)
+        return super().glob_wildcards(remote_pattern, *args, **kwargs)
 
 class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with an iRODS server."""
@@ -194,21 +197,30 @@ class RemoteObject(AbstractRemoteRetryObject):
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
+    def denied_access(self, collpath):
+        try:
+            self._irods_session.collections.get(collpath)
+            return False
+        except(CAT_NO_ACCESS_PERMISSION):
+            return True
+        return False
+
     def _upload(self):
         # get current local timestamp
         stat = os.stat(self.local_path)
 
         # create folder structure on remote
         folders = os.path.dirname(self.remote_path).split(os.sep)[1:]
-        collpath = os.sep
+        collpath = os.sep + folders.pop(0) + os.sep + folders.pop(0)
 
         for folder in folders:
             collpath = os.path.join(collpath, folder)
-
-            try:
-                self._irods_session.collections.get(collpath)
-            except:
-                self._irods_session.collections.create(collpath)
+            print(collpath)
+            if not self.denied_access(collpath):
+                try:
+                    self._irods_session.collections.get(collpath)
+                except:
+                    self._irods_session.collections.create(collpath)
 
         # upload file and store local timestamp in metadata since irods sets the files modification time to
         # the upload time rather than retaining the local modification time
