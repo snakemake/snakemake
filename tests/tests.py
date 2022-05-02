@@ -1619,3 +1619,12 @@ def test_github_issue1389():
 @skip_on_windows
 def test_github_issue1261():
     run(dpath("test_github_issue1261"), shouldfail=True, check_results=True)
+
+
+def test_rule_inheritance_globals():
+    run(
+        dpath("test_rule_inheritance_globals"),
+        report="report.html",
+        targets=["foo.txt"],
+        check_md5=False,
+    )

@@ -1315,6 +1315,9 @@ class Workflow:
                         fp
                     )
                 )
+            else:
+                # CLI configfiles have been specified, do not throw an error but update with their values
+                update_config(self.config, self.overwrite_config)
 
     def set_pepfile(self, path):
 
@@ -1930,6 +1933,7 @@ class Workflow:
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
+                    parent_modifier=self.modifier,
                     rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
