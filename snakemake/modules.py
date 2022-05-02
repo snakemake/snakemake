@@ -131,6 +131,7 @@ class WorkflowModifier:
     def __init__(
         self,
         workflow,
+        parent_modifier=None,
         globals=None,
         config=None,
         base_snakefile=None,
@@ -146,12 +147,29 @@ class WorkflowModifier:
         replace_wrapper_tag=None,
         namespace=None,
     ):
+        if parent_modifier is not None:
+            # init with values from parent modifier
+            self.base_snakefile = parent_modifier.base_snakefile
+            self.globals = parent_modifier.globals
+            self.skip_configfile = parent_modifier.skip_configfile
+            self.rulename_modifier = parent_modifier.rulename_modifier
+            self.skip_validation = parent_modifier.skip_validation
+            self.skip_global_report_caption = parent_modifier.skip_global_report_caption
+            self.rule_whitelist = parent_modifier.rule_whitelist
+            self.ruleinfo_overwrite = parent_modifier.ruleinfo_overwrite
+            self.allow_rule_overwrite = parent_modifier.allow_rule_overwrite
+            self.path_modifier = parent_modifier.path_modifier
+            self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
+            self.namespace = parent_modifier.namespace
+        else:
+            # default settings for globals if not inheriting from parent
+            self.globals = (
+                globals if globals is not None else dict(workflow.vanilla_globals)
+            )
+
         self.workflow = workflow
         self.base_snakefile = base_snakefile
 
-        self.globals = (
-            globals if globals is not None else dict(workflow.vanilla_globals)
-        )
         if config is not None:
             self.globals["config"] = config
 
