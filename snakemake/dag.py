@@ -1390,7 +1390,7 @@ class DAG:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
                 for j in depending:
-                    logger.info("Updating job {}.".format(j))
+                    logger.debug("Updating job {}.".format(j))
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
