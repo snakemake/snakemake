@@ -24,7 +24,11 @@ try:
     from irods.session import iRODSSession
     from irods.meta import iRODSMeta
     from irods.models import DataObject
-    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist, CAT_NO_ACCESS_PERMISSION
+    from irods.exception import (
+        CollectionDoesNotExist,
+        DataObjectDoesNotExist,
+        CAT_NO_ACCESS_PERMISSION,
+    )
     import irods.keywords as kw
 except ImportError as e:
     raise WorkflowError(
@@ -93,6 +97,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def glob_wildcards(self, pattern, *args, **kwargs):
         remote_pattern = os.path.join(os.sep, self._irods_session.zone, pattern)
         return super().glob_wildcards(remote_pattern, *args, **kwargs)
+
 
 class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with an iRODS server."""
@@ -201,7 +206,7 @@ class RemoteObject(AbstractRemoteRetryObject):
         try:
             self._irods_session.collections.get(collpath)
             return False
-        except(CAT_NO_ACCESS_PERMISSION):
+        except (CAT_NO_ACCESS_PERMISSION):
             return True
         return False
 
