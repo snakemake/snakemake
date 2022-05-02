@@ -101,7 +101,7 @@ def run(
     check_md5=True,
     check_results=None,
     cores=3,
-    nodes=1,
+    nodes=None,
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",

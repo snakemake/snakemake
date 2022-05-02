@@ -17,4 +17,4 @@ rule B:
         'out/B.txt',
     run:
         time.sleep(5)
-        raise Exception()
+        raise Exception("Artificially failing rule B, A should go on and finalize properly.")
