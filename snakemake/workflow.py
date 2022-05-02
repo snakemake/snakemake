@@ -1936,6 +1936,7 @@ class Workflow:
                     rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
+                    globals=self.globals,
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     self.rule(

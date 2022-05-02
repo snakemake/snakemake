@@ -1614,3 +1614,12 @@ def test_cleanup_metadata_fail():
 @skip_on_windows  # same on win, no need to test
 def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
+
+
+def test_rule_inheritance_globals():
+    run(
+        dpath("test_rule_inheritance_globals"),
+        report="report.html",
+        targets=["foo.txt"],
+        check_md5=False,
+    )
