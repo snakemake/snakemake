@@ -63,13 +63,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         pass
 
-    #def format_job(self, job):
-#        return super().format_job(
-#            self.exec_job, job, _quote_all=True,
-#        )
-
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-        #super()._run(job)
 
         jobsteps = dict()
 
@@ -117,7 +111,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
         jobsteps[job] = subprocess.Popen(call, shell=True)
 
         # wait until all steps are finished
-        return_codes = list()
         error = False
         for job, proc in jobsteps.items():
             if proc.wait() != 0:
