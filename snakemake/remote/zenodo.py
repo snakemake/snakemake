@@ -202,6 +202,10 @@ class ZENHelper(object):
 
     @property
     def restricted_access_cookies(self):
+        """Retrieve cookies necessary for restricted access.
+
+        Inspired by https://gist.github.com/slint/d47fe5628916d14b8d0b987ac45aeb66
+        """
         if self.restricted_access_token and self._restricted_access_cookies is None:
             url = (
                 self._baseurl
