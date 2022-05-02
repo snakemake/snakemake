@@ -215,7 +215,6 @@ class RemoteObject(AbstractRemoteRetryObject):
 
         for folder in folders:
             collpath = os.path.join(collpath, folder)
-            print(collpath)
             if not self.denied_access(collpath):
                 try:
                     self._irods_session.collections.get(collpath)
