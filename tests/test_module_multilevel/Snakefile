@@ -1,0 +1,29 @@
+rule joint_all:
+    input:
+        #["level1/level2/test_final_b.txt", "level1/test_final_b.txt", "level1/test_final_c.txt", "test_final_d.txt"]
+        ["level2/test_final_b.txt", "test_final_b.txt", "level1/test_final_c.txt", "test_final_d.txt"]
+
+module level1:
+    snakefile: "level1/Snakefile"
+    config: config
+    prefix: "level1"
+
+
+use rule * from level1 as l1_*
+
+# I would have assumed that prefix for level1 also would be passed on to the imported modules in module level1
+use rule c from level1 as l1_c with:
+    input:
+       "test_final_b.txt", "level2/test_final_b.txt"
+
+rule d:
+    input:
+        # I would expect input path to look like this
+        #["level1/level2/test_final_b.txt", "level1/test_final_b.txt", "level1/test_final_c.txt"]
+        # not like this
+        ["level2/test_final_b.txt", "test_final_b.txt", "level1/test_final_c.txt"]
+    output:
+        "test_final_d.txt"
+    shell:
+        "cat {input} > {output} && echo test-d >> {output}"
+        " && cat {output}"

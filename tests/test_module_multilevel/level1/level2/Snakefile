@@ -1,0 +1,19 @@
+rule joint_all:
+    input:
+        "test_final_b.txt",
+
+rule a:
+    input:
+        "test1.txt"
+    output:
+        "test_intermediate.txt"
+    shell:
+        "echo test-a  > {output}"
+
+rule b:
+    input:
+        "test_intermediate.txt"
+    output:
+        "test_final_b.txt"
+    shell:
+        "cat {input} > {output}"
