@@ -2778,7 +2778,6 @@ def main(argv=None):
             "#executing-a-snakemake-workflow-via-kubernetes",
             file=sys.stderr,
         )
-        sys.exit(1)
 
     if args.tibanna:
         if not args.default_remote_prefix:
