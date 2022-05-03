@@ -121,6 +121,12 @@ class ZENHelper(object):
                 "environment at https://sandbox.zenodo.org."
             )
 
+        self.restricted_access_token = None
+        self._restricted_access_cookies = None
+
+        if "restricted_access_token" in kwargs:
+            self.restricted_access_token = kwargs["restricted_access_token"]
+
         if "sandbox" in kwargs:
             self._sandbox = kwargs.pop("sandbox")
         else:
@@ -137,12 +143,6 @@ class ZENHelper(object):
         else:
             # Creating a new deposition, as deposition id was not supplied.
             self.deposition, self.bucket = self.create_deposition().values()
-
-        self.restricted_access_token = None
-        self._restricted_access_cookies = None
-
-        if "restricted_access_token" in kwargs:
-            self.restricted_access_token = kwargs["restricted_access_token"]
 
     def _api_request(
         self, url, method="GET", data=None, headers={}, files=None, json=False
