@@ -1,5 +1,35 @@
 # Changelog
 
+## [7.5.0](https://www.github.com/snakemake/snakemake/compare/v7.4.0...v7.5.0) (2022-04-26)
+
+
+### Features
+
+* vim syntax updates ([#1584](https://www.github.com/snakemake/snakemake/issues/1584)) ([b8c77f6](https://www.github.com/snakemake/snakemake/commit/b8c77f6a2a1372a5c3ad8077ad36facf393bfacf))
+
+
+### Bug Fixes
+
+* properly use configfiles specified via CLI also if configfile specified via configfile directive is not present ([1e0649a](https://www.github.com/snakemake/snakemake/commit/1e0649ac37176a68bb2d8f4d1508ac8bb02463ff))
+
+
+### Documentation
+
+* checkpoint documentation ([#1562](https://www.github.com/snakemake/snakemake/issues/1562)) ([4cbfb47](https://www.github.com/snakemake/snakemake/commit/4cbfb4786a729a0c899a0a3e0427c1c1f0796c15))
+
+## [7.4.0](https://www.github.com/snakemake/snakemake/compare/v7.3.8...v7.4.0) (2022-04-22)
+
+
+### Features
+
+* Allow paramspace to separate filename params with custom separator ([#1299](https://www.github.com/snakemake/snakemake/issues/1299)) ([8236e80](https://www.github.com/snakemake/snakemake/commit/8236e80794d0f9c9670238ba168770c0947e8379))
+
+
+### Bug Fixes
+
+* preserve dtypes across paramspace ([#1578](https://www.github.com/snakemake/snakemake/issues/1578)) ([70ce6a0](https://www.github.com/snakemake/snakemake/commit/70ce6a0feb8572ddcf888c3d377d631ea4a24370))
+* use mambaforge for snakemake container image ([#1595](https://www.github.com/snakemake/snakemake/issues/1595)) ([b7e6906](https://www.github.com/snakemake/snakemake/commit/b7e6906926cae5fef6987adcf7b0294266d5faec))
+
 ### [7.3.8](https://www.github.com/snakemake/snakemake/compare/v7.3.7...v7.3.8) (2022-04-06)
 
 

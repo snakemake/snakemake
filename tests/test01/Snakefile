@@ -1,3 +1,4 @@
+
 from snakemake.utils import min_version
 
 from snakemake import __version__
@@ -25,6 +26,8 @@ onerror:
     print("Workflow failed")
     print("Log:")
     print(log)
+
+
 
 
 ruleorder: rule2 > rule4

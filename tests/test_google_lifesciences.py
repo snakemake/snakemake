@@ -57,9 +57,13 @@ def create_google_storage(bucket_name="snakemake-testing"):
     return client.create_bucket(bucket_name)
 
 
+def get_temp_bucket_name():
+    return "snakemake-testing-%s-bucket" % next(tempfile._get_candidate_names())
+
+
 @google_credentials
 def test_google_lifesciences():
-    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_google_lifesciences"
     workdir = dpath("test_google_lifesciences")
@@ -82,7 +86,7 @@ def test_google_lifesciences():
 )
 @google_credentials
 def test_touch_remote_prefix():
-    bucket_name = "snakemake-testing-%s-bucket" % next(tempfile._get_candidate_names())
+    bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_touch_remote_prefix"
     workdir = dpath("test_touch_remote_prefix")
@@ -101,7 +105,7 @@ def test_touch_remote_prefix():
 @google_credentials
 def test_cloud_checkpoints_issue574():
     """see Github issue #574"""
-    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_cloud_checkpoints_issue574"
     workdir = dpath("test_cloud_checkpoints_issue574")
@@ -118,7 +122,7 @@ def test_cloud_checkpoints_issue574():
 
 
 def test_github_issue1396():
-    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_github_issue1396"
     workdir = dpath("test_github_issue1396")
@@ -135,7 +139,7 @@ def test_github_issue1396():
 
 
 def test_github_issue1460():
-    bucket_name = "snakemake-testing-%s" % next(tempfile._get_candidate_names())
+    bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_github_issue1460"
     prefix = "%s/%s" % (bucket_name, storage_prefix)
