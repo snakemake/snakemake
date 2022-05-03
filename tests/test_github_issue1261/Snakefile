@@ -1,0 +1,20 @@
+import time
+
+rule all:
+    input:
+        ['out/A.txt', 'out/B.txt'],
+
+rule A:
+    output:
+        out= 'out/A.txt',
+    run:
+        time.sleep(10)
+        with open(output.out, 'w') as fout:
+            fout.write('done')
+
+rule B:
+    output:
+        'out/B.txt',
+    run:
+        time.sleep(5)
+        raise Exception("Artificially failing rule B, A should go on and finalize properly.")

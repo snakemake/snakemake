@@ -1109,7 +1109,7 @@ class Workflow:
 
         success = self.scheduler.schedule()
 
-        if not immediate_submit and not dryrun:
+        if not immediate_submit and not dryrun and self.mode == Mode.default:
             dag.cleanup_workdir()
 
         if success:
@@ -1933,6 +1933,7 @@ class Workflow:
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
+                    parent_modifier=self.modifier,
                     rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
