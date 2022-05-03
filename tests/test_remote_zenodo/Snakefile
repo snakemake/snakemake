@@ -1,0 +1,30 @@
+import os
+from snakemake.remote.zenodo import RemoteProvider
+
+access_token_sandbox=os.environ["ZENODO_SANDBOX_PAT"]
+zen_sandbox = RemoteProvider(access_token=access_token_sandbox, sandbox=True)
+
+rule all:
+    input: "download.txt", zen_sandbox.remote("large_upload.txt")
+
+rule download:
+    input:
+        zen_sandbox.remote("uploaded.txt")
+    output:
+        "download.txt"
+    shell:
+        "cp {input} {output}"
+
+rule upload:
+    input: "test.txt"
+    output:
+        zen_sandbox.remote("uploaded.txt")
+    shell:
+        "cp {input} {output}"
+
+try:
+    rule too_large_upload:
+        output: zen_sandbox.remote("large_upload.txt")
+        shell: "head -c 101000000 /dev/urandom > {output}"
+except ZenodoFileException:
+    print("Current Zenodo stable API supports <=100MB per file.")

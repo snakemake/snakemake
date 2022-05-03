@@ -14,13 +14,21 @@ def kubernetes_cluster():
             self.cluster = "t-{}".format(uuid.uuid4())
             self.bucket_name = self.cluster
 
-            shell(
-                """
-                gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2
-                gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
-                gsutil mb gs://{self.bucket_name}
-                """
-            )
+            try:
+                shell(
+                    """
+                    gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2
+                    gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
+                    gsutil mb gs://{self.bucket_name}
+                    """
+                )
+            except Exception as e:
+                try:
+                    self.delete()
+                except:
+                    # ignore errors during deletion
+                    pass
+                raise e
 
         def delete(self):
             shell(

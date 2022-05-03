@@ -23,24 +23,24 @@ from snakemake.io import get_wildcard_names, Wildcards
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
+
 class SlurmExecutor(ClusterExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
     """
 
-    #default_jobscript = "slurm/slurm_jobstep.py"
+    # default_jobscript = "slurm/slurm_jobstep.py"
 
     def __init__(
         self,
         workflow,
         dag,
         cores,
-        jobname="snakejob_{name}_{jobid}", # name and SLURM_JOB_ID will be appended
+        jobname="snakejob_{name}_{jobid}",
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        latency_wait=3,
         regions=None,
         location=None,
         cache=False,
@@ -54,9 +54,6 @@ class SlurmExecutor(ClusterExecutor):
         if not cores:
             cores = 1
 
-        # seems otherswise not in namespace, despite the super class init
-        self.mNo releasax_status_checks_per_second = max_status_checks_per_second
-
         super().__init__(
             workflow,
             dag,
@@ -65,13 +62,14 @@ class SlurmExecutor(ClusterExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            latency_wait=latency_wait,
             cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.eNo releasxec_job += " --slurm-jobstep"
+
+    def additional_general_args(self):
+        return [" --slurm-jobstep"]
 
     def cancel(self):
         for job in self.active_jobs:
@@ -110,11 +108,11 @@ class SlurmExecutor(ClusterExecutor):
 
     def cluster_params(self, job):
         """
-           Returns wildcards object for 'job'.
+        Returns wildcards object for 'job'.
 
-           In contrast to the ClusterExecutor, which gets
-           its config from a config file, this SlurmExecutor
-           has the internal handling via job.resources
+        In contrast to the ClusterExecutor, which gets
+        its config from a config file, this SlurmExecutor
+        has the internal handling via job.resources
         """
         return job.dynamic_wildcards.copy()
 
@@ -124,7 +122,7 @@ class SlurmExecutor(ClusterExecutor):
         jobid = job.jobid
         # generic part of a submission string:
 
-        os.makedirs('.snakemake/slurm-logs', exist_ok=True)
+        os.makedirs(".snakemake/slurm-logs", exist_ok=True)
 
         try:
             call = "sbatch -A {account} -p {partition} \
@@ -134,7 +132,7 @@ class SlurmExecutor(ClusterExecutor):
                 **job.resources, jobname=self.get_jobname(job)
             )
         except KeyError as e:
-            #TODO: make explicit message for account / partition
+            # TODO: make explicit message for account / partition
             logger.error(
                 "Missing job submission key '{}' for job '{}'.".format(
                     e.args[0], job.name
@@ -142,9 +140,13 @@ class SlurmExecutor(ClusterExecutor):
             )
             sys.exit(1)
 
-        if not job.resources.get('walltime_minutes'):
-            logger.warning("No wall time limit is set, setting 'walltime_minutes' to 1.")
-        call += " -t {walltime_minutes}".format(walltime_minutes = job.resources.get('walltime_minutes', default_value=1))
+        if not job.resources.get("walltime_minutes"):
+            logger.warning(
+                "No wall time limit is set, setting 'walltime_minutes' to 1."
+            )
+        call += " -t {walltime_minutes}".format(
+            walltime_minutes=job.resources.get("walltime_minutes", default_value=1)
+        )
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
         # TODO: implement when tempfs-resource is defined
@@ -157,22 +159,10 @@ class SlurmExecutor(ClusterExecutor):
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
-        
-        exec_job = self.format_job(
-            self.exec_job,
-            job,
-            _quote_all=True,
-            use_threads="--force-use-threads" if not job.is_group() else "",
-        )
 
-        # we need to modify `exec_job`, because we can only wrap executables
-        # and not `cd` statements or tinkerings with PATH:
-        # the directory is changed anyways by SLURM, the environment is
-        # carried on, within envvars and the SLURM environment.
+        exec_job = self.format_job_exec(job)
 
-        index = exec_job.index("-m snakemake")
-        exec_job=exec_job[index:]
-        # if ressources == MPI:
+        # MPI job
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
@@ -180,8 +170,7 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
                 call += " -c={}".format(job.resources.get("threads", 1))
-        # ordinary smp application:
-
+        # ordinary smp application
         elif not job.is_group():
             # TODO: this line will become longer
             # TODO: hence the single command, yet
@@ -192,25 +181,15 @@ class SlurmExecutor(ClusterExecutor):
         else:
             ntasks = max(map(len, job.toposorted))
             threads = sum(j.threads for j in job)
-            call += " -n {ntasks} -c {threads}".format(ntasks=ntasks,
-                                     threads=threads)
+            call += " -n {ntasks} -c {threads}".format(ntasks=ntasks, threads=threads)
 
-
-        # as we cannot do 'sbatch ... cd {workflow.workdir_init} && python ...' as snakemake otherwise expects this
-        # usually, this is default SLURM behaviour, but to ensure this working
-        # on all clusters, we make it explicit
-        call += " --chdir={workdir_init}".format(
-            workdir_init=self.workflow.workdir_init
-        )
+        # ensure that workdir is set correctly
+        call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
-
-        jobfinished = os.path.join(self.tmpdir, "{}.jobfinished".format(jobid))
-        jobfailed = os.path.join(self.tmpdir, "{}.jobfailed".format(jobid))
-
-        call += ' --wrap=\'python {exec_job} --jobs unlimited\''.format(exec_job=exec_job)
-        #try:
+        call += f" --wrap={repr(exec_job)}"
+        # try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
-        #except:
+        # except:
         #    pass  # check template
 
         jobid = out.split(" ")[-1]
@@ -284,7 +263,10 @@ class SlurmExecutor(ClusterExecutor):
                 if status == "COMPLETED":
                     j.callback(j.job)
                 elif status in fail_stati:
-                    self.print_job_error(j.job, msg="failed with SLURM status '{status}'".format(status=status))
+                    self.print_job_error(
+                        j.job,
+                        msg="failed with SLURM status '{status}'".format(status=status),
+                    )
                     j.error_callback(j.job)
                 else:  # still running?
                     still_running.append(j)

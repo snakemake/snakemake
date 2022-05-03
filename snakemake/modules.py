@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -69,7 +69,13 @@ class ModuleInfo:
         self.replace_prefix = replace_prefix
         self.prefix = prefix
 
-    def use_rules(self, rules=None, name_modifier=None, ruleinfo=None):
+    def use_rules(
+        self,
+        rules=None,
+        name_modifier=None,
+        ruleinfo=None,
+        skip_global_report_caption=False,
+    ):
         snakefile = self.get_snakefile()
         with WorkflowModifier(
             self.workflow,
@@ -77,6 +83,7 @@ class ModuleInfo:
             base_snakefile=snakefile,
             skip_configfile=self.config is not None,
             skip_validation=self.skip_validation,
+            skip_global_report_caption=skip_global_report_caption,
             rule_whitelist=self.get_rule_whitelist(rules),
             rulename_modifier=get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
@@ -86,7 +93,7 @@ class ModuleInfo:
             prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
         ):
-            self.workflow.include(snakefile, overwrite_first_rule=True)
+            self.workflow.include(snakefile, overwrite_default_target=True)
 
     def get_snakefile(self):
         if self.meta_wrapper:
@@ -124,11 +131,13 @@ class WorkflowModifier:
     def __init__(
         self,
         workflow,
+        parent_modifier=None,
         globals=None,
         config=None,
         base_snakefile=None,
         skip_configfile=False,
         skip_validation=False,
+        skip_global_report_caption=False,
         rulename_modifier=None,
         rule_whitelist=None,
         ruleinfo_overwrite=None,
@@ -138,18 +147,36 @@ class WorkflowModifier:
         replace_wrapper_tag=None,
         namespace=None,
     ):
+        if parent_modifier is not None:
+            # init with values from parent modifier
+            self.base_snakefile = parent_modifier.base_snakefile
+            self.globals = parent_modifier.globals
+            self.skip_configfile = parent_modifier.skip_configfile
+            self.rulename_modifier = parent_modifier.rulename_modifier
+            self.skip_validation = parent_modifier.skip_validation
+            self.skip_global_report_caption = parent_modifier.skip_global_report_caption
+            self.rule_whitelist = parent_modifier.rule_whitelist
+            self.ruleinfo_overwrite = parent_modifier.ruleinfo_overwrite
+            self.allow_rule_overwrite = parent_modifier.allow_rule_overwrite
+            self.path_modifier = parent_modifier.path_modifier
+            self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
+            self.namespace = parent_modifier.namespace
+        else:
+            # default settings for globals if not inheriting from parent
+            self.globals = (
+                globals if globals is not None else dict(workflow.vanilla_globals)
+            )
+
         self.workflow = workflow
         self.base_snakefile = base_snakefile
 
-        self.globals = (
-            globals if globals is not None else dict(workflow.vanilla_globals)
-        )
         if config is not None:
             self.globals["config"] = config
 
         self.skip_configfile = skip_configfile
         self.rulename_modifier = rulename_modifier
         self.skip_validation = skip_validation
+        self.skip_global_report_caption = skip_global_report_caption
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite

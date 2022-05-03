@@ -272,6 +272,26 @@ To use this script call snakemake similar to below, where ``status.py`` is the s
     $ snakemake all --jobs 100 --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
 
 
+Using --cluster-cancel
+::::::::::::::::::::::
+
+When snakemake is terminated by pressing ``Ctrl-C``, it will cancel all currently running node when using ``--drmaa``.
+You can get the same behaviour with ``--cluster`` by adding ``--cluster-cancel`` and passing a command to use for canceling jobs by their jobid (e.g., ``scancel`` for SLURM or ``qdel`` for SGE).
+Most job schedulers can be passed multiple jobids and you can use ``--cluster-cancel-nargs`` to limit the number of arguments (default is 1000 which is reasonable for most schedulers).
+
+Using --cluster-sidecar
+:::::::::::::::::::::::
+
+In certain situations, it is necessary to not perform calls to cluster commands directly and instead have a "sidecar" process, e.g., providing a REST API.
+One example is when using SLURM where regular calls to ``scontrol show job JOBID`` or ``sacct -j JOBID`` puts a high load on the controller.
+Rather, it is better to use the ``squeue`` command with the ``-i/--iterate`` option.
+
+When using ``--cluster``, you can use ``--cluster-sidecar`` to pass in a command that starts a sidecar server.
+The command should print one line to stdout and then block and accept connections.
+The line will subsequently be available in the calls to ``--cluster``, ``--cluster-status``, and ``--cluster-cancel`` in the environment variable ``SNAKEMAKE_CLUSTER_SIDECAR_VARS``.
+In the case of a REST server, you can use this to return the port that the server is listening on and credentials.
+When the Snakemake process terminates, the sidecar process will be terminated as well.
+
 Constraining wildcards
 ::::::::::::::::::::::
 

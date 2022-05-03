@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -209,7 +209,7 @@ class RemoteObject(DomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         with self.httpr(stream=True) as httpr:
             if self.exists():
                 # Find out if the source file is gzip compressed in order to keep
@@ -237,7 +237,7 @@ class RemoteObject(DomainObject):
                     "The file does not seem to exist remotely: %s" % self.remote_file()
                 )
 
-    def upload(self):
+    def _upload(self):
         raise HTTPFileException(
             "Upload is not permitted for the HTTP remote provider. Is an output set to HTTP.remote()?"
         )

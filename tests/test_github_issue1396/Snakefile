@@ -1,0 +1,16 @@
+def get_files(wildcards):
+    files_1 = expand("file_{i}", i=list(range(1, 5)))
+    files_2 = expand("file_{i}", i=list(range(5, 9)))
+    return {"files_1": files_1, "files_2": files_2}
+
+
+rule all:
+    input:
+        unpack(get_files),
+
+
+rule make_files:
+    output:
+        expand("file_{i}", i=list(range(1, 9))),
+    shell:
+        "touch {output}"
