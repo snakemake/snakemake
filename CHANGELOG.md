@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.6.0](https://www.github.com/snakemake/snakemake/compare/v7.5.0...v7.6.0) (2022-05-03)
+
+
+### Features
+
+* enable restricted access support in zenodo remote provider ([#1623](https://www.github.com/snakemake/snakemake/issues/1623)) ([692caf9](https://www.github.com/snakemake/snakemake/commit/692caf963d90313d2cd8117fecde097b228633ce))
+
+
+### Bug Fixes
+
+* avoid erroneous too early deletion of parent directories in case of failed jobs (thanks to @SichongP). ([#1601](https://www.github.com/snakemake/snakemake/issues/1601)) ([b0917e6](https://www.github.com/snakemake/snakemake/commit/b0917e6f07e356764880632495ec3567ec8555b4))
+* ensure that rule inheritance considers the same globals and other settings as parent module ([#1621](https://www.github.com/snakemake/snakemake/issues/1621)) ([104cab9](https://www.github.com/snakemake/snakemake/commit/104cab97d9e1a7dda4c9948efa5883d5478d2229))
+* issue 1615 - Switch formatting condition for dictionary ([#1617](https://www.github.com/snakemake/snakemake/issues/1617)) ([0771062](https://www.github.com/snakemake/snakemake/commit/0771062a07f0e2cfe9ee45a2276aa61b096eb6e1))
+* multiext prefix computation in case it is used within a module that defines an additional prefix ([#1609](https://www.github.com/snakemake/snakemake/issues/1609)) ([fc6dfc6](https://www.github.com/snakemake/snakemake/commit/fc6dfc6469137a82382a36b9469190d967593759))
+* remove redundant print ([#1608](https://www.github.com/snakemake/snakemake/issues/1608)) ([cc7e0e3](https://www.github.com/snakemake/snakemake/commit/cc7e0e3605bd65ffcb2d055e69761ff7337588ae))
+
 ## [7.5.0](https://www.github.com/snakemake/snakemake/compare/v7.4.0...v7.5.0) (2022-04-26)
 
 
