@@ -48,7 +48,7 @@ class RemoteObject(AbstractRemoteRetryObject):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=provider,
-            **kwargs
+            **kwargs,
         )
         if provider:
             self._zen = provider.remote_interface()
@@ -121,6 +121,12 @@ class ZENHelper(object):
                 "environment at https://sandbox.zenodo.org."
             )
 
+        self.restricted_access_token = None
+        self._restricted_access_cookies = None
+
+        if "restricted_access_token" in kwargs:
+            self.restricted_access_token = kwargs["restricted_access_token"]
+
         if "sandbox" in kwargs:
             self._sandbox = kwargs.pop("sandbox")
         else:
@@ -148,9 +154,13 @@ class ZENHelper(object):
         session.headers["Authorization"] = "Bearer {}".format(self._access_token)
         session.headers.update(headers)
 
+        cookies = self.restricted_access_cookies
+
         # Run query.
         try:
-            r = session.request(method=method, url=url, data=data, files=files)
+            r = session.request(
+                method=method, url=url, data=data, files=files, cookies=cookies
+            )
             if json:
                 msg = r.json()
                 return msg
@@ -189,3 +199,24 @@ class ZENHelper(object):
             )
             for f in files
         }
+
+    @property
+    def restricted_access_cookies(self):
+        """Retrieve cookies necessary for restricted access.
+
+        Inspired by https://gist.github.com/slint/d47fe5628916d14b8d0b987ac45aeb66
+        """
+        if self.restricted_access_token and self._restricted_access_cookies is None:
+            url = (
+                self._baseurl
+                + f"/record/{self.deposition}?token={self.restricted_access_token}"
+            )
+            resp = self._api_request(url)
+            if "session" in resp["cookies"]:
+                self._restricted_access_cookies = resp["cookies"]
+            else:
+                raise WorkflowError(
+                    "Failure to retrieve session cookie with given restricted access token. "
+                    f"Is the token valid? Please check by opening {url} manually in your browser."
+                )
+        return self._restricted_access_cookies
