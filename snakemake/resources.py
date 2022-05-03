@@ -105,6 +105,7 @@ class DefaultResources:
     def __bool__(self):
         return bool(self.parsed)
 
+
 def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
@@ -133,7 +134,9 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an {functor} after the identifier.".format(functor=functor.__name__)
+                        "Resource definiton must contain an {functor} after the identifier.".format(
+                            functor=functor.__name__
+                        )
                     )
             if res == "_cores":
                 raise ValueError(

@@ -175,13 +175,13 @@ class SlurmExecutor(ClusterExecutor):
             # TODO: this line will become longer
             # TODO: hence the single command, yet
             if job.threads == 0:
-                call += " -n 1 -c 1 {exec_job}".format(self.exec_job)
+                call += f" -n 1 -c 1 {exec_job}"
             else:
-                call += " -n 1 -c {threads}".format(threads=job.threads)
+                call += f" -n 1 -c {job.threads}"
         else:
             ntasks = max(map(len, job.toposorted))
             threads = sum(j.threads for j in job)
-            call += " -n {ntasks} -c {threads}".format(ntasks=ntasks, threads=threads)
+            call += f" -n {ntasks} -c {threads}"
 
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
