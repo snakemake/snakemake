@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.6.1](https://www.github.com/snakemake/snakemake/compare/v7.6.0...v7.6.1) (2022-05-04)
+
+
+### Bug Fixes
+
+* check for skipped rules in case of local rule inheritance ([#1631](https://www.github.com/snakemake/snakemake/issues/1631)) ([9083ac1](https://www.github.com/snakemake/snakemake/commit/9083ac1f40daf3d284ce9b1ac2d4addde9b5b258))
+
 ## [7.6.0](https://www.github.com/snakemake/snakemake/compare/v7.5.0...v7.6.0) (2022-05-03)
 
 
