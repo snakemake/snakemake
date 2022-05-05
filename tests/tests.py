@@ -1628,3 +1628,10 @@ def test_rule_inheritance_globals():
         targets=["foo.txt"],
         check_md5=False,
     )
+
+
+def test_pep_amendment():
+    run(dpath("test_pep_amendment"), pep_amendment="test_workflow")
+
+def test_pep_amendment_false_name():
+    run(dpath("test_pep_amendment"), pep_amendment="false_name", shouldfail=True)
