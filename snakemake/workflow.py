@@ -152,6 +152,7 @@ class Workflow:
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
+        pep_amendment=None,
     ):
         """
         Create the controller.
@@ -239,6 +240,7 @@ class Workflow:
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
         self.latency_wait = latency_wait
+        self.pep_amendment = pep_amendment
 
         _globals = globals()
         _globals["workflow"] = self
@@ -1329,7 +1331,10 @@ class Workflow:
             raise WorkflowError("For PEP support, please install peppy.")
 
         self.pepfile = path
-        self.globals["pep"] = peppy.Project(self.pepfile)
+        try:
+            self.globals["pep"] = peppy.Project(self.pepfile, amendments=self.pep_amendment)
+        except peppy.exceptions.MissingAmendmentError as e:
+            raise WorkflowError("Amendment name not specified in PEP config.\n" + str(e))
 
     def pepschema(self, schema):
         try:
