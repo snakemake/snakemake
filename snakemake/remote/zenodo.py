@@ -139,12 +139,14 @@ class ZENHelper(object):
         else:
             self._baseurl = "https://zenodo.org"
 
-        if "deposition" in kwargs:
-            self.deposition = kwargs.pop("deposition")
-            self._bucket = None
-        else:
+        self.is_new_deposition = "deposition" not in kwargs
+        if self.is_new_deposition:
             # Creating a new deposition, as deposition id was not supplied.
             self.create_deposition()
+        else:
+            self.deposition = kwargs.pop("deposition")
+            self._bucket = None
+            self.is_new_deposition = False
 
     def _api_request(
         self,
@@ -201,6 +203,25 @@ class ZENHelper(object):
         return self._bucket
 
     def get_files(self):
+        if self.is_new_deposition:
+            return self.get_files_own_deposition()
+        else:
+            return self.get_files_record()
+
+    def get_files_own_deposition(self):
+        files = self._api_request(
+            self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
+            headers={"Content-Type": "application/json"},
+            json=True,
+        )
+        return {
+            os.path.basename(f["filename"]): ZenFileInfo(
+                f["filename"], f["checksum"], int(f["filesize"]), f["links"]["download"]
+            )
+            for f in files
+        }
+
+    def get_files_record(self):
         resp = self._api_request(
             self._baseurl + "/api/records/{}".format(self.deposition),
             headers={"Content-Type": "application/json"},
