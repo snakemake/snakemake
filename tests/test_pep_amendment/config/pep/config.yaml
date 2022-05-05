@@ -1,0 +1,19 @@
+name: pep_amendments_test
+
+pep_version: 2.0.0
+sample_table: "sample_table.csv"
+
+
+sample_modifiers:
+  derive:
+    attributes: [sample_name]
+    sources:
+      SAMPLE_NAME: "{sample}_{group}"
+
+project_modifiers:
+  amend:
+    test_workflow:
+      sample_modifiers:
+        derive:
+          sources:
+            SAMPLE_NAME: "{group}_{sample}"
