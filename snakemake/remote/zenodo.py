@@ -17,7 +17,9 @@ from snakemake.exceptions import ZenodoFileException, WorkflowError
 from snakemake.common import lazy_property
 
 
-ZenFileInfo = namedtuple("ZenFileInfo", ["checksum", "filesize", "id", "download"])
+ZenFileInfo = namedtuple(
+    "ZenFileInfo", ["filename", "checksum", "filesize", "download"]
+)
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -89,7 +91,7 @@ class RemoteObject(AbstractRemoteRetryObject):
 
         if local_md5 != stats.checksum:
             raise ZenodoFileException(
-                "File checksums do not match for remote file id: {}".format(stats.id)
+                "File checksums do not match for remote file: {}".format(stats.filename)
             )
 
     def _upload(self):
@@ -137,15 +139,24 @@ class ZENHelper(object):
         else:
             self._baseurl = "https://zenodo.org"
 
-        if "deposition" in kwargs:
-            self.deposition = kwargs.pop("deposition")
-            self.bucket = self.get_bucket()
-        else:
+        self.is_new_deposition = "deposition" not in kwargs
+        if self.is_new_deposition:
             # Creating a new deposition, as deposition id was not supplied.
-            self.deposition, self.bucket = self.create_deposition().values()
+            self.create_deposition()
+        else:
+            self.deposition = kwargs.pop("deposition")
+            self._bucket = None
+            self.is_new_deposition = False
 
     def _api_request(
-        self, url, method="GET", data=None, headers={}, files=None, json=False
+        self,
+        url,
+        method="GET",
+        data=None,
+        headers={},
+        files=None,
+        json=False,
+        restricted_access=True,
     ):
 
         # Create a session with a hook to raise error on bad request.
@@ -154,7 +165,7 @@ class ZENHelper(object):
         session.headers["Authorization"] = "Bearer {}".format(self._access_token)
         session.headers.update(headers)
 
-        cookies = self.restricted_access_cookies
+        cookies = self.restricted_access_cookies if restricted_access else None
 
         # Run query.
         try:
@@ -177,17 +188,27 @@ class ZENHelper(object):
             data="{}",
             json=True,
         )
-        return {"id": resp["id"], "bucket": resp["links"]["bucket"]}
+        self.deposition = resp["id"]
+        self._bucket = resp["links"]["bucket"]
 
-    def get_bucket(self):
-        resp = self._api_request(
-            self._baseurl + "/api/deposit/depositions/{}".format(self.deposition),
-            headers={"Content-Type": "application/json"},
-            json=True,
-        )
-        return resp["links"]["bucket"]
+    @property
+    def bucket(self):
+        if self._bucket is None:
+            resp = self._api_request(
+                self._baseurl + "/api/deposit/depositions/{}".format(self.deposition),
+                headers={"Content-Type": "application/json"},
+                json=True,
+            )
+            self._bucket = resp["links"]["bucket"]
+        return self._bucket
 
     def get_files(self):
+        if self.is_new_deposition:
+            return self.get_files_own_deposition()
+        else:
+            return self.get_files_record()
+
+    def get_files_own_deposition(self):
         files = self._api_request(
             self._baseurl + "/api/deposit/depositions/{}/files".format(self.deposition),
             headers={"Content-Type": "application/json"},
@@ -195,7 +216,32 @@ class ZENHelper(object):
         )
         return {
             os.path.basename(f["filename"]): ZenFileInfo(
-                f["checksum"], int(f["filesize"]), f["id"], f["links"]["download"]
+                f["filename"], f["checksum"], int(f["filesize"]), f["links"]["download"]
+            )
+            for f in files
+        }
+
+    def get_files_record(self):
+        resp = self._api_request(
+            self._baseurl + "/api/records/{}".format(self.deposition),
+            headers={"Content-Type": "application/json"},
+            json=True,
+        )
+        files = resp["files"]
+
+        def get_checksum(f):
+            checksum = f["checksum"]
+            if checksum.startswith("md5:"):
+                return checksum[4:]
+            else:
+                raise ZenodoFileException(
+                    "Unsupported checksum (currently only md5 support is "
+                    f"implemented for Zenodo): {checksum}"
+                )
+
+        return {
+            os.path.basename(f["key"]): ZenFileInfo(
+                f["key"], get_checksum(f), int(f["size"]), f["links"]["self"]
             )
             for f in files
         }
@@ -211,9 +257,9 @@ class ZENHelper(object):
                 self._baseurl
                 + f"/record/{self.deposition}?token={self.restricted_access_token}"
             )
-            resp = self._api_request(url)
-            if "session" in resp["cookies"]:
-                self._restricted_access_cookies = resp["cookies"]
+            resp = self._api_request(url, restricted_access=False)
+            if "session" in resp.cookies:
+                self._restricted_access_cookies = resp.cookies
             else:
                 raise WorkflowError(
                     "Failure to retrieve session cookie with given restricted access token. "
