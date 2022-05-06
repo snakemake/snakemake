@@ -363,7 +363,8 @@ class Logger:
         self.handler(dict(level="info", msg=msg, indent=indent))
 
     def warning(self, msg, *fmt_items):
-        msg = msg % fmt_items
+        if fmt_items:
+            msg = msg % fmt_items
         self.handler(dict(level="warning", msg=msg))
 
     def debug(self, msg):
