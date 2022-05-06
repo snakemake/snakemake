@@ -1633,5 +1633,6 @@ def test_rule_inheritance_globals():
 def test_pep_amendment():
     run(dpath("test_pep_amendment"), pep_amendment="test_workflow")
 
+
 def test_pep_amendment_false_name():
     run(dpath("test_pep_amendment"), pep_amendment="false_name", shouldfail=True)
