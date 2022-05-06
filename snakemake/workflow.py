@@ -1332,9 +1332,13 @@ class Workflow:
 
         self.pepfile = path
         try:
-            self.globals["pep"] = peppy.Project(self.pepfile, amendments=self.pep_amendment)
+            self.globals["pep"] = peppy.Project(
+                self.pepfile, amendments=self.pep_amendment
+            )
         except peppy.exceptions.MissingAmendmentError as e:
-            raise WorkflowError("Amendment name not specified in PEP config.\n" + str(e))
+            raise WorkflowError(
+                "Amendment name not specified in PEP config.\n" + str(e)
+            )
 
     def pepschema(self, schema):
         try:

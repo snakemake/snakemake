@@ -184,7 +184,7 @@ def snakemake(
     scheduler_solver_path=None,
     conda_base_path=None,
     local_groupid="local",
-    pep_amendment=None
+    pep_amendment=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -606,7 +606,7 @@ def snakemake(
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
             latency_wait=latency_wait,
-            pep_amendment=pep_amendment
+            pep_amendment=pep_amendment,
         )
         success = True
 
@@ -721,7 +721,7 @@ def snakemake(
                     max_inventory_wait_time=max_inventory_wait_time,
                     conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
                     local_groupid=local_groupid,
-                    pep_amendment=pep_amendment
+                    pep_amendment=pep_amendment,
                 )
                 success = workflow.execute(
                     targets=targets,
@@ -2062,7 +2062,7 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--pep-amendment",
         default=None,
-        help="Name of the amendment that should be activated when PEP config file is loaded."
+        help="Name of the amendment that should be activated when PEP config file is loaded.",
     )
 
     group_cluster = parser.add_argument_group("CLUSTER")
@@ -2949,7 +2949,7 @@ def main(argv=None):
             scheduler_solver_path=args.scheduler_solver_path,
             conda_base_path=args.conda_base_path,
             local_groupid=args.local_groupid,
-            pep_amendment=args.pep_amendment
+            pep_amendment=args.pep_amendment,
         )
 
     if args.runtime_profile:
