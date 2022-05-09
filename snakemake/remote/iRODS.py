@@ -202,29 +202,24 @@ class RemoteObject(AbstractRemoteRetryObject):
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
-    def denied_access(self, collpath):
-        try:
-            self._irods_session.collections.get(collpath)
-            return False
-        except (CAT_NO_ACCESS_PERMISSION):
-            return True
-        return False
-
     def _upload(self):
         # get current local timestamp
         stat = os.stat(self.local_path)
 
         # create folder structure on remote
         folders = os.path.dirname(self.remote_path).split(os.sep)[1:]
+        # add zone name to path
         collpath = os.sep + folders.pop(0) + os.sep + folders.pop(0)
 
         for folder in folders:
             collpath = os.path.join(collpath, folder)
-            if not self.denied_access(collpath):
-                try:
-                    self._irods_session.collections.get(collpath)
-                except:
-                    self._irods_session.collections.create(collpath)
+            try:
+                self._irods_session.collections.get(collpath)
+            # ignore subdirectories where user does not have access
+            except (CAT_NO_ACCESS_PERMISSION):
+                pass
+            except:
+                self._irods_session.collections.create(collpath)
 
         # upload file and store local timestamp in metadata since irods sets the files modification time to
         # the upload time rather than retaining the local modification time
