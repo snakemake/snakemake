@@ -690,7 +690,7 @@ To activate this autocompletion permanently, put this line in ``~/.zshrc``.
 
 `Here <https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org>`_ is some further reading.
 
-system /tmp gets used when using singularity and conda
+How can I avoid system /tmp to be used when combining singularity and conda?
 ------------------------------------------------------
 
 When using both singularity and conda the idea is that inside the singularity container the conda environment is being installed.
