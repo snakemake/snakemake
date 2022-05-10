@@ -575,7 +575,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def is_checksum_eligible(self):
-        return self.size < 100000 and self.exists_local
+        return self.size < 100000 and self.exists_local and not os.path.isdir(self.file)
 
     def checksum(self):
         """Return checksum if file is small enough, else None.
