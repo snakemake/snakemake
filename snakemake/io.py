@@ -574,10 +574,13 @@ class _IOFile(str):
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
+    def is_checksum_eligible(self):
+        return self.size < 100000 and self.exists_local
+
     def checksum(self):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist."""
-        if self.size < 100000 and self.exists_local:  # less than 100000 bytes
+        if self.is_checksum_eligible():  # less than 100000 bytes
             checksum = sha256()
             with open(self.file, "rb") as f:
                 checksum.update(f.read())
@@ -587,7 +590,8 @@ class _IOFile(str):
 
     def is_same_checksum(self, other_checksum):
         checksum = self.checksum()
-        if checksum is None:
+        if checksum is None or other_checksum is None:
+            # if no checksum available or files too large, not the same
             return False
         else:
             return checksum == other_checksum

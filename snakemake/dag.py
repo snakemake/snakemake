@@ -956,12 +956,26 @@ class DAG:
 
         is_same_checksum_cache = dict()
 
-        def is_same_checksum(f):
+        def is_same_checksum(f, job):
             try:
-                return is_same_checksum_cache[f]
+                return is_same_checksum_cache[(f, job)]
             except KeyError:
-                is_same = f.is_same_checksum(self.workflow.persistence.checksum(f))
-                is_same_checksum_cache[f] = is_same
+                if not f.is_checksum_eligible():
+                    # no chance to compute checksum, cannot be assumed the same
+                    is_same = False
+                else:
+                    # obtain the input checksums for the given file for all output files of the job
+                    checksums = self.workflow.persistence.input_checksums(job, f)
+                    if len(checksums) > 1:
+                        # more than one checksum recorded, cannot be all the same
+                        is_same = False
+                    elif not checksums:
+                        # no checksums recorded, we cannot assume them to be the same
+                        is_same = False
+                    else:
+                        is_same = f.is_same_checksum(checksums.pop())
+
+                is_same_checksum_cache[(f, job)] = is_same
                 return is_same
 
         def update_needrun(job):
@@ -1017,7 +1031,7 @@ class DAG:
                         for f in job.input
                         if f.exists
                         and f.is_newer(output_mintime_)
-                        and not is_same_checksum(f)
+                        and not is_same_checksum(f, job)
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
