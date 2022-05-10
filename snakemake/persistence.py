@@ -15,6 +15,7 @@ from functools import lru_cache, partial
 from itertools import filterfalse, count
 from pathlib import Path
 
+import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
@@ -167,7 +168,7 @@ class Persistence:
 
     def lock(self):
         if self.locked:
-            raise IOError("Another snakemake process " "has locked this directory.")
+            raise snakemake.exceptions.LockException()
         self._lock(self.all_inputfiles(), "input")
         self._lock(self.all_outputfiles(), "output")
 
