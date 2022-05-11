@@ -1069,6 +1069,10 @@ def touch(value):
     return flag(value, "touch")
 
 
+def nonempty(value):
+    return flag(value, "nonempty")
+
+
 def unpack(value):
     return flag(value, "unpack")
 

@@ -508,12 +508,26 @@ class DAG:
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa). We can't check for remote objects
+        # are directories and not files and vice versa). We can't check for remote objects.
         for f in expanded_output:
             if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
                 not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
                 raise ImproperOutputException(job, [f])
+
+        # If requested, check that output files are nonempty.
+        empty_output = [
+            f for f in expanded_output if is_flagged(f, "nonempty") and f.size == 0
+        ]
+        if empty_output:
+            raise WorkflowError(
+                "Detected unexpected empty output files. "
+                "Something went wrong in the rule without "
+                "an error being reported:\n{}".format(
+                    "\n".join(empty_output)
+                ),
+                rule=job.rule,
+            )
 
         # It is possible, due to archive expansion or cluster clock skew, that
         # the files appear older than the input.  But we know they must be new,
