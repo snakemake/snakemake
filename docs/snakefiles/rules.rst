@@ -1036,6 +1036,25 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
+Ensuring non-empty output files
+-------------------------------
+
+It is possible to mark output files as being expected to be non-empty.
+In that case, Snakemake will check those files before considering a job to be successfull.
+
+.. code-block:: python
+
+    rule NAME:
+        output:
+            nonempty("test.txt")
+        shell:
+            "somecommand {output}"
+
+Above, the output file ``test.txt`` is marked as non-empty.
+If the command ``somecommand`` happens to generate an empty output,
+the job will fail with an error listing the unexpected empty file.
+
+
 Shadow rules
 ------------
 
