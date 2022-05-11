@@ -586,10 +586,11 @@ class _IOFile(str):
             and not self.is_fifo()
         )
 
-    def checksum(self):
+    def checksum(self, force=False):
         """Return checksum if file is small enough, else None.
-        Returns None if file does not exist."""
-        if self.is_checksum_eligible():  # less than 100000 bytes
+        Returns None if file does not exist. If force is True,
+        omit eligibility check."""
+        if force or self.is_checksum_eligible():  # less than 100000 bytes
             checksum = sha256()
             if self.size > 0:
                 # only read if file is bigger than zero
