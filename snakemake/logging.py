@@ -294,7 +294,7 @@ class Logger:
         self.printshellcmds = False
         self.printreason = False
         self.debug_dag = False
-        self.quiet = False
+        self.quiet = set()
         self.logfile = None
         self.last_msg_was_job_info = False
         self.mode = Mode.default
@@ -419,6 +419,9 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
+    def is_quiet_about(self, msg_type):
+        return msg_type in self.quiet or "all" in self.quiet
+
     def text_handler(self, msg):
         """The default snakemake log handler.
 
@@ -427,6 +430,9 @@ class Logger:
         Args:
             msg (dict):     the log message dictionary
         """
+        if self.is_quiet_about("all"):
+            # do not log anything
+            return
 
         def job_info(msg):
             def format_item(item, omit=None, valueformat=str):
@@ -476,7 +482,7 @@ class Logger:
 
         level = msg["level"]
 
-        if level == "job_info" and not self.quiet:
+        if level == "job_info" and not self.is_quiet_about("rules"):
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             timestamp()
@@ -495,7 +501,7 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
-        elif level == "group_info" and not self.quiet:
+        elif level == "group_info" and not self.is_quiet_about("rules"):
             timestamp()
             msg = "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
             if not self.last_msg_was_job_info:
@@ -541,7 +547,7 @@ class Logger:
             timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
-            if level == "info" and not self.quiet:
+            if level == "info":
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.critical(msg["msg"])
@@ -549,11 +555,11 @@ class Logger:
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info" and not self.quiet:
+            elif level == "resources_info":
                 self.logger.warning(msg["msg"])
             elif level == "run_info":
                 self.logger.warning(msg["msg"])
-            elif level == "progress" and not self.quiet:
+            elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
                 total = msg["total"]
                 self.logger.info(
@@ -564,7 +570,7 @@ class Logger:
             elif level == "shellcmd":
                 if self.printshellcmds:
                     self.logger.warning(indent(msg["msg"]))
-            elif level == "job_finished" and not self.quiet:
+            elif level == "job_finished" and not self.is_quiet_about("progress"):
                 timestamp()
                 self.logger.info("Finished job {}.".format(msg["jobid"]))
                 pass
@@ -659,6 +665,21 @@ def setup_logger(
     mode=Mode.default,
     show_failed_logs=False,
 ):
+    if quiet is None:
+        # not quiet at all
+        quiet = set()
+    elif isinstance(quiet, bool):
+        if quiet:
+            quiet = set(["progress", "rules"])
+        else:
+            quiet = set()
+    elif isinstance(quiet, list):
+        quiet = set(quiet)
+    else:
+        raise ValueError(
+            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+        )
+
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified

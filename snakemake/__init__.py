@@ -1806,8 +1806,13 @@ def get_argument_parser(profile=None):
     group_output.add_argument(
         "--quiet",
         "-q",
-        action="store_true",
-        help="Do not output any progress or rule information.",
+        nargs="*",
+        choices=["progress", "rules", "all"],
+        default=None,
+        help="Do not output certain information. "
+        "If used without arguments, do not output any progress or rule "
+        "information. Defining 'all' results in no information being "
+        "printed at all.",
     )
     group_output.add_argument(
         "--print-compilation",
@@ -2422,6 +2427,10 @@ def main(argv=None):
 
     parser = get_argument_parser()
     args = parser.parse_args(argv)
+
+    if args.quiet is not None and len(args.quiet) == 0:
+        # default case, set quiet to progress and rule
+        args.quiet = ["progress", "rules"]
 
     if args.profile:
         # reparse args while inferring config file from profile
