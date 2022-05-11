@@ -1036,17 +1036,19 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
-Ensuring non-empty output files
--------------------------------
+Ensuring output file properties like non-emptyness or checksum compliance
+-------------------------------------------------------------------------
 
-It is possible to mark output files as being expected to be non-empty.
-In that case, Snakemake will check those files before considering a job to be successfull.
+It is possible to annotate certain additional criteria for output files to be ensured after they have been generated successfully.
+For example, this can be used to check for output files to be non-empty, or to compare them against a given sha256 checksum.
+If this functionality is used, Snakemake will check such annotated files before considering a job to be successfull.
+Non-emptyness can be checked as follows:
 
 .. code-block:: python
 
     rule NAME:
         output:
-            nonempty("test.txt")
+            ensure("test.txt", non_empty=True)
         shell:
             "somecommand {output}"
 
@@ -1054,6 +1056,36 @@ Above, the output file ``test.txt`` is marked as non-empty.
 If the command ``somecommand`` happens to generate an empty output,
 the job will fail with an error listing the unexpected empty file.
 
+A sha256 checksum can be compared as follows:
+
+.. code-block:: python
+
+    my_checksum = "u98a9cjsd98saud090923ßkpoasköf9ß32"
+
+    rule NAME:
+        output:
+            ensure("test.txt", sha256=my_checksum)
+        shell:
+            "somecommand {output}"
+
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`). 
+The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
+
+.. code-block:: python
+
+    def get_checksum(wildcards):
+        # e.g., look up the checksum with the value of the wildcard sample
+        # in some dictionary
+        return my_checksums[wildcards.sample]
+
+    rule NAME:
+        output:
+            ensure("test/{sample}.txt", sha256=get_checksum)
+        shell:
+            "somecommand {output}"
+
+
+Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 
 Shadow rules
 ------------

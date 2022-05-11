@@ -17,7 +17,14 @@ from pathlib import Path
 import uuid
 import math
 
-from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
+from snakemake.io import (
+    PeriodicityDetector,
+    get_flag_value,
+    is_callable,
+    wait_for_files,
+    is_flagged,
+    IOFile,
+)
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -479,6 +486,56 @@ class DAG:
                 return True
         return False
 
+    def handle_ensure(self, job, expanded_output):
+        ensured_output = {
+            f: get_flag_value(f, "ensure")
+            for f in expanded_output
+            if is_flagged(f, "ensure")
+        }
+        # handle non_empty
+        empty_output = [
+            f
+            for f, ensure in ensured_output.items()
+            if ensure["non_empty"] and f.size == 0
+        ]
+        if empty_output:
+            raise WorkflowError(
+                "Detected unexpected empty output files. "
+                "Something went wrong in the rule without "
+                "an error being reported:\n{}".format("\n".join(empty_output)),
+                rule=job.rule,
+            )
+
+        # handle checksum
+        def is_not_same_checksum(f, checksum):
+            if checksum is None:
+                return False
+            if is_callable(checksum):
+                try:
+                    checksum = checksum(job.wildcards)
+                except Exception as e:
+                    raise WorkflowError(
+                        "Error calling checksum function provided to ensure marker.",
+                        e,
+                        rule=job.rule,
+                    )
+            return f.checksum(force=True) != checksum
+
+        checksum_failed_output = [
+            (f, ensure["sha256"])
+            for f, ensure in ensured_output.items()
+            if is_not_same_checksum(f, ensure.get("sha256"))
+        ]
+        if checksum_failed_output:
+            raise WorkflowError(
+                "Output files have wrong checksum. "
+                "Something went wrong in the rule without "
+                "an error being reported:\n{}".format(
+                    "\n".join(checksum_failed_output)
+                ),
+                rule=job.rule,
+            )
+
     def check_and_touch_output(
         self,
         job,
@@ -515,19 +572,8 @@ class DAG:
             ):
                 raise ImproperOutputException(job, [f])
 
-        # If requested, check that output files are nonempty.
-        empty_output = [
-            f for f in expanded_output if is_flagged(f, "nonempty") and f.size == 0
-        ]
-        if empty_output:
-            raise WorkflowError(
-                "Detected unexpected empty output files. "
-                "Something went wrong in the rule without "
-                "an error being reported:\n{}".format(
-                    "\n".join(empty_output)
-                ),
-                rule=job.rule,
-            )
+        # Handle ensure flags
+        self.handle_ensure(job, expanded_output)
 
         # It is possible, due to archive expansion or cluster clock skew, that
         # the files appear older than the input.  But we know they must be new,

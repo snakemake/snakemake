@@ -1069,8 +1069,8 @@ def touch(value):
     return flag(value, "touch")
 
 
-def nonempty(value):
-    return flag(value, "nonempty")
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "nonempty", {non_empty: non_empty, sha256: sha256})
 
 
 def unpack(value):
