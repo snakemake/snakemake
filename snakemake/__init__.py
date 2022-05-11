@@ -1941,6 +1941,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "-T",
+        "--retries",
         "--restart-times",
         default=0,
         type=int,
@@ -2909,7 +2910,7 @@ def main(argv=None):
             allowed_rules=args.allowed_rules,
             max_jobs_per_second=args.max_jobs_per_second,
             max_status_checks_per_second=args.max_status_checks_per_second,
-            restart_times=args.restart_times,
+            restart_times=args.retries,
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
