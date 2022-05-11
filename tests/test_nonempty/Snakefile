@@ -1,0 +1,12 @@
+rule a:
+    output:
+        nonempty("test.txt")
+    shell:
+        "touch {output}"
+
+
+rule b:
+    output:
+        nonempty("test2.txt")
+    shell:
+        "echo test > {output}"
