@@ -351,9 +351,9 @@ Resources must be ``int`` or ``str`` values. Note that you are free to choose an
 Resources can also be callables that return ``int`` or ``str`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
-The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
-When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
+When Snakemake is executed with ``--retries 3``, it will try to restart a failed job 3 times before it gives up.
 Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
 This can be used to adjust the required memory as follows
 
@@ -1068,6 +1068,30 @@ and are cleared on successful execution.
 Consider running with the ``--cleanup-shadow`` argument every now and then
 to remove any remaining shadow directories from aborted jobs.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+
+.. _snakefiles-retries:
+
+Defining retries for fallible rules
+-----------------------------------
+
+Sometimes, rules may be expected to fail occasionally.
+For example, this can happen when a rule downloads some online resources.
+For such cases, it is possible to defined a number of automatic retries for each job from that particular rule via the ``retries`` directive:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        retries: 3
+        shell:
+            "curl https://some.unreliable.server/test.txt > {output}"
+
+Note that it is also possible to define retries globally (via the ``--retries`` command line option, see :ref:`all_options`).
+The local definition of the rule thereby overwrites the global definition.
+
+Importantly the ``retries`` directive is meant to be used for defining platform independent behavior (like adding robustness to above download command).
+For dealing with unreliable cluster or cloud systems, you should use the ``--retries`` command line option.
 
 Flag files
 ----------
