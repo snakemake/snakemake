@@ -591,8 +591,15 @@ class _IOFile(str):
         Returns None if file does not exist."""
         if self.is_checksum_eligible():  # less than 100000 bytes
             checksum = sha256()
-            with open(self.file, "rb") as f:
-                checksum.update(f.read())
+            if self.size > 0:
+                # only read if file is bigger than zero
+                # otherwise the checksum is the same as taking hexdigest
+                # from the empty sha256 as initialized above
+                # This helps endless reading in case the input
+                # is a named pipe or a socket or a symlink to a device like
+                # /dev/random.
+                with open(self.file, "rb") as f:
+                    checksum.update(f.read())
             return checksum.hexdigest()
         else:
             return None
