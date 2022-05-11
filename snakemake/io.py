@@ -1003,7 +1003,7 @@ def directory(value):
     return flag(value, "directory")
 
 
-def temp(value):
+def temp(value,threshold=1):
     """
     A flag for an input or output file that shall be removed after usage.
     """
@@ -1011,7 +1011,7 @@ def temp(value):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
         raise SyntaxError("Remote and temporary flags are mutually exclusive.")
-    return flag(value, "temp")
+    return flag(value, "temp", threshold)
 
 
 def pipe(value):

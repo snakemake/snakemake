@@ -115,7 +115,7 @@ def snakemake(
     wait_for_files=None,
     print_compilation=False,
     debug=False,
-    notemp=False,
+    notemp=1,
     all_temp=False,
     keep_remote_local=False,
     nodeps=False,
@@ -1887,7 +1887,9 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--notemp",
         "--nt",
-        action="store_true",
+        nargs='?',
+        const=0,
+        action="store",
         help="Ignore temp() declarations. This is useful when running only "
         "a part of the workflow, since temp() would lead to deletion of "
         "probably needed files by other parts of the workflow.",
