@@ -1806,8 +1806,13 @@ def get_argument_parser(profile=None):
     group_output.add_argument(
         "--quiet",
         "-q",
-        action="store_true",
-        help="Do not output any progress or rule information.",
+        nargs="*",
+        choices=["progress", "rules", "all"],
+        default=None,
+        help="Do not output certain information. "
+        "If used without arguments, do not output any progress or rule "
+        "information. Defining 'all' results in no information being "
+        "printed at all.",
     )
     group_output.add_argument(
         "--print-compilation",
@@ -1936,6 +1941,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "-T",
+        "--retries",
         "--restart-times",
         default=0,
         type=int,
@@ -2423,6 +2429,10 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+    if args.quiet is not None and len(args.quiet) == 0:
+        # default case, set quiet to progress and rule
+        args.quiet = ["progress", "rules"]
+
     if args.profile:
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
@@ -2900,7 +2910,7 @@ def main(argv=None):
             allowed_rules=args.allowed_rules,
             max_jobs_per_second=args.max_jobs_per_second,
             max_status_checks_per_second=args.max_status_checks_per_second,
-            restart_times=args.restart_times,
+            restart_times=args.retries,
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
