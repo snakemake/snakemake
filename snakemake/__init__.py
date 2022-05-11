@@ -10,6 +10,7 @@ from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
+import math
 import inspect
 import threading
 import webbrowser
@@ -115,7 +116,7 @@ def snakemake(
     wait_for_files=None,
     print_compilation=False,
     debug=False,
-    notemp=1,
+    notemp=math.inf,
     all_temp=False,
     keep_remote_local=False,
     nodeps=False,
@@ -1888,8 +1889,10 @@ def get_argument_parser(profile=None):
         "--notemp",
         "--nt",
         nargs="?",
-        const=0,
+        const=-math.inf,
         action="store",
+        default=math.inf,
+        type=float,
         help="Ignore temp() declarations. This is useful when running only "
         "a part of the workflow, since temp() would lead to deletion of "
         "probably needed files by other parts of the workflow.",

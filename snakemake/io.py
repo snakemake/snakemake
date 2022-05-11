@@ -1003,7 +1003,7 @@ def directory(value):
     return flag(value, "directory")
 
 
-def temp(value, threshold=1):
+def temp(value, threshold=0):
     """
     A flag for an input or output file that shall be removed after usage.
     """

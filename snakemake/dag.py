@@ -599,16 +599,12 @@ class DAG:
 
     def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
-        # if self.notemp:
-        #    return
 
         if job.is_group():
             for j in job:
                 self.handle_temp(j)
             return
-        is_temp = lambda f: is_flagged(f, "temp") and f.flags["temp"] <= int(
-            self.notemp
-        )
+        is_temp = lambda f: is_flagged(f, "temp") and f.flags["temp"] <= self.notemp
 
         # handle temp input
         needed = lambda job_, f: any(
