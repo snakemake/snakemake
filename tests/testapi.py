@@ -80,3 +80,17 @@ def test_dicts_in_config():
                 "test": {"this_dict": "shoult_not_either"},
             },
         )
+
+def test_lockexception():
+    from snakemake.persistence import Persistence
+    from snakemake.exceptions import LockException
+
+    persistence = Persistence()
+    persistence.all_inputfiles = lambda: ["A.txt"]
+    persistence.all_outputfiles = lambda: ["B.txt"]
+    persistence.lock()
+    try:
+        persistence.lock()
+    except LockException as e:
+        return True
+    assert False

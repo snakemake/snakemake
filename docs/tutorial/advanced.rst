@@ -118,7 +118,7 @@ Now, we can remove the statement defining ``SAMPLES`` from the Snakefile and cha
         output:
             "calls/all.vcf"
         shell:
-            "samtools mpileup -g -f {input.fa} {input.bam} | "
+            "bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv - > {output}"
 
 .. _tutorial-input_functions:
@@ -384,7 +384,7 @@ With this, the final version of our workflow in the ``Snakefile`` looks like thi
         log:
             "logs/bcftools_call/all.log"
         shell:
-            "(samtools mpileup -g -f {input.fa} {input.bam} | "
+            "(bcftools mpileup -f {input.fa} {input.bam} | "
             "bcftools call -mv -P {params.rate} - > {output}) 2> {log}"
 
 
