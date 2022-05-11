@@ -1,0 +1,26 @@
+rule a:
+    output:
+        ensure("test.txt", non_empty=True)
+    shell:
+        "touch {output}"
+
+
+rule b:
+    output:
+        ensure("test2.txt", non_empty=True)
+    shell:
+        "echo test > {output}"
+
+
+rule c:
+    output:
+        ensure("test3.txt", sha256="TODO")
+    shell:
+        "echo test > {output}"
+
+
+rule d:
+    output:
+        ensure("test4.txt", sha256="TODO")
+    shell:
+        "echo test2 > {output}

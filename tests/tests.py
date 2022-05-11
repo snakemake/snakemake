@@ -1616,12 +1616,20 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
-def test_nonempty_fail():
-    run(dpath("test_nonempty"), targets=["a"], shouldfail=True)
+def test_ensure_nonempty_fail():
+    run(dpath("test_ensure"), targets=["a"], shouldfail=True)
 
 
-def test_nonempty_success():
-    run(dpath("test_nonempty"), targets=["b"])
+def test_ensure_nonempty_success():
+    run(dpath("test_ensure"), targets=["b"])
+
+
+def test_ensure_checksum_fail():
+    run(dpath("test_ensure"), targets=["c"], shouldfail=True)
+
+
+def test_ensure_checksum_success():
+    run(dpath("test_ensure"), targets=["d"])
 
 
 @skip_on_windows
