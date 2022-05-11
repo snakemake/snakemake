@@ -12,15 +12,18 @@ rule b:
         "echo test > {output}"
 
 
+sha256 = "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2"
+
+
 rule c:
     output:
-        ensure("test3.txt", sha256="TODO")
+        ensure("test3.txt", sha256=sha256)
     shell:
         "echo test > {output}"
 
 
 rule d:
     output:
-        ensure("test4.txt", sha256="TODO")
+        ensure("test4.txt", sha256=lambda w: sha256)
     shell:
-        "echo test2 > {output}
+        "echo test2 > {output}"

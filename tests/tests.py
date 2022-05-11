@@ -1625,11 +1625,11 @@ def test_ensure_nonempty_success():
 
 
 def test_ensure_checksum_fail():
-    run(dpath("test_ensure"), targets=["c"], shouldfail=True)
+    run(dpath("test_ensure"), targets=["d"], shouldfail=True)
 
 
 def test_ensure_checksum_success():
-    run(dpath("test_ensure"), targets=["d"])
+    run(dpath("test_ensure"), targets=["c"])
 
 
 @skip_on_windows
