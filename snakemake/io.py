@@ -562,6 +562,10 @@ class _IOFile(str):
     def flags(self):
         return getattr(self._file, "flags", {})
 
+    def is_fifo(self):
+        """Return True if file is a FIFO according to the filesystem."""
+        return stat.S_ISFIFO(os.stat(self).st_mode)
+
     @property
     @iocache
     @_refer_to_remote
@@ -575,7 +579,12 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def is_checksum_eligible(self):
-        return self.exists_local and not os.path.isdir(self.file) and self.size < 100000
+        return (
+            self.exists_local
+            and not os.path.isdir(self.file)
+            and self.size < 100000
+            and not self.is_fifo()
+        )
 
     def checksum(self):
         """Return checksum if file is small enough, else None.
