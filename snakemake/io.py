@@ -575,7 +575,7 @@ class _IOFile(str):
         return os.path.getsize(self.file)
 
     def is_checksum_eligible(self):
-        return self.size < 100000 and self.exists_local and not os.path.isdir(self.file)
+        return self.exists_local and not os.path.isdir(self.file) and self.size < 100000
 
     def checksum(self):
         """Return checksum if file is small enough, else None.
@@ -598,10 +598,15 @@ class _IOFile(str):
 
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local and os.lstat(self.file):
-            raise WorkflowError(
-                "File {} seems to be a broken symlink.".format(self.file)
-            )
+        if not self.exists_local:
+            try:
+                if os.lstat(self.file):
+                    raise WorkflowError(
+                        "File {} seems to be a broken symlink.".format(self.file)
+                    )
+            except FileNotFoundError as e:
+                # there is no broken symlink present, hence all fine
+                return
 
     @_refer_to_remote
     def is_newer(self, time):
