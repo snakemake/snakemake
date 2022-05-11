@@ -21,7 +21,7 @@ rule delete_temp_output:
     output: touch("delete_temp_output")
     shell:
         """
-        python -m snakemake --cores 1 -s Snakefile_inner --notemp temp && \
+        python -m snakemake --cores 1 -s Snakefile_inner --notemp -- temp && \
         python -m snakemake --cores 1 -s Snakefile_inner --delete-temp-output temp && \
         test -f infile && test ! -f temp_intermediate && \
         test ! -d temp_empty_dir && test ! -d temp_full_dir && test -f temp_keep
