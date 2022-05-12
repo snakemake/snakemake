@@ -1036,6 +1036,8 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
+.. _snakefiles_ensure::
+
 Ensuring output file properties like non-emptyness or checksum compliance
 -------------------------------------------------------------------------
 
@@ -1087,6 +1089,8 @@ The function has to accept a single argument that will be the wildcards object g
 
 Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
 
+Often, it is a good idea to combine ``ensure`` annotations with :ref:`retry definitions <snakefiles_retries>`, e.g. for retrying upon invalid checksums or empty files.
+
 Shadow rules
 ------------
 
@@ -1120,7 +1124,7 @@ Consider running with the ``--cleanup-shadow`` argument every now and then
 to remove any remaining shadow directories from aborted jobs.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
 
-.. _snakefiles-retries:
+.. _snakefiles_retries:
 
 Defining retries for fallible rules
 -----------------------------------
@@ -1137,6 +1141,8 @@ For such cases, it is possible to defined a number of automatic retries for each
         retries: 3
         shell:
             "curl https://some.unreliable.server/test.txt > {output}"
+
+Often, it is a good idea to combine retry functionality with :ref:`ensure annotations <snakefiles_ensure>`, e.g. for retrying upon invalid checksums or empty files.
 
 Note that it is also possible to define retries globally (via the ``--retries`` command line option, see :ref:`all_options`).
 The local definition of the rule thereby overwrites the global definition.
