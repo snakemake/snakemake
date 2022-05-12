@@ -1129,11 +1129,6 @@ class Rule:
             conda_env, _ = self.apply_input_function(
                 self._conda_env, wildcards, params, input
             )
-
-            if is_conda_env_file(conda_env):
-                self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
-            else:
-                self._conda_env = CondaEnvNameSpec(conda_env)
         else:
             if (
                 conda_env is not None
@@ -1143,17 +1138,8 @@ class Rule:
             ):
                 conda_env = self.basedir.join(conda_env).get_path_or_uri()
 
-            if is_conda_env_file(conda_env):
-                self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
-            else:
-                self._conda_env = CondaEnvNameSpec(conda_env)
-
             try:
-                self._conda_env = (
-                    self._conda_env.apply_wildcards(wildcards)
-                    if self._conda_env
-                    else None
-                )
+                conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
             except WildcardError as e:
                 raise WildcardError(
                     "Wildcards in conda environment file cannot be "
@@ -1162,10 +1148,15 @@ class Rule:
                     rule=self,
                 )
 
-        if self._conda_env is not None:
-            self._conda_env.check()
+        if is_conda_env_file(conda_env):
+            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            conda_env = CondaEnvNameSpec(conda_env)
 
-        return self._conda_env
+        if conda_env is not None:
+            conda_env.check()
+
+        return conda_env
 
     def is_producer(self, requested_output):
         """
