@@ -241,6 +241,9 @@ class Persistence:
                     "starttime", None
                 )
             endtime = f.mtime.local_or_remote() if f.exists else fallback_time
+
+            checksums = ((infile, infile.checksum()) for infile in job.input)
+
             self._record(
                 self._metadata_path,
                 {
@@ -257,6 +260,11 @@ class Persistence:
                     "job_hash": hash(job),
                     "conda_env": conda_env,
                     "container_img_url": job.container_img_url,
+                    "input_checksums": {
+                        infile: checksum
+                        for infile, checksum in checksums
+                        if checksum is not None
+                    },
                 },
                 f,
             )
@@ -322,6 +330,15 @@ class Persistence:
 
     def code(self, path):
         return self.metadata(path).get("code")
+
+    def input_checksums(self, job, input_path):
+        """Return all checksums of the given input file
+        recorded for the output of the given job.
+        """
+        return set(
+            self.metadata(output_path).get("input_checksums", {}).get(input_path)
+            for output_path in job.output
+        )
 
     def version_changed(self, job, file=None):
         """Yields output files with changed versions or bool if file given."""

@@ -1644,3 +1644,7 @@ def test_rule_inheritance_globals():
         targets=["foo.txt"],
         check_md5=False,
     )
+
+
+def test_retries():
+    run(dpath("test_retries"))

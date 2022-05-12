@@ -427,6 +427,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class Retries(RuleKeywordState):
+    pass
+
+
 class Shadow(RuleKeywordState):
     pass
 
@@ -675,6 +679,7 @@ rule_property_subautomata = dict(
     params=Params,
     threads=Threads,
     resources=Resources,
+    retries=Retries,
     priority=Priority,
     version=Version,
     log=Log,
