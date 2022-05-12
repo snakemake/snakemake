@@ -1481,6 +1481,14 @@ class Workflow:
                         "Priority values have to be numeric.", rule=rule
                     )
                 rule.priority = ruleinfo.priority
+
+            if ruleinfo.retries:
+                if not isinstance(ruleinfo.retries, int) or ruleinfo.retries < 0:
+                    raise RuleException(
+                        "Retries values have to be integers >= 0", rule=rule
+                    )
+            rule.restart_times = ruleinfo.retries or self.restart_times
+
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
@@ -1586,7 +1594,6 @@ class Workflow:
             rule.wrapper = ruleinfo.wrapper
             rule.template_engine = ruleinfo.template_engine
             rule.cwl = ruleinfo.cwl
-            rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
 
             if ruleinfo.handover:
@@ -1762,6 +1769,13 @@ class Workflow:
     def threads(self, threads):
         def decorate(ruleinfo):
             ruleinfo.threads = threads
+            return ruleinfo
+
+        return decorate
+
+    def retries(self, retries):
+        def decorate(ruleinfo):
+            ruleinfo.retries = retries
             return ruleinfo
 
         return decorate
