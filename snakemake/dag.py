@@ -954,6 +954,30 @@ class DAG:
                         return
                 output_mintime[job] = None
 
+        is_same_checksum_cache = dict()
+
+        def is_same_checksum(f, job):
+            try:
+                return is_same_checksum_cache[(f, job)]
+            except KeyError:
+                if not f.is_checksum_eligible():
+                    # no chance to compute checksum, cannot be assumed the same
+                    is_same = False
+                else:
+                    # obtain the input checksums for the given file for all output files of the job
+                    checksums = self.workflow.persistence.input_checksums(job, f)
+                    if len(checksums) > 1:
+                        # more than one checksum recorded, cannot be all the same
+                        is_same = False
+                    elif not checksums:
+                        # no checksums recorded, we cannot assume them to be the same
+                        is_same = False
+                    else:
+                        is_same = f.is_same_checksum(checksums.pop())
+
+                is_same_checksum_cache[(f, job)] = is_same
+                return is_same
+
         def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
@@ -1000,8 +1024,14 @@ class DAG:
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 if output_mintime_:
+                    # Input is updated if it is newer that the oldest output file
+                    # and does not have the same checksum as the one previously recorded.
                     updated_input = [
-                        f for f in job.input if f.exists and f.is_newer(output_mintime_)
+                        f
+                        for f in job.input
+                        if f.exists
+                        and f.is_newer(output_mintime_)
+                        and not is_same_checksum(f, job)
                     ]
                     reason.updated_input.update(updated_input)
             if noinitreason and reason:
