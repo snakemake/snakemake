@@ -55,7 +55,7 @@ from snakemake.io import (
     repeat,
     report,
     multiext,
-    nonempty,
+    ensure,
     IOFile,
     sourcecache_entry,
 )

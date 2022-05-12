@@ -1620,16 +1620,12 @@ def test_ensure_nonempty_fail():
     run(dpath("test_ensure"), targets=["a"], shouldfail=True)
 
 
-def test_ensure_nonempty_success():
-    run(dpath("test_ensure"), targets=["b"])
+def test_ensure_success():
+    run(dpath("test_ensure"), targets=["b", "c"])
 
 
 def test_ensure_checksum_fail():
     run(dpath("test_ensure"), targets=["d"], shouldfail=True)
-
-
-def test_ensure_checksum_success():
-    run(dpath("test_ensure"), targets=["c"])
 
 
 @skip_on_windows

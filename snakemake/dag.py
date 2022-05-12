@@ -519,7 +519,7 @@ class DAG:
                         e,
                         rule=job.rule,
                     )
-            return f.checksum(force=True) != checksum
+            return not f.is_same_checksum(checksum, force=True)
 
         checksum_failed_output = [
             (f, ensure["sha256"])
