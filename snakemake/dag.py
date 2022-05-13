@@ -522,15 +522,14 @@ class DAG:
             return not f.is_same_checksum(checksum, force=True)
 
         checksum_failed_output = [
-            (f, ensure["sha256"])
+            f
             for f, ensure in ensured_output.items()
             if is_not_same_checksum(f, ensure.get("sha256"))
         ]
         if checksum_failed_output:
             raise WorkflowError(
-                "Output files have wrong checksum. "
-                "Something went wrong in the rule without "
-                "an error being reported:\n{}".format(
+                "Output files have checksums that differ from the expected ones "
+                "defined in the workflow:\n{}".format(
                     "\n".join(checksum_failed_output)
                 ),
                 rule=job.rule,
