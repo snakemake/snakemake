@@ -1681,6 +1681,7 @@ class KubernetesExecutor(ClusterExecutor):
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
+        persistent_volume_claim=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1708,7 +1709,7 @@ class KubernetesExecutor(ClusterExecutor):
             disable_envvar_declarations=True,
         )
         # use relative path to Snakefile
-        self.snakefile = os.path.relpath(workflow.main_snakefile)
+        self.snakefile = "Snakefile"
 
         try:
             from kubernetes import config
@@ -1731,10 +1732,17 @@ class KubernetesExecutor(ClusterExecutor):
         self.secret_envvars = {}
         self.register_secret()
         self.container_image = container_image or get_container_image()
+        self.persistent_volume_claim = persistent_volume_claim
         logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
     def get_job_exec_prefix(self, job):
         return "cp -rf /source/. ."
+
+    def get_job_args(self, job):
+        if self.persistent_volume_claim:
+            return f"{super().get_job_args(job)} --directory /pvc"
+        else:
+            return super().get_job_args(job)
 
     def register_secret(self):
         import kubernetes.client
@@ -1896,6 +1904,16 @@ class KubernetesExecutor(ClusterExecutor):
             kubernetes.client.V1VolumeMount(name= "pvc", mount_path ="/pvc")
         ])
 
+        # mounts
+        workdir = kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
+        source = kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
+
+        if self.persistent_volume_claim:
+            pvc =kubernetes.client.V1VolumeMount(name= "pvc", mount_path ="/pvc")
+            container.volume_mounts = [workdir, source,pvc]
+        else:
+            container.volume_mounts = [workdir,source]
+        
         node_selector = {}
         if "machine_type" in job.resources.keys():
             # Kubernetes labels a node by its instance type using this node_label.
@@ -1936,9 +1954,12 @@ class KubernetesExecutor(ClusterExecutor):
         workdir_volume = kubernetes.client.V1Volume(name="workdir")
         workdir_volume.empty_dir = kubernetes.client.V1EmptyDirVolumeSource()
 
-        pvc_volume = kubernetes.client.V1Volume(name="pvc")
-        pvc_volume.persistent_volume_claim = kubernetes.client.V1PersistentVolumeClaimVolumeSource(claim_name="pvc")
-        body.spec.volumes = [secret_volume, workdir_volume, pvc_volume]
+        if self.persistent_volume_claim:
+            pvc_volume = kubernetes.client.V1Volume(name="pvc")
+            pvc_volume.persistent_volume_claim = kubernetes.client.V1PersistentVolumeClaimVolumeSource(claim_name=self.persistent_volume_claim)
+            body.spec.volumes = [secret_volume, workdir_volume, pvc_volume]
+        else:
+              body.spec.volumes = [secret_volume, workdir_volume]
 
         # env vars
         container.env = []
@@ -2048,6 +2069,7 @@ class KubernetesExecutor(ClusterExecutor):
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
                     return self._reauthenticate_and_retry(func)
+                logger.error(e)
             # Handling timeout that may occur in case of GKE master upgrade
             except urllib3.exceptions.MaxRetryError as e:
                 logger.info(
