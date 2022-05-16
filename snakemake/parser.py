@@ -136,6 +136,7 @@ class KeywordState(TokenAutomaton):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.line = 0
         self.state = self.colon
+        self.content_processed = False
 
     @property
     def keyword(self):
@@ -160,7 +161,11 @@ class KeywordState(TokenAutomaton):
             self.error("Colon expected after keyword {}.".format(self.keyword), token)
 
     def is_block_end(self, token):
-        return (self.line and self.indent <= 0) or is_eof(token)
+        return (
+            (self.line and self.indent <= 0)
+            or is_eof(token)
+            or (self.line == 0 and is_newline(token) and self.content_processed)
+        )
 
     def block(self, token, force_block_end=False):
         if self.lasttoken == "\n" and is_comment(token):
@@ -184,6 +189,7 @@ class KeywordState(TokenAutomaton):
         return token.string, token
 
     def block_content(self, token):
+        self.content_processed = True
         yield token.string, token
 
 
@@ -1115,6 +1121,7 @@ class UseRule(GlobalKeywordState):
             )
 
     def block_content(self, token):
+        print(token)
         if is_comment(token):
             yield "\n", token
             yield token.string, token
