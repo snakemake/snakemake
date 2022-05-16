@@ -1,5 +1,25 @@
 # Changelog
 
+## [7.7.0](https://www.github.com/snakemake/snakemake/compare/v7.6.2...v7.7.0) (2022-05-16)
+
+
+### Features
+
+* add flag `ensure` that allows to annotate that certain output files should be non-empty or agree with a given checksum ([#1651](https://www.github.com/snakemake/snakemake/issues/1651)) ([76f69d9](https://www.github.com/snakemake/snakemake/commit/76f69d9e21b9c9a9a01198862b66284bc3942d20))
+* for small files, compare checksums to determine if job needs to run if input file is newer than output file ([#1568](https://www.github.com/snakemake/snakemake/issues/1568)) ([1ae85c6](https://www.github.com/snakemake/snakemake/commit/1ae85c6b57b3c6b5860214a9c0e3ab28c7c8c5dc))
+* LockException ([#1276](https://www.github.com/snakemake/snakemake/issues/1276)) ([f5e6fa6](https://www.github.com/snakemake/snakemake/commit/f5e6fa68a68640ed39df86c256d676f2e4efddfc))
+* new directive "retries" for annotating the number of times a job shall be restarted after a failure ([#1649](https://www.github.com/snakemake/snakemake/issues/1649)) ([c8d81d0](https://www.github.com/snakemake/snakemake/commit/c8d81d03de2885d5d0473084141e9f6abc5de445))
+
+
+### Bug Fixes
+
+* iRODS functionality - issue [#1510](https://www.github.com/snakemake/snakemake/issues/1510) ([#1611](https://www.github.com/snakemake/snakemake/issues/1611)) ([9c3767d](https://www.github.com/snakemake/snakemake/commit/9c3767d6ee13a2c149a4ffe1c0547cabec0346dd))
+
+
+### Documentation
+
+* singularity sometimes uses system /tmp explanation ([#1588](https://www.github.com/snakemake/snakemake/issues/1588)) ([170c1d9](https://www.github.com/snakemake/snakemake/commit/170c1d9d92de4cafc0da9567a6970b173161c7da))
+
 ### [7.6.2](https://www.github.com/snakemake/snakemake/compare/v7.6.1...v7.6.2) (2022-05-06)
 
 
