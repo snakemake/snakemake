@@ -181,7 +181,10 @@ class KeywordState(TokenAutomaton):
             yield token.string, token
         elif not (is_indent(token) or is_dedent(token)):
             if is_comment(token):
-                yield token.string, token
+                if self.line > 0:
+                    # do not yield comment tokens for single line cases
+                    # because they can interfere with end decoration
+                    yield token.string, token
             else:
                 yield from self.block_content(token)
 
@@ -1121,7 +1124,6 @@ class UseRule(GlobalKeywordState):
             )
 
     def block_content(self, token):
-        print(token)
         if is_comment(token):
             yield "\n", token
             yield token.string, token
