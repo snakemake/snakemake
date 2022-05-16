@@ -1635,4 +1635,4 @@ def test_retries():
 
 
 def test_github_issue1618():
-    run(dpath("test_github_iusse1618"), dryrun=True)
+    run(dpath("test_github_iusse1618"))
