@@ -17,7 +17,14 @@ from pathlib import Path
 import uuid
 import math
 
-from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
+from snakemake.io import (
+    PeriodicityDetector,
+    get_flag_value,
+    is_callable,
+    wait_for_files,
+    is_flagged,
+    IOFile,
+)
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
@@ -479,6 +486,55 @@ class DAG:
                 return True
         return False
 
+    def handle_ensure(self, job, expanded_output):
+        ensured_output = {
+            f: get_flag_value(f, "ensure")
+            for f in expanded_output
+            if is_flagged(f, "ensure")
+        }
+        # handle non_empty
+        empty_output = [
+            f
+            for f, ensure in ensured_output.items()
+            if ensure["non_empty"] and f.size == 0
+        ]
+        if empty_output:
+            raise WorkflowError(
+                "Detected unexpected empty output files. "
+                "Something went wrong in the rule without "
+                "an error being reported:\n{}".format("\n".join(empty_output)),
+                rule=job.rule,
+            )
+
+        # handle checksum
+        def is_not_same_checksum(f, checksum):
+            if checksum is None:
+                return False
+            if is_callable(checksum):
+                try:
+                    checksum = checksum(job.wildcards)
+                except Exception as e:
+                    raise WorkflowError(
+                        "Error calling checksum function provided to ensure marker.",
+                        e,
+                        rule=job.rule,
+                    )
+            return not f.is_same_checksum(checksum, force=True)
+
+        checksum_failed_output = [
+            f
+            for f, ensure in ensured_output.items()
+            if is_not_same_checksum(f, ensure.get("sha256"))
+        ]
+        if checksum_failed_output:
+            raise WorkflowError(
+                "Output files have checksums that differ from the expected ones "
+                "defined in the workflow:\n{}".format(
+                    "\n".join(checksum_failed_output)
+                ),
+                rule=job.rule,
+            )
+
     def check_and_touch_output(
         self,
         job,
@@ -508,12 +564,15 @@ class DAG:
                 )
 
         # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa). We can't check for remote objects
+        # are directories and not files and vice versa). We can't check for remote objects.
         for f in expanded_output:
             if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
                 not f.remote_object and os.path.isdir(f) and not f.is_directory
             ):
                 raise ImproperOutputException(job, [f])
+
+        # Handle ensure flags
+        self.handle_ensure(job, expanded_output)
 
         # It is possible, due to archive expansion or cluster clock skew, that
         # the files appear older than the input.  But we know they must be new,

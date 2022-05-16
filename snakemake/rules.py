@@ -560,6 +560,7 @@ class Rule:
                         "touch",
                         "pipe",
                         "service",
+                        "ensure",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(

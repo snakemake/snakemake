@@ -605,8 +605,8 @@ class _IOFile(str):
         else:
             return None
 
-    def is_same_checksum(self, other_checksum):
-        checksum = self.checksum()
+    def is_same_checksum(self, other_checksum, force=False):
+        checksum = self.checksum(force=force)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
@@ -1112,6 +1112,10 @@ def dynamic(value):
 
 def touch(value):
     return flag(value, "touch")
+
+
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
 
 
 def unpack(value):

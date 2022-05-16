@@ -1,0 +1,31 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        ensure("test.txt", non_empty=True)
+    shell:
+        "touch {output}"
+
+
+rule b:
+    output:
+        ensure("test2.txt", non_empty=True)
+    shell:
+        "echo test > {output}"
+
+
+sha256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+
+
+rule c:
+    output:
+        ensure("test3.txt", sha256=sha256)
+    shell:
+        "echo -n test > {output}"
+
+
+rule d:
+    output:
+        ensure("test4.txt", sha256=lambda w: sha256)
+    shell:
+        "echo -n test2 > {output}"
