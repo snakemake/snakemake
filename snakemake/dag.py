@@ -1082,6 +1082,7 @@ class DAG:
                     reason.missing_output.update(job.missing_output(files))
             if not reason:
                 output_mintime_ = output_mintime.get(job)
+                updated_input = None
                 if output_mintime_:
                     # Input is updated if it is newer that the oldest output file
                     # and does not have the same checksum as the one previously recorded.
@@ -1093,6 +1094,22 @@ class DAG:
                         and not is_same_checksum(f, job)
                     ]
                     reason.updated_input.update(updated_input)
+                if not updated_input:
+                    # check for other changes like parameters, set of input files, or code
+                    reason.params_changed = any(
+                        self.workflow.persistence.params_changed(job)
+                    )
+                    reason.input_changed = any(
+                        self.workflow.persistence.input_changed(job)
+                    )
+                    reason.code_changed = (
+                        job.outputs_older_than_script_or_notebook()
+                        or any(self.workflow.persistence.code_changed(job))
+                    )
+                    reason.software_stack_changed = any(
+                        self.workflow.persistence.conda_env_changed(job)
+                    ) or any(self.workflow.persistence.container_changed(job))
+
             if noinitreason and reason:
                 reason.derived = False
 
@@ -1105,6 +1122,7 @@ class DAG:
         _needrun.clear()
         _n_until_ready.clear()
         self._ready_jobs.clear()
+
         candidates = list(self.jobs)
 
         # Update the output mintime of all jobs.
