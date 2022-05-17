@@ -1129,7 +1129,7 @@ class UseRule(GlobalKeywordState):
                 )
             except StopAutomaton as e:
                 self.indentation(e.token)
-                self.block(e.token)
+                yield from self.block(e.token)
         else:
             self.error(
                 "Expecting a keyword or comment "
