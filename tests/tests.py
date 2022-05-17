@@ -1647,4 +1647,4 @@ def test_retries():
 
 
 def test_github_issue1618():
-    run(dpath("test_github_issue1618"))
+    run(dpath("test_github_issue1618"), cores=5)
