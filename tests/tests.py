@@ -1644,3 +1644,7 @@ def test_rule_inheritance_globals():
 
 def test_retries():
     run(dpath("test_retries"))
+
+
+def test_conda_pin_file():
+    run(dpath("test_conda_pin_file"), use_conda=True)

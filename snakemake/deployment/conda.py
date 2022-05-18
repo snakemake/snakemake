@@ -80,9 +80,12 @@ class Env:
             if deploy_file.exists():
                 self.post_deploy_file = infer_source_file(deploy_file)
 
-            self.pin_file = Path(self.file.get_path_or_uri()).with_suffix(
+            pin_file = Path(self.file.get_path_or_uri()).with_suffix(
                 f".{self._conda.platform}.pin.txt"
             )
+
+            if pin_file.exists():
+                self.pin_file = infer_source_file(pin_file)
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
             self.name = env_name
@@ -100,6 +103,7 @@ class Env:
         self._content_hash = None
         self._content = None
         self._content_deploy = None
+        self._content_pin = None
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
@@ -124,6 +128,12 @@ class Env:
             return self.workflow.sourcecache.open(self.post_deploy_file, "rb").read()
         return None
 
+    def _get_content_pin(self):
+        self.check_is_file_based()
+        if self.pin_file:
+            return self.workflow.sourcecache.open(self.pin_file, "rb").read()
+        return None
+
     @property
     def _env_archive_dir(self):
         return self.workflow.persistence.conda_env_archive_path
@@ -143,6 +153,12 @@ class Env:
         if self._content_deploy is None:
             self._content_deploy = self._get_content_deploy()
         return self._content_deploy
+
+    @property
+    def content_pin(self):
+        if self._content_pin is None:
+            self._content_pin = self._get_content_pin()
+        return self._content_pin
 
     @property
     def hash(self):
@@ -331,8 +347,10 @@ class Env:
         # Read env file and create hash.
         env_file = self.file
         deploy_file = None
+        pin_file = None
         tmp_env_file = None
         tmp_deploy_file = None
+        tmp_pin_file = None
 
         if not isinstance(env_file, LocalSourceFile) or isinstance(
             env_file, LocalGitFile
@@ -350,9 +368,15 @@ class Env:
                     tmp.write(self.content_deploy)
                     deploy_file = tmp.name
                     tmp_deploy_file = tmp.name
+            if self.pin_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix="pin.txt") as tmp:
+                    tmp.write(self.content_pin)
+                    pin_file = tmp.name
+                    tmp_pin_file = tmp.name
         else:
             env_file = env_file.get_path_or_uri()
             deploy_file = self.post_deploy_file
+            pin_file = self.pin_file
 
         env_path = self.address
 
@@ -469,8 +493,10 @@ class Env:
                         logger.info("Downloading and installing remote packages.")
 
                         subcommand = [self.frontend]
+                        yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
+                            yes_flag = []
 
                         cmd = " ".join(
                             subcommand
@@ -480,6 +506,7 @@ class Env:
                                 '--file "{}"'.format(target_env_file),
                                 '--prefix "{}"'.format(env_path),
                             ]
+                            + yes_flag
                         )
                         if self._container_img:
                             cmd = singularity.shellcmd(
@@ -488,7 +515,7 @@ class Env:
                                 args=self._singularity_args,
                                 envvars=self.get_singularity_envvars(),
                             )
-                        shell.check_output(
+                        out = shell.check_output(
                             cmd, stderr=subprocess.STDOUT, universal_newlines=True
                         )
 
@@ -501,21 +528,30 @@ class Env:
                                 "Cleaning up conda package tarballs and package cache."
                             )
                             shell.check_output("conda clean -y --tarballs --packages")
+                        return out
 
-                    if self.pin_file.exists():
+                    if pin_file is not None:
                         try:
-                            create_env(self.pin_file, filetype="pin.txt")
+                            logger.info(
+                                f"Using pinnings from {self.pin_file.get_path_or_uri()}."
+                            )
+                            out = create_env(pin_file, filetype="pin.txt")
                         except subprocess.CalledProcessError as e:
                             # remove potential partially installed environment
                             shutil.rmtree(env_path, ignore_errors=True)
+                            advice = ""
+                            if isinstance(self.file, LocalSourceFile):
+                                advice = (
+                                    " If that works, make sure to update the pin file with "
+                                    f"'snakedeploy pin-conda-env {self.file.get_path_or_uri()}'."
+                                )
                             logger.warning(
-                                f"Failed to install conda environment from pin file ({self.pin_file}). "
-                                "Trying regular environment definition file. If that works, make sure to "
-                                f"update the pin file with 'snakedeploy pin-conda-env {env_file}'."
+                                f"Failed to install conda environment from pin file ({self.pin_file.get_path_or_uri()}). "
+                                f"Trying regular environment definition file.{advice}"
                             )
-                            create_env(env_file, filetype="yaml")
+                            out = create_env(env_file, filetype="yaml")
                     else:
-                        create_env(env_file, filetype="yaml")
+                        out = create_env(env_file, filetype="yaml")
 
                 # Execute post-deplay script if present
                 if deploy_file:
