@@ -65,16 +65,24 @@ class Env:
         container_img=None,
         cleanup=None,
     ):
+        self._conda = Conda(container_img)
+
         self.file = None
         self.name = None
         self.post_deploy_file = None
+        self.pin_file = None
         if env_file is not None:
             self.file = infer_source_file(env_file)
+
             deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
                 ".post-deploy.sh"
             )
             if deploy_file.exists():
                 self.post_deploy_file = infer_source_file(deploy_file)
+
+            self.pin_file = Path(self.file.get_path_or_uri()).with_suffix(
+                f".{self._conda.platform}.pin.txt"
+            )
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
             self.name = env_name
@@ -309,9 +317,8 @@ class Env:
                 os.path.relpath(path=deploy_file, start=os.getcwd())
             )
         )
-        conda = Conda(self._container_img)
         shell.check_output(
-            conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self._conda.shellcmd(self.address, "sh {}".format(deploy_file)),
             stderr=subprocess.STDOUT,
         )
 
@@ -402,11 +409,9 @@ class Env:
                     )
                 )
                 return env_path
-            conda = Conda(self._container_img)
             logger.info(
                 "Creating conda environment {}...".format(self.file.simplify_path())
             )
-            # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:
                 # Touch "start" flag file
@@ -414,6 +419,7 @@ class Env:
                 with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
 
+                # Check if env archive exists. Use that if present.
                 if os.path.exists(env_archive):
                     logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
@@ -450,46 +456,66 @@ class Env:
                     out = shell.check_output(
                         cmd, stderr=subprocess.STDOUT, universal_newlines=True
                     )
-
                 else:
-                    # Copy env file to env_path (because they can be on
-                    # different volumes and singularity should only mount one).
-                    # In addition, this allows to immediately see what an
-                    # environment in .snakemake/conda contains.
-                    target_env_file = env_path + ".yaml"
-                    shutil.copy(env_file, target_env_file)
 
-                    logger.info("Downloading and installing remote packages.")
-                    cmd = " ".join(
-                        [
-                            self.frontend,
-                            "env",
-                            "create",
-                            "--quiet",
-                            '--file "{}"'.format(target_env_file),
-                            '--prefix "{}"'.format(env_path),
-                        ]
-                    )
-                    if self._container_img:
-                        cmd = singularity.shellcmd(
-                            self._container_img.path,
-                            cmd,
-                            args=self._singularity_args,
-                            envvars=self.get_singularity_envvars(),
-                        )
-                    out = shell.check_output(
-                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
-                    )
+                    def create_env(env_file, filetype="yaml"):
+                        # Copy env file to env_path (because they can be on
+                        # different volumes and singularity should only mount one).
+                        # In addition, this allows to immediately see what an
+                        # environment in .snakemake/conda contains.
+                        target_env_file = env_path + f".{filetype}"
+                        shutil.copy(env_file, target_env_file)
 
-                    # cleanup if requested
-                    if self._cleanup is CondaCleanupMode.tarballs:
-                        logger.info("Cleaning up conda package tarballs.")
-                        shell.check_output("conda clean -y --tarballs")
-                    elif self._cleanup is CondaCleanupMode.cache:
-                        logger.info(
-                            "Cleaning up conda package tarballs and package cache."
+                        logger.info("Downloading and installing remote packages.")
+
+                        subcommand = [self.frontend]
+                        if filetype == "yaml":
+                            subcommand.append("env")
+
+                        cmd = " ".join(
+                            subcommand
+                            + [
+                                "create",
+                                "--quiet",
+                                '--file "{}"'.format(target_env_file),
+                                '--prefix "{}"'.format(env_path),
+                            ]
                         )
-                        shell.check_output("conda clean -y --tarballs --packages")
+                        if self._container_img:
+                            cmd = singularity.shellcmd(
+                                self._container_img.path,
+                                cmd,
+                                args=self._singularity_args,
+                                envvars=self.get_singularity_envvars(),
+                            )
+                        shell.check_output(
+                            cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                        )
+
+                        # cleanup if requested
+                        if self._cleanup is CondaCleanupMode.tarballs:
+                            logger.info("Cleaning up conda package tarballs.")
+                            shell.check_output("conda clean -y --tarballs")
+                        elif self._cleanup is CondaCleanupMode.cache:
+                            logger.info(
+                                "Cleaning up conda package tarballs and package cache."
+                            )
+                            shell.check_output("conda clean -y --tarballs --packages")
+
+                    if self.pin_file.exists():
+                        try:
+                            create_env(self.pin_file, filetype="pin.txt")
+                        except subprocess.CalledProcessError as e:
+                            # remove potential partially installed environment
+                            shutil.rmtree(env_path, ignore_errors=True)
+                            logger.warning(
+                                f"Failed to install conda environment from pin file ({self.pin_file}). "
+                                "Trying regular environment definition file. If that works, make sure to "
+                                f"update the pin file with 'snakedeploy pin-conda-env {env_file}'."
+                            )
+                            create_env(env_file, filetype="yaml")
+                    else:
+                        create_env(env_file, filetype="yaml")
 
                 # Execute post-deplay script if present
                 if deploy_file:
@@ -562,14 +588,18 @@ class Conda:
                 container_img = container_img.path
             self.container_img = container_img
 
+            info = json.loads(
+                shell.check_output(
+                    self._get_cmd("conda info --json"), universal_newlines=True
+                )
+            )
+
             if prefix_path is None or container_img is not None:
-                self.prefix_path = json.loads(
-                    shell.check_output(
-                        self._get_cmd("conda info --json"), universal_newlines=True
-                    )
-                )["conda_prefix"]
+                self.prefix_path = info["conda_prefix"]
             else:
                 self.prefix_path = prefix_path
+
+            self.platform = info["platform"]
 
             # check conda installation
             self._check()
