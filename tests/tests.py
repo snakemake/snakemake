@@ -1646,6 +1646,7 @@ def test_retries():
     run(dpath("test_retries"))
 
 
+@skip_on_windows  # the testcase only has a linux-64 pin file
 def test_conda_pin_file():
     run(dpath("test_conda_pin_file"), use_conda=True)
 
