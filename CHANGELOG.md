@@ -1,5 +1,12 @@
 # Changelog
 
+### [7.7.1](https://www.github.com/snakemake/snakemake/compare/v7.7.0...v7.7.1) (2022-05-18)
+
+
+### Bug Fixes
+
+* parsing error when combining single line directive with multi-line directive in use rule statements ([#1662](https://www.github.com/snakemake/snakemake/issues/1662)) ([26e57d6](https://www.github.com/snakemake/snakemake/commit/26e57d69fc320adc972967a8046c5163b455456c))
+
 ## [7.7.0](https://www.github.com/snakemake/snakemake/compare/v7.6.2...v7.7.0) (2022-05-16)
 
 
