@@ -1102,10 +1102,9 @@ class DAG:
                     reason.input_changed = any(
                         self.workflow.persistence.input_changed(job)
                     )
-                    reason.code_changed = (
+                    reason.code_changed = any(
                         job.outputs_older_than_script_or_notebook()
-                        or any(self.workflow.persistence.code_changed(job))
-                    )
+                    ) or any(self.workflow.persistence.code_changed(job))
                     reason.software_stack_changed = any(
                         self.workflow.persistence.conda_env_changed(job)
                     ) or any(self.workflow.persistence.container_changed(job))
