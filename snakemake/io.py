@@ -1443,6 +1443,9 @@ def git_content(git_file):
 
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
+    if is_callable(pattern):
+        # do not apply on e.g. input functions
+        return pattern
 
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))

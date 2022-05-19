@@ -1644,3 +1644,7 @@ def test_rule_inheritance_globals():
 
 def test_retries():
     run(dpath("test_retries"))
+
+
+def test_module_input_func():
+    run(dpath("test_module_input_func"))
