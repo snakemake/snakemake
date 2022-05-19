@@ -492,14 +492,21 @@ class Env:
 
                         logger.info("Downloading and installing remote packages.")
 
+                        strict_priority = (
+                            ["conda config --set channel_priority strict &&"]
+                            if self._container_img
+                            else []
+                        )
+
                         subcommand = [self.frontend]
                         yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
                             yes_flag = []
 
-                        cmd = " ".join(
-                            subcommand
+                        cmd = (
+                            strict_priority
+                            + subcommand
                             + [
                                 "create",
                                 "--quiet",
@@ -508,6 +515,7 @@ class Env:
                             ]
                             + yes_flag
                         )
+                        cmd = " ".join(cmd)
                         if self._container_img:
                             cmd = singularity.shellcmd(
                                 self._container_img.path,
@@ -624,18 +632,18 @@ class Conda:
                 container_img = container_img.path
             self.container_img = container_img
 
-            info = json.loads(
+            self.info = json.loads(
                 shell.check_output(
                     self._get_cmd("conda info --json"), universal_newlines=True
                 )
             )
 
             if prefix_path is None or container_img is not None:
-                self.prefix_path = info["conda_prefix"]
+                self.prefix_path = self.info["conda_prefix"]
             else:
                 self.prefix_path = prefix_path
 
-            self.platform = info["platform"]
+            self.platform = self.info["platform"]
 
             # check conda installation
             self._check()
@@ -689,27 +697,53 @@ class Conda:
                     "with `conda activate base`.".format(shell.get_executable())
                 )
         try:
-            version = shell.check_output(
-                self._get_cmd("conda --version"),
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-            )
-            version_matches = re.findall("\d+.\d+.\d+", version)
-            if len(version_matches) != 1:
-                raise WorkflowError(
-                    f"Unable to determine conda version. 'conda --version' returned {version}"
-                )
-            else:
-                version = version_matches[0]
-            if StrictVersion(version) < StrictVersion("4.2"):
-                raise CreateCondaEnvironmentException(
-                    "Conda must be version 4.2 or later, found version {}.".format(
-                        version
-                    )
-                )
+            self._check_version()
+            self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                "Unable to check conda version:\n" + e.stderr.decode()
+                "Unable to check conda installation:\n" + e.stderr.decode()
+            )
+
+    def _check_version(self):
+        from snakemake.shell import shell
+
+        version = shell.check_output(
+            self._get_cmd("conda --version"),
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        version_matches = re.findall("\d+.\d+.\d+", version)
+        if len(version_matches) != 1:
+            raise WorkflowError(
+                f"Unable to determine conda version. 'conda --version' returned {version}"
+            )
+        else:
+            version = version_matches[0]
+        if StrictVersion(version) < StrictVersion("4.2"):
+            raise CreateCondaEnvironmentException(
+                "Conda must be version 4.2 or later, found version {}.".format(version)
+            )
+
+    def _check_condarc(self):
+        if self.container_img:
+            # Do not check for strict priorities when running conda in an image
+            # Instead, we set priorities to strict ourselves in the image.
+            return
+        from snakemake.shell import shell
+
+        res = json.loads(
+            shell.check_output(
+                self._get_cmd("conda config --get channel_priority --json"),
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+        )
+        if res["get"].get("channel_priority") != "strict":
+            raise CreateCondaEnvironmentException(
+                "Your conda installation is not configured to use strict channel priorities. "
+                "This is however crucial for having robust and correct environments (for details, "
+                "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                "Please configure strict priorities by executing 'conda config --set channel_priority strict'."
             )
 
     def bin_path(self):
