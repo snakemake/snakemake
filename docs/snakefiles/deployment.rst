@@ -287,11 +287,73 @@ Note that you need to clean up environments manually for now. However, in many c
 
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
 
+Freezing environments to exactly pinned packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If Snakemake finds a special file ending on ``<platform>.pin.txt`` next to a conda environment file (with ``<platform>`` being the current platform, e.g. ``linux-64``), it will try to use the contents of that file to determine the conda packages to deploy.
+The file is expected to contain conda's `explicit specification file format <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#building-identical-conda-environments>`_.
+Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular enviroment file.
+
+This enables to freeze an environment to a certain state, and will ensure that people using a workflow will get exactly the same environments down to the individual package builds, which is in fact very similar to providing the environment encapsulated in a container image.
+Generating such pin files for conda environments can be automatically done using `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Let ``envs/ggplot.yaml`` be the conda environment file used in the example above.
+Then, the pinning can be generated with
+
+.. code-block:: bash
+
+    snakedeploy pin-conda-envs envs/ggplot.yaml
+
+Multiple paths to environments can be provided at the same time; also see ``snakedeploy pin-conda-envs --help``.
+
+Of course, it is **important to update the pinnings** whenever the original environment is modified, such that they do not diverge.
+
+Updating environments
+~~~~~~~~~~~~~~~~~~~~~
+
+When a workflow contains many conda environments, it can be helpful to automatically update them to the latest versions of all packages.
+This can be done automatically via `Snakedeploy <https://snakedeploy.readthedocs.io>`_:
+
+.. code-block:: bash
+
+    snakedeploy update-conda-envs envs/ggplot.yaml
+
+Multiple paths to environments can be provided at the same time; also see ``snakedeploy update-conda-envs --help``.
+
+
+Providing post-deployment scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
+This might be helpful in case a conda package is missing components or requires further configuration for execution.
+Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "seqs.fastq"
+        output:
+            "results.tsv"
+        conda:
+            "envs/interproscan.yaml"
+        shell:
+            "interproscan.sh -i {input} -f tsv -o {output}"
+
+.. code-block:: none
+
+    ├── Snakefile
+    └── envs
+        ├── interproscan.yaml
+        └── interproscan.post-deploy.sh
+
+The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+
 
 .. _conda_named_env:
 
+-----------------------------------------------
 Using already existing named conda environments
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------
 
 Sometimes it can be handy to refer to an already existing named conda environment from a rule, instead of defining a new one from scratch.
 Importantly, one should be aware that this can **hamper reproducibility**, because the workflow then relies on this environment to be present
@@ -319,37 +381,8 @@ Note that Snakemake distinguishes file based environments from named ones as fol
 if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
 to be the name of an existing environment.
 
+
 .. _singularity:
-
-
--------------------------
-Providing post-deployment scripts
--------------------------
-
-From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
-This might be helpful in case a conda package is missing components or requires further configuration for execution.
-Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
-
-.. code-block:: python
-
-    rule NAME:
-        input:
-            "seqs.fastq"
-        output:
-            "results.tsv"
-        conda:
-            "envs/interproscan.yaml"
-        shell:
-            "interproscan.sh -i {input} -f tsv -o {output}"
-
-.. code-block:: none
-
-    ├── Snakefile
-    └── envs
-        ├── interproscan.yaml
-        └── interproscan.post-deploy.sh
-
-The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
 
 --------------------------
 Running jobs in containers
