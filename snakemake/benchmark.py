@@ -236,7 +236,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                         cpu_usages += proc.cpu_percent() * (
                             this_time - self.bench_record.prev_time
                         )
-                    
+
                     try:
                         meminfo = proc.memory_full_info()
                     except psutil.Error:
