@@ -198,6 +198,7 @@ jobs:
 
       - name: Setup Snakemake environment
         run: |
+          conda config --set channel_priority strict
           conda install -q --name base mamba
           mamba env update -q --file test-environment.yml
 
