@@ -717,16 +717,20 @@ class Conda:
             )
 
     def _check_condarc(self):
-        import yaml
+        from snakemake.shell import shell
 
-        condarc = {}
-        for path in self.info["config_files"]:
-            with open(path, "r") as infile:
-                condarc.update(yaml.load(infile, Loader=yaml.SafeLoader))
-        if not condarc.get("channel_priority") == "strict":
+        res = json.loads(
+            shell.check_output(
+                self._get_cmd("conda config --get channel_priority --json"),
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+        )
+        if res["get"].get("channel_priority") != "strict":
             raise CreateCondaEnvironmentException(
                 "Your conda installation is not configured to use strict channel priorities. "
-                "This is however crucial for having robust and correct environments (for details, see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                "This is however crucial for having robust and correct environments (for details, "
+                "see https://conda-forge.org/docs/user/tipsandtricks.html). "
                 "Please configure strict priorities by executing 'conda config --set channel_priority strict'."
             )
 
