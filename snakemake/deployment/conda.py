@@ -492,14 +492,21 @@ class Env:
 
                         logger.info("Downloading and installing remote packages.")
 
+                        strict_priority = (
+                            ["conda config --set channel_priority strict &&"]
+                            if self._container_img
+                            else []
+                        )
+
                         subcommand = [self.frontend]
                         yes_flag = ["--yes"]
                         if filetype == "yaml":
                             subcommand.append("env")
                             yes_flag = []
 
-                        cmd = " ".join(
-                            subcommand
+                        cmd = (
+                            strict_priority
+                            + subcommand
                             + [
                                 "create",
                                 "--quiet",
@@ -508,6 +515,7 @@ class Env:
                             ]
                             + yes_flag
                         )
+                        cmd = " ".join(cmd)
                         if self._container_img:
                             cmd = singularity.shellcmd(
                                 self._container_img.path,
@@ -717,6 +725,10 @@ class Conda:
             )
 
     def _check_condarc(self):
+        if self.container_img:
+            # Do not check for strict priorities when running conda in an image
+            # Instead, we set priorities to strict ourselves in the image.
+            return
         from snakemake.shell import shell
 
         res = json.loads(
