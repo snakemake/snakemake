@@ -236,16 +236,13 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                         cpu_usages += proc.cpu_percent() * (
                             this_time - self.bench_record.prev_time
                         )
-                    # When singularity is used to run a job it will in addition to
-                    # the running tool processes also create a starter-suid process
-                    # which is only readable by root. This process will generate an
-                    # AccessDenied event, which prevents benchmark from collecting
-                    # information about the tool processes. This try-statement will
-                    # make it possible to summarize information beloning the processes
-                    # that the user has access to.
+                    # Makes it possible to summarize information about the process even
+                    # if the benchmark has tried to access a process that the user does
+                    # not have access to.
                     try:
                         meminfo = proc.memory_full_info()
                     except psutil.Error:
+                        # Continue to fetch information about the remaining processes
                         continue
                     rss += meminfo.rss
                     vms += meminfo.vms
