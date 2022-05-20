@@ -1115,6 +1115,7 @@ class DAG:
 
             if noinitreason and reason:
                 reason.derived = False
+            return reason
 
         reason = self.reason
         _needrun = self._needrun
@@ -1126,23 +1127,38 @@ class DAG:
         _n_until_ready.clear()
         self._ready_jobs.clear()
 
-        candidates = list(self.jobs)
+        candidates = list(self.toposorted())
 
         # Update the output mintime of all jobs.
         # We traverse them in BFS (level order) starting from target jobs.
         # Then, we check output mintime of job itself and all direct descendants,
         # which have already been visited in the level before.
         # This way, we achieve a linear runtime.
-        for job in candidates:
-            update_output_mintime(job)
+        for level in reversed(candidates):
+            for job in level:
+                update_output_mintime(job)
 
-        # update prior reason for all candidate jobs
-        for job in candidates:
-            update_needrun(job)
+        # Update prior reason for all candidate jobs
+        # Move from the first level to the last of the toposorted candidates.
+        # If a job is needrun, mask all downstream jobs, they will below
+        # in the bi-directional BFS
+        # be determined as needrun because they depend on them.
+        masked = set()
+        queue = deque()
+        for level in candidates:
+            for job in level:
+                if job in masked:
+                    # depending jobs of jobs that are needrun as a prior
+                    # can be skipped
+                    continue
 
-        queue = deque(filter(reason, candidates))
+                if update_needrun(job):
+                    queue.append(job)
+                    masked.update(self.bfs(self.depending, job))
+
+        # bi-directional BFS to determine further needrun jobs
         visited = set(queue)
-        candidates_set = set(candidates)
+        candidates_set = set(job for level in candidates for job in level)
         while queue:
             job = queue.popleft()
             _needrun.add(job)
