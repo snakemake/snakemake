@@ -2393,22 +2393,6 @@ class DAG:
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
         return changed
 
-    def warn_about_changes(self, quiet=False):
-        if not quiet:
-            for change_type in ["code", "input", "params"]:
-                changed = self.get_outputs_with_changes(
-                    change_type, include_needrun=False
-                )
-                if changed:
-                    rerun_trigger = ""
-                    if not ON_WINDOWS:
-                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
-                    logger.warning(
-                        f"The {change_type} used to generate one or several output files has changed:\n"
-                        f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
-                        f"{rerun_trigger}"
-                    )
-
     def __str__(self):
         return self.dot()
 

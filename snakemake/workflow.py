@@ -1040,7 +1040,6 @@ class Workflow:
         )
 
         if not dryrun:
-            dag.warn_about_changes(quiet)
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1086,7 +1085,6 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
-            dag.warn_about_changes(quiet)
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1112,12 +1110,10 @@ class Workflow:
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
                     )
-                dag.warn_about_changes(quiet)
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
-                dag.warn_about_changes(quiet)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1125,7 +1121,6 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
-            dag.warn_about_changes(quiet)
             logger.logfile_hint()
             return False
 
