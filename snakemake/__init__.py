@@ -1309,7 +1309,7 @@ def get_argument_parser(profile=None):
         help="Go on with independent jobs if a job fails.",
     )
     group_exec.add_argument(
-        "--rerun-trigger",
+        "--rerun-triggers",
         nargs="+",
         choices=RERUN_TRIGGERS,
         default=RERUN_TRIGGERS,
