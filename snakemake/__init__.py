@@ -1782,7 +1782,7 @@ def get_argument_parser(profile=None):
         "--reason",
         "-r",
         action="store_true",
-        help="Print the reason for each executed rule (deprecated, always True now).",
+        help="Print the reason for each executed rule (deprecated, always true now).",
     )
     group_output.add_argument(
         "--gui",
