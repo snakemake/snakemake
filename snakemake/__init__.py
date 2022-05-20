@@ -74,7 +74,7 @@ def snakemake(
     omit_from=[],
     prioritytargets=[],
     stats=None,
-    printreason=False,
+    printreason=True,
     printshellcmds=False,
     debug_dag=False,
     printdag=False,
@@ -1782,7 +1782,7 @@ def get_argument_parser(profile=None):
         "--reason",
         "-r",
         action="store_true",
-        help="Print the reason for each executed rule.",
+        help="Print the reason for each executed rule (deprecated, always True now).",
     )
     group_output.add_argument(
         "--gui",
@@ -2852,7 +2852,7 @@ def main(argv=None):
             targets=args.target,
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
-            printreason=args.reason,
+            printreason=True,  # always display reason
             debug_dag=args.debug_dag,
             printdag=args.dag,
             printrulegraph=args.rulegraph,
