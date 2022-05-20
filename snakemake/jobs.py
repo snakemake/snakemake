@@ -1661,9 +1661,9 @@ class Reason:
                     )
 
                 if self.input_changed:
-                    s.append("Set of input files has changed since last execution.")
+                    s.append("Set of input files has changed since last execution")
                 if self.code_changed:
-                    s.append("Code has changed since last execution.")
+                    s.append("Code has changed since last execution")
                 if self.params_changed:
                     s.append("Params have changed since last execution")
                 if self.software_stack_changed:
