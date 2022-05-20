@@ -37,6 +37,8 @@ SNAKEFILE_CHOICES = [
     "workflow/snakefile",
 ]
 
+RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
+
 
 def snakemake(
     snakefile,
@@ -82,6 +84,7 @@ def snakemake(
     nocolor=False,
     quiet=False,
     keepgoing=False,
+    rerun_triggers=RERUN_TRIGGERS,
     cluster=None,
     cluster_config=None,
     cluster_sync=None,
@@ -552,6 +555,7 @@ def snakemake(
 
         workflow = Workflow(
             snakefile=snakefile,
+            rerun_triggers=rerun_triggers,
             jobscript=jobscript,
             overwrite_shellcmd=overwrite_shellcmd,
             overwrite_config=overwrite_config,
@@ -1303,6 +1307,17 @@ def get_argument_parser(profile=None):
         "-k",
         action="store_true",
         help="Go on with independent jobs if a job fails.",
+    )
+    group_exec.add_argument(
+        "--rerun-trigger",
+        nargs="+",
+        choices=RERUN_TRIGGERS,
+        default=RERUN_TRIGGERS,
+        help="Define what triggers the rerunning of a job. By default, "
+        "all triggers are used, which guarantees that results are "
+        "consistent with the workflow code and configuration. If you "
+        "rather prefer the traditional way of just considering "
+        "file modification dates, use '--rerun-trigger mtime'.",
     )
     group_exec.add_argument(
         "--force",
@@ -2854,6 +2869,7 @@ def main(argv=None):
             nocolor=args.nocolor,
             quiet=args.quiet,
             keepgoing=args.keep_going,
+            rerun_triggers=args.rerun_triggers,
             cluster=args.cluster,
             cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,

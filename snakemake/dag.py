@@ -1096,18 +1096,22 @@ class DAG:
                     reason.updated_input.update(updated_input)
                 if not updated_input:
                     # check for other changes like parameters, set of input files, or code
-                    reason.params_changed = any(
-                        self.workflow.persistence.params_changed(job)
-                    )
-                    reason.input_changed = any(
-                        self.workflow.persistence.input_changed(job)
-                    )
-                    reason.code_changed = any(
-                        job.outputs_older_than_script_or_notebook()
-                    ) or any(self.workflow.persistence.code_changed(job))
-                    reason.software_stack_changed = any(
-                        self.workflow.persistence.conda_env_changed(job)
-                    ) or any(self.workflow.persistence.container_changed(job))
+                    if "params" in self.workflow.rerun_triggers:
+                        reason.params_changed = any(
+                            self.workflow.persistence.params_changed(job)
+                        )
+                    if "input" in self.workflow.rerun_triggers:
+                        reason.input_changed = any(
+                            self.workflow.persistence.input_changed(job)
+                        )
+                    if "code" in self.workflow.rerun_triggers:
+                        reason.code_changed = any(
+                            job.outputs_older_than_script_or_notebook()
+                        ) or any(self.workflow.persistence.code_changed(job))
+                    if "software-env" in self.workflow.rerun_triggers:
+                        reason.software_stack_changed = any(
+                            self.workflow.persistence.conda_env_changed(job)
+                        ) or any(self.workflow.persistence.container_changed(job))
 
             if noinitreason and reason:
                 reason.derived = False

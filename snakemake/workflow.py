@@ -101,6 +101,7 @@ class Workflow:
     def __init__(
         self,
         snakefile=None,
+        rerun_triggers=None,
         jobscript=None,
         overwrite_shellcmd=None,
         overwrite_config=None,
@@ -162,6 +163,7 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
+        self.rerun_triggers = frozenset(rerun_triggers)
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
