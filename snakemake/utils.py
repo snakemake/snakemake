@@ -3,27 +3,27 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-import json
-import re
-import inspect
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
-import textwrap
-import platform
-from itertools import chain
 import collections
+import inspect
+import json
 import multiprocessing
-import string
+import os
+import platform
+import re
 import shlex
+import string
 import sys
+import textwrap
+from itertools import chain
 from urllib.parse import urljoin
 from urllib.request import url2pathname
 
-from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
-from snakemake.logging import logger
+import snakemake
 from snakemake.common import ON_WINDOWS, is_local_file, smart_join
 from snakemake.exceptions import WorkflowError
-import snakemake
+from snakemake.io import Namedlist, Wildcards, _load_configfile, regex
+from snakemake.logging import logger
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
 
 
 def validate(data, schema, set_default=True):
@@ -49,7 +49,7 @@ def validate(data, schema, set_default=True):
 
     try:
         import jsonschema
-        from jsonschema import validators, RefResolver
+        from jsonschema import RefResolver, validators
     except ImportError:
         raise WorkflowError(
             "The Python 3 package jsonschema must be installed "
@@ -693,10 +693,10 @@ class Paramspace:
             self.pattern.format(
                 *(
                     self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row._asdict().items()
+                    for name, value in row[-1].iteritems()
                 )
             )
-            for row in self.dataframe.itertuples(index=False)
+            for row in self.dataframe.iterrows()
         )
 
     def instance(self, wildcards):
