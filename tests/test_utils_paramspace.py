@@ -24,7 +24,7 @@ def test_paramspace_constructs(mockdf):
     assert len(spc.dataframe) == 3
 
 
-def test_instances_have_keys(mockdf):
+def test_instance_patterns_have_keys(mockdf):
 
     spc = Paramspace(mockdf)
     obs = list(spc.instance_patterns)
@@ -33,3 +33,26 @@ def test_instances_have_keys(mockdf):
 
     for coln in mockdf.columns:
         assert coln in obs[0]
+
+
+def test_instance_patterns_contain_correct_rows(mockdf):
+
+    spc = Paramspace(mockdf)
+    nrows = len(mockdf)
+    ncols = len(mockdf.columns)
+
+    observed = list(spc.instance_patterns)
+    colnames = list(spc.ordered_columns)
+
+    for rowi in range(nrows):
+
+        obs = observed[rowi]
+        entries = obs.split("/")
+        assert len(entries) == ncols
+
+        for coli in range(ncols):
+            pair = entries[coli]
+            colname = colnames[coli]
+
+            assert colname in pair
+            assert str(mockdf[colname][rowi]) in pair
