@@ -1592,6 +1592,15 @@ class Reason:
             f"--cleanup-metadata {' '.join(job.expanded_output)}"
         )
 
+    def is_provenance_triggered(self):
+        """Return True if reason is triggered by provenance information."""
+        return (
+            self.params_changed
+            or self.code_changed
+            or self.software_stack_changed
+            or self.input_changed
+        )
+
     @lazy_property
     def updated_input(self):
         return set()

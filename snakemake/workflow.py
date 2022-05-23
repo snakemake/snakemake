@@ -1106,6 +1106,18 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    if any(
+                        dag.reason(job).is_provencant_triggered
+                        for job in dag.needrun_jobs
+                    ):
+                        logger.info(
+                            "Some jobs were triggered by provenance information, "
+                            "see 'reason' section in the rule displays above. "
+                            "If you prefer that only modification time is used to "
+                            "determine whether a job shall be executed, use the command "
+                            "line option '--rerun-triggers mtime' (also see --help)."
+                        )
+                    logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
