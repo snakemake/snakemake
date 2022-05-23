@@ -634,6 +634,10 @@ class Paramspace:
 
         | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
         | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
+
+    Note: The string replacement performed when inserting ``column1~{column1value}``
+    does currently not honor types of ``column1value``, if calling
+    Paramspace.instance_patterns for example.
     """
 
     def __init__(
