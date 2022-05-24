@@ -331,6 +331,12 @@ class Persistence:
     def code(self, path):
         return self.metadata(path).get("code")
 
+    def conda_env(self, path):
+        return self.metadata(path).get("conda_env")
+
+    def container_img_url(self, path):
+        return self.metadata(path).get("container_img_url")
+
     def input_checksums(self, job, input_path):
         """Return all checksums of the given input file
         recorded for the output of the given job.
@@ -356,6 +362,14 @@ class Persistence:
         """Yields output files with changed params or bool if file given."""
         return _bool_or_gen(self._params_changed, job, file=file)
 
+    def conda_env_changed(self, job, file=None):
+        """Yields output files with changed conda env or bool if file given."""
+        return _bool_or_gen(self._conda_env_changed, job, file=file)
+
+    def container_changed(self, job, file=None):
+        """Yields output files with changed container img or bool if file given."""
+        return _bool_or_gen(self._container_changed, job, file=file)
+
     def _version_changed(self, job, file=None):
         assert file is not None
         recorded = self.version(file)
@@ -375,6 +389,16 @@ class Persistence:
         assert file is not None
         recorded = self.params(file)
         return recorded is not None and recorded != self._params(job)
+
+    def _conda_env_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.conda_env(file)
+        return recorded is not None and recorded != self._conda_env(job)
+
+    def _container_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.container_img_url(file)
+        return recorded is not None and recorded != job.container_img_url
 
     def noop(self, *args):
         pass
