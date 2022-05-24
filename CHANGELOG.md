@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.8.0](https://www.github.com/snakemake/snakemake/compare/v7.7.0...v7.8.0) (2022-05-24)
+
+
+### Features
+
+* automatically rerun jobs if parameters, code, input file set, or software stack changed (thanks to [@cclienty](https://www.github.com/cclienty) and [@timtroendle](https://www.github.com/timtroendle)). This also increases performance of DAG building by handling job "needrun" updates level wise, while avoiding to perform a full check for those jobs that are already downstream of a job that has been determined to require a rerun. ([#1663](https://www.github.com/snakemake/snakemake/issues/1663)) ([4c11893](https://www.github.com/snakemake/snakemake/commit/4c11893d2fda5824adff44d16d7741484e63efea))
+* enable the definition of conda pin files in order to freeze an environment. This can drastically increase the robustness because it allows to freeze an environment at a working state. ([#1667](https://www.github.com/snakemake/snakemake/issues/1667)) ([53972bf](https://www.github.com/snakemake/snakemake/commit/53972bfddcca836d5abb8cdd452cbea40ab2571f))
+
+
+### Bug Fixes
+
+* fail with error if conda installation is not set to strict channel priorities ([#1672](https://www.github.com/snakemake/snakemake/issues/1672)) ([f1ffbf2](https://www.github.com/snakemake/snakemake/commit/f1ffbf28f04150c6e66297f242b768a22f80bd94))
+* fix errors occurring when refering to input func via rules.<rulename>.input ([#1669](https://www.github.com/snakemake/snakemake/issues/1669)) ([28a4795](https://www.github.com/snakemake/snakemake/commit/28a47959bca2d135f82f9d8901b2b0aa228f30cb))
+* parsing error when combining single line directive with multi-line directive in use rule statements ([#1662](https://www.github.com/snakemake/snakemake/issues/1662)) ([26e57d6](https://www.github.com/snakemake/snakemake/commit/26e57d69fc320adc972967a8046c5163b455456c))
+
 ## [7.7.0](https://www.github.com/snakemake/snakemake/compare/v7.6.2...v7.7.0) (2022-05-16)
 
 
