@@ -635,16 +635,29 @@ class Paramspace:
         | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
         | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
 
-    Note: The string replacement performed when inserting ``column1~{value1}``
-    with ``instance_patterns`` does currently not honor types of ``value1``.
+      - ``types_strict`` When True, the string replacement performed when
+        inserting ``column1~{value1}`` (e.g. with ``instance_patterns``) honors
+        the type of ``value1``. For example, for ``column1=100`` in the
+        Paramspace, the output pattern would result in ``column1~100`` and
+        not ``column1~100.0``. (Default: False). Example:
+
+        | ``df = pd.DataFrame.from_dict({"one": [42.1, 41.2], "two": [11, 12]})``
+        | ``Paramspace(df, types_strict=True)`` ->
+        | ``["one~42.1-two~11", ...] #no implicit cast of 11 to 11.0``
     """
 
     def __init__(
-        self, dataframe, filename_params=None, param_sep="~", filename_sep="_"
+        self,
+        dataframe,
+        filename_params=None,
+        param_sep="~",
+        filename_sep="_",
+        types_strict=False,
     ):
         self.dataframe = dataframe
         self.param_sep = param_sep
         self.filename_sep = filename_sep
+        self.types_strict = types_strict
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -692,10 +705,20 @@ class Paramspace:
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
         or of the provided custom pattern.
         """
+        typedict = dict(self.dataframe.dtypes)
+
+        def _convert(n, v):
+            if not self.types_strict:
+                return v
+            else:
+                return typedict[n].type(v)
+
         return (
             self.pattern.format(
                 *(
-                    self.param_sep.join(("{}", "{}")).format(name, value)
+                    self.param_sep.join(("{}", "{}")).format(
+                        name, _convert(name, value)
+                    )
                     for name, value in row[-1].iteritems()
                 )
             )

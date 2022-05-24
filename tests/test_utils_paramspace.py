@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
+from snakemake.io import expand
 from snakemake.utils import Paramspace
 
 MOCKDICT = {
@@ -11,11 +14,31 @@ MOCKDICT = {
     "five_or_six.2": 3 * ["a"],
 }
 
+PARAMS_TSV = {"alpha": [1, 2], "beta": [0.1, 0.0], "gamma": [0.99, 3.9]}
+SPECIAL_TSV = {
+    "alpha": [1, 2],
+    "beta": [0.1, 0.0],
+    "gamma": [0.99, 3.9],
+    "delta": ["foo", "Bar"],
+}
+
 
 @pytest.fixture
 def mockdf():
     df = pd.DataFrame.from_dict(MOCKDICT)
     return df
+
+
+@pytest.fixture
+def df():
+    df_ = pd.DataFrame.from_dict(PARAMS_TSV)
+    return df_
+
+
+@pytest.fixture
+def sdf():
+    df_ = pd.DataFrame.from_dict(SPECIAL_TSV)
+    return df_
 
 
 def test_paramspace_constructs(mockdf):
@@ -56,3 +79,74 @@ def test_instance_patterns_contain_correct_rows(mockdf):
 
             assert colname in pair
             assert str(mockdf[colname][rowi]) in pair
+
+
+def test_paramspace_one_simulation_beta(df):
+
+    spc = Paramspace(df, filename_params=["beta"])
+    obs = expand(
+        "results/one/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert obs[0] == "results/one/simulations/alpha~1.0/gamma~0.99/beta~0.1.tsv"
+
+
+def test_paramspace_one_simulation_beta_strict(df):
+
+    spc = Paramspace(df, filename_params=["beta"], types_strict=True)
+    obs = expand(
+        "results/one/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert obs[0] == "results/one/simulations/alpha~1/gamma~0.99/beta~0.1.tsv"
+
+
+def test_paramspace_one_simulation_delta_special(sdf):
+
+    spc = Paramspace(sdf, filename_params=["delta"])
+    obs = expand(
+        "results/one/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert obs[0] == "results/one/simulations/alpha~1/beta~0.1/gamma~0.99/delta~foo.tsv"
+
+
+def test_paramspace_one_simulation_delta_special_strict(sdf):
+
+    spc = Paramspace(sdf, filename_params=["delta"], types_strict=True)
+    obs = expand(
+        "results/one/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert obs[0] == "results/one/simulations/alpha~1/beta~0.1/gamma~0.99/delta~foo.tsv"
+
+
+def test_paramspace_two_simulation_beta_gamma(df):
+
+    spc = Paramspace(df, filename_params=["beta", "gamma"])
+    obs = expand(
+        "results/two/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert obs[0] == "results/two/simulations/alpha~1.0/beta~0.1_gamma~0.99.tsv"
+    assert obs[1] == "results/two/simulations/alpha~2.0/beta~0.0_gamma~3.9.tsv"
+
+
+def test_paramspace_full_reorder_simulation_beta(df):
+
+    spc = Paramspace(df, filename_params=["beta", "gamma", "alpha"])
+
+    obs = expand(
+        "results/full_reorder/simulations/{params}.tsv",
+        params=spc.instance_patterns,
+    )
+
+    assert (
+        obs[0] == "results/full_reorder/simulations/beta~0.1_gamma~0.99_alpha~1.0.tsv"
+    )
+    assert obs[1] == "results/full_reorder/simulations/beta~0.0_gamma~3.9_alpha~2.0.tsv"
