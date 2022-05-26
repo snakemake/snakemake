@@ -1427,8 +1427,8 @@ def test_module_multi_level1():
     run(
         dpath("test_module_multilevel/level1"),
         targets=[
-            "test_final_b.txt",
             "level2/test_final_b.txt",
+            "test_final_b.txt",
             "test_final_c.txt",
         ],
     )
@@ -1439,13 +1439,11 @@ def test_module_multi_level0():
     run(
         dpath("test_module_multilevel"),
         targets=[
-            "level2/test_final_b.txt",
-            "test_final_b.txt",
+            "level1/level2/test_final_b.txt",
+            "level1/test_final_b.txt",
             "level1/test_final_c.txt",
             "test_final_d.txt",
         ]
-        # Expected result
-        # targets=["level1/level2/test_final_b.txt", "level1/test_final_b.txt", "level1/test_final_c.txt", "test_final_d.txt"]
     )
 
 

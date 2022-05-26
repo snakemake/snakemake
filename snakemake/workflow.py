@@ -1903,6 +1903,7 @@ class Workflow:
             skip_validation=skip_validation,
             replace_prefix=replace_prefix,
             prefix=prefix,
+            parent_modifier=self.modifier,
         )
 
     def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):

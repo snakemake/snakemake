@@ -1,2 +1,4 @@
-test-a
-test-a
+input-a
+input-a
+input-c
+input-b

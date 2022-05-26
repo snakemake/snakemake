@@ -2,17 +2,25 @@ rule joint_all:
     input:
         "test_final_b.txt",
 
-rule a:
+rule a_1:
     input:
-        "test1.txt"
+        "test1a.txt"
     output:
-        "test_intermediate.txt"
+        "test_intermediate1.txt"
     shell:
-        "echo test-a  > {output}"
+        "cat {input}  > {output}"
+
+rule a_2:
+    input:
+        "test1b.txt"
+    output:
+        "test_intermediate2.txt"
+    shell:
+        "cat {input}  > {output}"
 
 rule b:
     input:
-        "test_intermediate.txt"
+        "test_intermediate1.txt", "test_intermediate2.txt"
     output:
         "test_final_b.txt"
     shell:

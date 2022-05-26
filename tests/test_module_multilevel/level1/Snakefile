@@ -9,9 +9,6 @@ module level2_1:
 
 use rule * from level2_1 as l2_1_*
 
-use rule a from level2_1 as l2_1_a with:
-   input:
-       "test2.txt"
 
 module level2_2:
     snakefile: "level2/Snakefile"
@@ -19,9 +16,14 @@ module level2_2:
 
 use rule * from level2_2 as l2_2_*
 
-use rule a from level2_2 as l2_2_a with:
+use rule a_1 from level2_2 as l2_2_a_1 with:
+    input:
+        "test1.txt"
+
+use rule a_2 from level2_2 as l2_2_a_2 with:
     input:
         "test2.txt"
+
 
 rule c:
     input:
