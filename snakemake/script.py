@@ -305,6 +305,15 @@ class JuliaEncoder:
         source += ")"
         return source
 
+class BashEncoder:
+    @classmethod
+    def encode_snakemake(cls, smk: Snakemake) -> str:
+        """TODO
+        example of a snakemake object from a python script
+        {'input': [], 'output': ['foo.txt'], 'params': [], 'wildcards': [], 'threads': 1, 'resources': [1, 1, '/var/folders/0g/3ywwrf6j2vjbp0r780dskt980000gn/T'], 'log': [], 'config': {}, 'rule': '2', 'bench_iteration': None, 'scriptdir': '/Users/michaelhall/Projects/WHO-correspondence/tmp'}
+        It is just the Snakemake class defined in this file
+        """
+        pass
 
 class ScriptBase(ABC):
     editable = False
@@ -1220,6 +1229,57 @@ class RustScript(ScriptBase):
             return "", src
 
 
+class BashScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        is_local,
+        preamble_addendum="",
+    ):
+        snakemake = Snakemake(
+            input_,
+            output,
+            params,
+            wildcards,
+            threads,
+            resources,
+            log,
+            config,
+            rulename,
+            bench_iteration,
+            path.get_basedir().get_path_or_uri(),
+        )
+
+    def get_preamble(self):
+        pass
+
+    def write_script(self, preamble, fd):
+        pass
+
+    def execute_script(self, fname, edit=False):
+        pass
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1280,6 +1340,8 @@ def get_language(source_file, source):
         language = "julia"
     elif filename.endswith(".rs"):
         language = "rust"
+    elif filename.endswith(".sh"):
+        language = "bash"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1335,6 +1397,7 @@ def script(
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
         "rust": RustScript,
+        "bash": BashScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
