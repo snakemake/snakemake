@@ -199,6 +199,7 @@ class DAG:
 
         self.check_incomplete()
 
+        self.update_container_imgs()
         self.update_conda_envs()
 
         self.update_needrun(create_inventory=True)
@@ -311,9 +312,9 @@ class DAG:
             if (not dryrun or not quiet) and not env.is_named:
                 env.create(dryrun)
 
-    def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
+    def update_container_imgs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs if forceall else self.needrun_jobs()
+        jobs = self.needrun_jobs()
         img_set = {
             (job.container_img_url, job.is_containerized)
             for job in jobs
@@ -322,9 +323,12 @@ class DAG:
 
         for img_url, is_containerized in img_set:
             img = singularity.Image(img_url, self, is_containerized)
+            self.container_imgs[img_url] = img
+
+    def pull_container_imgs(self, dryrun=False, quiet=False):
+        for img in self.container_imgs:
             if not dryrun or not quiet:
                 img.pull(dryrun)
-            self.container_imgs[img_url] = img
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -1367,6 +1371,7 @@ class DAG:
         self.cleanup()
         self.update_jobids()
         if update_needrun:
+            self.update_container_imgs()
             self.update_conda_envs()
             self.update_needrun()
         self.update_priority()
