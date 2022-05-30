@@ -200,6 +200,7 @@ class DAG:
         self.check_incomplete()
 
         self.update_container_imgs()
+        print(self.container_imgs)
         self.update_conda_envs()
 
         self.update_needrun(create_inventory=True)
@@ -284,15 +285,13 @@ class DAG:
 
     def update_conda_envs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs
         env_set = {
             (job.conda_env_spec, job.container_img_url)
-            for job in jobs
+            for job in self.jobs
             if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
-        self.conda_envs = dict()
         for (env_spec, simg_url) in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
@@ -300,12 +299,14 @@ class DAG:
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = env_spec.get_conda_env(
-                self.workflow,
-                container_img=simg,
-                cleanup=self.workflow.conda_cleanup_pkgs,
-            )
-            self.conda_envs[(env_spec, simg_url)] = env
+            key = (env_spec, simg_url)
+            if key not in self.conda_envs:
+                env = env_spec.get_conda_env(
+                    self.workflow,
+                    container_img=simg,
+                    cleanup=self.workflow.conda_cleanup_pkgs,
+                )
+                self.conda_envs[key] = env
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         for env in self.conda_envs.values():
@@ -314,16 +315,16 @@ class DAG:
 
     def update_container_imgs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.needrun_jobs()
         img_set = {
             (job.container_img_url, job.is_containerized)
-            for job in jobs
+            for job in self.jobs
             if job.container_img_url
         }
 
         for img_url, is_containerized in img_set:
-            img = singularity.Image(img_url, self, is_containerized)
-            self.container_imgs[img_url] = img
+            if img_url not in self.container_imgs:
+                img = singularity.Image(img_url, self, is_containerized)
+                self.container_imgs[img_url] = img
 
     def pull_container_imgs(self, dryrun=False, quiet=False):
         for img in self.container_imgs:
