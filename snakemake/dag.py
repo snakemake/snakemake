@@ -327,7 +327,7 @@ class DAG:
                 self.container_imgs[img_url] = img
 
     def pull_container_imgs(self, dryrun=False, quiet=False):
-        for img in self.container_imgs:
+        for img in self.container_imgs.values():
             if not dryrun or not quiet:
                 img.pull(dryrun)
 
