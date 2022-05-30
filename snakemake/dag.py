@@ -199,6 +199,8 @@ class DAG:
 
         self.check_incomplete()
 
+        self.update_conda_envs()
+
         self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
@@ -279,11 +281,9 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(
-        self, dryrun=False, forceall=False, init_only=False, quiet=False
-    ):
+    def update_conda_envs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs if forceall else self.needrun_jobs
+        jobs = self.jobs
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in jobs
@@ -306,10 +306,10 @@ class DAG:
             )
             self.conda_envs[(env_spec, simg_url)] = env
 
-        if not init_only:
-            for env in self.conda_envs.values():
-                if (not dryrun or not quiet) and not env.is_named:
-                    env.create(dryrun)
+    def create_conda_envs(self, dryrun=False, quiet=False):
+        for env in self.conda_envs.values():
+            if (not dryrun or not quiet) and not env.is_named:
+                env.create(dryrun)
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_spec
@@ -1365,6 +1365,7 @@ class DAG:
         self.cleanup()
         self.update_jobids()
         if update_needrun:
+            self.update_conda_envs()
             self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
@@ -2217,7 +2218,7 @@ class DAG:
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
-        self.create_conda_envs(forceall=True)
+        self.create_conda_envs()
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
