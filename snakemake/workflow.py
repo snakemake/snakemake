@@ -1115,7 +1115,7 @@ class Workflow:
                             "see 'reason' section in the rule displays above.\n"
                             "If you prefer that only modification time is used to "
                             "determine whether a job shall be executed, use the command "
-                            "line option '--rerun-triggers mtime' (also see --help)."
+                            "line option '--rerun-triggers mtime' (also see --help).\n"
                             "If you are sure that a change for a certain output file (say, <outfile>) won't "
                             "change the result (e.g. because you just changed the formatting of a script "
                             "or environment definition), you can also wipe its metadata to skip such a trigger via "
