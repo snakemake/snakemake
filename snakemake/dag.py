@@ -229,7 +229,7 @@ class DAG:
 
     @property
     def checkpoint_jobs(self):
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             if job.is_checkpoint:
                 yield job
 
@@ -313,7 +313,7 @@ class DAG:
 
     def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs if forceall else self.needrun_jobs
+        jobs = self.jobs if forceall else self.needrun_jobs()
         img_set = {
             (job.container_img_url, job.is_containerized)
             for job in jobs
@@ -388,15 +388,17 @@ class DAG:
         """All jobs in the DAG."""
         return self.dependencies.keys()
 
-    @property
-    def needrun_jobs(self):
+    def needrun_jobs(self, exclude_finished=True):
         """Jobs that need to be executed."""
-        return filterfalse(self.finished, self._needrun)
+        if exclude_finished:
+            return filterfalse(self.finished, self._needrun)
+        else:
+            return iter(self._needrun)
 
     @property
     def local_needrun_jobs(self):
         """Iterate over all jobs that need to be run and are marked as local."""
-        return filter(lambda job: job.is_local, self.needrun_jobs)
+        return filter(lambda job: job.is_local, self.needrun_jobs())
 
     @property
     def finished_jobs(self):
@@ -1233,18 +1235,18 @@ class DAG:
             lambda job: job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output)
         )
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             self._priority[job] = job.rule.priority
         for job in self.bfs(
             self.dependencies,
-            *filter(prioritized, self.needrun_jobs),
+            *filter(prioritized, self.needrun_jobs()),
             stop=self.noneedrun_finished,
         ):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_groups(self):
         groups = dict()
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             if job.group is None:
                 continue
             stop = lambda j: j.group != job.group
@@ -1315,7 +1317,7 @@ class DAG:
         """
 
         if jobs is None:
-            jobs = self.needrun_jobs
+            jobs = self.needrun_jobs()
 
         potential_new_ready_jobs = False
         candidate_groups = set()
@@ -1394,7 +1396,7 @@ class DAG:
         one consumer"""
 
         visited = set()
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             candidate_groups = set()
             if job.group is not None:
                 candidate_groups.add(job.group)
@@ -2343,12 +2345,12 @@ class DAG:
         from tabulate import tabulate
 
         rules = Counter()
-        rules.update(job.rule for job in self.needrun_jobs)
+        rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
         max_threads = defaultdict(int)
         min_threads = defaultdict(lambda: sys.maxsize)
-        for job in chain(self.needrun_jobs, self.finished_jobs):
+        for job in chain(self.needrun_jobs(), self.finished_jobs):
             max_threads[job.rule] = max(max_threads[job.rule], job.threads)
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
