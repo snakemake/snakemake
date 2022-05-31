@@ -1,5 +1,15 @@
 # Changelog
 
+### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
+
+
+### Bug Fixes
+
+* handling of remaining jobs when using --keep-going ([#1693](https://www.github.com/snakemake/snakemake/issues/1693)) ([87e4303](https://www.github.com/snakemake/snakemake/commit/87e430354b45c702e4d782bad8461fde44477a48))
+* more robust calculation of number of jobs until ready for execution ([#1691](https://www.github.com/snakemake/snakemake/issues/1691)) ([fdfc717](https://www.github.com/snakemake/snakemake/commit/fdfc717f8764ce535801d06805aaa1d59186ec84))
+* propagate rerun trigger info to cluster jobs; fix a bug leading to software stack trigger generating false positives in case of conda environments; fixed display of info message in case of provenance triggered reruns ([#1686](https://www.github.com/snakemake/snakemake/issues/1686)) ([503c70c](https://www.github.com/snakemake/snakemake/commit/503c70c7727e154f8fadf6ead088887d22a87a65))
+* set channel priority in container system wide ([#1690](https://www.github.com/snakemake/snakemake/issues/1690)) ([41175b3](https://www.github.com/snakemake/snakemake/commit/41175b3001ff59db5d7ea8bf91354decea04f74d))
+
 ## [7.8.0](https://www.github.com/snakemake/snakemake/compare/v7.7.0...v7.8.0) (2022-05-24)
 
 
