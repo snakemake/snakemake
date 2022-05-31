@@ -1179,16 +1179,17 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
                     if job_ not in visited:
-                        # TODO may it happen that order determines whether
-                        # _n_until_ready is incremented for this job?
                         if all(f.is_ancient and f.exists for f in files):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue
                         visited.add(job_)
                         queue.append(job_)
-                    _n_until_ready[job_] += 1
                     reason(job_).updated_input_run.update(files)
+
+        # update _n_until_ready
+        for job in _needrun:
+            _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
