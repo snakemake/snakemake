@@ -1082,6 +1082,7 @@ class DAG:
                     reason.missing_output.update(job.missing_output(files))
             if not reason:
                 output_mintime_ = output_mintime.get(job)
+                updated_input = None
                 if output_mintime_:
                     # Input is updated if it is newer that the oldest output file
                     # and does not have the same checksum as the one previously recorded.
@@ -1093,8 +1094,28 @@ class DAG:
                         and not is_same_checksum(f, job)
                     ]
                     reason.updated_input.update(updated_input)
+                if not updated_input:
+                    # check for other changes like parameters, set of input files, or code
+                    if "params" in self.workflow.rerun_triggers:
+                        reason.params_changed = any(
+                            self.workflow.persistence.params_changed(job)
+                        )
+                    if "input" in self.workflow.rerun_triggers:
+                        reason.input_changed = any(
+                            self.workflow.persistence.input_changed(job)
+                        )
+                    if "code" in self.workflow.rerun_triggers:
+                        reason.code_changed = any(
+                            job.outputs_older_than_script_or_notebook()
+                        ) or any(self.workflow.persistence.code_changed(job))
+                    if "software-env" in self.workflow.rerun_triggers:
+                        reason.software_stack_changed = any(
+                            self.workflow.persistence.conda_env_changed(job)
+                        ) or any(self.workflow.persistence.container_changed(job))
+
             if noinitreason and reason:
                 reason.derived = False
+            return reason
 
         reason = self.reason
         _needrun = self._needrun
@@ -1105,23 +1126,39 @@ class DAG:
         _needrun.clear()
         _n_until_ready.clear()
         self._ready_jobs.clear()
-        candidates = list(self.jobs)
+
+        candidates = list(self.toposorted())
 
         # Update the output mintime of all jobs.
         # We traverse them in BFS (level order) starting from target jobs.
         # Then, we check output mintime of job itself and all direct descendants,
         # which have already been visited in the level before.
         # This way, we achieve a linear runtime.
-        for job in candidates:
-            update_output_mintime(job)
+        for level in reversed(candidates):
+            for job in level:
+                update_output_mintime(job)
 
-        # update prior reason for all candidate jobs
-        for job in candidates:
-            update_needrun(job)
+        # Update prior reason for all candidate jobs
+        # Move from the first level to the last of the toposorted candidates.
+        # If a job is needrun, mask all downstream jobs, they will below
+        # in the bi-directional BFS
+        # be determined as needrun because they depend on them.
+        masked = set()
+        queue = deque()
+        for level in candidates:
+            for job in level:
+                if job in masked:
+                    # depending jobs of jobs that are needrun as a prior
+                    # can be skipped
+                    continue
 
-        queue = deque(filter(reason, candidates))
+                if update_needrun(job):
+                    queue.append(job)
+                    masked.update(self.bfs(self.depending, job))
+
+        # bi-directional BFS to determine further needrun jobs
         visited = set(queue)
-        candidates_set = set(candidates)
+        candidates_set = set(job for level in candidates for job in level)
         while queue:
             job = queue.popleft()
             _needrun.add(job)
@@ -2371,22 +2408,6 @@ class DAG:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
         return changed
-
-    def warn_about_changes(self, quiet=False):
-        if not quiet:
-            for change_type in ["code", "input", "params"]:
-                changed = self.get_outputs_with_changes(
-                    change_type, include_needrun=False
-                )
-                if changed:
-                    rerun_trigger = ""
-                    if not ON_WINDOWS:
-                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
-                    logger.warning(
-                        f"The {change_type} used to generate one or several output files has changed:\n"
-                        f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
-                        f"{rerun_trigger}"
-                    )
 
     def __str__(self):
         return self.dot()

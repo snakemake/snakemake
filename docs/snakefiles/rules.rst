@@ -1004,7 +1004,15 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
 Directories as outputs
 ----------------------
 
-Sometimes it can be convenient to have directories, rather than files, as outputs of a rule. As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. Another reason comes down to how modification time for directories work. The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
+Sometimes it can be convenient to have directories, rather than files, as outputs of a rule.
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. 
+This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. 
+Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. 
+Another reason comes down to how modification time for directories work. 
+The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. 
+This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. 
+When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. 
+Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
 
 .. code-block:: python
 

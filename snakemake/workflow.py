@@ -101,6 +101,7 @@ class Workflow:
     def __init__(
         self,
         snakefile=None,
+        rerun_triggers=None,
         jobscript=None,
         overwrite_shellcmd=None,
         overwrite_config=None,
@@ -162,6 +163,7 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
+        self.rerun_triggers = frozenset(rerun_triggers)
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
@@ -1038,7 +1040,6 @@ class Workflow:
         )
 
         if not dryrun:
-            dag.warn_about_changes(quiet)
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1084,7 +1085,6 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
-            dag.warn_about_changes(quiet)
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1106,16 +1106,26 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    if any(
+                        dag.reason(job).is_provencant_triggered
+                        for job in dag.needrun_jobs
+                    ):
+                        logger.info(
+                            "Some jobs were triggered by provenance information, "
+                            "see 'reason' section in the rule displays above. "
+                            "If you prefer that only modification time is used to "
+                            "determine whether a job shall be executed, use the command "
+                            "line option '--rerun-triggers mtime' (also see --help)."
+                        )
+                    logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
                     )
-                dag.warn_about_changes(quiet)
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
-                dag.warn_about_changes(quiet)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1123,7 +1133,6 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
-            dag.warn_about_changes(quiet)
             logger.logfile_hint()
             return False
 
