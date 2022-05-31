@@ -286,6 +286,7 @@ class RealExecutor(AbstractExecutor):
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
+                w2a("rerun_triggers"),
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
                 w2a("use_conda"),

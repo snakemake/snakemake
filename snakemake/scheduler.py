@@ -403,7 +403,7 @@ class JobScheduler:
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs
+            for job in self.dag.needrun_jobs()
             if job not in self.running
             and not self.dag.finished(job)
             and job not in self.failed
