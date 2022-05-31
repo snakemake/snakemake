@@ -404,7 +404,9 @@ class JobScheduler:
         return [
             job
             for job in self.dag.needrun_jobs
-            if job not in self.running and not self.dag.finished(job)
+            if job not in self.running
+            and not self.dag.finished(job)
+            and job not in self.failed
         ]
 
     def schedule(self):
@@ -451,7 +453,7 @@ class JobScheduler:
                         logger.error(_ERROR_MSG_FINAL)
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
-                    if self.remaining_jobs:
+                    if self.remaining_jobs and not self.keepgoing:
                         logger.error(_ERROR_MSG_ISSUE_823)
                         logger.error(
                             "Remaining jobs:\n"
@@ -616,8 +618,6 @@ class JobScheduler:
         else:
             self._errors = True
             self.failed.add(job)
-            if self.keepgoing:
-                logger.info("Job failed, going on with independent jobs.")
 
     def exit_gracefully(self, *args):
         with self._lock:
