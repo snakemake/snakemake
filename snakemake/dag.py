@@ -1181,8 +1181,11 @@ class DAG:
                             continue
                         visited.add(job_)
                         queue.append(job_)
-                    _n_until_ready[job_] += 1
                     reason(job_).updated_input_run.update(files)
+
+        # update _n_until_ready
+        for job in _needrun:
+            _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
