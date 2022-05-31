@@ -200,7 +200,6 @@ class DAG:
         self.check_incomplete()
 
         self.update_container_imgs()
-        print(self.container_imgs)
         self.update_conda_envs()
 
         self.update_needrun(create_inventory=True)

@@ -31,25 +31,7 @@ class Image:
                 "Invalid singularity image URL containing " "whitespace."
             )
 
-        if not shutil.which("singularity"):
-            raise WorkflowError(
-                "The singularity command has to be "
-                "available in order to use singularity "
-                "integration."
-            )
-        try:
-            v = subprocess.check_output(
-                ["singularity", "--version"], stderr=subprocess.PIPE
-            ).decode()
-        except subprocess.CalledProcessError as e:
-            raise WorkflowError(
-                "Failed to get singularity version:\n{}".format(e.stderr.decode())
-            )
-        v = v.rsplit(" ", 1)[-1]
-        if v.startswith("v"):
-            v = v[1:]
-        if not LooseVersion(v) >= LooseVersion("2.4.1"):
-            raise WorkflowError("Minimum singularity version is 2.4.1.")
+        self.singularity = Singularity()
 
         self.url = url
         self._img_dir = dag.workflow.persistence.container_img_path
@@ -150,3 +132,37 @@ def shellcmd(
     )
     logger.debug(cmd)
     return cmd
+
+
+class Singularity:
+    instance = None
+
+    def __new__(cls):
+        if cls.instance is not None:
+            return cls.instance
+        else:
+            inst = super().__new__(cls)
+            cls.instance = inst
+            return inst
+
+    def __init__(self):
+        if not shutil.which("singularity"):
+            raise WorkflowError(
+                "The singularity command has to be "
+                "available in order to use singularity "
+                "integration."
+            )
+        try:
+            v = subprocess.check_output(
+                ["singularity", "--version"], stderr=subprocess.PIPE
+            ).decode()
+        except subprocess.CalledProcessError as e:
+            raise WorkflowError(
+                "Failed to get singularity version:\n{}".format(e.stderr.decode())
+            )
+        v = v.rsplit(" ", 1)[-1]
+        if v.startswith("v"):
+            v = v[1:]
+        if not LooseVersion(v) >= LooseVersion("2.4.1"):
+            raise WorkflowError("Minimum singularity version is 2.4.1.")
+        self.version = v
