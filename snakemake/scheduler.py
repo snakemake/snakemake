@@ -611,7 +611,7 @@ class JobScheduler:
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
             self.dag._ready_jobs.add(job)
