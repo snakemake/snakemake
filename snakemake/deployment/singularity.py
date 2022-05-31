@@ -31,25 +31,7 @@ class Image:
                 "Invalid singularity image URL containing " "whitespace."
             )
 
-        if not shutil.which("singularity"):
-            raise WorkflowError(
-                "The singularity command has to be "
-                "available in order to use singularity "
-                "integration."
-            )
-        try:
-            v = subprocess.check_output(
-                ["singularity", "--version"], stderr=subprocess.PIPE
-            ).decode()
-        except subprocess.CalledProcessError as e:
-            raise WorkflowError(
-                "Failed to get singularity version:\n{}".format(e.stderr.decode())
-            )
-        v = v.rsplit(" ", 1)[-1]
-        if v.startswith("v"):
-            v = v[1:]
-        if not LooseVersion(v) >= LooseVersion("2.4.1"):
-            raise WorkflowError("Minimum singularity version is 2.4.1.")
+        self.singularity = Singularity()
 
         self.url = url
         self._img_dir = dag.workflow.persistence.container_img_path
@@ -66,6 +48,7 @@ class Image:
         return md5hash.hexdigest()
 
     def pull(self, dryrun=False):
+        self.singularity.check()
         if self.is_local:
             return
         if dryrun:
@@ -150,3 +133,49 @@ def shellcmd(
     )
     logger.debug(cmd)
     return cmd
+
+
+class Singularity:
+    instance = None
+
+    def __new__(cls):
+        if cls.instance is not None:
+            return cls.instance
+        else:
+            inst = super().__new__(cls)
+            cls.instance = inst
+            return inst
+
+    def __init__(self):
+        self.checked = False
+        self._version = None
+
+    @property
+    def version(self):
+        assert (
+            self._version is not None
+        ), "bug: singularity version accessed before check() has been called"
+        return self._version
+
+    def check(self):
+        if not self.checked:
+            if not shutil.which("singularity"):
+                raise WorkflowError(
+                    "The singularity command has to be "
+                    "available in order to use singularity "
+                    "integration."
+                )
+            try:
+                v = subprocess.check_output(
+                    ["singularity", "--version"], stderr=subprocess.PIPE
+                ).decode()
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(
+                    "Failed to get singularity version:\n{}".format(e.stderr.decode())
+                )
+            v = v.rsplit(" ", 1)[-1]
+            if v.startswith("v"):
+                v = v[1:]
+            if not LooseVersion(v) >= LooseVersion("2.4.1"):
+                raise WorkflowError("Minimum singularity version is 2.4.1.")
+            self._version = v

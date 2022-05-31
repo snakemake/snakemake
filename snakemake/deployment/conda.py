@@ -32,7 +32,13 @@ from abc import ABC, abstractmethod
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
+from snakemake.common import (
+    is_local_file,
+    lazy_property,
+    parse_uri,
+    strip_prefix,
+    ON_WINDOWS,
+)
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import (
@@ -65,30 +71,12 @@ class Env:
         container_img=None,
         cleanup=None,
     ):
-        self._conda = Conda(container_img)
-
-        self.file = None
-        self.name = None
-        self.post_deploy_file = None
-        self.pin_file = None
+        self.file = env_file
         if env_file is not None:
             self.file = infer_source_file(env_file)
-
-            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
-                ".post-deploy.sh"
-            )
-            if deploy_file.exists():
-                self.post_deploy_file = infer_source_file(deploy_file)
-
-            pin_file = Path(self.file.get_path_or_uri()).with_suffix(
-                f".{self._conda.platform}.pin.txt"
-            )
-
-            if pin_file.exists():
-                self.pin_file = infer_source_file(pin_file)
+        self.name = env_name
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
-            self.name = env_name
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -108,6 +96,30 @@ class Env:
         self._archive_file = None
         self._cleanup = cleanup
         self._singularity_args = workflow.singularity_args
+
+    @lazy_property
+    def conda(self):
+        return Conda(self._container_img)
+
+    @lazy_property
+    def pin_file(self):
+        pin_file = Path(self.file.get_path_or_uri()).with_suffix(
+            f".{self.conda.platform}.pin.txt"
+        )
+
+        if pin_file.exists():
+            return infer_source_file(pin_file)
+        else:
+            return None
+
+    @lazy_property
+    def post_deploy_file(self):
+        if self.file:
+            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
+                ".post-deploy.sh"
+            )
+            if deploy_file.exists():
+                return infer_source_file(deploy_file)
 
     def _get_content(self):
         if self.is_named:
@@ -334,7 +346,7 @@ class Env:
             )
         )
         shell.check_output(
-            self._conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
             stderr=subprocess.STDOUT,
         )
 
