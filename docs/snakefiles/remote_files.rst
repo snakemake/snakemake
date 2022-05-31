@@ -824,10 +824,9 @@ Avoid creating uploads with too many files, and instead group and zip them to ma
 
     # let Snakemake assert the presence of the required environment variable
     envvars:
-        "MYZENODO_PAT"
+        "ZENODO_ACCESS_TOKEN"
 
-    access_token = os.environ["MYZENODO_PAT"]
-    zenodo = RemoteProvider(deposition="your deposition id", access_token=access_token)
+    zenodo = RemoteProvider(deposition="your deposition id", access_token=os.environ["ZENODO_ACCESS_TOKEN"])
 
     rule upload:
         input:
@@ -841,11 +840,46 @@ Avoid creating uploads with too many files, and instead group and zip them to ma
 It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
 Using sandbox environment requires setting up sandbox account with its personal access token.
 
-Auto
-====
+Restricted access
+-----------------
+If you need to access a deposition with restricted access, you have to additionally provide a ``restricted_access_token``.
+This can be obtained from the restricted access URL that Zenodo usually sends you via email once restricted access to a deposition (requested via the web interface) has been granted by the owner.
+Let ``
+https://zenodo.org/record/000000000?token=dlksajdlkjaslnflkndlfnjnn`` be the URL provided by Zenodo.
+Then, the ``restricted_access_token`` is ``dlksajdlkjaslnflkndlfnjnn``, and it can be used as follows:
+
+.. code-block:: python
+
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "ZENODO_ACCESS_TOKEN",
+        "ZENODO_RESTRICTED_ACCESS_TOKEN"
+
+    zenodo = RemoteProvider(
+        deposition="your deposition id",
+        access_token=os.environ["ZENODO_ACCESS_TOKEN"],
+        restricted_access_token=os.environ["ZENODO_RESTRICTED_ACCESS_TOKEN"]
+    )
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+Auto remote provider
+====================
 
 A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
-It removes some of the boilerplate code required to download remote files from various providers:
+It removes some of the boilerplate code required to download remote files from various providers.
+The auto remote provider only works for those which do not require the passing of keyword arguments to the 
+``RemoteProvider`` object.
 
 .. code-block:: python
 

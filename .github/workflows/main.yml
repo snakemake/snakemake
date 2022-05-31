@@ -54,6 +54,7 @@ jobs:
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
+          conda config --set channel_priority strict
           conda install -c conda-forge -q mamba
           # ensure that mamba is happy to write into the cache
           sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
@@ -197,6 +198,7 @@ jobs:
 
       - name: Setup Snakemake environment
         run: |
+          conda config --set channel_priority strict
           conda install -q --name base mamba
           mamba env update -q --file test-environment.yml
 
