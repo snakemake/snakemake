@@ -608,7 +608,7 @@ class Paramspace:
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
 
-    The exact behavior can be tweaked with two parameters:
+    The exact behavior can be tweaked with three parameters:
 
       - ``filename_params`` takes a list of column names of the passed dataframe.
         These names are used to build the filename (separated by '_') in the order
@@ -622,16 +622,26 @@ class Paramspace:
         If ``filename_params="*"``, all columns of the dataframe are encoded into
         the filename instead of parent directories.
 
-      - ``param_sep`` takes a string that is used to join the column name and
+      - ``param_sep`` takes a string which is used to join the column name and
         column value in the generated paths (Default: '~'). Example:
 
         | ``Paramspace(df, param_sep=":")`` ->
         | column1:{value1}/column2:{value2}/column3:{value3}/column4:{value4}
+
+      - ``filename_sep`` takes a string which is used to join the parameter
+        entries listed in ``filename_params`` in the generated paths
+        (Default: '_'). Example:
+
+        | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
+        | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
     """
 
-    def __init__(self, dataframe, filename_params=None, param_sep="~"):
+    def __init__(
+        self, dataframe, filename_params=None, param_sep="~", filename_sep="_"
+    ):
         self.dataframe = dataframe
         self.param_sep = param_sep
+        self.filename_sep = filename_sep
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -653,7 +663,7 @@ class Paramspace:
             self.pattern = "/".join(
                 [r"{}"] * (len(self.dataframe.columns) - len(filename_params) + 1)
             )
-            self.pattern = "_".join(
+            self.pattern = self.filename_sep.join(
                 [self.pattern] + [r"{}"] * (len(filename_params) - 1)
             )
             self.ordered_columns = [
@@ -683,10 +693,10 @@ class Paramspace:
             self.pattern.format(
                 *(
                     self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row.items()
+                    for name, value in row._asdict().items()
                 )
             )
-            for index, row in self.dataframe.iterrows()
+            for row in self.dataframe.itertuples(index=False)
         )
 
     def instance(self, wildcards):

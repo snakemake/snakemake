@@ -1,0 +1,14 @@
+module mod1:
+    snakefile:
+        "module1/Snakefile"
+    prefix:
+        "test/"
+
+
+use rule * from mod1 as mod1_*
+
+
+rule all:
+    input:
+        rules.mod1_all.input,
+    default_target: True

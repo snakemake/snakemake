@@ -5,7 +5,7 @@ Reports
 -------
 
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
-**A realistic example report from a real workflow can be found** `here <https://koesterlab.github.io/resources/report.html>`_.
+**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`_.
 
 For including results into the report, the Snakefile has to be annotated with additional information.
 Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.

@@ -351,9 +351,9 @@ Resources must be ``int`` or ``str`` values. Note that you are free to choose an
 Resources can also be callables that return ``int`` or ``str`` values.
 The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
-The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
-When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
+When Snakemake is executed with ``--retries 3``, it will try to restart a failed job 3 times before it gives up.
 Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
 This can be used to adjust the required memory as follows
 
@@ -999,10 +999,20 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+.. _snakefiles-directory_output:
+
 Directories as outputs
 ----------------------
 
-Sometimes it can be convenient to have directories, rather than files, as outputs of a rule. As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. Another reason comes down to how modification time for directories work. The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
+Sometimes it can be convenient to have directories, rather than files, as outputs of a rule.
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. 
+This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. 
+Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. 
+Another reason comes down to how modification time for directories work. 
+The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. 
+This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. 
+When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. 
+Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
 
 .. code-block:: python
 
@@ -1033,6 +1043,61 @@ The timestamp of such files is ignored and always assumed to be older than any o
 
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
+
+.. _snakefiles_ensure::
+
+Ensuring output file properties like non-emptyness or checksum compliance
+-------------------------------------------------------------------------
+
+It is possible to annotate certain additional criteria for output files to be ensured after they have been generated successfully.
+For example, this can be used to check for output files to be non-empty, or to compare them against a given sha256 checksum.
+If this functionality is used, Snakemake will check such annotated files before considering a job to be successfull.
+Non-emptyness can be checked as follows:
+
+.. code-block:: python
+
+    rule NAME:
+        output:
+            ensure("test.txt", non_empty=True)
+        shell:
+            "somecommand {output}"
+
+Above, the output file ``test.txt`` is marked as non-empty.
+If the command ``somecommand`` happens to generate an empty output,
+the job will fail with an error listing the unexpected empty file.
+
+A sha256 checksum can be compared as follows:
+
+.. code-block:: python
+
+    my_checksum = "u98a9cjsd98saud090923ßkpoasköf9ß32"
+
+    rule NAME:
+        output:
+            ensure("test.txt", sha256=my_checksum)
+        shell:
+            "somecommand {output}"
+
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`). 
+The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
+
+.. code-block:: python
+
+    def get_checksum(wildcards):
+        # e.g., look up the checksum with the value of the wildcard sample
+        # in some dictionary
+        return my_checksums[wildcards.sample]
+
+    rule NAME:
+        output:
+            ensure("test/{sample}.txt", sha256=get_checksum)
+        shell:
+            "somecommand {output}"
+
+
+Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
+
+Often, it is a good idea to combine ``ensure`` annotations with :ref:`retry definitions <snakefiles_retries>`, e.g. for retrying upon invalid checksums or empty files.
 
 Shadow rules
 ------------
@@ -1066,6 +1131,32 @@ and are cleared on successful execution.
 Consider running with the ``--cleanup-shadow`` argument every now and then
 to remove any remaining shadow directories from aborted jobs.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+
+.. _snakefiles_retries:
+
+Defining retries for fallible rules
+-----------------------------------
+
+Sometimes, rules may be expected to fail occasionally.
+For example, this can happen when a rule downloads some online resources.
+For such cases, it is possible to defined a number of automatic retries for each job from that particular rule via the ``retries`` directive:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        retries: 3
+        shell:
+            "curl https://some.unreliable.server/test.txt > {output}"
+
+Often, it is a good idea to combine retry functionality with :ref:`ensure annotations <snakefiles_ensure>`, e.g. for retrying upon invalid checksums or empty files.
+
+Note that it is also possible to define retries globally (via the ``--retries`` command line option, see :ref:`all_options`).
+The local definition of the rule thereby overwrites the global definition.
+
+Importantly the ``retries`` directive is meant to be used for defining platform independent behavior (like adding robustness to above download command).
+For dealing with unreliable cluster or cloud systems, you should use the ``--retries`` command line option.
 
 Flag files
 ----------
@@ -1865,8 +1956,62 @@ Instead, the output file will be opened, and depending on its contents either ``
 This way, the DAG becomes conditional on some produced data.
 
 It is also possible to use checkpoints for cases where the output files are unknown before execution.
-A typical example is a clustering process with an unknown number of clusters, where each cluster shall be saved into a separate file.
-Consider the following example:
+Consider the following example where an arbitrary number of files is generated by a rule before being aggregated:
+
+.. code-block:: python
+
+  # a target rule to define the desired final output
+  rule all:
+      input:
+          "aggregated.txt"
+
+
+  # the checkpoint that shall trigger re-evaluation of the DAG
+  # an number of file is created in a defined directory
+  checkpoint somestep:
+      output:
+          directory("my_directory/")
+      shell:
+          "mkdir my_directory/;"
+          "for i in 1 2 3; do touch $i.txt; done"
+
+
+  # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+  def aggregate_input(wildcards):
+      checkpoint_output = checkpoints.export_sequences.get(**wildcards).output[0]
+      return expand("my_directory/{i}.txt",
+                    i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+
+
+  rule aggregate:
+      input:
+          aggregate_input
+      output:
+          "aggegated.txt"
+      shell:
+          "cat {input} > {output}"
+
+Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
+This time, instead of explicitly writing
+
+.. code-block:: python
+
+  checkpoints.clustering.get(sample=wildcards.sample).output[0]
+
+we use the shorthand
+
+.. code-block:: python
+
+  checkpoints.clustering.get(**wildcards).output[0]
+
+which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
+If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
+Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
+Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
+Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
+
+A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
+In this example the clusters are being processed by an intermediate rule before being aggregated:
 
 .. code-block:: python
 
@@ -1914,27 +2059,9 @@ Consider the following example:
       shell:
           "cat {input} > {output}"
 
-Here, our checkpoint simulates a clustering.
-We pretend that the number of clusters is unknown beforehand.
-Hence, the checkpoint only defines an output ``directory``.
-The rule ``aggregate`` again uses the ``checkpoints`` object to retrieve the output of the checkpoint.
-This time, instead of explicitly writing
-
-.. code-block:: python
-
-  checkpoints.clustering.get(sample=wildcards.sample).output[0]
-
-we use the shorthand
-
-.. code-block:: python
-
-  checkpoints.clustering.get(**wildcards).output[0]
-
-which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
-If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensure that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
-Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
-Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
-These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
+Here a new directory will be created for each sample by the checkpoint.
+After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously. 
+The values of the wildcard ``i`` is this time used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
 
 .. _snakefiles-rule-inheritance:

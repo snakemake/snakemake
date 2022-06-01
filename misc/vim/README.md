@@ -12,3 +12,7 @@ To manually install, copy `syntax/snakemake.vim` file to `$HOME/.vim/syntax`
 directory and `ftdetect/snakemake.vim` file to `$HOME/.vim/ftdetect`.
 
 Highlighting can be forced in a vim session with `:set syntax=snakemake`.
+
+By default, all rules will be folded.  To unfold all levels, use `zR`.  `zM`
+will refold all levels.  If you'd like to change the default, add
+`set nofoldenable` to your `.vimrc`.  To learn more, see `:h fold`.
