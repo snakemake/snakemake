@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
@@ -227,7 +228,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     """Create an HTML report using python docutils.
 
@@ -284,7 +285,7 @@ def report(
         defaultenc=defaultenc,
         template=template,
         metadata=metadata,
-        **files
+        **files,
     )
 
 
@@ -597,6 +598,21 @@ def find_bash_on_windows():
         except FileNotFoundError:
             bashcmd = ""
     return bashcmd if os.path.exists(bashcmd) else None
+
+
+def invert_resource_scope_dict(resource_scopes):
+    """Convert dict mapping resource -> scope into a dict mapping scope -> resources"""
+    scopes = DefaultDict(set)
+    for resource, scope in resource_scopes.items():
+        if scope in ["local", "global"]:
+            scopes[scope].add(resource)
+        else:
+            raise ValueError(
+                f"scope of '{resource}' must be one of 'local' or 'global' (got "
+                f"{scope})",
+                f"{resource}={scope}",
+            )
+    return scopes
 
 
 class Paramspace:

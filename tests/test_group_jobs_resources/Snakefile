@@ -1,5 +1,8 @@
 samples = [1,2,3,4,5]
 
+resource_scopes:
+    fake_res="local",
+    mem_mb="global",
 
 rule all:
     input:
@@ -14,6 +17,7 @@ rule a:
     resources:
         mem_mb=20000,
         fake_res=400,
+        global_res=1000,
         runtime=80,
     shell:
         "touch {output}"
@@ -26,6 +30,8 @@ rule a_1:
     resources:
         mem_mb=40000,
         runtime=40,
+        fake_res=200,
+        global_res=1000,
     shell:
         "touch {output}"
 

@@ -573,7 +573,7 @@ class JobScheduler:
         pass
 
     def _free_resources(self, job):
-        for name, value in job.local_resources.items():
+        for name, value in job.scheduler_resources.items():
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
@@ -685,7 +685,7 @@ class JobScheduler:
                 sum([size_gb(temp_file) for temp_file in temp_files]), 1
             )
             total_core_requirement = sum(
-                [max(job.local_resources.get("_cores", 1), 1) for job in jobs]
+                [max(job.scheduler_resources.get("_cores", 1), 1) for job in jobs]
             )
             # Objective function
             # Job priority > Core load
@@ -701,7 +701,7 @@ class JobScheduler:
                 * total_temp_size
                 * lpSum(
                     [
-                        max(job.local_resources.get("_cores", 1), 1)
+                        max(job.scheduler_resources.get("_cores", 1), 1)
                         * scheduled_jobs[job]
                         for job in jobs
                     ]
@@ -726,7 +726,7 @@ class JobScheduler:
                 prob += (
                     lpSum(
                         [
-                            scheduled_jobs[job] * job.local_resources.get(name, 0)
+                            scheduled_jobs[job] * job.scheduler_resources.get(name, 0)
                             for job in jobs
                         ]
                     )
@@ -776,7 +776,7 @@ class JobScheduler:
 
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
-                [job.local_resources.get(name, 0) for job in selected_jobs]
+                [job.scheduler_resources.get(name, 0) for job in selected_jobs]
             )
         return selected_jobs
 
@@ -895,7 +895,7 @@ class JobScheduler:
         ]
 
     def job_weight(self, job):
-        res = job.local_resources
+        res = job.scheduler_resources
         return [
             self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]

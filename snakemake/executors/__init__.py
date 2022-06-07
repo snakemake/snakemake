@@ -109,6 +109,22 @@ class AbstractExecutor:
         default_resources = default_resources or self.workflow.default_resources
         return format_cli_arg("--default-resources", default_resources.args)
 
+    def get_resource_scopes_args(self):
+        return format_cli_arg(
+            "--set-resource-scopes",
+            self.workflow.overwrite_resource_scopes
+        )
+
+    def get_resource_declarations(self, job):
+        resources = [
+            f"{resource}={value}"
+            for resource, value in job.resources.items()
+            if isinstance(value, int)
+            and resource not in ["_nodes", "_cores", "runtime"]
+        ]
+        return format_cli_arg("--resources", resources)
+
+
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
 
@@ -318,6 +334,7 @@ class RealExecutor(AbstractExecutor):
                 self.get_set_resources_args(),
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_resource_scopes_args(),
                 self.get_workdir_arg(),
                 format_cli_arg("--mode", self.get_exec_mode()),
             ]
@@ -368,10 +385,6 @@ class RealExecutor(AbstractExecutor):
 
     @abstractmethod
     def get_envvar_declarations(self):
-        ...
-
-    @abstractmethod
-    def get_resource_declarations(self, job):
         ...
 
     def get_job_exec_prefix(self, job):
@@ -757,15 +770,6 @@ class ClusterExecutor(RealExecutor):
             )
         else:
             return ""
-
-    def get_resource_declarations(self, job):
-        resources = [
-            f"{resource}={value}"
-            for resource, value in job.resources.items()
-            if isinstance(value, int)
-            and resource not in ["_nodes", "_cores", "runtime"]
-        ]
-        return format_cli_arg("--resources", resources)
 
     def get_python_executable(self):
         return sys.executable if self.assume_shared_fs else "python"

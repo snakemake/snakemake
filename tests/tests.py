@@ -951,14 +951,15 @@ def test_group_jobs_resources(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.items()) == {
-        ("_nodes", 1),
-        ("_cores", 6),
-        ("runtime", 420),
-        ("tmpdir", "/tmp"),
-        ("mem_mb", 60000),
-        ("fake_res", 400),
-        ("disk_mb", 2000),
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 6,
+        "runtime": 420,
+        "tmpdir": "/tmp",
+        "mem_mb": 60000,
+        "fake_res": 600,
+        "global_res": 2000,
+        "disk_mb": 2000,
     }
 
 
@@ -974,14 +975,15 @@ def test_group_jobs_resources_with_max_threads(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.items()) == {
-        ("_nodes", 1),
-        ("_cores", 5),
-        ("runtime", 380),
-        ("tmpdir", "/tmp"),
-        ("mem_mb", 60000),
-        ("fake_res", 1200),
-        ("disk_mb", 3000),
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 5,
+        "runtime": 380,
+        "tmpdir": "/tmp",
+        "mem_mb": 60000,
+        "fake_res": 1200,
+        "global_res": 3000,
+        "disk_mb": 3000,
     }
 
 
@@ -997,19 +999,22 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.items()) == {
-        ("_nodes", 1),
-        ("_cores", 1),
-        ("runtime", 700),
-        ("tmpdir", "/tmp"),
-        ("mem_mb", 10000),
-        ("fake_res", 400),
-        ("disk_mb", 1000),
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 1,
+        "runtime": 700,
+        "tmpdir": "/tmp",
+        "mem_mb": 10000,
+        "fake_res": 400,
+        "global_res": 1000,
+        "disk_mb": 1000,
     }
 
 
 @skip_on_windows
-def test_multiple_group_jobs_submit_ignoring_resource_constraints():
+def test_global_resource_limits_limit_scheduling_of_groups():
+    # Note that in the snakefile, mem_mb is set as global (breaking the default) and
+    # fake_res is set as local
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1017,7 +1022,30 @@ def test_multiple_group_jobs_submit_ignoring_resource_constraints():
         cores=6,
         nodes=5,
         cleanup=False,
-        resources={"typo": 23, "mem_mb": 50000},
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 1
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_new_resources_can_be_defined_as_local():
+    # Test only works if both mem_mb and global_res are overwritten as local
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
+        overwrite_resource_scopes={"local": {"mem_mb", "global_res"}},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1026,6 +1054,29 @@ def test_multiple_group_jobs_submit_ignoring_resource_constraints():
     with (Path(tmp) / "qsub.log").open("r") as f:
         lines = [l for l in f.readlines() if not l == "\n"]
     assert len(lines) == 2
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_resources_can_be_overwritten_as_global():
+    # Test only works if both mem_mb and global_res are overwritten as local
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
+        overwrite_resource_scopes={"global": {"fake_res"}},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 1
     shutil.rmtree(tmp)
 
 
@@ -1042,13 +1093,13 @@ def test_group_job_resources_with_pipe(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.items()) == {
-        ("_nodes", 1),
-        ("_cores", 4),
-        ("runtime", 280),
-        ("tmpdir", "/tmp"),
-        ("mem_mb", 50000),
-        ("disk_mb", 1000),
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 4,
+        "runtime": 280,
+        "tmpdir": "/tmp",
+        "mem_mb": 50000,
+        "disk_mb": 1000,
     }
 
 

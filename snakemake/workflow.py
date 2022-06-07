@@ -9,6 +9,7 @@ import sys
 import signal
 import json
 from tokenize import maybe
+from typing import DefaultDict
 import urllib
 from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
@@ -60,7 +61,7 @@ from snakemake.io import (
     sourcecache_entry,
 )
 from snakemake.persistence import Persistence
-from snakemake.utils import update_config
+from snakemake.utils import update_config, invert_resource_scope_dict
 from snakemake.script import script
 from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
@@ -112,6 +113,7 @@ class Workflow:
         overwrite_scatter=None,
         overwrite_groups=None,
         overwrite_resources=None,
+        overwrite_resource_scopes=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -229,6 +231,9 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.overwrite_resource_scopes = overwrite_resource_scopes or dict()
+        self.local_resourcescopes = {"mem_mb", "disk_mb"}
+        self._update_local_resourcescope(self.overwrite_resource_scopes)
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
@@ -572,7 +577,6 @@ class Workflow:
         keepincomplete=False,
         containerize=False,
     ):
-
         self.check_localrules()
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
@@ -1241,6 +1245,17 @@ class Workflow:
         for key in content:
             setattr(self.globals["scatter"], key, func)
             setattr(self.globals["gather"], key, func)
+
+    def resourcescope(self, **content):
+        """Register resource scope defaults"""
+        scopes = invert_resource_scope_dict(content)
+        self._update_local_resourcescope(scopes)
+        self._update_local_resourcescope(self.overwrite_resource_scopes)
+
+    def _update_local_resourcescope(self, scopes):
+        self.local_resourcescopes = (
+            self.local_resourcescopes - scopes.get("global", set())
+        ) | scopes.get("local", set())
 
     def workdir(self, workdir):
         """Register workdir."""

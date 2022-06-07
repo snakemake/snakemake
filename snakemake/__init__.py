@@ -25,7 +25,11 @@ from snakemake.exceptions import print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
-from snakemake.utils import update_config, available_cpu_count
+from snakemake.utils import (
+    update_config,
+    available_cpu_count,
+    invert_resource_scope_dict,
+)
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
 from snakemake.resources import parse_resources, DefaultResources
 
@@ -58,6 +62,7 @@ def snakemake(
     resources=dict(),
     overwrite_threads=None,
     overwrite_scatter=None,
+    overwrite_resource_scopes=None,
     default_resources=None,
     overwrite_resources=None,
     config=dict(),
@@ -567,6 +572,7 @@ def snakemake(
             overwrite_scatter=overwrite_scatter,
             overwrite_groups=overwrite_groups,
             overwrite_resources=overwrite_resources,
+            overwrite_resource_scopes=overwrite_resource_scopes,
             group_components=group_components,
             config_args=config_args,
             debug=debug,
@@ -638,6 +644,7 @@ def snakemake(
                     overwrite_threads=overwrite_threads,
                     overwrite_scatter=overwrite_scatter,
                     overwrite_resources=overwrite_resources,
+                    overwrite_resource_scopes=overwrite_resource_scopes,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -870,6 +877,24 @@ def parse_set_scatter(args):
         "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
         "(with SCATTERITEMS being a positive integer).",
     )
+
+
+def parse_set_resource_scope(args):
+    err_msg = (
+        "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE pairs, "
+        "where SCOPE is either 'local' or 'global'"
+    )
+    if args.set_resource_scopes is not None:
+        scopes = dict(
+            parse_key_value_arg(entry, errmsg=err_msg)
+            for entry in args.set_resource_scopes
+        )
+        try:
+            return invert_resource_scope_dict(scopes)
+        except ValueError as err:
+            raise ValueError(f"{err_msg} (got {err.args[1]})")
+
+    return {}
 
 
 def parse_set_ints(arg, errmsg):
@@ -1201,6 +1226,12 @@ def get_argument_parser(profile=None):
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
         "the name of the scattergather process defined via a scattergather directive in the workflow.",
+    )
+    group_exec.add_argument(
+        "--set-resource-scopes",
+        metavar="RESOURCE=[global|local]",
+        nargs="+",
+        help="TBD",
     )
     group_exec.add_argument(
         "--default-resources",
@@ -2505,6 +2536,7 @@ def main(argv=None):
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
         overwrite_resources = parse_set_resources(args)
+        overwrite_resource_scopes = parse_set_resource_scope(args)
 
         overwrite_scatter = parse_set_scatter(args)
 
@@ -2849,6 +2881,7 @@ def main(argv=None):
             overwrite_scatter=overwrite_scatter,
             default_resources=default_resources,
             overwrite_resources=overwrite_resources,
+            overwrite_resource_scopes=overwrite_resource_scopes,
             config=config,
             configfiles=args.configfile,
             config_args=args.config,

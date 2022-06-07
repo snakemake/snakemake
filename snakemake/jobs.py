@@ -83,6 +83,23 @@ class AbstractJob:
         raise NotImplementedError()
 
 
+def _get_scheduler_resources(job):
+    if job._scheduler_resources is None:
+        if job.dag.workflow.run_local or job.is_local:
+            job._scheduler_resources = job.resources
+        else:
+            job._scheduler_resources = Resources(
+                fromdict={
+                    k: job.resources[k]
+                    for k in (
+                        set(job.resources.keys())
+                        - job.dag.workflow.local_resourcescopes
+                    )
+                }
+            )
+    return job._scheduler_resources
+
+
 class JobFactory:
     def __init__(self):
         self.cache = dict()
@@ -200,7 +217,7 @@ class Job(AbstractJob):
         self._benchmark = None
         self._resources = None
         self._conda_env_spec = None
-        self._local_resources = None
+        self._scheduler_resources = None
         self._conda_env = None
         self._group = None
 
@@ -348,18 +365,8 @@ class Job(AbstractJob):
         return self._resources
 
     @property
-    def local_resources(self):
-        if self._local_resources is None:
-            if self.dag.workflow.run_local or self.is_local:
-                self._local_resources = self.resources
-            else:
-                self._local_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in {"_cores", "_nodes"} & {*self.resources.keys()}
-                    }
-                )
-        return self._local_resources
+    def scheduler_resources(self):
+        return _get_scheduler_resources(self)
 
     def reset_params_and_resources(self):
         if not self._params_and_resources_resetted:
@@ -1195,7 +1202,7 @@ class GroupJob(AbstractJob):
         self.global_resources = global_resources
         self.toposorted = None
         self._resources = None
-        self._local_resources = None
+        self._scheduler_resources = None
         self._input = None
         self._output = None
         self._log = None
@@ -1372,18 +1379,8 @@ class GroupJob(AbstractJob):
         return Resources(fromdict=self._resources)
 
     @property
-    def local_resources(self):
-        if self._local_resources is None:
-            if self.is_local:
-                self._local_resources = self.resources
-            else:
-                self._local_resources = Resources(
-                    fromdict={
-                        k: self.resources[k]
-                        for k in {"_cores", "_nodes"} & {*self.resources.keys()}
-                    }
-                )
-        return self._local_resources
+    def scheduler_resources(self):
+        return _get_scheduler_resources(self)
 
     @property
     def input(self):
