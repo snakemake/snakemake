@@ -1231,7 +1231,14 @@ def get_argument_parser(profile=None):
         "--set-resource-scopes",
         metavar="RESOURCE=[global|local]",
         nargs="+",
-        help="TBD",
+        help="Overwrite resource scopes. A scope determines how a constraint is "
+        "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
+        "RESOURCE using --resources will be considered the limit for each group "
+        "submission. With RESOURCE=global, the constraint will apply across all groups "
+        "cumulatively. By default, only `mem_mb` and `disk_mb` are considered local, "
+        "all other resources are global. This may be modified in the snakefile using "
+        "the `resource_scopes:` directive. Note that number of threads, specified via "
+        "--cores, is always considered local.",
     )
     group_exec.add_argument(
         "--default-resources",
