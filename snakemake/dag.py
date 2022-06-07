@@ -1157,7 +1157,6 @@ class DAG:
                     # depending jobs of jobs that are needrun as a prior
                     # can be skipped
                     continue
-
                 if update_needrun(job):
                     queue.append(job)
                     masked.update(self.bfs(self.depending, job))
@@ -1530,6 +1529,8 @@ class DAG:
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
         if updated:
+            # reset job reasons to ensure that they are properly re-evaluated
+            self._reason.clear()
             self.postprocess()
         return updated
 
