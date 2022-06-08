@@ -1129,24 +1129,24 @@ class Rule:
             conda_env, _ = self.apply_input_function(
                 self._conda_env, wildcards=wildcards, params=params, input=input
             )
-        else:
-            if (
-                conda_env is not None
-                and is_conda_env_file(conda_env)
-                and is_local_file(conda_env)
-                and not os.path.isabs(conda_env)
-            ):
-                conda_env = self.basedir.join(conda_env).get_path_or_uri()
 
-            try:
-                conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
-            except WildcardError as e:
-                raise WildcardError(
-                    "Wildcards in conda environment file cannot be "
-                    "determined from output files:",
-                    str(e),
-                    rule=self,
-                )
+        if (
+            conda_env is not None
+            and is_conda_env_file(conda_env)
+            and is_local_file(conda_env)
+            and not os.path.isabs(conda_env)
+        ):
+            conda_env = self.basedir.join(conda_env).get_path_or_uri()
+
+        try:
+            conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
+        except WildcardError as e:
+            raise WildcardError(
+                "Wildcards in conda environment file cannot be "
+                "determined from output files:",
+                str(e),
+                rule=self,
+            )
 
         if is_conda_env_file(conda_env):
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
