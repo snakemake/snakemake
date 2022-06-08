@@ -1122,9 +1122,10 @@ class Rule:
             CondaEnvNameSpec,
         )
 
-        if callable(self._conda_env):
+        conda_env = self._conda_env
+        if callable(conda_env):
             conda_env, _ = self.apply_input_function(
-                self._conda_env, wildcards=wildcards, params=params, input=input
+                conda_env, wildcards=wildcards, params=params, input=input
             )
 
         if (
