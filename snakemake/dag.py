@@ -1529,8 +1529,6 @@ class DAG:
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
         if updated:
-            # reset job reasons to ensure that they are properly re-evaluated
-            self._reason.clear()
             self.postprocess()
         return updated
 
@@ -1704,10 +1702,11 @@ class DAG:
             if not depending and recursive:
                 self.delete_job(job_)
         del self.dependencies[job]
+        if job in self._reason:
+            del self._reason[job]
         if job in self._needrun:
             self._len -= 1
             self._needrun.remove(job)
-            del self._reason[job]
         if job in self._finished:
             self._finished.remove(job)
         if job in self._dynamic:
