@@ -367,9 +367,6 @@ class Rule:
 
     @property
     def conda_env(self):
-        if self._conda_env is None:
-            raise RuntimeError("Conda env has not been expanded")
-
         return self._conda_env
 
     @conda_env.setter
