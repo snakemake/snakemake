@@ -89,18 +89,26 @@ def test_paramspace_one_simulation_beta(df):
         params=spc.instance_patterns,
     )
 
-    assert obs[0] == "results/one/simulations/alpha~1.0/gamma~0.99/beta~0.1.tsv"
+    assert obs[0] == "results/one/simulations/alpha~1/gamma~0.99/beta~0.1.tsv"
 
 
-def test_paramspace_one_simulation_beta_strict(df):
+def test_paramspace_one_simulation_beta_nonstrict(df):
 
-    spc = Paramspace(df, filename_params=["beta"], types_strict=True)
+    spc = Paramspace(df, filename_params=["beta"], types_strict=False)
     obs = expand(
         "results/one/simulations/{params}.tsv",
         params=spc.instance_patterns,
     )
 
-    assert obs[0] == "results/one/simulations/alpha~1/gamma~0.99/beta~0.1.tsv"
+    assert obs[0] == "results/one/simulations/alpha~1.0/gamma~0.99/beta~0.1.tsv"
+
+
+def test_paramspace_one_simulation_beta_wcpattern(df):
+
+    spc = Paramspace(df, filename_params=["beta"])
+
+    assert spc.wildcard_pattern != None
+    assert spc.instance != None
 
 
 def test_paramspace_one_simulation_delta_special(sdf):
@@ -114,9 +122,9 @@ def test_paramspace_one_simulation_delta_special(sdf):
     assert obs[0] == "results/one/simulations/alpha~1/beta~0.1/gamma~0.99/delta~foo.tsv"
 
 
-def test_paramspace_one_simulation_delta_special_strict(sdf):
+def test_paramspace_one_simulation_delta_special_nonstrict(sdf):
 
-    spc = Paramspace(sdf, filename_params=["delta"], types_strict=True)
+    spc = Paramspace(sdf, filename_params=["delta"], types_strict=False)
     obs = expand(
         "results/one/simulations/{params}.tsv",
         params=spc.instance_patterns,
@@ -133,8 +141,8 @@ def test_paramspace_two_simulation_beta_gamma(df):
         params=spc.instance_patterns,
     )
 
-    assert obs[0] == "results/two/simulations/alpha~1.0/beta~0.1_gamma~0.99.tsv"
-    assert obs[1] == "results/two/simulations/alpha~2.0/beta~0.0_gamma~3.9.tsv"
+    assert obs[0] == "results/two/simulations/alpha~1/beta~0.1_gamma~0.99.tsv"
+    assert obs[1] == "results/two/simulations/alpha~2/beta~0.0_gamma~3.9.tsv"
 
 
 def test_paramspace_full_reorder_simulation_beta(df):
@@ -146,7 +154,5 @@ def test_paramspace_full_reorder_simulation_beta(df):
         params=spc.instance_patterns,
     )
 
-    assert (
-        obs[0] == "results/full_reorder/simulations/beta~0.1_gamma~0.99_alpha~1.0.tsv"
-    )
-    assert obs[1] == "results/full_reorder/simulations/beta~0.0_gamma~3.9_alpha~2.0.tsv"
+    assert obs[0] == "results/full_reorder/simulations/beta~0.1_gamma~0.99_alpha~1.tsv"
+    assert obs[1] == "results/full_reorder/simulations/beta~0.0_gamma~3.9_alpha~2.tsv"
