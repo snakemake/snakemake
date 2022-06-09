@@ -1137,17 +1137,21 @@ class Rule:
             and not os.path.isabs(conda_env)
         ):
             conda_env = self.basedir.join(conda_env).get_path_or_uri()
-            conda_env = apply_wildcards(conda_env, wildcards) if conda_env else None
-        else:
-            try:
-                conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
-            except WildcardError as e:
-                raise WildcardError(
-                    "Wildcards in conda environment file cannot be "
-                    "determined from output files:",
-                    str(e),
-                    rule=self,
-                )
+
+        try:
+            if conda_env is None:
+                pass
+            elif isinstance(conda_env, str):
+                conda_env = apply_wildcards(conda_env, wildcards)
+            else:
+                conda_env = conda_env.apply_wildcards(wildcards)
+        except WildcardError as e:
+            raise WildcardError(
+                "Wildcards in conda environment file cannot be "
+                "determined from output files:",
+                str(e),
+                rule=self,
+            )
 
         if conda_env is None:
             return None
