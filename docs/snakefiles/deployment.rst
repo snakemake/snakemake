@@ -273,6 +273,9 @@ The path to the environment definition is interpreted as **relative to the Snake
 
 Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
 
+In addition, it is possible to use a callable which returns a ``str`` value.
+The signature of the callable has to be ``callable(wildcards [, params] [, input])`` (``params`` and ``input`` are optional parameters).
+
 .. sidebar:: Note
 
    Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
