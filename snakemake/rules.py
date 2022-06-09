@@ -1139,11 +1139,9 @@ class Rule:
             conda_env = self.basedir.join(conda_env).get_path_or_uri()
 
         try:
-            if conda_env is None:
-                pass
-            elif isinstance(conda_env, str):
+            if isinstance(conda_env, str):
                 conda_env = apply_wildcards(conda_env, wildcards)
-            else:
+            elif conda_env is not None:
                 conda_env = conda_env.apply_wildcards(wildcards)
         except WildcardError as e:
             raise WildcardError(
