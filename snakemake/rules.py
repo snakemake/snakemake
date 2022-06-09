@@ -1146,6 +1146,9 @@ class Rule:
                 rule=self,
             )
 
+        if conda_env is None:
+            return None
+
         if is_conda_env_file(conda_env):
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
         else:
