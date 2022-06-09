@@ -1159,8 +1159,7 @@ class Rule:
         else:
             conda_env = CondaEnvNameSpec(conda_env)
 
-        if conda_env is not None:
-            conda_env.check()
+        conda_env.check()
 
         return conda_env
 
