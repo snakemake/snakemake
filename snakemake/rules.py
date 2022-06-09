@@ -1118,6 +1118,7 @@ class Rule:
     def expand_conda_env(self, wildcards, params=None, input=None):
         from snakemake.io import apply_wildcards
         from snakemake.common import is_local_file
+        from snakemake.sourcecache import SourceFile
         from snakemake.deployment.conda import (
             is_conda_env_file,
             CondaEnvFileSpec,
@@ -1130,7 +1131,9 @@ class Rule:
                 conda_env, wildcards=wildcards, params=params, input=input
             )
 
-        if (
+        if isinstance(conda_env, SourceFile):
+            conda_env = conda_env.get_path_or_uri()
+        elif (
             conda_env is not None
             and is_conda_env_file(conda_env)
             and is_local_file(conda_env)
@@ -1139,10 +1142,8 @@ class Rule:
             conda_env = self.basedir.join(conda_env).get_path_or_uri()
 
         try:
-            if isinstance(conda_env, str):
+            if conda_env is not None:
                 conda_env = apply_wildcards(conda_env, wildcards)
-            elif conda_env is not None:
-                conda_env = conda_env.apply_wildcards(wildcards)
         except WildcardError as e:
             raise WildcardError(
                 "Wildcards in conda environment file cannot be "
