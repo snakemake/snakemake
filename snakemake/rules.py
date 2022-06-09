@@ -1116,6 +1116,7 @@ class Rule:
             return self.group
 
     def expand_conda_env(self, wildcards, params=None, input=None):
+        from snakemake.common import is_local_file
         from snakemake.deployment.conda import (
             is_conda_env_file,
             CondaEnvFileSpec,
