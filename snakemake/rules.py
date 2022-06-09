@@ -1116,6 +1116,7 @@ class Rule:
             return self.group
 
     def expand_conda_env(self, wildcards, params=None, input=None):
+        from snakemake.io import apply_wildcards
         from snakemake.common import is_local_file
         from snakemake.deployment.conda import (
             is_conda_env_file,
@@ -1136,16 +1137,17 @@ class Rule:
             and not os.path.isabs(conda_env)
         ):
             conda_env = self.basedir.join(conda_env).get_path_or_uri()
-
-        try:
-            conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
-        except WildcardError as e:
-            raise WildcardError(
-                "Wildcards in conda environment file cannot be "
-                "determined from output files:",
-                str(e),
-                rule=self,
-            )
+            conda_env = apply_wildcards(conda_env, wildcards) if conda_env else None
+        else:
+            try:
+                conda_env = conda_env.apply_wildcards(wildcards) if conda_env else None
+            except WildcardError as e:
+                raise WildcardError(
+                    "Wildcards in conda environment file cannot be "
+                    "determined from output files:",
+                    str(e),
+                    rule=self,
+                )
 
         if conda_env is None:
             return None
