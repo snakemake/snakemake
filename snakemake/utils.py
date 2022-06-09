@@ -652,7 +652,7 @@ class Paramspace:
         filename_params=None,
         param_sep="~",
         filename_sep="_",
-        types_strict=False,
+        types_strict=True,
     ):
         self.dataframe = dataframe
         self.param_sep = param_sep
@@ -708,10 +708,10 @@ class Paramspace:
         typedict = dict(self.dataframe.dtypes)
 
         def _convert(n, v):
-            if not self.types_strict:
-                return v
-            else:
+            if self.types_strict:
                 return typedict[n].type(v)
+            else:
+                return v
 
         return (
             self.pattern.format(
