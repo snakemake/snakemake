@@ -532,13 +532,18 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None:
+        if self.conda_env is not None and ON_WINDOWS:
+            prefix = self.conda_env
+        elif self.conda_env is not None:
             prefix = os.path.join(self.conda_env, "bin")
         elif self.env_modules is not None:
             prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
             raise NotImplementedError()
-        return os.path.exists(os.path.join(prefix, "python"))
+        if not ON_WINDOWS:
+            return os.path.exists(os.path.join(prefix, "python"))
+        else:
+            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
         out = self._execute_cmd(
