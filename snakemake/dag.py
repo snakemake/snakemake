@@ -579,6 +579,12 @@ class DAG:
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
+        if isinstance(ignore_missing_output, list):
+            expanded_output = [
+                f for f in expanded_output if f not in ignore_missing_output
+            ]
+            ignore_missing_output = []
+
         if not ignore_missing_output:
             try:
                 wait_for_files(

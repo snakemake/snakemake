@@ -1461,6 +1461,21 @@ class GroupJob(AbstractJob):
             job.cleanup()
 
     def postprocess(self, error=False, **kwargs):
+        def needed(job_, f):
+            return any(
+                f in files
+                for j, files in self.dag.depending[job_].items()
+                if (
+                    not self.dag.finished(j)
+                    and self.dag.needrun(j)
+                    and j not in self.jobs
+                )
+            ) or f in self.dag.targetfiles
+
+        kwargs["ignore_missing_output"] = [
+            f for j in self.jobs for f in j.output
+            if is_flagged(f, "temp") and not needed(j, f)
+        ]
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
         for level in self.toposorted:
