@@ -1987,7 +1987,7 @@ Consider the following example where an arbitrary number of files is generated b
       input:
           aggregate_input
       output:
-          "aggegated.txt"
+          "aggregated.txt"
       shell:
           "cat {input} > {output}"
 
