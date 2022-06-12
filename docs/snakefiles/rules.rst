@@ -1978,7 +1978,7 @@ Consider the following example where an arbitrary number of files is generated b
 
   # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
   def aggregate_input(wildcards):
-      checkpoint_output = checkpoints.export_sequences.get(**wildcards).output[0]
+      checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
       return expand("my_directory/{i}.txt",
                     i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
 
