@@ -111,8 +111,7 @@ class AbstractExecutor:
 
     def get_resource_scopes_args(self):
         return format_cli_arg(
-            "--set-resource-scopes",
-            self.workflow.overwrite_resource_scopes
+            "--set-resource-scopes", self.workflow.overwrite_resource_scopes
         )
 
     def get_resource_declarations(self, job):
@@ -123,7 +122,6 @@ class AbstractExecutor:
             and resource not in ["_nodes", "_cores", "runtime"]
         ]
         return format_cli_arg("--resources", resources)
-
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
