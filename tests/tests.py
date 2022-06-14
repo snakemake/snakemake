@@ -1378,6 +1378,16 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
 
 
+def test_modules_all_exclude_1():
+    # Fail due to conflicting rules
+    run(dpath("test_modules_all_exclude"), shouldfail=True)
+
+
+def test_modules_all_exclude_2():
+    # Successed since the conflicting rules have been excluded
+    run(dpath("test_modules_all_exclude"), snakefile="Snakefile_exclude", shouldfail=False)
+
+
 @skip_on_windows
 def test_modules_prefix():
     run(dpath("test_modules_prefix"), targets=["a"])
