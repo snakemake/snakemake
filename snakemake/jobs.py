@@ -1676,7 +1676,9 @@ class Reason:
                 if self.params_changed:
                     s.append("Params have changed since last execution")
                 if self.software_stack_changed:
-                    s.append("Software stack has changed since last execution")
+                    s.append(
+                        "Software environment definition has changed since last execution"
+                    )
 
         s = "; ".join(s)
         if self.finished:
