@@ -1138,7 +1138,7 @@ class Rule:
                     # This is not necessary in case of receiving a SourceFile.
                     conda_env = self.basedir.join(conda_env)
                 else:
-                    # infer source file from unmodifier uri or path
+                    # infer source file from unmodified uri or path
                     conda_env = infer_source_file(conda_env)
 
             conda_env = CondaEnvFileSpec(conda_env, rule=self)
