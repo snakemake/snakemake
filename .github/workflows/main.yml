@@ -70,7 +70,12 @@ jobs:
 
       - name: Setup slurm
         run: |
-          ansible-playbook slurm-playbook.yml --verbose || journalctl -xe
+          ansible-playbook slurm-playbook.yml --verbose || (journalctl -xe && exit 1)
+      
+      - run: |
+          echo "echo hello world" > test.sh
+          chmod +x test.sh
+          sbatch test.sh
       
       - name: Setup Snakemake environment
         run: |
