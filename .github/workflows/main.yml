@@ -75,7 +75,7 @@ jobs:
         uses: saubermacherag/ansible-playbook-docker-action@v1.4
         with:
           playbookName: slurm-playbook/playbook.yml
-          inventoryFile: meta/main.yml
+          rolesPath: meta/main.yml
       
       - name: Setup Snakemake environment
         run: |
