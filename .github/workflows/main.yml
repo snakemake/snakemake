@@ -84,6 +84,7 @@ jobs:
       - name: Test slurm submission
         run: |
           sbatch test-slurm.sh
+          squeue
       
       - name: Setup Snakemake environment
         run: |
