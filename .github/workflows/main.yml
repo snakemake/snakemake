@@ -92,6 +92,31 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+      
+      - name: Download slurm ansible roles
+        uses: actions/checkout@v3
+        with:
+          repository: https://github.com/galaxyproject/ansible-slurm
+          path: slurm-playbook
+
+      - name: Define slurm playbook
+        uses: 1arp/create-a-file-action@0.2
+        with:
+          path: slurm-playbook
+          file: playbook.yml
+          content: |
+            - name: Slurm all in One
+              hosts: all
+              vars:
+                slurm_roles: ['controller', 'exec', 'dbd']
+              roles:
+                - role: galaxyproject.slurm
+                  become: True
+
+      - name: Setup slurm
+        uses: saubermacherag/ansible-playbook-docker-action@v1.4
+        with:
+          playbookName: slurm-playbook/playbook.yml
 
       - name: Run tests
         env:
