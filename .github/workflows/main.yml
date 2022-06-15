@@ -54,7 +54,7 @@ jobs:
       - name: Download slurm ansible roles
         uses: actions/checkout@v3
         with:
-          repository: https://github.com/galaxyproject/ansible-slurm
+          repository: galaxyproject/ansible-slurm
           path: slurm-playbook
 
       - name: Define slurm playbook
