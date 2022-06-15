@@ -11,7 +11,6 @@ rule compile:
      output: temp("pi_MPI")
      resources:
          walltime_minutes=10,
-         partition="smp",
          tasks=1,
          threads=1,
          mem_mb_per_cpu=1800,
@@ -25,6 +24,5 @@ rule calc_pi:
            nodes=1,
            walltime_minutes=10,
            tasks=2,
-           partition="parallel",
            mpi=True,
      shell: "{input} > {output}"
