@@ -16,6 +16,7 @@ from functools import partial
 from pathlib import Path
 import uuid
 import math
+import subprocess
 
 from snakemake.io import PeriodicityDetector, wait_for_files, is_flagged, IOFile
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
@@ -27,10 +28,14 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
+from snakemake.sourcecache import (
+    LocalSourceFile,
+    SourceFile,
+)
 
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
@@ -2115,7 +2120,7 @@ class DAG:
                     "Archiving snakefiles, scripts and files under "
                     "version control..."
                 )
-                for f in self.workflow.get_sources():
+                for f in self.get_sources():
                     add(f)
 
                 logger.info("Archiving external input files...")
@@ -2298,6 +2303,78 @@ class DAG:
                         f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
                         f"{rerun_trigger}"
                     )
+
+    def get_sources(self):
+        files = set()
+
+        def local_path(f):
+            if not isinstance(f, SourceFile) and is_local_file(f):
+                return f
+            if isinstance(f, LocalSourceFile):
+                return f.get_path_or_uri()
+
+        def norm_rule_relpath(f, rule):
+            if not os.path.isabs(f):
+                f = os.path.join(rule.basedir, f)
+            return os.path.relpath(f)
+
+        # get registered sources
+        for f in self.workflow.included:
+            f = local_path(f)
+            if f:
+                try:
+                    f = os.path.relpath(f)
+                except ValueError:
+                    if ON_WINDOWS:
+                        pass  # relpath doesn't work on win if files are on different drive
+                    else:
+                        raise
+                files.add(f)
+        for rule in self.workflow.rules:
+            script_path = rule.script or rule.notebook
+            if script_path:
+                script_path = norm_rule_relpath(script_path, rule)
+                files.add(script_path)
+                script_dir = os.path.dirname(script_path)
+                files.update(
+                    os.path.join(dirpath, f)
+                    for dirpath, _, files in os.walk(script_dir)
+                    for f in files
+                )
+
+        for job in self.jobs:
+            if job.conda_env_spec and job.conda_env_spec.is_file:
+                f = local_path(job.conda_env_spec.file)
+                if f:
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(f, job.rule)
+                    files.add(env_path)
+
+        for f in self.workflow.configfiles:
+            files.add(f)
+
+        # get git-managed files
+        # TODO allow a manifest file as alternative
+        try:
+            out = subprocess.check_output(
+                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
+            )
+            for f in out.decode().split("\n"):
+                if f:
+                    files.add(os.path.relpath(f))
+        except subprocess.CalledProcessError as e:
+            if "fatal: not a git repository" in e.stderr.decode().lower():
+                logger.warning(
+                    "Unable to retrieve additional files from git. "
+                    "This is not a git repository."
+                )
+            else:
+                raise WorkflowError(
+                    "Error executing git (Snakemake requires git to be installed for "
+                    "remote execution without shared filesystem):\n" + e.stderr.decode()
+                )
+
+        return files
 
     def __str__(self):
         return self.dot()
