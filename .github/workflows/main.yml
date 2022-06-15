@@ -66,11 +66,11 @@ jobs:
                 slurm_roles: ['controller', 'exec', 'dbd']
               roles:
                 - role: galaxyproject.slurm
-                  become: True
+                  become: true
 
       - name: Setup slurm
         run: |
-          sudo ansible-playbook slurm-playbook.yml --verbose
+          ansible-playbook slurm-playbook.yml --verbose
       
       - name: Setup Snakemake environment
         run: |
