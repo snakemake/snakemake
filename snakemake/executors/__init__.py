@@ -115,11 +115,19 @@ class AbstractExecutor:
         )
 
     def get_resource_declarations(self, job):
+        def isdigit(i):
+            s = str(i)
+            # Adapted from https://stackoverflow.com/a/1265696
+            if s[0] in ("-", "+"):
+                return s[1:].isdigit()
+            return s.isdigit()
+
         resources = [
             f"{resource}={value}"
             for resource, value in job.resources.items()
             if isinstance(value, int)
-            and resource not in ["_nodes", "_cores", "runtime"]
+            # need to check bool seperately because bool is a subclass of int
+            and isdigit(value) and resource not in ["_nodes", "_cores", "runtime"]
         ]
         return format_cli_arg("--resources", resources)
 
