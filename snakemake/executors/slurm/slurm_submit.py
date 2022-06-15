@@ -174,7 +174,7 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
-                call += f" -c={job.resources.get("threads", 1)}"
+                call += f" --cpus-per-task=".format(job.resources.get("threads", 1))
         # ordinary smp application
         elif not job.is_group():
             # TODO: this line will become longer
