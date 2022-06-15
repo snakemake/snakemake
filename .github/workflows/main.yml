@@ -52,16 +52,13 @@ jobs:
           fetch-depth: 0 # we need tags for versioneer to work
 
       - name: Download slurm ansible roles
-        uses: actions/checkout@v3
-        with:
-          repository: galaxyproject/ansible-slurm
-          path: slurm-playbook
+        run: |
+          ansible-galaxy install galaxyproject.slurm
 
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
-          path: slurm-playbook
-          file: playbook.yml
+          file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
               hosts: all
@@ -72,10 +69,8 @@ jobs:
                   become: True
 
       - name: Setup slurm
-        uses: saubermacherag/ansible-playbook-docker-action@v1.4
-        with:
-          playbookName: slurm-playbook/playbook.yml
-          rolesPath: slurm-playbook/meta/main.yml
+        run: |
+          ansible-playbook slurm-playbook.yml
       
       - name: Setup Snakemake environment
         run: |
