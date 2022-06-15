@@ -133,16 +133,6 @@ jobs:
           
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
-      - name: Test SLURM execution
-        env:
-          CI: true
-        run: |
-          cp .github/resources/slurm/* .
-          make setup
-          make start
-          # TODO deploy the snakemake from the host into the vagrant environment
-          vagrant ssh controller -- -t "pytest tests/test_slurm.py"
-
       - name: Build and publish docker image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         uses: elgohr/Publish-Docker-Github-Action@2.16
