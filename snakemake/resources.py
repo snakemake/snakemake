@@ -16,7 +16,6 @@ supported_keys = {
     "nodes": int,
 }
 
-
 class DefaultResources:
     defaults = {
         "mem_mb": "max(2*input.size_mb, 1000)",
