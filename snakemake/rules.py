@@ -560,6 +560,7 @@ class Rule:
                         "touch",
                         "pipe",
                         "service",
+                        "ensure",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
@@ -1269,7 +1270,23 @@ class RuleProxy:
 
     @lazy_property
     def input(self):
-        return self.rule.input._stripped_constraints()
+        def modify_callable(item):
+            if is_callable(item):
+                # For callables ensure that the rule's original path modifier is applied as well.
+
+                def inner(wildcards):
+                    return self.rule.apply_path_modifier(
+                        item(wildcards), self.rule.input_modifier, property="input"
+                    )
+
+                return inner
+            else:
+                # For strings, the path modifier has been already applied.
+                return item
+
+        return InputFiles(
+            toclone=self.rule.input, strip_constraints=True, custom_map=modify_callable
+        )
 
     @lazy_property
     def params(self):

@@ -1553,6 +1553,10 @@ class Reason:
         "_updated_input_run",
         "_missing_output",
         "_incomplete_output",
+        "input_changed",
+        "code_changed",
+        "params_changed",
+        "software_stack_changed",
         "forced",
         "noio",
         "nooutput",
@@ -1561,6 +1565,7 @@ class Reason:
         "service",
         "target",
         "finished",
+        "cleanup_metadata_instructions",
     ]
 
     def __init__(self):
@@ -1569,12 +1574,32 @@ class Reason:
         self._updated_input_run = None
         self._missing_output = None
         self._incomplete_output = None
+        self.params_changed = False
+        self.code_changed = False
+        self.software_stack_changed = False
+        self.input_changed = False
         self.forced = False
         self.noio = False
         self.nooutput = False
         self.derived = True
         self.pipe = False
         self.service = False
+        self.cleanup_metadata_instructions = None
+
+    def set_cleanup_metadata_instructions(self, job):
+        self.cleanup_metadata_instructions = (
+            "To ignore these changes, run snakemake "
+            f"--cleanup-metadata {' '.join(job.expanded_output)}"
+        )
+
+    def is_provenance_triggered(self):
+        """Return True if reason is triggered by provenance information."""
+        return (
+            self.params_changed
+            or self.code_changed
+            or self.software_stack_changed
+            or self.input_changed
+        )
 
     @lazy_property
     def updated_input(self):
@@ -1643,6 +1668,18 @@ class Reason:
                     s.append(
                         "Job provides a service which has to be kept active until all consumers are finished."
                     )
+
+                if self.input_changed:
+                    s.append("Set of input files has changed since last execution")
+                if self.code_changed:
+                    s.append("Code has changed since last execution")
+                if self.params_changed:
+                    s.append("Params have changed since last execution")
+                if self.software_stack_changed:
+                    s.append(
+                        "Software environment definition has changed since last execution"
+                    )
+
         s = "; ".join(s)
         if self.finished:
             return f"Finished (was: {s})"
@@ -1658,5 +1695,9 @@ class Reason:
             or self.nooutput
             or self.pipe
             or self.service
+            or self.code_changed
+            or self.params_changed
+            or self.software_stack_changed
+            or self.input_changed
         )
         return v and not self.finished

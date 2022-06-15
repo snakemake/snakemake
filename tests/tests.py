@@ -1616,6 +1616,18 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
+def test_ensure_nonempty_fail():
+    run(dpath("test_ensure"), targets=["a"], shouldfail=True)
+
+
+def test_ensure_success():
+    run(dpath("test_ensure"), targets=["b", "c"])
+
+
+def test_ensure_checksum_fail():
+    run(dpath("test_ensure"), targets=["d"], shouldfail=True)
+
+
 @skip_on_windows
 def test_github_issue1261():
     run(dpath("test_github_issue1261"), shouldfail=True, check_results=True)
@@ -1628,3 +1640,22 @@ def test_rule_inheritance_globals():
         targets=["foo.txt"],
         check_md5=False,
     )
+
+
+def test_retries():
+    run(dpath("test_retries"))
+
+
+@skip_on_windows  # OS agnostic
+def test_module_input_func():
+    run(dpath("test_module_input_func"))
+
+
+@skip_on_windows  # the testcase only has a linux-64 pin file
+def test_conda_pin_file():
+    run(dpath("test_conda_pin_file"), use_conda=True)
+
+
+@skip_on_windows  # sufficient to test this on linux
+def test_github_issue1618():
+    run(dpath("test_github_issue1618"), cores=5)
