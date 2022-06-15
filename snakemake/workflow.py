@@ -1922,7 +1922,14 @@ class Workflow:
             prefix=prefix,
         )
 
-    def userule(self, rules=None, from_module=None, exclude_rules=None, name_modifier=None, lineno=None):
+    def userule(
+        self,
+        rules=None,
+        from_module=None,
+        exclude_rules=None,
+        name_modifier=None,
+        lineno=None,
+    ):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:

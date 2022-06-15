@@ -190,8 +190,9 @@ class WorkflowModifier:
         self.namespace = namespace
 
     def skip_rule(self, rulename):
-        return (self.rule_whitelist is not None and rulename not in self.rule_whitelist) or \
-               (self.rule_exclude_list is not None and rulename in self.rule_exclude_list)
+        return (
+            self.rule_whitelist is not None and rulename not in self.rule_whitelist
+        ) or (self.rule_exclude_list is not None and rulename in self.rule_exclude_list)
 
     def modify_rulename(self, rulename):
         if self.rulename_modifier is not None:

@@ -1115,7 +1115,8 @@ class UseRule(GlobalKeywordState):
             yield from ()
         else:
             self.error(
-                "Expecting colon after 'with' keyword in 'use rule' statement.", token
+                "Expecting colon after 'with' keyword in 'use rule' statement.",
+                token,
             )
 
     def state_exclude(self, token):
@@ -1125,7 +1126,8 @@ class UseRule(GlobalKeywordState):
             yield from ()
         else:
             self.error(
-                "Expecting rule name(s) after 'exclude' keyword in 'use rule' statement.", token
+                "Expecting rule name(s) after 'exclude' keyword in 'use rule' statement.",
+                token,
             )
 
     def state_exclude_comma_or_end(self, token):
@@ -1133,7 +1135,8 @@ class UseRule(GlobalKeywordState):
             if token.string == "from" or token.string == "as":
                 if not self.exclude_rules:
                     self.error(
-                        "Expecting rule names after 'exclude' statement.", token
+                        "Expecting rule names after 'exclude' statement.",
+                        token,
                     )
                 if token.string == "from":
                     self.state = self.state_from
