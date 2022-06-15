@@ -140,9 +140,9 @@ class SlurmExecutor(ClusterExecutor):
             )
             sys.exit(1)
 
-        if job.resources.get('account'):
+        if job.resources.get("account"):
             call += " -A {account}".format(**job.resources)
-        if job.resources.get('partition')
+        if job.resources.get("partition"):
             call += " -p {partition}".format(**job.resources)
 
         if not job.resources.get("walltime_minutes"):
