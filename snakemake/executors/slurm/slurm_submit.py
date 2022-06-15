@@ -174,7 +174,7 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
-                call += " -c={}".format(job.resources.get("threads", 1))
+                call += f" -c={job.resources.get("threads", 1)}"
         # ordinary smp application
         elif not job.is_group():
             # TODO: this line will become longer
@@ -185,7 +185,7 @@ class SlurmExecutor(ClusterExecutor):
                 call += f" -n 1 -c {job.threads}"
         else:
             ntasks = max(map(len, job.toposorted))
-            threads = sum(j.threads for j in job)
+            threads = max(j.threads for j in job)
             call += f" -n {ntasks} -c {threads}"
 
         # ensure that workdir is set correctly
