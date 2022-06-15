@@ -71,21 +71,11 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      
-      - name: Generate test script
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: test-slurm.sh
-          content: |
-            #!/bin/sh
 
-            echo hello world
-      
       - name: Test slurm submission
         run: |
-          sbatch test-slurm.sh
-          squeue
-      
+          srun echo "hello world"
+
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
