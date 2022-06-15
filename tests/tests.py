@@ -1296,9 +1296,11 @@ def test_github_issue456():
 def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
+
 @skip_on_windows
 def test_slurm_mpi():
     run(dpath("test_slurm_mpi"), slurm=True)
+
 
 @skip_on_windows
 def test_slurm_group_job():
@@ -1309,6 +1311,7 @@ def test_slurm_group_job():
     propagated.
     """
     run(dpath("test_group_job"), slurm=True)
+
 
 @skip_on_windows
 def test_github_issue640():
