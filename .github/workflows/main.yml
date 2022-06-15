@@ -66,7 +66,7 @@ jobs:
       
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y stress git wget
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev
         
       - name: Setup iRODS
         run: |
