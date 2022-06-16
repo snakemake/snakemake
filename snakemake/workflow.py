@@ -55,6 +55,7 @@ from snakemake.io import (
     repeat,
     report,
     multiext,
+    ensure,
     IOFile,
     sourcecache_entry,
 )
@@ -100,6 +101,7 @@ class Workflow:
     def __init__(
         self,
         snakefile=None,
+        rerun_triggers=None,
         jobscript=None,
         overwrite_shellcmd=None,
         overwrite_config=None,
@@ -161,6 +163,7 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
+        self.rerun_triggers = frozenset(rerun_triggers)
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
@@ -404,7 +407,9 @@ class Workflow:
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
-                "The name {} is already used by another rule".format(name)
+                "The name {} is already used by another rule".format(name),
+                lineno=lineno,
+                snakefile=snakefile,
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
@@ -726,20 +731,7 @@ class Workflow:
         dag.update_checkpoint_dependencies()
         dag.check_dynamic()
 
-        try:
-            self.persistence.lock()
-        except IOError:
-            logger.error(
-                "Error: Directory cannot be locked. Please make "
-                "sure that no other Snakemake process is trying to create "
-                "the same files in the following directory:\n{}\n"
-                "If you are sure that no other "
-                "instances of snakemake are running on this directory, "
-                "the remaining lock was likely caused by a kill signal or "
-                "a power loss. It can be removed with "
-                "the --unlock argument.".format(os.getcwd())
-            )
-            return False
+        self.persistence.lock()
 
         if cleanup_shadow:
             self.persistence.cleanup_shadow()
@@ -828,7 +820,7 @@ class Workflow:
             )
             return False
 
-        updated_files.extend(f for job in dag.needrun_jobs for f in job.output)
+        updated_files.extend(f for job in dag.needrun_jobs() for f in job.output)
 
         if generate_unit_tests:
             from snakemake import unit_tests
@@ -978,7 +970,6 @@ class Workflow:
         )
 
         if not dryrun:
-            dag.warn_about_changes(quiet)
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
@@ -1024,7 +1015,6 @@ class Workflow:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
         else:
             # the dryrun case
-            dag.warn_about_changes(quiet)
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
             else:
@@ -1039,23 +1029,37 @@ class Workflow:
 
         success = self.scheduler.schedule()
 
-        if not immediate_submit and not dryrun:
+        if not immediate_submit and not dryrun and self.mode == Mode.default:
             dag.cleanup_workdir()
 
         if success:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    if any(
+                        dag.reason(job).is_provenance_triggered()
+                        for job in dag.needrun_jobs(exclude_finished=False)
+                    ):
+                        logger.info(
+                            "Some jobs were triggered by provenance information, "
+                            "see 'reason' section in the rule displays above.\n"
+                            "If you prefer that only modification time is used to "
+                            "determine whether a job shall be executed, use the command "
+                            "line option '--rerun-triggers mtime' (also see --help).\n"
+                            "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                            "change the result (e.g. because you just changed the formatting of a script "
+                            "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                            "'snakemake --cleanup-metadata <outfile>'."
+                        )
+                    logger.info("")
                     logger.info(
                         "This was a dry-run (flag -n). The order of jobs "
                         "does not reflect the order of execution."
                     )
-                dag.warn_about_changes(quiet)
                 logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
-                dag.warn_about_changes(quiet)
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1063,7 +1067,6 @@ class Workflow:
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
-            dag.warn_about_changes(quiet)
             logger.logfile_hint()
             return False
 
@@ -1421,6 +1424,14 @@ class Workflow:
                         "Priority values have to be numeric.", rule=rule
                     )
                 rule.priority = ruleinfo.priority
+
+            if ruleinfo.retries:
+                if not isinstance(ruleinfo.retries, int) or ruleinfo.retries < 0:
+                    raise RuleException(
+                        "Retries values have to be integers >= 0", rule=rule
+                    )
+            rule.restart_times = ruleinfo.retries or self.restart_times
+
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
@@ -1517,7 +1528,6 @@ class Workflow:
             rule.wrapper = ruleinfo.wrapper
             rule.template_engine = ruleinfo.template_engine
             rule.cwl = ruleinfo.cwl
-            rule.restart_times = self.restart_times
             rule.basedir = self.current_basedir
 
             if ruleinfo.handover:
@@ -1697,6 +1707,13 @@ class Workflow:
 
         return decorate
 
+    def retries(self, retries):
+        def decorate(ruleinfo):
+            ruleinfo.retries = retries
+            return ruleinfo
+
+        return decorate
+
     def shadow(self, shadow_depth):
         def decorate(ruleinfo):
             ruleinfo.shadow_depth = shadow_depth
@@ -1846,6 +1863,11 @@ class Workflow:
                 )
             else:
                 # local inheritance
+                if self.modifier.skip_rule(name_modifier):
+                    # The parent use rule statement is specific for a different particular rule
+                    # hence this local use rule statement can be skipped.
+                    return
+
                 if len(rules) > 1:
                     raise WorkflowError(
                         "'use rule' statement from rule in the same module must declare a single rule but multiple rules are declared."
@@ -1854,6 +1876,7 @@ class Workflow:
                 ruleinfo = maybe_ruleinfo if not callable(maybe_ruleinfo) else None
                 with WorkflowModifier(
                     self,
+                    parent_modifier=self.modifier,
                     rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),

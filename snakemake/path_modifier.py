@@ -47,6 +47,10 @@ class PathModifier:
             if not hasattr(modified_path, "flags"):
                 modified_path = AnnotatedString(modified_path)
             modified_path.flags.update(path.flags)
+            if is_flagged(modified_path, "multiext"):
+                modified_path.flags["multiext"] = self.apply_default_remote(
+                    self.replace_prefix(modified_path.flags["multiext"], property)
+                )
         # Flag the path as modified and return.
         modified_path = flag(modified_path, PATH_MODIFIER_FLAG, self)
         return modified_path

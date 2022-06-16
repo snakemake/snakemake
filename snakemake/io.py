@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+from hashlib import sha256
 import os
 import shutil
 from pathlib import Path
@@ -561,6 +562,10 @@ class _IOFile(str):
     def flags(self):
         return getattr(self._file, "flags", {})
 
+    def is_fifo(self):
+        """Return True if file is a FIFO according to the filesystem."""
+        return stat.S_ISFIFO(os.stat(self).st_mode)
+
     @property
     @iocache
     @_refer_to_remote
@@ -573,12 +578,52 @@ class _IOFile(str):
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
+    def is_checksum_eligible(self):
+        return (
+            self.exists_local
+            and not os.path.isdir(self.file)
+            and self.size < 100000
+            and not self.is_fifo()
+        )
+
+    def checksum(self, force=False):
+        """Return checksum if file is small enough, else None.
+        Returns None if file does not exist. If force is True,
+        omit eligibility check."""
+        if force or self.is_checksum_eligible():  # less than 100000 bytes
+            checksum = sha256()
+            if self.size > 0:
+                # only read if file is bigger than zero
+                # otherwise the checksum is the same as taking hexdigest
+                # from the empty sha256 as initialized above
+                # This helps endless reading in case the input
+                # is a named pipe or a socket or a symlink to a device like
+                # /dev/random.
+                with open(self.file, "rb") as f:
+                    checksum.update(f.read())
+            return checksum.hexdigest()
+        else:
+            return None
+
+    def is_same_checksum(self, other_checksum, force=False):
+        checksum = self.checksum(force=force)
+        if checksum is None or other_checksum is None:
+            # if no checksum available or files too large, not the same
+            return False
+        else:
+            return checksum == other_checksum
+
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local and os.lstat(self.file):
-            raise WorkflowError(
-                "File {} seems to be a broken symlink.".format(self.file)
-            )
+        if not self.exists_local:
+            try:
+                if os.lstat(self.file):
+                    raise WorkflowError(
+                        "File {} seems to be a broken symlink.".format(self.file)
+                    )
+            except FileNotFoundError as e:
+                # there is no broken symlink present, hence all fine
+                return
 
     @_refer_to_remote
     def is_newer(self, time):
@@ -1069,6 +1114,10 @@ def touch(value):
     return flag(value, "touch")
 
 
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+
+
 def unpack(value):
     return flag(value, "unpack")
 
@@ -1394,6 +1443,9 @@ def git_content(git_file):
 
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
+    if is_callable(pattern):
+        # do not apply on e.g. input functions
+        return pattern
 
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))

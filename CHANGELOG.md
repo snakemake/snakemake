@@ -1,5 +1,87 @@
 # Changelog
 
+### [7.8.2](https://www.github.com/snakemake/snakemake/compare/v7.8.1...v7.8.2) (2022-06-08)
+
+
+### Bug Fixes
+
+* fixed bug in needrun computation of jobs downsteam of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
+
+### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
+
+
+### Bug Fixes
+
+* handling of remaining jobs when using --keep-going ([#1693](https://www.github.com/snakemake/snakemake/issues/1693)) ([87e4303](https://www.github.com/snakemake/snakemake/commit/87e430354b45c702e4d782bad8461fde44477a48))
+* more robust calculation of number of jobs until ready for execution ([#1691](https://www.github.com/snakemake/snakemake/issues/1691)) ([fdfc717](https://www.github.com/snakemake/snakemake/commit/fdfc717f8764ce535801d06805aaa1d59186ec84))
+* propagate rerun trigger info to cluster jobs; fix a bug leading to software stack trigger generating false positives in case of conda environments; fixed display of info message in case of provenance triggered reruns ([#1686](https://www.github.com/snakemake/snakemake/issues/1686)) ([503c70c](https://www.github.com/snakemake/snakemake/commit/503c70c7727e154f8fadf6ead088887d22a87a65))
+* set channel priority in container system wide ([#1690](https://www.github.com/snakemake/snakemake/issues/1690)) ([41175b3](https://www.github.com/snakemake/snakemake/commit/41175b3001ff59db5d7ea8bf91354decea04f74d))
+
+## [7.8.0](https://www.github.com/snakemake/snakemake/compare/v7.7.0...v7.8.0) (2022-05-24)
+
+
+### Features
+
+* automatically rerun jobs if parameters, code, input file set, or software stack changed (thanks to [@cclienty](https://www.github.com/cclienty) and [@timtroendle](https://www.github.com/timtroendle)). This also increases performance of DAG building by handling job "needrun" updates level wise, while avoiding to perform a full check for those jobs that are already downstream of a job that has been determined to require a rerun. ([#1663](https://www.github.com/snakemake/snakemake/issues/1663)) ([4c11893](https://www.github.com/snakemake/snakemake/commit/4c11893d2fda5824adff44d16d7741484e63efea))
+* enable the definition of conda pin files in order to freeze an environment. This can drastically increase the robustness because it allows to freeze an environment at a working state. ([#1667](https://www.github.com/snakemake/snakemake/issues/1667)) ([53972bf](https://www.github.com/snakemake/snakemake/commit/53972bfddcca836d5abb8cdd452cbea40ab2571f))
+
+
+### Bug Fixes
+
+* fail with error if conda installation is not set to strict channel priorities ([#1672](https://www.github.com/snakemake/snakemake/issues/1672)) ([f1ffbf2](https://www.github.com/snakemake/snakemake/commit/f1ffbf28f04150c6e66297f242b768a22f80bd94))
+* fix errors occurring when refering to input func via rules.<rulename>.input ([#1669](https://www.github.com/snakemake/snakemake/issues/1669)) ([28a4795](https://www.github.com/snakemake/snakemake/commit/28a47959bca2d135f82f9d8901b2b0aa228f30cb))
+* parsing error when combining single line directive with multi-line directive in use rule statements ([#1662](https://www.github.com/snakemake/snakemake/issues/1662)) ([26e57d6](https://www.github.com/snakemake/snakemake/commit/26e57d69fc320adc972967a8046c5163b455456c))
+
+## [7.7.0](https://www.github.com/snakemake/snakemake/compare/v7.6.2...v7.7.0) (2022-05-16)
+
+
+### Features
+
+* add flag `ensure` that allows to annotate that certain output files should be non-empty or agree with a given checksum ([#1651](https://www.github.com/snakemake/snakemake/issues/1651)) ([76f69d9](https://www.github.com/snakemake/snakemake/commit/76f69d9e21b9c9a9a01198862b66284bc3942d20))
+* for small files, compare checksums to determine if job needs to run if input file is newer than output file ([#1568](https://www.github.com/snakemake/snakemake/issues/1568)) ([1ae85c6](https://www.github.com/snakemake/snakemake/commit/1ae85c6b57b3c6b5860214a9c0e3ab28c7c8c5dc))
+* LockException ([#1276](https://www.github.com/snakemake/snakemake/issues/1276)) ([f5e6fa6](https://www.github.com/snakemake/snakemake/commit/f5e6fa68a68640ed39df86c256d676f2e4efddfc))
+* new directive "retries" for annotating the number of times a job shall be restarted after a failure ([#1649](https://www.github.com/snakemake/snakemake/issues/1649)) ([c8d81d0](https://www.github.com/snakemake/snakemake/commit/c8d81d03de2885d5d0473084141e9f6abc5de445))
+
+
+### Bug Fixes
+
+* iRODS functionality - issue [#1510](https://www.github.com/snakemake/snakemake/issues/1510) ([#1611](https://www.github.com/snakemake/snakemake/issues/1611)) ([9c3767d](https://www.github.com/snakemake/snakemake/commit/9c3767d6ee13a2c149a4ffe1c0547cabec0346dd))
+
+
+### Documentation
+
+* singularity sometimes uses system /tmp explanation ([#1588](https://www.github.com/snakemake/snakemake/issues/1588)) ([170c1d9](https://www.github.com/snakemake/snakemake/commit/170c1d9d92de4cafc0da9567a6970b173161c7da))
+
+### [7.6.2](https://www.github.com/snakemake/snakemake/compare/v7.6.1...v7.6.2) (2022-05-06)
+
+
+### Bug Fixes
+
+* fixed permission issues when using zenodo remote provider to access restricted depositions ([#1634](https://www.github.com/snakemake/snakemake/issues/1634)) ([510f534](https://www.github.com/snakemake/snakemake/commit/510f534ff55635e5c3ca677e0ccd8c5b5dd7ca0f))
+
+### [7.6.1](https://www.github.com/snakemake/snakemake/compare/v7.6.0...v7.6.1) (2022-05-04)
+
+
+### Bug Fixes
+
+* check for skipped rules in case of local rule inheritance ([#1631](https://www.github.com/snakemake/snakemake/issues/1631)) ([9083ac1](https://www.github.com/snakemake/snakemake/commit/9083ac1f40daf3d284ce9b1ac2d4addde9b5b258))
+
+## [7.6.0](https://www.github.com/snakemake/snakemake/compare/v7.5.0...v7.6.0) (2022-05-03)
+
+
+### Features
+
+* enable restricted access support in zenodo remote provider ([#1623](https://www.github.com/snakemake/snakemake/issues/1623)) ([692caf9](https://www.github.com/snakemake/snakemake/commit/692caf963d90313d2cd8117fecde097b228633ce))
+
+
+### Bug Fixes
+
+* avoid erroneous too early deletion of parent directories in case of failed jobs (thanks to @SichongP). ([#1601](https://www.github.com/snakemake/snakemake/issues/1601)) ([b0917e6](https://www.github.com/snakemake/snakemake/commit/b0917e6f07e356764880632495ec3567ec8555b4))
+* ensure that rule inheritance considers the same globals and other settings as parent module ([#1621](https://www.github.com/snakemake/snakemake/issues/1621)) ([104cab9](https://www.github.com/snakemake/snakemake/commit/104cab97d9e1a7dda4c9948efa5883d5478d2229))
+* issue 1615 - Switch formatting condition for dictionary ([#1617](https://www.github.com/snakemake/snakemake/issues/1617)) ([0771062](https://www.github.com/snakemake/snakemake/commit/0771062a07f0e2cfe9ee45a2276aa61b096eb6e1))
+* multiext prefix computation in case it is used within a module that defines an additional prefix ([#1609](https://www.github.com/snakemake/snakemake/issues/1609)) ([fc6dfc6](https://www.github.com/snakemake/snakemake/commit/fc6dfc6469137a82382a36b9469190d967593759))
+* remove redundant print ([#1608](https://www.github.com/snakemake/snakemake/issues/1608)) ([cc7e0e3](https://www.github.com/snakemake/snakemake/commit/cc7e0e3605bd65ffcb2d055e69761ff7337588ae))
+
 ## [7.5.0](https://www.github.com/snakemake/snakemake/compare/v7.4.0...v7.5.0) (2022-04-26)
 
 

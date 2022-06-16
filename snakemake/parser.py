@@ -427,6 +427,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class Retries(RuleKeywordState):
+    pass
+
+
 class Shadow(RuleKeywordState):
     pass
 
@@ -675,6 +679,7 @@ rule_property_subautomata = dict(
     params=Params,
     threads=Threads,
     resources=Resources,
+    retries=Retries,
     priority=Priority,
     version=Version,
     log=Log,
@@ -1124,7 +1129,7 @@ class UseRule(GlobalKeywordState):
                 )
             except StopAutomaton as e:
                 self.indentation(e.token)
-                self.block(e.token)
+                yield from self.block(e.token)
         else:
             self.error(
                 "Expecting a keyword or comment "

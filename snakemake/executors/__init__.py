@@ -286,6 +286,7 @@ class RealExecutor(AbstractExecutor):
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
+                w2a("rerun_triggers"),
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
                 w2a("use_conda"),
@@ -466,7 +467,7 @@ class CPUExecutor(RealExecutor):
         return ""
 
     def get_job_args(self, job, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet"
+        return f"{super().get_job_args(job, **kwargs)} --quiet all"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
