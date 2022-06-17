@@ -570,6 +570,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        containerize=False,
     ):
 
         self.check_localrules()
@@ -735,6 +736,12 @@ class Workflow:
 
         if cleanup_shadow:
             self.persistence.cleanup_shadow()
+            return True
+
+        if containerize:
+            from snakemake.deployment.containerize import containerize
+
+            containerize(self, dag)
             return True
 
         if (
@@ -1132,11 +1139,6 @@ class Workflow:
                 "{}".format("\n".join(undefined))
             )
         self.envvars.update(envvars)
-
-    def containerize(self):
-        from snakemake.deployment.containerize import containerize
-
-        containerize(self)
 
     def include(
         self,
