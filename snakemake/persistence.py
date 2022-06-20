@@ -14,7 +14,9 @@ from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
 from pathlib import Path
+from contextlib import contextmanager
 
+from fasteners import InterProcessLock
 import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -30,6 +32,7 @@ class Persistence:
         singularity_prefix=None,
         shadow_prefix=None,
         warn_only=False,
+        cluster_fs_lock=True,
     ):
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
@@ -102,6 +105,10 @@ class Persistence:
         if warn_only:
             self.lock = self.lock_warn_only
             self.unlock = self.noop
+        if cluster_fs_lock:
+            self.cluster_fs_lock = InterProcessLock
+        else:
+            self.cluster_fs_lock = self.noop_cm
 
         self._read_record = self._read_record_cached
 
@@ -403,6 +410,15 @@ class Persistence:
     def noop(self, *args):
         pass
 
+    @contextmanager
+    def noop_cm(self, *args):
+        """Context manager "no operation".
+
+        Used *in lieu* of ``InterProcessLock`` when ``cluster_fs_lock`` is
+        set to ``False``.
+        """
+        yield None
+
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
 
@@ -435,8 +451,9 @@ class Persistence:
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
         os.makedirs(os.path.dirname(recpath), exist_ok=True)
-        with open(recpath, "w") as f:
-            json.dump(json_value, f)
+        with self.cluster_fs_lock(recpath + ".lock"):
+            with open(recpath, "w") as f:
+                json.dump(json_value, f)
 
     def _delete_record(self, subject, id):
         try:
@@ -461,8 +478,20 @@ class Persistence:
     def _read_record_uncached(self, subject, id):
         if not self._exists_record(subject, id):
             return dict()
-        with open(self._record_path(subject, id), "r") as f:
-            return json.load(f)
+        # Metadata JSON can be broken if multiple processes write to the same
+        # file in a cluster environment.  Adding locks on the file system should
+        # get rid of the problem but this can be unreliable if the file system
+        # does not implement lock files.  We thus give a verbose warning to the
+        # user so they can delete the if everything else fails.
+        try:
+            with open(self._record_path(subject, id), "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Error reading metadata file {f}; this can be due to concurrent "
+                "processes attempting to write to the same file."
+            )
+            return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))

@@ -640,6 +640,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        cluster_fs_lock=True,
     ):
 
         self.check_localrules()
@@ -764,6 +765,7 @@ class Workflow:
             or list_untracked
             or delete_all_output
             or delete_temp_output,
+            cluster_fs_lock=cluster_fs_lock,
         )
 
         if self.mode in [Mode.subprocess, Mode.cluster]:

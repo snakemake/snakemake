@@ -292,6 +292,15 @@ The line will subsequently be available in the calls to ``--cluster``, ``--clust
 In the case of a REST server, you can use this to return the port that the server is listening on and credentials.
 When the Snakemake process terminates, the sidecar process will be terminated as well.
 
+File System Based Locks on Clusters
+:::::::::::::::::::::::::::::::::::
+
+Snakemake uses so-called "metadata" file for storing information about the current status of the workflow.
+When using cluster execution, multiple processes may write to the same file as the main Snakemake process is not able to lock access.
+To prevent this, Snakemake will create files ending in ``.lock`` to each meta data files.
+This increases IOPS (I/O operations per second) load on the file system but this cannot be prevented.
+To explicitely disable the use of such lock files pass ``--cluster-no-fs-locks`` to your ``snakemake`` invocation.
+
 Constraining wildcards
 ::::::::::::::::::::::
 

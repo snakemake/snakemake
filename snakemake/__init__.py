@@ -187,6 +187,7 @@ def snakemake(
     scheduler_solver_path=None,
     conda_base_path=None,
     local_groupid="local",
+    cluster_fs_lock=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -306,6 +307,7 @@ def snakemake(
         cluster_cancel (str):       command to cancel multiple job IDs (like SLURM 'scancel') (default None)
         cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
         cluster_sidecar (str):      command that starts a sidecar process, see cluster documentation (default None)
+        cluster_fs_lock (bool):     enable file system based locks for metadata files, when None, enable in cluster mode, True/False sets explicitely (default None)
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
@@ -715,6 +717,7 @@ def snakemake(
                     cluster_cancel=cluster_cancel,
                     cluster_cancel_nargs=cluster_cancel_nargs,
                     cluster_sidecar=cluster_sidecar,
+                    cluster_fs_lock=cluster_fs_lock,
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     overwrite_groups=overwrite_groups,
@@ -803,6 +806,7 @@ def snakemake(
                     cluster_cancel=cluster_cancel,
                     cluster_cancel_nargs=cluster_cancel_nargs,
                     cluster_sidecar=cluster_sidecar,
+                    cluster_fs_lock=cluster_fs_lock,
                     report=report,
                     report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
@@ -2206,6 +2210,15 @@ def get_argument_parser(profile=None):
         " '-e' native specification. If not given, all DRMAA stdout and"
         " stderr files are written to the current working directory.",
     )
+    group_cluster.add_argument(
+        "--cluster-no-fs-lock",
+        dest="cluster_fs_lock",
+        default=None,
+        action="store_false",
+        help="Disable file system based locks even if cluster mode is enabled. "
+        "By default, Snakemake will use file system based locks for the metadata "
+        "files when the cluster mode is enabled.",
+    )
 
     group_cloud = parser.add_argument_group("CLOUD")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
@@ -2482,6 +2495,9 @@ def main(argv=None):
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
+
+    if args.cluster_fs_lock is None:
+        args.cluster_fs_lock = bool(args.cluster)
 
     if args.batch is not None and args.forceall:
         print(
@@ -2873,6 +2889,7 @@ def main(argv=None):
             cluster=args.cluster,
             cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,
+            cluster_fs_lock=args.cluster_fs_lock,
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
