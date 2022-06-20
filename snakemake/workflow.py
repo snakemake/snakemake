@@ -163,7 +163,9 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self.rerun_triggers = frozenset(rerun_triggers)
+        self.rerun_triggers = (
+            frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
+        )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
