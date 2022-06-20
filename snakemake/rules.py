@@ -539,8 +539,8 @@ class Rule:
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
-                for flag in item.flags:
-                    if not output and flag in [
+                for item_flag in item.flags:
+                    if not output and item_flag in [
                         "protected",
                         "temp",
                         "temporary",
@@ -552,13 +552,13 @@ class Rule:
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
-                    if output and flag in ["ancient"]:
+                    if output and item_flag in ["ancient"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
 
