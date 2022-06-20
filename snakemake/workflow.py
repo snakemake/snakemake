@@ -1097,7 +1097,38 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = self.scheduler.schedule()
+        def log_provenance_info():
+            provenance_triggered_jobs = [
+                job
+                for job in dag.needrun_jobs(exclude_finished=False)
+                if dag.reason(job).is_provenance_triggered()
+            ]
+            if provenance_triggered_jobs:
+                logger.info(
+                    "Some jobs were triggered by provenance information, "
+                    "see 'reason' section in the rule displays above.\n"
+                    "If you prefer that only modification time is used to "
+                    "determine whether a job shall be executed, use the command "
+                    "line option '--rerun-triggers mtime' (also see --help).\n"
+                    "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                    "change the result (e.g. because you just changed the formatting of a script "
+                    "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                    "'snakemake --cleanup-metadata <outfile>'. "
+                )
+                logger.info(
+                    "Rules with provenance triggered jobs: "
+                    + ",".join(
+                        sorted(set(job.rule.name for job in provenance_triggered_jobs))
+                    )
+                )
+                logger.info("")
+
+        try:
+            success = self.scheduler.schedule()
+        except Exception as e:
+            if dryrun:
+                log_provenance_info()
+            raise e
 
         if not immediate_submit and not dryrun and self.mode == Mode.default:
             dag.cleanup_workdir()
@@ -1106,26 +1137,12 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                    if any(
-                        dag.reason(job).is_provenance_triggered()
-                        for job in dag.needrun_jobs(exclude_finished=False)
-                    ):
-                        logger.info(
-                            "Some jobs were triggered by provenance information, "
-                            "see 'reason' section in the rule displays above.\n"
-                            "If you prefer that only modification time is used to "
-                            "determine whether a job shall be executed, use the command "
-                            "line option '--rerun-triggers mtime' (also see --help).\n"
-                            "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                            "change the result (e.g. because you just changed the formatting of a script "
-                            "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                            "'snakemake --cleanup-metadata <outfile>'."
-                        )
-                    logger.info("")
-                    logger.info(
-                        "This was a dry-run (flag -n). The order of jobs "
-                        "does not reflect the order of execution."
-                    )
+                    log_provenance_info()
+                logger.info("")
+                logger.info(
+                    "This was a dry-run (flag -n). The order of jobs "
+                    "does not reflect the order of execution."
+                )
                 logger.remove_logfile()
             else:
                 if stats:
