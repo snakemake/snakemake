@@ -838,6 +838,7 @@ class Workflow:
                         if subworkflow.configfile
                         else None,
                         updated_files=updated,
+                        rerun_triggers=self.rerun_triggers,
                     ):
                         return False
                     dag.updated_subworkflow_files.update(
