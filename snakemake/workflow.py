@@ -833,6 +833,7 @@ class Workflow:
                         targets=subworkflow_targets,
                         cores=self._cores,
                         nodes=self.nodes,
+                        resources=self.global_resources,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
