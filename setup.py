@@ -1,26 +1,14 @@
-# -*- coding: UTF-8 -*-
-
-from __future__ import print_function
-
-__author__ = "Johannes Köster"
-__copyright__ = "Copyright 2022, Johannes Köster"
-__email__ = "johannes.koester@uni-due.de"
-__license__ = "MIT"
-
+import os
 import sys
-import versioneer
 
+from setuptools import setup
 
-if sys.version_info < (3, 7):
-    print("At least Python 3.7 is required for Snakemake.\n", file=sys.stderr)
-    exit(1)
+# ensure the current directory is on sys.path so versioneer can be imported
+# when pip uses PEP 517/518 build rules.
+# https://github.com/python-versioneer/python-versioneer/issues/193
+sys.path.append(os.path.dirname(__file__))
 
-
-try:
-    from setuptools import setup
-except ImportError:
-    print("Please install setuptools before installing snakemake.", file=sys.stderr)
-    exit(1)
+import versioneer  # noqa: E402
 
 
 setup(
@@ -63,6 +51,7 @@ setup(
         ]
     },
     package_data={"": ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]},
+    python_requires=">=3.7",
     install_requires=[
         "wrapt",
         "requests",
