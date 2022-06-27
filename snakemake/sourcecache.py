@@ -154,7 +154,7 @@ class LocalGitFile(SourceFile):
     def join(self, path):
         path = os.path.normpath("/".join((self.path, path)))
         if ON_WINDOWS:
-            # convert back to URL separators 
+            # convert back to URL separators
             # (win specific separators are introduced by normpath above)
             path = path.replace("\\", "/")
         return LocalGitFile(

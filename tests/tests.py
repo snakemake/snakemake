@@ -1410,23 +1410,50 @@ def test_module_complex2():
 
 
 def test_module_use_local_git_repo():
-    untar_folder(dpath("test_module_local_git/module.tar.gz"), dpath("test_module_local_git/repo/module"))
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
     run(dpath("test_module_local_git"), dryrun=True)
 
 
 def test_module_use_local_git_repo_missing_rule():
-    untar_folder(dpath("test_module_local_git/module.tar.gz"), dpath("test_module_local_git/repo/module"))
-    run(dpath("test_module_local_git"), snakefile="Snakefile_missing_rule", dryrun=True, shouldfail=True)
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_missing_rule",
+        dryrun=True,
+        shouldfail=True,
+    )
 
 
 def test_module_use_local_git_repo_missing_schema():
-    untar_folder(dpath("test_module_local_git/module.tar.gz"), dpath("test_module_local_git/repo/module"))
-    run(dpath("test_module_local_git"), snakefile="Snakefile_missing_schema", dryrun=True, shouldfail=True)
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_missing_schema",
+        dryrun=True,
+        shouldfail=True,
+    )
 
 
 def test_module_use_local_git_repo_missing_rule_and_schema():
-    untar_folder(dpath("test_module_local_git/module.tar.gz"), dpath("test_module_local_git/repo/module"))
-    run(dpath("test_module_local_git"), snakefile="Snakefile_main_missing_rule_and_schema", dryrun=True, shouldfail=True)
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_main_missing_rule_and_schema",
+        dryrun=True,
+        shouldfail=True,
+    )
 
 
 @skip_on_windows
