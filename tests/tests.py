@@ -1517,6 +1517,11 @@ def test_conda_named():
 
 
 @skip_on_windows
+def test_conda_function():
+    run(dpath("test_conda_function"), use_conda=True)
+
+
+@skip_on_windows
 def test_default_target():
     run(dpath("test_default_target"))
 
