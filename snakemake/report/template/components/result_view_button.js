@@ -54,6 +54,16 @@ class ResultViewButton extends React.Component {
                     }
                 };
                 break;
+            case "application/vnd.vegalite+json":
+                props = {
+                    href: "#",
+                    onClick: function () {
+                        setView({
+                            content: "vegalite",
+                            contentPath: entry.data_uri
+                        })
+                    }
+                }
             default:
                 props = {
                     href: entry.data_uri,
