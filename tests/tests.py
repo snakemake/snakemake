@@ -1409,6 +1409,7 @@ def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
 
 
+@skip_on_windows
 def test_module_use_local_git_repo():
     untar_folder(
         dpath("test_module_local_git/module.tar.gz"),
@@ -1417,6 +1418,7 @@ def test_module_use_local_git_repo():
     run(dpath("test_module_local_git"), dryrun=True)
 
 
+@skip_on_windows
 def test_module_use_local_git_repo_missing_rule():
     untar_folder(
         dpath("test_module_local_git/module.tar.gz"),
@@ -1430,6 +1432,7 @@ def test_module_use_local_git_repo_missing_rule():
     )
 
 
+@skip_on_windows
 def test_module_use_local_git_repo_missing_schema():
     untar_folder(
         dpath("test_module_local_git/module.tar.gz"),
@@ -1443,6 +1446,7 @@ def test_module_use_local_git_repo_missing_schema():
     )
 
 
+@skip_on_windows
 def test_module_use_local_git_repo_missing_rule_and_schema():
     untar_folder(
         dpath("test_module_local_git/module.tar.gz"),
