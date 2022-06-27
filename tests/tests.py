@@ -15,6 +15,22 @@ from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
+@skip_on_windows
+def test_slurm_mpi():
+    run(dpath("test_slurm_mpi"), slurm=True)
+
+
+@skip_on_windows
+def test_slurm_group_job():
+    """
+    same test as test_group_job(),
+    but for SLURM - checks whether
+    the group-property is correctly
+    propagated.
+    """
+    run(dpath("test_group_job"), slurm=True)
+
+
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -242,11 +258,7 @@ def test_report_dir():
 
 
 def test_report_display_code():
-    run(
-        dpath("test_report_display_code"),
-        report="report.html",
-        check_md5=False,
-    )
+    run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
 def test_dynamic():
@@ -544,9 +556,7 @@ def test_wrapper_local_git_prefix():
         print("Cloning complete.")
 
         run(
-            dpath("test_wrapper"),
-            use_conda=True,
-            wrapper_prefix=f"git+file://{tmpdir}",
+            dpath("test_wrapper"), use_conda=True, wrapper_prefix=f"git+file://{tmpdir}"
         )
 
 
@@ -1297,20 +1307,7 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
-@skip_on_windows
-def test_slurm_mpi():
-    run(dpath("test_slurm_mpi"), slurm=True)
-
-
-@skip_on_windows
-def test_slurm_group_job():
-    """
-    same test as test_group_job(),
-    but for SLURM - checks whether
-    the group-property is correctly
-    propagated.
-    """
-    run(dpath("test_group_job"), slurm=True)
+# SLURM tests go here, after successfull tests
 
 
 @skip_on_windows
