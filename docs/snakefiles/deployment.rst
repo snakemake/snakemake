@@ -276,6 +276,9 @@ Instead of using a concrete path, it is also possible to provide a path containi
 In addition, it is possible to use a callable which returns a ``str`` value.
 The signature of the callable has to be ``callable(wildcards [, params] [, input])`` (``params`` and ``input`` are optional parameters).
 
+Note that the use of distinct conda environments for different jobs from the same rule is currently not properly displayed in the generated reports.
+At the moment, only a single, random conda environment is shown.
+
 .. sidebar:: Note
 
    Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
