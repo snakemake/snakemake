@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
@@ -434,9 +435,15 @@ class Persistence:
 
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
-        os.makedirs(os.path.dirname(recpath), exist_ok=True)
-        with open(recpath, "w") as f:
-            json.dump(json_value, f)
+        recdir = os.path.dirname(recpath)
+        os.makedirs(recdir, exist_ok=True)
+        # Write content to temporary file and rename it to the final file.
+        # This avoids race-conditions while writing (e.g. on NFS when the main job
+        # and the cluster node job propagate their content and the system has some
+        # latency including non-atomic propagation processes).
+        with tempfile.NamedTemporaryFile(mode="w", dir=recdir, delete=False) as tmpfile:
+            json.dump(json_value, tmpfile)
+        os.rename(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
