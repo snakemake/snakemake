@@ -1443,7 +1443,7 @@ def test_module_multi_level0():
             "level1/test_final_b.txt",
             "level1/test_final_c.txt",
             "test_final_d.txt",
-        ]
+        ],
     )
 
 

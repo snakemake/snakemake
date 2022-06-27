@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from pathlib import Path
 import types
+import os
 import re
 
 from snakemake.exceptions import WorkflowError
@@ -33,14 +34,17 @@ def get_name_modifier_func(rules=None, name_modifier=None, parent_modifier=None)
                 )
             return lambda rulename: parent_modifier_func(name_modifier)
 
-def get_prefix_modifier(replace_prefix=None, prefix=None, workflow=None, parent_modifier=None):
+
+def get_prefix_modifier(
+    replace_prefix=None, prefix=None, workflow=None, parent_modifier=None
+):
     if parent_modifier is not None:
-        import os
         if parent_modifier.path_modifier.prefix is not None and prefix is not None:
             prefix = os.path.join(parent_modifier.path_modifier.prefix, prefix)
         elif parent_modifier.path_modifier.prefix is not None:
             prefix = parent_modifier.path_modifier.prefix
     return PathModifier(replace_prefix, prefix, workflow)
+
 
 class ModuleInfo:
     def __init__(
@@ -95,7 +99,9 @@ class ModuleInfo:
             skip_validation=self.skip_validation,
             skip_global_report_caption=skip_global_report_caption,
             rule_whitelist=self.get_rule_whitelist(rules),
-            rulename_modifier=get_name_modifier_func(rules, name_modifier, self.parent_modifier),
+            rulename_modifier=get_name_modifier_func(
+                rules, name_modifier, self.parent_modifier
+            ),
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
             namespace=self.name,
@@ -191,7 +197,9 @@ class WorkflowModifier:
         self.rule_whitelist = rule_whitelist
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
-        self.path_modifier = get_prefix_modifier(replace_prefix, prefix, workflow, parent_modifier)
+        self.path_modifier = get_prefix_modifier(
+            replace_prefix, prefix, workflow, parent_modifier
+        )
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
