@@ -183,7 +183,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
+                #keepmetadata=keepmetadata,
             )
             self._executor = SlurmExecutor(
                 workflow,
