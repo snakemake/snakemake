@@ -1157,7 +1157,6 @@ class DAG:
                     # depending jobs of jobs that are needrun as a prior
                     # can be skipped
                     continue
-
                 if update_needrun(job):
                     queue.append(job)
                     masked.update(self.bfs(self.depending, job))
@@ -1703,10 +1702,11 @@ class DAG:
             if not depending and recursive:
                 self.delete_job(job_)
         del self.dependencies[job]
+        if job in self._reason:
+            del self._reason[job]
         if job in self._needrun:
             self._len -= 1
             self._needrun.remove(job)
-            del self._reason[job]
         if job in self._finished:
             self._finished.remove(job)
         if job in self._dynamic:

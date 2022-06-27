@@ -173,9 +173,14 @@ class Singularity:
                 raise WorkflowError(
                     "Failed to get singularity version:\n{}".format(e.stderr.decode())
                 )
-            v = v.rsplit(" ", 1)[-1]
-            if v.startswith("v"):
-                v = v[1:]
-            if not LooseVersion(v) >= LooseVersion("2.4.1"):
-                raise WorkflowError("Minimum singularity version is 2.4.1.")
+            if v.startswith("apptainer"):
+                v = v.rsplit(" ", 1)[-1]
+                if not LooseVersion(v) >= LooseVersion("1.0.0"):
+                    raise WorkflowError("Minimum apptainer version is 1.0.0.")
+            else:
+                v = v.rsplit(" ", 1)[-1]
+                if v.startswith("v"):
+                    v = v[1:]
+                if not LooseVersion(v) >= LooseVersion("2.4.1"):
+                    raise WorkflowError("Minimum singularity version is 2.4.1.")
             self._version = v
