@@ -469,7 +469,14 @@ class Persistence:
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError as e:
+                pass
+        # case: file is corrupted, delete it
+        logger.warning(f"Deleting corrupted metadata record.")
+        self._delete_record(subject, id)
+        return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
