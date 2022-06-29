@@ -1,16 +1,19 @@
 def conda_func(wildcards, params):
+    env_name = f"{params.name_prefix}-test-env-{wildcards.version}"
     shell(
-        f"source activate base; mamba create -y -n {params.name_prefix}-test-env -c conda-forge --override-channels ripgrep=={wildcards.version}"
+        f"source activate base; mamba create -y -n {env_name} -c conda-forge --override-channels ripgrep=={wildcards.version}"
     )
-    return f"{params.name_prefix}-test-env"
+    return env_name
 
 
 onsuccess:
-    shell("conda env remove -y -n foo-test-env")
+    shell("conda env remove -y -n foo-test-env-12.1.1")
+    shell("conda env remove -y -n foo-test-env-13.0.0")
 
 
 onerror:
-    shell("conda env remove -y -n foo-test-env")
+    shell("conda env remove -y -n foo-test-env-12.1.1")
+    shell("conda env remove -y -n foo-test-env-13.0.0")
 
 
 rule all:
