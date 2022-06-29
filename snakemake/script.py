@@ -180,6 +180,8 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
+        import numpy as np
+
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -188,7 +190,7 @@ class REncoder:
             return repr(str(value))
         elif isinstance(value, dict):
             return cls.encode_dict(value)
-        elif isinstance(value, bool):
+        elif isinstance(value, bool) or isinstance(value, np.bool_):
             return "TRUE" if value else "FALSE"
         elif isinstance(value, int) or isinstance(value, float):
             return str(value)
@@ -198,7 +200,6 @@ class REncoder:
         else:
             # Try to convert from numpy if numpy is present
             try:
-                import numpy as np
 
                 if isinstance(value, np.number):
                     return str(value)
