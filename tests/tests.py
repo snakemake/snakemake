@@ -1518,7 +1518,7 @@ def test_conda_named():
 
 @skip_on_windows
 def test_conda_function():
-    run(dpath("test_conda_function"), use_conda=True)
+    run(dpath("test_conda_function"), use_conda=True, cores=1)
 
 
 @skip_on_windows
