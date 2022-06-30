@@ -751,11 +751,11 @@ class Conda:
             )
         )
         if res["get"].get("channel_priority") != "strict":
-            raise CreateCondaEnvironmentException(
+            logger.warning(
                 "Your conda installation is not configured to use strict channel priorities. "
                 "This is however crucial for having robust and correct environments (for details, "
                 "see https://conda-forge.org/docs/user/tipsandtricks.html). "
-                "Please configure strict priorities by executing 'conda config --set channel_priority strict'."
+                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
             )
 
     def bin_path(self):
