@@ -22,6 +22,7 @@ setup(
     "together with a clean and modern specification language in python style. "
     "Snakemake workflows are essentially Python scripts extended by declarative "
     "code to define rules. Rules describe how to create output files from input files.",
+    long_description_content_type="text/markdown",
     zip_safe=False,
     license="MIT",
     url="https://snakemake.readthedocs.io",
