@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.8.5](https://github.com/snakemake/snakemake/compare/v7.8.4...v7.8.5) (2022-06-30)
+
+
+### Documentation
+
+* fix long description type for pypi (set to markdown) ([d8d9b8f](https://github.com/snakemake/snakemake/commit/d8d9b8f284d2863f672cd96fd96d2034806d52de))
+
 ## [7.8.4](https://github.com/snakemake/snakemake/compare/v7.8.3...v7.8.4) (2022-06-30)
 
 
