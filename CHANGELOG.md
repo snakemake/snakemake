@@ -1,5 +1,52 @@
 # Changelog
 
+## [7.8.5](https://github.com/snakemake/snakemake/compare/v7.8.4...v7.8.5) (2022-06-30)
+
+
+### Documentation
+
+* fix long description type for pypi (set to markdown) ([d8d9b8f](https://github.com/snakemake/snakemake/commit/d8d9b8f284d2863f672cd96fd96d2034806d52de))
+
+## [7.8.4](https://github.com/snakemake/snakemake/compare/v7.8.3...v7.8.4) (2022-06-30)
+
+
+### Bug Fixes
+
+* only display a warning in case of non-strict channel priorities ([#1752](https://github.com/snakemake/snakemake/issues/1752)) ([b84fa33](https://github.com/snakemake/snakemake/commit/b84fa337f5c417360fc744202a419da3f37594b5))
+* pass triggers and resources to subworkflow ([#1733](https://github.com/snakemake/snakemake/issues/1733)) ([fa7fb75](https://github.com/snakemake/snakemake/commit/fa7fb75d2314cd2965a9f578506e27aae4b07349))
+* add pyproject.toml to use setuptools features ([#1725](https://github.com/snakemake/snakemake/issues/1725)) ([454bfd1](https://github.com/snakemake/snakemake/commit/454bfd17aba8631ea34d6a8971b1db60b2955965))
+
+
+### Documentation
+
+* add workflows.community metadata ([#1736](https://github.com/snakemake/snakemake/issues/1736)) ([8a42afc](https://github.com/snakemake/snakemake/commit/8a42afc053e3f398f1a299fb3234ca0ee847faae))
+
+### [7.8.3](https://www.github.com/snakemake/snakemake/compare/v7.8.2...v7.8.3) (2022-06-20)
+
+
+### Bug Fixes
+
+* allow apptainer as a successor to singularity. ([#1706](https://www.github.com/snakemake/snakemake/issues/1706)) ([bcbdb0b](https://www.github.com/snakemake/snakemake/commit/bcbdb0bc44746961838f9603e42d0e171407c740))
+* improved provenance trigger info ([#1720](https://www.github.com/snakemake/snakemake/issues/1720)) ([29d959d](https://www.github.com/snakemake/snakemake/commit/29d959d86341aee66e945f216cae41e9c531a4d1))
+* small changes to make docs checkpoint example functional ([#1714](https://www.github.com/snakemake/snakemake/issues/1714)) ([1d4909e](https://www.github.com/snakemake/snakemake/commit/1d4909ef838ac79f8e7be9f29d76b969d358ef1b))
+
+### [7.8.2](https://www.github.com/snakemake/snakemake/compare/v7.8.1...v7.8.2) (2022-06-08)
+
+
+### Bug Fixes
+
+* fixed bug in needrun computation of jobs downsteam of checkpoints ([#1704](https://www.github.com/snakemake/snakemake/issues/1704)) ([c634b78](https://www.github.com/snakemake/snakemake/commit/c634b78b4d7c4f6ef59e46c94162893e42de6f73))
+
+### [7.8.1](https://www.github.com/snakemake/snakemake/compare/v7.8.0...v7.8.1) (2022-05-31)
+
+
+### Bug Fixes
+
+* handling of remaining jobs when using --keep-going ([#1693](https://www.github.com/snakemake/snakemake/issues/1693)) ([87e4303](https://www.github.com/snakemake/snakemake/commit/87e430354b45c702e4d782bad8461fde44477a48))
+* more robust calculation of number of jobs until ready for execution ([#1691](https://www.github.com/snakemake/snakemake/issues/1691)) ([fdfc717](https://www.github.com/snakemake/snakemake/commit/fdfc717f8764ce535801d06805aaa1d59186ec84))
+* propagate rerun trigger info to cluster jobs; fix a bug leading to software stack trigger generating false positives in case of conda environments; fixed display of info message in case of provenance triggered reruns ([#1686](https://www.github.com/snakemake/snakemake/issues/1686)) ([503c70c](https://www.github.com/snakemake/snakemake/commit/503c70c7727e154f8fadf6ead088887d22a87a65))
+* set channel priority in container system wide ([#1690](https://www.github.com/snakemake/snakemake/issues/1690)) ([41175b3](https://www.github.com/snakemake/snakemake/commit/41175b3001ff59db5d7ea8bf91354decea04f74d))
+
 ## [7.8.0](https://www.github.com/snakemake/snakemake/compare/v7.7.0...v7.8.0) (2022-05-24)
 
 

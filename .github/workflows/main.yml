@@ -19,6 +19,9 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   formatting:
+    permissions:
+      contents: read  # for actions/checkout to fetch code
+      pull-requests: write  # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -35,7 +38,7 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v1.1.0
+        uses: marocchino/sticky-pull-request-comment@v2.2.0
         with:
           message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +53,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 # we need tags for versioneer to work
-      
+
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
@@ -92,6 +95,35 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+      
+      ###### slurm setup #####
+      
+      - name: Download slurm ansible roles
+        run: |
+          ansible-galaxy install galaxyproject.slurm
+
+      - name: Define slurm playbook
+        uses: 1arp/create-a-file-action@0.2
+        with:
+          file: slurm-playbook.yml
+          content: |
+            - name: Slurm all in One
+              hosts: localhost
+              vars:
+                slurm_roles: ['controller', 'exec']
+              roles:
+                - role: galaxyproject.slurm
+                  become: true
+
+      - name: Setup slurm
+        run: |
+          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
+
+      - name: Test slurm submission
+        run: |
+          srun echo "hello world"
+      
+      ###### finalized slurm setup #####
 
       - name: Run tests
         env:
@@ -106,7 +138,7 @@ jobs:
 
       - name: Build and publish docker image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
-        uses: elgohr/Publish-Docker-Github-Action@2.16
+        uses: elgohr/Publish-Docker-Github-Action@v4
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}

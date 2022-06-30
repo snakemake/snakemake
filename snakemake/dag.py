@@ -199,6 +199,9 @@ class DAG:
 
         self.check_incomplete()
 
+        self.update_container_imgs()
+        self.update_conda_envs()
+
         self.update_needrun(create_inventory=True)
         self.set_until_jobs()
         self.delete_omitfrom_jobs()
@@ -227,7 +230,7 @@ class DAG:
 
     @property
     def checkpoint_jobs(self):
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             if job.is_checkpoint:
                 yield job
 
@@ -279,19 +282,15 @@ class DAG:
             except KeyError:
                 pass
 
-    def create_conda_envs(
-        self, dryrun=False, forceall=False, init_only=False, quiet=False
-    ):
+    def update_conda_envs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs if forceall else self.needrun_jobs
         env_set = {
             (job.conda_env_spec, job.container_img_url)
-            for job in jobs
+            for job in self.jobs
             if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
-        self.conda_envs = dict()
         for (env_spec, simg_url) in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
@@ -299,32 +298,37 @@ class DAG:
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
                 simg = self.container_imgs[simg_url]
-            env = env_spec.get_conda_env(
-                self.workflow,
-                container_img=simg,
-                cleanup=self.workflow.conda_cleanup_pkgs,
-            )
-            self.conda_envs[(env_spec, simg_url)] = env
+            key = (env_spec, simg_url)
+            if key not in self.conda_envs:
+                env = env_spec.get_conda_env(
+                    self.workflow,
+                    container_img=simg,
+                    cleanup=self.workflow.conda_cleanup_pkgs,
+                )
+                self.conda_envs[key] = env
 
-        if not init_only:
-            for env in self.conda_envs.values():
-                if (not dryrun or not quiet) and not env.is_named:
-                    env.create(dryrun)
+    def create_conda_envs(self, dryrun=False, quiet=False):
+        for env in self.conda_envs.values():
+            if (not dryrun or not quiet) and not env.is_named:
+                env.create(dryrun)
 
-    def pull_container_imgs(self, dryrun=False, forceall=False, quiet=False):
+    def update_container_imgs(self):
         # First deduplicate based on job.conda_env_spec
-        jobs = self.jobs if forceall else self.needrun_jobs
         img_set = {
             (job.container_img_url, job.is_containerized)
-            for job in jobs
+            for job in self.jobs
             if job.container_img_url
         }
 
         for img_url, is_containerized in img_set:
-            img = singularity.Image(img_url, self, is_containerized)
+            if img_url not in self.container_imgs:
+                img = singularity.Image(img_url, self, is_containerized)
+                self.container_imgs[img_url] = img
+
+    def pull_container_imgs(self, dryrun=False, quiet=False):
+        for img in self.container_imgs.values():
             if not dryrun or not quiet:
                 img.pull(dryrun)
-            self.container_imgs[img_url] = img
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -388,15 +392,17 @@ class DAG:
         """All jobs in the DAG."""
         return self.dependencies.keys()
 
-    @property
-    def needrun_jobs(self):
+    def needrun_jobs(self, exclude_finished=True):
         """Jobs that need to be executed."""
-        return filterfalse(self.finished, self._needrun)
+        if exclude_finished:
+            return filterfalse(self.finished, self._needrun)
+        else:
+            return iter(self._needrun)
 
     @property
     def local_needrun_jobs(self):
         """Iterate over all jobs that need to be run and are marked as local."""
-        return filter(lambda job: job.is_local, self.needrun_jobs)
+        return filter(lambda job: job.is_local, self.needrun_jobs())
 
     @property
     def finished_jobs(self):
@@ -1151,7 +1157,6 @@ class DAG:
                     # depending jobs of jobs that are needrun as a prior
                     # can be skipped
                     continue
-
                 if update_needrun(job):
                     queue.append(job)
                     masked.update(self.bfs(self.depending, job))
@@ -1173,16 +1178,17 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
                     if job_ not in visited:
-                        # TODO may it happen that order determines whether
-                        # _n_until_ready is incremented for this job?
                         if all(f.is_ancient and f.exists for f in files):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue
                         visited.add(job_)
                         queue.append(job_)
-                    _n_until_ready[job_] += 1
                     reason(job_).updated_input_run.update(files)
+
+        # update _n_until_ready
+        for job in _needrun:
+            _n_until_ready[job] = sum(1 for dep in dependencies[job] if dep in _needrun)
 
         # update len including finished jobs (because they have already increased the job counter)
         self._len = len(self._finished | self._needrun)
@@ -1233,18 +1239,18 @@ class DAG:
             lambda job: job.rule in self.priorityrules
             or not self.priorityfiles.isdisjoint(job.output)
         )
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             self._priority[job] = job.rule.priority
         for job in self.bfs(
             self.dependencies,
-            *filter(prioritized, self.needrun_jobs),
+            *filter(prioritized, self.needrun_jobs()),
             stop=self.noneedrun_finished,
         ):
             self._priority[job] = Job.HIGHEST_PRIORITY
 
     def update_groups(self):
         groups = dict()
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             if job.group is None:
                 continue
             stop = lambda j: j.group != job.group
@@ -1315,7 +1321,7 @@ class DAG:
         """
 
         if jobs is None:
-            jobs = self.needrun_jobs
+            jobs = self.needrun_jobs()
 
         potential_new_ready_jobs = False
         candidate_groups = set()
@@ -1365,6 +1371,8 @@ class DAG:
         self.cleanup()
         self.update_jobids()
         if update_needrun:
+            self.update_container_imgs()
+            self.update_conda_envs()
             self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
@@ -1393,7 +1401,7 @@ class DAG:
         one consumer"""
 
         visited = set()
-        for job in self.needrun_jobs:
+        for job in self.needrun_jobs():
             candidate_groups = set()
             if job.group is not None:
                 candidate_groups.add(job.group)
@@ -1694,10 +1702,11 @@ class DAG:
             if not depending and recursive:
                 self.delete_job(job_)
         del self.dependencies[job]
+        if job in self._reason:
+            del self._reason[job]
         if job in self._needrun:
             self._len -= 1
             self._needrun.remove(job)
-            del self._reason[job]
         if job in self._finished:
             self._finished.remove(job)
         if job in self._dynamic:
@@ -2217,7 +2226,7 @@ class DAG:
         if os.path.exists(path):
             raise WorkflowError("Archive already exists:\n" + path)
 
-        self.create_conda_envs(forceall=True)
+        self.create_conda_envs()
 
         try:
             workdir = Path(os.path.abspath(os.getcwd()))
@@ -2342,12 +2351,12 @@ class DAG:
         from tabulate import tabulate
 
         rules = Counter()
-        rules.update(job.rule for job in self.needrun_jobs)
+        rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
         max_threads = defaultdict(int)
         min_threads = defaultdict(lambda: sys.maxsize)
-        for job in chain(self.needrun_jobs, self.finished_jobs):
+        for job in chain(self.needrun_jobs(), self.finished_jobs):
             max_threads[job.rule] = max(max_threads[job.rule], job.threads)
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [

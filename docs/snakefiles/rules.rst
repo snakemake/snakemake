@@ -1961,35 +1961,38 @@ Consider the following example where an arbitrary number of files is generated b
 .. code-block:: python
 
   # a target rule to define the desired final output
-  rule all:
-      input:
-          "aggregated.txt"
+    rule all:
+        input:
+            "aggregated.txt"
 
 
-  # the checkpoint that shall trigger re-evaluation of the DAG
-  # an number of file is created in a defined directory
-  checkpoint somestep:
-      output:
-          directory("my_directory/")
-      shell:
-          "mkdir my_directory/;"
-          "for i in 1 2 3; do touch $i.txt; done"
+    # the checkpoint that shall trigger re-evaluation of the DAG
+    # an number of file is created in a defined directory
+    checkpoint somestep:
+        output:
+            directory("my_directory/")
+        shell:'''
+        mkdir my_directory/
+        cd my_directory
+        for i in 1 2 3; do touch $i.txt; done
+        '''
 
 
-  # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
-  def aggregate_input(wildcards):
-      checkpoint_output = checkpoints.export_sequences.get(**wildcards).output[0]
-      return expand("my_directory/{i}.txt",
+
+    # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+    def aggregate_input(wildcards):
+        checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
+        return expand("my_directory/{i}.txt",
                     i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
 
 
-  rule aggregate:
-      input:
-          aggregate_input
-      output:
-          "aggegated.txt"
-      shell:
-          "cat {input} > {output}"
+    rule aggregate:
+        input:
+            aggregate_input
+        output:
+            "aggregated.txt"
+        shell:
+            "cat {input} > {output}"
 
 Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
 This time, instead of explicitly writing

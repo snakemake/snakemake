@@ -502,7 +502,7 @@ class Persistence:
 
     def all_outputfiles(self):
         # we only look at output files that will be updated
-        return jobfiles(self.dag.needrun_jobs, "output")
+        return jobfiles(self.dag.needrun_jobs(), "output")
 
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs
