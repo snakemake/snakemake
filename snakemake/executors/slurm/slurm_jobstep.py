@@ -50,10 +50,12 @@ class SlurmJobstepExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        # TODO raise WorkflowError if one of below env vars is not there
+
         self.mem_per_node = os.getenv("SLURM_MEM_PER_NODE")
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
+
+        #if not self.mem_per_node
 
     def _wait_for_jobs(self):
         pass
