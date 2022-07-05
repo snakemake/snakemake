@@ -47,7 +47,7 @@ class SlurmExecutor(ClusterExecutor):
         local_input=None,
         restart_times=0,
         exec_job=None,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.03, # every 30 sec is a fine default
         cluster_config=None,
     ):
         # needs to be set in either case for the submission string
@@ -204,7 +204,7 @@ class SlurmExecutor(ClusterExecutor):
         """
         obtain SLURM job status of submitted jobs
         """
-        STATUS_ATTEMPS = 10
+        STATUS_ATTEMPTS = 10
         res = None
 
         for i in range(STATUS_ATTEMPS):
