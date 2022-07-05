@@ -185,6 +185,7 @@ class JobScheduler:
                 keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
             )
+            #import pdb; pdb.set_trace()
             self._executor = SlurmExecutor(
                 workflow,
                 dag,
@@ -196,6 +197,7 @@ class JobScheduler:
                 # keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
                 cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second,
             )
 
         elif slurm_jobstep:
