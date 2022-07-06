@@ -67,6 +67,8 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
+        print(self.max_status_checks_per_second)
+        sys.exit()
 
     def additional_general_args(self):
         return [" --slurm-jobstep"]

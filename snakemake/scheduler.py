@@ -186,6 +186,12 @@ class JobScheduler:
                 # keepmetadata=keepmetadata,
             )
             #import pdb; pdb.set_trace()
+            # we need to adjust the maximum status checks on a
+            # SLURM cluster for not to overstrain the scheduler
+            if max_status_checks_per_second > 1:
+                # # every 30 sec is a resonable default
+                max_status_checks_per_second = 0.03
+
             self._executor = SlurmExecutor(
                 workflow,
                 dag,
