@@ -299,7 +299,7 @@ For the latter, it is also possible to specify an alternative host and/or a toke
 
 .. code-block:: python
 
-    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="glpat-2Dw4aco9i_ADAsd_erZs")
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="xxxxx-2Dw4aco9i_ADAsd_erZs")
 
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
