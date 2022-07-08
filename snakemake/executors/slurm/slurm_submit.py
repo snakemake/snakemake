@@ -179,6 +179,14 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
                 call += f" --cpus-per-task=".format(job.resources.get("threads", 1))
+            if not job.shellcmd:
+                # The reason for this error is that in this case _only_ the 
+                # shell command is issued, not snakemake itself. Otherwise
+                # the jobstepexecutor would again be snakemake, but the MPI-starter
+                # is 'srun' not 'snakemake ...'.
+                logger.error("MPI-Jobs may only be run as a shell command.")
+                sys.exit(101)
+
         # ordinary smp application
         elif not job.is_group():
             # TODO: this line will become longer
@@ -187,7 +195,7 @@ class SlurmExecutor(ClusterExecutor):
                 call += f" -n 1 -c 1 {exec_job}"
             else:
                 call += f" -n 1 -c {job.threads}"
-        else:
+        else: # group job case
             ntasks = max(map(len, job.toposorted))
             threads = max(j.threads for j in job)
             call += f" -n {ntasks} -c {threads}"
@@ -211,7 +219,7 @@ class SlurmExecutor(ClusterExecutor):
         STATUS_ATTEMPTS = 10
         res = None
 
-        for i in range(STATUS_ATTEMPS):
+        for i in range(STATUS_ATTEMPTS):
             # use self.status_rate_limiter to avoid too many API calls.
             with self.status_rate_limiter:
                 try:
