@@ -196,6 +196,7 @@ class HostingProviderFile(SourceFile):
         tag: str = None,
         branch: str = None,
         commit: str = None,
+        token: str = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -221,6 +222,7 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
+        self.token = token
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -262,8 +264,8 @@ class HostingProviderFile(SourceFile):
 
 class GithubFile(HostingProviderFile):
     def get_path_or_uri(self):
-        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
-
+        auth = ":{}@".format(self.token) if self.token else ""
+        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(auth, self.repo, self.ref, self.path)
 
 class GitlabFile(HostingProviderFile):
     def __init__(
@@ -276,9 +278,8 @@ class GitlabFile(HostingProviderFile):
         host: str = None,
         token: str = None,
     ):
-        super().__init__(repo, path, tag, branch, commit)
+        super().__init__(repo, path, tag, branch, commit, token)
         self.host = host
-        self.token = token
 
     def get_path_or_uri(self):
         from urllib.parse import quote
