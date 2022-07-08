@@ -72,7 +72,10 @@ class SlurmExecutor(ClusterExecutor):
         self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
-        return [" --slurm-jobstep"]
+        # at some point '-j 1' became necessary whilst the entire
+        # commandline _should_ propagate this flag.
+        # TODO: look into this matter
+        return [" --slurm-jobstep", "-j 1"]
 
     def cancel(self):
         for job in self.active_jobs:
