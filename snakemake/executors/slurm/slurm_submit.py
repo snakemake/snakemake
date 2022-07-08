@@ -87,7 +87,7 @@ class SlurmExecutor(ClusterExecutor):
                 # virtually no time.
                 subprocess.run(shlex.split(f"scancel {jobid}"), timeout=60)
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel job {jobid}")
+                logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -126,10 +126,8 @@ class SlurmExecutor(ClusterExecutor):
         super()._run(job)
         workdir = os.getcwd()
         jobid = job.jobid
+        os.makedirs(".snakemake/slurm_logs", exist_ok=True)
         # generic part of a submission string:
-
-        os.makedirs(".snakemake/slurm-logs", exist_ok=True)
-
         try:
             call = "sbatch \
                     -J {jobname} \
