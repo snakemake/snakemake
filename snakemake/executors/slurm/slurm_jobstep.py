@@ -65,10 +65,10 @@ class SlurmJobstepExecutor(ClusterExecutor):
         jobsteps = dict()
 
         if job.is_group():
-
             def get_call(level_job, level_id, aux=""):
                 # we need this calculation, because of srun's greediness and
-                # SLURM's limits: it is not able toClusterExecutor limit the memory if per cpu
+                # SLURM's limits: it is not able to limit the memory if we divide the job
+                # per CPU by itself.
                 mem_per_cpu = max(level_job.resources.mem_mb // level_job.threads, 100)
                 exec_job = self.format_job_exec(level_job)
                 return (
@@ -92,7 +92,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             call = "srun "
             if job.resources.get("bind_rank"):
                 call += "--cpu-bind=rank "
-            call += self.format_job_exec(job)
+            call += job.shellcmd
         else:
             call = "srun --cpu-bind=q --exclusive "
             # TODO: in case the job only has a shell command and does not require
