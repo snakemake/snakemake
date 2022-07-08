@@ -295,12 +295,18 @@ and Gitlab are supported:
 
     gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0")
 
-For the latter, it is also possible to specify an alternative host and/or a token for accessing private repositories, e.g.
+For the latter, it is also possible to specify an alternative host, e.g.
 
 .. code-block:: python
 
-    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="xxxxx-2Dw4aco9i_ADAsd_erZs")
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org")
 
+A private token can be specified to access private repositories:
+
+.. code-block:: python
+
+    github("owner/repo", path="workflow/Snakefile", tag="v1.0.0", token="xxx_ccluNyxdHXXXXX9H6nvC873n3lLG")
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="xxxxx-1fhwBFYCDh-QbB")
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
