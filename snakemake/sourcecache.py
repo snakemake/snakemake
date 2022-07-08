@@ -274,13 +274,22 @@ class GitlabFile(HostingProviderFile):
         branch: str = None,
         commit: str = None,
         host: str = None,
+        token: str = None,
     ):
         super().__init__(repo, path, tag, branch, commit)
         self.host = host
+        self.token = token
 
     def get_path_or_uri(self):
-        return "https://{}/{}/-/raw/{}/{}".format(
-            self.host or "gitlab.com", self.repo, self.ref, self.path
+        from urllib.parse import quote
+
+        auth = "&private_token={}".format(self.token) if self.token else ""
+        return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
+            self.host or "gitlab.com",
+            quote(self.repo, safe=""),
+            quote(self.path, safe=""),
+            self.ref,
+            auth,
         )
 
 

@@ -295,11 +295,11 @@ and Gitlab are supported:
 
     gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0")
 
-For the latter, it is also possible to specify an alternative host, e.g.
+For the latter, it is also possible to specify an alternative host and/or a token for accessing private repositories, e.g.
 
 .. code-block:: python
 
-    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org")
+    gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="glpat-2Dw4aco9i_ADAsd_erZs")
 
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
