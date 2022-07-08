@@ -51,8 +51,14 @@ int main(int argc,char *argv[])
   
   /* Output result if myrank==0 */
   if( 0 == myrank ){
-    printf("\nUsing %d processes and the value n = %d.\n",size,n);
-    printf("Calculated pi: %.16f, with error %.16f\n\n", pi, fabs(pi - PI25DT));
+    char* filename = argv[1];   
+    FILE *fp;
+    char buf[0x100];    
+    snprintf(buf, sizeof(buf), "%s", filename);
+    fp = fopen(buf, "w+");
+    fprintf(fp, "\nUsing %d processes and the value n = %d.\n",size,n);
+    fprintf(fp, "Calculated pi: %.16f, with error %.16f\n\n", pi, fabs(pi - PI25DT));
+    fclose(fp);    
   }
 
   MPI_Finalize();
