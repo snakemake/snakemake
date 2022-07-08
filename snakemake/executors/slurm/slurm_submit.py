@@ -87,7 +87,7 @@ class SlurmExecutor(ClusterExecutor):
                 # virtually no time.
                 subprocess.run(shlex.split(f"scancel {jobid}"), timeout=60)
             except subprocess.TimeoutExpired:
-                pass  # shell we ignore the timeout, here?
+                logger.warning(f"Unable to cancel job {jobid}")
         self.shutdown()
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
