@@ -47,7 +47,7 @@ class SlurmExecutor(ClusterExecutor):
         local_input=None,
         restart_times=0,
         exec_job=None,
-        max_status_checks_per_second=0.03, # every 30 sec is a fine default
+        max_status_checks_per_second=0.03,
         cluster_config=None,
     ):
         # needs to be set in either case for the submission string
@@ -67,8 +67,9 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        print(self.max_status_checks_per_second)
-        sys.exit()
+        # TODO: check! Even this does not add this attribute to the class
+        #       see comment on the bottom.
+        self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
         return [" --slurm-jobstep"]
