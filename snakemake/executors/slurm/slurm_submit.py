@@ -85,7 +85,7 @@ class SlurmExecutor(ClusterExecutor):
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
-                subprocess.run(shlex.split("scancel {}".format(jobid)), timeout=60)
+                subprocess.run(shlex.split(f"scancel {jobid}"), timeout=60)
             except subprocess.TimeoutExpired:
                 pass  # shell we ignore the timeout, here?
         self.shutdown()
