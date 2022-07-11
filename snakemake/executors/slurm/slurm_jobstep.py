@@ -55,7 +55,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
 
-        #if not self.mem_per_node
+        # if not self.mem_per_node
 
     def _wait_for_jobs(self):
         pass
@@ -65,6 +65,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         jobsteps = dict()
 
         if job.is_group():
+
             def get_call(level_job, level_id, aux=""):
                 # we need this calculation, because of srun's greediness and
                 # SLURM's limits: it is not able to limit the memory if we divide the job

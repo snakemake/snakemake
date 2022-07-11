@@ -104,13 +104,15 @@ class SlurmExecutor(ClusterExecutor):
         #    attributes of groubjobs (snakemake/jobs.py class GroupJob , _resources
         #    - see topology
         for job in jobs:
-            # TODO replace by own code
-            self.run(
-                job,
-                callback=callback,  # to be executed upon ready jobs
-                submit_callback=submit_callback,  # to be hold for --immediate flag - ignored within this executor
-                error_callback=error_callback,  #
-            )
+            if job.is_group():
+                logger.info("yeah") # printf debugging feature ;-)
+            else:
+                self.run(
+                    job,
+                    callback=callback,  # to be executed upon ready jobs
+                    submit_callback=submit_callback,  # to be hold for --immediate flag - ignored within this executor
+                    error_callback=error_callback,  #
+                )
 
     def cluster_params(self, job):
         """
@@ -180,7 +182,7 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("threads", False):
                 call += f" --cpus-per-task=".format(job.resources.get("threads", 1))
             if not job.shellcmd:
-                # The reason for this error is that in this case _only_ the 
+                # The reason for this error is that in this case _only_ the
                 # shell command is issued, not snakemake itself. Otherwise
                 # the jobstepexecutor would again be snakemake, but the MPI-starter
                 # is 'srun' not 'snakemake ...'.
@@ -195,7 +197,7 @@ class SlurmExecutor(ClusterExecutor):
                 call += f" -n 1 -c 1 {exec_job}"
             else:
                 call += f" -n 1 -c {job.threads}"
-        else: # group job case
+        else:  # group job case
             ntasks = max(map(len, job.toposorted))
             threads = max(j.threads for j in job)
             call += f" -n {ntasks} -c {threads}"
@@ -293,5 +295,5 @@ class SlurmExecutor(ClusterExecutor):
             # FIXME: check why self.max_status_checks_per_second is not an attribute of this class!
             # This code is not working for reasons unkown!
             # Hence, the hardcoded drop-in.
-            #time.sleep(1 / self.max_status_checks_per_second)
+            # time.sleep(1 / self.max_status_checks_per_second)
             time.sleep(30)
