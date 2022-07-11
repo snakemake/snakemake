@@ -105,7 +105,7 @@ class SlurmExecutor(ClusterExecutor):
         #    - see topology
         for job in jobs:
             if job.is_group():
-                logger.info("yeah") # printf debugging feature ;-)
+                logger.info("yeah")  # printf debugging feature ;-)
             else:
                 self.run(
                     job,

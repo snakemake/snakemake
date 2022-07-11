@@ -185,7 +185,6 @@ class JobScheduler:
                 keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
             )
-            #import pdb; pdb.set_trace()
             # we need to adjust the maximum status checks on a
             # SLURM cluster for not to overstrain the scheduler
             if max_status_checks_per_second > 1:
