@@ -205,7 +205,7 @@ class REncoder:
                     return str(value)
                 elif isinstance(value, np.bool_):
                     return "true" if value else "false"
- 
+
             except ImportError:
                 pass
         raise ValueError("Unsupported value for conversion into R: {}".format(value))
