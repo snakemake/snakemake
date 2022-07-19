@@ -1673,3 +1673,7 @@ def test_conda_pin_file():
 @skip_on_windows  # sufficient to test this on linux
 def test_github_issue1618():
     run(dpath("test_github_issue1618"), cores=5)
+
+
+def test_conda_python_script():
+    run(dpath("test_conda_python_script"), use_conda=True)
