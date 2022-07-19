@@ -180,6 +180,7 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
+
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -202,6 +203,9 @@ class REncoder:
 
                 if isinstance(value, np.number):
                     return str(value)
+                elif isinstance(value, np.bool_):
+                    return "TRUE" if value else "FALSE"
+
             except ImportError:
                 pass
         raise ValueError("Unsupported value for conversion into R: {}".format(value))
