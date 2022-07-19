@@ -307,6 +307,8 @@ A private token can be specified to access private repositories:
 
     github("owner/repo", path="workflow/Snakefile", tag="v1.0.0", token="xxx_ccluNyxdHXXXXX9H6nvC873n3lLG")
     gitlab("owner/repo", path="workflow/Snakefile", tag="v1.0.0", host="somecustomgitlab.org", token="xxxxx-1fhwBFYCDh-QbB")
+    
+Naturally, in reality you should query these tokens from environment variables (using ``os.environ``) instead of hardcoding them into the source file.
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
