@@ -445,7 +445,6 @@ class Persistence:
             mode="w",
             dir=recdir,
             delete=False,
-            prefix=".",
             suffix=os.path.basename(recpath),
         ) as tmpfile:
             json.dump(json_value, tmpfile)
