@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.9.0](https://github.com/snakemake/snakemake/compare/v7.8.5...v7.9.0) (2022-07-19)
+
+
+### Features
+
+* make it possible to exclude rules that will be imported when using 'use rule' statement ([#1717](https://github.com/snakemake/snakemake/issues/1717)) ([d9e0611](https://github.com/snakemake/snakemake/commit/d9e061178bd22307cc710bea28a5994e866260d9))
+
+
+### Bug Fixes
+
+* add lock free mechanism for avoiding race conditions when writing persistence information; consider corrupt metadata records as non-existent ([#1745](https://github.com/snakemake/snakemake/issues/1745)) ([71fe952](https://github.com/snakemake/snakemake/commit/71fe9527bb7011ba01d25fdd21c102c135412c04))
+* conda python interpreter path on Windows ([#1711](https://github.com/snakemake/snakemake/issues/1711)) ([155c9d6](https://github.com/snakemake/snakemake/commit/155c9d6688a99db4b49c5b25d5a8a65a3aca532d))
+* ensures that REncoder also checks for numpy.bool_ in encode_value ([#1749](https://github.com/snakemake/snakemake/issues/1749)) ([10a6e1d](https://github.com/snakemake/snakemake/commit/10a6e1de50ea7957e8685ba55b2cc115101cc23f))
+* Move quiet default after profile parsing ([#1764](https://github.com/snakemake/snakemake/issues/1764)) ([6ade76d](https://github.com/snakemake/snakemake/commit/6ade76d1287c8f62056853491a4e67b08a4739a6))
+
 ## [7.8.5](https://github.com/snakemake/snakemake/compare/v7.8.4...v7.8.5) (2022-06-30)
 
 
