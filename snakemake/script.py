@@ -204,7 +204,7 @@ class REncoder:
                 if isinstance(value, np.number):
                     return str(value)
                 elif isinstance(value, np.bool_):
-                    return "true" if value else "false"
+                    return "TRUE" if value else "FALSE"
 
             except ImportError:
                 pass
