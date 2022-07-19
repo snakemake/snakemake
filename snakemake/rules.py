@@ -28,8 +28,6 @@ from snakemake.io import (
     update_wildcard_constraints,
     flag,
     get_flag_value,
-)
-from snakemake.io import (
     expand,
     InputFiles,
     OutputFiles,
@@ -38,10 +36,9 @@ from snakemake.io import (
     Log,
     Resources,
     strip_wildcard_constraints,
-)
-from snakemake.io import (
     apply_wildcards,
     is_flagged,
+    flag,
     not_iterable,
     is_callable,
     DYNAMIC_FILL,
@@ -64,7 +61,6 @@ from snakemake.common import (
     lazy_property,
     TBDString,
 )
-import snakemake.io
 
 
 class Rule:
@@ -371,16 +367,7 @@ class Rule:
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        from snakemake.deployment.conda import (
-            is_conda_env_file,
-            CondaEnvFileSpec,
-            CondaEnvNameSpec,
-        )
-
-        if is_conda_env_file(conda_env):
-            self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
-        else:
-            self._conda_env = CondaEnvNameSpec(conda_env)
+        self._conda_env = conda_env
 
     @property
     def container_img(self):
@@ -523,6 +510,7 @@ class Rule:
         inoutput -- a Namedlist of either input or output items
         name     -- an optional name for the item
         """
+
         inoutput = self.output if output else self.input
 
         # Check to see if the item is a path, if so, just make it a string
@@ -551,8 +539,8 @@ class Rule:
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
-                for flag in item.flags:
-                    if not output and flag in [
+                for item_flag in item.flags:
+                    if not output and item_flag in [
                         "protected",
                         "temp",
                         "temporary",
@@ -564,13 +552,13 @@ class Rule:
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
-                    if output and flag in ["ancient"]:
+                    if output and item_flag in ["ancient"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
 
@@ -592,7 +580,7 @@ class Rule:
 
             if self.workflow.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
-                item = snakemake.io.flag(item, "temp")
+                item = flag(item, "temp")
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
@@ -1125,23 +1113,41 @@ class Rule:
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards):
-        try:
-            conda_env = (
-                self.conda_env.apply_wildcards(wildcards, self)
-                if self.conda_env
-                else None
-            )
-        except WildcardError as e:
-            raise WildcardError(
-                "Wildcards in conda environment file cannot be "
-                "determined from output files:",
-                str(e),
-                rule=self,
+    def expand_conda_env(self, wildcards, params=None, input=None):
+        from snakemake.common import is_local_file
+        from snakemake.sourcecache import SourceFile, infer_source_file
+        from snakemake.deployment.conda import (
+            is_conda_env_file,
+            CondaEnvFileSpec,
+            CondaEnvNameSpec,
+        )
+
+        conda_env = self._conda_env
+        if callable(conda_env):
+            conda_env, _ = self.apply_input_function(
+                conda_env, wildcards=wildcards, params=params, input=input
             )
 
-        if conda_env is not None:
-            conda_env.check()
+        if conda_env is None:
+            return None
+
+        if is_conda_env_file(conda_env):
+            if not isinstance(conda_env, SourceFile):
+                if is_local_file(conda_env) and not os.path.isabs(conda_env):
+                    # Conda env file paths are considered to be relative to the directory of the Snakefile
+                    # hence we adjust the path accordingly.
+                    # This is not necessary in case of receiving a SourceFile.
+                    conda_env = self.basedir.join(conda_env)
+                else:
+                    # infer source file from unmodified uri or path
+                    conda_env = infer_source_file(conda_env)
+
+            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            conda_env = CondaEnvNameSpec(conda_env)
+
+        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env.check()
 
         return conda_env
 

@@ -1684,7 +1684,7 @@ class KubernetesExecutor(ClusterExecutor):
         secret.metadata.name = self.run_namespace
         secret.type = "Opaque"
         secret.data = {}
-        for i, f in enumerate(self.workflow.get_sources()):
+        for i, f in enumerate(self.dag.get_sources()):
             if f.startswith(".."):
                 logger.warning(
                     "Ignoring source file {}. Only files relative "
@@ -2083,7 +2083,7 @@ class TibannaExecutor(ClusterExecutor):
     ):
         self.workflow = workflow
         self.workflow_sources = []
-        for wfs in workflow.get_sources():
+        for wfs in dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(

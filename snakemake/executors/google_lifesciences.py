@@ -636,7 +636,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         self.workflow_sources = []
 
-        for wfs in self.workflow.get_sources():
+        for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(

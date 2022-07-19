@@ -332,76 +332,6 @@ class Workflow:
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
 
-    def get_sources(self):
-        files = set()
-
-        def local_path(f):
-            if not isinstance(f, SourceFile) and is_local_file(f):
-                return f
-            if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
-
-        def norm_rule_relpath(f, rule):
-            if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
-            return os.path.relpath(f)
-
-        # get registered sources
-        for f in self.included:
-            f = local_path(f)
-            if f:
-                try:
-                    f = os.path.relpath(f)
-                except ValueError:
-                    if ON_WINDOWS:
-                        pass  # relpath doesn't work on win if files are on different drive
-                    else:
-                        raise
-                files.add(f)
-        for rule in self.rules:
-            script_path = rule.script or rule.notebook
-            if script_path:
-                script_path = norm_rule_relpath(script_path, rule)
-                files.add(script_path)
-                script_dir = os.path.dirname(script_path)
-                files.update(
-                    os.path.join(dirpath, f)
-                    for dirpath, _, files in os.walk(script_dir)
-                    for f in files
-                )
-            if rule.conda_env and rule.conda_env.is_file:
-                f = local_path(rule.conda_env.file)
-                if f:
-                    # url points to a local env file
-                    env_path = norm_rule_relpath(f, rule)
-                    files.add(env_path)
-
-        for f in self.configfiles:
-            files.add(f)
-
-        # get git-managed files
-        # TODO allow a manifest file as alternative
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
-            )
-            for f in out.decode().split("\n"):
-                if f:
-                    files.add(os.path.relpath(f))
-        except subprocess.CalledProcessError as e:
-            if "fatal: not a git repository" in e.stderr.decode().lower():
-                logger.warning(
-                    "Unable to retrieve additional files from git. "
-                    "This is not a git repository."
-                )
-            else:
-                raise WorkflowError(
-                    "Error executing git (Snakemake requires git to be installed for "
-                    "remote execution without shared filesystem):\n" + e.stderr.decode()
-                )
-
-        return files
-
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
         to the calling function Additionally, given that we encourage these
@@ -640,6 +570,7 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        containerize=False,
     ):
 
         self.check_localrules()
@@ -805,6 +736,12 @@ class Workflow:
 
         if cleanup_shadow:
             self.persistence.cleanup_shadow()
+            return True
+
+        if containerize:
+            from snakemake.deployment.containerize import containerize
+
+            containerize(self, dag)
             return True
 
         if (
@@ -1222,11 +1159,6 @@ class Workflow:
             )
         self.envvars.update(envvars)
 
-    def containerize(self):
-        from snakemake.deployment.containerize import containerize
-
-        containerize(self)
-
     def include(
         self,
         snakefile,
@@ -1582,15 +1514,6 @@ class Workflow:
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
-                if (
-                    ruleinfo.conda_env is not None
-                    and is_conda_env_file(ruleinfo.conda_env)
-                    and is_local_file(ruleinfo.conda_env)
-                    and not os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = self.current_basedir.join(
-                        ruleinfo.conda_env
-                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (

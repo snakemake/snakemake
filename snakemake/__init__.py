@@ -621,8 +621,6 @@ def snakemake(
         if not print_compilation:
             if lint:
                 success = not workflow.lint(json=lint == "json")
-            elif containerize:
-                workflow.containerize()
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -808,6 +806,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    containerize=containerize,
                 )
 
     except BrokenPipeError:
@@ -1078,7 +1077,7 @@ def get_argument_parser(profile=None):
                         line options in YAML format. For example,
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles. 
+                        https://github.com/snakemake-profiles.
                         The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
