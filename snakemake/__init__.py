@@ -2444,10 +2444,6 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.quiet is not None and len(args.quiet) == 0:
-        # default case, set quiet to progress and rule
-        args.quiet = ["progress", "rules"]
-
     if args.profile:
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
@@ -2477,6 +2473,10 @@ def main(argv=None):
                 setattr(args, key, adjust_path(getattr(args, key)))
         if args.report_stylesheet:
             args.report_stylesheet = adjust_path(args.report_stylesheet)
+
+    if args.quiet is not None and len(args.quiet) == 0:
+        # default case, set quiet to progress and rule
+        args.quiet = ["progress", "rules"]
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
