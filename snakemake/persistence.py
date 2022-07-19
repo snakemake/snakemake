@@ -441,7 +441,13 @@ class Persistence:
         # This avoids race-conditions while writing (e.g. on NFS when the main job
         # and the cluster node job propagate their content and the system has some
         # latency including non-atomic propagation processes).
-        with tempfile.NamedTemporaryFile(mode="w", dir=recdir, delete=False) as tmpfile:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=recdir,
+            delete=False,
+            prefix=".",
+            suffix=os.path.basename(recpath),
+        ) as tmpfile:
             json.dump(json_value, tmpfile)
         os.rename(tmpfile.name, recpath)
 
