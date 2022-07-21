@@ -70,6 +70,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=10,
         )
+        # Prepare workflow sources for build package
+        self._set_workflow_sources()
 
         # Attach variables for easy access
         self.quiet = quiet
@@ -113,9 +115,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # we need to add custom
         # default resources depending on the instance requested
         self.default_resources = None
-
-        # Prepare workflow sources for build package
-        self._set_workflow_sources()
 
     def get_default_resources_args(self, default_resources=None):
         assert default_resources is None
