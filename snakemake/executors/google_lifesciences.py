@@ -58,9 +58,20 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         preemption_default=None,
         preemptible_rules=None,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            restart_times=restart_times,
+            assume_shared_fs=False,
+            max_status_checks_per_second=10,
+        )
 
         # Attach variables for easy access
-        self.workflow = workflow
         self.quiet = quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
@@ -68,7 +79,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Set preemptible instances
         self._set_preemptible_rules(preemption_default, preemptible_rules)
 
-        # IMPORTANT: using Compute Engine API and not k8s == no support secrets
+        # IMPORTANT: using Compute Engine API and not k8s == no support for secrets
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't authenticate
@@ -102,19 +113,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # we need to add custom
         # default resources depending on the instance requested
         self.default_resources = None
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
-        )
 
         # Prepare workflow sources for build package
         self._set_workflow_sources()
