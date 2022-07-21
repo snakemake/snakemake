@@ -65,9 +65,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
-        # Prepare workflow sources for build package
-        self._set_workflow_sources()
-
         # Set preemptible instances
         self._set_preemptible_rules(preemption_default, preemptible_rules)
 
@@ -118,6 +115,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             assume_shared_fs=False,
             max_status_checks_per_second=10,
         )
+
+        # Prepare workflow sources for build package
+        self._set_workflow_sources()
 
     def get_default_resources_args(self, default_resources=None):
         assert default_resources is None
@@ -636,7 +636,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         self.workflow_sources = []
 
-        for wfs in self.workflow.dag.get_sources():
+        for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(
