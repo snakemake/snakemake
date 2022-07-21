@@ -1561,7 +1561,9 @@ class GroupJob(AbstractJob):
             # summed, except for cores, which are combined via max().
             for pipe in pipe_resources.values():
                 job_resources.append(
-                    self._simple_merge(pipe, use_max=False, merge_via_other=["_cores"])
+                    self._merge_resources(
+                        pipe, default_method=max, methods={"runtime": sum}
+                    )
                 )
 
             # Set of resource types requested in at least one job
@@ -1631,13 +1633,13 @@ class GroupJob(AbstractJob):
 
         if self.dag.workflow.run_local:
             return Resources(
-                fromdict={**self._simple_merge(blocks, use_max=False), "_nodes": 1}
+                fromdict={**self._merge_resources(blocks, default_method=sum), "_nodes": 1}
             )
         else:
             return Resources(
                 fromdict={
-                    **self._simple_merge(
-                        blocks, use_max=True, merge_via_other=["runtime"]
+                    **self._merge_resources(
+                        blocks, default_method=max, methods={"runtime": sum}
                     ),
                     "_nodes": 1,
                 }
@@ -1661,9 +1663,9 @@ class GroupJob(AbstractJob):
                 )
             return True
 
-    def _simple_merge(self, jobs, skip=[], use_max=True, merge_via_other=[]):
+    def _merge_resources(self, resources, skip=[], methods={}, default_method=max):
         grouped = {}
-        for job in jobs:
+        for job in resources:
             # Wrap every value in job with a list so that lists can be merged later
             job_l = {k: [v] for k, v in job.items()}
 
@@ -1681,18 +1683,12 @@ class GroupJob(AbstractJob):
             if res in skip:
                 continue
 
-            merge_via_max = any(
-                [
-                    use_max and res not in merge_via_other,
-                    not use_max and res in merge_via_other,
-                ]
-            )
             if self._is_string_resource(res, values):
                 ret[res] = values[0]
-            elif merge_via_max:
-                ret[res] = max(values)
+            elif res in methods:
+                ret[res] = methods[res](values)
             else:
-                ret[res] = sum(values)
+                ret[res] = default_method(values)
         return ret
 
     def _check_constraint(self, resources, constraints):
