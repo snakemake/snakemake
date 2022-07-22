@@ -544,3 +544,10 @@ class LockException(WorkflowError):
             "a power loss. It can be removed with "
             "the --unlock argument.".format(os.getcwd())
         )
+
+
+class ResourceScopesException(Exception):
+    def __init__(self, msg, invalid_resources):
+        super().__init__(msg, invalid_resources)
+        self.msg = msg
+        self.invalid_resources = invalid_resources

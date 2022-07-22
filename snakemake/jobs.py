@@ -94,7 +94,7 @@ def _get_scheduler_resources(job):
                     k: job.resources[k]
                     for k in (
                         set(job.resources.keys())
-                        - job.dag.workflow.local_resourcescopes
+                        - job.dag.workflow.resource_scopes.locals
                     )
                 }
             )

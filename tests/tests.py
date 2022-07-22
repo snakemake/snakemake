@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
-from snakemake.jobs import GroupJob
+from snakemake.resources import GroupResources
 
 
 def test_list_untracked():
@@ -942,7 +942,7 @@ def test_group_jobs():
 
 @skip_on_windows
 def test_group_jobs_resources(mocker):
-    spy = mocker.spy(GroupJob, "_calculate_resources")
+    spy = mocker.spy(GroupResources, "basic_layered")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -965,7 +965,7 @@ def test_group_jobs_resources(mocker):
 
 @skip_on_windows
 def test_group_jobs_resources_with_max_threads(mocker):
-    spy = mocker.spy(GroupJob, "_calculate_resources")
+    spy = mocker.spy(GroupResources, "basic_layered")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -989,7 +989,7 @@ def test_group_jobs_resources_with_max_threads(mocker):
 
 @skip_on_windows
 def test_group_jobs_resources_with_limited_resources(mocker):
-    spy = mocker.spy(GroupJob, "_calculate_resources")
+    spy = mocker.spy(GroupResources, "basic_layered")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1045,7 +1045,7 @@ def test_new_resources_can_be_defined_as_local():
         nodes=5,
         cleanup=False,
         resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
-        overwrite_resource_scopes={"local": {"mem_mb", "global_res"}},
+        overwrite_resource_scopes={"mem_mb": "local", "global_res": "local"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1067,8 +1067,8 @@ def test_resources_can_be_overwritten_as_global():
         cores=6,
         nodes=5,
         cleanup=False,
-        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
-        overwrite_resource_scopes={"global": {"fake_res"}},
+        resources={"typo": 23, "fake_res": 200},
+        overwrite_resource_scopes={"fake_res": {"local"}},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1082,7 +1082,7 @@ def test_resources_can_be_overwritten_as_global():
 
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
-    spy = mocker.spy(GroupJob, "_calculate_resources")
+    spy = mocker.spy(GroupResources, "basic_layered")
     run(
         dpath("test_group_with_pipe"),
         cluster="./qsub",
@@ -1095,8 +1095,8 @@ def test_group_job_resources_with_pipe(mocker):
     )
     assert dict(spy.spy_return) == {
         "_nodes": 1,
-        "_cores": 4,
-        "runtime": 280,
+        "_cores": 6,
+        "runtime": 240,
         "tmpdir": "/tmp",
         "mem_mb": 50000,
         "disk_mb": 1000,

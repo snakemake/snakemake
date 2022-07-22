@@ -1,10 +1,10 @@
-from collections import defaultdict
+from collections import UserDict, defaultdict
 import itertools as it
 import operator as op
 import re
 import tempfile
 
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import ResourceScopesException, WorkflowError
 from snakemake.common import TBDString
 
 
@@ -95,6 +95,73 @@ class DefaultResources:
 
     def __bool__(self):
         return bool(self.parsed)
+
+
+class ResourceScopes(UserDict):
+    """Index of resource scopes, where each entry is 'RESOURCE': 'SCOPE'
+
+    Each resource may be scoped as local, global, or excluded. Any resources not
+    specified are considered global.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.data = dict(*args, **kwargs)
+        valid_scopes = {"local", "global", "excluded"}
+        if set(self.data.values()) - valid_scopes:
+            invalid_res = [
+                res for res, scope in self.data.items() if scope not in valid_scopes
+            ]
+            invalid_pairs = {res: self.data[res] for res in invalid_res}
+
+            # For now, we don't want excluded in the documentation
+            raise ResourceScopesException(
+                "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE "
+                "pairs, where SCOPE is either 'local' or 'global'",
+                invalid_pairs,
+            )
+
+    @classmethod
+    def defaults(cls):
+        return cls(mem_mb="local", disk_mb="local", runtime="excluded")
+
+    @property
+    def locals(self):
+        """Resources are not tallied by the global scheduler when submitting jobs
+
+        Each submitted job or group gets its own pool of the resource, as
+        specified under --resources.
+
+
+        Returns
+        -------
+        set
+        """
+        return set(res for res, scope in self.data.items() if scope == "local")
+
+    @property
+    def globals(self):
+        """Resources tallied across all job and group submissions.
+
+        Returns
+        -------
+        set
+        """
+        return set(res for res, scope in self.data.items() if scope == "global")
+
+    @property
+    def excluded(self):
+        """Resources not submitted to cluster jobs
+
+        These resources are used exclusively by the global scheduler. The primary case
+        is for additive resources in GroupJobs such as runtime, which would not be
+        properly handled by the scheduler in the sub-snakemake instance. This scope is
+        not currently intended for use by end-users and is thus not documented
+
+        Returns
+        -------
+        set
+        """
+        return set(res for res, scope in self.data.items() if scope == "excluded")
 
 
 class GroupResources:

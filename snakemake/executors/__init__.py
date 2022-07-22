@@ -122,12 +122,15 @@ class AbstractExecutor:
                 return s[1:].isdigit()
             return s.isdigit()
 
+        excluded_resources = self.workflow.resource_scopes.excluded.union(
+            {"_nodes", "_cores"}
+        )
         resources = [
             f"{resource}={value}"
             for resource, value in job.resources.items()
             if isinstance(value, int)
             # need to check bool seperately because bool is a subclass of int
-            and isdigit(value) and resource not in ["_nodes", "_cores", "runtime"]
+            and isdigit(value) and resource not in excluded_resources
         ]
         return format_cli_arg("--resources", resources)
 

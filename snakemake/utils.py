@@ -600,21 +600,6 @@ def find_bash_on_windows():
     return bashcmd if os.path.exists(bashcmd) else None
 
 
-def invert_resource_scope_dict(resource_scopes):
-    """Convert dict mapping resource -> scope into a dict mapping scope -> resources"""
-    scopes = DefaultDict(set)
-    for resource, scope in resource_scopes.items():
-        if scope in ["local", "global"]:
-            scopes[scope].add(resource)
-        else:
-            raise ValueError(
-                f"scope of '{resource}' must be one of 'local' or 'global' (got "
-                f"{scope})",
-                f"{resource}={scope}",
-            )
-    return scopes
-
-
 class Paramspace:
     """A wrapper for pandas dataframes that provides helpers for using them as a parameter
     space in Snakemake.

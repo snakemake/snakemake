@@ -21,17 +21,16 @@ from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
-from snakemake.exceptions import print_exception, WorkflowError
+from snakemake.exceptions import ResourceScopesException, print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import (
     update_config,
     available_cpu_count,
-    invert_resource_scope_dict,
 )
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
-from snakemake.resources import parse_resources, DefaultResources
+from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
 SNAKEFILE_CHOICES = [
@@ -882,19 +881,21 @@ def parse_set_scatter(args):
 def parse_set_resource_scope(args):
     err_msg = (
         "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE pairs, "
-        "where SCOPE is either 'local' or 'global'"
+        "where SCOPE is either 'local', 'global', or 'excluded'"
     )
     if args.set_resource_scopes is not None:
-        scopes = dict(
-            parse_key_value_arg(entry, errmsg=err_msg)
-            for entry in args.set_resource_scopes
-        )
         try:
-            return invert_resource_scope_dict(scopes)
-        except ValueError as err:
-            raise ValueError(f"{err_msg} (got {err.args[1]})")
+            return ResourceScopes(
+                parse_key_value_arg(entry, errmsg=err_msg)
+                for entry in args.set_resource_scopes
+            )
+        except ResourceScopesException as err:
+            invalid_resources = ", ".join(
+                f"'{res}={scope}'" for res, scope in err.invalid_resources.items()
+            )
+            raise ValueError(f"{err.msg} (got {invalid_resources})")
 
-    return {}
+    return ResourceScopes()
 
 
 def parse_set_ints(arg, errmsg):
