@@ -3,27 +3,27 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-import json
-import re
-import inspect
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
-import textwrap
-import platform
-from itertools import chain
 import collections
+import inspect
+import json
 import multiprocessing
-import string
+import os
+import platform
+import re
 import shlex
+import string
 import sys
+import textwrap
+from itertools import chain
 from urllib.parse import urljoin
 from urllib.request import url2pathname
 
-from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
-from snakemake.logging import logger
+import snakemake
 from snakemake.common import ON_WINDOWS, is_local_file, smart_join
 from snakemake.exceptions import WorkflowError
-import snakemake
+from snakemake.io import Namedlist, Wildcards, _load_configfile, regex
+from snakemake.logging import logger
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
 
 
 def validate(data, schema, set_default=True):
@@ -49,7 +49,7 @@ def validate(data, schema, set_default=True):
 
     try:
         import jsonschema
-        from jsonschema import validators, RefResolver
+        from jsonschema import RefResolver, validators
     except ImportError:
         raise WorkflowError(
             "The Python 3 package jsonschema must be installed "
@@ -634,14 +634,30 @@ class Paramspace:
 
         | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
         | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
+
+      - ``types_strict`` When True, the string replacement performed when
+        inserting ``column1~{value1}`` (e.g. with ``instance_patterns``) honors
+        the type of ``value1``. For example, for ``column1=100`` in the
+        Paramspace, the output pattern would result in ``column1~100`` and
+        not ``column1~100.0``. (Default: False). Example:
+
+        | ``df = pd.DataFrame.from_dict({"one": [42.1, 41.2], "two": [11, 12]})``
+        | ``Paramspace(df, types_strict=True)`` ->
+        | ``["one~42.1-two~11", ...] #no implicit cast of 11 to 11.0``
     """
 
     def __init__(
-        self, dataframe, filename_params=None, param_sep="~", filename_sep="_"
+        self,
+        dataframe,
+        filename_params=None,
+        param_sep="~",
+        filename_sep="_",
+        types_strict=True,
     ):
         self.dataframe = dataframe
         self.param_sep = param_sep
         self.filename_sep = filename_sep
+        self.types_strict = types_strict
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -689,14 +705,24 @@ class Paramspace:
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
         or of the provided custom pattern.
         """
+        typedict = dict(self.dataframe.dtypes)
+
+        def _convert(n, v):
+            if self.types_strict:
+                return typedict[n].type(v)
+            else:
+                return v
+
         return (
             self.pattern.format(
                 *(
-                    self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row._asdict().items()
+                    self.param_sep.join(("{}", "{}")).format(
+                        name, _convert(name, value)
+                    )
+                    for name, value in row[-1].iteritems()
                 )
             )
-            for row in self.dataframe.itertuples(index=False)
+            for row in self.dataframe.iterrows()
         )
 
     def instance(self, wildcards):
