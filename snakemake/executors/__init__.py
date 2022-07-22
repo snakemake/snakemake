@@ -680,6 +680,7 @@ class ClusterExecutor(RealExecutor):
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
         )
+        self.max_status_checks_per_second = max_status_checks_per_second
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
@@ -718,8 +719,6 @@ class ClusterExecutor(RealExecutor):
         self.disable_default_remote_provider_args = disable_default_remote_provider_args
         self.disable_default_resources_args = disable_default_resources_args
         self.disable_envvar_declarations = disable_envvar_declarations
-
-        self.max_status_checks_per_second = max_status_checks_per_second
 
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
