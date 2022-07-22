@@ -493,9 +493,6 @@ class CPUExecutor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
-    def get_resources_declarations(self, job):
-        return ""
-
     def get_job_args(self, job, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet all"
 
