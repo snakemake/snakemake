@@ -62,5 +62,5 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
-  - retry
+  - reretry
   - graphviz
