@@ -260,7 +260,12 @@ class GroupResources:
                 if res in sorted_constraints:
                     sorted_constraints[res] = None
 
-            layers = cls._get_layers(int_resources, sorted_constraints.values(), sortby)
+            try:
+                layers = cls._get_layers(
+                    int_resources, sorted_constraints.values(), sortby
+                )
+            except WorkflowError as err:
+                cls._raise_saturated_resource_error(additive_resources, err.args[0])
 
             # In each layer, sum or max across all resource types within the layer,
             # similar to summing along axis 0 in numpy:
@@ -299,6 +304,22 @@ class GroupResources:
             ),
             "_nodes": 1,
         }
+
+    @classmethod
+    def _raise_saturated_resource_error(cls, additive_resources, excess_resources):
+        isare = "is" if len(additive_resources) == 1 else "are"
+        additive_clause = (
+            (f", except for {additive_resources}, which {isare} calculated via max(). ")
+            if additive_resources
+            else ". "
+        )
+        raise WorkflowError(
+            "Not enough resources were provided. This error is typically "
+            "caused by a Pipe group requiring too many resources. Note "
+            "that resources are summed across every member of the pipe "
+            f"group{additive_clause}"
+            f"Excess Resources:\n{excess_resources}"
+        )
 
     @classmethod
     def _is_string_resource(cls, name, values):
@@ -435,16 +456,7 @@ class GroupResources:
                     f"\t{res}: {amount}/{constraint}"
                     for res, amount, constraint in too_high
                 ]
-                # TODO: This error is overly specific: if additive resources is ever
-                # altered, the error will not remain correct.
-                raise WorkflowError(
-                    "Not enough resources were provided. This error is typically"
-                    "caused by a Pipe group requiring too many resources. Note"
-                    "that all resources including 'cores' are summed across"
-                    "every member of the pipe group, except for runtime, which is"
-                    "calculated via max().\n\n"
-                    "Excess Resources:\n" + "\n".join(error_text)
-                )
+                raise WorkflowError("\n".join(error_text))
 
         # Remove final empty row. (The above loop ends each cycle by ensuring
         # there's an empty row)
