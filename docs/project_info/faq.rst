@@ -473,17 +473,6 @@ Per default, Snakemake will lock a working directory by output and input files. 
 With the command line option ``--nolock``, you can disable this mechanism on your own risk. With ``--unlock``, you can be remove a stale lock. Stale locks can appear if your machine is powered off with a running Snakemake instance.
 
 
-Snakemake does not trigger re-runs if I add additional input files. What can I do?
-----------------------------------------------------------------------------------
-
-Snakemake has a kind of "lazy" policy about added input files if their modification date is older than that of the output files. One reason is that information cannot be inferred just from the input and output files. You need additional information about the last run to be stored. Since behaviour would be inconsistent between cases where that information is available and where it is not, this functionality has been encoded as an extra switch. To trigger updates for jobs with changed input files, you can use the command line argument ``--list-input-changes`` in the following way:
-
-.. code-block:: console
-
-    $ snakemake -n -R `snakemake --list-input-changes`
-
-Here, ``snakemake --list-input-changes`` returns the list of output files with changed input files, which is fed into ``-R`` to trigger a re-run.
-
 
 How do I trigger re-runs for rules with updated code or parameters?
 -------------------------------------------------------------------
@@ -541,7 +530,11 @@ If you are just interested in the final summary, you can use the ``--quiet`` fla
 Git is messing up the modification times of my input files, what can I do?
 --------------------------------------------------------------------------
 
-When you checkout a git repository, the modification times of updated files are set to the time of the checkout. If you rely on these files as input **and** output files in your workflow, this can cause trouble. For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later. In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled. One solution is to add the following lines to your ``.bashrc`` (or similar):
+When you checkout a git repository, the modification times of updated files are set to the time of the checkout.
+If you rely on these files as input **and** output files in your workflow, this can cause trouble.
+For example, Snakemake could think that a certain (git-tracked) output has to be re-executed, just because its input has been checked out a bit later.
+In such cases, it is advisable to set the file modification dates to the last commit date after an update has been pulled.
+One solution is to add the following lines to your ``.bashrc`` (or similar):
 
 .. code-block:: bash
 
@@ -557,7 +550,8 @@ When you checkout a git repository, the modification times of updated files are 
         done
     }
 
-(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_). You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been commited.
+(inspired by the answer `here <https://stackoverflow.com/questions/2458042/restore-files-modification-time-in-git/22638823#22638823>`_).
+You can then run ``gitmodtimes`` to update the modification times of all tracked files on the current branch to their last commit time in git; BE CAREFUL--this does not account for local changes that have not been commited.
 
 How do I exit a running Snakemake workflow?
 -------------------------------------------
