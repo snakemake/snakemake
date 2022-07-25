@@ -2361,8 +2361,8 @@ class DAG:
             msg = "reasons:"
             for reason, rules in sorted(reasons.items()):
                 rules = sorted(rules)
-                if len(rules) > 5:
-                    rules = rules[:5] + ["..."]
+                if len(rules) > 50:
+                    rules = rules[:50] + ["..."]
                 rules = ", ".join(rules)
                 msg += f"\n    {reason}: {rules}"
             logger.info(msg)
