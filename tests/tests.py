@@ -1082,7 +1082,18 @@ def test_resources_can_be_overwritten_as_global():
 
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
+    import copy
+    from snakemake.executors import RealExecutor
+
     spy = mocker.spy(GroupResources, "basic_layered")
+
+    # Cluster jobs normally get submitted with cores=all, but for testing purposes,
+    # the system may not actually have enough cores to run the snakemake subprocess
+    # (e.g. gh actions has only 2 cores). So cheat by patching over get_job_args
+    get_job_args = copy.copy(RealExecutor.get_job_args)
+    RealExecutor.get_job_args = lambda *args, **kwargs: get_job_args(
+        *args, **{**kwargs, "cores": 6}
+    )
     run(
         dpath("test_group_with_pipe"),
         cluster="./qsub",
