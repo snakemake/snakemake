@@ -2356,7 +2356,7 @@ class DAG:
         """Print summary of execution reasons."""
         reasons = defaultdict(set)
         for job in self.needrun_jobs():
-            reasons[str(self.reason(job))].append(job.rule.name)
+            reasons[str(self.reason(job))].add(job.rule.name)
         if reasons:
             msg = "reasons:"
             for reason, rules in sorted(reasons.items()):

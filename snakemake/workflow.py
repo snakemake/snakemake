@@ -1026,7 +1026,6 @@ class Workflow:
             # the dryrun case
             if len(dag):
                 logger.run_info("\n".join(dag.stats()))
-                dag.print_reasons()
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
@@ -1077,6 +1076,7 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    dag.print_reasons()
                     log_provenance_info()
                 logger.info("")
                 logger.info(
