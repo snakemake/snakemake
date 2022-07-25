@@ -174,6 +174,72 @@ class GroupResources:
         additive_resources=None,
         sortby=None,
     ):
+        """Basic implementation of group job resources calculation
+
+        Each toposort level is individually sorted into a series of layers, where each
+        layer fits within the constraints. Resource constraints represent a "width" into
+        which the layer must fit. For instance, with a mem_mb constraint of 5G, all the
+        jobs in a single layer must together not consume more than 5G of memory. Any
+        jobs that would exceed this constraint are pushed into a new layer. The overall
+        width for the entire group job is equal to the width of the widest layer.
+
+        Additive resources (by default, "runtime") represent the "height" of the layer.
+        They are not directly constrained, but their value will be determined by the
+        sorting of jobs based on other constraints. Each layer's height is equal to the
+        height of its tallest job. For instance, a layer containing a 3hr job will have
+        a runtime height of 3 hr. The total height of the entire group job will be the
+        sum of the heights of all the layers.
+
+        Note that both height and width are multidimensial, so layer widths will be
+        calculated with respect to every constraint created by the user.
+
+        In this implementation, there is no mixing of layers, which may lead to "voids".
+        For instance, a layer containing a tall, skinny job of 3hr length and 1G mem
+        combined with a short, fat job of 10min length and 20G memory would have a 2hr
+        50min period where 19G of memory are not used. In practice, this void will be
+        filled by the actual snakemake subprocess, which performs real-time scheduling
+        of jobs as resources become available.  But it may lead to overestimation of
+        resource requirements.
+
+        To help mitigate against voids, this implementation sorts the jobs within a
+        toposort level before assignment to layers. Jobs are first sorted by their
+        overall width relative to the available constraints. So the fattest jobs will
+        grouped together on the same layer. Jobs are then sorted by the resources
+        specified in ``sortby``, by default "runtime". So jobs of similar length will be
+        grouped on the same layer.
+
+        Users can help mitigate against voids by grouping jobs of similar resource
+        dimensions.  Eclectic groups of various runtimes and resource consumptions will
+        not be estimated as efficiently as groups of homogenous consumptions.
+
+        Parameters
+        ----------
+        toposorted_jobs : list of lists of jobs
+            Jobs sorted into toposort levels: the jobs in each level only depend on jobs
+            in previous levels.
+        constraints : dict of str -> int
+            Upper limit of resource allowed. Resources without constraints will be
+            treated as infinite
+        run_local : bool
+            True if the group is being run in the local process, rather than being
+            submitted. Relevant for Pipe groups and Service groups
+        additive_resources : list of str, optional
+            Resources to be treated as the "height" of each layer, i.e. to be summed
+            across layers.
+        sortby : list of str, optional
+            Resources by which to sort jobs prior to layer assignment.
+
+        Returns
+        -------
+        Dict of str -> int,str
+            Total resource requirements of the group job
+
+        Raises
+        ------
+        WorkflowError
+            Raised if an individual job requires more resources than the constraints
+            allow (chiefly relevant for pipe groups)
+        """
         additive_resources = (
             additive_resources if additive_resources is not None else ["runtime"]
         )
@@ -202,7 +268,7 @@ class GroupResources:
                     # Remove any TBDStrings from values. These will typically arise
                     # here because the default mem_mb and disk_mb are based off of
                     # input file size, and intermediate files in the group are not yet
-                    # generated. Thus rules consuming such files must thus explicitely
+                    # generated. Thus rules consuming such files must explicitely
                     # specify their resources
                     res = {
                         k: res
@@ -225,7 +291,7 @@ class GroupResources:
             # summed
             for pipe in pipe_resources.values():
                 job_resources.append(
-                    cls._merge_resources(
+                    cls._merge_resource_dict(
                         pipe,
                         methods={res: max for res in additive_resources},
                         default_method=sum,
@@ -260,44 +326,39 @@ class GroupResources:
                 if res in sorted_constraints:
                     sorted_constraints[res] = None
 
+            # Get layers
             try:
                 layers = cls._get_layers(
                     int_resources, sorted_constraints.values(), sortby
                 )
             except WorkflowError as err:
-                cls._raise_saturated_resource_error(additive_resources, err.args[0])
+                raise cls._get_saturated_resource_error(additive_resources, err.args[0])
 
-            # In each layer, sum or max across all resource types within the layer,
-            # similar to summing along axis 0 in numpy:
-            # [
-            #   ( 3 ^ , 4 ^ , 1 ),
-            #   ( 2 | , 1 | , 6 ),
-            #   ( 1 | , 4 | , 0 ),
-            # ]
-            # The method is selected based on the label in int_resources and whether
-            # that resource is additive
-            intralayer_merge = [
+            # Merge jobs within layers
+            intralayer_merge_methods = [
                 max if res in additive_resources else sum for res in int_resources
             ]
-            combined = [
-                [method(r) for method, r in zip(intralayer_merge, zip(*layer))]
+            merged = [
+                cls._merge_resource_layer(layer, intralayer_merge_methods)
                 for layer in layers
             ]
 
-            # Reassign the combined values from each layer to their resource names
-            resorted = dict(zip(int_resources, zip(*combined)))
+            # Combine layers
+            interlayer_merge_methods = [
+                sum if res in additive_resources else max for res in int_resources
+            ]
+            combined = cls._merge_resource_layer(merged, interlayer_merge_methods)
 
-            for res, values in resorted.items():
-                method = sum if res in additive_resources else max
-                block_resources[res] = method(values)
+            # Reassign the combined values from each layer to their resource names
+            block_resources.update(dict(zip(int_resources, combined)))
 
             blocks.append(block_resources)
 
         if run_local:
-            return {**cls._merge_resources(blocks, default_method=sum), "_nodes": 1}
+            return {**cls._merge_resource_dict(blocks, default_method=sum), "_nodes": 1}
 
         return {
-            **cls._merge_resources(
+            **cls._merge_resource_dict(
                 blocks,
                 default_method=max,
                 methods={res: sum for res in additive_resources},
@@ -306,14 +367,14 @@ class GroupResources:
         }
 
     @classmethod
-    def _raise_saturated_resource_error(cls, additive_resources, excess_resources):
+    def _get_saturated_resource_error(cls, additive_resources, excess_resources):
         isare = "is" if len(additive_resources) == 1 else "are"
         additive_clause = (
             (f", except for {additive_resources}, which {isare} calculated via max(). ")
             if additive_resources
             else ". "
         )
-        raise WorkflowError(
+        return WorkflowError(
             "Not enough resources were provided. This error is typically "
             "caused by a Pipe group requiring too many resources. Note "
             "that resources are summed across every member of the pipe "
@@ -340,7 +401,7 @@ class GroupResources:
             return True
 
     @classmethod
-    def _merge_resources(cls, resources, skip=[], methods={}, default_method=max):
+    def _merge_resource_dict(cls, resources, skip=[], methods={}, default_method=max):
         grouped = {}
         for job in resources:
             # Wrap every value in job with a list so that lists can be merged later
@@ -367,6 +428,21 @@ class GroupResources:
             else:
                 ret[res] = default_method(values)
         return ret
+
+    @classmethod
+    def _merge_resource_layer(cls, resources, methods):
+        """
+        Sum or max across all resource types within a layer, similar to
+        summing along axis 0 in numpy:
+        [
+          ( 3 ^ , 4 ^ , 1 ),
+          ( 2 | , 1 | , 6 ),
+          ( 1 | , 4 | , 0 ),
+        ]
+        The method for each column is specified in methods, which should be an array
+        with one index per column
+        """
+        return [method(r) for method, r in zip(methods, zip(*resources))]
 
     @staticmethod
     def _check_constraint(resources, constraints):
@@ -478,9 +554,8 @@ def parse_resources(resources_args, fallback=None):
         for res, val in resources_args:
             if not valid.match(res):
                 raise ValueError(
-                    "Resource definition must start with a valid identifier, but found {}.".format(
-                        res
-                    )
+                    "Resource definition must start with a valid identifier, but found "
+                    "{}.".format(res)
                 )
             try:
                 val = int(val)
@@ -489,11 +564,13 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer after the identifier."
+                        "Resource definiton must contain an integer after the "
+                        "identifier."
                     )
             if res == "_cores":
                 raise ValueError(
-                    "Resource _cores is already defined internally. Use a different name."
+                    "Resource _cores is already defined internally. Use a different "
+                    "name."
                 )
             resources[res] = val
     return resources
