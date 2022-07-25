@@ -292,8 +292,4 @@ class SlurmExecutor(ClusterExecutor):
 
             with self.lock:
                 self.active_jobs.extend(still_running)
-            # FIXME: check why self.max_status_checks_per_second is not an attribute of this class!
-            # This code is not working for reasons unkown!
-            # Hence, the hardcoded drop-in.
-            # time.sleep(1 / self.max_status_checks_per_second)
-            time.sleep(30)
+            time.sleep(1 / self.max_status_checks_per_second)
