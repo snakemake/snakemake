@@ -1081,6 +1081,50 @@ def test_resources_can_be_overwritten_as_global():
 
 
 @skip_on_windows
+def test_resources_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert set(spy.spy_return.split()[1:]) == {
+        "'mem_mb=60000'",
+        "'fake_res=1200'",
+        "'global_res=3000'",
+        "'disk_mb=3000'",
+    }
+
+
+@skip_on_windows
+def test_excluded_resources_not_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        overwrite_resource_scopes={"fake_res": "excluded"},
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert set(spy.spy_return.split()[1:]) == {
+        "'mem_mb=60000'",
+        "'global_res=3000'",
+        "'disk_mb=3000'",
+    }
+
+
+@skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
     from snakemake.executors import RealExecutor
