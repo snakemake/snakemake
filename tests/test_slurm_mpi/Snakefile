@@ -13,7 +13,6 @@ rule compile:
          walltime_minutes=10,
          tasks=1,
          threads=1,
-         mem_mb_per_cpu=1800,
      shell: 
          'mpicc -o {output} {input}'
 
