@@ -212,6 +212,8 @@ class SlurmExecutor(ClusterExecutor):
         #    pass  # check template
 
         jobid = out.split(" ")[-1]
+        jobname = self.get_jobname(job)
+        logger.debug(f"Job {jobid} '{jobname}' has been submitted")
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
 
     def job_status(self, jobid: int):
