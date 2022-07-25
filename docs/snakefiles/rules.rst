@@ -418,10 +418,12 @@ If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*inp
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 
-.. _resources_remote_execution:
+.. _resources-remote-execution:
 
 Resources and Remote Execution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New to Snakemake 7.10
 
 In cluster or cloud execution, resources may represent either a global constraint across all submissions (e.g. number of API calls per second), or a constraint local to each specific job sumbmission (e.g. the amount of memory available on a node).
 Snakemake distinguishes between these two types of constraints using **resource scopes**.
