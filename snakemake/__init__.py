@@ -1148,7 +1148,9 @@ def get_argument_parser(profile=None):
             "If N is omitted or 'all', the limit is set to the number of "
             "available CPU cores. "
             "In case of cluster/cloud execution, this argument sets the maximum number "
-            "of cores requested from the cluster or cloud scheduler. "
+            "of cores requested from the cluster or cloud scheduler. (See "
+            "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+            "resources-remote-execution for more info)"
             "This number is available to rules via workflow.cores."
         ),
     )
@@ -1189,7 +1191,9 @@ def get_argument_parser(profile=None):
             "resources: mem_mb=600. If now two rules require 600 of the resource "
             "'mem_mb' they won't be run in parallel by the scheduler. In "
             "cluster/cloud mode, this argument will also constrain the amount of "
-            "resources requested from the server."
+            "resources requested from the server. (See "
+            "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+            "resources-remote-execution for more info)"
         ),
     )
     group_exec.add_argument(
@@ -1239,7 +1243,9 @@ def get_argument_parser(profile=None):
         "cumulatively. By default, only `mem_mb` and `disk_mb` are considered local, "
         "all other resources are global. This may be modified in the snakefile using "
         "the `resource_scopes:` directive. Note that number of threads, specified via "
-        "--cores, is always considered local.",
+        "--cores, is always considered local. (See "
+        "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+        "resources-remote-execution for more info)",
     )
     group_exec.add_argument(
         "--default-resources",
