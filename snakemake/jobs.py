@@ -353,7 +353,9 @@ class Job(AbstractJob):
     @property
     def conda_env_spec(self):
         if self._conda_env_spec is None:
-            self._conda_env_spec = self.rule.expand_conda_env(self.wildcards_dict)
+            self._conda_env_spec = self.rule.expand_conda_env(
+                self.wildcards_dict, self.params, self.input
+            )
         return self._conda_env_spec
 
     @property

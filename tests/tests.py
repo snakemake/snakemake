@@ -1391,6 +1391,20 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
 
 
+def test_modules_all_exclude_1():
+    # Fail due to conflicting rules
+    run(dpath("test_modules_all_exclude"), shouldfail=True)
+
+
+def test_modules_all_exclude_2():
+    # Successed since the conflicting rules have been excluded
+    run(
+        dpath("test_modules_all_exclude"),
+        snakefile="Snakefile_exclude",
+        shouldfail=False,
+    )
+
+
 @skip_on_windows
 def test_modules_prefix():
     run(dpath("test_modules_prefix"), targets=["a"])
@@ -1527,6 +1541,11 @@ def test_issue1331():
 @skip_on_windows
 def test_conda_named():
     run(dpath("test_conda_named"), use_conda=True)
+
+
+@skip_on_windows
+def test_conda_function():
+    run(dpath("test_conda_function"), use_conda=True, cores=1)
 
 
 @skip_on_windows
@@ -1672,3 +1691,7 @@ def test_conda_pin_file():
 @skip_on_windows  # sufficient to test this on linux
 def test_github_issue1618():
     run(dpath("test_github_issue1618"), cores=5)
+
+
+def test_conda_python_script():
+    run(dpath("test_conda_python_script"), use_conda=True)

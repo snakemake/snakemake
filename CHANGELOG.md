@@ -1,5 +1,50 @@
 # Changelog
 
+## [7.9.0](https://github.com/snakemake/snakemake/compare/v7.8.5...v7.9.0) (2022-07-19)
+
+
+### Features
+
+* make it possible to exclude rules that will be imported when using 'use rule' statement ([#1717](https://github.com/snakemake/snakemake/issues/1717)) ([d9e0611](https://github.com/snakemake/snakemake/commit/d9e061178bd22307cc710bea28a5994e866260d9))
+
+
+### Bug Fixes
+
+* add lock free mechanism for avoiding race conditions when writing persistence information; consider corrupt metadata records as non-existent ([#1745](https://github.com/snakemake/snakemake/issues/1745)) ([71fe952](https://github.com/snakemake/snakemake/commit/71fe9527bb7011ba01d25fdd21c102c135412c04))
+* conda python interpreter path on Windows ([#1711](https://github.com/snakemake/snakemake/issues/1711)) ([155c9d6](https://github.com/snakemake/snakemake/commit/155c9d6688a99db4b49c5b25d5a8a65a3aca532d))
+* ensures that REncoder also checks for numpy.bool_ in encode_value ([#1749](https://github.com/snakemake/snakemake/issues/1749)) ([10a6e1d](https://github.com/snakemake/snakemake/commit/10a6e1de50ea7957e8685ba55b2cc115101cc23f))
+* Move quiet default after profile parsing ([#1764](https://github.com/snakemake/snakemake/issues/1764)) ([6ade76d](https://github.com/snakemake/snakemake/commit/6ade76d1287c8f62056853491a4e67b08a4739a6))
+
+## [7.8.5](https://github.com/snakemake/snakemake/compare/v7.8.4...v7.8.5) (2022-06-30)
+
+
+### Documentation
+
+* fix long description type for pypi (set to markdown) ([d8d9b8f](https://github.com/snakemake/snakemake/commit/d8d9b8f284d2863f672cd96fd96d2034806d52de))
+
+## [7.8.4](https://github.com/snakemake/snakemake/compare/v7.8.3...v7.8.4) (2022-06-30)
+
+
+### Bug Fixes
+
+* only display a warning in case of non-strict channel priorities ([#1752](https://github.com/snakemake/snakemake/issues/1752)) ([b84fa33](https://github.com/snakemake/snakemake/commit/b84fa337f5c417360fc744202a419da3f37594b5))
+* pass triggers and resources to subworkflow ([#1733](https://github.com/snakemake/snakemake/issues/1733)) ([fa7fb75](https://github.com/snakemake/snakemake/commit/fa7fb75d2314cd2965a9f578506e27aae4b07349))
+* add pyproject.toml to use setuptools features ([#1725](https://github.com/snakemake/snakemake/issues/1725)) ([454bfd1](https://github.com/snakemake/snakemake/commit/454bfd17aba8631ea34d6a8971b1db60b2955965))
+
+
+### Documentation
+
+* add workflows.community metadata ([#1736](https://github.com/snakemake/snakemake/issues/1736)) ([8a42afc](https://github.com/snakemake/snakemake/commit/8a42afc053e3f398f1a299fb3234ca0ee847faae))
+
+### [7.8.3](https://www.github.com/snakemake/snakemake/compare/v7.8.2...v7.8.3) (2022-06-20)
+
+
+### Bug Fixes
+
+* allow apptainer as a successor to singularity. ([#1706](https://www.github.com/snakemake/snakemake/issues/1706)) ([bcbdb0b](https://www.github.com/snakemake/snakemake/commit/bcbdb0bc44746961838f9603e42d0e171407c740))
+* improved provenance trigger info ([#1720](https://www.github.com/snakemake/snakemake/issues/1720)) ([29d959d](https://www.github.com/snakemake/snakemake/commit/29d959d86341aee66e945f216cae41e9c531a4d1))
+* small changes to make docs checkpoint example functional ([#1714](https://www.github.com/snakemake/snakemake/issues/1714)) ([1d4909e](https://www.github.com/snakemake/snakemake/commit/1d4909ef838ac79f8e7be9f29d76b969d358ef1b))
+
 ### [7.8.2](https://www.github.com/snakemake/snakemake/compare/v7.8.1...v7.8.2) (2022-06-08)
 
 

@@ -1,0 +1,17 @@
+name: Snakemake
+language: Python
+documentation:
+  general: https://snakemake.readthedocs.io
+  installation: https://snakemake.readthedocs.io/en/stable/getting_started/installation.html
+  tutorial: https://snakemake.readthedocs.io/en/stable/tutorial/tutorial.html
+
+social:
+  twitter: johanneskoester
+
+execution_environment:
+  resource_managers:
+    - any DRM providing a script based submission interface (e.g. slurm, lsf, pbs, ...)
+    - kubernetes
+    - google life sciences API
+    - tibanna
+    - TES

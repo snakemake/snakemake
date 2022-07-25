@@ -688,6 +688,7 @@ class ClusterExecutor(RealExecutor):
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
         )
+        self.max_status_checks_per_second = max_status_checks_per_second
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
@@ -726,8 +727,6 @@ class ClusterExecutor(RealExecutor):
         self.disable_default_remote_provider_args = disable_default_remote_provider_args
         self.disable_default_resources_args = disable_default_resources_args
         self.disable_envvar_declarations = disable_envvar_declarations
-
-        self.max_status_checks_per_second = max_status_checks_per_second
 
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
@@ -1696,7 +1695,7 @@ class KubernetesExecutor(ClusterExecutor):
         secret.metadata.name = self.run_namespace
         secret.type = "Opaque"
         secret.data = {}
-        for i, f in enumerate(self.workflow.get_sources()):
+        for i, f in enumerate(self.dag.get_sources()):
             if f.startswith(".."):
                 logger.warning(
                     "Ignoring source file {}. Only files relative "
@@ -2095,7 +2094,7 @@ class TibannaExecutor(ClusterExecutor):
     ):
         self.workflow = workflow
         self.workflow_sources = []
-        for wfs in workflow.get_sources():
+        for wfs in dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(
