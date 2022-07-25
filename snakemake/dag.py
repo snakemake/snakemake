@@ -2357,12 +2357,15 @@ class DAG:
         reasons = defaultdict(set)
         for job in self.needrun_jobs():
             reasons[self.reason(job)].append(job.rule.name)
-        for reason, rules in sorted(reasons.items()):
-            rules = sorted(rules)
-            if len(rules) > 5:
-                rules = rules[:5] + ["..."]
-            rules = ", ".join(rules)
-            logger.info(f"{reason}: {rules}")
+        if reasons:
+            msg = "reasons:"
+            for reason, rules in sorted(reasons.items()):
+                rules = sorted(rules)
+                if len(rules) > 5:
+                    rules = rules[:5] + ["..."]
+                rules = ", ".join(rules)
+                msg += f"\n    {reason}: {rules}"
+            logger.info(msg)
 
     def stats(self):
         from tabulate import tabulate
