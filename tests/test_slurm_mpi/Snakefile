@@ -9,10 +9,6 @@ rule clean:
 rule compile:
      input: "pi_MPI.c"
      output: temp("pi_MPI")
-     resources:
-         walltime_minutes=10,
-         tasks=1,
-         threads=1,
      shell: 
          'mpicc -o {output} {input}'
 
