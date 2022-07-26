@@ -651,7 +651,7 @@ class Conda:
 
             self.info = json.loads(
                 shell.check_output(
-                    self._get_cmd(f"{self.frontend} info --json"),
+                    self._get_cmd(f"conda info --json"),
                     universal_newlines=True,
                 )
             )
