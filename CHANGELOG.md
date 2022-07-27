@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.11.0](https://github.com/snakemake/snakemake/compare/v7.10.0...v7.11.0) (2022-07-27)
+
+
+### Features
+
+* Group resources ([#1218](https://github.com/snakemake/snakemake/issues/1218)) ([a8014d0](https://github.com/snakemake/snakemake/commit/a8014d030a2a3ea04743e30bcf5164801291378f))
+
+
+### Bug Fixes
+
+* fixed conda frontend detection and checking to also work with latest mambaforge ([#1781](https://github.com/snakemake/snakemake/issues/1781)) ([225e68c](https://github.com/snakemake/snakemake/commit/225e68cb05ecbf8fe001a884a416da0239cfd4d1))
+
 ## [7.10.0](https://github.com/snakemake/snakemake/compare/v7.9.0...v7.10.0) (2022-07-26)
 
 
