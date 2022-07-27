@@ -266,6 +266,27 @@ class Scattergather(GlobalKeywordState):
     pass
 
 
+class ResourceScope(GlobalKeywordState):
+    err_msg = (
+        "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
+        "'global'"
+    )
+    current_resource = ""
+
+    def block_content(self, token):
+        if is_name(token):
+            self.current_resource = token.string
+        if is_string(token) and self.lasttoken == "=":
+            if token.string[1:][:-1] not in ["local", "global"]:
+                self.error(
+                    self.err_msg.format(
+                        resource=self.current_resource, scope=token.string
+                    ),
+                    token,
+                )
+        yield token.string, token
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -1203,6 +1224,7 @@ class Python(TokenAutomaton):
         container=GlobalContainer,
         containerized=GlobalContainerized,
         scattergather=Scattergather,
+        resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,
     )
