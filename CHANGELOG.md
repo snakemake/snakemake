@@ -5,7 +5,7 @@
 
 ### Features
 
-* Group resources ([#1218](https://github.com/snakemake/snakemake/issues/1218)) ([a8014d0](https://github.com/snakemake/snakemake/commit/a8014d030a2a3ea04743e30bcf5164801291378f))
+* improved resource handling in groups and ability to define resource scopes (global or per node), see docs and --help ([#1218](https://github.com/snakemake/snakemake/issues/1218)) ([a8014d0](https://github.com/snakemake/snakemake/commit/a8014d030a2a3ea04743e30bcf5164801291378f))
 
 
 ### Bug Fixes
