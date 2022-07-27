@@ -423,9 +423,7 @@ The latter points to whatever is the default of the operating system or specifie
 Resources and Remote Execution
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-New to Snakemake 7.10
-
-In cluster or cloud execution, resources may represent either a global constraint across all submissions (e.g. number of API calls per second), or a constraint local to each specific job sumbmission (e.g. the amount of memory available on a node).
+New to Snakemake 7.11. In cluster or cloud execution, resources may represent either a global constraint across all submissions (e.g. number of API calls per second), or a constraint local to each specific job sumbmission (e.g. the amount of memory available on a node).
 Snakemake distinguishes between these two types of constraints using **resource scopes**.
 By default, ``mem_mb``, ``disk_mb``, and ``threads`` are all considered ``"local"`` resources, meaning specific to individual submissions.
 So if a constraint of 16G of memory is given to snakemake (e.g. ``snakemake --resources mem_mb=16000``), each group job will be allowed 16G of memory.
