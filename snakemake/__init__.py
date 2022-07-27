@@ -2627,22 +2627,6 @@ def main(argv=None):
         )
         sys.exit(1)
 
-    if args.use_conda and args.conda_frontend == "mamba":
-        from snakemake.deployment.conda import is_mamba_available
-
-        if not is_mamba_available():
-            print(
-                "Error: mamba package manager is not available. "
-                "The mamba package manager (https://github.com/mamba-org/mamba) is an "
-                "extremely fast and robust conda replacement. "
-                "It is the recommended way of using Snakemake's conda integration. "
-                "It can be installed with `conda install -n base -c conda-forge mamba`. "
-                "If you still prefer to use conda, you can enforce that by setting "
-                "`--conda-frontend conda`.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
     if args.singularity_prefix and not args.use_singularity:
         print(
             "Error: --use_singularity must be set if --singularity-prefix " "is set.",
