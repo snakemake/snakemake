@@ -11,7 +11,7 @@ When executing locally, group definitions are ignored.
 Groups can be defined along with the workflow definition via the ``group`` keyword, see :ref:`snakefiles-grouping`.
 This way, queueing and execution time can be saved, in particular by attaching short-running downstream jobs to long running upstream jobs.
 
-Snakemake will request resources for groups by summing across jobs that can be run in parallel, and taking the max of jobs run in series.
+From Snakemake 7.11 on, Snakemake will request resources for groups by summing across jobs that can be run in parallel, and taking the max of jobs run in series.
 The only exception is ``runtime``, where the max will be taken over parallel jobs, and the sum over series.
 If resource contraints are provided (via ``--resources`` or ``--cores``), parallel job layers that exceed the constraints will be stacked in series.
 For example, if 6 instances of ``somerule`` are being run, each instance requires ``1000MB`` of memory and ``30 min`` runtime, and only ``3000MB`` are available, Snakemake will request ``3000MB`` and ``60 min`` runtime, enough to run 3 instances of ``somerule``, then another 3 instances of ``somerule`` in series.

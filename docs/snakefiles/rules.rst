@@ -451,6 +451,7 @@ These options could be overriden at the command line using:
 Resources and Group Jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
+New to Snakemake 7.11. 
 When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
 For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
 The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
