@@ -401,10 +401,10 @@ All of these resources have specific meanings understood by snakemake and are tr
 * The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
 
 * The ``runtime`` resource indicates how much time a job needs to run, and has a special meaning for cluster and cloud compute jobs.
-  See :ref:`the section below <resources_remote_execution>` for more information
+  See :ref:`the section below<resources_remote_execution>` for more information
 
 * ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below <resources_remote_execution>` for more info.
+  :ref:`See below<resources_remote_execution>` for more info.
   ``mem_mb`` also has special meaning for some execution modes (e.g., when using :ref:`Kubernetes <kubernetes>`).
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
@@ -435,6 +435,7 @@ The CLI parameter takes priority.
 Modification in the Snakefile uses the following syntax:
 
 .. code-block:: python
+
     resource_scopes:
         gpus="local",
         foo="local",
@@ -443,12 +444,14 @@ Modification in the Snakefile uses the following syntax:
 Here, we set both ``gpus`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
 These options could be overriden at the command line using:
 
-.. code-block:: bash
-    snakemake --set-resource-scopes gpus=global disk_mb=local
+.. code-block:: console
+
+    $ snakemake --set-resource-scopes gpus=global disk_mb=local
 
 Resources and Group Jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
+New to Snakemake 7.11. 
 When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
 For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
 The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
