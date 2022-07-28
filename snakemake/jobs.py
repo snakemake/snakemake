@@ -1603,6 +1603,34 @@ class Reason:
         "called if the job has been run"
         self.finished = True
 
+    def get_names(self):
+        if self.forced:
+            yield "forced"
+        if self.noio:
+            yield "neither input nor output"
+        if self.nooutput:
+            yield "run or shell but no output"
+        if self._missing_output:
+            yield "missing output files"
+        if self._incomplete_output:
+            yield "incomplete output files"
+        if self._updated_input:
+            yield "updated input files"
+        if self._updated_input_run:
+            yield "input files updated by another job"
+        if self.pipe:
+            yield "pipe output needed by consuming job"
+        if self.service:
+            yield "provides service for consuming job"
+        if self.input_changed:
+            yield "set of input files has changed since last execution"
+        if self.code_changed:
+            yield "code has changed since last execution"
+        if self.params_changed:
+            yield "params have changed since last execution"
+        if self.software_stack_changed:
+            yield "software environment definition has changed since last execution"
+
     def __str__(self):
         def format_file(f):
             if is_flagged(f, "sourcecache_entry"):
@@ -1619,7 +1647,7 @@ class Reason:
         else:
             if self.noio:
                 s.append(
-                    "Rules with neither input nor " "output files are always executed."
+                    "Rules with neither input nor output files are always executed."
                 )
             elif self.nooutput:
                 s.append(

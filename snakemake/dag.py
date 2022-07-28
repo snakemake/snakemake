@@ -2362,6 +2362,22 @@ class DAG:
                 ],
             )
 
+    def print_reasons(self):
+        """Print summary of execution reasons."""
+        reasons = defaultdict(set)
+        for job in self.needrun_jobs(exclude_finished=False):
+            for reason in self.reason(job).get_names():
+                reasons[reason].add(job.rule.name)
+        if reasons:
+            msg = "Reasons:\n    (check individual jobs above for details)"
+            for reason, rules in sorted(reasons.items()):
+                rules = sorted(rules)
+                if len(rules) > 50:
+                    rules = rules[:50] + ["..."]
+                rules = ", ".join(rules)
+                msg += f"\n    {reason}:\n        {rules}"
+            logger.info(msg)
+
     def stats(self):
         from tabulate import tabulate
 

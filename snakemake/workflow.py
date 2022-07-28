@@ -1080,6 +1080,7 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    dag.print_reasons()
                     log_provenance_info()
                 logger.info("")
                 logger.info(
