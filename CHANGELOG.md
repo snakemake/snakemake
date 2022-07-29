@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.12.0](https://github.com/snakemake/snakemake/compare/v7.11.0...v7.12.0) (2022-07-29)
+
+
+### Features
+
+* print reason summary in case of dryrun ([#1778](https://github.com/snakemake/snakemake/issues/1778)) ([bd2a68b](https://github.com/snakemake/snakemake/commit/bd2a68bb8a7ddb64ad91bb822aa7d0342e884704))
+
+
+### Bug Fixes
+
+* Fix technical bugs in resource-scope documentation ([#1784](https://github.com/snakemake/snakemake/issues/1784)) ([878420c](https://github.com/snakemake/snakemake/commit/878420c4496562df7fe5fed4e6f877e670dcd533))
+* move max_status_checks_per_second attribute setting before the wait thread of cluster backends is started to avoid missing attribute errors ([#1775](https://github.com/snakemake/snakemake/issues/1775)) ([a48e9d0](https://github.com/snakemake/snakemake/commit/a48e9d035efec3a91b50bbda43ddf92196d5084b))
+
 ## [7.11.0](https://github.com/snakemake/snakemake/compare/v7.10.0...v7.11.0) (2022-07-27)
 
 
