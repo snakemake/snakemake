@@ -193,6 +193,7 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
+        self._oncompletion = lambda log: None
         self._wildcard_constraints = dict()
         self.debug = debug
         self.verbose = verbose
@@ -1094,10 +1095,12 @@ class Workflow:
                 logger.logfile_hint()
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
+                self._oncompletion(logger.get_logfile())
             return True
         else:
             if not dryrun and not no_hooks:
                 self._onerror(logger.get_logfile())
+                self._oncompletion(logger.get_logfile())
             logger.logfile_hint()
             return False
 
@@ -1219,6 +1222,10 @@ class Workflow:
     def onerror(self, func):
         """Register onerror function."""
         self._onerror = func
+
+    def oncompletion(self, func):
+        """Register oncompletion function."""
+        self._oncompletion = func
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""

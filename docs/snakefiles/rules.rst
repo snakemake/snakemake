@@ -1367,9 +1367,9 @@ With Snakemake 3.2.1, this is possible via the ``onsuccess`` and ``onerror`` key
         shell("mail -s "an error occurred" youremail@provider.com < {log}")
 
 The ``onsuccess`` handler is executed if the workflow finished without error. Otherwise, the ``onerror`` handler is executed.
-In both handlers, you have access to the variable ``log``, which contains the path to a logfile with the complete Snakemake output.
-Snakemake 3.6.0 adds an ``onstart`` handler, that will be executed before the workflow starts.
-Note that dry-runs do not trigger any of the handlers.
+The``onstart`` handler is executed before the workflow starts. The ``oncompletion`` handler is executed once the workflow is finished
+(with or without error). In all handlers, you have access to the variable ``log``, which contains the path to a logfile with the
+complete Snakemake output. Note that dry-runs do not trigger any of the handlers.
 
 
 Rule dependencies
