@@ -61,6 +61,7 @@ syn keyword pythonStatement
       \ onerror
       \ onstart
       \ onsuccess
+      \ oncompletion
       \ output
       \ params
       \ priority

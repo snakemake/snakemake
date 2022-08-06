@@ -855,6 +855,11 @@ class OnStart(DecoratorKeywordState):
     args = ["log"]
 
 
+class OnCompletion(DecoratorKeywordState):
+    decorator = "oncompletion"
+    args = ["log"]
+
+
 # modules
 
 
@@ -1219,6 +1224,7 @@ class Python(TokenAutomaton):
         onsuccess=OnSuccess,
         onerror=OnError,
         onstart=OnStart,
+        oncompletion=OnCompletion,
         wildcard_constraints=GlobalWildcardConstraints,
         singularity=GlobalSingularity,
         container=GlobalContainer,
