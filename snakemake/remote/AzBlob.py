@@ -226,6 +226,8 @@ class AzureStorageHelper(object):
             container_client.create_container()
         except azure.core.exceptions.ResourceExistsError:
             pass
+        except azure.core.exceptions.ClientAuthenticationError:
+            pass
 
         if not blob_name:
             if use_relative_path_for_blob_name:
