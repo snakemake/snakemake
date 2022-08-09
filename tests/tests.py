@@ -1535,7 +1535,10 @@ def test_scatter_gather():
 
 
 def test_scatter_gather_multiple_processes():
-    run(dpath("test_scatter_gather_multiple_processes"), overwrite_scatter={"split_b": 2})
+    run(
+        dpath("test_scatter_gather_multiple_processes"),
+        overwrite_scatter={"split_b": 2},
+    )
 
 
 @skip_on_windows
