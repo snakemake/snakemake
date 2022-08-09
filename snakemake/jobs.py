@@ -943,6 +943,7 @@ class Job(AbstractJob):
                 f"Error when formatting (error message: {ex}) the following:\n"
                 + string,
                 rule=self.rule,
+                include=[ex],
             )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
