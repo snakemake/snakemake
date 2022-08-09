@@ -940,7 +940,8 @@ class Job(AbstractJob):
             return format(string, **_variables)
         except Exception as ex:
             raise RuleException(
-                f"Error when formatting {repr(string)} for rule {self.rule.name}: {ex}",
+                f"Error when formatting (error message: {ex}) in the following string:\n"
+                + string,
                 rule=self.rule,
             )
 
