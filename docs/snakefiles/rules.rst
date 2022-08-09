@@ -1574,6 +1574,16 @@ For example
 would set the number of scatter items for the split process defined above to 2 instead of 8. 
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
+For more complex workflows it's possible to define multiple processes, for example:
+
+.. code-block:: python
+
+    scattergather:
+        split_a=8,
+        split_b=3,
+        
+The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution

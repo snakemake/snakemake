@@ -1235,7 +1235,7 @@ class Workflow:
         # add corresponding wildcard constraint
         self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
 
-        def func(*args, **wildcards):
+        def func(key, *args, **wildcards):
             n = self._scatter[key]
             return expand(
                 *args,
@@ -1244,8 +1244,8 @@ class Workflow:
             )
 
         for key in content:
-            setattr(self.globals["scatter"], key, func)
-            setattr(self.globals["gather"], key, func)
+            setattr(self.globals["scatter"], key, partial(func, key))
+            setattr(self.globals["gather"], key, partial(func, key))
 
     def resourcescope(self, **content):
         """Register resource scope defaults"""
