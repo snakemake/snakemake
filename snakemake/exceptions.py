@@ -25,7 +25,7 @@ def format_error(
     if lineno and snakefile:
         location = f"in line {lineno} of {snakefile}"
         if rule:
-            location = f" in rule {rule}{location}"
+            location = f" in rule {rule} {location}"
 
     tb = ""
     if show_traceback:
