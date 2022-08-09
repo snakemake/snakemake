@@ -938,13 +938,10 @@ class Job(AbstractJob):
         _variables.update(variables)
         try:
             return format(string, **_variables)
-        except NameError as ex:
-            raise RuleException("NameError: " + str(ex), rule=self.rule)
-        except IndexError as ex:
-            raise RuleException("IndexError: " + str(ex), rule=self.rule)
         except Exception as ex:
-            raise WorkflowError(
-                f"Error when formatting '{string}' for rule {self.rule.name}. {ex}"
+            raise RuleException(
+                f"Error when formatting {repr(string)} for rule {self.rule.name}: {ex}",
+                rule=self.rule,
             )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
