@@ -940,10 +940,8 @@ class Job(AbstractJob):
             return format(string, **_variables)
         except Exception as ex:
             raise RuleException(
-                f"Error when formatting (error message: {ex}) the following:\n"
-                + string,
+                f"{ex.__name__}: {ex}, when formatting the following:\n" + string,
                 rule=self.rule,
-                include=[ex],
             )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
