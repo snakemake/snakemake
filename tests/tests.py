@@ -1534,6 +1534,10 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+def test_scatter_gather_multiple_processes():
+    run(dpath("test_scatter_gather_multiple_processes"), overwrite_scatter={"split_b": 2})
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
