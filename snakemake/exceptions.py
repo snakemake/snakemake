@@ -125,7 +125,7 @@ def print_exception(ex, linemaps):
                 ex,
                 ex.lineno,
                 linemaps=linemaps,
-                snakefile=e.filename,
+                snakefile=ex.filename,
                 show_traceback=True,
                 rule=ex.rule,
             )
