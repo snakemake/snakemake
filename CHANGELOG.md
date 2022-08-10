@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.12.1](https://github.com/snakemake/snakemake/compare/v7.12.0...v7.12.1) (2022-08-09)
+
+
+### Bug Fixes
+
+* Fix case of multiple scattergather processes ([#1799](https://github.com/snakemake/snakemake/issues/1799)) ([417aad4](https://github.com/snakemake/snakemake/commit/417aad4c1a5fe83bdf24729d0d4e70df112fd293))
+* more comprehensive error reporting for RuleExceptions ([#1802](https://github.com/snakemake/snakemake/issues/1802)) ([1cd9512](https://github.com/snakemake/snakemake/commit/1cd95129a92e522e11689620473f68b1fe69fb42))
+
 ## [7.12.0](https://github.com/snakemake/snakemake/compare/v7.11.0...v7.12.0) (2022-07-29)
 
 
