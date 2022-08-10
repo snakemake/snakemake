@@ -729,7 +729,7 @@ class Conda:
                         "It is the recommended way of using Snakemake's conda integration. "
                         "It can be installed with `conda install -n base -c conda-forge mamba`. "
                         "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`.",
+                        "`--conda-frontend conda`."
                     )
                 raise CreateCondaEnvironmentException(msg)
 
