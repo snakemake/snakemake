@@ -158,6 +158,7 @@ def snakemake(
     wrapper_prefix=None,
     kubernetes=None,
     container_image=None,
+    flux=False,
     tibanna=False,
     tibanna_sfn=None,
     google_lifesciences=False,
@@ -292,6 +293,7 @@ def snakemake(
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
+        flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -402,7 +404,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes:
+    if kubernetes or flux:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -709,6 +711,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    flux=flux,
                     tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
@@ -762,6 +765,7 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
+                    flux=flux,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -2257,6 +2261,7 @@ def get_argument_parser(profile=None):
     )
 
     group_cloud = parser.add_argument_group("CLOUD")
+    group_flux = parser.add_argument_group("FLUX")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
@@ -2354,6 +2359,12 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_flux.add_argument(
+        "--flux",
+        action="store_true",
+        help="Execute your workflow on a flux cluster.",
     )
 
     group_tes.add_argument(
@@ -2912,6 +2923,7 @@ def main(argv=None):
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
             container_image=args.container_image,
+            flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             google_lifesciences=args.google_lifesciences,
