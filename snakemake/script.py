@@ -537,9 +537,9 @@ class PythonScript(ScriptBase):
 
     def _is_python_env(self):
         if self.conda_env is not None and ON_WINDOWS:
-            prefix = self.conda_env
+            prefix = os.path.join(self.conda_base_path, "envs", self.conda_env)
         elif self.conda_env is not None:
-            prefix = os.path.join(self.conda_env, "bin")
+            prefix = os.path.join(self.conda_base_path, "envs", self.conda_env, "bin")
         elif self.env_modules is not None:
             prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
