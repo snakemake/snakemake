@@ -51,18 +51,11 @@ class FluxExecutor(ClusterExecutor):
         )
 
         # Attach variables for easy access
-        self.quiet = quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't access the flux api
         self._init_flux()
-
-    def get_default_resources_args(self, default_resources=None):
-        assert default_resources is None
-        return super().get_default_resources_args(
-            default_resources=self.default_resources
-        )
 
     def _prepare_job_formatter(self):
         """
@@ -124,13 +117,9 @@ class FluxExecutor(ClusterExecutor):
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
         """
-        mem_mb = job.resources.get("mem_mb", 15360)
-
-        # Update default resources
         self.default_resources = DefaultResources(
             from_other=self.workflow.default_resources
         )
-        self.default_resources.set_resource("mem_mb", mem_mb)
 
     def get_snakefile(self):
         assert os.path.exists(self.workflow.main_snakefile)
@@ -191,7 +180,7 @@ class FluxExecutor(ClusterExecutor):
 
         # The entire snakemake command to run, etc
         command = self.format_job_exec(job)
-        nodes = job.resources.get("_nodes")
+        nodes = job.resources.get("_nodes", 1)
         logger.debug(command)
 
         # Generate the flux job
@@ -234,13 +223,13 @@ class FluxExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-                logger.info("Checking status for job {}".format(j.jobid))
+                logger.debug("Checking status for job {}".format(j.jobid))
                 if j.flux_future.done():
 
                     # The exit code can help us determine if the job was successful
                     try:
                         exit_code = j.flux_future.result(0)
-                    except Exception:
+                    except RuntimeError:
 
                         # job did not complete
                         self.print_job_error(j.job, jobid=j.jobid)
