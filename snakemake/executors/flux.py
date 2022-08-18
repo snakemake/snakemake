@@ -183,7 +183,11 @@ class FluxExecutor(ClusterExecutor):
         logger.debug(command)
 
         # Generate the flux job
+        # flux does not support mem_mb, disk_mb
         fluxjob = JobspecV1.from_command(command=shlex.split(command))
+
+        # A duration of zero (the default) means unlimited
+        fluxjob.duration = job.resources.get("runtime", 0)
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
