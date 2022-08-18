@@ -46,6 +46,14 @@ And see resources available:
     $ flux resource status
     STATUS NNODES NODELIST
      avail      4 5a74dc238d[98,98,98,98]
+
+Resources
+:::::::::
+
+Flux currently has support for ``runtime``, which should be set to a number
+(seconds) and defaults to 0, meaning unlimited runtime. Flux currently does not
+support ``mem_mb`` or ``disk_mb``.
+
          
 
 Step 1: Run Snakemake
