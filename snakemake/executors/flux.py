@@ -180,14 +180,10 @@ class FluxExecutor(ClusterExecutor):
 
         # The entire snakemake command to run, etc
         command = self.format_job_exec(job)
-        nodes = job.resources.get("_nodes", 1)
         logger.debug(command)
 
         # Generate the flux job
-        fluxjob = JobspecV1.from_command(
-            command=shlex.split(command),
-            num_nodes=nodes,
-        )
+        fluxjob = JobspecV1.from_command(command=shlex.split(command))
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
