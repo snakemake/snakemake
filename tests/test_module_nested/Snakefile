@@ -1,0 +1,18 @@
+shell.executable("bash")
+
+
+module shallow_module:
+    snakefile:
+        "module_shallow.smk"
+
+
+use rule deep_work from shallow_module as shallow_work
+
+
+rule all:
+    input:
+        "foo.txt",
+    default_target: True
+
+
+assert rules.shallow_work.rule.name == "shallow_work", rules.shallow_work.rule.name
