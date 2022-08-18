@@ -65,7 +65,7 @@ Here is how to run the workflow:
 
 .. code:: console
 
-    $ snakemake --flux --cores=1
+    $ snakemake --flux --jobs=1
 
 The flags above refer to:
 
