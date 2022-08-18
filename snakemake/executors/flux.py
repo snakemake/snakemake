@@ -123,7 +123,7 @@ class FluxExecutor(ClusterExecutor):
 
     def get_snakefile(self):
         assert os.path.exists(self.workflow.main_snakefile)
-        return self.workflow.main_snakefile.replace(self.workdir, "").strip(os.sep)
+        return self.workflow.main_snakefile
 
     def _get_jobname(self, job):
         # Use a dummy job name (human readable and also namespaced)
