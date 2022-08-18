@@ -130,17 +130,7 @@ class FluxExecutor(ClusterExecutor):
         return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
 
     def _generate_environment(self):
-        """
-        Loop through envvars (keys to host environment) and add
-        any that are requested for the runtime environment
-        """
-        envvars = dict(os.environ)
-        for key in self.envvars:
-            try:
-                envvars[key] = os.environ[key]
-            except Exception:
-                continue
-        return envvars
+        return {os.environ[key] for key in self.envvars}
 
     def format_job_exec(self, job):
         """
