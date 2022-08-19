@@ -178,7 +178,7 @@ class FluxExecutor(ClusterExecutor):
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
-        fluxjob.environment = os.environ
+        fluxjob.environment = dict(os.environ)
         flux_future = self._fexecutor.submit(fluxjob)
 
         # Waiting for the jobid is a small performance penalty, same as calling flux.job.submit
