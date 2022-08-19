@@ -129,9 +129,6 @@ class FluxExecutor(ClusterExecutor):
         # Use a dummy job name (human readable and also namespaced)
         return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
 
-    def _generate_environment(self):
-        return {key: os.environ[key] for key in self.envvars}
-
     def format_job_exec(self, job):
         """
         We don't want a python -m to run.
@@ -181,7 +178,7 @@ class FluxExecutor(ClusterExecutor):
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
-        fluxjob.environment = self._generate_environment()
+        fluxjob.environment = os.environ
         flux_future = self._fexecutor.submit(fluxjob)
 
         # Waiting for the jobid is a small performance penalty, same as calling flux.job.submit
