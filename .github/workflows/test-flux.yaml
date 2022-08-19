@@ -14,7 +14,7 @@ jobs:
 
     container:
       image: ${{ matrix.container }}
-      options: "--platform=linux/amd64"
+      options: "--platform=linux/amd64 --user root -it"
 
     name: ${{ matrix.container }}
     steps:
@@ -28,9 +28,8 @@ jobs:
 
       - name: Install Snakemake
         run: |
-          # We are fluxuser in the container (added to sudo)
-          sudo wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh           
-          sudo /bin/bash ~/miniconda.sh -b -p /opt/conda
+          wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh           
+          /bin/bash ~/miniconda.sh -b -p /opt/conda
           export PATH=/opt/conda:/bin:$PATH
           # Install snakemake
           pip install .
@@ -38,5 +37,4 @@ jobs:
       - name: Start Flux and Test Workflow
         run: |
           cd examples/flux
-          flux start --test-size=4
-          snakemake --flux --jobs=1
+          flux start snakemake --flux --jobs=1
