@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
@@ -227,7 +228,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     """Create an HTML report using python docutils.
 
@@ -284,7 +285,7 @@ def report(
         defaultenc=defaultenc,
         template=template,
         metadata=metadata,
-        **files
+        **files,
     )
 
 

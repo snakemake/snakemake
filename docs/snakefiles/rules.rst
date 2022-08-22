@@ -340,16 +340,14 @@ If limits for the resources are given via the command line, e.g.
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
 
-In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check whether a job exceeds a certain resource.
-However, resources are used to determine which jobs can be executed at a time while not exceeding the given limits at the command line.
-If no limits are given, the resources are ignored in local execution.
-In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
+In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check on the resource consumption of jobs in real time.
+Instead, resources are used to determine which jobs can be executed at the same time without exceeding the limits specified at the command line.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
+If no limits are given, the resources are ignored in local execution.
 
-
-Resources can also be callables that return ``int`` or ``str`` values.
-The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
+They can also be callables that return ``int`` or ``str`` values.
+The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
@@ -397,11 +395,21 @@ Both threads and resources can be overwritten upon invocation via `--set-threads
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
-The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
-When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
+All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
-Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+* The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
+
+* The ``runtime`` resource indicates how much time a job needs to run, and has a special meaning for cluster and cloud compute jobs.
+  See :ref:`the section below<resources_remote_execution>` for more information
+
+* ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
+  :ref:`See below<resources_remote_execution>` for more info.
+  ``mem_mb`` also has special meaning for some execution modes (e.g., when using :ref:`Kubernetes <kubernetes>`).
+
+Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
+
+Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
@@ -409,6 +417,49 @@ Any resource definitions inside a rule override what has been defined with ``--d
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+
+.. _resources-remote-execution:
+
+Resources and Remote Execution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New to Snakemake 7.11. In cluster or cloud execution, resources may represent either a global constraint across all submissions (e.g. number of API calls per second), or a constraint local to each specific job sumbmission (e.g. the amount of memory available on a node).
+Snakemake distinguishes between these two types of constraints using **resource scopes**.
+By default, ``mem_mb``, ``disk_mb``, and ``threads`` are all considered ``"local"`` resources, meaning specific to individual submissions.
+So if a constraint of 16G of memory is given to snakemake (e.g. ``snakemake --resources mem_mb=16000``), each group job will be allowed 16G of memory.
+All other resources are considered ``"global"``, meaning they are tracked across all jobs across all submissions.
+For example, if ``api_calls`` was limited to 5 and each job scheduled used 1 api call, only 5 jobs would be scheduled at a time, even if more job submissions were available.
+
+These resource scopes may be modified both in the Snakefile and via the CLI parameter ``--set-resource-scopes``.
+The CLI parameter takes priority.
+Modification in the Snakefile uses the following syntax:
+
+.. code-block:: python
+
+    resource_scopes:
+        gpus="local",
+        foo="local",
+        disk_mb="global"
+
+Here, we set both ``gpus`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
+These options could be overriden at the command line using:
+
+.. code-block:: console
+
+    $ snakemake --set-resource-scopes gpus=global disk_mb=local
+
+Resources and Group Jobs
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+New to Snakemake 7.11. 
+When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
+For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
+The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
+The only exception is ``runtime``.
+For it, ``max()`` will be used within each layer, then the total amount of time across all layers will be summed.
+If resource constraints are provided (via ``--resources`` or ``--cores``) Snakemake will prevent group jobs from requesting more than the constraint.
+Jobs that could otherwise be run in parallel will be run in series to prevent the violation of resource constraints.
+
 
 
 Preemptible Jobs
@@ -1523,6 +1574,16 @@ For example
 would set the number of scatter items for the split process defined above to 2 instead of 8. 
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
+For more complex workflows it's possible to define multiple processes, for example:
+
+.. code-block:: python
+
+    scattergather:
+        split_a=8,
+        split_b=3,
+        
+The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution
@@ -1662,6 +1723,7 @@ It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
 
+As with other groups, Snakemake will automatically calculate the required resources for the group job (see :ref:`resources <snakefiles-resources>`.
 
 .. _snakefiles-service-rules:
 

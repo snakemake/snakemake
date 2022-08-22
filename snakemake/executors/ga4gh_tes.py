@@ -234,7 +234,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         inputs = []
 
         # add workflow sources to inputs
-        for src in self.workflow.get_sources():
+        for src in self.dag.get_sources():
             # exclude missing, hidden, empty and build files
             if (
                 not os.path.exists(src)

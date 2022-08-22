@@ -38,7 +38,7 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v1.1.0
+        uses: marocchino/sticky-pull-request-comment@v2.2.0
         with:
           message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -138,7 +138,7 @@ jobs:
 
       - name: Build and publish docker image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
-        uses: elgohr/Publish-Docker-Github-Action@2.16
+        uses: elgohr/Publish-Docker-Github-Action@v4
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}

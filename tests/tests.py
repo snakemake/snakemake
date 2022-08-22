@@ -9,10 +9,14 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
+from snakemake.resources import DefaultResources
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
+
+from snakemake.resources import GroupResources
 
 
 def test_list_untracked():
@@ -937,6 +941,239 @@ def test_group_jobs():
 
 
 @skip_on_windows
+def test_group_jobs_resources(mocker):
+    spy = mocker.spy(GroupResources, "basic_layered")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"typo": 23, "mem_mb": 60000},
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 6,
+        "runtime": 420,
+        "tmpdir": "/tmp",
+        "mem_mb": 60000,
+        "fake_res": 600,
+        "global_res": 2000,
+        "disk_mb": 2000,
+    }
+
+
+@skip_on_windows
+def test_group_jobs_resources_with_max_threads(mocker):
+    spy = mocker.spy(GroupResources, "basic_layered")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 5,
+        "runtime": 380,
+        "tmpdir": "/tmp",
+        "mem_mb": 60000,
+        "fake_res": 1200,
+        "global_res": 3000,
+        "disk_mb": 3000,
+    }
+
+
+@skip_on_windows
+def test_group_jobs_resources_with_limited_resources(mocker):
+    spy = mocker.spy(GroupResources, "basic_layered")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=5,
+        resources={"mem_mb": 10000},
+        max_threads=1,
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 1,
+        "runtime": 700,
+        "tmpdir": "/tmp",
+        "mem_mb": 10000,
+        "fake_res": 400,
+        "global_res": 1000,
+        "disk_mb": 1000,
+    }
+
+
+@skip_on_windows
+def test_global_resource_limits_limit_scheduling_of_groups():
+    # Note that in the snakefile, mem_mb is set as global (breaking the default) and
+    # fake_res is set as local
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 1
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_new_resources_can_be_defined_as_local():
+    # Test only works if both mem_mb and global_res are overwritten as local
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "mem_mb": 50000, "fake_res": 200, "global_res": 1000},
+        overwrite_resource_scopes={"mem_mb": "local", "global_res": "local"},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 2
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_resources_can_be_overwritten_as_global():
+    # Test only works if both mem_mb and global_res are overwritten as local
+    tmp = run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cluster_status="./status_failed",
+        cores=6,
+        nodes=5,
+        cleanup=False,
+        resources={"typo": 23, "fake_res": 200},
+        overwrite_resource_scopes={"fake_res": {"local"}},
+        group_components={0: 5, 1: 5},
+        overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
+        default_resources=DefaultResources(["mem_mb=0"]),
+        shouldfail=True,
+    )
+    with (Path(tmp) / "qsub.log").open("r") as f:
+        lines = [l for l in f.readlines() if not l == "\n"]
+    assert len(lines) == 1
+    shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_resources_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert set(spy.spy_return.split()[1:]) == {
+        "'mem_mb=60000'",
+        "'fake_res=1200'",
+        "'global_res=3000'",
+        "'disk_mb=3000'",
+    }
+
+
+@skip_on_windows
+def test_excluded_resources_not_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        cores=6,
+        resources={"mem_mb": 60000},
+        max_threads=1,
+        overwrite_resource_scopes={"fake_res": "excluded"},
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert set(spy.spy_return.split()[1:]) == {
+        "'mem_mb=60000'",
+        "'global_res=3000'",
+        "'disk_mb=3000'",
+    }
+
+
+@skip_on_windows
+def test_group_job_resources_with_pipe(mocker):
+    import copy
+    from snakemake.executors import RealExecutor
+
+    spy = mocker.spy(GroupResources, "basic_layered")
+
+    # Cluster jobs normally get submitted with cores=all, but for testing purposes,
+    # the system may not actually have enough cores to run the snakemake subprocess
+    # (e.g. gh actions has only 2 cores). So cheat by patching over get_job_args
+    get_job_args = copy.copy(RealExecutor.get_job_args)
+    RealExecutor.get_job_args = lambda *args, **kwargs: get_job_args(
+        *args, **{**kwargs, "cores": 6}
+    )
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=6,
+        resources={
+            "mem_mb": 60000,
+        },
+        group_components={0: 5},
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+    assert dict(spy.spy_return) == {
+        "_nodes": 1,
+        "_cores": 6,
+        "runtime": 240,
+        "tmpdir": "/tmp",
+        "mem_mb": 50000,
+        "disk_mb": 1000,
+    }
+
+
+@skip_on_windows
+def test_group_job_resources_with_pipe_with_too_much_constraint():
+    run(
+        dpath("test_group_with_pipe"),
+        cluster="./qsub",
+        cores=6,
+        resources={
+            "mem_mb": 20000,
+        },
+        group_components={0: 5},
+        shouldfail=True,
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+
+
+@skip_on_windows
 def test_multicomp_group_jobs():
     run(
         dpath("test_multicomp_group_jobs"),
@@ -1297,6 +1534,13 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+def test_scatter_gather_multiple_processes():
+    run(
+        dpath("test_scatter_gather_multiple_processes"),
+        overwrite_scatter={"rule_b": 2},
+    )
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
@@ -1376,6 +1620,20 @@ def test_long_shell():
 
 def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
+
+
+def test_modules_all_exclude_1():
+    # Fail due to conflicting rules
+    run(dpath("test_modules_all_exclude"), shouldfail=True)
+
+
+def test_modules_all_exclude_2():
+    # Successed since the conflicting rules have been excluded
+    run(
+        dpath("test_modules_all_exclude"),
+        snakefile="Snakefile_exclude",
+        shouldfail=False,
+    )
 
 
 @skip_on_windows
@@ -1577,6 +1835,11 @@ def test_conda_named():
 
 
 @skip_on_windows
+def test_conda_function():
+    run(dpath("test_conda_function"), use_conda=True, cores=1)
+
+
+@skip_on_windows
 def test_default_target():
     run(dpath("test_default_target"))
 
@@ -1719,3 +1982,7 @@ def test_conda_pin_file():
 @skip_on_windows  # sufficient to test this on linux
 def test_github_issue1618():
     run(dpath("test_github_issue1618"), cores=5)
+
+
+def test_conda_python_script():
+    run(dpath("test_conda_python_script"), use_conda=True)
