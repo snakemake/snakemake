@@ -1424,10 +1424,7 @@ def test_module_use_local_relative_git_repo():
         dpath("test_module_local_git/module.tar.gz"),
         dpath("test_module_local_git/repo/module"),
     )
-    run(
-        dpath("test_module_local_git"),
-        snakefile="Snakefile_relative",
-        dryrun=True)
+    run(dpath("test_module_local_git"), snakefile="Snakefile_relative", dryrun=True)
 
 
 @skip_on_windows

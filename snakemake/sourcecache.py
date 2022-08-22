@@ -149,7 +149,9 @@ class LocalGitFile(SourceFile):
         self.path = path
 
     def get_path_or_uri(self):
-        return "git+file://{}/{}@{}".format(os.path.abspath(self.repo_path), self.path, self.ref)
+        return "git+file://{}/{}@{}".format(
+            os.path.abspath(self.repo_path), self.path, self.ref
+        )
 
     def join(self, path):
         path = os.path.normpath("/".join((self.path, path)))
