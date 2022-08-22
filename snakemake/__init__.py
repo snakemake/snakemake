@@ -21,13 +21,16 @@ from importlib.machinery import SourceFileLoader
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
-from snakemake.exceptions import print_exception, WorkflowError
+from snakemake.exceptions import ResourceScopesException, print_exception, WorkflowError
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
-from snakemake.utils import update_config, available_cpu_count
+from snakemake.utils import (
+    update_config,
+    available_cpu_count,
+)
 from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
-from snakemake.resources import parse_resources, DefaultResources
+from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
 SNAKEFILE_CHOICES = [
@@ -58,6 +61,7 @@ def snakemake(
     resources=dict(),
     overwrite_threads=None,
     overwrite_scatter=None,
+    overwrite_resource_scopes=None,
     default_resources=None,
     overwrite_resources=None,
     config=dict(),
@@ -567,6 +571,7 @@ def snakemake(
             overwrite_scatter=overwrite_scatter,
             overwrite_groups=overwrite_groups,
             overwrite_resources=overwrite_resources,
+            overwrite_resource_scopes=overwrite_resource_scopes,
             group_components=group_components,
             config_args=config_args,
             debug=debug,
@@ -621,8 +626,6 @@ def snakemake(
         if not print_compilation:
             if lint:
                 success = not workflow.lint(json=lint == "json")
-            elif containerize:
-                workflow.containerize()
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -640,6 +643,7 @@ def snakemake(
                     overwrite_threads=overwrite_threads,
                     overwrite_scatter=overwrite_scatter,
                     overwrite_resources=overwrite_resources,
+                    overwrite_resource_scopes=overwrite_resource_scopes,
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
@@ -808,6 +812,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    containerize=containerize,
                 )
 
     except BrokenPipeError:
@@ -871,6 +876,26 @@ def parse_set_scatter(args):
         "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
         "(with SCATTERITEMS being a positive integer).",
     )
+
+
+def parse_set_resource_scope(args):
+    err_msg = (
+        "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE pairs, "
+        "where SCOPE is either 'local', 'global', or 'excluded'"
+    )
+    if args.set_resource_scopes is not None:
+        try:
+            return ResourceScopes(
+                parse_key_value_arg(entry, errmsg=err_msg)
+                for entry in args.set_resource_scopes
+            )
+        except ResourceScopesException as err:
+            invalid_resources = ", ".join(
+                f"'{res}={scope}'" for res, scope in err.invalid_resources.items()
+            )
+            raise ValueError(f"{err.msg} (got {invalid_resources})")
+
+    return ResourceScopes()
 
 
 def parse_set_ints(arg, errmsg):
@@ -1078,7 +1103,7 @@ def get_argument_parser(profile=None):
                         line options in YAML format. For example,
                         '--cluster qsub' becomes 'cluster: qsub' in the YAML
                         file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles. 
+                        https://github.com/snakemake-profiles.
                         The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
                         """.format(
             dirs.site_config_dir, dirs.user_config_dir
@@ -1122,8 +1147,11 @@ def get_argument_parser(profile=None):
             "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
             "available CPU cores. "
-            "In case of cluster/cloud execution, this argument sets the number of "
-            "total cores used over all jobs (made available to rules via workflow.cores)."
+            "In case of cluster/cloud execution, this argument sets the maximum number "
+            "of cores requested from the cluster or cloud scheduler. (See "
+            "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+            "resources-remote-execution for more info)"
+            "This number is available to rules via workflow.cores."
         ),
     )
     group_exec.add_argument(
@@ -1157,11 +1185,15 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define additional resources that shall constrain the scheduling "
-            "analogously to threads (see above). A resource is defined as "
+            "analogously to --cores (see above). A resource is defined as "
             "a name and an integer value. E.g. --resources mem_mb=1000. Rules can "
             "use resources by defining the resource keyword, e.g. "
             "resources: mem_mb=600. If now two rules require 600 of the resource "
-            "'mem_mb' they won't be run in parallel by the scheduler."
+            "'mem_mb' they won't be run in parallel by the scheduler. In "
+            "cluster/cloud mode, this argument will also constrain the amount of "
+            "resources requested from the server. (See "
+            "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+            "resources-remote-execution for more info)"
         ),
     )
     group_exec.add_argument(
@@ -1176,9 +1208,11 @@ def get_argument_parser(profile=None):
     group_exec.add_argument(
         "--max-threads",
         type=int,
-        help="Define a global maximum number of threads for any job. This can be helpful in a cluster/cloud setting, "
-        "when you want to restrict the maximum number of requested threads without modifying the workflow definition "
-        "or overwriting them invidiually with --set-threads.",
+        help="Define a global maximum number of threads available to any rule. Rules "
+        "requesting more threads (via the threads keyword) will have their values "
+        "reduced to the maximum. This can be useful when you want to restrict the "
+        "maximum number of threads without modifying the workflow definition or "
+        "overwriting rules individually with --set-threads.",
     )
     group_exec.add_argument(
         "--set-resources",
@@ -1197,6 +1231,21 @@ def get_argument_parser(profile=None):
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
         "the name of the scattergather process defined via a scattergather directive in the workflow.",
+    )
+    group_exec.add_argument(
+        "--set-resource-scopes",
+        metavar="RESOURCE=[global|local]",
+        nargs="+",
+        help="Overwrite resource scopes. A scope determines how a constraint is "
+        "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
+        "RESOURCE using --resources will be considered the limit for each group "
+        "submission. With RESOURCE=global, the constraint will apply across all groups "
+        "cumulatively. By default, only `mem_mb` and `disk_mb` are considered local, "
+        "all other resources are global. This may be modified in the snakefile using "
+        "the `resource_scopes:` directive. Note that number of threads, specified via "
+        "--cores, is always considered local. (See "
+        "https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#"
+        "resources-remote-execution for more info)",
     )
     group_exec.add_argument(
         "--default-resources",
@@ -2444,10 +2493,6 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.quiet is not None and len(args.quiet) == 0:
-        # default case, set quiet to progress and rule
-        args.quiet = ["progress", "rules"]
-
     if args.profile:
         # reparse args while inferring config file from profile
         parser = get_argument_parser(args.profile)
@@ -2478,6 +2523,10 @@ def main(argv=None):
         if args.report_stylesheet:
             args.report_stylesheet = adjust_path(args.report_stylesheet)
 
+    if args.quiet is not None and len(args.quiet) == 0:
+        # default case, set quiet to progress and rule
+        args.quiet = ["progress", "rules"]
+
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
@@ -2501,6 +2550,7 @@ def main(argv=None):
         batch = parse_batch(args)
         overwrite_threads = parse_set_threads(args)
         overwrite_resources = parse_set_resources(args)
+        overwrite_resource_scopes = parse_set_resource_scope(args)
 
         overwrite_scatter = parse_set_scatter(args)
 
@@ -2627,22 +2677,6 @@ def main(argv=None):
             file=sys.stderr,
         )
         sys.exit(1)
-
-    if args.use_conda and args.conda_frontend == "mamba":
-        from snakemake.deployment.conda import is_mamba_available
-
-        if not is_mamba_available():
-            print(
-                "Error: mamba package manager is not available. "
-                "The mamba package manager (https://github.com/mamba-org/mamba) is an "
-                "extremely fast and robust conda replacement. "
-                "It is the recommended way of using Snakemake's conda integration. "
-                "It can be installed with `conda install -n base -c conda-forge mamba`. "
-                "If you still prefer to use conda, you can enforce that by setting "
-                "`--conda-frontend conda`.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(
@@ -2845,6 +2879,7 @@ def main(argv=None):
             overwrite_scatter=overwrite_scatter,
             default_resources=default_resources,
             overwrite_resources=overwrite_resources,
+            overwrite_resource_scopes=overwrite_resource_scopes,
             config=config,
             configfiles=args.configfile,
             config_args=args.config,

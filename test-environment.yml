@@ -13,6 +13,7 @@ dependencies:
   - wrapt
   - pyyaml
   - pytest
+  - pytest-mock
   - pytest-cov
   - ftputil
   - pysftp

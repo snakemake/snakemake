@@ -130,11 +130,11 @@ With Snakemake 6.0 and later, it is possible to define external workflows as mod
             # here, plain paths, URLs and the special markers for code hosting providers (see below) are possible.
             "other_workflow/Snakefile"
     
-    use rule * from other_workflow as other_*
+    use rule * from other_workflow exclude ruleC as other_*
 
 The ``module other_workflow:`` statement registers the external workflow as a module, by defining the path to the main snakefile of ``other_workflow``.
 Here, plain paths, HTTP/HTTPS URLs and special markers for code hosting providers like Github or Gitlab are possible (see :ref:`snakefile-code-hosting-providers`).
-The second statement, ``use rule * from other_workflow as other_*``, declares all rules of that module to be used in the current one.
+The second statement, ``use rule * from other_workflow exclude ruleC as other_*``, declares all rules of that module to be used in the current one, except for ruleC.
 Thereby, the ``as other_*`` at the end renames all those rules with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
 

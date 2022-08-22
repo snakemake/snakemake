@@ -228,7 +228,7 @@ def dag_to_cwl(dag):
             "sources": {
                 "type": "File[]",
                 "default": [
-                    {"class": "File", "location": f} for f in dag.workflow.get_sources()
+                    {"class": "File", "location": f} for f in dag.get_sources()
                 ],
             },
             "cores": {

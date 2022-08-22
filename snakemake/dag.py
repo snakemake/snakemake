@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import html
+from operator import attrgetter
 import os
 import sys
 import shutil
@@ -16,6 +17,7 @@ from functools import partial
 from pathlib import Path
 import uuid
 import math
+import subprocess
 
 from snakemake.io import (
     PeriodicityDetector,
@@ -34,10 +36,14 @@ from snakemake.exceptions import PeriodicWildcardError
 from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
+from snakemake.sourcecache import (
+    LocalSourceFile,
+    SourceFile,
+)
 
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
@@ -1264,6 +1270,7 @@ class DAG:
                     for job in self.bfs(self.dependencies, job, stop=stop)
                     if self.needrun(job)
                 ),
+                self.workflow.global_resources,
             )
 
             # merge with previously determined groups if present
@@ -1403,8 +1410,11 @@ class DAG:
         visited = set()
         for job in self.needrun_jobs():
             candidate_groups = set()
+            user_groups = set()
+            if job.pipe_group is not None:
+                candidate_groups.add(job.pipe_group)
             if job.group is not None:
-                candidate_groups.add(job.group)
+                user_groups.add(job.group)
             all_depending = set()
             has_pipe_or_service = False
             for f in job.output:
@@ -1461,44 +1471,49 @@ class DAG:
                             )
 
                         all_depending.add(dep)
+                        if dep.pipe_group is not None:
+                            candidate_groups.add(dep.pipe_group)
                         if dep.group is not None:
-                            candidate_groups.add(dep.group)
+                            user_groups.add(dep.group)
+
             if not has_pipe_or_service:
                 continue
 
+            # All pipe groups should be contained within one user-defined group
+            if len(user_groups) > 1:
+                raise WorkflowError(
+                    "An output file is marked as "
+                    "pipe or service, but consuming jobs "
+                    "are part of conflicting "
+                    "groups.",
+                    rule=job.rule,
+                )
+
             if len(candidate_groups) > 1:
-                if all(isinstance(group, CandidateGroup) for group in candidate_groups):
-                    # all candidates are newly created groups, merge them into one
-                    group = candidate_groups.pop()
-                    for g in candidate_groups:
-                        group.merge(g)
-                else:
-                    raise WorkflowError(
-                        "An output file is marked as "
-                        "pipe or service, but consuming jobs "
-                        "are part of conflicting "
-                        "groups.",
-                        rule=job.rule,
-                    )
+                # Merge multiple pipe groups together
+                group = candidate_groups.pop()
+                for g in candidate_groups:
+                    g.merge(group)
             elif candidate_groups:
                 # extend the candidate group to all involved jobs
                 group = candidate_groups.pop()
             else:
                 # generate a random unique group name
-                group = CandidateGroup()
+                group = CandidateGroup()  # str(uuid.uuid4())
 
-            # set group for job and all downstreams
-            job.group = group
+            # Assign the pipe group to all involved jobs.
+            job.pipe_group = group
             visited.add(job)
             for j in all_depending:
-                j.group = group
+                j.pipe_group = group
                 visited.add(j)
 
         # convert candidate groups to plain string IDs
         for job in visited:
-            job.group = (
-                job.group.id if isinstance(job.group, CandidateGroup) else job.group
-            )
+            # Set the group every job with an assigned pipe_group but no user-defined
+            # group to the pipe_group
+            if job.pipe_group and job.group is None:
+                job.group = job.pipe_group.id
 
     def _ready(self, job):
         """Return whether the given job is ready to execute."""
@@ -2250,7 +2265,7 @@ class DAG:
                     "Archiving snakefiles, scripts and files under "
                     "version control..."
                 )
-                for f in self.workflow.get_sources():
+                for f in self.get_sources():
                     add(f)
 
                 logger.info("Archiving external input files...")
@@ -2347,6 +2362,22 @@ class DAG:
                 ],
             )
 
+    def print_reasons(self):
+        """Print summary of execution reasons."""
+        reasons = defaultdict(set)
+        for job in self.needrun_jobs(exclude_finished=False):
+            for reason in self.reason(job).get_names():
+                reasons[reason].add(job.rule.name)
+        if reasons:
+            msg = "Reasons:\n    (check individual jobs above for details)"
+            for reason, rules in sorted(reasons.items()):
+                rules = sorted(rules)
+                if len(rules) > 50:
+                    rules = rules[:50] + ["..."]
+                rules = ", ".join(rules)
+                msg += f"\n    {reason}:\n        {rules}"
+            logger.info(msg)
+
     def stats(self):
         from tabulate import tabulate
 
@@ -2389,21 +2420,63 @@ class DAG:
         if jobs is None:
             jobs = set(self.jobs)
 
-        def get_dependencies(job):
-            for dep, files in self.dependencies[job].items():
-                if dep in jobs:
-                    yield dep
-                    if inherit_pipe_dependencies and any(
-                        is_flagged(f, "pipe") for f in files
-                    ):
-                        # In case of a pipe, inherit the dependencies of the producer,
-                        # such that the two jobs end up on the same toposort level.
-                        # This is important because they are executed simulataneously.
-                        yield from get_dependencies(dep)
+        pipe_dependencies = {}
+        # If enabled, toposort should put all pipe jobs at the same level. We do this by
+        # causing all jobs in the pipe group to use each other's dependencies
+        if inherit_pipe_dependencies:
+            # First, we organize all the jobs in the group into a dict according to
+            # their pipe_group
+            pipe_groups = defaultdict(list)
+            for name, group in groupby(jobs, attrgetter("pipe_group")):
+                if name is not None:
+                    pipe_groups[name].extend(group)
 
-        dag = {job: set(get_dependencies(job)) for job in jobs}
+            # Then, for each pipe_group, we find the dependencies of every job in the
+            # group, filtering out any dependencies that are, themselves, in the group
+            for name, group in pipe_groups.items():
+                pipe_dependencies[name] = set(
+                    d for job in group for d in self.dependencies[job] if d not in group
+                )
 
-        return toposort(dag)
+        # Collect every job's dependencies into a definitive mapping
+        dependencies = {}
+        for job in jobs:
+            if job.pipe_group in pipe_dependencies:
+                deps = pipe_dependencies[job.pipe_group]
+            else:
+                deps = self.dependencies[job]
+            dependencies[job] = {dep for dep in deps if dep in jobs}
+
+        toposorted = toposort(dependencies)
+
+        # Within each toposort layer, entries should be sorted so that pipe jobs are
+        # listed order of dependence, i.e. dependent jobs before depending jobs
+        for layer in toposorted:
+            pipe_groups = defaultdict(set)
+            sorted_layer = []
+            for job in layer:
+                if job.pipe_group is None:
+                    sorted_layer.append(job)
+                    continue
+                pipe_groups[job.pipe_group].add(job)
+
+            for group in pipe_groups.values():
+                sorted_layer.extend(
+                    chain(
+                        *toposort(
+                            {
+                                job: {
+                                    dep
+                                    for dep in self.dependencies[job]
+                                    if dep in group
+                                }
+                                for job in group
+                            }
+                        )
+                    )
+                )
+
+            yield sorted_layer
 
     def get_outputs_with_changes(self, change_type, include_needrun=True):
         is_changed = lambda job: (
@@ -2418,6 +2491,94 @@ class DAG:
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
         return changed
 
+    def warn_about_changes(self, quiet=False):
+        if not quiet:
+            for change_type in ["code", "input", "params"]:
+                changed = self.get_outputs_with_changes(
+                    change_type, include_needrun=False
+                )
+                if changed:
+                    rerun_trigger = ""
+                    if not ON_WINDOWS:
+                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
+                    logger.warning(
+                        f"The {change_type} used to generate one or several output files has changed:\n"
+                        f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
+                        f"{rerun_trigger}"
+                    )
+
+    def get_sources(self):
+        files = set()
+
+        def local_path(f):
+            if not isinstance(f, SourceFile) and is_local_file(f):
+                return f
+            if isinstance(f, LocalSourceFile):
+                return f.get_path_or_uri()
+
+        def norm_rule_relpath(f, rule):
+            if not os.path.isabs(f):
+                f = os.path.join(rule.basedir, f)
+            return os.path.relpath(f)
+
+        # get registered sources
+        for f in self.workflow.included:
+            f = local_path(f)
+            if f:
+                try:
+                    f = os.path.relpath(f)
+                except ValueError:
+                    if ON_WINDOWS:
+                        pass  # relpath doesn't work on win if files are on different drive
+                    else:
+                        raise
+                files.add(f)
+        for rule in self.workflow.rules:
+            script_path = rule.script or rule.notebook
+            if script_path:
+                script_path = norm_rule_relpath(script_path, rule)
+                files.add(script_path)
+                script_dir = os.path.dirname(script_path)
+                files.update(
+                    os.path.join(dirpath, f)
+                    for dirpath, _, files in os.walk(script_dir)
+                    for f in files
+                )
+
+        for job in self.jobs:
+            if job.conda_env_spec and job.conda_env_spec.is_file:
+                f = local_path(job.conda_env_spec.file)
+                if f:
+                    # url points to a local env file
+                    env_path = norm_rule_relpath(f, job.rule)
+                    files.add(env_path)
+
+        for f in self.workflow.configfiles:
+            files.add(f)
+
+        # get git-managed files
+        # TODO allow a manifest file as alternative
+        try:
+            out = subprocess.check_output(
+                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
+            )
+            for f in out.decode().split("\n"):
+                if f:
+                    files.add(os.path.relpath(f))
+        except subprocess.CalledProcessError as e:
+            if "fatal: not a git repository" in e.stderr.decode().lower():
+                logger.warning(
+                    "Unable to retrieve additional files from git. "
+                    "This is not a git repository."
+                )
+            else:
+                raise WorkflowError(
+                    "Error executing git (Snakemake requires git to be installed for "
+                    "remote execution without shared filesystem):\n" + e.stderr.decode()
+                )
+
+        return files
+
     def __str__(self):
         return self.dot()
 
@@ -2430,7 +2591,9 @@ class CandidateGroup:
         self.id = str(uuid.uuid4())
 
     def __eq__(self, other):
-        return self.id == other.id
+        if isinstance(other, CandidateGroup):
+            return self.id == other.id
+        return False
 
     def __hash__(self):
         return hash(self.id)
