@@ -1,0 +1,23 @@
+localrules: all, clean
+
+rule all:
+     input: "pi.calc"
+
+rule clean:
+     shell: "rm -f pi.calc"
+
+rule compile:
+     input: "pi_MPI.c"
+     output: temp("pi_MPI")
+     shell: 
+         'mpicc -o {output} {input}'
+
+rule calc_pi:
+     input: "pi_MPI"
+     output: "pi.calc"
+     resources:
+           nodes=1,
+           walltime_minutes=10,
+           tasks=2,
+           mpi=True,
+     shell: "{input} > {output}"

@@ -15,6 +15,22 @@ from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
+@skip_on_windows
+def test_slurm_mpi():
+    run(dpath("test_slurm_mpi"), slurm=True)
+
+
+@skip_on_windows
+def test_slurm_group_job():
+    """
+    same test as test_group_job(),
+    but for SLURM - checks whether
+    the group-property is correctly
+    propagated.
+    """
+    run(dpath("test_group_job"), slurm=True)
+
+
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 
@@ -242,11 +258,7 @@ def test_report_dir():
 
 
 def test_report_display_code():
-    run(
-        dpath("test_report_display_code"),
-        report="report.html",
-        check_md5=False,
-    )
+    run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
 def test_dynamic():
@@ -544,9 +556,7 @@ def test_wrapper_local_git_prefix():
         print("Cloning complete.")
 
         run(
-            dpath("test_wrapper"),
-            use_conda=True,
-            wrapper_prefix=f"git+file://{tmpdir}",
+            dpath("test_wrapper"), use_conda=True, wrapper_prefix=f"git+file://{tmpdir}"
         )
 
 
@@ -1297,6 +1307,9 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+# SLURM tests go here, after successfull tests
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
@@ -1376,6 +1389,20 @@ def test_long_shell():
 
 def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
+
+
+def test_modules_all_exclude_1():
+    # Fail due to conflicting rules
+    run(dpath("test_modules_all_exclude"), shouldfail=True)
+
+
+def test_modules_all_exclude_2():
+    # Successed since the conflicting rules have been excluded
+    run(
+        dpath("test_modules_all_exclude"),
+        snakefile="Snakefile_exclude",
+        shouldfail=False,
+    )
 
 
 @skip_on_windows
@@ -1517,6 +1544,11 @@ def test_conda_named():
 
 
 @skip_on_windows
+def test_conda_function():
+    run(dpath("test_conda_function"), use_conda=True, cores=1)
+
+
+@skip_on_windows
 def test_default_target():
     run(dpath("test_default_target"))
 
@@ -1616,6 +1648,18 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
+def test_ensure_nonempty_fail():
+    run(dpath("test_ensure"), targets=["a"], shouldfail=True)
+
+
+def test_ensure_success():
+    run(dpath("test_ensure"), targets=["b", "c"])
+
+
+def test_ensure_checksum_fail():
+    run(dpath("test_ensure"), targets=["d"], shouldfail=True)
+
+
 @skip_on_windows
 def test_github_issue1261():
     run(dpath("test_github_issue1261"), shouldfail=True, check_results=True)
@@ -1628,3 +1672,26 @@ def test_rule_inheritance_globals():
         targets=["foo.txt"],
         check_md5=False,
     )
+
+
+def test_retries():
+    run(dpath("test_retries"))
+
+
+@skip_on_windows  # OS agnostic
+def test_module_input_func():
+    run(dpath("test_module_input_func"))
+
+
+@skip_on_windows  # the testcase only has a linux-64 pin file
+def test_conda_pin_file():
+    run(dpath("test_conda_pin_file"), use_conda=True)
+
+
+@skip_on_windows  # sufficient to test this on linux
+def test_github_issue1618():
+    run(dpath("test_github_issue1618"), cores=5)
+
+
+def test_conda_python_script():
+    run(dpath("test_conda_python_script"), use_conda=True)

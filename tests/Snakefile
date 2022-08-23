@@ -30,4 +30,4 @@ rule calc_pi:
            tasks=2,
            partition="parallel",
            mpi=True,
-     shell: "{input} > {output}"
+     shell: "{input} {output}"

@@ -50,10 +50,12 @@ class SlurmJobstepExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        # TODO raise WorkflowError if one of below env vars is not there
+
         self.mem_per_node = os.getenv("SLURM_MEM_PER_NODE")
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
+
+        # if not self.mem_per_node
 
     def _wait_for_jobs(self):
         pass
@@ -66,7 +68,8 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
             def get_call(level_job, level_id, aux=""):
                 # we need this calculation, because of srun's greediness and
-                # SLURM's limits: it is not able toClusterExecutor limit the memory if per cpu
+                # SLURM's limits: it is not able to limit the memory if we divide the job
+                # per CPU by itself.
                 mem_per_cpu = max(level_job.resources.mem_mb // level_job.threads, 100)
                 exec_job = self.format_job_exec(level_job)
                 return (
@@ -90,7 +93,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             call = "srun "
             if job.resources.get("bind_rank"):
                 call += "--cpu-bind=rank "
-            call += self.format_job_exec(job)
+            call += job.shellcmd
         else:
             call = "srun --cpu-bind=q --exclusive "
             # TODO: in case the job only has a shell command and does not require

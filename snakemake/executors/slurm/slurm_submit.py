@@ -47,7 +47,7 @@ class SlurmExecutor(ClusterExecutor):
         local_input=None,
         restart_times=0,
         exec_job=None,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.03,
         cluster_config=None,
     ):
         # needs to be set in either case for the submission string
@@ -67,9 +67,15 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
+        # TODO: check! Even this does not add this attribute to the class
+        #       see comment on the bottom.
+        self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
-        return [" --slurm-jobstep"]
+        # at some point '-j 1' became necessary whilst the entire
+        # commandline _should_ propagate this flag.
+        # TODO: look into this matter
+        return [" --slurm-jobstep", "-j 1"]
 
     def cancel(self):
         for job in self.active_jobs:
@@ -79,9 +85,9 @@ class SlurmExecutor(ClusterExecutor):
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
-                subprocess.run(shlex.split("scancel {}".format(jobid)), timeout=60)
+                subprocess.run(shlex.split(f"scancel {jobid}"), timeout=60)
             except subprocess.TimeoutExpired:
-                pass  # shell we ignore the timeout, here?
+                logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -98,13 +104,15 @@ class SlurmExecutor(ClusterExecutor):
         #    attributes of groubjobs (snakemake/jobs.py class GroupJob , _resources
         #    - see topology
         for job in jobs:
-            # TODO replace by own code
-            self.run(
-                job,
-                callback=callback,  # to be executed upon ready jobs
-                submit_callback=submit_callback,  # to be hold for --immediate flag - ignored within this executor
-                error_callback=error_callback,  #
-            )
+            if job.is_group():
+                logger.info("yeah")  # printf debugging feature ;-)
+            else:
+                self.run(
+                    job,
+                    callback=callback,  # to be executed upon ready jobs
+                    submit_callback=submit_callback,  # to be hold for --immediate flag - ignored within this executor
+                    error_callback=error_callback,  #
+                )
 
     def cluster_params(self, job):
         """
@@ -120,12 +128,10 @@ class SlurmExecutor(ClusterExecutor):
         super()._run(job)
         workdir = os.getcwd()
         jobid = job.jobid
+        os.makedirs(".snakemake/slurm_logs", exist_ok=True)
         # generic part of a submission string:
-
-        os.makedirs(".snakemake/slurm-logs", exist_ok=True)
-
         try:
-            call = "sbatch -A {account} -p {partition} \
+            call = "sbatch \
                     -J {jobname} \
                     -o .snakemake/slurm_logs/%x_%j.log \
                     --export=ALL".format(
@@ -139,6 +145,11 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
             sys.exit(1)
+
+        if job.resources.get("account"):
+            call += " -A {account}".format(**job.resources)
+        if job.resources.get("partition"):
+            call += " -p {partition}".format(**job.resources)
 
         if not job.resources.get("walltime_minutes"):
             logger.warning(
@@ -169,7 +180,15 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
-                call += " -c={}".format(job.resources.get("threads", 1))
+                call += f" --cpus-per-task=".format(job.resources.get("threads", 1))
+            if not job.shellcmd:
+                # The reason for this error is that in this case _only_ the
+                # shell command is issued, not snakemake itself. Otherwise
+                # the jobstepexecutor would again be snakemake, but the MPI-starter
+                # is 'srun' not 'snakemake ...'.
+                logger.error("MPI-Jobs may only be run as a shell command.")
+                sys.exit(101)
+
         # ordinary smp application
         elif not job.is_group():
             # TODO: this line will become longer
@@ -178,9 +197,9 @@ class SlurmExecutor(ClusterExecutor):
                 call += f" -n 1 -c 1 {exec_job}"
             else:
                 call += f" -n 1 -c {job.threads}"
-        else:
+        else:  # group job case
             ntasks = max(map(len, job.toposorted))
-            threads = sum(j.threads for j in job)
+            threads = max(j.threads for j in job)
             call += f" -n {ntasks} -c {threads}"
 
         # ensure that workdir is set correctly
@@ -193,16 +212,18 @@ class SlurmExecutor(ClusterExecutor):
         #    pass  # check template
 
         jobid = out.split(" ")[-1]
+        jobname = self.get_jobname(job)
+        logger.debug(f"Job {jobid} '{jobname}' has been submitted")
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
 
     def job_status(self, jobid: int):
         """
         obtain SLURM job status of submitted jobs
         """
-        STATUS_ATTEMPS = 10
+        STATUS_ATTEMPTS = 10
         res = None
 
-        for i in range(STATUS_ATTEMPS):
+        for i in range(STATUS_ATTEMPTS):
             # use self.status_rate_limiter to avoid too many API calls.
             with self.status_rate_limiter:
                 try:
@@ -223,7 +244,7 @@ class SlurmExecutor(ClusterExecutor):
                     try:
                         sctrl_cmd = shlex.split("scontrol -o show job {}".format(jobid))
                         sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
-                        m = re.search("JobState=(\w+)", sctrl_res)
+                        m = re.search(r"JobState=(\w+)", sctrl_res)
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:

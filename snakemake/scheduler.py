@@ -181,11 +181,16 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
+                # keepmetadata=keepmetadata,
             )
+            # we need to adjust the maximum status checks on a
+            # SLURM cluster for not to overstrain the scheduler
+            if max_status_checks_per_second > 1:
+                # # every 30 sec is a resonable default
+                max_status_checks_per_second = 0.03
+
             self._executor = SlurmExecutor(
                 workflow,
                 dag,
@@ -193,11 +198,11 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 #    assume_shared_fs=True,
                 # keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
                 cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second,
             )
 
         elif slurm_jobstep:
@@ -207,7 +212,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 # assume_shared_fs=True,
                 # keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
@@ -450,8 +454,10 @@ class JobScheduler:
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs
-            if job not in self.running and not self.dag.finished(job)
+            for job in self.dag.needrun_jobs()
+            if job not in self.running
+            and not self.dag.finished(job)
+            and job not in self.failed
         ]
 
     def schedule(self):
@@ -498,7 +504,7 @@ class JobScheduler:
                         logger.error(_ERROR_MSG_FINAL)
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
-                    if self.remaining_jobs:
+                    if self.remaining_jobs and not self.keepgoing:
                         logger.error(_ERROR_MSG_ISSUE_823)
                         logger.error(
                             "Remaining jobs:\n"
@@ -658,15 +664,13 @@ class JobScheduler:
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
             self.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
-            if self.keepgoing:
-                logger.info("Job failed, going on with independent jobs.")
 
     def exit_gracefully(self, *args):
         with self._lock:

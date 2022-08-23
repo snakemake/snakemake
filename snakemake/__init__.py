@@ -37,6 +37,8 @@ SNAKEFILE_CHOICES = [
     "workflow/snakefile",
 ]
 
+RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
+
 
 def snakemake(
     snakefile,
@@ -72,7 +74,7 @@ def snakemake(
     omit_from=[],
     prioritytargets=[],
     stats=None,
-    printreason=False,
+    printreason=True,
     printshellcmds=False,
     debug_dag=False,
     printdag=False,
@@ -84,6 +86,7 @@ def snakemake(
     keepgoing=False,
     slurm=None,
     slurm_jobstep=None,
+    rerun_triggers=RERUN_TRIGGERS,
     cluster=None,
     cluster_config=None,
     cluster_sync=None,
@@ -556,6 +559,7 @@ def snakemake(
 
         workflow = Workflow(
             snakefile=snakefile,
+            rerun_triggers=rerun_triggers,
             jobscript=jobscript,
             overwrite_shellcmd=overwrite_shellcmd,
             overwrite_config=overwrite_config,
@@ -621,8 +625,6 @@ def snakemake(
         if not print_compilation:
             if lint:
                 success = not workflow.lint(json=lint == "json")
-            elif containerize:
-                workflow.containerize()
             elif listrules:
                 workflow.list_rules()
             elif list_target_rules:
@@ -810,6 +812,7 @@ def snakemake(
                     export_cwl=export_cwl,
                     batch=batch,
                     keepincomplete=keep_incomplete,
+                    containerize=containerize,
                 )
 
     except BrokenPipeError:
@@ -1311,6 +1314,17 @@ def get_argument_parser(profile=None):
         help="Go on with independent jobs if a job fails.",
     )
     group_exec.add_argument(
+        "--rerun-triggers",
+        nargs="+",
+        choices=RERUN_TRIGGERS,
+        default=RERUN_TRIGGERS,
+        help="Define what triggers the rerunning of a job. By default, "
+        "all triggers are used, which guarantees that results are "
+        "consistent with the workflow code and configuration. If you "
+        "rather prefer the traditional way of just considering "
+        "file modification dates, use '--rerun-trigger mtime'.",
+    )
+    group_exec.add_argument(
         "--force",
         "-f",
         action="store_true",
@@ -1773,7 +1787,7 @@ def get_argument_parser(profile=None):
         "--reason",
         "-r",
         action="store_true",
-        help="Print the reason for each executed rule.",
+        help="Print the reason for each executed rule (deprecated, always true now).",
     )
     group_output.add_argument(
         "--gui",
@@ -1812,8 +1826,13 @@ def get_argument_parser(profile=None):
     group_output.add_argument(
         "--quiet",
         "-q",
-        action="store_true",
-        help="Do not output any progress or rule information.",
+        nargs="*",
+        choices=["progress", "rules", "all"],
+        default=None,
+        help="Do not output certain information. "
+        "If used without arguments, do not output any progress or rule "
+        "information. Defining 'all' results in no information being "
+        "printed at all.",
     )
     group_output.add_argument(
         "--print-compilation",
@@ -1942,6 +1961,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "-T",
+        "--retries",
         "--restart-times",
         default=0,
         type=int,
@@ -2485,6 +2505,10 @@ def main(argv=None):
         if args.report_stylesheet:
             args.report_stylesheet = adjust_path(args.report_stylesheet)
 
+    if args.quiet is not None and len(args.quiet) == 0:
+        # default case, set quiet to progress and rule
+        args.quiet = ["progress", "rules"]
+
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
@@ -2863,7 +2887,7 @@ def main(argv=None):
             targets=args.target,
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
-            printreason=args.reason,
+            printreason=True,  # always display reason
             debug_dag=args.debug_dag,
             printdag=args.dag,
             printrulegraph=args.rulegraph,
@@ -2882,6 +2906,7 @@ def main(argv=None):
             keepgoing=args.keep_going,
             slurm=args.slurm,
             slurm_jobstep=args.slurm_jobstep,
+            rerun_triggers=args.rerun_triggers,
             cluster=args.cluster,
             cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,
@@ -2938,7 +2963,7 @@ def main(argv=None):
             allowed_rules=args.allowed_rules,
             max_jobs_per_second=args.max_jobs_per_second,
             max_status_checks_per_second=args.max_status_checks_per_second,
-            restart_times=args.restart_times,
+            restart_times=args.retries,
             attempt=args.attempt,
             force_use_threads=args.force_use_threads,
             use_conda=args.use_conda,
