@@ -85,6 +85,7 @@ Below you find a skeleton
         def cancel(self):
             for job in self.active_jobs:
                 # cancel active jobs here
+                pass
             self.shutdown()
         
         def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -114,7 +115,7 @@ Below you find a skeleton
 
             # Necessary: perform additional executor independent steps before running the job
             super()._run(job)
-            
+
             # obtain job execution command
             exec_job = self.format_job(
                 self.exec_job, job, _quote_all=True,
@@ -148,6 +149,7 @@ Below you find a skeleton
                         # Handle completion and errors, calling either j.callback(j.job)
                         # or j.error_callback(j.job)
                         # In case of error, add job j to still_running.
+                        pass
                 with self.lock:
                     self.active_jobs.extend(still_running)
                 sleep()
