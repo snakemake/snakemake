@@ -432,6 +432,8 @@ def snakemake(
         or tibanna
         or google_lifesciences
         or tes
+        or slurm
+        or slurm_jobstep
     )
     if run_local:
         if not dryrun:
