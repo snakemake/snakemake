@@ -64,9 +64,6 @@ Below you find a skeleton
                  assume_shared_fs=True,
                  max_status_checks_per_second=1):
 
-            # overwrite the command to execute a single snakemake job if necessary
-            # exec_job = "..."
-
             super().__init__(workflow, dag, None,
                              jobname=jobname,
                              printreason=printreason,
@@ -76,9 +73,8 @@ Below you find a skeleton
                              cluster_config=cluster_config,
                              local_input=local_input,
                              restart_times=restart_times,
-                             exec_job=exec_job,
-                             assume_shared_fs=False,
-                             max_status_checks_per_second=10)
+                             assume_shared_fs=False, # if your executor relies on a shared file system, set this to True
+                             max_status_checks_per_second=max_status_checks_per_second)  # set this to a reasonable default
 
             # add additional attributes
 
@@ -116,7 +112,9 @@ Below you find a skeleton
             """Run an individual job or a job group.
             """
 
+            # Necessary: perform additional executor independent steps before running the job
             super()._run(job)
+            
             # obtain job execution command
             exec_job = self.format_job(
                 self.exec_job, job, _quote_all=True,
