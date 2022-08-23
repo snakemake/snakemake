@@ -6,7 +6,7 @@ GoogleLifeSciencesJob = namedtuple(
 )
 
 
-class SkeletonExecutor(ClusterExecutor):
+class GoogleBatchExecutor(ClusterExecutor):
     def __init__(
         self,
         workflow,
@@ -82,7 +82,17 @@ class SkeletonExecutor(ClusterExecutor):
             use_threads="--force-use-threads" if not job.is_group() else "",
         )
 
-        # submit job here, and obtain job ids from the backend
+        # Submit job here, and obtain job ids from the backend.
+        # Make sure to pass resources (job.resources) to Google Batch,
+        # in particular standard resources like mem_mb and disk_mb.
+
+        # Also, pass workflow source files (Snakefile, Envs, configs, ...,
+        # all of them are small) to the backend.
+        # In the case of Google Life Sciences, we had put them into a bucket.
+        # With the kubernetes backend, we have encoded them as secrets.
+        # If google batch has a built in way to upload required files,
+        # that would be much preferable.
+        # You can get the source files via self.dag.get_sources().
 
         # register job as active, using your own namedtuple.
         # The namedtuple must at least contain the attributes
