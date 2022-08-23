@@ -130,6 +130,7 @@ Below you find a skeleton
                 job, jobid, callback, error_callback))
 
         def _wait_for_jobs(self):
+            from snakemake.executors import sleep
             # busy wait on job completion
             # This is only needed if your backend does not allow to use callbacks
             # for obtaining job status.
