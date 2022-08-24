@@ -403,8 +403,10 @@ class JobScheduler:
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs
-            if job not in self.running and not self.dag.finished(job)
+            for job in self.dag.needrun_jobs()
+            if job not in self.running
+            and not self.dag.finished(job)
+            and job not in self.failed
         ]
 
     def schedule(self):
@@ -451,7 +453,7 @@ class JobScheduler:
                         logger.error(_ERROR_MSG_FINAL)
                     # we still have unfinished jobs. this is not good. direct
                     # user to github issue
-                    if self.remaining_jobs:
+                    if self.remaining_jobs and not self.keepgoing:
                         logger.error(_ERROR_MSG_ISSUE_823)
                         logger.error(
                             "Remaining jobs:\n"
@@ -571,7 +573,7 @@ class JobScheduler:
         pass
 
     def _free_resources(self, job):
-        for name, value in job.resources.items():
+        for name, value in job.scheduler_resources.items():
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
@@ -609,15 +611,13 @@ class JobScheduler:
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
             self.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
-            if self.keepgoing:
-                logger.info("Job failed, going on with independent jobs.")
 
     def exit_gracefully(self, *args):
         with self._lock:
@@ -685,7 +685,7 @@ class JobScheduler:
                 sum([size_gb(temp_file) for temp_file in temp_files]), 1
             )
             total_core_requirement = sum(
-                [max(job.resources.get("_cores", 1), 1) for job in jobs]
+                [max(job.scheduler_resources.get("_cores", 1), 1) for job in jobs]
             )
             # Objective function
             # Job priority > Core load
@@ -701,7 +701,8 @@ class JobScheduler:
                 * total_temp_size
                 * lpSum(
                     [
-                        max(job.resources.get("_cores", 1), 1) * scheduled_jobs[job]
+                        max(job.scheduler_resources.get("_cores", 1), 1)
+                        * scheduled_jobs[job]
                         for job in jobs
                     ]
                 )
@@ -725,7 +726,7 @@ class JobScheduler:
                 prob += (
                     lpSum(
                         [
-                            scheduled_jobs[job] * job.resources.get(name, 0)
+                            scheduled_jobs[job] * job.scheduler_resources.get(name, 0)
                             for job in jobs
                         ]
                     )
@@ -775,7 +776,7 @@ class JobScheduler:
 
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
-                [job.resources.get(name, 0) for job in selected_jobs]
+                [job.scheduler_resources.get(name, 0) for job in selected_jobs]
             )
         return selected_jobs
 
@@ -894,7 +895,7 @@ class JobScheduler:
         ]
 
     def job_weight(self, job):
-        res = job.resources
+        res = job.scheduler_resources
         return [
             self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]

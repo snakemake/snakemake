@@ -24,7 +24,11 @@ try:
     from irods.session import iRODSSession
     from irods.meta import iRODSMeta
     from irods.models import DataObject
-    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist
+    from irods.exception import (
+        CollectionDoesNotExist,
+        DataObjectDoesNotExist,
+        CAT_NO_ACCESS_PERMISSION,
+    )
     import irods.keywords as kw
 except ImportError as e:
     raise WorkflowError(
@@ -89,6 +93,10 @@ class RemoteProvider(AbstractRemoteProvider):
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
         return ["irods://"]
+
+    def glob_wildcards(self, pattern, *args, **kwargs):
+        remote_pattern = os.path.join(os.sep, self._irods_session.zone, pattern)
+        return super().glob_wildcards(remote_pattern, *args, **kwargs)
 
 
 class RemoteObject(AbstractRemoteRetryObject):
@@ -200,13 +208,16 @@ class RemoteObject(AbstractRemoteRetryObject):
 
         # create folder structure on remote
         folders = os.path.dirname(self.remote_path).split(os.sep)[1:]
-        collpath = os.sep
+        # add zone name to path
+        collpath = os.sep + folders.pop(0) + os.sep + folders.pop(0)
 
         for folder in folders:
             collpath = os.path.join(collpath, folder)
-
             try:
                 self._irods_session.collections.get(collpath)
+            # ignore subdirectories where user does not have access
+            except (CAT_NO_ACCESS_PERMISSION):
+                pass
             except:
                 self._irods_session.collections.create(collpath)
 

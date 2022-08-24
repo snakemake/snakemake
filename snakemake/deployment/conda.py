@@ -32,7 +32,13 @@ from abc import ABC, abstractmethod
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
-from snakemake.common import is_local_file, parse_uri, strip_prefix, ON_WINDOWS
+from snakemake.common import (
+    is_local_file,
+    lazy_property,
+    parse_uri,
+    strip_prefix,
+    ON_WINDOWS,
+)
 from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import (
@@ -65,19 +71,12 @@ class Env:
         container_img=None,
         cleanup=None,
     ):
-        self.file = None
-        self.name = None
-        self.post_deploy_file = None
+        self.file = env_file
         if env_file is not None:
             self.file = infer_source_file(env_file)
-            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
-                ".post-deploy.sh"
-            )
-            if deploy_file.exists():
-                self.post_deploy_file = infer_source_file(deploy_file)
+        self.name = env_name
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
-            self.name = env_name
 
         self.frontend = workflow.conda_frontend
         self.workflow = workflow
@@ -92,10 +91,37 @@ class Env:
         self._content_hash = None
         self._content = None
         self._content_deploy = None
+        self._content_pin = None
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
         self._singularity_args = workflow.singularity_args
+
+    @lazy_property
+    def conda(self):
+        return Conda(
+            container_img=self._container_img, frontend=self.frontend, check=True
+        )
+
+    @lazy_property
+    def pin_file(self):
+        pin_file = Path(self.file.get_path_or_uri()).with_suffix(
+            f".{self.conda.platform}.pin.txt"
+        )
+
+        if pin_file.exists():
+            return infer_source_file(pin_file)
+        else:
+            return None
+
+    @lazy_property
+    def post_deploy_file(self):
+        if self.file:
+            deploy_file = Path(self.file.get_path_or_uri()).with_suffix(
+                ".post-deploy.sh"
+            )
+            if deploy_file.exists():
+                return infer_source_file(deploy_file)
 
     def _get_content(self):
         if self.is_named:
@@ -114,6 +140,12 @@ class Env:
         self.check_is_file_based()
         if self.post_deploy_file:
             return self.workflow.sourcecache.open(self.post_deploy_file, "rb").read()
+        return None
+
+    def _get_content_pin(self):
+        self.check_is_file_based()
+        if self.pin_file:
+            return self.workflow.sourcecache.open(self.pin_file, "rb").read()
         return None
 
     @property
@@ -135,6 +167,12 @@ class Env:
         if self._content_deploy is None:
             self._content_deploy = self._get_content_deploy()
         return self._content_deploy
+
+    @property
+    def content_pin(self):
+        if self._content_pin is None:
+            self._content_pin = self._get_content_pin()
+        return self._content_pin
 
     @property
     def hash(self):
@@ -309,9 +347,8 @@ class Env:
                 os.path.relpath(path=deploy_file, start=os.getcwd())
             )
         )
-        conda = Conda(self._container_img)
         shell.check_output(
-            conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
             stderr=subprocess.STDOUT,
         )
 
@@ -324,8 +361,10 @@ class Env:
         # Read env file and create hash.
         env_file = self.file
         deploy_file = None
+        pin_file = None
         tmp_env_file = None
         tmp_deploy_file = None
+        tmp_pin_file = None
 
         if not isinstance(env_file, LocalSourceFile) or isinstance(
             env_file, LocalGitFile
@@ -343,9 +382,15 @@ class Env:
                     tmp.write(self.content_deploy)
                     deploy_file = tmp.name
                     tmp_deploy_file = tmp.name
+            if self.pin_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix="pin.txt") as tmp:
+                    tmp.write(self.content_pin)
+                    pin_file = tmp.name
+                    tmp_pin_file = tmp.name
         else:
             env_file = env_file.get_path_or_uri()
             deploy_file = self.post_deploy_file
+            pin_file = self.pin_file
 
         env_path = self.address
 
@@ -402,11 +447,9 @@ class Env:
                     )
                 )
                 return env_path
-            conda = Conda(self._container_img)
             logger.info(
                 "Creating conda environment {}...".format(self.file.simplify_path())
             )
-            # Check if env archive exists. Use that if present.
             env_archive = self.archive_file
             try:
                 # Touch "start" flag file
@@ -414,6 +457,7 @@ class Env:
                 with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
 
+                # Check if env archive exists. Use that if present.
                 if os.path.exists(env_archive):
                     logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
@@ -450,46 +494,86 @@ class Env:
                     out = shell.check_output(
                         cmd, stderr=subprocess.STDOUT, universal_newlines=True
                     )
-
                 else:
-                    # Copy env file to env_path (because they can be on
-                    # different volumes and singularity should only mount one).
-                    # In addition, this allows to immediately see what an
-                    # environment in .snakemake/conda contains.
-                    target_env_file = env_path + ".yaml"
-                    shutil.copy(env_file, target_env_file)
 
-                    logger.info("Downloading and installing remote packages.")
-                    cmd = " ".join(
-                        [
-                            self.frontend,
-                            "env",
-                            "create",
-                            "--quiet",
-                            '--file "{}"'.format(target_env_file),
-                            '--prefix "{}"'.format(env_path),
-                        ]
-                    )
-                    if self._container_img:
-                        cmd = singularity.shellcmd(
-                            self._container_img.path,
-                            cmd,
-                            args=self._singularity_args,
-                            envvars=self.get_singularity_envvars(),
-                        )
-                    out = shell.check_output(
-                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
-                    )
+                    def create_env(env_file, filetype="yaml"):
+                        # Copy env file to env_path (because they can be on
+                        # different volumes and singularity should only mount one).
+                        # In addition, this allows to immediately see what an
+                        # environment in .snakemake/conda contains.
+                        target_env_file = env_path + f".{filetype}"
+                        shutil.copy(env_file, target_env_file)
 
-                    # cleanup if requested
-                    if self._cleanup is CondaCleanupMode.tarballs:
-                        logger.info("Cleaning up conda package tarballs.")
-                        shell.check_output("conda clean -y --tarballs")
-                    elif self._cleanup is CondaCleanupMode.cache:
-                        logger.info(
-                            "Cleaning up conda package tarballs and package cache."
+                        logger.info("Downloading and installing remote packages.")
+
+                        strict_priority = (
+                            ["conda config --set channel_priority strict &&"]
+                            if self._container_img
+                            else []
                         )
-                        shell.check_output("conda clean -y --tarballs --packages")
+
+                        subcommand = [self.frontend]
+                        yes_flag = ["--yes"]
+                        if filetype == "yaml":
+                            subcommand.append("env")
+                            yes_flag = []
+
+                        cmd = (
+                            strict_priority
+                            + subcommand
+                            + [
+                                "create",
+                                "--quiet",
+                                '--file "{}"'.format(target_env_file),
+                                '--prefix "{}"'.format(env_path),
+                            ]
+                            + yes_flag
+                        )
+                        cmd = " ".join(cmd)
+                        if self._container_img:
+                            cmd = singularity.shellcmd(
+                                self._container_img.path,
+                                cmd,
+                                args=self._singularity_args,
+                                envvars=self.get_singularity_envvars(),
+                            )
+                        out = shell.check_output(
+                            cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                        )
+
+                        # cleanup if requested
+                        if self._cleanup is CondaCleanupMode.tarballs:
+                            logger.info("Cleaning up conda package tarballs.")
+                            shell.check_output("conda clean -y --tarballs")
+                        elif self._cleanup is CondaCleanupMode.cache:
+                            logger.info(
+                                "Cleaning up conda package tarballs and package cache."
+                            )
+                            shell.check_output("conda clean -y --tarballs --packages")
+                        return out
+
+                    if pin_file is not None:
+                        try:
+                            logger.info(
+                                f"Using pinnings from {self.pin_file.get_path_or_uri()}."
+                            )
+                            out = create_env(pin_file, filetype="pin.txt")
+                        except subprocess.CalledProcessError as e:
+                            # remove potential partially installed environment
+                            shutil.rmtree(env_path, ignore_errors=True)
+                            advice = ""
+                            if isinstance(self.file, LocalSourceFile):
+                                advice = (
+                                    " If that works, make sure to update the pin file with "
+                                    f"'snakedeploy pin-conda-env {self.file.get_path_or_uri()}'."
+                                )
+                            logger.warning(
+                                f"Failed to install conda environment from pin file ({self.pin_file.get_path_or_uri()}). "
+                                f"Trying regular environment definition file.{advice}"
+                            )
+                            out = create_env(env_file, filetype="yaml")
+                    else:
+                        out = create_env(env_file, filetype="yaml")
 
                 # Execute post-deplay script if present
                 if deploy_file:
@@ -544,7 +628,7 @@ class Conda:
     instances = dict()
     lock = threading.Lock()
 
-    def __new__(cls, container_img=None, prefix_path=None):
+    def __new__(cls, container_img=None, prefix_path=None, frontend=None, check=False):
         with cls.lock:
             if container_img not in cls.instances:
                 inst = super().__new__(cls)
@@ -553,7 +637,9 @@ class Conda:
             else:
                 return cls.instances[container_img]
 
-    def __init__(self, container_img=None, prefix_path=None):
+    def __init__(
+        self, container_img=None, prefix_path=None, frontend=None, check=False
+    ):
         if not self.is_initialized:  # avoid superfluous init calls
             from snakemake.deployment import singularity
             from snakemake.shell import shell
@@ -561,18 +647,27 @@ class Conda:
             if isinstance(container_img, singularity.Image):
                 container_img = container_img.path
             self.container_img = container_img
+            self.frontend = frontend
+
+            self.info = json.loads(
+                shell.check_output(
+                    self._get_cmd(f"conda info --json"),
+                    universal_newlines=True,
+                )
+            )
 
             if prefix_path is None or container_img is not None:
-                self.prefix_path = json.loads(
-                    shell.check_output(
-                        self._get_cmd("conda info --json"), universal_newlines=True
-                    )
-                )["conda_prefix"]
+                self.prefix_path = self.info["conda_prefix"]
             else:
                 self.prefix_path = prefix_path
 
+            self.platform = self.info["platform"]
+
             # check conda installation
-            self._check()
+            if check:
+                if frontend is None:
+                    raise ValueError("Frontend must be specified if check is True.")
+                self._check()
 
     @property
     def is_initialized(self):
@@ -586,64 +681,106 @@ class Conda:
     def _check(self):
         from snakemake.shell import shell
 
-        # Use type here since conda now is a function.
-        # type allows to check for both functions and regular commands.
-        if not ON_WINDOWS or shell.get_executable():
-            locate_cmd = "type conda"
-        else:
-            locate_cmd = "where conda"
+        frontends = ["conda"]
+        if self.frontend == "mamba":
+            frontends = ["mamba", "conda"]
+
+        for frontend in frontends:
+            # Use type here since conda now is a function.
+            # type allows to check for both functions and regular commands.
+            if not ON_WINDOWS or shell.get_executable():
+                locate_cmd = f"type {frontend}"
+            else:
+                locate_cmd = f"where {frontend}"
+
+            try:
+                shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                if self.container_img:
+                    msg = (
+                        f"The '{frontend}' command is not "
+                        "available inside "
+                        "your singularity container "
+                        "image. Snakemake mounts "
+                        "your conda installation "
+                        "into singularity. "
+                        "Sometimes, this can fail "
+                        "because of shell restrictions. "
+                        "It has been tested to work "
+                        "with docker://ubuntu, but "
+                        "it e.g. fails with "
+                        "docker://bash "
+                    )
+                else:
+                    msg = (
+                        f"The '{frontend}' command is not "
+                        "available in the "
+                        f"shell {shell.get_executable()} that will be "
+                        "used by Snakemake. You have "
+                        "to ensure that it is in your "
+                        "PATH, e.g., first activating "
+                        "the conda base environment "
+                        "with `conda activate base`."
+                    )
+                if frontend == "mamba":
+                    msg += (
+                        "The mamba package manager (https://github.com/mamba-org/mamba) is a "
+                        "fast and robust conda replacement. "
+                        "It is the recommended way of using Snakemake's conda integration. "
+                        "It can be installed with `conda install -n base -c conda-forge mamba`. "
+                        "If you still prefer to use conda, you can enforce that by setting "
+                        "`--conda-frontend conda`.",
+                    )
+                raise CreateCondaEnvironmentException(msg)
 
         try:
-            shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            if self.container_img:
-                raise CreateCondaEnvironmentException(
-                    "The 'conda' command is not "
-                    "available inside "
-                    "your singularity container "
-                    "image. Snakemake mounts "
-                    "your conda installation "
-                    "into singularity. "
-                    "Sometimes, this can fail "
-                    "because of shell restrictions. "
-                    "It has been tested to work "
-                    "with docker://ubuntu, but "
-                    "it e.g. fails with "
-                    "docker://bash "
-                )
-            else:
-                raise CreateCondaEnvironmentException(
-                    "The 'conda' command is not "
-                    "available in the "
-                    "shell {} that will be "
-                    "used by Snakemake. You have "
-                    "to ensure that it is in your "
-                    "PATH, e.g., first activating "
-                    "the conda base environment "
-                    "with `conda activate base`.".format(shell.get_executable())
-                )
-        try:
-            version = shell.check_output(
-                self._get_cmd("conda --version"),
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-            )
-            version_matches = re.findall("\d+.\d+.\d+", version)
-            if len(version_matches) != 1:
-                raise WorkflowError(
-                    f"Unable to determine conda version. 'conda --version' returned {version}"
-                )
-            else:
-                version = version_matches[0]
-            if StrictVersion(version) < StrictVersion("4.2"):
-                raise CreateCondaEnvironmentException(
-                    "Conda must be version 4.2 or later, found version {}.".format(
-                        version
-                    )
-                )
+            self._check_version()
+            self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                "Unable to check conda version:\n" + e.stderr.decode()
+                f"Unable to check conda installation:" "\n" + e.stderr.decode()
+            )
+
+    def _check_version(self):
+        from snakemake.shell import shell
+
+        version = shell.check_output(
+            self._get_cmd("conda --version"),
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        version_matches = re.findall("\d+.\d+.\d+", version)
+        if len(version_matches) != 1:
+            raise WorkflowError(
+                f"Unable to determine conda version. 'conda --version' returned {version}"
+            )
+        else:
+            version = version_matches[0]
+        if StrictVersion(version) < StrictVersion("4.2"):
+            raise CreateCondaEnvironmentException(
+                "Conda must be version 4.2 or later, found version {}.".format(version)
+            )
+
+    def _check_condarc(self):
+        if self.container_img:
+            # Do not check for strict priorities when running conda in an image
+            # Instead, we set priorities to strict ourselves in the image.
+            return
+        from snakemake.shell import shell
+
+        res = json.loads(
+            shell.check_output(
+                self._get_cmd("conda config --get channel_priority --json"),
+                universal_newlines=True,
+                stderr=subprocess.PIPE,
+            )
+        )
+        if res["get"].get("channel_priority") != "strict":
+            logger.warning(
+                "Your conda installation is not configured to use strict channel priorities. "
+                "This is however crucial for having robust and correct environments (for details, "
+                "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
             )
 
     def bin_path(self):

@@ -9,12 +9,14 @@ import signal
 import marshal
 import pickle
 import json
+import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
 from itertools import filterfalse, count
 from pathlib import Path
 
+import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
@@ -167,7 +169,7 @@ class Persistence:
 
     def lock(self):
         if self.locked:
-            raise IOError("Another snakemake process " "has locked this directory.")
+            raise snakemake.exceptions.LockException()
         self._lock(self.all_inputfiles(), "input")
         self._lock(self.all_outputfiles(), "output")
 
@@ -240,6 +242,9 @@ class Persistence:
                     "starttime", None
                 )
             endtime = f.mtime.local_or_remote() if f.exists else fallback_time
+
+            checksums = ((infile, infile.checksum()) for infile in job.input)
+
             self._record(
                 self._metadata_path,
                 {
@@ -256,6 +261,11 @@ class Persistence:
                     "job_hash": hash(job),
                     "conda_env": conda_env,
                     "container_img_url": job.container_img_url,
+                    "input_checksums": {
+                        infile: checksum
+                        for infile, checksum in checksums
+                        if checksum is not None
+                    },
                 },
                 f,
             )
@@ -322,6 +332,21 @@ class Persistence:
     def code(self, path):
         return self.metadata(path).get("code")
 
+    def conda_env(self, path):
+        return self.metadata(path).get("conda_env")
+
+    def container_img_url(self, path):
+        return self.metadata(path).get("container_img_url")
+
+    def input_checksums(self, job, input_path):
+        """Return all checksums of the given input file
+        recorded for the output of the given job.
+        """
+        return set(
+            self.metadata(output_path).get("input_checksums", {}).get(input_path)
+            for output_path in job.output
+        )
+
     def version_changed(self, job, file=None):
         """Yields output files with changed versions or bool if file given."""
         return _bool_or_gen(self._version_changed, job, file=file)
@@ -337,6 +362,14 @@ class Persistence:
     def params_changed(self, job, file=None):
         """Yields output files with changed params or bool if file given."""
         return _bool_or_gen(self._params_changed, job, file=file)
+
+    def conda_env_changed(self, job, file=None):
+        """Yields output files with changed conda env or bool if file given."""
+        return _bool_or_gen(self._conda_env_changed, job, file=file)
+
+    def container_changed(self, job, file=None):
+        """Yields output files with changed container img or bool if file given."""
+        return _bool_or_gen(self._container_changed, job, file=file)
 
     def _version_changed(self, job, file=None):
         assert file is not None
@@ -357,6 +390,16 @@ class Persistence:
         assert file is not None
         recorded = self.params(file)
         return recorded is not None and recorded != self._params(job)
+
+    def _conda_env_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.conda_env(file)
+        return recorded is not None and recorded != self._conda_env(job)
+
+    def _container_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.container_img_url(file)
+        return recorded is not None and recorded != job.container_img_url
 
     def noop(self, *args):
         pass
@@ -392,9 +435,24 @@ class Persistence:
 
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
-        os.makedirs(os.path.dirname(recpath), exist_ok=True)
-        with open(recpath, "w") as f:
-            json.dump(json_value, f)
+        recdir = os.path.dirname(recpath)
+        os.makedirs(recdir, exist_ok=True)
+        # Write content to temporary file and rename it to the final file.
+        # This avoids race-conditions while writing (e.g. on NFS when the main job
+        # and the cluster node job propagate their content and the system has some
+        # latency including non-atomic propagation processes).
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=recdir,
+            delete=False,
+            # Add short prefix to final filename for better debugging.
+            # This may not be the full one, because that may be too long
+            # for the filesystem in combination with the prefix from the temp
+            # file.
+            suffix=f".{os.path.basename(recpath)[:8]}",
+        ) as tmpfile:
+            json.dump(json_value, tmpfile)
+        os.rename(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
@@ -420,7 +478,14 @@ class Persistence:
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError as e:
+                pass
+        # case: file is corrupted, delete it
+        logger.warning(f"Deleting corrupted metadata record.")
+        self._delete_record(subject, id)
+        return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
@@ -460,7 +525,7 @@ class Persistence:
 
     def all_outputfiles(self):
         # we only look at output files that will be updated
-        return jobfiles(self.dag.needrun_jobs, "output")
+        return jobfiles(self.dag.needrun_jobs(), "output")
 
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs

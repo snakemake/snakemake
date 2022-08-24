@@ -109,6 +109,31 @@ class AbstractExecutor:
         default_resources = default_resources or self.workflow.default_resources
         return format_cli_arg("--default-resources", default_resources.args)
 
+    def get_resource_scopes_args(self):
+        return format_cli_arg(
+            "--set-resource-scopes", self.workflow.overwrite_resource_scopes
+        )
+
+    def get_resource_declarations(self, job):
+        def isdigit(i):
+            s = str(i)
+            # Adapted from https://stackoverflow.com/a/1265696
+            if s[0] in ("-", "+"):
+                return s[1:].isdigit()
+            return s.isdigit()
+
+        excluded_resources = self.workflow.resource_scopes.excluded.union(
+            {"_nodes", "_cores"}
+        )
+        resources = [
+            f"{resource}={value}"
+            for resource, value in job.resources.items()
+            if isinstance(value, int)
+            # need to check bool seperately because bool is a subclass of int
+            and isdigit(value) and resource not in excluded_resources
+        ]
+        return format_cli_arg("--resources", resources)
+
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
 
@@ -286,6 +311,7 @@ class RealExecutor(AbstractExecutor):
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
+                w2a("rerun_triggers"),
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
                 w2a("use_conda"),
@@ -317,6 +343,7 @@ class RealExecutor(AbstractExecutor):
                 self.get_set_resources_args(),
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_resource_scopes_args(),
                 self.get_workdir_arg(),
                 format_cli_arg("--mode", self.get_exec_mode()),
             ]
@@ -343,6 +370,7 @@ class RealExecutor(AbstractExecutor):
                 format_cli_arg("--cores", kwargs.get("cores", self.cores)),
                 format_cli_arg("--attempt", job.attempt),
                 format_cli_arg("--force-use-threads", not job.is_group()),
+                self.get_resource_declarations(job),
             ]
         )
 
@@ -466,7 +494,7 @@ class CPUExecutor(RealExecutor):
         return ""
 
     def get_job_args(self, job, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet"
+        return f"{super().get_job_args(job, **kwargs)} --quiet all"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -659,7 +687,6 @@ class ClusterExecutor(RealExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
@@ -679,6 +706,7 @@ class ClusterExecutor(RealExecutor):
             assume_shared_fs=assume_shared_fs,
             keepincomplete=keepincomplete,
         )
+        self.max_status_checks_per_second = max_status_checks_per_second
 
         if not self.assume_shared_fs:
             # use relative path to Snakefile
@@ -717,8 +745,6 @@ class ClusterExecutor(RealExecutor):
         self.disable_default_remote_provider_args = disable_default_remote_provider_args
         self.disable_default_resources_args = disable_default_resources_args
         self.disable_envvar_declarations = disable_envvar_declarations
-
-        self.max_status_checks_per_second = max_status_checks_per_second
 
         self.status_rate_limiter = RateLimiter(
             max_calls=self.max_status_checks_per_second, period=1
@@ -1683,7 +1709,7 @@ class KubernetesExecutor(ClusterExecutor):
         secret.metadata.name = self.run_namespace
         secret.type = "Opaque"
         secret.data = {}
-        for i, f in enumerate(self.workflow.get_sources()):
+        for i, f in enumerate(self.dag.get_sources()):
             if f.startswith(".."):
                 logger.warning(
                     "Ignoring source file {}. Only files relative "
@@ -2082,7 +2108,7 @@ class TibannaExecutor(ClusterExecutor):
     ):
         self.workflow = workflow
         self.workflow_sources = []
-        for wfs in workflow.get_sources():
+        for wfs in dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(

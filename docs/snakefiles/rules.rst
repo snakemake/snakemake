@@ -340,20 +340,18 @@ If limits for the resources are given via the command line, e.g.
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
 
-In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check whether a job exceeds a certain resource.
-However, resources are used to determine which jobs can be executed at a time while not exceeding the given limits at the command line.
-If no limits are given, the resources are ignored in local execution.
-In cluster or cloud execution, resources are always passed to the backend, even if ``--resources`` is not specified.
+In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check on the resource consumption of jobs in real time.
+Instead, resources are used to determine which jobs can be executed at the same time without exceeding the limits specified at the command line.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
-Resources must be ``int`` or ``str`` values. Note that you are free to choose any names for the given resources.
+If no limits are given, the resources are ignored in local execution.
 
+Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
+They can also be callables that return ``int`` or ``str`` values.
+The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
-Resources can also be callables that return ``int`` or ``str`` values.
-The signature of the callable has to be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
-
-The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--restart-times``).
+The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
-When Snakemake is executed with ``--restart-times 3``, it will try to restart a failed job 3 times before it gives up.
+When Snakemake is executed with ``--retries 3``, it will try to restart a failed job 3 times before it gives up.
 Thereby, the parameter ``attempt`` will contain the current attempt number (starting from ``1``).
 This can be used to adjust the required memory as follows
 
@@ -397,11 +395,21 @@ Both threads and resources can be overwritten upon invocation via `--set-threads
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are three **standard resources**, for total memory, disk usage and the temporary directory of a job: ``mem_mb`` and ``disk_mb`` and ``tmpdir``.
-The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
-When defining memory constraints, it is advised to use ``mem_mb``, because some execution modes make direct use of this information (e.g., when using :ref:`Kubernetes <kubernetes>`).
+There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
+All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
-Since it would be cumbersome to define such standard resources them for every rule, you can set default values at 
+* The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
+
+* The ``runtime`` resource indicates how much time a job needs to run, and has a special meaning for cluster and cloud compute jobs.
+  See :ref:`the section below<resources_remote_execution>` for more information
+
+* ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
+  :ref:`See below<resources_remote_execution>` for more info.
+  ``mem_mb`` also has special meaning for some execution modes (e.g., when using :ref:`Kubernetes <kubernetes>`).
+
+Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
+
+Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
@@ -409,6 +417,49 @@ Any resource definitions inside a rule override what has been defined with ``--d
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+
+.. _resources-remote-execution:
+
+Resources and Remote Execution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New to Snakemake 7.11. In cluster or cloud execution, resources may represent either a global constraint across all submissions (e.g. number of API calls per second), or a constraint local to each specific job sumbmission (e.g. the amount of memory available on a node).
+Snakemake distinguishes between these two types of constraints using **resource scopes**.
+By default, ``mem_mb``, ``disk_mb``, and ``threads`` are all considered ``"local"`` resources, meaning specific to individual submissions.
+So if a constraint of 16G of memory is given to snakemake (e.g. ``snakemake --resources mem_mb=16000``), each group job will be allowed 16G of memory.
+All other resources are considered ``"global"``, meaning they are tracked across all jobs across all submissions.
+For example, if ``api_calls`` was limited to 5 and each job scheduled used 1 api call, only 5 jobs would be scheduled at a time, even if more job submissions were available.
+
+These resource scopes may be modified both in the Snakefile and via the CLI parameter ``--set-resource-scopes``.
+The CLI parameter takes priority.
+Modification in the Snakefile uses the following syntax:
+
+.. code-block:: python
+
+    resource_scopes:
+        gpus="local",
+        foo="local",
+        disk_mb="global"
+
+Here, we set both ``gpus`` and ``foo`` as local resources, and we changed ``disk_mb`` from its default to be a ``global`` resource.
+These options could be overriden at the command line using:
+
+.. code-block:: console
+
+    $ snakemake --set-resource-scopes gpus=global disk_mb=local
+
+Resources and Group Jobs
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+New to Snakemake 7.11. 
+When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
+For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
+The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
+The only exception is ``runtime``.
+For it, ``max()`` will be used within each layer, then the total amount of time across all layers will be summed.
+If resource constraints are provided (via ``--resources`` or ``--cores``) Snakemake will prevent group jobs from requesting more than the constraint.
+Jobs that could otherwise be run in parallel will be run in series to prevent the violation of resource constraints.
+
 
 
 Preemptible Jobs
@@ -999,10 +1050,20 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+.. _snakefiles-directory_output:
+
 Directories as outputs
 ----------------------
 
-Sometimes it can be convenient to have directories, rather than files, as outputs of a rule. As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. Another reason comes down to how modification time for directories work. The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
+Sometimes it can be convenient to have directories, rather than files, as outputs of a rule.
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. 
+This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. 
+Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. 
+Another reason comes down to how modification time for directories work. 
+The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. 
+This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. 
+When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. 
+Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
 
 .. code-block:: python
 
@@ -1033,6 +1094,61 @@ The timestamp of such files is ignored and always assumed to be older than any o
 
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
+
+.. _snakefiles_ensure::
+
+Ensuring output file properties like non-emptyness or checksum compliance
+-------------------------------------------------------------------------
+
+It is possible to annotate certain additional criteria for output files to be ensured after they have been generated successfully.
+For example, this can be used to check for output files to be non-empty, or to compare them against a given sha256 checksum.
+If this functionality is used, Snakemake will check such annotated files before considering a job to be successfull.
+Non-emptyness can be checked as follows:
+
+.. code-block:: python
+
+    rule NAME:
+        output:
+            ensure("test.txt", non_empty=True)
+        shell:
+            "somecommand {output}"
+
+Above, the output file ``test.txt`` is marked as non-empty.
+If the command ``somecommand`` happens to generate an empty output,
+the job will fail with an error listing the unexpected empty file.
+
+A sha256 checksum can be compared as follows:
+
+.. code-block:: python
+
+    my_checksum = "u98a9cjsd98saud090923ßkpoasköf9ß32"
+
+    rule NAME:
+        output:
+            ensure("test.txt", sha256=my_checksum)
+        shell:
+            "somecommand {output}"
+
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`). 
+The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
+
+.. code-block:: python
+
+    def get_checksum(wildcards):
+        # e.g., look up the checksum with the value of the wildcard sample
+        # in some dictionary
+        return my_checksums[wildcards.sample]
+
+    rule NAME:
+        output:
+            ensure("test/{sample}.txt", sha256=get_checksum)
+        shell:
+            "somecommand {output}"
+
+
+Note that you can also use `lambda expressions <https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions>`_ instead of full function definitions.
+
+Often, it is a good idea to combine ``ensure`` annotations with :ref:`retry definitions <snakefiles_retries>`, e.g. for retrying upon invalid checksums or empty files.
 
 Shadow rules
 ------------
@@ -1066,6 +1182,32 @@ and are cleared on successful execution.
 Consider running with the ``--cleanup-shadow`` argument every now and then
 to remove any remaining shadow directories from aborted jobs.
 The base shadow directory can be changed with the ``--shadow-prefix`` command line argument.
+
+.. _snakefiles_retries:
+
+Defining retries for fallible rules
+-----------------------------------
+
+Sometimes, rules may be expected to fail occasionally.
+For example, this can happen when a rule downloads some online resources.
+For such cases, it is possible to defined a number of automatic retries for each job from that particular rule via the ``retries`` directive:
+
+.. code-block:: python
+
+    rule a:
+        output:
+            "test.txt"
+        retries: 3
+        shell:
+            "curl https://some.unreliable.server/test.txt > {output}"
+
+Often, it is a good idea to combine retry functionality with :ref:`ensure annotations <snakefiles_ensure>`, e.g. for retrying upon invalid checksums or empty files.
+
+Note that it is also possible to define retries globally (via the ``--retries`` command line option, see :ref:`all_options`).
+The local definition of the rule thereby overwrites the global definition.
+
+Importantly the ``retries`` directive is meant to be used for defining platform independent behavior (like adding robustness to above download command).
+For dealing with unreliable cluster or cloud systems, you should use the ``--retries`` command line option.
 
 Flag files
 ----------
@@ -1432,6 +1574,16 @@ For example
 would set the number of scatter items for the split process defined above to 2 instead of 8. 
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
+For more complex workflows it's possible to define multiple processes, for example:
+
+.. code-block:: python
+
+    scattergather:
+        split_a=8,
+        split_b=3,
+        
+The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution
@@ -1571,6 +1723,7 @@ It is possible to combine explicit group definition as above with pipe outputs.
 Thereby, pipe jobs can live within, or (automatically) extend existing groups.
 However, the two jobs connected by a pipe may not exist in conflicting groups.
 
+As with other groups, Snakemake will automatically calculate the required resources for the group job (see :ref:`resources <snakefiles-resources>`.
 
 .. _snakefiles-service-rules:
 
@@ -1865,8 +2018,65 @@ Instead, the output file will be opened, and depending on its contents either ``
 This way, the DAG becomes conditional on some produced data.
 
 It is also possible to use checkpoints for cases where the output files are unknown before execution.
-A typical example is a clustering process with an unknown number of clusters, where each cluster shall be saved into a separate file.
-Consider the following example:
+Consider the following example where an arbitrary number of files is generated by a rule before being aggregated:
+
+.. code-block:: python
+
+  # a target rule to define the desired final output
+    rule all:
+        input:
+            "aggregated.txt"
+
+
+    # the checkpoint that shall trigger re-evaluation of the DAG
+    # an number of file is created in a defined directory
+    checkpoint somestep:
+        output:
+            directory("my_directory/")
+        shell:'''
+        mkdir my_directory/
+        cd my_directory
+        for i in 1 2 3; do touch $i.txt; done
+        '''
+
+
+
+    # input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+    def aggregate_input(wildcards):
+        checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
+        return expand("my_directory/{i}.txt",
+                    i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i)
+
+
+    rule aggregate:
+        input:
+            aggregate_input
+        output:
+            "aggregated.txt"
+        shell:
+            "cat {input} > {output}"
+
+Because the number of output files is unknown beforehand, the checkpoint only defines an output :ref:`directory <snakefiles-directory_output>`.
+This time, instead of explicitly writing
+
+.. code-block:: python
+
+  checkpoints.clustering.get(sample=wildcards.sample).output[0]
+
+we use the shorthand
+
+.. code-block:: python
+
+  checkpoints.clustering.get(**wildcards).output[0]
+
+which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
+If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
+Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
+Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
+Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
+
+A more practical example building on the previous one is a clustering process with an unknown number of clusters for different samples, where each cluster shall be saved into a separate file.
+In this example the clusters are being processed by an intermediate rule before being aggregated:
 
 .. code-block:: python
 
@@ -1914,27 +2124,9 @@ Consider the following example:
       shell:
           "cat {input} > {output}"
 
-Here, our checkpoint simulates a clustering.
-We pretend that the number of clusters is unknown beforehand.
-Hence, the checkpoint only defines an output ``directory``.
-The rule ``aggregate`` again uses the ``checkpoints`` object to retrieve the output of the checkpoint.
-This time, instead of explicitly writing
-
-.. code-block:: python
-
-  checkpoints.clustering.get(sample=wildcards.sample).output[0]
-
-we use the shorthand
-
-.. code-block:: python
-
-  checkpoints.clustering.get(**wildcards).output[0]
-
-which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
-If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensure that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
-Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
-Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
-These values are then used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
+Here a new directory will be created for each sample by the checkpoint.
+After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously. 
+The values of the wildcard ``i`` is this time used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
 
 .. _snakefiles-rule-inheritance:

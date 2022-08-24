@@ -266,6 +266,27 @@ class Scattergather(GlobalKeywordState):
     pass
 
 
+class ResourceScope(GlobalKeywordState):
+    err_msg = (
+        "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
+        "'global'"
+    )
+    current_resource = ""
+
+    def block_content(self, token):
+        if is_name(token):
+            self.current_resource = token.string
+        if is_string(token) and self.lasttoken == "=":
+            if token.string[1:][:-1] not in ["local", "global"]:
+                self.error(
+                    self.err_msg.format(
+                        resource=self.current_resource, scope=token.string
+                    ),
+                    token,
+                )
+        yield token.string, token
+
+
 class Ruleorder(GlobalKeywordState):
     def block_content(self, token):
         if is_greater(token):
@@ -424,6 +445,10 @@ class Params(RuleKeywordState):
 
 
 class Threads(RuleKeywordState):
+    pass
+
+
+class Retries(RuleKeywordState):
     pass
 
 
@@ -675,6 +700,7 @@ rule_property_subautomata = dict(
     params=Params,
     threads=Threads,
     resources=Resources,
+    retries=Retries,
     priority=Priority,
     version=Version,
     log=Log,
@@ -942,6 +968,7 @@ class UseRule(GlobalKeywordState):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.state_keyword_rule
         self.rules = []
+        self.exclude_rules = []
         self.has_with = False
         self.name_modifier = []
         self.from_module = None
@@ -950,8 +977,8 @@ class UseRule(GlobalKeywordState):
 
     def end(self):
         name_modifier = "".join(self.name_modifier) if self.name_modifier else None
-        yield "@workflow.userule(rules={!r}, from_module={!r}, name_modifier={!r}, lineno={})".format(
-            self.rules, self.from_module, name_modifier, self.lineno
+        yield "@workflow.userule(rules={!r}, from_module={!r}, exclude_rules={!r}, name_modifier={!r}, lineno={})".format(
+            self.rules, self.from_module, self.exclude_rules, name_modifier, self.lineno
         )
         yield "\n"
 
@@ -1055,6 +1082,9 @@ class UseRule(GlobalKeywordState):
             if token.string == "as" and not self.name_modifier:
                 self.state = self.state_as
                 yield from ()
+            elif token.string == "exclude":
+                self.state = self.state_exclude
+                yield from ()
             elif token.string == "with":
                 yield from self.handle_with(token)
             else:
@@ -1106,8 +1136,42 @@ class UseRule(GlobalKeywordState):
             yield from ()
         else:
             self.error(
-                "Expecting colon after 'with' keyword in 'use rule' statement.", token
+                "Expecting colon after 'with' keyword in 'use rule' statement.",
+                token,
             )
+
+    def state_exclude(self, token):
+        if is_name(token):
+            self.exclude_rules.append(token.string)
+            self.state = self.state_exclude_comma_or_end
+            yield from ()
+        else:
+            self.error(
+                "Expecting rule name(s) after 'exclude' keyword in 'use rule' statement.",
+                token,
+            )
+
+    def state_exclude_comma_or_end(self, token):
+        if is_name(token):
+            if token.string == "from" or token.string == "as":
+                if not self.exclude_rules:
+                    self.error(
+                        "Expecting rule names after 'exclude' statement.",
+                        token,
+                    )
+                if token.string == "from":
+                    self.state = self.state_from
+                else:
+                    self.state = self.state_as
+                yield from ()
+            else:
+                yield from ()
+        elif is_comma(token):
+            self.state = self.state_exclude
+            yield from ()
+        else:
+            self.state = self.state_modifier
+            yield from ()
 
     def block_content(self, token):
         if is_comment(token):
@@ -1124,7 +1188,7 @@ class UseRule(GlobalKeywordState):
                 )
             except StopAutomaton as e:
                 self.indentation(e.token)
-                self.block(e.token)
+                yield from self.block(e.token)
         else:
             self.error(
                 "Expecting a keyword or comment "
@@ -1160,6 +1224,7 @@ class Python(TokenAutomaton):
         container=GlobalContainer,
         containerized=GlobalContainerized,
         scattergather=Scattergather,
+        resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,
     )

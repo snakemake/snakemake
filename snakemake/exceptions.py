@@ -10,7 +10,9 @@ from tokenize import TokenError
 from snakemake.logging import logger
 
 
-def format_error(ex, lineno, linemaps=None, snakefile=None, show_traceback=False):
+def format_error(
+    ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
+):
     if linemaps is None:
         linemaps = dict()
     msg = str(ex)
@@ -18,9 +20,13 @@ def format_error(ex, lineno, linemaps=None, snakefile=None, show_traceback=False
         lineno = linemaps[snakefile][lineno]
         if isinstance(ex, SyntaxError):
             msg = ex.msg
-    location = (
-        " in line {} of {}".format(lineno, snakefile) if lineno and snakefile else ""
-    )
+
+    location = ""
+    if lineno and snakefile:
+        location = f"in line {lineno} of {snakefile}"
+        if rule:
+            location = f" in rule {rule} {location}"
+
     tb = ""
     if show_traceback:
         tb = "\n".join(format_traceback(cut_traceback(ex), linemaps=linemaps))
@@ -103,7 +109,7 @@ def print_exception(ex, linemaps):
             )
         )
     elif isinstance(ex, RuleException):
-        for e in ex._include + [ex]:
+        for e in ex._include:
             if not e.omit:
                 logger.error(
                     format_error(
@@ -114,6 +120,16 @@ def print_exception(ex, linemaps):
                         show_traceback=True,
                     )
                 )
+        logger.error(
+            format_error(
+                ex,
+                ex.lineno,
+                linemaps=linemaps,
+                snakefile=ex.filename,
+                show_traceback=True,
+                rule=ex.rule,
+            )
+        )
     elif isinstance(ex, WorkflowError):
         logger.error(
             format_error(
@@ -204,6 +220,7 @@ class RuleException(Exception):
                 snakefile = rule.snakefile
 
         self._include = list(self._include)
+        self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
         self.omit = not message
@@ -530,3 +547,24 @@ class IncompleteCheckpointException(Exception):
 
 class CacheMissException(Exception):
     pass
+
+
+class LockException(WorkflowError):
+    def __init__(self):
+        super().__init__(
+            "Error: Directory cannot be locked. Please make "
+            "sure that no other Snakemake process is trying to create "
+            "the same files in the following directory:\n{}\n"
+            "If you are sure that no other "
+            "instances of snakemake are running on this directory, "
+            "the remaining lock was likely caused by a kill signal or "
+            "a power loss. It can be removed with "
+            "the --unlock argument.".format(os.getcwd())
+        )
+
+
+class ResourceScopesException(Exception):
+    def __init__(self, msg, invalid_resources):
+        super().__init__(msg, invalid_resources)
+        self.msg = msg
+        self.invalid_resources = invalid_resources
