@@ -319,13 +319,13 @@ class BashEncoder:
         self,
         namedlists: List[str] = None,
         dicts: List[str] = None,
-        prefix: str = "SNAKEMAKE",
+        prefix: str = "snakemake",
     ):
         """namedlists is a list of strings indicating the snakemake object's member
         variables which are encoded as Namedlist.
         dicts is a list of strings indicating the snakemake object's member variables
         that are encoded as dictionaries.
-        Prefix is the prefix for the bash variable name(s) e.g., SNAKEMAKE_INPUT
+        Prefix is the prefix for the bash variable name(s) e.g., snakemake_input
         """
         if dicts is None:
             dicts = []
@@ -342,10 +342,10 @@ class BashEncoder:
         for var in vars(smk):
             val = getattr(smk, var)
             if var in self.namedlists:
-                aa = f"{self.prefix}_{var.strip('_').upper()}={self.encode_namedlist(val)}"
+                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
                 arrays.append(aa)
             elif var in self.dicts:
-                aa = f"{self.prefix}_{var.strip('_').upper()}={self.dict_to_aa(val)}"
+                aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
                 arrays.append(aa)
             else:
                 main_aa[var] = val
@@ -1347,6 +1347,7 @@ class BashScript(ScriptBase):
         dicts = ["config"]
         encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
         preamble = encoder.encode_snakemake(snakemake)
+        print(preamble)
         return preamble
 
     def get_preamble(self):
