@@ -1667,39 +1667,63 @@ class Log(Namedlist):
 
 
 def _load_configfile(configpath_or_obj, filetype="Config"):
-    "Tries to load a configfile first as JSON, then as YAML, into a dict."
+    """
+    Tries to load a configfile as JSON, YAML, or Dhall into a dict.
+
+    Will infer the format based on the extension.
+    """
     import yaml
 
     if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
         obj = open(configpath_or_obj, encoding="utf-8")
+        configpath = configpath_or_obj
     else:
         obj = configpath_or_obj
+        configpath = obj.name
 
+    extension = os.path.splitext(configpath)[1]
     try:
         with obj as f:
-            try:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            except ValueError:
-                f.seek(0)  # try again
-            try:
-                # From https://stackoverflow.com/a/21912744/84349
-                class OrderedLoader(yaml.Loader):
-                    pass
+            if extension == ".json":
+                try:
+                    return json.load(f, object_pairs_hook=collections.OrderedDict)
+                except ValueError:
+                    raise WorkflowError("Config file is not valid JSON.")
+            elif extension in [".yaml", ".yml"]:
+                try:
+                    # From https://stackoverflow.com/a/21912744/84349
+                    class OrderedLoader(yaml.Loader):
+                        pass
 
-                def construct_mapping(loader, node):
-                    loader.flatten_mapping(node)
-                    return collections.OrderedDict(loader.construct_pairs(node))
+                    def construct_mapping(loader, node):
+                        loader.flatten_mapping(node)
+                        return collections.OrderedDict(loader.construct_pairs(node))
 
-                OrderedLoader.add_constructor(
-                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
-                )
-                return yaml.load(f, Loader=OrderedLoader)
-            except yaml.YAMLError:
-                raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
-                    "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
-                )
+                    OrderedLoader.add_constructor(
+                        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                        construct_mapping,
+                    )
+                    return yaml.load(f, Loader=OrderedLoader)
+                except yaml.YAMLError:
+                    raise WorkflowError(
+                        "Config file is not valid YAML. "
+                        "Make sure not to mix whitespace and "
+                        "tab indendation."
+                    )
+            elif extension == ".dhall":
+                try:
+                    import dhall
+
+                    return dhall.load(f)
+                except ImportError:
+                    raise WorkflowError(
+                        "The Python 3 package 'dhall' must be installed "
+                        "to import Dhall configuration files."
+                    )
+                except ValueError:
+                    raise WorkflowError("Config file is not valid Dhall")
+            else:
+                raise WorkflowError("Unknown file extension: {}".format(extension))
     except FileNotFoundError:
         raise WorkflowError("{} file {} not found.".format(filetype, configpath))
 
