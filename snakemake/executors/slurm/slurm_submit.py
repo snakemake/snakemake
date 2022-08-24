@@ -23,6 +23,33 @@ from snakemake.io import get_wildcard_names, Wildcards
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
+def get_account():
+    """
+    tries to deduce the acccount from recent jobs,
+    returns None, if none is found
+    """
+    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
+    try:
+        sacct_out = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError:
+        logger.error("Unable to retrieve the default SLURM account")
+        raise WorkflowError("No account was given, not able to get a SLURM account")
+    return sacct_out.strip().decode("ascii")
+
+def test_account(account):
+    """
+    tests whether the given account is registered, raises an Error, if not
+    """
+    cmd = f"sacctmgr -n -s list user {os.environ['USER']} format=account%20"
+    try:
+        out = subprocess.check_output(cmd, shell=True)
+    except subprocess.CalledProcessError:
+        logger.error("Unable to test the validity of the given or guess SLURM account.")
+
+    if not account in out.split():
+        return False
+    return True
+
 
 class SlurmExecutor(ClusterExecutor):
     """
@@ -90,30 +117,6 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
-    def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
-        """Run a list of jobs that is ready at a given point in time.
-
-        By default, this method just runs each job individually.
-        This behavior is inherited and therefore this method can be removed from the skeleton if the
-        default behavior is intended.
-        This method can be overwritten to submit many jobs in a more efficient way than one-by-one.
-
-        Note that in any case, for each job, the callback functions have to be called individually!
-        """
-        # if groupjob:
-        #    attributes of groubjobs (snakemake/jobs.py class GroupJob , _resources
-        #    - see topology
-        for job in jobs:
-            if job.is_group():
-                logger.info("yeah")  # printf debugging feature ;-)
-            else:
-                self.run(
-                    job,
-                    callback=callback,  # to be executed upon ready jobs
-                    submit_callback=submit_callback,  # to be hold for --immediate flag - ignored within this executor
-                    error_callback=error_callback,  #
-                )
-
     def cluster_params(self, job):
         """
         Returns wildcards object for 'job'.
@@ -148,8 +151,13 @@ class SlurmExecutor(ClusterExecutor):
 
         if job.resources.get("account"):
             call += " -A {account}".format(**job.resources)
+        else:
+            logger.warning("Using SLURM without indicating an account might not work.")
         if job.resources.get("partition"):
             call += " -p {partition}".format(**job.resources)
+        else:
+            logger.error("Snakemake was unable to retrieve a default partition and non was indicated.")
+            sys.exit(10)
 
         if not job.resources.get("walltime_minutes"):
             logger.warning(
@@ -174,7 +182,8 @@ class SlurmExecutor(ClusterExecutor):
         exec_job = self.format_job_exec(job)
 
         # MPI job
-        if job.resources.get("mpi", False):
+        if False:
+        #if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
             if job.resources.get("tasks", False):
@@ -189,23 +198,17 @@ class SlurmExecutor(ClusterExecutor):
                 logger.error("MPI-Jobs may only be run as a shell command.")
                 sys.exit(101)
 
-        # ordinary smp application
-        elif not job.is_group():
-            # TODO: this line will become longer
-            # TODO: hence the single command, yet
-            if job.threads == 0:
-                call += f" -n 1 -c 1 {exec_job}"
-            else:
-                call += f" -n 1 -c {job.threads}"
-        else:  # group job case
-            ntasks = max(map(len, job.toposorted))
-            threads = max(j.threads for j in job)
-            call += f" -n {ntasks} -c {threads}"
-
+        # ordinary smp or group job application
+        else: 
+            call += f" -n 1 -c {max(job.threads, 1)} {exec_job}"
+        print('wtf?')
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
+        print('no. 2')
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
+        
+        sys.exit()
         # try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
         # except:
