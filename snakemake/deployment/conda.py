@@ -239,7 +239,8 @@ class Env:
             hash_candidates = [
                 hash[:8],
                 hash,
-                hash + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
+                hash
+                + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
             ]  # [0] is the old fallback hash (shortened)
             exists = [os.path.exists(get_path(h)) for h in hash_candidates]
             if self.is_containerized:
