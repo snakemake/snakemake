@@ -1451,12 +1451,13 @@ class GroupJob(AbstractJob):
         return all(job.is_local for job in self.jobs)
 
     def merged_wildcards(self):
-        merged_wildcards = Wildcards(toclone=self.jobs[0].wildcards)
-        for job in self.jobs[1:]:
+        jobs = iter(self.jobs)
+        merged_wildcards = Wildcards(toclone=next(jobs).wildcards)
+        for job in jobs:
             for name, value in job.wildcards.items():
                 if name not in merged_wildcards.keys():
                     merged_wildcards.append(value)
-                    merged_wildcards._set_name(name)
+                    merged_wildcards._add_name(name)
         return merged_wildcards
 
     def format_wildcards(self, string, **variables):
