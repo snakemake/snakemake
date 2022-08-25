@@ -345,7 +345,7 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode)
+        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode, encoding="utf-8")
 
     def exists(self, source_file):
         try:
@@ -353,10 +353,6 @@ class SourceCache:
         except Exception:
             return False
         return True
-
-    def open(self, path_or_uri, mode="r"):
-        cache_entry = self._cache(path_or_uri)
-        return self._open(cache_entry, mode, encoding="utf-8")
 
     def get_path(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
@@ -400,15 +396,15 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file, mode):
+    def _open_local_or_remote(self, source_file, mode, encoding=None):
         from retry.api import retry_call
 
         if source_file.is_local:
-            return self._open(source_file, mode)
+            return self._open(source_file, mode, encoding=encoding)
         else:
             return retry_call(
                 self._open,
-                [source_file, mode],
+                [source_file, mode, encoding],
                 tries=3,
                 delay=3,
                 backoff=2,
