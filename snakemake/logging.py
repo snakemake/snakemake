@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -11,10 +11,8 @@ import sys
 import os
 import json
 import threading
-import tempfile
 from functools import partial
 import inspect
-import traceback
 import textwrap
 
 from snakemake.common import DYNAMIC_FILL
@@ -32,7 +30,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         "WARNING": YELLOW,
         "INFO": GREEN,
         "DEBUG": BLUE,
-        "CRITICAL": RED,
+        "CRITICAL": MAGENTA,
         "ERROR": RED,
     }
 
@@ -128,10 +126,10 @@ class WMSLogger:
         workflow will already be running and it would not be worth stopping it.
         """
 
-        from snakemake.resources import parse_resources
+        from snakemake.resources import DefaultResources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = parse_resources(args) or []
+        self.args = map(DefaultResources.decode_arg, args) if args else []
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
@@ -274,7 +272,7 @@ class WMSLogger:
         Sends the log to the server.
 
         Args:
-            msg (dict):     the log message dictionary
+            msg (dict):    the log message dictionary
         """
         import requests
 
@@ -296,7 +294,7 @@ class Logger:
         self.printshellcmds = False
         self.printreason = False
         self.debug_dag = False
-        self.quiet = False
+        self.quiet = set()
         self.logfile = None
         self.last_msg_was_job_info = False
         self.mode = Mode.default
@@ -335,6 +333,7 @@ class Logger:
             os.remove(self.logfile)
 
     def handler(self, msg):
+        msg["timestamp"] = time.time()
         for handler in self.log_handler:
             handler(msg)
 
@@ -350,7 +349,7 @@ class Logger:
     def logfile_hint(self):
         if self.mode == Mode.default:
             logfile = self.get_logfile()
-            self.info("Complete log: {}".format(logfile))
+            self.info("Complete log: {}".format(os.path.relpath(logfile)))
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
@@ -363,7 +362,9 @@ class Logger:
     def info(self, msg, indent=False):
         self.handler(dict(level="info", msg=msg, indent=indent))
 
-    def warning(self, msg):
+    def warning(self, msg, *fmt_items):
+        if fmt_items:
+            msg = msg % fmt_items
         self.handler(dict(level="warning", msg=msg))
 
     def debug(self, msg):
@@ -418,6 +419,9 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
+    def is_quiet_about(self, msg_type):
+        return msg_type in self.quiet or "all" in self.quiet
+
     def text_handler(self, msg):
         """The default snakemake log handler.
 
@@ -426,6 +430,9 @@ class Logger:
         Args:
             msg (dict):     the log message dictionary
         """
+        if self.is_quiet_about("all"):
+            # do not log anything
+            return
 
         def job_info(msg):
             def format_item(item, omit=None, valueformat=str):
@@ -475,7 +482,7 @@ class Logger:
 
         level = msg["level"]
 
-        if level == "job_info" and not self.quiet:
+        if level == "job_info" and not self.is_quiet_about("rules"):
             if not self.last_msg_was_job_info:
                 self.logger.info("")
             timestamp()
@@ -494,68 +501,65 @@ class Logger:
             self.logger.info("")
 
             self.last_msg_was_job_info = True
-        elif level == "group_info" and not self.quiet:
+        elif level == "group_info" and not self.is_quiet_about("rules"):
             timestamp()
+            msg = "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
             if not self.last_msg_was_job_info:
-                self.logger.info("")
-            self.logger.info(
-                "group job {} (jobs in lexicogr. order):".format(msg["groupid"])
-            )
+                msg = "\n" + msg
+            self.logger.info(msg)
         elif level == "job_error":
-            timestamp()
-            self.logger.error(indent("Error in rule {}:".format(msg["name"])))
-            self.logger.error(indent("    jobid: {}".format(msg["jobid"])))
-            if msg["output"]:
-                self.logger.error(
-                    indent("    output: {}".format(", ".join(msg["output"])))
-                )
-            if msg["log"]:
-                self.logger.error(
-                    indent(
+
+            def job_error():
+                yield indent("Error in rule {}:".format(msg["name"]))
+                yield indent("    jobid: {}".format(msg["jobid"]))
+                if msg["output"]:
+                    yield indent("    output: {}".format(", ".join(msg["output"])))
+                if msg["log"]:
+                    yield indent(
                         "    log: {} (check log file(s) for error message)".format(
                             ", ".join(msg["log"])
                         )
                     )
-                )
-            if msg["conda_env"]:
-                self.logger.error(indent("    conda-env: {}".format(msg["conda_env"])))
-            if msg["shellcmd"]:
-                self.logger.error(
-                    indent(
+                if msg["conda_env"]:
+                    yield indent("    conda-env: {}".format(msg["conda_env"]))
+                if msg["shellcmd"]:
+                    yield indent(
                         "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
                             msg["shellcmd"]
                         )
                     )
-                )
 
-            for item in msg["aux"].items():
-                self.logger.error(indent("    {}: {}".format(*item)))
+                for item in msg["aux"].items():
+                    yield indent("    {}: {}".format(*item))
 
-            if self.show_failed_logs and msg["log"]:
-                for f in msg["log"]:
-                    try:
-                        self.logger.error("Logfile {}:\n{}".format(f, open(f).read()))
-                    except FileNotFoundError:
-                        self.logger.error("Logfile {} not found.".format(f))
+                if self.show_failed_logs and msg["log"]:
+                    for f in msg["log"]:
+                        try:
+                            yield "Logfile {}:\n{}".format(f, open(f).read())
+                        except FileNotFoundError:
+                            yield "Logfile {} not found.".format(f)
 
-            self.logger.error("")
+                yield ""
+
+            timestamp()
+            self.logger.error("\n".join(map(indent, job_error())))
         elif level == "group_error":
             timestamp()
             self.logger.error("Error in group job {}:".format(msg["groupid"]))
         else:
-            if level == "info" and not self.quiet:
+            if level == "info":
                 self.logger.warning(msg["msg"])
             if level == "warning":
-                self.logger.warning(msg["msg"])
+                self.logger.critical(msg["msg"])
             elif level == "error":
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info" and not self.quiet:
+            elif level == "resources_info":
                 self.logger.warning(msg["msg"])
             elif level == "run_info":
                 self.logger.warning(msg["msg"])
-            elif level == "progress" and not self.quiet:
+            elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
                 total = msg["total"]
                 self.logger.info(
@@ -566,7 +570,7 @@ class Logger:
             elif level == "shellcmd":
                 if self.printshellcmds:
                     self.logger.warning(indent(msg["msg"]))
-            elif level == "job_finished" and not self.quiet:
+            elif level == "job_finished" and not self.is_quiet_about("progress"):
                 timestamp()
                 self.logger.info("Finished job {}.".format(msg["jobid"]))
                 pass
@@ -601,8 +605,11 @@ class Logger:
             self.last_msg_was_job_info = False
 
 
-def format_dict(dict_like, omit_keys=[], omit_values=[]):
+def format_dict(dict_like, omit_keys=None, omit_values=None):
     from snakemake.io import Namedlist
+
+    omit_keys = omit_keys or []
+    omit_values = omit_values or []
 
     if isinstance(dict_like, Namedlist):
         items = dict_like.items()
@@ -658,6 +665,21 @@ def setup_logger(
     mode=Mode.default,
     show_failed_logs=False,
 ):
+    if quiet is None:
+        # not quiet at all
+        quiet = set()
+    elif isinstance(quiet, bool):
+        if quiet:
+            quiet = set(["progress", "rules"])
+        else:
+            quiet = set()
+    elif isinstance(quiet, list):
+        quiet = set(quiet)
+    else:
+        raise ValueError(
+            "Unsupported value provided for quiet mode (either bool, None or list allowed)."
+        )
+
     logger.log_handler.extend(handler)
 
     # console output only if no custom logger was specified

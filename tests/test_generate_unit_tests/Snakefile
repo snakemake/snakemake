@@ -1,8 +1,12 @@
+import os
+
 rule all:
     input:
         expand("test/{sample}.tsv", sample=range(3))
 
 rule a:
+    input:
+        os.environ["UNIT_TEST_TMPFILE"]
     output:
         temp("test/{sample}.txt")
     shell:

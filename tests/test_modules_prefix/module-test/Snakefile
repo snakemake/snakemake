@@ -1,0 +1,21 @@
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+
+
+configfile: "config.yaml"  # does not exist, but this statement should be ignored on module import
+
+
+HTTP = HTTPRemoteProvider()
+
+
+def some_func():
+    return 15
+
+
+rule a:
+    input:
+        HTTP.remote("raw.githubusercontent.com/snakemake/snakemake/main/LICENSE.md"),
+    output:
+        "results/test.out",
+        "/tmp/foo.txt",
+    shell:
+        "echo {config[test]} > {output[0]}; touch {output[1]}"

@@ -1,8 +1,9 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from tempfile import TemporaryFile
 import tokenize
 import textwrap
 import os
@@ -11,6 +12,7 @@ import urllib.request
 from io import TextIOWrapper
 
 from snakemake.exceptions import WorkflowError
+from snakemake import common
 
 dd = textwrap.dedent
 
@@ -160,11 +162,11 @@ class KeywordState(TokenAutomaton):
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
 
-    def block(self, token):
+    def block(self, token, force_block_end=False):
         if self.lasttoken == "\n" and is_comment(token):
             # ignore lines containing only comments
             self.line -= 1
-        if self.is_block_end(token):
+        if force_block_end or self.is_block_end(token):
             yield from self.decorate_end(token)
             yield "\n", token
             raise StopAutomaton(token)
@@ -247,7 +249,9 @@ class Configfile(GlobalKeywordState):
 
 
 class Pepfile(GlobalKeywordState):
-    pass
+    @property
+    def keyword(self):
+        return "set_pepfile"
 
 
 class Pepschema(GlobalKeywordState):
@@ -260,6 +264,27 @@ class Report(GlobalKeywordState):
 
 class Scattergather(GlobalKeywordState):
     pass
+
+
+class ResourceScope(GlobalKeywordState):
+    err_msg = (
+        "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
+        "'global'"
+    )
+    current_resource = ""
+
+    def block_content(self, token):
+        if is_name(token):
+            self.current_resource = token.string
+        if is_string(token) and self.lasttoken == "=":
+            if token.string[1:][:-1] not in ["local", "global"]:
+                self.error(
+                    self.err_msg.format(
+                        resource=self.current_resource, scope=token.string
+                    ),
+                    token,
+                )
+        yield token.string, token
 
 
 class Ruleorder(GlobalKeywordState):
@@ -423,6 +448,10 @@ class Threads(RuleKeywordState):
     pass
 
 
+class Retries(RuleKeywordState):
+    pass
+
+
 class Shadow(RuleKeywordState):
     pass
 
@@ -483,6 +512,12 @@ class Cache(RuleKeywordState):
         return "cache_rule"
 
 
+class DefaultTarget(RuleKeywordState):
+    @property
+    def keyword(self):
+        return "default_target_rule"
+
+
 class Handover(RuleKeywordState):
     pass
 
@@ -507,10 +542,11 @@ class Run(RuleKeywordState):
             "resources, log, version, rule, conda_env, container_img, "
             "singularity_args, use_singularity, env_modules, bench_record, jobid, "
             "is_shell, bench_iteration, cleanup_scripts, shadow_dir, edit_notebook, "
-            "conda_base_path, basedir):".format(
+            "conda_base_path, basedir, runtime_sourcecache_path, {rule_func_marker}=True):".format(
                 rulename=self.rulename
                 if self.rulename is not None
-                else self.snakefile.rulecount
+                else self.snakefile.rulecount,
+                rule_func_marker=common.RULEFUNC_CONTEXT_MARKER,
             )
         )
 
@@ -608,7 +644,7 @@ class Script(AbstractCmd):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir"
+            "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, runtime_sourcecache_path"
         )
 
 
@@ -621,7 +657,7 @@ class Notebook(Script):
             ", basedir, input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, jobid, bench_iteration, cleanup_scripts, shadow_dir, "
-            "edit_notebook"
+            "edit_notebook, runtime_sourcecache_path"
         )
 
 
@@ -634,8 +670,16 @@ class Wrapper(Script):
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
             "bench_record, workflow.wrapper_prefix, jobid, bench_iteration, "
-            "cleanup_scripts, shadow_dir"
+            "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
         )
+
+
+class TemplateEngine(Script):
+    start_func = "@workflow.template_engine"
+    end_func = "render_template"
+
+    def args(self):
+        yield (", input, output, params, wildcards, config, rule")
 
 
 class CWL(Script):
@@ -645,7 +689,7 @@ class CWL(Script):
     def args(self):
         yield (
             ", basedir, input, output, params, wildcards, threads, resources, log, "
-            "config, rule, use_singularity, bench_record, jobid"
+            "config, rule, use_singularity, bench_record, jobid, runtime_sourcecache_path"
         )
 
 
@@ -656,6 +700,7 @@ rule_property_subautomata = dict(
     params=Params,
     threads=Threads,
     resources=Resources,
+    retries=Retries,
     priority=Priority,
     version=Version,
     log=Log,
@@ -671,6 +716,7 @@ rule_property_subautomata = dict(
     group=Group,
     cache=Cache,
     handover=Handover,
+    default_target=DefaultTarget,
 )
 
 
@@ -681,6 +727,7 @@ class Rule(GlobalKeywordState):
         script=Script,
         notebook=Notebook,
         wrapper=Wrapper,
+        template_engine=TemplateEngine,
         cwl=CWL,
         **rule_property_subautomata,
     )
@@ -738,6 +785,8 @@ class Rule(GlobalKeywordState):
                     or token.string == "shell"
                     or token.string == "script"
                     or token.string == "wrapper"
+                    or token.string == "notebook"
+                    or token.string == "template_engine"
                     or token.string == "cwl"
                 ):
                     if self.run:
@@ -751,7 +800,7 @@ class Rule(GlobalKeywordState):
                 elif self.run:
                     raise self.error(
                         "No rule keywords allowed after "
-                        "run/shell/script/wrapper/cwl in "
+                        "run/shell/script/notebook/wrapper/template_engine/cwl in "
                         "rule {}.".format(self.rulename),
                         token,
                     )
@@ -817,6 +866,10 @@ class ModuleSnakefile(ModuleKeywordState):
     pass
 
 
+class ModulePrefix(ModuleKeywordState):
+    pass
+
+
 class ModuleMetaWrapper(ModuleKeywordState):
     @property
     def keyword(self):
@@ -846,6 +899,7 @@ class Module(GlobalKeywordState):
         config=ModuleConfig,
         skip_validation=ModuleSkipValidation,
         replace_prefix=ModuleReplacePrefix,
+        prefix=ModulePrefix,
     )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -914,6 +968,7 @@ class UseRule(GlobalKeywordState):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.state_keyword_rule
         self.rules = []
+        self.exclude_rules = []
         self.has_with = False
         self.name_modifier = []
         self.from_module = None
@@ -922,16 +977,17 @@ class UseRule(GlobalKeywordState):
 
     def end(self):
         name_modifier = "".join(self.name_modifier) if self.name_modifier else None
-        yield "@workflow.userule(rules={!r}, from_module={!r}, name_modifier={!r}, lineno={})".format(
-            self.rules, self.from_module, name_modifier, self.lineno
+        yield "@workflow.userule(rules={!r}, from_module={!r}, exclude_rules={!r}, name_modifier={!r}, lineno={})".format(
+            self.rules, self.from_module, self.exclude_rules, name_modifier, self.lineno
         )
         yield "\n"
 
-        # yield with block
-        yield from self._with_block
+        if self._with_block:
+            # yield with block
+            yield from self._with_block
 
-        yield "@workflow.run"
-        yield "\n"
+            yield "@workflow.run"
+            yield "\n"
 
         rulename = self.rules[0]
         if rulename == "*":
@@ -1026,6 +1082,9 @@ class UseRule(GlobalKeywordState):
             if token.string == "as" and not self.name_modifier:
                 self.state = self.state_as
                 yield from ()
+            elif token.string == "exclude":
+                self.state = self.state_exclude
+                yield from ()
             elif token.string == "with":
                 yield from self.handle_with(token)
             else:
@@ -1035,7 +1094,7 @@ class UseRule(GlobalKeywordState):
                 )
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting either 'as', 'with' or end of line in 'use rule' statement.",
@@ -1064,7 +1123,7 @@ class UseRule(GlobalKeywordState):
             yield from ()
         elif is_newline(token) or is_comment(token) or is_eof(token):
             # end of the statement, close block manually
-            yield from self.block(token)
+            yield from self.block(token, force_block_end=True)
         else:
             self.error(
                 "Expecting rulename modifying pattern (e.g. modulename_*) after 'as' keyword.",
@@ -1077,8 +1136,42 @@ class UseRule(GlobalKeywordState):
             yield from ()
         else:
             self.error(
-                "Expecting colon after 'with' keyword in 'use rule' statement.", token
+                "Expecting colon after 'with' keyword in 'use rule' statement.",
+                token,
             )
+
+    def state_exclude(self, token):
+        if is_name(token):
+            self.exclude_rules.append(token.string)
+            self.state = self.state_exclude_comma_or_end
+            yield from ()
+        else:
+            self.error(
+                "Expecting rule name(s) after 'exclude' keyword in 'use rule' statement.",
+                token,
+            )
+
+    def state_exclude_comma_or_end(self, token):
+        if is_name(token):
+            if token.string == "from" or token.string == "as":
+                if not self.exclude_rules:
+                    self.error(
+                        "Expecting rule names after 'exclude' statement.",
+                        token,
+                    )
+                if token.string == "from":
+                    self.state = self.state_from
+                else:
+                    self.state = self.state_as
+                yield from ()
+            else:
+                yield from ()
+        elif is_comma(token):
+            self.state = self.state_exclude
+            yield from ()
+        else:
+            self.state = self.state_modifier
+            yield from ()
 
     def block_content(self, token):
         if is_comment(token):
@@ -1095,7 +1188,7 @@ class UseRule(GlobalKeywordState):
                 )
             except StopAutomaton as e:
                 self.indentation(e.token)
-                self.block(e.token)
+                yield from self.block(e.token)
         else:
             self.error(
                 "Expecting a keyword or comment "
@@ -1131,6 +1224,7 @@ class Python(TokenAutomaton):
         container=GlobalContainer,
         containerized=GlobalContainerized,
         scattergather=Scattergather,
+        resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,
     )
@@ -1157,7 +1251,7 @@ class Python(TokenAutomaton):
 
 class Snakefile:
     def __init__(self, path, workflow, rulecount=0):
-        self.path = path
+        self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
         self.rulecount = rulecount

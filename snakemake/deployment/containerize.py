@@ -7,28 +7,33 @@ from snakemake.io import contains_wildcard
 from snakemake.exceptions import WorkflowError
 from snakemake.deployment import conda
 from snakemake.logging import logger
+from snakemake.sourcecache import LocalSourceFile
 
 
 CONDA_ENV_PATH = "/conda-envs"
 
 
-def containerize(workflow):
+def containerize(workflow, dag):
     if any(
-        contains_wildcard(rule.conda_env)
-        for rule in workflow.rules
-        if rule.conda_env is not None
+        job.conda_env_spec.contains_wildcard
+        for job in dag.jobs
+        if job.conda_env_spec is not None
     ):
         raise WorkflowError(
             "Containerization of conda based workflows is not allowed if any conda env definition contains a wildcard."
         )
 
-    relfile = lambda env: os.path.relpath(env.file, os.getcwd())
+    def relfile(env):
+        if isinstance(env.file, LocalSourceFile):
+            return os.path.relpath(env.file.get_path_or_uri(), os.getcwd())
+        else:
+            return env.file.get_path_or_uri()
 
     envs = sorted(
         set(
-            conda.Env(rule.conda_env, workflow, env_dir=CONDA_ENV_PATH)
-            for rule in workflow.rules
-            if rule.conda_env is not None
+            job.conda_env_spec.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
+            for job in dag.jobs
+            if job.conda_env_spec is not None
         ),
         key=relfile,
     )
@@ -59,11 +64,12 @@ def containerize(workflow):
             "\n".join(map("#   {}".format, env.content.decode().strip().split("\n")))
         )
         get_env_cmds.append("RUN mkdir -p {}".format(prefix))
-        if env.file.startswith("https://"):
-            # get_env_cmds.append("RUN curl -sSL {} > {}".format(env.file, env_target_path))
-            get_env_cmds.append("ADD {} {}".format(env.file, env_target_path))
-        else:
+        if isinstance(env.file, LocalSourceFile):
             get_env_cmds.append("COPY {} {}".format(env_source_path, env_target_path))
+        else:
+            get_env_cmds.append(
+                "ADD {} {}".format(env.file.get_path_or_uri(), env_target_path)
+            )
 
         generate_env_cmds.append(
             "mamba env create --prefix {} --file {} &&".format(prefix, env_target_path)

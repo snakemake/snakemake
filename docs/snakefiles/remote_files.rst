@@ -26,6 +26,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* Zenodo: ``snakemake.remote.zenodo``
 * AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
@@ -362,6 +363,12 @@ For different types of authentication, you can pass in a Python ```requests.auth
             HTTP.remote("example.com/interactive.php", auth=requests.auth.HTTPDigestAuth("myusername", "mypassword"), keep_local=True)
 
 Since remote servers do not present directory contents uniformly, ``glob_wildcards()`` is __not__ supported by the HTTP provider.
+
+.. note::
+
+    Snakemake automatically decompresses http remote files if they are marked as `Content-Encoding: gzip` by the server and **not** end with ``.gz``.
+    The reason is that for those files the rule obviously expects the uncompressed version.
+    If in contrast the file ends on ``.gz`` the compressed version is expected and therefore no automatic decompression happens.
 
 File Transfer Protocol (FTP)
 ============================
@@ -798,12 +805,81 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
 
+Zenodo
+======
 
-AUTO
-====
+`Zenodo <https://zenodo.org>`_ is a catch-all open data and software repository. 
+Snakemake allows file upload and download from Zenodo. 
+To access your Zenodo files you need to set up Zenodo account and create a personal access token with at least write scope.
+Personal access token must be supplied as ``access_token`` argument.
+You need to supply deposition id as ``deposition`` to upload or download files from your deposition.
+If no deposition id is supplied, Snakemake creates a new deposition for upload.
+Zenodo UI and REST API responses were designed with having in mind uploads of a total of 20-30 files.
+Avoid creating uploads with too many files, and instead group and zip them to make it easier their distribution to end-users.
+
+.. code-block:: python
+
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "ZENODO_ACCESS_TOKEN"
+
+    zenodo = RemoteProvider(deposition="your deposition id", access_token=os.environ["ZENODO_ACCESS_TOKEN"])
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
+Using sandbox environment requires setting up sandbox account with its personal access token.
+
+Restricted access
+-----------------
+If you need to access a deposition with restricted access, you have to additionally provide a ``restricted_access_token``.
+This can be obtained from the restricted access URL that Zenodo usually sends you via email once restricted access to a deposition (requested via the web interface) has been granted by the owner.
+Let ``
+https://zenodo.org/record/000000000?token=dlksajdlkjaslnflkndlfnjnn`` be the URL provided by Zenodo.
+Then, the ``restricted_access_token`` is ``dlksajdlkjaslnflkndlfnjnn``, and it can be used as follows:
+
+.. code-block:: python
+
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "ZENODO_ACCESS_TOKEN",
+        "ZENODO_RESTRICTED_ACCESS_TOKEN"
+
+    zenodo = RemoteProvider(
+        deposition="your deposition id",
+        access_token=os.environ["ZENODO_ACCESS_TOKEN"],
+        restricted_access_token=os.environ["ZENODO_RESTRICTED_ACCESS_TOKEN"]
+    )
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+Auto remote provider
+====================
 
 A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
-It removes some of the boilerplate code required to download remote files from various providers:
+It removes some of the boilerplate code required to download remote files from various providers.
+The auto remote provider only works for those which do not require the passing of keyword arguments to the 
+``RemoteProvider`` object.
 
 .. code-block:: python
 

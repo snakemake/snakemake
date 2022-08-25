@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -7,6 +7,8 @@ import os
 import json
 import re
 import inspect
+from typing import DefaultDict
+from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
 from itertools import chain
@@ -55,19 +57,21 @@ def validate(data, schema, set_default=True):
             "in order to use the validate directive."
         )
 
-    schemafile = schema
+    schemafile = infer_source_file(schema)
 
-    if not os.path.isabs(schemafile):
-        frame = inspect.currentframe().f_back
+    if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        if workflow:
-            schemafile = smart_join(workflow.current_basedir, schemafile)
+        schemafile = workflow.current_basedir.join(schemafile)
 
-    source = workflow.sourcecache.open(schemafile) if workflow else schemafile
+    source = (
+        workflow.sourcecache.open(schemafile)
+        if workflow
+        else schemafile.get_path_or_uri()
+    )
     schema = _load_configfile(source, filetype="Schema")
-    if is_local_file(schemafile):
+    if isinstance(schemafile, LocalSourceFile):
         resolver = RefResolver(
-            urljoin("file:", schemafile),
+            urljoin("file:", schemafile.get_path_or_uri()),
             schema,
             handlers={
                 "file": lambda uri: _load_configfile(re.sub("^file://", "", uri))
@@ -75,7 +79,7 @@ def validate(data, schema, set_default=True):
         )
     else:
         resolver = RefResolver(
-            schemafile,
+            schemafile.get_path_or_uri(),
             schema,
         )
 
@@ -157,7 +161,7 @@ def simplify_path(path):
 
 
 def linecount(filename):
-    """Return the number of lines of given file.
+    """Return the number of lines of the given file.
 
     Args:
         filename (str): the path to the file
@@ -224,7 +228,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     """Create an HTML report using python docutils.
 
@@ -233,8 +237,8 @@ def report(
     Attention: This function needs Python docutils to be installed for the
     python installation you use with Snakemake.
 
-    All keywords not listed below are intepreted as paths to files that shall
-    be embedded into the document. They keywords will be available as link
+    All keywords not listed below are interpreted as paths to files that shall
+    be embedded into the document. The keywords will be available as link
     targets in the text. E.g. append a file as keyword arg via F1=input[0]
     and put a download link in the text like this:
 
@@ -260,7 +264,7 @@ def report(
     Args:
         text (str):         The "restructured text" as it is expected by python docutils.
         path (str):         The path to the desired output file
-        stylesheet (str):   An optional path to a css file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint how to create your own.
+        stylesheet (str):   An optional path to a CSS file that defines the style of the document. This defaults to <your snakemake install>/report.css. Use the default to get a hint on how to create your own.
         defaultenc (str):   The encoding that is reported to the browser for embedded text files, defaults to utf8.
         template (str):     An optional path to a docutils HTML template.
         metadata (str):     E.g. an optional author name or email address.
@@ -281,7 +285,7 @@ def report(
         defaultenc=defaultenc,
         template=template,
         metadata=metadata,
-        **files
+        **files,
     )
 
 
@@ -307,7 +311,7 @@ def R(code):
 class SequenceFormatter(string.Formatter):
     """string.Formatter subclass with special behavior for sequences.
 
-    This class delegates formatting of individual elements to another
+    This class delegates the formatting of individual elements to another
     formatter object. Non-list objects are formatted by calling the
     delegate formatter's "format_field" method. List-like objects
     (list, tuple, set, frozenset) are formatted by formatting each
@@ -525,9 +529,9 @@ def available_cpu_count():
 
 
 def argvquote(arg, force=True):
-    """Returns an argument quoted in such a way that that CommandLineToArgvW
+    """Returns an argument quoted in such a way that CommandLineToArgvW
     on Windows will return the argument string unchanged.
-    This is the same thing Popen does when supplied with an list of arguments.
+    This is the same thing Popen does when supplied with a list of arguments.
     Arguments in a command line should be separated by spaces; this
     function does not add these spaces. This implementation follows the
     suggestions outlined here:
@@ -576,8 +580,8 @@ def os_sync():
 def find_bash_on_windows():
     """
     Find the path to a usable bash on windows.
-    First attempt is to look for bash installed  with a git conda package.
-    alternatively try bash installed with 'Git for Windows'.
+    The first attempt is to look for a bash installed with a git conda package.
+    Alternatively, try bash installed with 'Git for Windows'.
     """
     if not ON_WINDOWS:
         return None
@@ -605,12 +609,12 @@ class Paramspace:
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
 
-    The exact behavior can be tweeked with two parameters:
+    The exact behavior can be tweaked with three parameters:
 
       - ``filename_params`` takes a list of column names of the passed dataframe.
         These names are used to build the filename (separated by '_') in the order
         in which they are passed.
-        All remaining parameters will be used to generate a directoty structure.
+        All remaining parameters will be used to generate a directory structure.
         Example for a data frame with four columns named column1 to column4:
 
         | ``Paramspace(df, filename_params=["column3", "column2"])`` ->
@@ -620,15 +624,25 @@ class Paramspace:
         the filename instead of parent directories.
 
       - ``param_sep`` takes a string which is used to join the column name and
-        column value in the genrated paths (Default: '~'). Example:
+        column value in the generated paths (Default: '~'). Example:
 
         | ``Paramspace(df, param_sep=":")`` ->
         | column1:{value1}/column2:{value2}/column3:{value3}/column4:{value4}
+
+      - ``filename_sep`` takes a string which is used to join the parameter
+        entries listed in ``filename_params`` in the generated paths
+        (Default: '_'). Example:
+
+        | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
+        | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
     """
 
-    def __init__(self, dataframe, filename_params=None, param_sep="~"):
+    def __init__(
+        self, dataframe, filename_params=None, param_sep="~", filename_sep="_"
+    ):
         self.dataframe = dataframe
         self.param_sep = param_sep
+        self.filename_sep = filename_sep
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -650,7 +664,7 @@ class Paramspace:
             self.pattern = "/".join(
                 [r"{}"] * (len(self.dataframe.columns) - len(filename_params) + 1)
             )
-            self.pattern = "_".join(
+            self.pattern = self.filename_sep.join(
                 [self.pattern] + [r"{}"] * (len(filename_params) - 1)
             )
             self.ordered_columns = [
@@ -680,10 +694,10 @@ class Paramspace:
             self.pattern.format(
                 *(
                     self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row.items()
+                    for name, value in row._asdict().items()
                 )
             )
-            for index, row in self.dataframe.iterrows()
+            for row in self.dataframe.itertuples(index=False)
         )
 
     def instance(self, wildcards):

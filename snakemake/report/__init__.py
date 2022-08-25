@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -31,9 +31,11 @@ from docutils.parsers.rst import directives
 from docutils.core import publish_file, publish_parts
 
 from snakemake import script, wrapper, notebook
+from snakemake.report.data.common import get_resource_as_string
 from snakemake.utils import format
 from snakemake.logging import logger
 from snakemake.io import (
+    is_callable,
     is_flagged,
     get_flag_value,
     glob_wildcards,
@@ -41,11 +43,18 @@ from snakemake.io import (
     apply_wildcards,
     contains_wildcard,
 )
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake import __version__
-from snakemake.common import num_if_possible, lazy_property
+from snakemake.common import (
+    get_input_function_aux_params,
+    is_local_file,
+    num_if_possible,
+    lazy_property,
+)
 from snakemake import logging
+from snakemake.report import data
+from snakemake.report.rulegraph_spec import rulegraph_spec
 
 
 class EmbeddedMixin(object):
@@ -104,6 +113,8 @@ def mime_from_file(file):
 
 def data_uri_from_file(file, defaultenc="utf8"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
+    if isinstance(file, Path):
+        file = str(file)
     mime, encoding = mime_from_file(file)
     if encoding is None:
         encoding = defaultenc
@@ -118,7 +129,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     if stylesheet is None:
         os.path.join(os.path.dirname(__file__), "report.css")
@@ -200,17 +211,30 @@ def report(
     )
 
 
+def expand_report_argument(item, wildcards, job):
+    if is_callable(item):
+        aux_params = get_input_function_aux_params(item, {"params": job.params})
+        try:
+            item = item(wildcards, **aux_params)
+        except Exception as e:
+            raise InputFunctionException(e, rule=job.rule, wildcards=wildcards)
+    if isinstance(item, str):
+        try:
+            return apply_wildcards(item, wildcards)
+        except AttributeError as e:
+            raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
+    else:
+        return item
+
+
 class Category:
     def __init__(self, name, wildcards, job):
+        if name is not None:
+            name = expand_report_argument(name, wildcards, job)
         if name is None:
             name = "Other"
-            self.is_other = True
-        else:
-            self.is_other = False
-            try:
-                name = apply_wildcards(name, wildcards)
-            except AttributeError as e:
-                raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
+
+        self.is_other = name == "Other"
         self.name = name
         h = hashlib.sha256()
         h.update(name.encode())
@@ -226,6 +250,13 @@ class Category:
         if self.name == "other":
             return False
         return self.name.__lt__(other.name)
+
+
+def render_iofile(iofile):
+    if is_callable(iofile):
+        return "<function>"
+    else:
+        return str(iofile)
 
 
 class RuleRecord:
@@ -260,25 +291,30 @@ class RuleRecord:
             language = "bash"
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
-            _, source, language = script.get_source(
-                self._rule.script, self._rule.basedir
+            _, source, language, _ = script.get_source(
+                self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
-            _, source, language = script.get_source(
+            _, source, language, _ = script.get_source(
                 wrapper.get_script(
-                    self._rule.wrapper, prefix=self._rule.workflow.wrapper_prefix
-                )
+                    self._rule.wrapper,
+                    self._rule.workflow.sourcecache,
+                    prefix=self._rule.workflow.wrapper_prefix,
+                ),
+                self._rule.workflow.sourcecache,
             )
-            sources = [source.decode()]
+            sources = [source]
         elif self._rule.notebook is not None and not contains_wildcard(
             self._rule.notebook
         ):
-            _, source, language = script.get_source(
-                self._rule.notebook, self._rule.basedir
+            _, source, language, _ = script.get_source(
+                self._rule.notebook,
+                self._rule.workflow.sourcecache,
+                self._rule.basedir,
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
@@ -291,14 +327,11 @@ class RuleRecord:
         try:
             lexer = get_lexer_by_name(language)
 
-            highlighted = [
-                highlight(
-                    source,
-                    lexer,
-                    HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
-                )
-                for source in sources
-            ]
+            highlighted = highlight(
+                "\n\n".join(sources),
+                lexer,
+                HtmlFormatter(linenos=True, cssclass="source", wrapcode=True),
+            )
 
             return highlighted
         except pygments.util.ClassNotFound:
@@ -312,11 +345,11 @@ class RuleRecord:
 
     @property
     def output(self):
-        return self._rule.output
+        return [render_iofile(f) for f in self._rule.output]
 
     @property
     def input(self):
-        return self._rule.input
+        return [render_iofile(f) for f in self._rule.input]
 
     def __eq__(self, other):
         return (
@@ -384,13 +417,16 @@ class FileRecord:
         mode_embedded=True,
         aux_files=None,
         name_overwrite=None,
+        labels=None,
     ):
+        self.labels = labels
         self.name_overwrite = name_overwrite
         self.mode_embedded = mode_embedded
         self.path = path
         self.target = os.path.basename(path)
         self.size = os.path.getsize(self.path)
-        logger.info("Adding {} ({:.2g} MB).".format(self.name, self.size / 1e6))
+        self.size_mb = f"{self.size / 1e6:.2g} MB"
+        logger.info(f"Adding {self.name} ({self.size_mb}).")
         self.raw_caption = caption
         self.mime, _ = mime_from_file(self.path)
         self.workflow = workflow
@@ -412,51 +448,6 @@ class FileRecord:
         self.aux_files = aux_files or []
 
         self.data_uri = self._data_uri()
-        self.png_uri = self._png_uri()
-
-    @lazy_property
-    def png_content(self):
-        assert self.is_img
-
-        convert = shutil.which("magick")
-        if convert is not None:
-            try:
-                # 2048 aims at a reasonable balance between what displays
-                # can show in a png-preview image and what renders quick
-                # into a small enough png
-                max_width = "2048"
-                max_height = "2048"
-                # '>' means only larger images scaled down to within max-dimensions
-                max_spec = max_width + "x" + max_height + ">"
-                png = sp.check_output(
-                    ["magick", "convert", "-resize", max_spec, self.path, "png:-"],
-                    stderr=sp.PIPE,
-                )
-                return png
-            except sp.CalledProcessError as e:
-                logger.warning(
-                    "Failed to convert image to png with "
-                    "imagemagick convert: {}".format(e.stderr)
-                )
-        else:
-            logger.warning(
-                "Command convert not in $PATH. Install "
-                "imagemagick in order to have embedded "
-                "images and pdfs in the report."
-            )
-
-    def _png_uri(self):
-        if self.is_img:
-            png = self.png_content
-            if self.mode_embedded:
-                if png is not None:
-                    uri = data_uri(
-                        png, os.path.basename(self.path) + ".png", mime="image/png"
-                    )
-                    return uri
-            else:
-                if png is not None:
-                    return os.path.join("data/thumbnails", self.id)
 
     def _data_uri(self):
         if self.mode_embedded:
@@ -482,7 +473,7 @@ class FileRecord:
                 job.threads,
                 job.resources,
                 job.log,
-                job.dag.workflow.config,
+                job.rule.module_globals["config"],
                 job.rule.name,
                 None,
             )
@@ -494,13 +485,16 @@ class FileRecord:
                 caption = env.from_string(caption).render(
                     snakemake=snakemake, categories=categories, files=files
                 )
-                self.caption = json.dumps(
-                    publish_parts(caption, writer_name="html")["body"]
-                )
+                self.caption = publish_parts(caption, writer_name="html")["body"]
             except Exception as e:
                 raise WorkflowError(
-                    "Error loading caption file of output marked for report.", e
+                    "Error loading caption file {} of output marked for report.".format(
+                        self.raw_caption.get_path_or_uri()
+                    ),
+                    e,
                 )
+        else:
+            self.caption = ""
 
     @property
     def is_img(self):
@@ -549,53 +543,30 @@ class FileRecord:
         return os.path.basename(self.path)
 
 
-def rulegraph_d3_spec(dag):
-    try:
-        import networkx as nx
-        from networkx.drawing.nx_agraph import graphviz_layout
-        from networkx.readwrite import json_graph
-    except ImportError as e:
+def expand_labels(labels, wildcards, job):
+    if labels is None:
+        return None
+    labels = expand_report_argument(labels, wildcards, job)
+
+    if labels is None:
+        return None
+
+    if not isinstance(labels, dict) or not all(
+        isinstance(col, str) for col in labels.values()
+    ):
         raise WorkflowError(
-            "Python packages networkx and pygraphviz must be "
-            "installed to create reports.",
-            e,
+            "Expected dict of strings as labels argument given to report flag.",
+            rule=job.rule,
         )
-
-    g = nx.DiGraph()
-    g.add_nodes_from(sorted(job.rule.name for job in dag.jobs))
-
-    for job in dag.jobs:
-        target = job.rule.name
-        for dep in dag.dependencies[job]:
-            source = dep.rule.name
-            g.add_edge(source, target)
-
-    pos = graphviz_layout(g, "dot", args="-Grankdir=BT")
-    xmax = max(x for x, y in pos.values()) + 100  # add offset to account for labels
-    ymax = max(y for x, y in pos.values())
-
-    def encode_node(node):
-        x, y = pos[node]
-        return {"rule": node, "fx": x, "fy": y}
-
-    nodes = list(map(encode_node, g.nodes))
-    idx = {node: i for i, node in enumerate(g.nodes)}
-    links = [{"target": idx[u], "source": idx[v], "value": 1} for u, v in g.edges]
-    return {"nodes": nodes, "links": links}, xmax, ymax
-
-
-def get_resource_as_string(url):
-    r = requests.get(url)
-    if r.status_code == requests.codes.ok:
-        return r.text
-    raise WorkflowError(
-        "Failed to download resource needed for " "report: {}".format(url)
-    )
+    return {
+        name: expand_report_argument(col, wildcards, job)
+        for name, col in labels.items()
+    }
 
 
 def auto_report(dag, path, stylesheet=None):
     try:
-        from jinja2 import Template, Environment, PackageLoader
+        from jinja2 import Template, Environment, PackageLoader, UndefinedError
     except ImportError as e:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
@@ -618,7 +589,7 @@ def auto_report(dag, path, stylesheet=None):
     logger.info("Creating report...")
 
     env = Environment(
-        loader=PackageLoader("snakemake", "report"),
+        loader=PackageLoader("snakemake", "report/template"),
         trim_blocks=True,
         lstrip_blocks=True,
     )
@@ -647,6 +618,7 @@ def auto_report(dag, path, stylesheet=None):
                     subcategory = Category(
                         report_obj.subcategory, wildcards=wildcards, job=job
                     )
+                    labels = expand_labels(report_obj.labels, wildcards, job)
 
                     results[category][subcategory].append(
                         FileRecord(
@@ -660,6 +632,7 @@ def auto_report(dag, path, stylesheet=None):
                             mode_embedded=mode_embedded,
                             aux_files=aux_files,
                             name_overwrite=name_overwrite,
+                            labels=labels,
                         )
                     )
                     recorded_files.add(f)
@@ -751,7 +724,6 @@ def auto_report(dag, path, stylesheet=None):
                 rec.container_img_url = meta["container_img_url"]
                 rec.output.append(f)
             except KeyError as e:
-                print(e)
                 logger.warning(
                     "Metadata for file {} was created with a too "
                     "old Snakemake version.".format(f)
@@ -798,9 +770,12 @@ def auto_report(dag, path, stylesheet=None):
                     break
             if not merged:
                 rules[rec.rule].append(rule)
+    # In theory there could be more than one rule with the same name kept from above.
+    # For now, we just keep the first.
+    rules = {rulename: items[0] for rulename, items in rules.items()}
 
     # rulegraph
-    rulegraph, xmax, ymax = rulegraph_d3_spec(dag)
+    rulegraph, xmax, ymax = rulegraph_spec(dag)
 
     # configfiles
     configfiles = [ConfigfileRecord(f) for f in dag.workflow.configfiles]
@@ -820,10 +795,10 @@ def auto_report(dag, path, stylesheet=None):
     .. _Workflow: javascript:show_panel('workflow')
     .. _Statistics: javascript:show_panel('statistics')
     {% for cat, catresults in categories|dictsort %}
-    .. _{{ cat.name }}: javascript:show_panel("{{ cat.id }}")
+    .. _{{ cat.name }}: javascript:app.showCategory('{{ cat.name|urlencode }}')
     {% endfor %}
     {% for res in files %}
-    .. _{{ res.target }}: javascript:show_panel("{{ res.category.id }}")
+    .. _{{ res.target }}: javascript:app.showResultInfo('{{ res.path|urlencode }}')
     {% endfor %}
     """
     )
@@ -841,12 +816,21 @@ def auto_report(dag, path, stylesheet=None):
                 config = dag.workflow.config
 
             text = f.read() + rst_links
-            text = publish_parts(
-                env.from_string(text).render(
-                    snakemake=Snakemake, categories=results, files=files
-                ),
-                writer_name="html",
-            )["body"]
+
+            try:
+                text = publish_parts(
+                    env.from_string(text).render(
+                        snakemake=Snakemake, categories=results, files=files
+                    ),
+                    writer_name="html",
+                )["body"]
+            except UndefinedError as e:
+                raise WorkflowError(
+                    "Error rendering global report caption {}:".format(
+                        dag.workflow.report_text.get_path_or_uri()
+                    ),
+                    e,
+                )
 
     # record time
     now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
@@ -864,27 +848,33 @@ def auto_report(dag, path, stylesheet=None):
             "Python package pygments must be installed to create reports."
         )
 
-    template = env.get_template("report.html.jinja2")
+    categories = data.render_categories(results)
+    rendered_results = data.render_results(results)
+    rulegraph = data.render_rulegraph(
+        rulegraph["nodes"], rulegraph["links"], rulegraph["links_direct"]
+    )
+    rules = data.render_rules(rules)
+    runtimes = data.render_runtimes(runtimes)
+    timeline = data.render_timeline(timeline)
+    packages = data.get_packages()
+
+    template = env.get_template("index.html.jinja2")
 
     logger.info("Downloading resources and rendering HTML.")
 
     rendered = template.render(
-        results=results,
-        results_size=results_size,
-        configfiles=configfiles,
-        text=text,
-        rulegraph_nodes=rulegraph["nodes"],
-        rulegraph_links=rulegraph["links"],
-        rulegraph_width=xmax + 20,
-        rulegraph_height=ymax + 20,
+        results=rendered_results,
+        categories=categories,
+        rulegraph=rulegraph,
+        rules=rules,
+        workflow_desc=json.dumps(text),
         runtimes=runtimes,
         timeline=timeline,
-        rules=[rec for recs in rules.values() for rec in recs],
-        version=__version__,
-        now=now,
-        pygments_css=HtmlFormatter(style="trac").get_style_defs(".source"),
+        packages=packages,
+        pygments_css=HtmlFormatter(style="stata-dark").get_style_defs(".source"),
         custom_stylesheet=custom_stylesheet,
-        mode_embedded=mode_embedded,
+        logo=data_uri_from_file(Path(__file__).parent / "template" / "logo.svg"),
+        now=now,
     )
 
     # TODO look into supporting .WARC format, also see (https://webrecorder.io)
@@ -898,11 +888,6 @@ def auto_report(dag, path, stylesheet=None):
                     for result in catresults:
                         # write raw data
                         zipout.write(result.path, str(folder.joinpath(result.data_uri)))
-                        # write thumbnail
-                        if result.is_img and result.png_content:
-                            zipout.writestr(
-                                str(folder.joinpath(result.png_uri)), result.png_content
-                            )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
                         for aux_path in result.aux_files:

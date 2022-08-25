@@ -1,0 +1,27 @@
+def get_x(wildcards, input):
+    with open(input[0]) as infile:
+        return {"foo": infile.read()}
+
+
+def get_mem_mb(wildcards, input):
+    return os.path.getsize(input[0]) / 1024.0
+
+
+rule a:
+    input:
+        "test.in",
+    output:
+        "test.out",
+    params:
+        x=get_x,
+    resources:
+        mem_mb=get_mem_mb,
+    shell:
+        "echo {params.x[foo]} > {output}"
+
+
+rule b:
+    output:
+        "test.in",
+    shell:
+        "touch {output}"

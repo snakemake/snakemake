@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -9,8 +9,11 @@ import sys
 import re
 from functools import partial
 from abc import ABCMeta, abstractmethod
-from wrapt import ObjectProxy
 from contextlib import contextmanager
+import shutil
+
+from wrapt import ObjectProxy
+from retry import retry
 
 try:
     from connection_pool import ConnectionPool
@@ -22,6 +25,7 @@ import copy
 import collections
 
 # module-specific
+from snakemake.exceptions import WorkflowError
 import snakemake.io
 from snakemake.logging import logger
 from snakemake.common import parse_uri
@@ -48,8 +52,8 @@ class StaticRemoteObjectProxy(ObjectProxy):
         copied_wrapped = copy.copy(self.__wrapped__)
         return type(self)(copied_wrapped)
 
-    def __deepcopy__(self):
-        copied_wrapped = copy.deepcopy(self.__wrapped__)
+    def __deepcopy__(self, memo):
+        copied_wrapped = copy.deepcopy(self.__wrapped__, memo)
         return type(self)(copied_wrapped)
 
 
@@ -150,6 +154,10 @@ class AbstractRemoteProvider:
     def remote_interface(self):
         pass
 
+    @property
+    def name(self):
+        return self.__module__.split(".")[-1]
+
 
 class AbstractRemoteObject:
     """This is an abstract class to be used to derive remote object classes for
@@ -225,12 +233,29 @@ class AbstractRemoteObject:
     def size(self):
         pass
 
+    def download(self):
+        try:
+            return self._download()
+        except Exception as e:
+            local_path = self.local_file()
+            if os.path.exists(local_path):
+                if os.path.isdir(local_path):
+                    shutil.rmtree(local_path)
+                os.remove(local_path)
+            raise WorkflowError(e)
+
+    def upload(self):
+        try:
+            self._upload()
+        except Exception as e:
+            raise WorkflowError(e)
+
     @abstractmethod
-    def download(self, *args, **kwargs):
+    def _download(self, *args, **kwargs):
         pass
 
     @abstractmethod
-    def upload(self, *args, **kwargs):
+    def _upload(self, *args, **kwargs):
         pass
 
     @abstractmethod
@@ -253,7 +278,17 @@ class AbstractRemoteObject:
         self._iofile.touch_or_create()
 
 
-class DomainObject(AbstractRemoteObject):
+class AbstractRemoteRetryObject(AbstractRemoteObject):
+    @retry(tries=3, delay=3, backoff=2, logger=logger)
+    def download(self):
+        return super().download()
+
+    @retry(tries=3, delay=3, backoff=2, logger=logger)
+    def upload(self):
+        super().upload()
+
+
+class DomainObject(AbstractRemoteRetryObject):
     """This is a mixin related to parsing components
     out of a location path specified as
     (host|IP):port/remote/location
@@ -309,7 +344,7 @@ class DomainObject(AbstractRemoteObject):
 
 
 class PooledDomainObject(DomainObject):
-    """This adds conection pooling to DomainObjects
+    """This adds connection pooling to DomainObjects
     out of a location path specified as
     (host|IP):port/remote/location
     """
@@ -474,3 +509,10 @@ class AutoRemoteProvider:
 
 
 AUTO = AutoRemoteProvider()
+
+
+def check_deprecated_retry(retry):
+    if retry:
+        logger.warning(
+            "Using deprecated retry argument. Snakemake now always uses 3 retries on download and upload."
+        )

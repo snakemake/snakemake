@@ -1,9 +1,10 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
+import datetime
 import threading
 import operator
 import time
@@ -42,6 +43,11 @@ _ERROR_MSG_FINAL = (
     "Exiting because a job execution failed. " "Look above for error message"
 )
 
+_ERROR_MSG_ISSUE_823 = (
+    "BUG: Out of jobs ready to be started, but not all files built yet."
+    " Please check https://github.com/snakemake/snakemake/issues/823 for more information."
+)
+
 
 class DummyRateLimiter(ContextDecorator):
     def __enter__(self):
@@ -63,6 +69,9 @@ class JobScheduler:
         cluster_status=None,
         cluster_config=None,
         cluster_sync=None,
+        cluster_cancel=None,
+        cluster_cancel_nargs=None,
+        cluster_sidecar=None,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -85,12 +94,10 @@ class JobScheduler:
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
-        latency_wait=3,
         greediness=1.0,
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
-        keepmetadata=True,
         scheduler_type=None,
         scheduler_ilp_solver=None,
     ):
@@ -114,10 +121,14 @@ class JobScheduler:
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
         self.keepincomplete = keepincomplete
-        self.keepmetadata = keepmetadata
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
+        self._toerror = []
+        self.handle_job_success = True
+        self.update_resources = True
+        self.print_progress = not self.quiet and not self.dryrun
+        self.update_dynamic = not self.dryrun
 
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
@@ -129,13 +140,7 @@ class JobScheduler:
             self.global_resources["_cores"] = sys.maxsize
         self.resources = dict(self.global_resources)
 
-        use_threads = (
-            force_use_threads
-            or (os.name != "posix")
-            or cluster
-            or cluster_sync
-            or drmaa
-        )
+        use_threads = force_use_threads or (os.name != "posix")
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
@@ -145,11 +150,7 @@ class JobScheduler:
         self._job_queue = None
         self._last_job_selection_empty = False
         self._submit_callback = self._noop
-        self._finish_callback = partial(
-            self._proceed,
-            update_dynamic=not self.dryrun,
-            print_progress=not self.quiet and not self.dryrun,
-        )
+        self._finish_callback = self._proceed
 
         self._local_executor = None
         if dryrun:
@@ -159,7 +160,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
             )
         elif touch:
             self._executor = TouchExecutor(
@@ -168,7 +168,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
             )
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
@@ -181,10 +180,8 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     cores=local_cores,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
             if cluster or cluster_sync:
                 if cluster_sync:
@@ -193,6 +190,9 @@ class JobScheduler:
                     constructor = partial(
                         GenericClusterExecutor,
                         statuscmd=cluster_status,
+                        cancelcmd=cluster_cancel,
+                        cancelnargs=cluster_cancel_nargs,
+                        sidecarcmd=cluster_sidecar,
                         max_status_checks_per_second=max_status_checks_per_second,
                     )
 
@@ -206,19 +206,14 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     assume_shared_fs=assume_shared_fs,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
                 if workflow.immediate_submit:
-                    self._submit_callback = partial(
-                        self._proceed,
-                        update_dynamic=False,
-                        print_progress=False,
-                        update_resources=False,
-                        handle_job_success=False,
-                    )
+                    self.update_dynamic = False
+                    self.print_progress = False
+                    self.update_resources = False
+                    self.handle_job_success = False
             else:
                 self._executor = DRMAAExecutor(
                     workflow,
@@ -230,12 +225,10 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    latency_wait=latency_wait,
                     cluster_config=cluster_config,
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
                     keepincomplete=keepincomplete,
-                    keepmetadata=keepmetadata,
                 )
         elif kubernetes:
             self._local_executor = CPUExecutor(
@@ -245,10 +238,8 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
 
             self._executor = KubernetesExecutor(
@@ -259,10 +250,8 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cluster_config=cluster_config,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
@@ -273,10 +262,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
 
             self._executor = TibannaExecutor(
@@ -290,9 +277,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
@@ -302,7 +287,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
             )
 
@@ -317,7 +301,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
             )
@@ -329,7 +312,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
             )
@@ -341,7 +323,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                latency_wait=latency_wait,
                 tes_url=tes,
                 container_image=container_image,
             )
@@ -355,10 +336,8 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                latency_wait=latency_wait,
                 cores=cores,
                 keepincomplete=keepincomplete,
-                keepmetadata=keepmetadata,
             )
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
@@ -424,8 +403,10 @@ class JobScheduler:
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs
-            if job not in self.running and not self.dag.finished(job)
+            for job in self.dag.needrun_jobs()
+            if job not in self.running
+            and not self.dag.finished(job)
+            and job not in self.failed
         ]
 
     def schedule(self):
@@ -440,6 +421,7 @@ class JobScheduler:
                 # obtain needrun and running jobs in a thread-safe way
                 with self._lock:
                     self._finish_jobs()
+                    self._error_jobs()
                     needrun = set(self.open_jobs)
                     running = list(self.running)
                     errors = self._errors
@@ -450,7 +432,7 @@ class JobScheduler:
                 if user_kill or (not self.keepgoing and errors) or executor_error:
                     if user_kill == "graceful":
                         logger.info(
-                            "Will exit after finishing " "currently running jobs."
+                            "Will exit after finishing currently running jobs (scheduler)."
                         )
 
                     if executor_error:
@@ -464,11 +446,23 @@ class JobScheduler:
                         return False
                     continue
 
-                # normal shutdown because all jobs have been finished
+                # all runnable jobs have finished, normal shutdown
                 if not needrun and (not running or self.workflow.immediate_submit):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
+                    # we still have unfinished jobs. this is not good. direct
+                    # user to github issue
+                    if self.remaining_jobs and not self.keepgoing:
+                        logger.error(_ERROR_MSG_ISSUE_823)
+                        logger.error(
+                            "Remaining jobs:\n"
+                            + "\n".join(
+                                " - " + str(job) + ": " + ", ".join(job.output)
+                                for job in self.remaining_jobs
+                            )
+                        )
+                        return False
                     return not errors
 
                 # continue if no new job needs to be executed
@@ -479,6 +473,12 @@ class JobScheduler:
                 if self.dryrun:
                     run = needrun
                 else:
+                    # Reset params and resources because they might still contain TBDs
+                    # or old values from before files have been regenerated.
+                    # Now, they can be recalculated as all input is present and up to date.
+                    for job in needrun:
+                        job.reset_params_and_resources()
+
                     logger.debug(
                         "Resources before job selection: {}".format(self.resources)
                     )
@@ -505,11 +505,6 @@ class JobScheduler:
                     # remove from ready_jobs
                     self.dag.register_running(run)
 
-                # reset params and resources because they might contain TBDs
-                if not self.dryrun:
-                    for job in run:
-                        job.reset_params_and_resources()
-
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
@@ -524,9 +519,40 @@ class JobScheduler:
 
     def _finish_jobs(self):
         # must be called from within lock
-        for job, update_dynamic in self._tofinish:
-            self.dag.finish(job, update_dynamic=update_dynamic)
+        # clear the global tofinish such that parallel calls do not interfere
+        for job in self._tofinish:
+            if self.handle_job_success:
+                try:
+                    self.get_executor(job).handle_job_success(job)
+                except (RuleException, WorkflowError) as e:
+                    # if an error occurs while processing job output,
+                    # we do the same as in case of errors during execution
+                    print_exception(e, self.workflow.linemaps)
+                    self._handle_error(job)
+                    continue
+
+            if self.update_resources:
+                # normal jobs have len=1, group jobs have len>1
+                self.finished_jobs += len(job)
+                self.running.remove(job)
+                self._free_resources(job)
+
+            if self.print_progress:
+                if job.is_group():
+                    for j in job:
+                        logger.job_finished(jobid=j.jobid)
+                else:
+                    logger.job_finished(jobid=job.jobid)
+                self.progress()
+
+            self.dag.finish(job, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
+
+    def _error_jobs(self):
+        # must be called from within lock
+        for job in self._toerror:
+            self._handle_error(job)
+        self._toerror.clear()
 
     def run(self, jobs, executor=None):
         if executor is None:
@@ -547,50 +573,18 @@ class JobScheduler:
         pass
 
     def _free_resources(self, job):
-        for name, value in job.resources.items():
+        for name, value in job.scheduler_resources.items():
             if name in self.resources:
                 value = self.calc_resource(name, value)
                 self.resources[name] += value
 
-    def _proceed(
-        self,
-        job,
-        update_dynamic=True,
-        print_progress=False,
-        update_resources=True,
-        handle_job_success=True,
-    ):
+    def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
-            if handle_job_success:
-                # by calling this behind the lock, we avoid race conditions
-                try:
-                    self.get_executor(job).handle_job_success(job)
-                except (RuleException, WorkflowError) as e:
-                    # if an error occurs while processing job output,
-                    # we do the same as in case of errors during execution
-                    print_exception(e, self.workflow.linemaps)
-                    self._handle_error(job)
-                    return
-
-            self._tofinish.append((job, update_dynamic))
-
-            if update_resources:
-                # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
-                self.running.remove(job)
-                self._free_resources(job)
-
-            if print_progress:
-                if job.is_group():
-                    for j in job:
-                        logger.job_finished(jobid=j.jobid)
-                else:
-                    logger.job_finished(jobid=job.jobid)
-                self.progress()
+            self._tofinish.append(job)
 
             if self.dryrun:
-                if not self.running:
+                if len(self.running) - len(self._tofinish) - len(self._toerror) <= 0:
                     # During dryrun, only release when all running jobs are done.
                     # This saves a lot of time, as self.open_jobs has to be
                     # evaluated less frequently.
@@ -601,7 +595,8 @@ class JobScheduler:
 
     def _error(self, job):
         with self._lock:
-            self._handle_error(job)
+            self._toerror.append(job)
+            self._open_jobs.release()
 
     def _handle_error(self, job):
         """Clear jobs and stop the workflow.
@@ -616,16 +611,13 @@ class JobScheduler:
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info("Trying to restart job {}.".format(self.dag.jobid(job)))
+            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
             self.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
-            if self.keepgoing:
-                logger.info("Job failed, going on with independent jobs.")
-        self._open_jobs.release()
 
     def exit_gracefully(self, *args):
         with self._lock:
@@ -653,10 +645,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx),
-                    lowBound=0,
-                    upBound=1,
-                    cat=pulp.LpInteger,
+                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }
@@ -696,7 +685,7 @@ class JobScheduler:
                 sum([size_gb(temp_file) for temp_file in temp_files]), 1
             )
             total_core_requirement = sum(
-                [max(job.resources.get("_cores", 1), 1) for job in jobs]
+                [max(job.scheduler_resources.get("_cores", 1), 1) for job in jobs]
             )
             # Objective function
             # Job priority > Core load
@@ -712,7 +701,8 @@ class JobScheduler:
                 * total_temp_size
                 * lpSum(
                     [
-                        max(job.resources.get("_cores", 1), 1) * scheduled_jobs[job]
+                        max(job.scheduler_resources.get("_cores", 1), 1)
+                        * scheduled_jobs[job]
                         for job in jobs
                     ]
                 )
@@ -736,7 +726,7 @@ class JobScheduler:
                 prob += (
                     lpSum(
                         [
-                            scheduled_jobs[job] * job.resources.get(name, 0)
+                            scheduled_jobs[job] * job.scheduler_resources.get(name, 0)
                             for job in jobs
                         ]
                     )
@@ -786,7 +776,7 @@ class JobScheduler:
 
         for name in self.workflow.global_resources:
             self.resources[name] -= sum(
-                [job.resources.get(name, 0) for job in selected_jobs]
+                [job.scheduler_resources.get(name, 0) for job in selected_jobs]
             )
         return selected_jobs
 
@@ -892,7 +882,7 @@ class JobScheduler:
             raise WorkflowError(
                 "Job needs {name}={res} but only {name}={gres} "
                 "are available. This is likely because two "
-                "jobs are connected via a pipe and have to run "
+                "jobs are connected via a pipe or a service output and have to run "
                 "simultaneously. Consider providing more "
                 "resources (e.g. via --cores).".format(name=name, res=value, gres=gres)
             )
@@ -905,7 +895,7 @@ class JobScheduler:
         ]
 
     def job_weight(self, job):
-        res = job.resources
+        res = job.scheduler_resources
         return [
             self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
