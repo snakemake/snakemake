@@ -81,6 +81,7 @@ def test_dicts_in_config():
             },
         )
 
+
 def test_lockexception():
     from snakemake.persistence import Persistence
     from snakemake.exceptions import LockException

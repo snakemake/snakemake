@@ -1,0 +1,61 @@
+samples = [1,2,3,4,5]
+
+resource_scopes:
+    fake_res="local",
+    mem_mb="global",
+
+rule all:
+    input:
+        "test.out"
+
+
+rule a:
+    output:
+        "a/{sample}.out"
+    group: 0
+    threads: 4
+    resources:
+        mem_mb=20000,
+        fake_res=400,
+        global_res=1000,
+        runtime=80,
+    shell:
+        "touch {output}"
+
+rule a_1:
+    output:
+        "a_1/{sample}.out"
+    group: 0
+    threads: 2
+    resources:
+        mem_mb=40000,
+        runtime=40,
+        fake_res=200,
+        global_res=1000,
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "a/{sample}.out",
+        "a_1/{sample}.out"
+    output:
+        "b/{sample}.out"
+    group: 0
+    threads: 1
+    resources:
+        runtime=20,
+        mem_mb=10000
+    shell:
+        "touch {output}"
+
+
+rule c:
+    input:
+        expand("b/{sample}.out", sample=samples)
+    output:
+        "test.out"
+    group: 0
+    shell:
+        "touch {output}"

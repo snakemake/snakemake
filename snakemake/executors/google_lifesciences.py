@@ -58,20 +58,30 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         preemption_default=None,
         preemptible_rules=None,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            restart_times=restart_times,
+            assume_shared_fs=False,
+            max_status_checks_per_second=10,
+        )
+        # Prepare workflow sources for build package
+        self._set_workflow_sources()
 
         # Attach variables for easy access
-        self.workflow = workflow
         self.quiet = quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
-        # Prepare workflow sources for build package
-        self._set_workflow_sources()
-
         # Set preemptible instances
         self._set_preemptible_rules(preemption_default, preemptible_rules)
 
-        # IMPORTANT: using Compute Engine API and not k8s == no support secrets
+        # IMPORTANT: using Compute Engine API and not k8s == no support for secrets
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't authenticate
@@ -105,19 +115,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # we need to add custom
         # default resources depending on the instance requested
         self.default_resources = None
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
-        )
 
     def get_default_resources_args(self, default_resources=None):
         assert default_resources is None
@@ -636,7 +633,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         self.workflow_sources = []
 
-        for wfs in self.workflow.get_sources():
+        for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(

@@ -9,6 +9,7 @@ import sys
 import signal
 import json
 from tokenize import maybe
+from typing import DefaultDict
 import urllib
 from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
@@ -81,7 +82,7 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
-from snakemake.resources import DefaultResources
+from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
@@ -112,6 +113,7 @@ class Workflow:
         overwrite_scatter=None,
         overwrite_groups=None,
         overwrite_resources=None,
+        overwrite_resource_scopes=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -229,6 +231,9 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.overwrite_resource_scopes = overwrite_resource_scopes or dict()
+        self.resource_scopes = ResourceScopes.defaults()
+        self.resource_scopes.update(self.overwrite_resource_scopes)
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
@@ -331,76 +336,6 @@ class Workflow:
 
     def is_cached_rule(self, rule: Rule):
         return rule.name in self.cache_rules
-
-    def get_sources(self):
-        files = set()
-
-        def local_path(f):
-            if not isinstance(f, SourceFile) and is_local_file(f):
-                return f
-            if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
-
-        def norm_rule_relpath(f, rule):
-            if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
-            return os.path.relpath(f)
-
-        # get registered sources
-        for f in self.included:
-            f = local_path(f)
-            if f:
-                try:
-                    f = os.path.relpath(f)
-                except ValueError:
-                    if ON_WINDOWS:
-                        pass  # relpath doesn't work on win if files are on different drive
-                    else:
-                        raise
-                files.add(f)
-        for rule in self.rules:
-            script_path = rule.script or rule.notebook
-            if script_path:
-                script_path = norm_rule_relpath(script_path, rule)
-                files.add(script_path)
-                script_dir = os.path.dirname(script_path)
-                files.update(
-                    os.path.join(dirpath, f)
-                    for dirpath, _, files in os.walk(script_dir)
-                    for f in files
-                )
-            if rule.conda_env and rule.conda_env.is_file:
-                f = local_path(rule.conda_env.file)
-                if f:
-                    # url points to a local env file
-                    env_path = norm_rule_relpath(f, rule)
-                    files.add(env_path)
-
-        for f in self.configfiles:
-            files.add(f)
-
-        # get git-managed files
-        # TODO allow a manifest file as alternative
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
-            )
-            for f in out.decode().split("\n"):
-                if f:
-                    files.add(os.path.relpath(f))
-        except subprocess.CalledProcessError as e:
-            if "fatal: not a git repository" in e.stderr.decode().lower():
-                logger.warning(
-                    "Unable to retrieve additional files from git. "
-                    "This is not a git repository."
-                )
-            else:
-                raise WorkflowError(
-                    "Error executing git (Snakemake requires git to be installed for "
-                    "remote execution without shared filesystem):\n" + e.stderr.decode()
-                )
-
-        return files
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
@@ -640,8 +575,8 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        containerize=False,
     ):
-
         self.check_localrules()
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
@@ -805,6 +740,12 @@ class Workflow:
 
         if cleanup_shadow:
             self.persistence.cleanup_shadow()
+            return True
+
+        if containerize:
+            from snakemake.deployment.containerize import containerize
+
+            containerize(self, dag)
             return True
 
         if (
@@ -1139,6 +1080,7 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
+                    dag.print_reasons()
                     log_provenance_info()
                 logger.info("")
                 logger.info(
@@ -1222,11 +1164,6 @@ class Workflow:
             )
         self.envvars.update(envvars)
 
-    def containerize(self):
-        from snakemake.deployment.containerize import containerize
-
-        containerize(self)
-
     def include(
         self,
         snakefile,
@@ -1298,7 +1235,7 @@ class Workflow:
         # add corresponding wildcard constraint
         self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
 
-        def func(*args, **wildcards):
+        def func(key, *args, **wildcards):
             n = self._scatter[key]
             return expand(
                 *args,
@@ -1307,8 +1244,13 @@ class Workflow:
             )
 
         for key in content:
-            setattr(self.globals["scatter"], key, func)
-            setattr(self.globals["gather"], key, func)
+            setattr(self.globals["scatter"], key, partial(func, key))
+            setattr(self.globals["gather"], key, partial(func, key))
+
+    def resourcescope(self, **content):
+        """Register resource scope defaults"""
+        self.resource_scopes.update(content)
+        self.resource_scopes.update(self.overwrite_resource_scopes)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1582,15 +1524,6 @@ class Workflow:
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
-                if (
-                    ruleinfo.conda_env is not None
-                    and is_conda_env_file(ruleinfo.conda_env)
-                    and is_local_file(ruleinfo.conda_env)
-                    and not os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = self.current_basedir.join(
-                        ruleinfo.conda_env
-                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
@@ -1941,7 +1874,14 @@ class Workflow:
             prefix=prefix,
         )
 
-    def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):
+    def userule(
+        self,
+        rules=None,
+        from_module=None,
+        exclude_rules=None,
+        name_modifier=None,
+        lineno=None,
+    ):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:
@@ -1955,6 +1895,7 @@ class Workflow:
                 module.use_rules(
                     rules,
                     name_modifier,
+                    exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                     skip_global_report_caption=self.report_text
                     is not None,  # do not overwrite existing report text via module
