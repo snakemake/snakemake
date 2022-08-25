@@ -345,7 +345,9 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode, encoding="utf-8")
+        return self._open_local_or_remote(
+            LocalSourceFile(cache_entry), mode, encoding="utf-8"
+        )
 
     def exists(self, source_file):
         try:
