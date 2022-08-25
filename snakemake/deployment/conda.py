@@ -239,13 +239,16 @@ class Env:
             hash_candidates = [
                 hash[:8],
                 hash,
+                hash
+                + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
             ]  # [0] is the old fallback hash (shortened)
             exists = [os.path.exists(get_path(h)) for h in hash_candidates]
-            if self.is_containerized or exists[1] or (not exists[0]):
-                # containerizes, full hash exists or fallback hash does not exist: use full hash
+            if self.is_containerized:
                 return get_path(hash_candidates[1])
-            # use fallback hash
-            return get_path(hash_candidates[0])
+            for candidate, candidate_exists in zip(hash_candidates, exists):
+                if candidate_exists or candidate == hash_candidates[-1]:
+                    # exists or it is the last (i.e. the desired one)
+                    return get_path(candidate)
 
     @property
     def address_argument(self):
@@ -479,6 +482,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
+                            "--no-shortcuts",
                             "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
