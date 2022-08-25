@@ -110,6 +110,9 @@ to be used to obtain default options:
 
 Here, a folder ``myprofile`` is searched in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
 Alternatively, an absolute or relative path to the folder can be given.
+The default profile to use when no ``--profile`` argument is specified can also be set via the environment variable ``SNAKEMAKE_PROFILE``,
+e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults.
+
 The profile folder is expected to contain a file ``config.yaml`` that defines default values for the Snakemake command line arguments.
 For example, the file
 
