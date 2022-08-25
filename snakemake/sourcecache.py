@@ -149,14 +149,21 @@ class LocalGitFile(SourceFile):
         self.path = path
 
     def get_path_or_uri(self):
-        return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
+        return "git+file://{}/{}@{}".format(
+            os.path.abspath(self.repo_path), self.path, self.ref
+        )
 
     def join(self, path):
+        path = os.path.normpath("/".join((self.path, path)))
+        if ON_WINDOWS:
+            # convert back to URL separators
+            # (win specific separators are introduced by normpath above)
+            path = path.replace("\\", "/")
         return LocalGitFile(
             self.repo_path,
-            "/".join((self.path, path)),
+            path,
             tag=self.tag,
-            ref=self.ref,
+            ref=self._ref,
             commit=self.commit,
         )
 
@@ -166,7 +173,7 @@ class LocalGitFile(SourceFile):
             path=os.path.dirname(self.path),
             tag=self.tag,
             commit=self.commit,
-            ref=self.ref,
+            ref=self._ref,
         )
 
     def is_persistently_cacheable(self):
