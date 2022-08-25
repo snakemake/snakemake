@@ -1,5 +1,27 @@
 # Changelog
 
+## [7.13.0](https://github.com/snakemake/snakemake/compare/v7.12.1...v7.13.0) (2022-08-25)
+
+
+### Features
+
+* add gitfile option to make it possible to use local git repos when importing modules ([#1376](https://github.com/snakemake/snakemake/issues/1376)) ([1a3b91f](https://github.com/snakemake/snakemake/commit/1a3b91fa8461d44bc1583f1d2e33ff2bae1360b3))
+
+
+### Bug Fixes
+
+* allow to use {wildcards} for group jobs in cluster config ([#1555](https://github.com/snakemake/snakemake/issues/1555)) ([f0ec73d](https://github.com/snakemake/snakemake/commit/f0ec73d2470d3ecf1d8500b52fa86021463a96fe))
+* avoid "Admin" prompt when using conda on windows ([#1046](https://github.com/snakemake/snakemake/issues/1046)) ([552fadf](https://github.com/snakemake/snakemake/commit/552fadf7d0ea0f0ff3990295db2618a31c692f61))
+* handle benmark bug that arise with singularity ([#1671](https://github.com/snakemake/snakemake/issues/1671)) ([10ef7c4](https://github.com/snakemake/snakemake/commit/10ef7c4d1cbbd89fa1760ec9f643e09ae4eb8bd9))
+* Open Snakefile for reading with explicit encoding specified ([#1146](https://github.com/snakemake/snakemake/issues/1146)) ([ec1d859](https://github.com/snakemake/snakemake/commit/ec1d859dd2422fa551bbf58843907fc5eed244ff))
+* remove superfluous comma causing TypeError in conda-frontend error message ([#1804](https://github.com/snakemake/snakemake/issues/1804)) ([87b013c](https://github.com/snakemake/snakemake/commit/87b013cbba420b71892ab9f482718c1cd59e6bda))
+
+
+### Documentation
+
+* explain SNAKEMAKE_PROFILE environment variable ([2b32bba](https://github.com/snakemake/snakemake/commit/2b32bba6efa53a9359bc67d8eb8ce06f1106e8ef))
+* update contribution docs ([09a5595](https://github.com/snakemake/snakemake/commit/09a559504d7a4346e40d8b3a99ece46e903ff7a0))
+
 ## [7.12.1](https://github.com/snakemake/snakemake/compare/v7.12.0...v7.12.1) (2022-08-09)
 
 
