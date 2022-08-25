@@ -246,8 +246,8 @@ class Env:
             if self.is_containerized:
                 return get_path(hash_candidates[1])
             for candidate, candidate_exists in zip(hash_candidates, exists):
-                if exists_i or candidate == hash_candidates[-1]:
-                    # exists or it is the last
+                if candidate_exists or candidate == hash_candidates[-1]:
+                    # exists or it is the last (i.e. the desired one)
                     return get_path(candidate)
 
     @property
