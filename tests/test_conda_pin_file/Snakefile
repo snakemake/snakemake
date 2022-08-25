@@ -1,0 +1,10 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        "test.txt"
+    conda:
+        "test-env.yaml"
+    shell:
+        "rg --version | head -n1 | cut -f2 -d' ' > {output}"
+

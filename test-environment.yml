@@ -2,7 +2,8 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5.3
+  - python
+  - yte
   - stopit
   - datrie
   - boto3
@@ -11,19 +12,20 @@ dependencies:
   - httpretty
   - wrapt
   - pyyaml
-  - pytest ==6.1.2
+  - pytest
+  - pytest-mock
   - pytest-cov
   - ftputil
   - pysftp
   - requests
-  - responses <0.12.1 # responses 0.12.1 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
+  - responses
   - dropbox
   - numpy
   - appdirs
   - pytools
   - docutils
   - pygments
-  - pandoc <2.0  # pandoc has changed the CLI API so that it is no longer compatible with the version of r-markdown below
+  - pandoc
   - xorg-libxrender
   - xorg-libxext
   - xorg-libxau
@@ -37,12 +39,10 @@ dependencies:
   - ratelimiter
   - configargparse
   - appdirs
-  - python-irodsclient
-  - cwltool <=3.0.20201203173111 # TODO remove once schema-salad has been updated in conda-forge
+  - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
+  - cwltool
   - jsonschema
   - pandas
-  - networkx
-  - pygraphviz
   - python-kubernetes
   - gitpython
   - pulp >=2.0
@@ -62,3 +62,5 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
+  - retry
+  - graphviz

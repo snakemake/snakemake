@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
@@ -16,38 +16,42 @@ import collections
 from pathlib import Path
 
 from snakemake._version import get_versions
+from snakemake.common.tbdstring import TBDString
 
 __version__ = get_versions()["version"]
 del get_versions
 
 
-MIN_PY_VERSION = (3, 5)
-DYNAMIC_FILL = "__snakemake_dynamic__"
+MIN_PY_VERSION = (3, 7)
+DYNAMIC_FILL = "__othernakemake_dynamic__"
 SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
+NOTHING_TO_BE_DONE_MSG = (
+    "Nothing to be done (all requested files are present and up to date)."
+)
 
 ON_WINDOWS = platform.system() == "Windows"
 
 
-if sys.version_info < (3, 7):
-
-    def async_run(coroutine):
-        loop = asyncio.get_event_loop()
-        return loop.run_until_complete(coroutine)
-
-
-else:
-    async_run = asyncio.run
-
-
-# A string that prints as TBD
-class TBDString(str):
-    # the second arg is necessary to avoid problems when pickling
-    def __new__(cls, _=None):
-        return str.__new__(cls, "<TBD>")
+def async_run(coroutine):
+    """Attaches to running event loop or creates a new one to execute a
+    coroutine.
+    .. seealso::
+         https://github.com/snakemake/snakemake/issues/1105
+         https://stackoverflow.com/a/65696398
+    """
+    try:
+        _ = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(coroutine)
+    else:
+        asyncio.create_task(coroutine)
 
 
 APPDIRS = None
+
+
+RULEFUNC_CONTEXT_MARKER = "__is_snakemake_rule_func"
 
 
 def get_appdirs():
@@ -168,7 +172,7 @@ class Mode:
 
 
 class lazy_property(property):
-    __slots__ = ["method", "cached", "__doc__"]
+    __otherlots__ = ["method", "cached", "__doc__"]
 
     @staticmethod
     def clean(instance, method):
@@ -236,3 +240,13 @@ class Gather:
     """A namespace for gather to allow items to be accessed via dot notation."""
 
     pass
+
+
+def get_function_params(func):
+    return inspect.signature(func).parameters
+
+
+def get_input_function_aux_params(func, candidate_params):
+    func_params = get_function_params(func)
+
+    return {k: v for k, v in candidate_params.items() if k in func_params}

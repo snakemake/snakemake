@@ -28,7 +28,7 @@ class RuleTest:
 
 
 def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
-    """Generate unit tests from given dag at given path."""
+    """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
     try:
@@ -54,6 +54,15 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         )
 
     for rulename, jobs in groupby(dag.jobs, key=lambda job: job.rule.name):
+        jobs = list(jobs)
+        if jobs[0].rule.norun:
+            logger.info(
+                "Skipping rule {} because it does not execute anything.".format(
+                    rulename
+                )
+            )
+            continue
+
         testpath = path / "test_{}.py".format(rulename)
 
         if testpath.exists():
@@ -75,11 +84,15 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
                 def copy_files(files, content_type):
                     for f in files:
                         f = Path(f)
-                        target = path / rulename / content_type / f.parent
-                        os.makedirs(target, exist_ok=True)
+                        parent = f.parent
+                        if parent.is_absolute():
+                            root = str(f.parents[len(f.parents) - 1])
+                            parent = str(parent)[len(root) :]
+                        target = path / rulename / content_type / parent
                         if f.is_dir():
-                            shutil.copytree(f, target)
+                            shutil.copytree(f, target / f.name)
                         else:
+                            os.makedirs(target, exist_ok=True)
                             shutil.copy(f, target)
                     if not files:
                         os.makedirs(path / rulename / content_type, exist_ok=True)

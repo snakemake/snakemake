@@ -19,6 +19,9 @@ jobs:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   formatting:
+    permissions:
+      contents: read  # for actions/checkout to fetch code
+      pull-requests: write  # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -35,7 +38,7 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v1.1.0
+        uses: marocchino/sticky-pull-request-comment@v2.2.0
         with:
           message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,14 +53,19 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 # we need tags for versioneer to work
-      
+
       - name: Setup Snakemake environment
         run: |
           export PATH="/usr/share/miniconda/bin:$PATH"
+          conda config --set channel_priority strict
           conda install -c conda-forge -q mamba
+          # ensure that mamba is happy to write into the cache
+          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
           mamba env create -q --name snakemake --file test-environment.yml
           # additionally add singularity
-          mamba install -c conda-forge -n snakemake singularity
+          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
+          # bin/unsquashfs: error while loading shared libraries: libz.so.1: cannot open shared object file: No such file or directory
+          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
       
       - name: Setup apt dependencies
         run: |
@@ -87,20 +95,50 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+      
+      ###### slurm setup #####
+      
+      - name: Download slurm ansible roles
+        run: |
+          ansible-galaxy install galaxyproject.slurm
+
+      - name: Define slurm playbook
+        uses: 1arp/create-a-file-action@0.2
+        with:
+          file: slurm-playbook.yml
+          content: |
+            - name: Slurm all in One
+              hosts: localhost
+              vars:
+                slurm_roles: ['controller', 'exec']
+              roles:
+                - role: galaxyproject.slurm
+                  become: true
+
+      - name: Setup slurm
+        run: |
+          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
+
+      - name: Test slurm submission
+        run: |
+          srun echo "hello world"
+      
+      ###### finalized slurm setup #####
 
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
-
+          
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
       - name: Build and publish docker image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
-        uses: elgohr/Publish-Docker-Github-Action@2.16
+        uses: elgohr/Publish-Docker-Github-Action@v4
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -112,6 +150,16 @@ jobs:
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
 
+      # TODO reactivate in April (we have no free resources left this month)
+      - name: Test Google Life Sciences Executor
+        if: env.GCP_AVAILABLE
+        run: |
+          # activate conda env
+          export PATH="/usr/share/miniconda/bin:$PATH"
+          source activate snakemake
+          pytest -s -v -x tests/test_google_lifesciences.py
+
+      # TODO reactivate in April (we have no free resources left this month)
       - name: Test Kubernetes execution
         if: env.GCP_AVAILABLE
         env:
@@ -123,7 +171,8 @@ jobs:
 
           pytest -s -v -x tests/test_kubernetes.py
 
-      - name: Test AWS execution
+      # TODO temporarily deactivate and fix in separate PR.
+      - name: Test Tibanna (AWS) execution
         if: env.AWS_AVAILABLE
         env: 
           CI: true
@@ -132,15 +181,7 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
 
-          pytest -v -x tests/test_tibanna.py
-
-      - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_google_lifesciences.py
+      #     pytest -v -x -s tests/test_tibanna.py
 
       - name: Test GA4GH TES executor
         run: |
@@ -175,7 +216,7 @@ jobs:
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules"]
+          excluded_on_win = ["environment-modules", "cwltool"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
@@ -189,11 +230,13 @@ jobs:
 
       - name: Setup Snakemake environment
         run: |
+          conda config --set channel_priority strict
           conda install -q --name base mamba
           mamba env update -q --file test-environment.yml
 
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
           python -m pytest -v -x tests/tests.py

@@ -1,0 +1,102 @@
+rule all:
+    input: "minimal_ok.out"
+
+# Setup files for testing of shadow: "minimal"
+rule minimal_setup:
+    input: "test.in"
+    output:
+        "subdir1/subdir2/test.in",
+        "subdir1/subdir2/test.symbolic.in"
+    shell:
+        """
+        cp -P {input} {output[0]}
+        cd subdir1/subdir2
+        ln -s test.in test.symbolic.in
+        """
+
+# Tests relative inputs/outputs and in the current dir
+rule minimal_rel_curdir:
+    input: "test.in"
+    output: protected("simple_minimal.out")
+    benchmark: "benchmark_minimal.txt"
+    log: "minimal.log"
+    shadow: "copy-minimal"
+    shell:
+        """
+        if [ ! -f "{input}" -o -L "{input}" ]; then
+            echo "Input file is symbolic link and not a copy"
+            exit 1
+        fi
+        
+        touch minimal_junk.out
+        cat {input} >> {output}
+        echo simple_minimal >> {output}
+        echo minimal_log > {log}
+        """
+
+# Tests relative inputs/outputs in subdirectories
+rule minimal_rel_subdir:
+    input: "subdir1/subdir2/test.in"
+    output: "outdir/minimal.out"
+    shadow: "copy-minimal"
+    shell:
+        """
+        if [ ! -f "{input}" -o -L "{input}" ]; then
+            echo "Input file is symbolic link and not a copy"
+            exit 1
+        fi
+        
+        touch outdir/minimal_junk.out
+        touch {output}
+        """
+
+# Tests symbolic input/output
+rule minimal_symbolic:
+    input: "subdir1/subdir2/test.symbolic.in"
+    output: "outdir/minimal_real.out",
+            "outdir/minimal_symbolic.out"
+    shadow: "copy-minimal"
+    shell:
+        """
+        if [ ! -f "{input}" -o -L "{input}" ]; then
+            echo "Input file is symbolic link and not a copy"
+            exit 1
+        fi
+        
+        touch outdir/minimal_real.out
+        cd outdir
+        ln -s minimal_real.out minimal_symbolic.out
+        """
+
+# Tests absolute input/output
+rule minimal_absolute:
+    input:
+        os.path.join(os.getcwd(),"test.in")
+    output: os.path.join(os.getcwd(),"outdir/minimal_absolute.out")
+    shadow: "copy-minimal"
+    shell:
+        """
+        if [ ! -f "{input}" -o -L "{input}" ]; then
+            echo "Input file is symbolic link and not a copy"
+            exit 1
+        fi
+        
+        touch {output}
+        """
+
+# Aggregates tests for shadow: "minimal"
+rule minimal_ok:
+    input:  "simple_minimal.out",
+            "outdir/minimal.out",
+            "outdir/minimal_symbolic.out",
+            os.path.join(os.getcwd(),"outdir/minimal_absolute.out")
+    output: "minimal_ok.out"
+    shell:
+        """
+        #test ! -w {input[0]}
+        test -f benchmark_minimal.txt
+        test -f minimal.log
+        test ! -f minimal_junk.out
+        test ! -f outdir/minimal_junk.out
+        touch {output}
+        """

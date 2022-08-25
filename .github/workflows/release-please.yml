@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - uses: GoogleCloudPlatform/release-please-action@v2
+      - uses: GoogleCloudPlatform/release-please-action@v3
         id: release
         with:
           release-type: python
@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up Python
         if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '3.x'
       
@@ -31,7 +31,8 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         run: |
           python -m pip install --upgrade pip
-          python setup.py sdist
+          pip install build
+          python -m build
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}
@@ -42,7 +43,7 @@ jobs:
 
       - name: Publish to Registry
         if: ${{ steps.release.outputs.release_created }}
-        uses: elgohr/Publish-Docker-Github-Action@3.01
+        uses: elgohr/Publish-Docker-Github-Action@v4
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}

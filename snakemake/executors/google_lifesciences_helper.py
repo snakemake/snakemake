@@ -49,19 +49,15 @@ def save_files(bucket_name, source_path, destination_path):
 
         # The relative path of the filename from the source path
         relative_path = filename.replace(source_path, "", 1).strip("/")
-
         # The path in storage includes relative path from destination_path
         storage_path = os.path.join(destination_path, relative_path)
         full_path = os.path.join(bucket_name, storage_path)
         print(
             "{filename} -> {full_path}".format(filename=filename, full_path=full_path)
         )
-
-        # Get the blob
         blob = bucket.blob(storage_path)
-        if not blob.exists():
-            print("Uploading %s to %s" % (filename, full_path))
-            blob.upload_from_filename(filename)
+        print("Uploading %s to %s" % (filename, full_path))
+        blob.upload_from_filename(filename, content_type=".txt")
 
 
 def get_source_files(source_path):

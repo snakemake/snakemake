@@ -1,0 +1,22 @@
+rule all:
+    input:
+        "test1.txt",
+        "test2.txt",
+
+
+rule a:
+    output:
+        "test1.txt",
+    resources:
+        foo=1,
+    shell:
+        "touch {output}"
+
+
+rule b:
+    output:
+        "test2.txt",
+    resources:
+        foo="bar",
+    shell:
+        "touch {output}"

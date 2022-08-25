@@ -9,73 +9,92 @@
 # Output of step2 is set remote.
 
 from snakemake.remote.S3 import RemoteProvider as S3RemoteProvider
+
 S3 = S3RemoteProvider()
 
-#envvars:
+
+configfile: "config.json"
+
+
+# envvars:
 #    "TEST_ENVVAR1",
 #    "TEST_ENVVAR2"
 
+
+localrules:
+    all,
+
+
 rule all:
+    conda:
+        "env.yml"
     input:
-        final = S3.remote("snakemake-tibanna-test/1/final_message"),
+        final=S3.remote("snakemake-tibanna-test/1/final_message"),
         # final = "snakemake-tibanna-test/1/final_message"
-        final2 = S3.remote("snakemake-tibanna-test2/1/final_message")
+        final2=S3.remote("snakemake-tibanna-test2/1/final_message"),
+    shell:
+        "echo test"
 
 
 rule step1:
     conda:
         "env.yml"
-    group: "mygroup"
+    group:
+        "mygroup"
     input:
-        S3.remote("snakemake-tibanna-test/1/somefile")
+        S3.remote("snakemake-tibanna-test/1/somefile"),
     output:
-        message = "message1"
+        message="message1",
     shell:
         """
         echo {config[message]} > message1
         cat snakemake-tibanna-test/1/somefile >> message1
         """
 
+
 rule step1a:
     conda:
         "env.yml"
-    group: "mygroup"
+    group:
+        "mygroup"
     input:
-        message = "message1"
+        message="message1",
     output:
-        next_message = "next_message"
+        next_message="next_message",
     shell:
         """
         cat message1 message1 > next_message
         """
 
+
 rule step1b:
     conda:
         "env.yml"
     input:
-        S3.remote("snakemake-tibanna-test/1/somefile2")
+        S3.remote("snakemake-tibanna-test/1/somefile2"),
     output:
-        message = "message2"
+        message="message2",
     log:
-        "log.txt"
+        "log.txt",
     benchmark:
         "benchmark.txt"
     threads: 1
     resources:
-        mem_mb=1024
+        mem_mb=1024,
     shell:
         """
         echo "abcdefg" > message2
         cat snakemake-tibanna-test/1/somefile2 >> message2
         """
 
+
 rule step2:
     input:
-        message1 = "next_message",
-        message2 = "message2"
+        message1="next_message",
+        message2="message2",
     output:
-        final = S3.remote("snakemake-tibanna-test/1/final_message"),
+        final=S3.remote("snakemake-tibanna-test/1/final_message"),
         # final = "snakemake-tibanna-test/1/final_message"
-        final2 = S3.remote("snakemake-tibanna-test2/1/final_message")
+        final2=S3.remote("snakemake-tibanna-test2/1/final_message"),
     script:
         "scripts/step2.py"

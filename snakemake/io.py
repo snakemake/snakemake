@@ -1,9 +1,10 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2021, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+from hashlib import sha256
 import os
 import shutil
 from pathlib import Path
@@ -95,7 +96,6 @@ if os.chmod in os.supports_follow_symlinks:
 
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
-
 
 else:
 
@@ -562,6 +562,10 @@ class _IOFile(str):
     def flags(self):
         return getattr(self._file, "flags", {})
 
+    def is_fifo(self):
+        """Return True if file is a FIFO according to the filesystem."""
+        return stat.S_ISFIFO(os.stat(self).st_mode)
+
     @property
     @iocache
     @_refer_to_remote
@@ -574,12 +578,52 @@ class _IOFile(str):
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
+    def is_checksum_eligible(self):
+        return (
+            self.exists_local
+            and not os.path.isdir(self.file)
+            and self.size < 100000
+            and not self.is_fifo()
+        )
+
+    def checksum(self, force=False):
+        """Return checksum if file is small enough, else None.
+        Returns None if file does not exist. If force is True,
+        omit eligibility check."""
+        if force or self.is_checksum_eligible():  # less than 100000 bytes
+            checksum = sha256()
+            if self.size > 0:
+                # only read if file is bigger than zero
+                # otherwise the checksum is the same as taking hexdigest
+                # from the empty sha256 as initialized above
+                # This helps endless reading in case the input
+                # is a named pipe or a socket or a symlink to a device like
+                # /dev/random.
+                with open(self.file, "rb") as f:
+                    checksum.update(f.read())
+            return checksum.hexdigest()
+        else:
+            return None
+
+    def is_same_checksum(self, other_checksum, force=False):
+        checksum = self.checksum(force=force)
+        if checksum is None or other_checksum is None:
+            # if no checksum available or files too large, not the same
+            return False
+        else:
+            return checksum == other_checksum
+
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local and os.lstat(self.file):
-            raise WorkflowError(
-                "File {} seems to be a broken symlink.".format(self.file)
-            )
+        if not self.exists_local:
+            try:
+                if os.lstat(self.file):
+                    raise WorkflowError(
+                        "File {} seems to be a broken symlink.".format(self.file)
+                    )
+            except FileNotFoundError as e:
+                # there is no broken symlink present, hence all fine
+                return
 
     @_refer_to_remote
     def is_newer(self, time):
@@ -736,7 +780,7 @@ class _IOFile(str):
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
-        if isinstance(other._file, AnnotatedString):
+        if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if "remote_object" in self._file.flags:
                 self._file.flags["remote_object"] = copy.copy(
@@ -791,9 +835,9 @@ _wildcard_regex = re.compile(
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
+    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
-    """Wait for given files to be present in filesystem."""
+    """Wait for given files to be present in the filesystem."""
     files = list(files)
 
     def get_missing():
@@ -808,7 +852,10 @@ def wait_for_files(
                     and (force_stay_on_remote or f.should_stay_on_remote)
                 )
                 else os.path.exists(f)
-                if not (is_flagged(f, "pipe") and ignore_pipe)
+                if not (
+                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service
+                )
                 else True
             )
         ]
@@ -819,13 +866,16 @@ def wait_for_files(
             "Waiting at most {} seconds for missing files.".format(latency_wait)
         )
         for _ in range(latency_wait):
-            if not get_missing():
+            missing = get_missing()
+            if not missing:
                 return
             time.sleep(1)
+        missing = "\n".join(get_missing())
         raise IOError(
-            "Missing files after {} seconds:\n{}".format(
-                latency_wait, "\n".join(get_missing())
-            )
+            f"Missing files after {latency_wait} seconds. This might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait:\n"
+            f"{missing}"
         )
 
 
@@ -987,7 +1037,7 @@ def ancient(value):
 
 def directory(value):
     """
-    A flag to specify that an output is a directory, rather than a file or named pipe.
+    A flag to specify that output is a directory, rather than a file or named pipe.
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
@@ -1019,13 +1069,21 @@ def pipe(value):
     return flag(value, "pipe", not ON_WINDOWS)
 
 
+def service(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "service")
+
+
 def temporary(value):
     """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """A flag for a file that shall be write protected after creation."""
+    """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1056,6 +1114,10 @@ def touch(value):
     return flag(value, "touch")
 
 
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+
+
 def unpack(value):
     return flag(value, "unpack")
 
@@ -1069,35 +1131,48 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
+def sourcecache_entry(value, orig_path_or_uri):
+    return flag(value, "sourcecache_entry", orig_path_or_uri)
+
+
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
+    "ReportObject",
+    ["caption", "category", "subcategory", "labels", "patterns", "htmlindex"],
 )
 
 
 def report(
-    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+    value,
+    caption=None,
+    category=None,
+    subcategory=None,
+    labels=None,
+    patterns=[],
+    htmlindex=None,
 ):
     """Flag output file or directory as to be included into reports.
 
-    In case of directory, files to include can be specified via a glob pattern (default: *).
+    In the case of a directory, files to include can be specified via a glob pattern (default: *).
 
     Arguments
     value -- File or directory.
     caption -- Path to a .rst file with a textual description of the result.
-    category -- Name of the category in which the result should be displayed in the report.
-    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+    category -- Name of the (optional) category in which the result should be displayed in the report.
+    subcategory -- Name of the (optional) subcategory
+    columns  -- Dict of strings (may contain wildcard expressions) that will be used as columns when displaying result tables
+    patterns -- Wildcard patterns for selecting files if a directory is given (this is used as
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
     return flag(
         value,
         "report",
-        ReportObject(caption, category, subcategory, patterns, htmlindex),
+        ReportObject(caption, category, subcategory, labels, patterns, htmlindex),
     )
 
 
 def local(value):
-    """Mark a file as local file. This disables application of a default remote
+    """Mark a file as a local file. This disables the application of a default remote
     provider.
     """
     if is_flagged(value, "remote"):
@@ -1300,7 +1375,7 @@ def get_git_root(path):
     Args:
         path: (str) Path a to a directory/file that is located inside the repo
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1316,14 +1391,14 @@ def get_git_root_parent_directory(path, input_path):
     """
     This function will recursively go through parent directories until a git
     repository is found or until no parent directories are left, in which case
-    a error will be raised. This is needed when providing a path to a
-    file/folder that is located on a branch/tag no currently checked out.
+    an error will be raised. This is needed when providing a path to a
+    file/folder that is located on a branch/tag not currently checked out.
 
     Args:
         path: (str) Path a to a directory that is located inside the repo
         input_path: (str) origin path, used when raising WorkflowError
     Returns:
-        path to root folder for git repo
+        path to the root folder for git repo
     """
     import git
 
@@ -1345,11 +1420,11 @@ def git_content(git_file):
     """
     This function will extract a file from a git repository, one located on
     the filesystem.
-    Expected format is git+file:///path/to/your/repo/path_to_file@@version
+    The expected format is git+file:///path/to/your/repo/path_to_file@version
 
     Args:
-      env_file (str): consist of path to repo, @, version and file information
-                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
+      env_file (str): consist of path to repo, @, version, and file information
+                      Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
     Returns:
         file content or None if the expected format isn't meet
     """
@@ -1368,6 +1443,9 @@ def git_content(git_file):
 
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
+    if is_callable(pattern):
+        # do not apply on e.g. input functions
+        return pattern
 
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))
@@ -1378,7 +1456,7 @@ def strip_wildcard_constraints(pattern):
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
-    it is hashable, however the hash does not consider the item names.
+    it is hashable, however, the hash does not consider the item names.
     """
 
     def __init__(
@@ -1406,7 +1484,7 @@ class Namedlist(list):
         for name in self._allowed_overrides:
             setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
-        if toclone:
+        if toclone is not None:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
@@ -1417,7 +1495,7 @@ class Namedlist(list):
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self._take_names(toclone._get_names())
-        if fromdict:
+        if fromdict is not None:
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)

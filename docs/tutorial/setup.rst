@@ -50,6 +50,8 @@ To go through this tutorial, you need the following software installed:
 
 However, don't install any of these this manually now, we guide you through better ways below.
 
+.. _tutorial-free-on-gitpod:
+
 Run tutorial for free in the cloud via Gitpod
 :::::::::::::::::::::::::::::::::::::::::::::
 
@@ -69,7 +71,7 @@ Running the tutorial on your local machine
 
 If you prefer to run the tutorial on your local machine, please follow the steps below.
 
-The easiest way to set these prerequisites up, is to use the Mambaforge_ Python 3 distribution 
+The easiest way to set these prerequisites up, is to use the Mambaforge_ Python 3 distribution
 (Mambaforge_ is a Conda based distribution like Miniconda_, which however uses Mamba_ a fast and more robust replacement for the Conda_ package manager).
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Mambaforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
@@ -120,7 +122,7 @@ Assuming that you have a 64-bit system, on Linux, download and install Miniconda
 
 .. code:: console
 
-    $ wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
+    $ curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh -o Mambaforge-Linux-x86_64.sh
     $ bash Mambaforge-Linux-x86_64.sh
 
 On MacOS with x86_64 architecture, download and install with
@@ -165,11 +167,21 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ wget https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz
-    $ tar --wildcards -xf v5.24.1.tar.gz --strip 1 "*/data" "*/environment.yaml"
+    $ curl -L https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz -o snakemake-tutorial-data.tar.gz
+
+Next we extract the data. On Linux, run
+
+.. code:: console
+
+    $ tar --wildcards -xf snakemake-tutorial-data.tar.gz --strip 1 "*/data" "*/environment.yaml"
+
+On MacOS, run
+
+.. code:: console
+
+    $ tar -xf snakemake-tutorial-data.tar.gz --strip 1 "*/data" "*/environment.yaml"
 
 This will create a folder ``data`` and a file ``environment.yaml`` in the working directory.
-If your tar command does not provide a ``--wildcards`` flag, you can also just unpack the file without it (which will just leave some more unneeded files in the working directory).
 
 Step 3: Creating an environment with the required software
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -186,7 +198,7 @@ The ``environment.yaml`` file that you have obtained with the previous step (Ste
 
     $ mamba env create --name snakemake-tutorial --file environment.yaml
 
-If you don't have the Mamba_ command because you used a different conda distribution than Mambaforge_, you can also first install Mamba_ 
+If you don't have the Mamba_ command because you used a different conda distribution than Mambaforge_, you can also first install Mamba_
 (which is a faster and more robust replacement for Conda_) in your base environment with
 
 .. code:: console

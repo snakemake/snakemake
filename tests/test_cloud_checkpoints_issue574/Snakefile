@@ -1,0 +1,37 @@
+import os
+
+# This test file is adapted from this one:
+# https://github.com/snakemake/snakemake/blob/758fabdb64255f8ca79e9c1483ceab67eb39ff07/tests/test_google_lifesciences/Snakefile
+from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+GS = GSRemoteProvider()
+
+rule all:
+    input:
+        "landsat-data.txt.bz2"
+
+checkpoint copy:
+    input:
+        GS.remote("gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt")
+    output:
+        "landsat-data.txt"
+    resources:
+        mem_mb=100
+    run:
+        shell("cp {input} {output}")
+
+def get_pack_input(wildcards):
+    output = checkpoints.copy.get().output[0]
+    return output
+
+
+rule pack:
+    input:
+        get_pack_input
+    output:
+        "landsat-data.txt.bz2"
+    conda:
+        "env.yml"
+    log:
+        "logs/pack.log"
+    shell:
+        "bzip2 -c {input} > {output}; echo successful > {log}"
