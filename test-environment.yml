@@ -64,4 +64,3 @@ dependencies:
   - tabulate
   - retry
   - graphviz
-  - bash >=4.0
