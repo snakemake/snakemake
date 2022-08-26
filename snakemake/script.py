@@ -180,6 +180,7 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
+
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -202,6 +203,9 @@ class REncoder:
 
                 if isinstance(value, np.number):
                     return str(value)
+                elif isinstance(value, np.bool_):
+                    return "TRUE" if value else "FALSE"
+
             except ImportError:
                 pass
         raise ValueError("Unsupported value for conversion into R: {}".format(value))
@@ -532,13 +536,18 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None:
+        if self.conda_env is not None and ON_WINDOWS:
+            prefix = self.conda_env
+        elif self.conda_env is not None:
             prefix = os.path.join(self.conda_env, "bin")
         elif self.env_modules is not None:
             prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
             raise NotImplementedError()
-        return os.path.exists(os.path.join(prefix, "python"))
+        if not ON_WINDOWS:
+            return os.path.exists(os.path.join(prefix, "python"))
+        else:
+            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
         out = self._execute_cmd(

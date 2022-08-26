@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
@@ -60,7 +61,7 @@ def validate(data, schema, set_default=True):
 
     if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        schemafile = workflow.current_basedir.join(schemafile)
+        schemafile = workflow.current_basedir.join(schemafile.get_path_or_uri())
 
     source = (
         workflow.sourcecache.open(schemafile)
@@ -227,7 +228,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     """Create an HTML report using python docutils.
 
@@ -284,7 +285,7 @@ def report(
         defaultenc=defaultenc,
         template=template,
         metadata=metadata,
-        **files
+        **files,
     )
 
 
