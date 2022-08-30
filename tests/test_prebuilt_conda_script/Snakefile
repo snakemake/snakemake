@@ -2,6 +2,15 @@ rule all:
     input:
         o='output.txt'
 
+rule add_dummy_package:
+    output:
+        o='input.txt'
+    conda:
+        'test_prebuilt_conda_script'
+    shell:
+        'touch input.txt\n'
+        'pip install -e dummy_package'
+
 rule test_prebuilt_conda_script:
     input:
         i='input.txt'

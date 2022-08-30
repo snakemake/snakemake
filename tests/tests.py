@@ -1929,5 +1929,4 @@ def test_conda_python_script():
 
 def test_prebuilt_conda_script():
     sp.run('conda create -n test_prebuilt_conda_script python=3.9 -y', shell=True)
-    sp.run('conda install -n test_prebuilt_conda_script luigi=3.0.3 -y', shell=True)
     run(dpath("test_prebuilt_conda_script"), use_conda=True)
