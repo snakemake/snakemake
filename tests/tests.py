@@ -1987,6 +1987,7 @@ def test_github_issue1618():
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
 
+
 def test_prebuilt_conda_script():
-    sp.run('conda create -n test_prebuilt_conda_script python=3.9 -y', shell=True)
+    sp.run("conda create -n test_prebuilt_conda_script python=3.9 -y", shell=True)
     run(dpath("test_prebuilt_conda_script"), use_conda=True)
