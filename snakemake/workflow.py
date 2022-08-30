@@ -257,6 +257,7 @@ class Workflow:
         _globals["gather"] = Gather()
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
+        _globals["gitfile"] = sourcecache.LocalGitFile
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
