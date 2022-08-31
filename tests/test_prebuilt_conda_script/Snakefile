@@ -9,7 +9,7 @@ rule add_dummy_package:
         'test_prebuilt_conda_script'
     shell:
         'touch input.txt\n'
-        'pip install -e dummy_package'
+        'python -m pip install -e dummy_package'
 
 rule test_prebuilt_conda_script:
     input:
