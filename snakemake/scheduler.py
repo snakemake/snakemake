@@ -31,7 +31,7 @@ from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
-from snakemake.common import async_run
+from snakemake.common import ON_WINDOWS, async_run
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -78,6 +78,7 @@ class JobScheduler:
         cluster_sidecar=None,
         drmaa=None,
         drmaa_log_dir=None,
+        env_modules=None,
         kubernetes=None,
         container_image=None,
         tibanna=None,
@@ -174,6 +175,8 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
             )
         elif slurm:
+            if ON_WINDOWS:
+                raise WorkflowError("SLURM execution is not supported on Windows.")
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
@@ -212,6 +215,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
+                env_modules=env_modules,
                 # assume_shared_fs=True,
                 # keepincomplete=keepincomplete,
                 # keepmetadata=keepmetadata,
