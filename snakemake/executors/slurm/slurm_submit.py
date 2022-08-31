@@ -44,12 +44,23 @@ def test_account(account):
     try:
         out = subprocess.check_output(cmd, shell=True)
     except subprocess.CalledProcessError:
+        raise WorkflowError("Unable to test the validity of the given or guess SLURM account.")
+    
+    if not account in [a.decode("ascii") for a in out.split()]:
+        raise WorkflowError("The given account appears not to be valid")
+
+def check_default_partition(rule):
+    """
+    if no partition is given, checks whether a fallback onto a default partition is possible
+    """
+    try:
+        out = subprocess.check_output(r"sinfo -o %P", shell=True)
+    except subprocess.CalledProcessError:
         logger.error("Unable to test the validity of the given or guess SLURM account.")
-
-    if not account in out.split():
-        return False
-    return True
-
+    for partition in out.split():
+        if "*"  in partition:
+            return partition.replace("*", "")
+    raise WorkflowError(f"No partition was given for rule '{rule}', unable to find a default partition.")
 
 class SlurmExecutor(ClusterExecutor):
     """
@@ -150,15 +161,21 @@ class SlurmExecutor(ClusterExecutor):
             sys.exit(1)
 
         if job.resources.get("account"):
-            call += " -A {account}".format(**job.resources)
+            account = job.resources.get("account")
         else:
-            logger.warning("Using SLURM without indicating an account might not work.")
+            logger.warning("No SLURM account given, trying to guess.")
+            account = get_account()
+        # here, we check whether the given or guessed account is valid
+        # if not, a WorkflowError is raised
+        test_account(account)
+        call += f" -A {account}"
+        
         if job.resources.get("partition"):
-            call += " -p {partition}".format(**job.resources)
+            partition = job.resources.get("partition")
         else:
-            logger.error("Snakemake was unable to retrieve a default partition and non was indicated.")
-            sys.exit(10)
-
+            partition = check_default_partition(job.rule)
+        call += f" -p {partition}"
+        
         if not job.resources.get("walltime_minutes"):
             logger.warning(
                 "No wall time limit is set, setting 'walltime_minutes' to 1."
@@ -166,6 +183,7 @@ class SlurmExecutor(ClusterExecutor):
         call += " -t {walltime_minutes}".format(
             walltime_minutes=job.resources.get("walltime_minutes", default_value=1)
         )
+        
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
         # TODO: implement when tempfs-resource is defined
@@ -178,37 +196,32 @@ class SlurmExecutor(ClusterExecutor):
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
-
+        
         exec_job = self.format_job_exec(job)
 
         # MPI job
-        if False:
-        #if job.resources.get("mpi", False):
+        if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
-                call += f" --cpus-per-task=".format(job.resources.get("threads", 1))
+                call += " --cpus-per-task=".format(job.resources.get("threads", 1))
             if not job.shellcmd:
                 # The reason for this error is that in this case _only_ the
                 # shell command is issued, not snakemake itself. Otherwise
                 # the jobstepexecutor would again be snakemake, but the MPI-starter
                 # is 'srun' not 'snakemake ...'.
-                logger.error("MPI-Jobs may only be run as a shell command.")
-                sys.exit(101)
+                WorkflowError("MPI-Jobs may only be run as a shell command.")
 
         # ordinary smp or group job application
         else: 
-            call += f" -n 1 -c {max(job.threads, 1)} {exec_job}"
-        print('wtf?')
+            call += f" -n 1 -c {max(job.threads, 1)}"
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
-        print('no. 2')
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
         
-        sys.exit()
         # try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
         # except:
