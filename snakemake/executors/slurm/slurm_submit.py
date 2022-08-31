@@ -212,7 +212,7 @@ class SlurmExecutor(ClusterExecutor):
                 # shell command is issued, not snakemake itself. Otherwise
                 # the jobstepexecutor would again be snakemake, but the MPI-starter
                 # is 'srun' not 'snakemake ...'.
-                WorkflowError("MPI-Jobs may only be run as a shell command.")
+                raise WorkflowError("MPI-Jobs may only be run as a shell command.")
 
         # ordinary smp or group job application
         else: 
