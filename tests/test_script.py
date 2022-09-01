@@ -1,6 +1,7 @@
 from textwrap import dedent
 
-from snakemake.script import RustScript
+from snakemake.io import InputFiles
+from snakemake.script import RustScript, BashEncoder
 
 
 class TestRustScriptExtractManifest:
@@ -556,3 +557,30 @@ fn main() {
         )
 
         assert remaining_src == expected_remaining_src
+
+
+class TestBashEncoder:
+    def test_named_list_one_named_one_str(self):
+        """InputFiles is a subclass of snakemake.io.NamedInput
+        ierate over input and store each with the integer index - i.e 0, 1, 2
+        then use input.items() to iterate over the named files and store them as named also
+        check how this works with named things being lists
+        """
+        named_list = InputFiles(["test.in", "named.in"])
+        named_list._set_name("named", 1)
+
+        actual = BashEncoder.encode_namedlist(named_list)
+        expected = r"""( [0]="test.in" [1]="named.in" [named]="named.in" )"""
+
+        assert actual == expected
+
+    def test_named_list_named_is_list(self):
+        """Named lists that are lists of files become a space-separated string as you
+        can't nest arrays in bash"""
+        named_list = InputFiles(["test1.in", ["test2.in", "named.in"]])
+        named_list._set_name("named", 1)
+
+        actual = BashEncoder.encode_namedlist(named_list)
+        expected = r"""( [0]="test1.in" [1]="test2.in named.in" [named]="test2.in named.in" )"""
+
+        assert actual == expected

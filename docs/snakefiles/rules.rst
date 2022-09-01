@@ -909,6 +909,124 @@ If your script uses any of these packages, you do not need to ``use`` them in yo
 .. |json_typegen| replace:: ``json_typegen``
 .. _json_typegen: https://github.com/evestera/json_typegen
 
+
+Bash
+~~~~
+
+Bash scripts work much the same as the other script languages above, but with some important differences. Access to the
+rule's directives is provided through the use of `associative arrays <arrays_>`_ - **requiring Bash version 4.0 or greater**.
+One "limitation" of associative arrays is they cannot be nested. As such, the following rule directives are found in a separate
+variable, named as ``snakemake_<directive>``:
+
+* ``input``
+* ``output``
+* ``log``
+* ``wildcards``
+* ``resources``
+* ``params``
+* ``config``
+
+Access to the ``input`` directive is faciliated through the bash associative array named ``snakemake_input``. The
+remaining directives can be found in the variable ``snakemake``.
+
+.. sidebar:: Note
+
+    As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
+
+Bash Example 1
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    rule align:
+        input:
+            "{sample}.fq",
+            reference="ref.fa",
+        output:
+            "{sample}.sam"
+        params:
+            opts="-a -x map-ont",
+        threads: 4
+        log:
+            "align/{sample}.log"
+        conda:
+            "envs/align.yaml"
+        script:
+            "scripts/align.sh"
+
+
+
+``align.sh``
+
+.. code-block:: bash
+
+    #!/usr/bin/env bash
+
+    echo "Aligning sample ${snakemake_wildcards[sample]} with minimap2" 2> "${snakemake_log[0]}"
+
+    minimap2 ${snakemake_params[opts]} -t ${snakemake[threads]} "${snakemake_input[reference]}" \
+        "${snakemake_input[0]}" > "${snakemake_output[0]}" 2>> "${snakemake_log[0]}"
+
+
+If you don't add a shebang, the default ``#!/usr/bin/env bash`` will be inserted for you. A tutorial on how to use
+associative arrays can be found `here <https://www.xmodulo.com/key-value-dictionary-bash.html>`_.
+
+You may also have noticed the mixed use of double-quotes when accessing some variables. It is generally good practice in
+Bash to double-quote variables for which you want to `prevent word splitting <split_>`_; generally, you will want to
+double-quote any variable that could contain a file name. However, `in some cases <exception_>`_, word splitting *is* desired,
+such as ``${snakemake_params[opts]}`` in the above example.
+
+Bash Example 2
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    rule align:
+        input:
+            reads=["{sample}_R1.fq", "{sample}_R2.fq]"],
+            reference="ref.fa",
+        output:
+            "{sample}.sam"
+        params:
+            opts="-M",
+        threads: 4
+        log:
+            "align/{sample}.log"
+        conda:
+            "envs/align.yaml"
+        script:
+            "scripts/align.sh"
+
+
+In this example, the ``input`` variable ``reads``, which is a python list, actually gets stored as a space-separated string
+in Bash because, you guessed it, you can't nest arrays in Bash! So in order to access the individual members, we turn the
+string into an array; allowing us to access individual elements of the list/array. See `this stackoverflow question <so_>`_ for other solutions.
+
+``align.sh``
+
+.. code-block:: bash
+
+    #!/usr/bin/env bash
+
+    exec 2> "${snakemake_log[0]}"  # send all stderr from this script to the log file
+
+    reads=(${snakemake_input[reads]})  # don't double-quote this - we want word splitting
+
+    r1="${reads[0]}"
+    r2="${reads[1]}"
+
+    bwa index "${snakemake_input[reference]}"
+    bwa mem ${snakemake_params[opts]} -t ${snakemake[threads]} \
+        "${snakemake_input[reference]}" "$r1" "$r2" > "${snakemake_output[0]}"
+
+If, in the above example, the fastq reads were not in a named variable, but were instead just a list, they would be available
+as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
+
+.. _arrays: https://www.gnu.org/software/bash/manual/html_node/Arrays.html#Arrays
+.. _split: https://github.com/koalaman/shellcheck/wiki/SC2046
+.. _exception: https://github.com/koalaman/shellcheck/wiki/SC2046#exceptions
+.. _so: https://stackoverflow.com/q/1469849/5299417
+
 ----
 
 For technical reasons, scripts are executed in ``.snakemake/scripts``. The original script directory is available as ``scriptdir`` in the ``snakemake`` object.
