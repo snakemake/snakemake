@@ -353,7 +353,15 @@ Post-deployment scripts must be placed next to their corresponding environment-f
         └── interproscan.post-deploy.sh
 
 The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
-By default these scripts will be invoked with ``bash`` shell (unless the workflow specifies a different default shell via ``shell.executable(...)``).
+Importantly, if the script relies on certain shell specific syntax, (e.g. `set -o pipefail` for bash), make sure to add a matching shebang to the script, e.g.:
+
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    # ...
+
+If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
 
 .. _conda_named_env:
 
