@@ -351,7 +351,7 @@ class Env:
             )
         )
         shell.check_output(
-            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, f"{shell.get_executable()} {deploy_file}"),
             stderr=subprocess.STDOUT,
         )
 
