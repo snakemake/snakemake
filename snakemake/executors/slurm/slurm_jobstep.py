@@ -100,21 +100,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             #     jobsteps[level_job] = subprocess.Popen( 
             #         get_call(level_job, level_id + 1, aux="--singleton"), shell=True
             #     )
-        # Per default 'srun' is the MPI-starter under SLURM. Hence, users may specify the starter
-        # AND specify further flags (e.g. binding of ranks, setting MPI-topoloy, etc.).
-        # In an ordinary smp case, binding the (presumably threaded) process, ensures optimal placement
-        # regardless of cluster configurations.
-        # elif job.resources.get("mpi") and job.shellcmd:
-        #     call = f"{cmd}; {job.resources.get('mpi')} {job.shellcmd}"
-        # elif job.shellcmd:
-        #     call = f"{cmd}; srun --cpu-bind=q --exclusive {job.shellcmd}"
-        # elif job.is_script():
-        #     call = f"{cmd}; srun --cpu-bind=q --exclusive {job.script}"
-        # # in case of the wrapper, the wrapper must take care of the call with regard to SLURM
-        # elif job.is_wrapper():
-        #     call = f"{job.wrapper}"
 
-        #else:
         if 'mpi' in job.resources.keys():
             # MPI job:
             # No need to prepend `srun`, as this will happen inside of the job's shell command or script (!).
