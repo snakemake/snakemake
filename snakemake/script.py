@@ -351,7 +351,7 @@ class BashEncoder:
                 main_aa[var] = val
 
         arrays.append(f"{self.prefix}={self.dict_to_aa(main_aa)}")
-        return "\n".join(arrays)
+        return "\n".join([f"declare -A {aa}" for aa in arrays])
 
     @staticmethod
     def dict_to_aa(d: dict) -> str:
