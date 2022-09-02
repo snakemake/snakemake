@@ -74,33 +74,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         jobsteps = dict()
         
-        # This is the job-script spawned by SLURM and Snakemake
-        # SLURM requires to submit a script or executable, which is
-        # Snakemake by means of `sbatch --wrap` via the SLURM_Executor.
-        # In order to avoid launching yet a third Snakemake process, 
-        # this Executor class needs to take care of the environment setup.
-        # 
-        #TODO: refactor the following code to be placed in a dedicated function. 
-        env_modules = job.env_modules if self.workflow.use_env_modules else None
-        conda_env = (
-            job.conda_env.address if self.workflow.use_conda and job.conda_env else None
-        )
-        container_img = (
-            job.container_img_path if self.workflow.use_singularity else None
-        )
-        if env_modules:
-            try:
-                cmd = f"module purge && module load {env_modules}"
-            except:
-                raise WorkflowError(f"Unable to load the required module(s): {env_modules}")
-        elif conda_env:
-            try:
-                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
-                        conda_env, cmd
-                    )
-            except:
-                raise WorkflowError("Unable to load the required conda environment: {conda_env}")         
-
         if job.is_group():
             call = self.format_job_exec(job)
             
@@ -131,21 +104,27 @@ class SlurmJobstepExecutor(ClusterExecutor):
         # AND specify further flags (e.g. binding of ranks, setting MPI-topoloy, etc.).
         # In an ordinary smp case, binding the (presumably threaded) process, ensures optimal placement
         # regardless of cluster configurations.
-        elif job.resources.get("mpi") and job.shellcmd:
-            call = f"{cmd}; {job.resources.get('mpi')} {job.shellcmd}"
-        elif job.shellcmd:
-            call = f"{cmd}; srun --cpu-bind=q --exclusive {job.shellcmd}"
-        elif job.is_script():
-            call = f"{cmd}; srun --cpu-bind=q --exclusive {job.script}"
-        # in case of the wrapper, the wrapper must take care of the call with regard to SLURM
-        elif job.is_wrapper():
-            call = f"{job.wrapper}"
+        # elif job.resources.get("mpi") and job.shellcmd:
+        #     call = f"{cmd}; {job.resources.get('mpi')} {job.shellcmd}"
+        # elif job.shellcmd:
+        #     call = f"{cmd}; srun --cpu-bind=q --exclusive {job.shellcmd}"
+        # elif job.is_script():
+        #     call = f"{cmd}; srun --cpu-bind=q --exclusive {job.script}"
+        # # in case of the wrapper, the wrapper must take care of the call with regard to SLURM
+        # elif job.is_wrapper():
+        #     call = f"{job.wrapper}"
 
         #else:
-            
-        #    suffix = job.resources.get("mpi", "srun --cpu-bind=q --exclusive")
-        
-        #    call = f"{self.format_job_exec(job)} {suffix}"
+        if 'mpi' in job.resources.keys():
+            # MPI job:
+            # No need to prepend `srun`, as this will happen inside of the job's shell command or script (!).
+            # The following call invokes snakemake, which in turn takes care of all auxilliary work around the actual command
+            # like remote file support, benchmark setup, error handling, etc.
+            # AND there can be stuff around the srun call within the job, like any commands which should be executed before.
+            call = self.format_job_exec(job)
+        else:
+            # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
+            call = f"srun --cpu-bind=q --exclusive {self.format_job_exec(job)}"            
         
         # this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
         jobsteps[job] = subprocess.Popen(call, shell=True)
