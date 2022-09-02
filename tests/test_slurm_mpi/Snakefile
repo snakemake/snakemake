@@ -16,8 +16,6 @@ rule calc_pi:
      input: "pi_MPI"
      output: "pi.calc"
      resources:
-           nodes=1,
-           walltime_minutes=10,
            tasks=2,
-           mpi=True,
-     shell: "{input} > {output}"
+           mpi='srun',
+     shell: "{resources.mpi} {input} &> {output}"
