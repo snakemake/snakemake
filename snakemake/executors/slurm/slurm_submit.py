@@ -105,8 +105,6 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        # TODO: check! Even this does not add this attribute to the class
-        #       see comment on the bottom.
         self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
