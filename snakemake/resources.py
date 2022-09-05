@@ -7,7 +7,7 @@ from snakemake.exceptions import WorkflowError
 # in a future version, we might want to add more and have
 # better validation functions (and perhaps conversion from --mem
 # to mem_mb, etc.)
-supported_keys = {
+slurm_relevant_keys = {
     "account": str,
     "partition": str,
     "walltime_minutes": int,
@@ -129,7 +129,7 @@ def parse_resources(resources_args, fallback=None):
                 )
 
             # translate into supported type
-            functor = supported_keys.get(res, int)
+            functor = slurm_relevant_keys.get(res, int)
             try:
                 val = functor(val)
             except ValueError:
