@@ -67,10 +67,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         pass
 
-    # TODO: place setup code, here, in a first step, then in deployment module
-    def environment_setup(self, job):
-        pass
-
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         jobsteps = dict()
         
