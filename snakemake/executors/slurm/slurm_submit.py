@@ -135,7 +135,6 @@ class SlurmExecutor(ClusterExecutor):
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
-        workdir = os.getcwd()
         jobid = job.jobid
         os.makedirs(".snakemake/slurm_logs", exist_ok=True)
         # generic part of a submission string:
