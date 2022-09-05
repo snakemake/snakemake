@@ -46,7 +46,7 @@ def test_account(account):
     except subprocess.CalledProcessError:
         raise WorkflowError("Unable to test the validity of the given or guess SLURM account.")
     
-    if not account in [a.decode("ascii") for a in out.split()]:
+    if account not in (a.decode("ascii") for a in out.split()):
         raise WorkflowError("The given account appears not to be valid")
 
 def check_default_partition(rule):
