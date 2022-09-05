@@ -3,19 +3,22 @@ import tempfile
 
 from snakemake.exceptions import WorkflowError
 
+# these keys are (almost) mandatory in the SLURM context
+# in a future version, we might want to add more and have
+# better validation functions (and perhaps conversion from --mem
+# to mem_mb, etc.)
 supported_keys = {
     "account": str,
     "partition": str,
     "walltime_minutes": int,
     "constraint": str,
-    "mpi": bool,
+    "mpi": str,
     "mem_mb": int,
     "mem_mb_per_cpu": int,
     "ntasks": int,
     "cpus_per_task": int,
     "nodes": int,
 }
-
 
 class DefaultResources:
     defaults = {
