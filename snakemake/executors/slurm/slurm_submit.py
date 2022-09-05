@@ -67,9 +67,6 @@ class SlurmExecutor(ClusterExecutor):
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
     """
-
-    # default_jobscript = "slurm/slurm_jobstep.py"
-
     def __init__(
         self,
         workflow,
