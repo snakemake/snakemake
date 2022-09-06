@@ -350,8 +350,16 @@ class Env:
                 os.path.relpath(path=deploy_file, start=os.getcwd())
             )
         )
+
+        # Determine interpreter from shebang or use sh as default.
+        interpreter = "sh"
+        with open(deploy_file, "r") as f:
+            first_line = next(iter(f))
+            if first_line.startswith("#!"):
+                interpreter = first_line[2:].strip()
+
         shell.check_output(
-            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, f"{interpreter} {deploy_file}"),
             stderr=subprocess.STDOUT,
         )
 
