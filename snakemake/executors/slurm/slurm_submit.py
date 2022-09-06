@@ -223,12 +223,6 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
                 call += " --cpus-per-task=".format(job.resources.get("threads", 1))
-            if not job.shellcmd:
-                # The reason for this error is that in this case _only_ the
-                # shell command is issued, not snakemake itself. Otherwise
-                # the jobstepexecutor would again be snakemake, but the MPI-starter
-                # is 'srun' not 'snakemake ...'.
-                raise WorkflowError("MPI-Jobs may only be run as a shell command.")
 
         # ordinary smp or group job application
         else:
