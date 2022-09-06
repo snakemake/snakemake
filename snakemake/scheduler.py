@@ -186,7 +186,6 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cores=local_cores,
                 keepincomplete=keepincomplete,
-                # keepmetadata=keepmetadata,
             )
             # we need to adjust the maximum status checks on a
             # SLURM cluster for not to overstrain the scheduler
@@ -201,9 +200,6 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                #    assume_shared_fs=True,
-                # keepincomplete=keepincomplete,
-                # keepmetadata=keepmetadata,
                 cluster_config=cluster_config,
                 max_status_checks_per_second=max_status_checks_per_second,
             )
