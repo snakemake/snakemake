@@ -204,8 +204,6 @@ class SlurmExecutor(ClusterExecutor):
 
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
-        # TODO: implement when tempfs-resource is defined
-        # if job.resources.get()
         if job.resources.get("mem_mb_per_cpu"):
             call += " --mem-per-cpu={mem_mb_per_cpu}".format(**job.resources)
         elif job.resources.get("mem_mb"):
