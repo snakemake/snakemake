@@ -183,7 +183,6 @@ class SlurmExecutor(ClusterExecutor):
                 **job.resources, jobname=self.get_jobname(job)
             )
         except KeyError as e:
-            # TODO: make explicit message for account / partition
             logger.error(
                 "Missing job submission key '{}' for job '{}'.".format(
                     e.args[0], job.name
