@@ -73,29 +73,34 @@ class SlurmJobstepExecutor(ClusterExecutor):
         if job.is_group():
             call = self.format_job_exec(job)
             
-            #TODO: re-implement, if tested and then with 'resources: group_oversubscribe=True' or similar
-            # def get_call(level_job, level_id, aux=""):
-            #     # we need this calculation, because of srun's greediness and
-            #     # SLURM's limits: it is not able to limit the memory if we divide the job
-            #     # per CPU by itself.
-            #     mem_per_cpu = max(level_job.resources.mem_mb // level_job.threads, 100)
-            #     exec_job = self.format_job_exec(level_job)
-            #     return (
-            #         f"srun -J {level_id} --jobid {self.jobid}"
-            #         f"--mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
-            #         f"--exclusive -n 1 {aux} {exec_job}"
-            #     )
+            def get_call(level_job, aux=""):
+                # we need this calculation, because of srun's greediness and
+                # SLURM's limits: it is not able to limit the memory if we divide the job
+                # per CPU by itself.
 
-            # for level in job.toposorted:
-            #     for level_id, level_job in enumerate(level[:-1]):
-            #         # TODO: spice with srun template
-            #         jobsteps[level_job] = subprocess.Popen(
-            #             get_call(level_job, level_id), shell=True
-            #         )
-            #     # this way, we ensure that level jobs depending on the current level get started
-            #     jobsteps[level_job] = subprocess.Popen( 
-            #         get_call(level_job, level_id + 1, aux="--singleton"), shell=True
-            #     )
+                # check whether level_job.resources.mem_mb is TBD
+                level_mem = 100 if level_job.resources.mem_mb != type(int) else level_job.resources.mem_mb
+
+                mem_per_cpu = max(level_mem // level_job.threads, 100)
+                exec_job = self.format_job_exec(level_job)
+                return (
+                    f"srun -J {job.groupid} --jobid {self.jobid}"
+                    f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
+                    f" --exclusive -n 1 {aux} {exec_job}"
+                )
+
+            for level in list(job.toposorted):
+                # we need to ensure order - any:
+                level_list = list(level)
+                for level_job in level_list[:-1]:
+                    jobsteps[level_job] = subprocess.Popen(
+                        get_call(level_job), shell=True
+                    )
+                # now: the last one
+                # this way, we ensure that level jobs depending on the current level get started
+                jobsteps[level_list[-1]] = subprocess.Popen( 
+                    get_call(level_list[-1], aux="--dependency=singleton"), shell=True
+                )
 
         if 'mpi' in job.resources.keys():
             # MPI job:
