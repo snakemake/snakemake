@@ -23,6 +23,7 @@ from snakemake.io import get_wildcard_names, Wildcards
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
+
 def get_account():
     """
     tries to deduce the acccount from recent jobs,
@@ -36,6 +37,7 @@ def get_account():
         raise WorkflowError("No account was given, not able to get a SLURM account")
     return sacct_out.strip().decode("ascii")
 
+
 def test_account(account):
     """
     tests whether the given account is registered, raises an Error, if not
@@ -44,10 +46,13 @@ def test_account(account):
     try:
         out = subprocess.check_output(cmd, shell=True)
     except subprocess.CalledProcessError:
-        raise WorkflowError("Unable to test the validity of the given or guess SLURM account.")
-    
+        raise WorkflowError(
+            "Unable to test the validity of the given or guess SLURM account."
+        )
+
     if account not in (a.decode("ascii") for a in out.split()):
         raise WorkflowError("The given account appears not to be valid")
+
 
 def check_default_partition(rule):
     """
@@ -58,15 +63,19 @@ def check_default_partition(rule):
     except subprocess.CalledProcessError:
         logger.error("Unable to test the validity of the given or guess SLURM account.")
     for partition in out.split():
-        if "*"  in partition:
+        if "*" in partition:
             return partition.replace("*", "")
-    raise WorkflowError(f"No partition was given for rule '{rule}', unable to find a default partition.")
+    raise WorkflowError(
+        f"No partition was given for rule '{rule}', unable to find a default partition."
+    )
+
 
 class SlurmExecutor(ClusterExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
     """
+
     def __init__(
         self,
         workflow,
@@ -123,15 +132,15 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
-    def cluster_params(self, job):
-        """
-        Returns wildcards object for 'job'.
+    # def cluster_params(self, job):
+    #     """
+    #     Returns wildcards object for 'job'.
 
-        In contrast to the ClusterExecutor, which gets
-        its config from a config file, this SlurmExecutor
-        has the internal handling via job.resources
-        """
-        return job.dynamic_wildcards.copy()
+    #     In contrast to the ClusterExecutor, which gets
+    #     its config from a config file, this SlurmExecutor
+    #     has the internal handling via job.resources
+    #     """
+    #     return job.dynamic_wildcards.copy()
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -163,13 +172,13 @@ class SlurmExecutor(ClusterExecutor):
         # if not, a WorkflowError is raised
         test_account(account)
         call += f" -A {account}"
-        
+
         if job.resources.get("partition"):
             partition = job.resources.get("partition")
         else:
             partition = check_default_partition(job.rule)
         call += f" -p {partition}"
-        
+
         if not job.resources.get("walltime_minutes"):
             logger.warning(
                 "No wall time limit is set, setting 'walltime_minutes' to 1."
@@ -177,7 +186,7 @@ class SlurmExecutor(ClusterExecutor):
         call += " -t {walltime_minutes}".format(
             walltime_minutes=job.resources.get("walltime_minutes", default_value=1)
         )
-        
+
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
         # TODO: implement when tempfs-resource is defined
@@ -190,7 +199,7 @@ class SlurmExecutor(ClusterExecutor):
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
-        
+
         exec_job = self.format_job_exec(job)
 
         # MPI job
@@ -209,13 +218,13 @@ class SlurmExecutor(ClusterExecutor):
                 raise WorkflowError("MPI-Jobs may only be run as a shell command.")
 
         # ordinary smp or group job application
-        else: 
+        else:
             call += f" -n 1 -c {max(job.threads, 1)}"
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
-        
+
         # try:
         out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
         # except:
