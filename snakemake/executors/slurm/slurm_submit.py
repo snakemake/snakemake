@@ -142,6 +142,34 @@ class SlurmExecutor(ClusterExecutor):
     #     """
     #     return job.dynamic_wildcards.copy()
 
+    def set_account(self, job):
+        """
+        checks whether the desired account is valid,
+        returns a default account, if applicable
+        else raises an error - implicetly.
+        """
+        if job.resources.get("account"):
+            account = job.resources.get("account")
+        else:
+            logger.warning("No SLURM account given, trying to guess.")
+            account = get_account()
+        # here, we check whether the given or guessed account is valid
+        # if not, a WorkflowError is raised
+        test_account(account)
+        return f" -A {account}"
+
+    def set_partition(self, job):
+        """
+        checks whether the desired partition is valid,
+        returns a default partition, if applicable
+        else raises an error - implicetly.
+        """
+        if job.resources.get("partition"):
+            partition = job.resources.get("partition")
+        else:
+            partition = check_default_partition(job.rule)
+        return f" -p {partition}"
+
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         jobid = job.jobid
@@ -163,21 +191,9 @@ class SlurmExecutor(ClusterExecutor):
             )
             sys.exit(1)
 
-        if job.resources.get("account"):
-            account = job.resources.get("account")
-        else:
-            logger.warning("No SLURM account given, trying to guess.")
-            account = get_account()
-        # here, we check whether the given or guessed account is valid
-        # if not, a WorkflowError is raised
-        test_account(account)
-        call += f" -A {account}"
+        call += self.set_account(job)
 
-        if job.resources.get("partition"):
-            partition = job.resources.get("partition")
-        else:
-            partition = check_default_partition(job.rule)
-        call += f" -p {partition}"
+        call += self.set_partition(job)
 
         if not job.resources.get("walltime_minutes"):
             logger.warning(
