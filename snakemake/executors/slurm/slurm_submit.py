@@ -222,11 +222,11 @@ class SlurmExecutor(ClusterExecutor):
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
             if job.resources.get("threads", False):
-                call += " --cpus-per-task=".format(job.resources.get("threads", 1))
+                call += " --cpus-per-task={}".format(job.resources.get("threads", 1))
 
         # ordinary smp or group job application
         else:
-            call += f" -n 1 -c {max(job.threads, 1)}"
+            call += " -n 1 -c {}".format(job.resources.get("threads", 1))
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
