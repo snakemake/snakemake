@@ -687,7 +687,6 @@ class ClusterExecutor(RealExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,

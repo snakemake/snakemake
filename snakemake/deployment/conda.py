@@ -239,13 +239,16 @@ class Env:
             hash_candidates = [
                 hash[:8],
                 hash,
+                hash
+                + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
             ]  # [0] is the old fallback hash (shortened)
             exists = [os.path.exists(get_path(h)) for h in hash_candidates]
-            if self.is_containerized or exists[1] or (not exists[0]):
-                # containerizes, full hash exists or fallback hash does not exist: use full hash
+            if self.is_containerized:
                 return get_path(hash_candidates[1])
-            # use fallback hash
-            return get_path(hash_candidates[0])
+            for candidate, candidate_exists in zip(hash_candidates, exists):
+                if candidate_exists or candidate == hash_candidates[-1]:
+                    # exists or it is the last (i.e. the desired one)
+                    return get_path(candidate)
 
     @property
     def address_argument(self):
@@ -347,8 +350,16 @@ class Env:
                 os.path.relpath(path=deploy_file, start=os.getcwd())
             )
         )
+
+        # Determine interpreter from shebang or use sh as default.
+        interpreter = "sh"
+        with open(deploy_file, "r") as f:
+            first_line = next(iter(f))
+            if first_line.startswith("#!"):
+                interpreter = first_line[2:].strip()
+
         shell.check_output(
-            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, f"{interpreter} {deploy_file}"),
             stderr=subprocess.STDOUT,
         )
 
@@ -479,6 +490,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
+                            "--no-shortcuts",
                             "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
@@ -729,7 +741,7 @@ class Conda:
                         "It is the recommended way of using Snakemake's conda integration. "
                         "It can be installed with `conda install -n base -c conda-forge mamba`. "
                         "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`.",
+                        "`--conda-frontend conda`."
                     )
                 raise CreateCondaEnvironmentException(msg)
 

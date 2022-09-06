@@ -16,6 +16,7 @@ import urllib
 import pytest
 import glob
 import subprocess
+import tarfile
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -90,6 +91,12 @@ def get_expected_files(results_dir):
         for f in glob.iglob(os.path.join(results_dir, "**/**"), recursive=True)
         if not os.path.isdir(f)
     ]
+
+
+def untar_folder(tar_file, output_path):
+    if not os.path.isdir(output_path):
+        with tarfile.open(tar_file) as tar:
+            tar.extractall(path=output_path)
 
 
 def run(
