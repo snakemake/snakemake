@@ -212,9 +212,6 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 env_modules=env_modules,
-                # assume_shared_fs=True,
-                # keepincomplete=keepincomplete,
-                # keepmetadata=keepmetadata,
             )
             self._local_executor = self._executor
 
