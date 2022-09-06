@@ -55,7 +55,11 @@ class FluxExecutor(ClusterExecutor):
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't access the flux api
-        self._init_flux()
+        if not flux:
+            raise WorkflowError(
+                "Cannot import flux. Is a cluster available to you with Python bindings?"
+            )
+        self._fexecutor = flux.job.FluxExecutor()
 
     def _prepare_job_formatter(self):
         """
@@ -91,16 +95,6 @@ class FluxExecutor(ClusterExecutor):
                 self.job_attrs.update((field,))
             else:
                 self.job_attrs.update(fields2attrs[field])
-
-    def _init_flux(self):
-        """
-        Ensure we can import flux in the environment.
-        """
-        if not flux:
-            sys.exit(
-                "Cannot import flux. Is a cluster available to you with Python bindings?"
-            )
-        self._fexecutor = flux.job.FluxExecutor()
 
     def cancel(self):
         """
