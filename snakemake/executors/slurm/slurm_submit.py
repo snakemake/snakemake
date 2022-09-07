@@ -114,9 +114,12 @@ class SlurmExecutor(ClusterExecutor):
         self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
-        # at some point '-j 1' became necessary whilst the entire
-        # commandline _should_ propagate this flag.
-        # TODO: look into this matter
+        # we need to set -j to 1 here, because the behaviour
+        # of snakemake is to submit all jobs at once, otherwise.
+        # However, the SLURM Executor is supposed to submit jobs
+        # one after another, so we need to set -j to 1 for the
+        # JobStep Executor, which in turn handles the launch of
+        # SLURM jobsteps.  
         return [" --slurm-jobstep", "-j 1"]
 
     def cancel(self):
