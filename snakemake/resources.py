@@ -587,6 +587,7 @@ def parse_resources(resources_args, fallback=None):
                         "Resource definiton must contain an {functor} after the identifier.".format(
                             functor=functor.__name__
                         )
+                    )
             if res == "_cores":
                 raise ValueError(
                     "Resource _cores is already defined internally. Use a different "
