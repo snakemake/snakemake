@@ -1553,6 +1553,7 @@ def test_scatter_gather():
 
 # SLURM tests go here, after successfull tests
 
+
 def test_scatter_gather_multiple_processes():
     run(
         dpath("test_scatter_gather_multiple_processes"),
