@@ -109,6 +109,31 @@ class AbstractExecutor:
         default_resources = default_resources or self.workflow.default_resources
         return format_cli_arg("--default-resources", default_resources.args)
 
+    def get_resource_scopes_args(self):
+        return format_cli_arg(
+            "--set-resource-scopes", self.workflow.overwrite_resource_scopes
+        )
+
+    def get_resource_declarations(self, job):
+        def isdigit(i):
+            s = str(i)
+            # Adapted from https://stackoverflow.com/a/1265696
+            if s[0] in ("-", "+"):
+                return s[1:].isdigit()
+            return s.isdigit()
+
+        excluded_resources = self.workflow.resource_scopes.excluded.union(
+            {"_nodes", "_cores"}
+        )
+        resources = [
+            f"{resource}={value}"
+            for resource, value in job.resources.items()
+            if isinstance(value, int)
+            # need to check bool seperately because bool is a subclass of int
+            and isdigit(value) and resource not in excluded_resources
+        ]
+        return format_cli_arg("--resources", resources)
+
     def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
         """Run a list of jobs that is ready at a given point in time.
 
@@ -318,6 +343,7 @@ class RealExecutor(AbstractExecutor):
                 self.get_set_resources_args(),
                 self.get_default_remote_provider_args(),
                 self.get_default_resources_args(),
+                self.get_resource_scopes_args(),
                 self.get_workdir_arg(),
                 join_cli_args(self.additional_general_args()),
                 format_cli_arg("--mode", self.get_exec_mode()),
@@ -352,6 +378,7 @@ class RealExecutor(AbstractExecutor):
                 format_cli_arg("--cores", kwargs.get("cores", self.cores)),
                 format_cli_arg("--attempt", job.attempt),
                 format_cli_arg("--force-use-threads", not job.is_group()),
+                self.get_resource_declarations(job),
             ]
         )
 
@@ -668,7 +695,6 @@ class ClusterExecutor(RealExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
