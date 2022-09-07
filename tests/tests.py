@@ -19,6 +19,11 @@ from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 def test_slurm_mpi():
     run(dpath("test_slurm_mpi"), slurm=True)
 
+@skip_on_windows:
+def test14_mpi():
+    os.environ["TESTVAR"] = "test"
+    os.environ["TESTVAR2"] = "test"
+    run(dpath("test14"), snakefile="Snakefile.nonstandard", slurm=True)
 
 @skip_on_windows
 def test_slurm_group_job():
