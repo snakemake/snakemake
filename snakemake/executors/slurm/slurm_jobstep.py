@@ -66,56 +66,64 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def _wait_for_jobs(self):
         pass
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def launch_jobsteps(self, job):
+        """
+        launches all jobsteps of a job,
+        returns a dict of group job, jobsteps.
+        """
         jobsteps = dict()
 
+        def get_call(level_job, aux=""):
+            # we need this calculation, because of srun's greediness and
+            # SLURM's limits: it is not able to limit the memory if we divide the job
+            # per CPU by itself.
+
+            # check whether level_job.resources.mem_mb is TBD
+            level_mem = (
+                100
+                if level_job.resources.mem_mb != type(int)
+                else level_job.resources.mem_mb
+            )
+
+            mem_per_cpu = max(level_mem // level_job.threads, 100)
+            exec_job = self.format_job_exec(level_job)
+            return (
+                f"srun -J {job.groupid} --jobid {self.jobid}"
+                f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
+                f" --exclusive -n 1 {aux} {exec_job}"
+            )
+
+        for level in list(job.toposorted):
+            # we need to ensure order - any:
+            level_list = list(level)
+            for level_job in level_list[:-1]:
+                jobsteps[level_job] = subprocess.Popen(get_call(level_job), shell=True)
+            # now: the last one
+            # this way, we ensure that level jobs depending on the current level get started
+            jobsteps[level_list[-1]] = subprocess.Popen(
+                get_call(level_list[-1], aux="--dependency=singleton"), shell=True
+            )
+        return jobsteps
+
+    def run(self, job, callback=None, submit_callback=None, error_callback=None):
         if job.is_group():
-            def get_call(level_job, aux=""):
-                # we need this calculation, because of srun's greediness and
-                # SLURM's limits: it is not able to limit the memory if we divide the job
-                # per CPU by itself.
-
-                # check whether level_job.resources.mem_mb is TBD
-                level_mem = (
-                    100
-                    if level_job.resources.mem_mb != type(int)
-                    else level_job.resources.mem_mb
-                )
-
-                mem_per_cpu = max(level_mem // level_job.threads, 100)
-                exec_job = self.format_job_exec(level_job)
-                return (
-                    f"srun -J {job.groupid} --jobid {self.jobid}"
-                    f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
-                    f" --exclusive -n 1 {aux} {exec_job}"
-                )
-
-            for level in list(job.toposorted):
-                # we need to ensure order - any:
-                level_list = list(level)
-                for level_job in level_list[:-1]:
-                    jobsteps[level_job] = subprocess.Popen(
-                        get_call(level_job), shell=True
-                    )
-                # now: the last one
-                # this way, we ensure that level jobs depending on the current level get started
-                jobsteps[level_list[-1]] = subprocess.Popen(
-                    get_call(level_list[-1], aux="--dependency=singleton"), shell=True
-                )
-
-        if "mpi" in job.resources.keys():
-            # MPI job:
-            # No need to prepend `srun`, as this will happen inside of the job's shell command or script (!).
-            # The following call invokes snakemake, which in turn takes care of all auxilliary work around the actual command
-            # like remote file support, benchmark setup, error handling, etc.
-            # AND there can be stuff around the srun call within the job, like any commands which should be executed before.
-            call = self.format_job_exec(job)
+            jobsteps = self.launch_jobsteps(job)
         else:
-            # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
-            call = f"srun --cpu-bind=q --exclusive {self.format_job_exec(job)}"
+            jobsteps = dict()
 
-        # this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
-        jobsteps[job] = subprocess.Popen(call, shell=True)
+            if "mpi" in job.resources.keys():
+                # MPI job:
+                # No need to prepend `srun`, as this will happen inside of the job's shell command or script (!).
+                # The following call invokes snakemake, which in turn takes care of all auxilliary work around the actual command
+                # like remote file support, benchmark setup, error handling, etc.
+                # AND there can be stuff around the srun call within the job, like any commands which should be executed before.
+                call = self.format_job_exec(job)
+            else:
+                # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
+                call = f"srun --cpu-bind=q --exclusive {self.format_job_exec(job)}"
+
+            #  this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
+            jobsteps[job] = subprocess.Popen(call, shell=True)
 
         # wait until all steps are finished
         error = False
