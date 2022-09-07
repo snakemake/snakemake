@@ -135,16 +135,6 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
-    # def cluster_params(self, job):
-    #     """
-    #     Returns wildcards object for 'job'.
-
-    #     In contrast to the ClusterExecutor, which gets
-    #     its config from a config file, this SlurmExecutor
-    #     has the internal handling via job.resources
-    #     """
-    #     return job.dynamic_wildcards.copy()
-
     def set_account(self, job):
         """
         checks whether the desired account is valid,
