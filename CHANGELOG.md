@@ -1,5 +1,85 @@
 # Changelog
 
+## [7.14.0](https://github.com/snakemake/snakemake/compare/v7.13.0...v7.14.0) (2022-08-27)
+
+
+### Features
+
+* add support for bash scripts in the script directive (beyond small shell commands) ([#1821](https://github.com/snakemake/snakemake/issues/1821)) ([c4cf8fd](https://github.com/snakemake/snakemake/commit/c4cf8fdb119e678e51fd1932392699957c63b6c4))
+
+
+### Documentation
+
+* fix small typo in FAQ ([#1832](https://github.com/snakemake/snakemake/issues/1832)) ([914172b](https://github.com/snakemake/snakemake/commit/914172baf366570fa2a2818746d3ed1417790e3a))
+
+## [7.13.0](https://github.com/snakemake/snakemake/compare/v7.12.1...v7.13.0) (2022-08-25)
+
+
+### Features
+
+* add gitfile option to make it possible to use local git repos when importing modules ([#1376](https://github.com/snakemake/snakemake/issues/1376)) ([1a3b91f](https://github.com/snakemake/snakemake/commit/1a3b91fa8461d44bc1583f1d2e33ff2bae1360b3))
+
+
+### Bug Fixes
+
+* allow to use {wildcards} for group jobs in cluster config ([#1555](https://github.com/snakemake/snakemake/issues/1555)) ([f0ec73d](https://github.com/snakemake/snakemake/commit/f0ec73d2470d3ecf1d8500b52fa86021463a96fe))
+* avoid "Admin" prompt when using conda on windows ([#1046](https://github.com/snakemake/snakemake/issues/1046)) ([552fadf](https://github.com/snakemake/snakemake/commit/552fadf7d0ea0f0ff3990295db2618a31c692f61))
+* handle benmark bug that arise with singularity ([#1671](https://github.com/snakemake/snakemake/issues/1671)) ([10ef7c4](https://github.com/snakemake/snakemake/commit/10ef7c4d1cbbd89fa1760ec9f643e09ae4eb8bd9))
+* Open Snakefile for reading with explicit encoding specified ([#1146](https://github.com/snakemake/snakemake/issues/1146)) ([ec1d859](https://github.com/snakemake/snakemake/commit/ec1d859dd2422fa551bbf58843907fc5eed244ff))
+* remove superfluous comma causing TypeError in conda-frontend error message ([#1804](https://github.com/snakemake/snakemake/issues/1804)) ([87b013c](https://github.com/snakemake/snakemake/commit/87b013cbba420b71892ab9f482718c1cd59e6bda))
+
+
+### Documentation
+
+* explain SNAKEMAKE_PROFILE environment variable ([2b32bba](https://github.com/snakemake/snakemake/commit/2b32bba6efa53a9359bc67d8eb8ce06f1106e8ef))
+* update contribution docs ([09a5595](https://github.com/snakemake/snakemake/commit/09a559504d7a4346e40d8b3a99ece46e903ff7a0))
+
+## [7.12.1](https://github.com/snakemake/snakemake/compare/v7.12.0...v7.12.1) (2022-08-09)
+
+
+### Bug Fixes
+
+* Fix case of multiple scattergather processes ([#1799](https://github.com/snakemake/snakemake/issues/1799)) ([417aad4](https://github.com/snakemake/snakemake/commit/417aad4c1a5fe83bdf24729d0d4e70df112fd293))
+* more comprehensive error reporting for RuleExceptions ([#1802](https://github.com/snakemake/snakemake/issues/1802)) ([1cd9512](https://github.com/snakemake/snakemake/commit/1cd95129a92e522e11689620473f68b1fe69fb42))
+
+## [7.12.0](https://github.com/snakemake/snakemake/compare/v7.11.0...v7.12.0) (2022-07-29)
+
+
+### Features
+
+* print reason summary in case of dryrun ([#1778](https://github.com/snakemake/snakemake/issues/1778)) ([bd2a68b](https://github.com/snakemake/snakemake/commit/bd2a68bb8a7ddb64ad91bb822aa7d0342e884704))
+
+
+### Bug Fixes
+
+* Fix technical bugs in resource-scope documentation ([#1784](https://github.com/snakemake/snakemake/issues/1784)) ([878420c](https://github.com/snakemake/snakemake/commit/878420c4496562df7fe5fed4e6f877e670dcd533))
+* move max_status_checks_per_second attribute setting before the wait thread of cluster backends is started to avoid missing attribute errors ([#1775](https://github.com/snakemake/snakemake/issues/1775)) ([a48e9d0](https://github.com/snakemake/snakemake/commit/a48e9d035efec3a91b50bbda43ddf92196d5084b))
+
+## [7.11.0](https://github.com/snakemake/snakemake/compare/v7.10.0...v7.11.0) (2022-07-27)
+
+
+### Features
+
+* improved resource handling in groups and ability to define resource scopes (global or per node), see docs and --help ([#1218](https://github.com/snakemake/snakemake/issues/1218)) ([a8014d0](https://github.com/snakemake/snakemake/commit/a8014d030a2a3ea04743e30bcf5164801291378f))
+
+
+### Bug Fixes
+
+* fixed conda frontend detection and checking to also work with latest mambaforge ([#1781](https://github.com/snakemake/snakemake/issues/1781)) ([225e68c](https://github.com/snakemake/snakemake/commit/225e68cb05ecbf8fe001a884a416da0239cfd4d1))
+
+## [7.10.0](https://github.com/snakemake/snakemake/compare/v7.9.0...v7.10.0) (2022-07-26)
+
+
+### Features
+
+* Support conda environment definitions to be passed as function pointers, similar to input, params, and resources ([#1300](https://github.com/snakemake/snakemake/issues/1300)) ([6f582f1](https://github.com/snakemake/snakemake/commit/6f582f180f5df9292e005623f093a3a0b2e597a7))
+
+
+### Bug Fixes
+
+* fix regression in workflow source acquisition of google life science executor ([#1773](https://github.com/snakemake/snakemake/issues/1773)) ([c07732e](https://github.com/snakemake/snakemake/commit/c07732e2c7d6e95fabb3f2570bf0a1b0af2ac2cb))
+* limit filename length of temporary files generated by the persistence backend (metadata, incomplete markers, etc.) ([#1780](https://github.com/snakemake/snakemake/issues/1780)) ([59053e7](https://github.com/snakemake/snakemake/commit/59053e7017584ea94860cecb5ebecce66aed14ce))
+
 ## [7.9.0](https://github.com/snakemake/snakemake/compare/v7.8.5...v7.9.0) (2022-07-19)
 
 

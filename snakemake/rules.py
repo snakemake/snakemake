@@ -711,8 +711,8 @@ class Rule:
 
         if missing_wildcards:
             raise RuleException(
-                "Could not resolve wildcards in rule {}:\n{}".format(
-                    self.name, "\n".join(self.wildcard_names)
+                "Could not resolve wildcards:\n{}".format(
+                    "\n".join(self.wildcard_names)
                 ),
                 lineno=self.lineno,
                 snakefile=self.snakefile,

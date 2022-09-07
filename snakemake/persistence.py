@@ -445,7 +445,11 @@ class Persistence:
             mode="w",
             dir=recdir,
             delete=False,
-            suffix=os.path.basename(recpath),
+            # Add short prefix to final filename for better debugging.
+            # This may not be the full one, because that may be too long
+            # for the filesystem in combination with the prefix from the temp
+            # file.
+            suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
         os.rename(tmpfile.name, recpath)

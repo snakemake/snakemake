@@ -176,13 +176,13 @@ class shell:
         if conda_env:
             if ON_WINDOWS and not cls.get_executable():
                 # If we use cmd.exe directly on winodws we need to prepend batch activation script.
-                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd_win(
-                    conda_env, cmd
-                )
+                cmd = Conda(
+                    container_img=container_img, prefix_path=conda_base_path
+                ).shellcmd_win(conda_env, cmd)
             else:
-                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
-                    conda_env, cmd
-                )
+                cmd = Conda(
+                    container_img=container_img, prefix_path=conda_base_path
+                ).shellcmd(conda_env, cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:
