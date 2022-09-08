@@ -1270,6 +1270,9 @@ class GenericClusterExecutor(ClusterExecutor):
         else:
 
             def job_status(job):
+                if self.workflow.immediate_submit:
+                    os.remove(active_job.jobscript)
+                    return success
                 if os.path.exists(active_job.jobfinished):
                     os.remove(active_job.jobfinished)
                     os.remove(active_job.jobscript)
