@@ -143,13 +143,13 @@ class SlurmExecutor(ClusterExecutor):
         """
         if job.resources.get("account"):
             account = job.resources.get("account")
+            # here, we check whether the given or guessed account is valid
+            # if not, a WorkflowError is raised
+            test_account(account)
+            return f" -A {account}"
         else:
             logger.warning("No SLURM account given, trying to guess.")
             account = get_account()
-        # here, we check whether the given or guessed account is valid
-        # if not, a WorkflowError is raised
-        test_account(account)
-        return f" -A {account}"
 
     def set_partition(self, job):
         """
@@ -182,7 +182,56 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
             sys.exit(1)
+       
+        account = self.set_account(job) if job.resources.get("account") else ""
+        call += account
+        call += self.set_partition(job)
+        call += " --wrap "
 
+        # the actual call
+        call += "'snakemake {} --snakejob {} --force -j {}'".format(
+            job.format_wildcards(self.workflow.wildcard_constraints),
+            job.jobid,
+            self.workflow.jobid,
+        )
+
+        # submit the job
+        try:
+            jobid = (
+                subprocess.check_output(call, shell=True)
+                .decode()
+                .strip()
+                .split()[-1]
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(
+                "Job submission failed. Look above for error message "
+                "The command was: {}".format(call)
+            )
+            sys.exit(1)
+
+        logger.debug("Submitted job {} with external jobid '{}'.".format(job, jobid))
+
+        # now, we wait for the job to be scheduled
+        # and then return the jobid
+        while True:
+            try:
+                state = (
+                    subprocess.check_output(
+                        "squeue -j {} -h -o %T".format(jobid), shell=True
+                    )
+                    .decode()
+                    .strip()
+                )
+            except subprocess.CalledProcessError:
+                # this happens if the job is not in the queue anymore
+                # because it was too short and was executed directly
+                # without being scheduled.
+                break
+            if state != "PD":
+                break
+            time.sleep(1)
+        return jobid
         call += self.set_account(job)
 
         call += self.set_partition(job)
