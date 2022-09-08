@@ -119,7 +119,7 @@ class SlurmExecutor(ClusterExecutor):
         # However, the SLURM Executor is supposed to submit jobs
         # one after another, so we need to set -j to 1 for the
         # JobStep Executor, which in turn handles the launch of
-        # SLURM jobsteps.  
+        # SLURM jobsteps.
         return [" --slurm-jobstep", "-j 1"]
 
     def cancel(self):
