@@ -1,0 +1,52 @@
+rule all:
+    input:
+        echo_helps=[f"output/{i}.touch" for i in ("a", "b")],
+    output:
+        "output/all"
+    resources:
+        partition="debug",
+        threads=1,
+    threads:
+        1
+    shell:
+        """
+        date +%F\ %T
+        ls {input} > {output}
+        """
+
+rule test_array:
+    input:
+        dirtouch="output/output.touch",
+    output:
+        echo_help="output/{i}.touch",
+    params:
+        watch="output"
+    threads: 40
+    params:
+        echo="{i}",
+    shell:
+        """
+        date +%F\ %T
+        sleep 3
+
+        ls -lrt {params.watch} > {output}
+        date +%F\ %T
+        """
+
+
+rule make_output:
+    output:
+        dirtouch="output/output.touch",
+    resources:
+        partition="debug",
+        threads=1,
+    threads:
+        1
+    shell:
+        """
+        date +%F\ %T
+        while [ ! -f {output.dirtouch} ]; do sleep 5; done
+
+        touch {output.dirtouch}
+        date +%F\ %T
+        """
