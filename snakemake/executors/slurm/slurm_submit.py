@@ -204,7 +204,7 @@ class SlurmExecutor(ClusterExecutor):
                 .split()[-1]
             )
         except subprocess.CalledProcessError as e:
-            logger.error(
+            WorkflowError(
                 "Job submission failed. Look above for error message "
                 "The command was: {}".format(call)
             )
