@@ -32,10 +32,10 @@ def get_account():
     cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
     try:
         sacct_out = subprocess.check_output(cmd, shell=True)
+        return sacct_out.strip().decode("ascii")
     except subprocess.CalledProcessError:
         logger.error("Unable to retrieve the default SLURM account")
         raise WorkflowError("No account was given, not able to get a SLURM account")
-    return sacct_out.strip().decode("ascii")
 
 
 def test_account(account):
@@ -150,6 +150,12 @@ class SlurmExecutor(ClusterExecutor):
         else:
             logger.warning("No SLURM account given, trying to guess.")
             account = get_account()
+            if account:
+                logger.warning(f"Guessed SLURM account: {account}")
+            else:
+                logger.warning(
+                    "Unable to guess SLURM account. Trying to proceed without."
+                )
 
     def set_partition(self, job):
         """
@@ -182,7 +188,7 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
             sys.exit(1)
-       
+
         account = self.set_account(job) if job.resources.get("account") else ""
         call += account
         call += self.set_partition(job)
@@ -198,10 +204,7 @@ class SlurmExecutor(ClusterExecutor):
         # submit the job
         try:
             jobid = (
-                subprocess.check_output(call, shell=True)
-                .decode()
-                .strip()
-                .split()[-1]
+                subprocess.check_output(call, shell=True).decode().strip().split()[-1]
             )
         except subprocess.CalledProcessError as e:
             WorkflowError(
