@@ -70,6 +70,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         jobsteps = dict()
 
         if job.is_group():
+
             def get_call(level_job, aux=""):
                 # we need this calculation, because of srun's greediness and
                 # SLURM's limits: it is not able to limit the memory if we divide the job
