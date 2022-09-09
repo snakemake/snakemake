@@ -217,15 +217,20 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
-            if job.resources.get("threads", False) or job.resources.get("cpus_per_task", False):
-                cpus = max(job.resources.get("threads", 1), job.resources.get("cpus_per_task", 1))
+            if job.resources.get("threads", False) or job.resources.get(
+                "cpus_per_task", False
+            ):
+                cpus = max(
+                    job.resources.get("threads", 1),
+                    job.resources.get("cpus_per_task", 1),
+                )
                 call += f" --cpus-per-task={cpus}"
 
         # ordinary smp or group job application
         else:
-            call += " -n 1 -c {}".format(job.resources.get("threads", 1))#
-        
-        exec_job = self.format_job_exec(job)           
+            call += " -n 1 -c {}".format(job.resources.get("threads", 1))  #
+
+        exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
@@ -240,7 +245,6 @@ class SlurmExecutor(ClusterExecutor):
         jobname = self.get_jobname(job)
         logger.debug(f"Job {jobid} '{jobname}' has been submitted")
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
-
 
         call += " --wrap "
 
