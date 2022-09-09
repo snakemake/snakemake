@@ -182,16 +182,66 @@ class SlurmExecutor(ClusterExecutor):
                 **job.resources, jobname=self.get_jobname(job)
             )
         except KeyError as e:
-            logger.error(
+            WorkflowError.error(
                 "Missing job submission key '{}' for job '{}'.".format(
                     e.args[0], job.name
                 )
             )
-            sys.exit(1)
 
         account = self.set_account(job) if job.resources.get("account") else ""
         call += account
         call += self.set_partition(job)
+
+        if not job.resources.get("walltime_minutes"):
+            logger.warning(
+                "No wall time limit is set, setting 'walltime_minutes' to 10."
+            )
+        call += " -t {walltime_minutes}".format(
+            walltime_minutes=job.resources.get("walltime_minutes", default_value=10)
+        )
+
+        if job.resources.get("constraint"):
+            call += " -C {constraint}".format(**job.resources)
+        if job.resources.get("mem_mb_per_cpu"):
+            call += " --mem-per-cpu={mem_mb_per_cpu}".format(**job.resources)
+        elif job.resources.get("mem_mb"):
+            call += " --mem {mem_mb}".format(**job.resources)
+        else:
+            logger.warning(
+                "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
+            )
+
+        # MPI job
+        if job.resources.get("mpi", False):
+            if job.resources.get("nodes", False):
+                call += " --nodes={}".format(job.resources.get("nodes", 1))
+            if job.resources.get("tasks", False):
+                call += " --ntasks={}".format(job.resources.get("tasks", 1))
+            if job.resources.get("threads", False) or job.resources.get("cpus_per_task", False):
+                cpus = max(job.resources.get("threads", 1), job.resources.get("cpus_per_task", 1))
+                call += f" --cpus-per-task={cpus}"
+
+        # ordinary smp or group job application
+        else:
+            call += " -n 1 -c {}".format(job.resources.get("threads", 1))#
+        
+        exec_job = self.format_job_exec(job)           
+        # ensure that workdir is set correctly
+        call += f" --chdir={self.workflow.workdir_init}"
+        # and finally the job to execute with all the snakemake parameters
+        call += f" --wrap={repr(exec_job)}"
+
+        # try:
+        out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
+        # except:
+        #    pass  # check template
+
+        jobid = out.split(" ")[-1]
+        jobname = self.get_jobname(job)
+        logger.debug(f"Job {jobid} '{jobname}' has been submitted")
+        self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
+
+
         call += " --wrap "
 
         # the actual call
@@ -211,7 +261,6 @@ class SlurmExecutor(ClusterExecutor):
                 "Job submission failed. Look above for error message "
                 "The command was: {}".format(call)
             )
-            sys.exit(1)
 
         logger.debug("Submitted job {} with external jobid '{}'.".format(job, jobid))
 
@@ -235,57 +284,6 @@ class SlurmExecutor(ClusterExecutor):
                 break
             time.sleep(1)
         return jobid
-        call += self.set_account(job)
-
-        call += self.set_partition(job)
-
-        if not job.resources.get("walltime_minutes"):
-            logger.warning(
-                "No wall time limit is set, setting 'walltime_minutes' to 1."
-            )
-        call += " -t {walltime_minutes}".format(
-            walltime_minutes=job.resources.get("walltime_minutes", default_value=1)
-        )
-
-        if job.resources.get("constraint"):
-            call += " -C {constraint}".format(**job.resources)
-        if job.resources.get("mem_mb_per_cpu"):
-            call += " --mem-per-cpu={mem_mb_per_cpu}".format(**job.resources)
-        elif job.resources.get("mem_mb"):
-            call += " --mem {mem_mb}".format(**job.resources)
-        else:
-            logger.warning(
-                "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
-            )
-
-        exec_job = self.format_job_exec(job)
-
-        # MPI job
-        if job.resources.get("mpi", False):
-            if job.resources.get("nodes", False):
-                call += " --nodes={}".format(job.resources.get("nodes", 1))
-            if job.resources.get("tasks", False):
-                call += " --ntasks={}".format(job.resources.get("tasks", 1))
-            if job.resources.get("threads", False):
-                call += " --cpus-per-task={}".format(job.resources.get("threads", 1))
-
-        # ordinary smp or group job application
-        else:
-            call += " -n 1 -c {}".format(job.resources.get("threads", 1))
-        # ensure that workdir is set correctly
-        call += f" --chdir={self.workflow.workdir_init}"
-        # and finally the job to execute with all the snakemake parameters
-        call += f" --wrap={repr(exec_job)}"
-
-        # try:
-        out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
-        # except:
-        #    pass  # check template
-
-        jobid = out.split(" ")[-1]
-        jobname = self.get_jobname(job)
-        logger.debug(f"Job {jobid} '{jobname}' has been submitted")
-        self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
 
     def job_status(self, jobid: int):
         """
