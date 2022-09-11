@@ -53,6 +53,7 @@ def test_account(account):
     if account not in (a.decode("ascii") for a in out.split()):
         raise WorkflowError("The given account appears not to be valid")
 
+
 def check_default_partition(rule):
     """
     if no partition is given, checks whether a fallback onto a default partition is possible
@@ -65,10 +66,11 @@ def check_default_partition(rule):
         # a default partition is marked with an asterisk, but this is not part of the name
         if "*" in partition:
             # the decode-call is necessary, because the output of sinfo is bytes
-            return partition.replace("*", "").decode('ascii')
+            return partition.replace("*", "").decode("ascii")
     raise WorkflowError(
         f"No partition was given for rule '{rule}', unable to find a default partition."
     )
+
 
 class SlurmExecutor(ClusterExecutor):
     """
@@ -156,7 +158,7 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(
                     "Unable to guess SLURM account. Trying to proceed without."
                 )
-                return "" # at least an empty string is returned, otherwise the 
+                return ""  # at least an empty string is returned, otherwise the
 
     def set_partition(self, job):
         """
@@ -193,7 +195,7 @@ class SlurmExecutor(ClusterExecutor):
         call += account
         call += self.set_partition(job)
 
-        #call = self.ammend_call(call, job)
+        # call = self.ammend_call(call, job)
         if not job.resources.get("walltime_minutes"):
             logger.warning(
                 "No wall time limit is set, setting 'walltime_minutes' to 10."
@@ -219,15 +221,15 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
-        
+
         if job.resources.get("threads", False) or job.resources.get(
-                "cpus_per_task", False
-            ):
-                cpus = max(
-                    job.resources.get("threads", 1),
-                    job.resources.get("cpus_per_task", 1),
-                )
-                call += f" --cpus-per-task={cpus}"
+            "cpus_per_task", False
+        ):
+            cpus = max(
+                job.resources.get("threads", 1),
+                job.resources.get("cpus_per_task", 1),
+            )
+            call += f" --cpus-per-task={cpus}"
 
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
@@ -236,9 +238,13 @@ class SlurmExecutor(ClusterExecutor):
         call += f" --wrap={repr(exec_job)}"
 
         try:
-            out = subprocess.check_output(call, shell=True, encoding="ascii", stderr=subprocess.STDOUT).strip()
+            out = subprocess.check_output(
+                call, shell=True, encoding="ascii", stderr=subprocess.STDOUT
+            ).strip()
         except subprocess.CalledProcessError as e:
-            raise WorkflowError(f"SLRURM job submission failed. The error message was {e.output}")
+            raise WorkflowError(
+                f"SLRURM job submission failed. The error message was {e.output}"
+            )
 
         jobid = out.split(" ")[-1]
         jobname = self.get_jobname(job)
