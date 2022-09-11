@@ -67,10 +67,10 @@ def check_default_partition(job):
         # a default partition is marked with an asterisk, but this is not part of the name
         if "*" in partition:
             # the decode-call is necessary, because the output of sinfo is bytes
-            return partition.replace("*", "").decode("ascii")
+            return partition.replace("*", "")
     logger.warning(
         f"No partition was given for rule '{job}', unable to find a default partition. Trying to submit without partition information."
-        "You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
+        " You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
     )
 
 
