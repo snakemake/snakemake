@@ -53,7 +53,6 @@ def test_account(account):
     if account not in (a.decode("ascii") for a in out.split()):
         raise WorkflowError("The given account appears not to be valid")
 
-
 def check_default_partition(rule):
     """
     if no partition is given, checks whether a fallback onto a default partition is possible
@@ -68,7 +67,6 @@ def check_default_partition(rule):
     raise WorkflowError(
         f"No partition was given for rule '{rule}', unable to find a default partition."
     )
-
 
 class SlurmExecutor(ClusterExecutor):
     """
@@ -156,6 +154,7 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(
                     "Unable to guess SLURM account. Trying to proceed without."
                 )
+                return "" # at least an empty string is returned, otherwise the 
 
     def set_partition(self, job):
         """
@@ -166,7 +165,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("partition"):
             partition = job.resources.get("partition")
         else:
-            partition = check_default_partition(job.rule)
+            partition = check_default_partition(job.rule) #.decode("ascii")
         return f" -p {partition}"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
@@ -188,10 +187,11 @@ class SlurmExecutor(ClusterExecutor):
                 )
             )
 
-        account = self.set_account(job) if job.resources.get("account") else ""
+        account = self.set_account(job)
         call += account
         call += self.set_partition(job)
 
+        #call = self.ammend_call(call, job)
         if not job.resources.get("walltime_minutes"):
             logger.warning(
                 "No wall time limit is set, setting 'walltime_minutes' to 10."
@@ -217,7 +217,8 @@ class SlurmExecutor(ClusterExecutor):
                 call += " --nodes={}".format(job.resources.get("nodes", 1))
             if job.resources.get("tasks", False):
                 call += " --ntasks={}".format(job.resources.get("tasks", 1))
-            if job.resources.get("threads", False) or job.resources.get(
+        
+        if job.resources.get("threads", False) or job.resources.get(
                 "cpus_per_task", False
             ):
                 cpus = max(
@@ -226,68 +227,21 @@ class SlurmExecutor(ClusterExecutor):
                 )
                 call += f" --cpus-per-task={cpus}"
 
-        # ordinary smp or group job application
-        else:
-            call += " -n 1 -c {}".format(job.resources.get("threads", 1))  #
-
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
 
-        # try:
-        out = subprocess.check_output(call, shell=True, encoding="ascii").strip()
-        # except:
-        #    pass  # check template
+        try:
+            out, error = subprocess.check_output(call, shell=True, encoding="ascii", stderr=subprocess.STDOUT).strip()
+        except subprocess.CalledProcessError as e:
+            raise WorkflowError(f"SLRURM job submission failed. The error message was {e.output}")
 
         jobid = out.split(" ")[-1]
         jobname = self.get_jobname(job)
         logger.debug(f"Job {jobid} '{jobname}' has been submitted")
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
-
-        call += " --wrap "
-
-        # the actual call
-        call += "'snakemake {} --snakejob {} --force -j {}'".format(
-            job.format_wildcards(self.workflow.wildcard_constraints),
-            job.jobid,
-            self.workflow.jobid,
-        )
-
-        # submit the job
-        try:
-            jobid = (
-                subprocess.check_output(call, shell=True).decode().strip().split()[-1]
-            )
-        except subprocess.CalledProcessError as e:
-            WorkflowError(
-                "Job submission failed. Look above for error message "
-                "The command was: {}".format(call)
-            )
-
-        logger.debug("Submitted job {} with external jobid '{}'.".format(job, jobid))
-
-        # now, we wait for the job to be scheduled
-        # and then return the jobid
-        while True:
-            try:
-                state = (
-                    subprocess.check_output(
-                        "squeue -j {} -h -o %T".format(jobid), shell=True
-                    )
-                    .decode()
-                    .strip()
-                )
-            except subprocess.CalledProcessError:
-                # this happens if the job is not in the queue anymore
-                # because it was too short and was executed directly
-                # without being scheduled.
-                break
-            if state != "PD":
-                break
-            time.sleep(1)
-        return jobid
 
     def job_status(self, jobid: int):
         """
