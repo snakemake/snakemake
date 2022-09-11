@@ -62,8 +62,10 @@ def check_default_partition(rule):
     except subprocess.CalledProcessError:
         logger.error("Unable to test the validity of the given or guess SLURM account.")
     for partition in out.split():
+        # a default partition is marked with an asterisk, but this is not part of the name
         if "*" in partition:
-            return partition.replace("*", "")
+            # the decode-call is necessary, because the output of sinfo is bytes
+            return partition.replace("*", "").decode('ascii')
     raise WorkflowError(
         f"No partition was given for rule '{rule}', unable to find a default partition."
     )
@@ -165,7 +167,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("partition"):
             partition = job.resources.get("partition")
         else:
-            partition = check_default_partition(job.rule) #.decode("ascii")
+            partition = check_default_partition(job.rule)
         return f" -p {partition}"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
