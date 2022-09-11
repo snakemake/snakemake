@@ -236,7 +236,7 @@ class SlurmExecutor(ClusterExecutor):
         call += f" --wrap={repr(exec_job)}"
 
         try:
-            out, error = subprocess.check_output(call, shell=True, encoding="ascii", stderr=subprocess.STDOUT).strip()
+            out = subprocess.check_output(call, shell=True, encoding="ascii", stderr=subprocess.STDOUT).strip()
         except subprocess.CalledProcessError as e:
             raise WorkflowError(f"SLRURM job submission failed. The error message was {e.output}")
 
