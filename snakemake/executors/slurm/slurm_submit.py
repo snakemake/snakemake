@@ -54,21 +54,23 @@ def test_account(account):
         raise WorkflowError("The given account appears not to be valid")
 
 
-def check_default_partition(rule):
+def check_default_partition(job):
     """
     if no partition is given, checks whether a fallback onto a default partition is possible
     """
     try:
-        out = subprocess.check_output(r"sinfo -o %P", shell=True)
+        out = subprocess.check_output(r"sinfo -o %P", shell=True, encoding="ascii")
     except subprocess.CalledProcessError:
-        logger.error("Unable to test the validity of the given or guess SLURM account.")
+        logger.error("Unable to retrieve the partitions of your cluster.")
+        return
     for partition in out.split():
         # a default partition is marked with an asterisk, but this is not part of the name
         if "*" in partition:
             # the decode-call is necessary, because the output of sinfo is bytes
             return partition.replace("*", "").decode("ascii")
-    raise WorkflowError(
-        f"No partition was given for rule '{rule}', unable to find a default partition."
+    logger.warning(
+        f"No partition was given for rule '{job}', unable to find a default partition. Trying to submit without partition information."
+        "You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
     )
 
 
@@ -169,7 +171,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("partition"):
             partition = job.resources.get("partition")
         else:
-            partition = check_default_partition(job.rule)
+            partition = check_default_partition(job)
         return f" -p {partition}"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
