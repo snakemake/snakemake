@@ -9,6 +9,8 @@ rule clean:
 rule compile:
      input: "pi_MPI.c"
      output: temp("pi_MPI")
+     resources:
+        mem_mb=0,
      shell: 
          'mpicc -o {output} {input}'
 
@@ -16,6 +18,7 @@ rule calc_pi:
      input: "pi_MPI"
      output: "pi.calc"
      resources:
+        mem_mb=0,
            tasks=2,
            mpi='srun',
      shell: "{resources.mpi} {input} &> {output}"
