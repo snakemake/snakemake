@@ -1646,6 +1646,7 @@ class KubernetesExecutor(ClusterExecutor):
         dag,
         namespace,
         container_image=None,
+        k8s_cpu_scalar=1.0,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1686,6 +1687,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         import kubernetes.client
 
+        self.k8s_cpu_scalar = k8s_cpu_scalar
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1913,7 +1915,7 @@ class KubernetesExecutor(ClusterExecutor):
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        container.resources.requests["cpu"] = job.resources["_cores"]
+        container.resources.requests["cpu"] = "{}m".format(int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000))
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
