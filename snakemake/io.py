@@ -1065,7 +1065,7 @@ def pipe(value):
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
     if ON_WINDOWS:
-        logger.warning("Pipes is not yet supported on Windows.")
+        logger.warning("Pipes are not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
 
 
