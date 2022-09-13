@@ -2293,7 +2293,8 @@ def get_argument_parser(profile=None):
     group_kubernetes.add_argument(
         "--k8s-cpu-scalar",
         metavar="FLOAT",
-        default=1, type=float,
+        default=1,
+        type=float,
         help="K8s reserves some proportion of available CPUs for its own use. "
         "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
         "are allocatable to k8s pods (i.e. snakemake jobs). As 8 > 7.6, k8s can't "
@@ -2301,7 +2302,7 @@ def get_argument_parser(profile=None):
         "as a global scalar on each job's CPU request, so that e.g. a job whose "
         "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
         "allowing it to utilise one entire node. N.B: the job itself would still "
-        "see the original value, i.e. as the value substituted in {threads}."
+        "see the original value, i.e. as the value substituted in {threads}.",
     )
 
     group_tibanna.add_argument(

@@ -1915,7 +1915,9 @@ class KubernetesExecutor(ClusterExecutor):
         # request resources
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        container.resources.requests["cpu"] = "{}m".format(int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000))
+        container.resources.requests["cpu"] = "{}m".format(
+            int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000)
+        )
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
