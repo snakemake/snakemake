@@ -199,13 +199,12 @@ class SlurmExecutor(ClusterExecutor):
         call += self.set_partition(job)
 
         # call = self.ammend_call(call, job)
-        if not job.resources.get("walltime_minutes"):
+        if not job.resources.get("runtime"):
             logger.warning(
-                "No wall time limit is set, setting 'walltime_minutes' to 10."
+                "No wall time limit is set, setting 'runtime' to 10."
             )
-        call += " -t {walltime_minutes}".format(
-            walltime_minutes=job.resources.get("walltime_minutes", default_value=10)
-        )
+        else:
+            call += " -t {}".format(job.resources.get("runtime", default_value=10))
 
         if job.resources.get("constraint"):
             call += " -C {constraint}".format(**job.resources)
