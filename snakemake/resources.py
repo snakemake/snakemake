@@ -14,7 +14,7 @@ from snakemake.common import TBDString
 slurm_relevant_keys = {
     "account": str,
     "partition": str,
-    "walltime_minutes": int,
+    "runtime": int,
     "constraint": str,
     "mpi": str,
     "mem_mb": int,
@@ -22,6 +22,8 @@ slurm_relevant_keys = {
     "ntasks": int,
     "cpus_per_task": int,
     "nodes": int,
+    # we reserve one for undocumented cases
+    "slurm_extra_args": str,
 }
 
 
