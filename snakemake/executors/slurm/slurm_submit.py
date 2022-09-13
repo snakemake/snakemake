@@ -239,6 +239,7 @@ class SlurmExecutor(ClusterExecutor):
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
 
+        logger.debug(f"Submission call: {call}")
         try:
             out = subprocess.check_output(
                 call, shell=True, encoding="ascii", stderr=subprocess.STDOUT
