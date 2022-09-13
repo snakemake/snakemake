@@ -1505,7 +1505,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
+                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules
