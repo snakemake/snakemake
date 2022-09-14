@@ -61,6 +61,7 @@ from snakemake.common import (
     lazy_property,
     TBDString,
 )
+from snakemake.resources import infer_resources
 
 
 class Rule:
@@ -1099,7 +1100,10 @@ class Rule:
 
         for name, res in self.resources.items():
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+                resources[name] = value
+                # Infer standard resources from eventual human readable forms.
+                infer_resources(name, value, resources)
         resources = Resources(fromdict=resources)
         return resources
 

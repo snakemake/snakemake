@@ -64,3 +64,4 @@ dependencies:
   - tabulate
   - retry
   - graphviz
+  - humanfriendly
