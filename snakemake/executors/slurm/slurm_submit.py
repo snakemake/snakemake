@@ -279,7 +279,7 @@ class SlurmExecutor(ClusterExecutor):
                     try:
                         sctrl_cmd = shlex.split("scontrol -o show job {}".format(jobid))
                         sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
-                        logger.debug("The scontrol output is: '{sctrl_res}'")
+                        logger.debug(f"The scontrol output is: '{sctrl_res}'")
                         m = re.search(r"JobState=(\w+)", sctrl_res)
                         res = {jobid: m.group(1)}
                         break
