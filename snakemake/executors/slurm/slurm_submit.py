@@ -200,9 +200,7 @@ class SlurmExecutor(ClusterExecutor):
 
         # call = self.ammend_call(call, job)
         if not job.resources.get("runtime"):
-            logger.warning(
-                "No wall time limit is set, setting 'runtime' to 10."
-            )
+            logger.warning("No wall time limit is set, setting 'runtime' to 10.")
         else:
             call += " -t {}".format(job.resources.get("runtime", default_value=10))
 
@@ -228,8 +226,7 @@ class SlurmExecutor(ClusterExecutor):
             "cpus_per_task", False
         ):
             cpus = max(
-                job.resources.get("threads", 1),
-                job.resources.get("cpus_per_task", 1),
+                job.resources.get("threads", 1), job.resources.get("cpus_per_task", 1)
             )
             call += f" --cpus-per-task={cpus}"
 
