@@ -14,7 +14,7 @@ rule compile:
      resources:
         mem_mb=0,
      shell: 
-         'mpicc -o {output} {input} 2> {log}'
+         'mpicc -o {output} {input} &> {log}'
 
 rule calc_pi:
      input: "pi_MPI"
