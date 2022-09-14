@@ -580,7 +580,7 @@ def infer_resources(name, value, resources: dict):
     """Infer resources from a given one, if possible."""
     from humanfriendly import parse_size, parse_timespan
 
-    if name == "mem" or name == "disk" and isinstance(value, str):
+    if (name == "mem" or name == "disk") and isinstance(value, str):
         in_bytes = parse_size(value)
         resources[f"{name}_mb"] = max(int(round(in_bytes / 1000 / 1000)), 1)
     elif name == "runtime" and isinstance(value, str):
