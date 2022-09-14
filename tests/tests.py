@@ -17,7 +17,7 @@ from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 @skip_on_windows
 def test_slurm_mpi():
-    run(dpath("test_slurm_mpi"), slurm=True)
+    run(dpath("test_slurm_mpi"), slurm=True, show_failed_logs=True)
 
 
 @skip_on_windows
