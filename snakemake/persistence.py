@@ -420,7 +420,11 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        get_path = lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri() if is_flagged(f, "sourcecache_entry") else f
+        get_path = (
+            lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri()
+            if is_flagged(f, "sourcecache_entry")
+            else f
+        )
         return sorted(get_path(f) for f in job.input)
 
     @lru_cache()
