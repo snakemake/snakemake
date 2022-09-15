@@ -20,6 +20,7 @@ import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
+from snakemake.io import is_flagged, get_flag_value
 
 
 class Persistence:
@@ -419,7 +420,8 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        return sorted(job.input)
+        get_path = lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri() if is_flagged(f, "sourcecache_entry") else f
+        return sorted(get_path(f) for f in job.input)
 
     @lru_cache()
     def _log(self, job):
