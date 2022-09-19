@@ -17,6 +17,7 @@ from snakemake.resources import DefaultResources
 try:
     import flux
     import flux.job
+    from flux.job import JobspecV1
 except ImportError:
     flux = None
 
@@ -60,41 +61,6 @@ class FluxExecutor(ClusterExecutor):
                 "Cannot import flux. Is a cluster available to you with Python bindings?"
             )
         self._fexecutor = flux.job.FluxExecutor()
-
-    def _prepare_job_formatter(self):
-        """
-        A job doesn't have an easy status command - instead we do a job
-        listing with a particular format. See src/cmd/flux-jobs.py#L44
-        in flux-framework/flux-core for more attributes.
-        """
-        jobs_format = (
-            "{id.f58:>12} {username:<8.8} {name:<10.10} {status_abbrev:>2.2} "
-            "{ntasks:>6} {nnodes:>6h} {runtime!F:>8h} {success} {exception.occurred}"
-            "{exception.note} {exception.type} {result} {runtime} {status}"
-            "{ranks:h} {t_remaining} {annotations}"
-        )
-        self.jobs_formatter = flux.job.JobInfoFormat(jobs_format)
-
-        # Note there is no attr for "id", its always returned
-        fields2attrs = {
-            "id.f58": (),
-            "username": ("userid",),
-            "exception.occurred": ("exception_occurred",),
-            "exception.type": ("exception_type",),
-            "exception.note": ("exception_note",),
-            "runtime": ("t_run", "t_cleanup"),
-            "status": ("state", "result"),
-            "status_abbrev": ("state", "result"),
-            "t_remaining": ("expiration", "state", "result"),
-        }
-
-        # Set job attributes we will use later to get job statuses
-        self.job_attrs = set()
-        for field in self.jobs_formatter.fields:
-            if field not in fields2attrs:
-                self.job_attrs.update((field,))
-            else:
-                self.job_attrs.update(fields2attrs[field])
 
     def cancel(self):
         """
@@ -150,11 +116,6 @@ class FluxExecutor(ClusterExecutor):
         Submit a job to flux.
         """
         super()._run(job)
-
-        from flux.job import JobspecV1
-
-        # This needs to be called after the line above
-        self._prepare_job_formatter()
 
         # Prepare job resourcces
         self._set_job_resources(job)
