@@ -23,7 +23,7 @@ del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
-DYNAMIC_FILL = "__othernakemake_dynamic__"
+DYNAMIC_FILL = "__snakemake_dynamic__"
 SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
@@ -172,7 +172,7 @@ class Mode:
 
 
 class lazy_property(property):
-    __otherlots__ = ["method", "cached", "__doc__"]
+    __slots__ = ["method", "cached", "__doc__"]
 
     @staticmethod
     def clean(instance, method):
