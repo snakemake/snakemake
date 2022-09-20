@@ -24,7 +24,7 @@ jobs:
       pull-requests: write  # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
       - name: Setup black environment
         run: |
@@ -50,7 +50,7 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # we need tags for versioneer to work
 
@@ -208,7 +208,7 @@ jobs:
     needs: formatting
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
