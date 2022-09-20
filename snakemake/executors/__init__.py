@@ -1853,10 +1853,8 @@ class KubernetesExecutor(ClusterExecutor):
         container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
         container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
-        ]
-        container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
+            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir"),
+            kubernetes.client.V1VolumeMount(name="source", mount_path="/source"),
         ]
 
         node_selector = {}
