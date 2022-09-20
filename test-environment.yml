@@ -41,6 +41,7 @@ dependencies:
   - appdirs
   - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
   - cwltool
+  - cwl-utils
   - jsonschema
   - pandas
   - python-kubernetes
