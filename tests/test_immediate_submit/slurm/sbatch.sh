@@ -6,7 +6,9 @@ set -vx
 sbatch_params=$1
 script=$2
 dependencies=$3
-flag=/tmp/dependencies-$(basename $script)-finish
+flag=tmp/slurm-signal/dependencies-$(basename $script)-finish
+
+mkdir -p tmp/slurm-signal
 
 echo "#!/bin/bash"                      > $flag.sh
 echo ''                                 >> $flag.sh

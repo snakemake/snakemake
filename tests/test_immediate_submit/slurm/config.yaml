@@ -1,4 +1,4 @@
-cluster-sync:
+cluster:
   mkdir -p logs/{rule} &&
   bash slurm/get_jobid.sh
   'logs/{rule}/{rule}-{wildcards}-%j'
