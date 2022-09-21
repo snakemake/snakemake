@@ -1,3 +1,5 @@
+from pathlib import Path
+
 
 configfile: "config.yaml"
 
@@ -28,7 +30,7 @@ rule:
     output:
         "test.in"
     script:
-        "scripts/test.py"
+        Path("scripts/test.py")
 
 rule:
     output:
