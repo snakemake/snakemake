@@ -23,6 +23,31 @@ from snakemake.io import get_wildcard_names, Wildcards
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
+# the resource code is inspired by Michal Hall's fork of snakemakes slurm profile, see
+# https://github.com/mbhall88/slurm
+RESOURCE_MAPPING = {
+    "runtime": ("time", "runtime", "walltime"),
+    "mem_mb": ("mem", "mem_mb", "ram", "memory"),
+    "mem-per-cpu": ("mem-per-cpu", "mem_per_cpu", "mem_per_thread"),
+    "ntasks": ("ntasks", "tasks"),
+    "cpus-per-task": ("cpus-per-task", "cpus_per_task", "cpus", "threads"),
+    "nodes": ("nodes", "nnodes"),
+    "partition": ("partition", "queue"),
+}
+
+def _convert_units_to_mb(memory):
+    """If memory is specified with SI unit, convert to MB"""
+    if isinstance(memory, int) or isinstance(memory, float):
+        return int(memory)
+    siunits = {"K": 1e-3, "M": 1, "G": 1e3, "T": 1e6}
+    regex = re.compile(r"(\d+)({})$".format("|".join(siunits.keys())))
+    m = regex.match(memory)
+    if m is None:
+        WorkflowError(
+            (f"unsupported memory specification '{memory}';" "  allowed suffixes: [K|M|G|T]")
+        )
+    factor = siunits[m.group(2)]
+    return int(int(m.group(1)) * factor)
 
 def get_account():
     """
@@ -72,7 +97,6 @@ def check_default_partition(job):
         f"No partition was given for rule '{job}', unable to find a default partition. Trying to submit without partition information."
         " You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
     )
-
 
 class SlurmExecutor(ClusterExecutor):
     """
