@@ -9,10 +9,12 @@ rule clean:
 rule compile:
      input: "pi_MPI.c"
      output: temp("pi_MPI")
+     log:
+         "logs/compile.log"
      resources:
         mem_mb=0,
      shell: 
-         'mpicc -o {output} {input}'
+         'mpicc -o {output} {input} &> {log}'
 
 rule calc_pi:
      input: "pi_MPI"
