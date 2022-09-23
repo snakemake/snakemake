@@ -311,6 +311,7 @@ class SlurmExecutor(ClusterExecutor):
                                 jobid
                             )
                         )
+                        logger.debug(f"scontrol command: {sctrl_cmd}")
                         process = subprocess.Popen(
                             sctrl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                         )
@@ -323,6 +324,12 @@ class SlurmExecutor(ClusterExecutor):
                         # this call will fail if the job is not PENDING or RUNNING
                         if process.returncode:
                             res = {jobid: "UNKNOWN"}
+                            # in case of a very short job, this state might indicate
+                            # a still 'running' job. Here, the default --latency-wait
+                            # might NOT be sufficient to catch the job status.
+                            # Therefore, we have to wait a typical scheduler cycle
+                            # time (e.g. 30s).
+                            time.sleep(30)
                         else:
                             m = re.search(r"JobState=(\w+)", out)
                             res = {jobid: m.group(1)}
