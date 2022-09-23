@@ -311,11 +311,23 @@ class SlurmExecutor(ClusterExecutor):
                                 jobid
                             )
                         )
-                        sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
-                        logger.debug(f"The scontrol output is: '{sctrl_res}'")
-                        m = re.search(r"JobState=(\w+)", sctrl_res)
-                        res = {jobid: m.group(1)}
+                        process = subprocess.Popen(sctrl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        out, err = process.communicate()
+                        out = out.decode('ascii')
+                        err = err.decode('ascii')
+                        logger.debug(f"The scontrol output is: '{out}' and the error is: '{err}'")
+                        # this call will fail if the job is not PENDING or RUNNING
+                        if process.returncode:
+                            res = {jobid: "UNKNOWN"}
+                        else:
+                            m = re.search(r"JobState=(\w+)", out)
+                            res = {jobid: m.group(1)}
                         break
+                        #sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
+                        
+                        #m = re.search(r"JobState=(\w+)", sctrl_res)
+                        #res = {jobid: m.group(1)}
+                        #break
                     except subprocess.CalledProcessError as e:
                         logger.error("scontrol process error")
                         logger.error(e)
@@ -351,6 +363,10 @@ class SlurmExecutor(ClusterExecutor):
             for j in active_jobs:
                 status = self.job_status(j.jobid)
                 if status == "COMPLETED":
+                    j.callback(j.job)
+                elif status == "UNKNOWN":
+                    # the job probably does not exist anymore, but 'sacct' did not work
+                    # so we assume it is finished
                     j.callback(j.job)
                 elif status in fail_stati:
                     self.print_job_error(
