@@ -40,13 +40,12 @@ def _convert_units_to_mb(memory):
     """If memory is specified with SI unit, convert to MB"""
     if isinstance(memory, int) or isinstance(memory, float):
         return int(memory)
-    siunits = {"K": 1e-3, "M": 1, "G": 1e3, "T": 1e6}
+    # RAM is bought in iB, not B - hence the factors in power of 2
+    siunits = {"K": 0.0009765625, "M": 1, "G": 1024, "T": 1048576}
     regex = re.compile(r"(\d+)({})$".format("|".join(siunits.keys())))
     m = regex.match(memory)
-    if m is None:
-        # WorkflowError(
-        #    (f"unsupported memory specification '{memory}';" "  allowed suffixes: [K|M|G|T]")
-        # )
+    if not m:  # no match
+        # In this case the SLURM default is M (== MiB)
         factor = "M"
     else:
         factor = siunits[m.group(2)]
