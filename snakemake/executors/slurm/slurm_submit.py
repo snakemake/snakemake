@@ -311,11 +311,15 @@ class SlurmExecutor(ClusterExecutor):
                                 jobid
                             )
                         )
-                        process = subprocess.Popen(sctrl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        process = subprocess.Popen(
+                            sctrl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                        )
                         out, err = process.communicate()
-                        out = out.decode('ascii')
-                        err = err.decode('ascii')
-                        logger.debug(f"The scontrol output is: '{out}' and the error is: '{err}'")
+                        out = out.decode("ascii")
+                        err = err.decode("ascii")
+                        logger.debug(
+                            f"The scontrol output is: '{out}' and the error is: '{err}'"
+                        )
                         # this call will fail if the job is not PENDING or RUNNING
                         if process.returncode:
                             res = {jobid: "UNKNOWN"}
@@ -323,11 +327,11 @@ class SlurmExecutor(ClusterExecutor):
                             m = re.search(r"JobState=(\w+)", out)
                             res = {jobid: m.group(1)}
                         break
-                        #sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
-                        
-                        #m = re.search(r"JobState=(\w+)", sctrl_res)
-                        #res = {jobid: m.group(1)}
-                        #break
+                        # sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
+
+                        # m = re.search(r"JobState=(\w+)", sctrl_res)
+                        # res = {jobid: m.group(1)}
+                        # break
                     except subprocess.CalledProcessError as e:
                         logger.error("scontrol process error")
                         logger.error(e)
