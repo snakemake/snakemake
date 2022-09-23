@@ -35,6 +35,7 @@ RESOURCE_MAPPING = {
     "partition": ("partition", "queue"),
 }
 
+
 def _convert_units_to_mb(memory):
     """If memory is specified with SI unit, convert to MB"""
     if isinstance(memory, int) or isinstance(memory, float):
@@ -43,13 +44,14 @@ def _convert_units_to_mb(memory):
     regex = re.compile(r"(\d+)({})$".format("|".join(siunits.keys())))
     m = regex.match(memory)
     if m is None:
-        #WorkflowError(
+        # WorkflowError(
         #    (f"unsupported memory specification '{memory}';" "  allowed suffixes: [K|M|G|T]")
-        #)
-        factor = 'M'
+        # )
+        factor = "M"
     else:
         factor = siunits[m.group(2)]
     return int(int(m.group(1)) * factor)
+
 
 def get_account():
     """
@@ -99,6 +101,7 @@ def check_default_partition(job):
         f"No partition was given for rule '{job}', unable to find a default partition. Trying to submit without partition information."
         " You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
     )
+
 
 class SlurmExecutor(ClusterExecutor):
     """
@@ -303,7 +306,11 @@ class SlurmExecutor(ClusterExecutor):
                 # Try getting job with scontrol instead in case sacct is misconfigured
                 if not res:
                     try:
-                        sctrl_cmd = shlex.split("scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(jobid))
+                        sctrl_cmd = shlex.split(
+                            "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
+                                jobid
+                            )
+                        )
                         sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
                         logger.debug(f"The scontrol output is: '{sctrl_res}'")
                         m = re.search(r"JobState=(\w+)", sctrl_res)
