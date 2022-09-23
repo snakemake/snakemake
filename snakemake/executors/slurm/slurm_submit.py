@@ -301,7 +301,7 @@ class SlurmExecutor(ClusterExecutor):
                 # Try getting job with scontrol instead in case sacct is misconfigured
                 if not res:
                     try:
-                        sctrl_cmd = shlex.split("scontrol -o show job {}".format(jobid))
+                        sctrl_cmd = shlex.split("scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(jobid))
                         sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
                         logger.debug(f"The scontrol output is: '{sctrl_res}'")
                         m = re.search(r"JobState=(\w+)", sctrl_res)
