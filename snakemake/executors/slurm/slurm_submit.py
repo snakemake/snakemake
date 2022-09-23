@@ -43,10 +43,12 @@ def _convert_units_to_mb(memory):
     regex = re.compile(r"(\d+)({})$".format("|".join(siunits.keys())))
     m = regex.match(memory)
     if m is None:
-        WorkflowError(
-            (f"unsupported memory specification '{memory}';" "  allowed suffixes: [K|M|G|T]")
-        )
-    factor = siunits[m.group(2)]
+        #WorkflowError(
+        #    (f"unsupported memory specification '{memory}';" "  allowed suffixes: [K|M|G|T]")
+        #)
+        factor = 'M'
+    else:
+        factor = siunits[m.group(2)]
     return int(int(m.group(1)) * factor)
 
 def get_account():
