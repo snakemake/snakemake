@@ -20,12 +20,12 @@ rule copy:
         "landsat-data.txt",
     resources:
         mem_mb=100,
-        disk_mb=301000
+        disk_mb=301,
     run:
-        # Nominally, we have attached a 375GB SSD to our underlying cluster node, and requested 301GB above.
-        stats = os.statvfs('.')
+        # Check whether there is enough storage attached
+        stats = os.statvfs(".")
         volume_gb = stats.f_bsize * stats.f_blocks / 1.0e9
-        assert volume_gb >= 300
+        assert volume_gb >= 0.3, "Volume size is too small: {}GB".format(volume_gb)
 
         shell("cp {input} {output}")
 
