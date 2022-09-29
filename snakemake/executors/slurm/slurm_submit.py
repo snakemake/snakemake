@@ -12,7 +12,6 @@ import tarfile
 import tempfile
 
 from snakemake.jobs import Job
-from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback

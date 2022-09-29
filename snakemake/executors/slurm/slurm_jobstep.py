@@ -8,7 +8,6 @@ import tarfile
 import tempfile
 
 from snakemake.jobs import Job
-from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import print_exception
