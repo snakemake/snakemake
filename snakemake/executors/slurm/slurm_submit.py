@@ -331,11 +331,6 @@ class SlurmExecutor(ClusterExecutor):
                             m = re.search(r"JobState=(\w+)", out)
                             res = {jobid: m.group(1)}
                         break
-                        # sctrl_res = subprocess.check_output(sctrl_cmd, encoding="ascii")
-
-                        # m = re.search(r"JobState=(\w+)", sctrl_res)
-                        # res = {jobid: m.group(1)}
-                        # break
                     except subprocess.CalledProcessError as e:
                         logger.error("scontrol process error")
                         logger.error(e)
