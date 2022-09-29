@@ -225,7 +225,6 @@ class SlurmExecutor(ClusterExecutor):
         call += account
         call += self.set_partition(job)
 
-        # call = self.ammend_call(call, job)
         if not job.resources.get("runtime"):
             logger.warning("No wall time limit is set, setting 'runtime' to 10.")
         else:
