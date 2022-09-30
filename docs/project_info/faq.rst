@@ -274,7 +274,7 @@ The best solution is to have a dictionary that translates a sample id to the inc
 How do I force Snakemake to rerun all jobs from the rule I just edited?
 -----------------------------------------------------------------------
 
-This can be done by invoking Snakemake with the ``--forcerules`` or ``-R`` flag, followed by the rules that should be re-executed:
+This can be done by invoking Snakemake with the ``--forcerun`` or ``-R`` flag, followed by the rules that should be re-executed:
 
 .. code-block:: console
 

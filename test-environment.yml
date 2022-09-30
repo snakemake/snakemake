@@ -13,6 +13,7 @@ dependencies:
   - wrapt
   - pyyaml
   - pytest
+  - pytest-mock
   - pytest-cov
   - ftputil
   - pysftp
@@ -40,6 +41,7 @@ dependencies:
   - appdirs
   - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
   - cwltool
+  - cwl-utils
   - jsonschema
   - pandas
   - python-kubernetes
