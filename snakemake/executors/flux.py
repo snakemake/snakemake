@@ -89,28 +89,6 @@ class FluxExecutor(ClusterExecutor):
         # Use a dummy job name (human readable and also namespaced)
         return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
 
-    def format_job_exec(self, job):
-        """
-        We don't want a python -m to run.
-        """
-        prefix = self.get_job_exec_prefix(job)
-        if prefix:
-            prefix += " &&"
-        suffix = self.get_job_exec_suffix(job)
-        if suffix:
-            suffix = f"&& {suffix}"
-        return join_cli_args(
-            [
-                prefix,
-                self.get_envvar_declarations(),
-                "snakemake",
-                format_cli_arg("--snakefile", self.get_snakefile()),
-                self.get_job_args(job),
-                self.general_args,
-                suffix,
-            ]
-        )
-
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         """
         Submit a job to flux.

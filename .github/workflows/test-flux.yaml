@@ -36,6 +36,8 @@ jobs:
 
       - name: Start Flux and Test Workflow
         run: |
+          # We must have python3->python accessible for this to work
+          ln -s /bin/python3 /usr/local/bin/python
           su fluxuser
           cd examples/flux
           which snakemake
