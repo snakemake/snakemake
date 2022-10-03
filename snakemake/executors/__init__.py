@@ -1911,6 +1911,7 @@ class KubernetesExecutor(ClusterExecutor):
             container.env.append(envvar)
 
         # request resources
+        logger.debug(f"job resources:  {dict(job.resources)}")
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
         container.resources.requests["cpu"] = job.resources["_cores"]
@@ -1918,6 +1919,11 @@ class KubernetesExecutor(ClusterExecutor):
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
             )
+        if "disk_mb" in job.resources.keys():
+            disk_mb = int(job.resources.get("disk_mb", 1024))
+            container.resources.requests["ephemeral-storage"] = f"{disk_mb}M"
+
+        logger.debug(f"k8s pod resources: {container.resources.requests}")
 
         # capabilities
         if job.needs_singularity and self.workflow.use_singularity:
