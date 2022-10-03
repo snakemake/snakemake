@@ -58,7 +58,7 @@ class FluxExecutor(ClusterExecutor):
         # Quit early if we can't access the flux api
         if not flux:
             raise WorkflowError(
-                "Cannot import flux. Is a cluster available to you with Python bindings?"
+                "Cannot import flux. Is it installed (https://flux-framework.org) and available to you with Python bindings?"
             )
         self._fexecutor = flux.job.FluxExecutor()
 
