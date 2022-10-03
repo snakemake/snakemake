@@ -41,6 +41,4 @@ jobs:
           su fluxuser
           cd examples/flux
           which snakemake
-          # flux start snakemake --flux --jobs=1
-          flux start --test-size=4
-          snakemake --flux --jobs 1
+          flux start snakemake --flux --jobs=1
