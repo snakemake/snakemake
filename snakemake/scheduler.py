@@ -213,6 +213,7 @@ class JobScheduler:
                     keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
+                    self._submit_callback = self._proceed
                     self.update_dynamic = False
                     self.print_progress = False
                     self.update_resources = False
