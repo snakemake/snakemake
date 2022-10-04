@@ -494,7 +494,7 @@ class CPUExecutor(RealExecutor):
         return ""
 
     def get_job_args(self, job, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet all"
+        return f"{super().get_job_args(job, **kwargs)} --quiet"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
