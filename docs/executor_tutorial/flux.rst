@@ -14,10 +14,11 @@ Setup
 
 To go through this tutorial, you need the following software installed:
 
-* Docker
+- Docker
 
-The (`Flux-framework <https://flux-framework.org/>`_) is a flexible resource scheduler that can work on both high performance computing systems and cloud (e.g., Kubernetes).
-Since it is more modern (e.g., has an official Python API) we define it under a cloud resource. For this example, we will show you how to set up a "single node" local flux container to interact with snakemake. You can use the Dockerfile in ``examples/flux`` that will provide a container with flux and snakemake        
+
+`Flux-framework <https://flux-framework.org/>`_ is a flexible resource scheduler that can work on both high performance computing systems and cloud (e.g., Kubernetes).
+Since it is more modern (e.g., has an official Python API) we define it under a cloud resource. For this example, we will show you how to set up a "single node" local flux container to interact with snakemake. You can use the `Dockerfile in examples/flux <https://github.com/snakemake/snakemake/blob/main/examples/flux/Dockerfile>`_ that will provide a container with flux and snakemake        
 Note that we install from source and bind to ``/home/fluxuser/snakemake`` with the intention of being able to develop (if desired).
 First, build the container:
 
@@ -56,8 +57,8 @@ support ``mem_mb`` or ``disk_mb``.
 
          
 
-Step 1: Run Snakemake
-:::::::::::::::::::::
+Run Snakemake
+:::::::::::::
 
 Now let's run Snakemake with the Flux executor. There is an example ``Snakefile``
 in the flux examples folder that will show running a "Hello World!" example,
@@ -77,7 +78,7 @@ Here is how to run the workflow:
 
 The flags above refer to:
 
- - `--flux`: tell Snakemake to use the flux executor
+ - ``--flux``: tell Snakemake to use the flux executor
 
 
 Once you submit the job, you'll immediately see the familiar Snakemake console output.
