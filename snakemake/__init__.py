@@ -147,6 +147,7 @@ def snakemake(
     singularity_args="",
     conda_frontend="conda",
     conda_prefix=None,
+    hosting_provider_token=None,
     conda_cleanup_pkgs=None,
     list_conda_envs=False,
     singularity_prefix=None,
@@ -282,6 +283,7 @@ def snakemake(
         use_env_modules (bool):     load environment modules if defined in rules
         singularity_args (str):     additional arguments to pass to a singularity
         conda_prefix (str):         the directory in which conda environments will be created (default None)
+        hosting_provider_token (str):  authentication token to use when accessing private repositories in hosting providers (i.e. GitHub, Gitlab) (default: None)
         conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
                                     whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
         singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
@@ -581,6 +583,7 @@ def snakemake(
             use_env_modules=use_env_modules,
             conda_frontend=conda_frontend,
             conda_prefix=conda_prefix,
+            hosting_provider_token=hosting_provider_token,
             conda_cleanup_pkgs=conda_cleanup_pkgs,
             singularity_prefix=singularity_prefix,
             shadow_prefix=shadow_prefix,
@@ -690,6 +693,7 @@ def snakemake(
                     use_singularity=use_singularity,
                     use_env_modules=use_env_modules,
                     conda_prefix=conda_prefix,
+                    hosting_provider_token=hosting_provider_token,
                     conda_cleanup_pkgs=conda_cleanup_pkgs,
                     conda_frontend=conda_frontend,
                     singularity_prefix=singularity_prefix,
@@ -1458,6 +1462,15 @@ def get_argument_parser(profile=None):
             "Specify a directory in which the 'shadow' directory is created. "
             "If not supplied, the value is set to the '.snakemake' directory relative "
             "to the working directory."
+        ),
+    )
+    group_exec.add_argument(
+        "--hosting-provider-token",
+        nargs="?",
+        metavar="TOKEN",
+        help=(
+            "Uses the specified token to access private repositories in hosting "
+            "providers (i.e. GitHub, GitLab)."
         ),
     )
 
@@ -2967,6 +2980,7 @@ def main(argv=None):
             use_conda=args.use_conda,
             conda_frontend=args.conda_frontend,
             conda_prefix=args.conda_prefix,
+            hosting_provider_token=args.hosting_provider_token,
             conda_cleanup_pkgs=args.conda_cleanup_pkgs,
             list_conda_envs=args.list_conda_envs,
             use_singularity=args.use_singularity,
