@@ -304,9 +304,10 @@ class SlurmExecutor(ClusterExecutor):
                 if not res:
                     try:
                         sctrl_cmd = shlex.split(
-                            "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
-                                jobid
-                            )
+                            "squeue -j {} -h -o %T".format(jobid)
+                            #"scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
+                            #    jobid
+                            #)
                         )
                         logger.debug(f"scontrol command: {sctrl_cmd}")
                         process = subprocess.Popen(
