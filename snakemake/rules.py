@@ -1219,7 +1219,10 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.output == other.output
+        if type(other) is type(self):
+            return self.name == other.name and self.output == other.output
+        else:
+            return False
 
 
 class Ruleorder:
