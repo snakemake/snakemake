@@ -71,7 +71,7 @@ setup(
         "pulp >=2.0",
         "smart_open >=3.0",
         "stopit",
-        "tabulate",
+        "tabulate <0.9.0",
         "yte >=1.0,<2.0",
         "jinja2 >=3.0,<4.0",
         "reretry",
