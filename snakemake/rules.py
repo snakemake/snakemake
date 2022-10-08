@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import re
 import types
+import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
@@ -1045,36 +1046,41 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(
+        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+    ):
         resources = dict()
 
         def apply(name, res, threads=None):
-            if callable(res):
-                aux = dict(rulename=self.name)
-                if threads is not None:
-                    aux["threads"] = threads
-                try:
-                    res, _ = self.apply_input_function(
-                        res,
-                        wildcards,
-                        input=input,
-                        attempt=attempt,
-                        incomplete_checkpoint_func=lambda e: 0,
-                        raw_exceptions=True,
-                        **aux,
+            if skip_evaluation is not None and name in skip_evaluation:
+                res = TBDString()
+            else:
+                if callable(res):
+                    aux = dict(rulename=self.name)
+                    if threads is not None:
+                        aux["threads"] = threads
+                    try:
+                        res, _ = self.apply_input_function(
+                            res,
+                            wildcards,
+                            input=input,
+                            attempt=attempt,
+                            incomplete_checkpoint_func=lambda e: 0,
+                            raw_exceptions=True,
+                            **aux,
+                        )
+                    except (Exception, BaseException) as e:
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+
+                if isinstance(res, float):
+                    # round to integer
+                    res = int(round(res))
+
+                if not isinstance(res, int) and not isinstance(res, str):
+                    raise WorkflowError(
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
+                        rule=self,
                     )
-                except (Exception, BaseException) as e:
-                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
-
-            if isinstance(res, float):
-                # round to integer
-                res = int(round(res))
-
-            if not isinstance(res, int) and not isinstance(res, str):
-                raise WorkflowError(
-                    f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
-                    rule=self,
-                )
 
             global_res = self.workflow.global_resources.get(name)
             if global_res is not None:
