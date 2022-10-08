@@ -2393,7 +2393,7 @@ class DAG:
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
-                "job": rule,
+                "job": rule.name,
                 "count": count,
                 "min threads": min_threads[rule],
                 "max threads": max_threads[rule],
