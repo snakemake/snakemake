@@ -1628,7 +1628,7 @@ class Workflow:
 
     def docstring(self, string):
         def decorate(ruleinfo):
-            ruleinfo.docstring = string.trim()
+            ruleinfo.docstring = string.strip()
             return ruleinfo
 
         return decorate
