@@ -1626,7 +1626,8 @@ class DAG:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        self.handle_temp(job)
+        for job in jobs:
+            self.handle_temp(job)
 
         return potential_new_ready_jobs
 
@@ -2392,7 +2393,7 @@ class DAG:
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
-                "job": rule,
+                "job": rule.name,
                 "count": count,
                 "min threads": min_threads[rule],
                 "max threads": max_threads[rule],

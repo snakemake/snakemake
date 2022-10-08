@@ -2180,16 +2180,16 @@ This time, instead of explicitly writing
 
 .. code-block:: python
 
-  checkpoints.clustering.get(sample=wildcards.sample).output[0]
+  checkpoints.somestep.get(sample=wildcards.sample).output[0]
 
 we use the shorthand
 
 .. code-block:: python
 
-  checkpoints.clustering.get(**wildcards).output[0]
+  checkpoints.somestep.get(**wildcards).output[0]
 
 which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
-If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
+If the checkpoint has not yet been executed, accessing ``checkpoints.somestep.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
 Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
@@ -2285,7 +2285,7 @@ Snakemake workflows can refer to various other source files via paths relative t
 This happens for example with the :ref:`script directive <snakefiles-external_scripts>` or the :ref:`conda directive <integrated_package_management>`.
 Sometimes, it is necessary to access further source files that are in a directory relative to the current Snakefile.
 Since workflows can be imported from remote locations (e.g. when using :ref:`modules <snakefiles-modules>`), it is important to not do this manually, so that Snakemake has the chance to cache these files locally before they are accessed.
-This can be achieved by accessing their path via the ``workflow.get_source``, which (a) computes the correct path relative to the current Snakefile such that the file can be accessed from any working directory, and (b) downloads remote files to a local cache:
+This can be achieved by accessing their path via the ``workflow.source_path``, which (a) computes the correct path relative to the current Snakefile such that the file can be accessed from any working directory, and (b) downloads remote files to a local cache:
 
 .. code-block:: python
 
