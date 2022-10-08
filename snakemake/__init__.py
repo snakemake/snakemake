@@ -2293,7 +2293,7 @@ def get_argument_parser(profile=None):
     group_kubernetes.add_argument(
         "--k8s-cpu-scalar",
         metavar="FLOAT",
-        default=1,
+        default=0.95,
         type=float,
         help="K8s reserves some proportion of available CPUs for its own use. "
         "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
