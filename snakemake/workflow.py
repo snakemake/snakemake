@@ -1,4 +1,4 @@
-__author__ = "Johannes Köster"
+ = "Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
@@ -165,7 +165,9 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self.rerun_triggers = frozenset(rerun_triggers)
+        self.rerun_triggers = (
+            frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
+        )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
@@ -451,7 +453,7 @@ class Workflow:
         rules = self.rules
         if only_targets:
             rules = filterfalse(Rule.has_wildcards, rules)
-        for rule in rules:
+        for rule in sorted(rules, key=lambda r: r.name):
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def list_resources(self):
@@ -521,6 +523,7 @@ class Workflow:
         drmaa_log_dir=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
+        flux=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -963,6 +966,7 @@ class Workflow:
             drmaa_log_dir=drmaa_log_dir,
             kubernetes=kubernetes,
             k8s_cpu_scalar=k8s_cpu_scalar,
+            flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             google_lifesciences=google_lifesciences,
@@ -1628,7 +1632,7 @@ class Workflow:
 
     def docstring(self, string):
         def decorate(ruleinfo):
-            ruleinfo.docstring = string
+            ruleinfo.docstring = string.strip()
             return ruleinfo
 
         return decorate

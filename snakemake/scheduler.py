@@ -25,6 +25,8 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+
+from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -77,6 +79,7 @@ class JobScheduler:
         kubernetes=None,
         k8s_cpu_scalar=1.0,
         container_image=None,
+        flux=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -211,6 +214,7 @@ class JobScheduler:
                     keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
+                    self._submit_callback = self._proceed
                     self.update_dynamic = False
                     self.print_progress = False
                     self.update_resources = False
@@ -281,6 +285,27 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 keepincomplete=keepincomplete,
             )
+
+        elif flux:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+
+            self._executor = FluxExecutor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,

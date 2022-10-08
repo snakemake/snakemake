@@ -17,6 +17,28 @@ def test_keep_logger():
         snakemake(path, workdir=tmpdir, keep_logger=True)
 
 
+def test_workflow_calling():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "Snakefile")
+        with open(path, "w") as f:
+            print(
+                dedent(
+                    """
+                rule:
+                    output: 'result.txt'
+                    run:
+                        with open(output[0], 'w') as f:
+                            print("hello", file=f)
+                """
+                ),
+                file=f,
+            )
+        workflow = Workflow(
+            snakefile=snakefile,
+            overwrite_workdir=tmpdir,
+        )
+
+
 def test_run_script_directive():
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.join(tmpdir, "Snakefile")

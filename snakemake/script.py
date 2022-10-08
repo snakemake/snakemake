@@ -1498,6 +1498,8 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
+    if isinstance(path, Path):
+        path = str(path)
 
     path, source, language, is_local = get_source(
         path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
