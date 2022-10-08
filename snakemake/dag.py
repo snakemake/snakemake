@@ -1626,7 +1626,8 @@ class DAG:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        self.handle_temp(job)
+        for job in jobs:
+            self.handle_temp(job)
 
         return potential_new_ready_jobs
 

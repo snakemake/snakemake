@@ -1,0 +1,44 @@
+name: Test Flux Executor
+on:
+  pull_request: []
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        container: ['fluxrm/flux-sched:focal']
+
+    container:
+      image: ${{ matrix.container }}
+      options: "--platform=linux/amd64 --user root -it"
+
+    name: ${{ matrix.container }}
+    steps:
+      - name: Make Space
+        run: |        
+          rm -rf /usr/share/dotnet
+          rm -rf /opt/ghc
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Snakemake
+        run: |
+          wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh           
+          /bin/bash ~/miniconda.sh -b -p /opt/conda
+          export PATH=/opt/conda:/bin:$PATH
+          # Install snakemake
+          pip install .
+
+      - name: Start Flux and Test Workflow
+        run: |
+          # We must have python3->python accessible for this to work
+          ln -s /bin/python3 /usr/local/bin/python
+          su fluxuser
+          cd examples/flux
+          which snakemake
+          flux start snakemake --flux --jobs=1
