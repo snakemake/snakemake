@@ -453,7 +453,7 @@ class Workflow:
         rules = self.rules
         if only_targets:
             rules = filterfalse(Rule.has_wildcards, rules)
-        for rule in rules:
+        for rule in sorted(rules, key=lambda r: r.name):
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def list_resources(self):
@@ -1630,7 +1630,7 @@ class Workflow:
 
     def docstring(self, string):
         def decorate(ruleinfo):
-            ruleinfo.docstring = string
+            ruleinfo.docstring = string.strip()
             return ruleinfo
 
         return decorate
