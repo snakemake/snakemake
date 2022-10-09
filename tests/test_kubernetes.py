@@ -48,7 +48,9 @@ def kubernetes_cluster():
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
-                    default_resources=DefaultResources(["mem_mb=1000", "disk_mb=50"]), # ensure that we don't get charged too much
+                    default_resources=DefaultResources(
+                        ["mem_mb=1000", "disk_mb=50"]
+                    ),  # ensure that we don't get charged too much
                     **kwargs
                 )
             except Exception as e:
