@@ -222,6 +222,15 @@ class AzureStorageHelper(object):
         )
 
         container_client = self.blob_service_client.get_container_client(container_name)
+        
+        try:
+            if not container_client.exists():
+                container_client.create_container()
+        except Exception as e:
+            if (e.status_code==403):
+                pass
+        
+        
         try:
             container_client.create_container()
         except azure.core.exceptions.ResourceExistsError:
