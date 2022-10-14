@@ -1,0 +1,55 @@
+# a target rule to define the desired final output
+rule all:
+    input:
+        "processed2.txt",
+
+
+# the checkpoint that shall trigger re-evaluation of the DAG
+# an number of file is created in a defined directory
+checkpoint somestep:
+    output:
+        directory("my_directory/"),
+    shell:
+        """
+        mkdir my_directory/
+        cd my_directory
+        for i in 1 2 3; do touch $i.txt; done
+        """
+
+
+# input function for rule aggregate, return paths to all files produced by the checkpoint 'somestep'
+def aggregate_input(wildcards):
+    checkpoint_output = checkpoints.somestep.get(**wildcards).output[0]
+    return expand(
+        "my_directory/{i}.txt",
+        i=glob_wildcards(os.path.join(checkpoint_output, "{i}.txt")).i,
+    )
+
+
+rule aggregate:
+    input:
+        aggregate_input,
+    output:
+        "aggregated.txt",
+    shell:
+        "echo AGGREGATED > {output}"
+
+
+# Fail here if the job runs again, as we want to ensure that snakemake does not false trigger a rerun
+# as reported in issue #1818.
+rule process:
+    input:
+        "aggregated.txt",
+    output:
+        "processed.txt",
+    shell:
+        "exit 1; echo PROCESSED > {output}"
+
+
+rule process2:
+    input:
+        "processed.txt",
+    output:
+        "processed2.txt",
+    shell:
+        "echo PROCESSED2 > {output}"

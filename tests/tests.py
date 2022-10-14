@@ -1982,3 +1982,8 @@ def test_github_issue1618():
 
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
+
+
+@skip_on_windows
+def test_github_issue1818():
+    run(dpath("test_github_issue1818"), rerun_triggers="input")
