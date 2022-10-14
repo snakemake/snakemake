@@ -2488,7 +2488,7 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--conda-frontend",
         default="mamba",
-        choices=["conda", "mamba"],
+        choices=["conda", "mamba", "micromamba"],
         help="Choose the conda frontend for installing environments. "
         "Mamba is much faster and highly recommended.",
     )
