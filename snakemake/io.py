@@ -884,7 +884,7 @@ def get_wildcard_names(pattern):
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(path) is not None
+    return _wildcard_regex.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
