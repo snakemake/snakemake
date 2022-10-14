@@ -452,7 +452,7 @@ class Env:
             env_archive = self.archive_file
             try:
                 # Create empty env
-                (Path(env_path) / conda-meta).mkdir(parents=True, exist_ok=True)
+                (Path(env_path) / "conda-meta").mkdir(parents=True, exist_ok=True)
                 # Touch "start" flag file
                 with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
