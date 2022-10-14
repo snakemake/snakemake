@@ -451,8 +451,9 @@ class Env:
             logger.info(f"Creating conda environment {self.file.simplify_path()}...")
             env_archive = self.archive_file
             try:
+                # Create empty env
+                (Path(env_path) / conda-meta).mkdir(parents=True, exist_ok=True)
                 # Touch "start" flag file
-                os.makedirs(env_path, exist_ok=True)
                 with open(os.path.join(env_path, "env_setup_start"), "a") as f:
                     pass
 
@@ -461,7 +462,7 @@ class Env:
                     logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
                     if os.path.exists(pkg_list):
-                        # read pacakges in correct order
+                        # read packages in correct order
                         # this is for newer env archives where the package list
                         # was stored
                         packages = [
@@ -475,7 +476,7 @@ class Env:
                     # install packages manually from env archive
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "create",
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
@@ -499,7 +500,7 @@ class Env:
                         # different volumes and singularity should only mount one).
                         # In addition, this allows to immediately see what an
                         # environment in .snakemake/conda contains.
-                        target_env_file = env_path + f".{filetype}"
+                        target_env_file = f"{env_path}.{filetype}"
                         shutil.copy(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
@@ -513,7 +514,8 @@ class Env:
                         subcommand = [self.frontend]
                         yes_flag = ["--yes"]
                         if filetype == "yaml":
-                            subcommand.append("env")
+                            if self.frontend != "micromamba":
+                                subcommand.append("env")
                             yes_flag = []
 
                         cmd = (
@@ -679,8 +681,8 @@ class Conda:
         from snakemake.shell import shell
 
         frontends = ["conda"]
-        if self.frontend == "mamba":
-            frontends = ["mamba", "conda"]
+        if self.frontend != "conda":
+            frontends.append(self.frontend)
 
         for frontend in frontends:
             # Use type here since conda now is a function.

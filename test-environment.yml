@@ -52,6 +52,7 @@ dependencies:
   - nbformat
   - toposort >=1.10
   - mamba
+  - micromamba
   - crc32c
   - pip
   - connection_pool
