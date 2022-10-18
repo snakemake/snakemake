@@ -233,7 +233,7 @@ The multiext function
         shell:
             ...
 
-The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
 
 
