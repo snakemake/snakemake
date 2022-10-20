@@ -1493,7 +1493,6 @@ class Workflow:
                 if group is not None:
                     rule.group = group
             if ruleinfo.wrapper:
-                print("here")
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.wrapper_prefix
                 )
