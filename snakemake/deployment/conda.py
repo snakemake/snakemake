@@ -876,7 +876,7 @@ class CondaEnvFileSpec(CondaEnvSpec):
     def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
         def apply_token(filepath):
             if workflow.hosting_provider_token:
-                if "github." in filepath:
+                if "github" in filepath:
                     return filepath.replace("raw",f":{workflow.hosting_provider_token}@raw")
                 elif "gitlab" in filepath:
                     return filepath + f"&private_token={workflow.hosting_provider_token}"
