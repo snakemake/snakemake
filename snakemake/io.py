@@ -1714,7 +1714,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
                 try:
                     import dhall
 
-                    return dhall.load(f)
+                    return collections.OrderedDict(dhall.load(f))
                 except ImportError:
                     raise WorkflowError(
                         "The Python 3 package 'dhall' must be installed "
