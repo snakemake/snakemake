@@ -1108,11 +1108,23 @@ class DAG:
                     reason.updated_input.update(updated_input)
                 if not updated_input:
                     # check for other changes like parameters, set of input files, or code
+                    depends_on_checkpoint_target = any(
+                        f.flags.get("checkpoint_target") for f in job.input
+                    )
+
                     if "params" in self.workflow.rerun_triggers:
                         reason.params_changed = any(
                             self.workflow.persistence.params_changed(job)
                         )
-                    if "input" in self.workflow.rerun_triggers:
+                    if (
+                        "input" in self.workflow.rerun_triggers
+                        and not depends_on_checkpoint_target
+                    ):
+                        # When the job depends on a checkpoint, it will be revaluated in a second pass
+                        # after the checkpoint output has been determined.
+                        # The first pass (with depends_on_checkpoint_target == True) is not informative
+                        # for determining the input file set, as it will change after evaluating the
+                        # input function of the job in the second pass.
                         reason.input_changed = any(
                             self.workflow.persistence.input_changed(job)
                         )
@@ -1626,7 +1638,8 @@ class DAG:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        self.handle_temp(job)
+        for job in jobs:
+            self.handle_temp(job)
 
         return potential_new_ready_jobs
 
@@ -2392,7 +2405,7 @@ class DAG:
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
-                "job": rule,
+                "job": rule.name,
                 "count": count,
                 "min threads": min_threads[rule],
                 "max threads": max_threads[rule],

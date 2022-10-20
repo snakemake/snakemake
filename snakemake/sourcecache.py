@@ -421,7 +421,7 @@ class SourceCache:
             os.utime(cache_entry, times=(mtime, mtime))
 
     def _open_local_or_remote(self, source_file, mode, encoding=None):
-        from retry.api import retry_call
+        from reretry.api import retry_call
 
         if source_file.is_local:
             return self._open(source_file, mode, encoding=encoding)

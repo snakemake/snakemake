@@ -492,7 +492,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
-                            "--no-shortcuts",
+                            "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
                             "--prefix '{}'".format(env_path),
                         ]

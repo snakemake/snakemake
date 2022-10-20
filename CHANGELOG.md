@@ -1,5 +1,74 @@
 # Changelog
 
+## [7.16.1](https://github.com/snakemake/snakemake/compare/v7.16.0...v7.16.1) (2022-10-18)
+
+
+### Bug Fixes
+
+* conda create --no-shortcuts absent on Linux/MacOS (regression from [#1046](https://github.com/snakemake/snakemake/issues/1046)) ([#1916](https://github.com/snakemake/snakemake/issues/1916)) ([8a86a1e](https://github.com/snakemake/snakemake/commit/8a86a1e5ec7438492e2f1403b1b0fd81030255ad))
+* fix typo in line display of exceptions ([#1912](https://github.com/snakemake/snakemake/issues/1912)) ([55e38a6](https://github.com/snakemake/snakemake/commit/55e38a6f80c74b24d7763975b0ae2826d75f23d9))
+
+## [7.16.0](https://github.com/snakemake/snakemake/compare/v7.15.2...v7.16.0) (2022-10-14)
+
+
+### Features
+
+* k8s: add --k8s-cpu-scalar ([#1857](https://github.com/snakemake/snakemake/issues/1857)) ([a067a1b](https://github.com/snakemake/snakemake/commit/a067a1b6eb8f6432348bc257782faba40f89e805))
+
+
+### Bug Fixes
+
+* allow report generation to handle pathlib objects ([#1904](https://github.com/snakemake/snakemake/issues/1904)) ([7c34656](https://github.com/snakemake/snakemake/commit/7c346569106a36bbbce990576324af472ada9efd))
+* fix false reruns after checkpoints ([#1907](https://github.com/snakemake/snakemake/issues/1907)) ([dc5af12](https://github.com/snakemake/snakemake/commit/dc5af12f54e774612bb1f8ead45e4597080dc100))
+
+## [7.15.2](https://github.com/snakemake/snakemake/compare/v7.15.1...v7.15.2) (2022-10-08)
+
+
+### Bug Fixes
+
+* Comparison of rules and non-rule instances ([#1894](https://github.com/snakemake/snakemake/issues/1894)) ([bf01ece](https://github.com/snakemake/snakemake/commit/bf01ece0e9c51442daba02ecf2ef37aa276283d6))
+* delay evaluation of tmpdir to actual job execution, and not submission. This way, tmpdir can be dependent on the node context. ([#1860](https://github.com/snakemake/snakemake/issues/1860)) ([4203556](https://github.com/snakemake/snakemake/commit/420355662ebea0bc72c9bd6bca1eea5259f3b43e))
+* ensure that rule name string instead of object is passed to tabulate package ([#1898](https://github.com/snakemake/snakemake/issues/1898)) ([f9ff157](https://github.com/snakemake/snakemake/commit/f9ff157c5c534ba035bdf51a02fbbba5ad94dd61))
+* issue 1846 ([#1888](https://github.com/snakemake/snakemake/issues/1888)) ([da2dfbd](https://github.com/snakemake/snakemake/commit/da2dfbd765aa1e2a8da36d9eaa1ac9fcffa5e921))
+* lexicographically sorted rule display with --list, and trimmed rule docstrings ([#1880](https://github.com/snakemake/snakemake/issues/1880)) ([32128ae](https://github.com/snakemake/snakemake/commit/32128ae118d15f250e4b438735e30151cd6f27c5))
+
+
+### Performance Improvements
+
+* Average NamedList __getitem__ performance improvement ([#1825](https://github.com/snakemake/snakemake/issues/1825)) ([10451b7](https://github.com/snakemake/snakemake/commit/10451b7198a4a39149ce5e8ec82c17df1f18813b))
+
+## [7.15.1](https://github.com/snakemake/snakemake/compare/v7.15.0...v7.15.1) (2022-10-04)
+
+
+### Bug Fixes
+
+* fix `--immediate-submit` ([#1851](https://github.com/snakemake/snakemake/issues/1851)) ([e358372](https://github.com/snakemake/snakemake/commit/e3583721f2dc620ce96876ecec58846d1cbe7bfd))
+* Handle temp files for all jobs in a group. ([#1779](https://github.com/snakemake/snakemake/issues/1779)) ([d28b893](https://github.com/snakemake/snakemake/commit/d28b89363f007d303d733b2b12f517502867035c))
+
+
+### Documentation
+
+* small tweaks to flux documentation ([#1886](https://github.com/snakemake/snakemake/issues/1886)) ([f29b371](https://github.com/snakemake/snakemake/commit/f29b37106727c470b691076189e92f35e4cecfb6))
+* various little fixes ([#1875](https://github.com/snakemake/snakemake/issues/1875)) ([b93f8e3](https://github.com/snakemake/snakemake/commit/b93f8e316cb2f51e72933e7a28872bdf523aec11))
+
+## [7.15.0](https://github.com/snakemake/snakemake/compare/v7.14.2...v7.15.0) (2022-10-04)
+
+
+### Features
+
+* adding flux executor ([#1810](https://github.com/snakemake/snakemake/issues/1810)) ([40d2bd0](https://github.com/snakemake/snakemake/commit/40d2bd071984914ac511e7858690dfd16cefaf69))
+
+
+### Bug Fixes
+
+* Add back logging of run directives ([#1883](https://github.com/snakemake/snakemake/issues/1883)) ([a65559c](https://github.com/snakemake/snakemake/commit/a65559c1e21d65e5b4509b9565b472e734ab9f02))
+
+
+### Documentation
+
+* fix grammar in the intro ([#1859](https://github.com/snakemake/snakemake/issues/1859)) ([774bc6a](https://github.com/snakemake/snakemake/commit/774bc6aaa3105c94a551691498d9a5efb13ac216))
+* fix typo ([#1843](https://github.com/snakemake/snakemake/issues/1843)) ([6572ad9](https://github.com/snakemake/snakemake/commit/6572ad91bed14dece6b01a26134007a25ef0c4b2))
+
 ## [7.14.2](https://github.com/snakemake/snakemake/compare/v7.14.1...v7.14.2) (2022-09-26)
 
 
