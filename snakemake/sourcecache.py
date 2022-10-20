@@ -203,7 +203,6 @@ class HostingProviderFile(SourceFile):
         tag: str = None,
         branch: str = None,
         commit: str = None,
-        token: str = None,
     ):
         if repo is None:
             raise SourceFileError("repo must be given")
@@ -229,7 +228,7 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
-        self.token = token
+        self.token = None
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -286,10 +285,10 @@ class GitlabFile(HostingProviderFile):
         branch: str = None,
         commit: str = None,
         host: str = None,
-        token: str = None,
     ):
-        super().__init__(repo, path, tag, branch, commit, token)
+        super().__init__(repo, path, tag, branch, commit)
         self.host = host
+        self.token = None
 
     def set_token(self, token):
         self.token = token
