@@ -93,6 +93,7 @@ from snakemake.sourcecache import (
     SourceCache,
     SourceFile,
     infer_source_file,
+    HostingProviderFile,
 )
 from snakemake.deployment.conda import Conda, is_conda_env_file
 from snakemake import sourcecache
@@ -1181,6 +1182,9 @@ class Workflow:
         """
         basedir = self.current_basedir if self.included_stack else None
         snakefile = infer_source_file(snakefile, basedir)
+
+        if self.hosting_provider_token and isinstance(snakefile, HostingProviderFile):
+            snakefile.set_token(self.hosting_provider_token)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))

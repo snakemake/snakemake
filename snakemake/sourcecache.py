@@ -270,6 +270,9 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
+    def set_token(self, token):
+        self.token = token
+
     def get_path_or_uri(self):
         auth = ":{}@".format(self.token) if self.token else ""
         return "https://{}raw.githubusercontent.com/{}/{}/{}".format(auth, self.repo, self.ref, self.path)
@@ -287,6 +290,9 @@ class GitlabFile(HostingProviderFile):
     ):
         super().__init__(repo, path, tag, branch, commit, token)
         self.host = host
+
+    def set_token(self, token):
+        self.token = token
 
     def get_path_or_uri(self):
         from urllib.parse import quote
