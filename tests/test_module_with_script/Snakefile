@@ -1,5 +1,4 @@
 from snakemake.utils import min_version
-import os
 
 min_version("6.1.1")
 
@@ -7,7 +6,7 @@ configfile: "config.yaml"
 
 module with_script:
     snakefile:
-        github("snakemake/snakemake", tag="v6.1.1", path="tests/test_script_py/Snakefile", token=os.environ.get("GITHUB_TOKEN"))
+        github("snakemake/snakemake", tag="v6.1.1", path="tests/test_script_py/Snakefile")
     config:
         config
 
