@@ -1,5 +1,5 @@
 FROM bitnami/minideb:buster
-MAINTAINER Johannes Köster <johannes.koester@tu-dortmund.de>
+LABEL org.opencontainers.image.authors="Johannes Köster <johannes.koester@tu-dortmund.de>"
 ADD . /tmp/repo
 WORKDIR /tmp/repo
 ENV PATH /opt/conda/bin:${PATH}

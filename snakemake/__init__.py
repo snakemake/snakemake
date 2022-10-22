@@ -18,6 +18,7 @@ import importlib
 import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.executors import azure_batch
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -162,6 +163,10 @@ def snakemake(
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
+    az_batch=False,
+    az_batch_account_name=None,
+    az_batch_account_key=None,
+    az_batch_account_location=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
@@ -300,6 +305,10 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        az_batch (bool):            Submit jobs to azure batch.
+        az_batch_account_name (str): Azure batch account name.
+        az_batch_account_key (str): Azure batch account key.
+        az_batch_account_location (str): Azure batch account location.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
@@ -401,6 +410,11 @@ def snakemake(
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
+    # Azure batch uses compute engine and storage
+    if az_batch: 
+        assume_shared_fs = False
+        default_remote_provider = "AzBlob"
+
     # Google Cloud Life Sciences API uses compute engine and storage
     if google_lifesciences:
         assume_shared_fs = False
@@ -439,6 +453,7 @@ def snakemake(
         or drmaa
         or kubernetes
         or tibanna
+        or az_batch
         or google_lifesciences
         or tes
     )
@@ -710,6 +725,10 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_account_name=az_batch_account_name,
+                    az_batch_account_key=az_batch_account_key,
+                    az_batch_account_location=az_batch_account_location,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -764,6 +783,10 @@ def snakemake(
                     k8s_cpu_scalar=k8s_cpu_scalar,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_account_name=az_batch_account_name,
+                    az_batch_account_key=az_batch_account_key,
+                    az_batch_account_location=az_batch_account_location,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -2266,10 +2289,10 @@ def get_argument_parser(profile=None):
 
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
-    group_kubernetes = parser.add_argument_group("KUBERNETES")
-    group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
+    group_tibanna = parser.add_argument_group("TIBANNA")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2377,6 +2400,32 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_azure_batch = parser.add_argument_group("AZURE_BATCH")
+
+    group_azure_batch.add_argument(
+        "--az-batch",
+        action="store_true",
+        help="Execute workflow on azure batch",
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-account-name",
+        nargs="?",
+        help="Azure batch account name"
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-account-key",
+        nargs="?",
+        help="Azure batch account key"
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-account-location",
+        nargs="?",
+        help="Azure batch account location, used to constuct az batch account url"
     )
 
     group_flux.add_argument(
@@ -2596,6 +2645,7 @@ def main(argv=None):
         or args.tibanna
         or args.kubernetes
         or args.tes
+        or args.az_batch
         or args.google_lifesciences
         or args.drmaa
     )
@@ -2749,6 +2799,29 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
+    
+    if args.az_batch: 
+        if not args.default_remote_provider or not args.default_remote_prefix:
+         print(
+             "Error: --az-batch-configfile must be combined with "
+             "--default-remote-provider AzBlob and --default-remote-prefix to "
+             "provide a container name\n",
+             file=sys.stderr,
+         )
+        elif args.az_batch_account_name is None:
+            print(
+                "Error: --az-batch-account-name must be set when --az-batch is used\n"
+            )
+        elif args.az_batch_account_key is None:
+            print(
+                "Error: --az-batch-account-key must be set when --az-batch is used\n"
+            )
+        elif args.az_batch_account_location is None:
+            print(
+                "Error: --az-batch-account-location must be set when --az-batch is used\n"
+            )
+            sys.exit(1)
+
 
     if args.google_lifesciences:
         if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
@@ -2945,6 +3018,10 @@ def main(argv=None):
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            az_batch=args.az_batch,
+            az_batch_account_name=args.az_batch_account_name,
+            az_batch_account_key=args.az_batch_account_key,
+            az_batch_account_location=args.az_batch_account_location,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,

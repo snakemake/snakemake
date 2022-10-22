@@ -474,7 +474,8 @@ class CPUExecutor(RealExecutor):
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.
         # Hence we need to reserve additional workers for them.
-        self.workers = workers + 5
+        workers = workers + 5 if workers is not None else 5 
+        self.workers = workers
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     @property

@@ -526,6 +526,10 @@ class Workflow:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_account_name=None,
+        az_batch_account_key=None,
+        az_batch_account_location=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -969,6 +973,10 @@ class Workflow:
             flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            az_batch=False,
+            az_batch_account_name=None,
+            az_batch_account_key=None,
+            az_batch_account_location=None,
             google_lifesciences=google_lifesciences,
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
@@ -998,7 +1006,7 @@ class Workflow:
                     logger.resources_info(
                         "Provided cluster nodes: {}".format(self.nodes)
                     )
-                elif kubernetes or tibanna or google_lifesciences:
+                elif kubernetes or tibanna or google_lifesciences or az_batch:
                     logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
                 else:
                     if self._cores is not None:

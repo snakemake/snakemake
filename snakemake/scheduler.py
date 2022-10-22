@@ -27,6 +27,7 @@ from snakemake.executors import (
 )
 
 from snakemake.executors.flux import FluxExecutor
+from snakemake.executors.azure_batch import AzBatchExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -82,6 +83,10 @@ class JobScheduler:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_account_name=None,
+        az_batch_account_key=None,
+        az_batch_account_location=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -305,6 +310,29 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
             )
+
+        elif az_batch:
+             self._local_executor = CPUExecutor(
+                 workflow,
+                 dag,
+                 local_cores,
+                 printreason=printreason,
+                 quiet=quiet,
+                 printshellcmds=printshellcmds,
+                 cores=local_cores,
+             )
+             self._executor = AzBatchExecutor(
+                 workflow,
+                 dag,
+                 cores,
+                 container_image=container_image,
+                 az_batch_account_name=az_batch_account_name,
+                 az_batch_account_key=az_batch_account_key,
+                 az_batch_account_location=az_batch_account_location,
+                 printreason=printreason,
+                 quiet=quiet,
+                 printshellcmds=printshellcmds,
+             )
 
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
