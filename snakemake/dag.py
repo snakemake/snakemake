@@ -1116,7 +1116,7 @@ class DAG:
                         # When the job depends on a checkpoint, it will be revaluated in a second pass
                         # after the checkpoint output has been determined.
                         # The first pass (with depends_on_checkpoint_target == True) is not informative
-                        # for determining any other changes than file modification dates, as it will 
+                        # for determining any other changes than file modification dates, as it will
                         # change after evaluating the input function of the job in the second pass.
                         if "params" in self.workflow.rerun_triggers:
                             reason.params_changed = any(
