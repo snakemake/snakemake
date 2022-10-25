@@ -3,8 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from configparser import ConfigParser
+from typing import Tuple
 import os
 from collections import namedtuple
+from urllib.parse import urlparse 
 import datetime
 import uuid
 import io
@@ -43,13 +46,21 @@ class AzBatchExecutor(ClusterExecutor):
         cache=False,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         max_status_checks_per_second=1,
-        az_batch_account_name=None,
-        az_batch_account_key=None,
-        az_batch_account_location=None,
+        az_batch_account_url=None,
     ):
-
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            restart_times=restart_times,
+            assume_shared_fs=False,
+            max_status_checks_per_second=10,
+        )
 
         try:
             from azure.batch import BatchServiceClient
@@ -61,12 +72,12 @@ class AzBatchExecutor(ClusterExecutor):
                 " must be installed to use Azure Batch"
             )
 
-        # FIXME overwrite options here or upstream? docker on, sharedfs off etc
+        # setup batch configuration sets self.az_batch_config
+        self.az_batch_config = self.configure_az_batch(az_batch_account_url)
+        logger.debug(self.az_batch_config)
 
         self.workflow = workflow
-        # self.quiet = quiet
         self.workdir = os.path.dirname(self.workflow.persistence.path)
-        # self._save_storage_cache = cache
 
         # Relative path for running on instance
         self._set_snakefile()
@@ -79,61 +90,27 @@ class AzBatchExecutor(ClusterExecutor):
         self.pool_id = "snakemakepool-{:s}".format(ts)
         self.job_id = "snakemakejob-{:s}".format(ts)
 
-        exec_job = exec_job or (
-            "snakemake {target} --snakefile %s "
-            "--force -j{cores} --keep-target-files --keep-remote "
-            "--attempt 1 {use_threads} "
-            "{overwrite_config} {rules} --nocolor "
-            "--notemp --no-hooks --nolock " % self.snakefile
-        )
-
         self.envvars = list(self.workflow.envvars) or []
 
         self.container_image = container_image or get_container_image()
 
-        # initialize az batch account information from command line args
-        self.az_batch_account_name     = az_batch_account_name
-        self.az_batch_account_key      = az_batch_account_key
-        self.az_batch_account_location = az_batch_account_location
-        self.az_batch_url              = f"{self.az_batch_account_name}.{self.az_batch_account_location}.batch.azure.com"
-
-        # As in google_lifesciences.py:
-        # Keep track of build packages to clean up shutdown, and generate
+        # Package workflow sources files and upload to storage
         self._build_packages = set()
         targz = self._generate_build_source_package()
         self.resource_file = self._upload_build_source_package(targz)
 
         # Create a Batch service client.
         credentials = SharedKeyCredentials(
-            self.az_batch_account_name,
-            self.az_batch_account_key,
+            self.az_batch_config.get("batch_account_name"),
+            self.az_batch_config.get("batch_account_key"),
         )
         self.batch_client = BatchServiceClient(
-            credentials, batch_url=self.az_batch_url
+            credentials, batch_url=self.az_batch_config.get("batch_account_url"),
         )
 
-        # Create the pool that will contain the compute nodes that will execute the
-        # tasks.
-        logger.debug("Creating AzBatch pool %s" % self.pool_id)
-        self.create_pool(self.batch_client, self.pool_id)
-
-        # Create the job that will run the tasks.
-        logger.debug("Creating AzBatch job")
-        self.create_job(self.batch_client, self.job_id, self.pool_id)
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            exec_job=exec_job,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
-        )
+        self.create_batch_pool()
+        self.create_batch_job()
+       
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already)
@@ -164,9 +141,6 @@ class AzBatchExecutor(ClusterExecutor):
 
         super()._run(job)
 
-        # obtain job execution command
-        use_threads = "--force-use-threads" if not job.is_group() else ""
-
         envsettings = []
         for key in self.envvars:
             try:
@@ -176,24 +150,15 @@ class AzBatchExecutor(ClusterExecutor):
             except KeyError:
                 continue
 
-        exec_job = self.format_job(
-            self.exec_job, job, _quote_all=True, use_threads=use_threads
-        )
-
-        # FIXME how come we don't need source activate snakemake here? See
-        # _generate_job_action() in google_lifesciences
+        exec_job = self.format_job_exec(job) 
         exec_job += self.get_default_resources_args()
-        # exec_job = "/bin/sh -c 'ls && mount && pwd'"
-        exec_job = "/bin/sh -c 'tar xzf {} && {}'".format(
-            self.resource_file.file_path, exec_job
-        )
-        logger.debug("Exec job = %s" % exec_job)
+        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'"
+        logger.debug(f"Exec job = {exec_job}")
 
+        # A string that uniquely identifies the Task within the Job.
         task_id = str(
             uuid.uuid1()
-        )  # A string that uniquely identifies the Task within the Job.
-
-        # useful blog https://www.muspells.net/blog/2018/11/azure-batch-task-in-containers/
+        )
 
         # This is the user who run the command inside the container.
         # An unprivileged one
@@ -225,7 +190,47 @@ class AzBatchExecutor(ClusterExecutor):
         # register job as active, using your own namedtuple.
         self.batch_client.task.add(self.job_id, task)
         self.active_jobs.append(AzBatchJob(job, task_id, callback, error_callback))
-        logger.debug("Added AzBatch task %s" % task_id)
+        logger.debug(f"Added AzBatch task {task_id}")
+
+    @staticmethod
+    def configure_az_batch(az_batch_account_url: str):
+        """
+        :param str az_batch_account_url: the azure batch account url
+
+        _set_az_batch_config configures self.az_batch_config with the
+        necessary configuraiton variables, adding default values 
+        for those configuraiton variables that can be configured 
+        using environment variables.
+        """
+
+        # init config dict
+        config = dict()
+
+        config["batch_account_url"] = az_batch_account_url
+
+        
+        result = urlparse(az_batch_account_url)
+        batch_account_name = str.split(result.hostname,".")[0]
+        config["batch_account_name"] = batch_account_name
+
+        batch_account_key = os.getenv("AZ_BATCH_ACCOUNT_KEY")
+        if batch_account_key is None:
+            sys.Exit("Error: AZ_BATCH_ACCOUNT_KEY cannot be none")
+
+        config["batch_account_key"] = batch_account_key
+
+        # pool config defaults or env variable overrides
+        config.setdefault("batch_pool_image_publisher", "microsoft-azure-batch")
+        config.setdefault("batch_pool_image_offer", "ubuntu-server-container")
+        config.setdefault("batch_pool_image_sku", "20-04-lts")
+        config.setdefault("batch_pool_vm_container_image", "snakemake/snakemake:latest")
+
+        # must match batch_pool_image_sk
+        config.setdefault("batch_pool_vm_node_agent_sku_id", "batch.node.ubuntu 20.04")
+        config.setdefault("batch_pool_vm_size", "Standard_D1_v2")
+        config.setdefault("batch_pool_node_count", 1)
+
+        return config
 
     # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
     @staticmethod
@@ -245,7 +250,6 @@ class AzBatchExecutor(ClusterExecutor):
             return output.getvalue().decode(encoding)
         finally:
             output.close()
-        raise RuntimeError("could not write data to stream or decode bytes")
 
     # adopted from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
     def _get_task_output(self, job_id, task_id, stdout_or_stderr, encoding=None):
@@ -271,7 +275,7 @@ class AzBatchExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
 
-            logger.debug("Monitoring %d active AzBatch tasks" % len(active_jobs))
+            logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
                 # use self.status_rate_limiter to avoid too many API calls.
@@ -331,7 +335,7 @@ class AzBatchExecutor(ClusterExecutor):
 
                     # The operation is still running
                     else:
-                        logger.debug("Task %s not complete" % batch_job.task_id)
+                        logger.debug(f"Task {batch_job.task_id} not complete") 
                         sys.stderr.write("FIXME task {}: creation_time={} state={} node_info={}\n".format(
                             batch_job.task_id, task.creation_time, task.state, task.node_info))
                         still_running.append(batch_job)
@@ -340,110 +344,66 @@ class AzBatchExecutor(ClusterExecutor):
                 self.active_jobs.extend(still_running)
             sleep()
 
-    def create_pool(self, batch_service_client, pool_id):
+    def create_batch_pool(self):
         """Creates a pool of compute nodes 
         """
 
+        import azure.batch._batch_service_client as bsc
         import azure.batch.models as batchmodels
-        import azure.batch._batch_service_client as batch
 
-        # For more information about creating pools of Linux nodes, see:
-        # https://azure.microsoft.com/documentation/articles/batch-linux-nodes/
+        image_ref = bsc.models.ImageReference(
+             publisher=self.az_batch_config["batch_pool_image_publisher"],
+             offer=self.az_batch_config["batch_pool_image_offer"],
+             sku=self.az_batch_config["batch_pool_image_sku"],
+             version="latest",
+        ) 
 
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
-        container_config = batch.models.ContainerConfiguration(
-            container_image_names=["andreaswilm/snakemaks:5.17"]
-        )  # FIXME hardcoded
+        container_config = bsc.models.ContainerConfiguration(
+            container_image_names=[self.az_batch_config["batch_pool_vm_container_image"]]
+        ) 
 
-        image_ref = batch.models.ImageReference(
-            publisher="microsoft-azure-batch",
-            offer="ubuntu-server-container",
-            sku="16-04-lts",
-            version="latest",
-        )
-
-        # For available env vars see https://docs.microsoft.com/en-us/azure/batch/batch-compute-node-environment-variables
-        # Runs in AZ_BATCH_TASK_WORKING_DIR
-
-        # https://docs.microsoft.com/en-us/azure/batch/resource-files
-        # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.resourcefile?view=azure-python
-        # We could try to down the resource file (Snakefile etc) only once, i.e. per pool rather than per task using a StartTask.
-        # Question is how to get it into the Docker env then.
-        # workdir = "/workdir"# seems to be the default in snakemake containers?
-        # rf = self.resource_file
-        # start_task = batch.models.StartTask(
-        #   command_line='/bin/sh -c "mkdir -p {} && tar -xvz -C {} -f {}"'.format(
-        #        workdir, workdir, rf.file_path),
-        #    resource_files=[rf],
-        #    wait_for_success=True)
         start_task = None
-        new_pool = batch.models.PoolAddParameter(
-            id=pool_id,
+        new_pool = bsc.models.PoolAddParameter(
+            id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
                 image_reference=image_ref,
                 container_configuration=container_config,
-                node_agent_sku_id="batch.node.ubuntu 16.04",
-            ),  # must match image ref
-            vm_size=self.az_batch_config["BATCH_POOL_VM_SIZE"],
-            target_dedicated_nodes=self.az_batch_config["BATCH_POOL_NODE_COUNT"],
+                node_agent_sku_id=self.az_batch_config["batch_pool_vm_node_agent_sku_id"]
+            ), 
+            vm_size=self.az_batch_config["batch_pool_vm_size"],
+            target_dedicated_nodes=self.az_batch_config["batch_pool_node_count"],
             target_low_priority_nodes=0,
             start_task=start_task,
         )
-        batch_service_client.pool.add(new_pool)
-        # FIXME max_tasks_per_node needs to be set here as well. default is 1!
-        # FIXME with higher values, will task_scheduling_policy 'pack' be
-        # intelligent enough to not overload node?
 
-        # FIXME autoscaling
-        # the below confiures the cluster apparently correctly, but
-        # scaling doesn't happen. All values evaluate to 0
-        # set target_dedicated_nodes and target_low_priority_nodes to 0
-        # if using
-        # https://docs.microsoft.com/en-us/azure/batch/batch-automatic-scaling
-        # this formula is the task-based adjustment formula taken from the Azure portal
-        if False:
-            formula = """// In this example, the pool size is adjusted based on the number of tasks in the queue. 
-    // Note that both comments and line breaks are acceptable in formula strings.
+        # create pool if not exists
+        try:
+            logger.debug(f"Creating pool: {self.pool_id}")
+            self.batch_client.pool.add(new_pool)
+        except batchmodels.BatchErrorException as err:
+            if err.error.code != "PoolExists":
+                raise
+            else:
+                logger.debug(f"Pool {self.pool_id} exists.")
 
-    // Get pending tasks for the past 15 minutes.
-    $samples = $ActiveTasks.GetSamplePercent(TimeInterval_Minute * 15);
-    // If we have fewer than 70 percent data points, we use the last sample point, otherwise we use the maximum of last sample point and the history average.
-    $tasks = $samples < 70 ? max(0, $ActiveTasks.GetSample(1)) : 
-    max( $ActiveTasks.GetSample(1), avg($ActiveTasks.GetSample(TimeInterval_Minute * 15)));
-    // If number of pending tasks is not 0, set targetVM to pending tasks, otherwise half of current dedicated.
-    $targetVMs = $tasks > 0 ? $tasks : max(0, $TargetDedicatedNodes / 2);
-    // The pool size is capped at 20, if target VM value is more than that, set it to 20. This value should be adjusted according to your use case.
-    cappedPoolSize = 20;
-    $TargetDedicatedNodes = max(0, min($targetVMs, cappedPoolSize));
-    // Set node deallocation mode - keep nodes active only until tasks finish
-    $NodeDeallocationOption = taskcompletion;"""
-            response = batch_service_client.pool.enable_auto_scale(
-                pool_id,
-                auto_scale_formula=formula,
-                auto_scale_evaluation_interval=datetime.timedelta(minutes=10),
-                pool_enable_auto_scale_options=None,
-                custom_headers=None,
-                raw=False,
-            )
 
-    @staticmethod
-    def create_job(batch_service_client, job_id, pool_id):
+    def create_batch_job(self):
         """Creates a job with the specified ID, associated with the specified pool
         """
-        import azure.batch._batch_service_client as batch  # https://docs.microsoft.com/en-us/azure/batch/quick-run-python uses old 6.0 API without _
+        import azure.batch._batch_service_client as bsc
 
-        logger.debug("Creating job %s" % job_id)
+        logger.debug(f"Creating job {self.job_id}")
 
-        job = batch.models.JobAddParameter(
-            id=job_id,
-            constraints=batch.models.JobConstraints(max_task_retry_count=0),# let snakemake decide on reruns
-            pool_info=batch.models.PoolInformation(pool_id=pool_id),
+        self.batch_client.job.add(
+            bsc.models.JobAddParameter(
+                id=self.job_id,
+                constraints=bsc.models.JobConstraints(max_task_retry_count=0),
+                pool_info=bsc.models.PoolInformation(pool_id=self.pool_id),
+            )
         )
 
-        batch_service_client.job.add(job)
-
-    # from google_lifesciences.py
     def _set_snakefile(self):
         """The snakefile must be a relative path, which cannot be reliably
            derived from the self.workflow.snakefile as we might have moved
@@ -464,7 +424,7 @@ class AzBatchExecutor(ClusterExecutor):
         """
         self.workflow_sources = []
 
-        for wfs in self.workflow.get_sources():
+        for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
                 for (dirpath, dirnames, filenames) in os.walk(wfs):
                     self.workflow_sources.extend(
@@ -488,34 +448,29 @@ class AzBatchExecutor(ClusterExecutor):
         for filename in self.workflow_sources:
             if self.workdir not in filename:
                 raise WorkflowError(
-                    "All source files must be present in the working directory, "
-                    "{workdir} to be uploaded to a build package that respects "
+                    f"All source files must be present in the working directory, "
+                    "{self.workdir} to be uploaded to a build package that respects "
                     "relative paths, but {filename} was found outside of this "
                     "directory. Please set your working directory accordingly, "
-                    "and the path of your Snakefile to be relative to it.".format(
-                        workdir=self.workdir, filename=filename
-                    )
+                    "and the path of your Snakefile to be relative to it."
                 )
 
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
-        targz = os.path.join(tempfile.gettempdir(), "snakemake-%s.tar.gz" % tmpname)
+        targz = os.path.join(tempfile.gettempdir(), f"snakemake-{tmpname}.tar.gz")
         tar = tarfile.open(targz, "w:gz")
 
         # Add all workflow_sources files
         for filename in self.workflow_sources:
             arcname = filename.replace(self.workdir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
-        logger.debug(
-            "Created %s with the following contents: %s"
-            % (targz, self.workflow_sources)
-        )
+        logger.debug(f"Created {targz} with the following contents: {self.workflow_sources}")
         tar.close()
 
         # Rename based on hash, in case user wants to save cache
         sha256 = get_file_hash(targz)
         hash_tar = os.path.join(
-            self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256)
+            self.workflow.persistence.aux_path, f"workdir-{sha256}.tar.gz"
         )
 
         # Only copy if we don't have it yet, clean up if we do
@@ -544,9 +499,8 @@ class AzBatchExecutor(ClusterExecutor):
             import azure.core.exceptions
         except ImportError as e:
             raise WorkflowError(
-                "The Python 3 package 'azure-storage-blob' "
-                "needs to be installed to use Azure Storage remote() file functionality. %s"
-                % e.msg
+                f"The Python 3 package 'azure-storage-blob' "
+                "needs to be installed to use Azure Storage remote() file functionality. {e.msg}"
             )
 
         account_url = os.getenv(
@@ -572,6 +526,6 @@ class AzBatchExecutor(ClusterExecutor):
             with open(targz, "rb") as data:
                 bc.upload_blob(data, blob_type="BlockBlob")
         except Exception as e:
-            raise WorkflowError("Error in creating blob. %s" % str(e))
+            raise WorkflowError(f"Error in creating blob. {str(e)}")
 
         return batchmodels.ResourceFile(http_url=bc.url, file_path=blob_name)

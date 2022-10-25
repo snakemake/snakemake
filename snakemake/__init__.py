@@ -19,6 +19,7 @@ import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
 from snakemake.executors import azure_batch
+from snakemake.executors.common import url_can_parse
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -164,9 +165,7 @@ def snakemake(
     tibanna=False,
     tibanna_sfn=None,
     az_batch=False,
-    az_batch_account_name=None,
-    az_batch_account_key=None,
-    az_batch_account_location=None,
+    az_batch_account_url=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
@@ -306,9 +305,7 @@ def snakemake(
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         az_batch (bool):            Submit jobs to azure batch.
-        az_batch_account_name (str): Azure batch account name.
-        az_batch_account_key (str): Azure batch account key.
-        az_batch_account_location (str): Azure batch account location.
+        az_batch_account_url (str): Azure batch account url.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
@@ -726,9 +723,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
-                    az_batch_account_name=az_batch_account_name,
-                    az_batch_account_key=az_batch_account_key,
-                    az_batch_account_location=az_batch_account_location,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -784,9 +779,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
-                    az_batch_account_name=az_batch_account_name,
-                    az_batch_account_key=az_batch_account_key,
-                    az_batch_account_location=az_batch_account_location,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -2411,21 +2404,9 @@ def get_argument_parser(profile=None):
     )
 
     group_azure_batch.add_argument(
-        "--az-batch-account-name",
+        "--az-batch-account-url",
         nargs="?",
-        help="Azure batch account name"
-    )
-
-    group_azure_batch.add_argument(
-        "--az-batch-account-key",
-        nargs="?",
-        help="Azure batch account key"
-    )
-
-    group_azure_batch.add_argument(
-        "--az-batch-account-location",
-        nargs="?",
-        help="Azure batch account location, used to constuct az batch account url"
+        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set."
     )
 
     group_flux.add_argument(
@@ -2802,26 +2783,30 @@ def main(argv=None):
     
     if args.az_batch: 
         if not args.default_remote_provider or not args.default_remote_prefix:
-         print(
-             "Error: --az-batch-configfile must be combined with "
-             "--default-remote-provider AzBlob and --default-remote-prefix to "
-             "provide a container name\n",
-             file=sys.stderr,
-         )
-        elif args.az_batch_account_name is None:
             print(
-                "Error: --az-batch-account-name must be set when --az-batch is used\n"
-            )
-        elif args.az_batch_account_key is None:
-            print(
-                "Error: --az-batch-account-key must be set when --az-batch is used\n"
-            )
-        elif args.az_batch_account_location is None:
-            print(
-                "Error: --az-batch-account-location must be set when --az-batch is used\n"
+                "Error: --az-batch must be combined with "
+                "--default-remote-provider AzBlob and --default-remote-prefix to "
+                "provide a blob container name\n",
+                file=sys.stderr,
             )
             sys.exit(1)
-
+        elif args.az_batch_account_url is None:
+            print(
+                "Error: --az-batch-account-url must be set when --az-batch is used\n",
+                file=sys.stderr
+            )
+            sys.exit(1)
+        elif not url_can_parse(args.az_batch_account_url):
+            print(
+                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
+            ) 
+            sys.exit(1)
+        elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
+            print(
+                "Error: environment variable AZ_BATCH_ACCOUNT_KEY must be set when --az-batch is used\n",
+                file=sys.stderr
+            )
+            sys.exit(1)
 
     if args.google_lifesciences:
         if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
@@ -3019,9 +3004,7 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             az_batch=args.az_batch,
-            az_batch_account_name=args.az_batch_account_name,
-            az_batch_account_key=args.az_batch_account_key,
-            az_batch_account_location=args.az_batch_account_location,
+            az_batch_account_url=args.az_batch_account_url,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
