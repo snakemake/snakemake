@@ -99,8 +99,11 @@ jobs:
       ###### slurm setup #####
       
       - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm
+        #run: |
+        #  ansible-galaxy install galaxyproject.slurm
+        ansible.builtin.git:
+            repo: https://github.com/galaxyproject/ansible-slurm.git
+            dest: ${{ github.workspace }}
 
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
