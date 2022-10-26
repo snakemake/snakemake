@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.16.2](https://github.com/snakemake/snakemake/compare/v7.16.1...v7.16.2) (2022-10-26)
+
+
+### Bug Fixes
+
+* fix false rerun triggering downstream of checkpoints due to spurious parameter, code or software env changes ([638ea86](https://github.com/snakemake/snakemake/commit/638ea86c51ea5746c8b5452cc8a0e43108de15ef))
+* remove redundant dot in expand call in multiext documentation ([#1921](https://github.com/snakemake/snakemake/issues/1921)) ([278beaa](https://github.com/snakemake/snakemake/commit/278beaa7c81b9e418fa42ac5f944e3d7e2cdfbbd))
+
 ## [7.16.1](https://github.com/snakemake/snakemake/compare/v7.16.0...v7.16.1) (2022-10-18)
 
 
