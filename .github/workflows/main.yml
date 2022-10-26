@@ -99,11 +99,9 @@ jobs:
       ###### slurm setup #####
       
       - name: Download slurm ansible roles
-        #run: |
-        #  ansible-galaxy install galaxyproject.slurm
-        ansible.builtin.git:
-            repo: https://github.com/galaxyproject/ansible-slurm.git
-            dest: ${{ github.workspace }}
+        run: |
+          ansible-galaxy install galaxyproject.slurm
+
 
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
@@ -117,10 +115,63 @@ jobs:
               roles:
                 - role: galaxyproject.slurm
                   become: true
-
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
+              vars:
+                  slurm_cgroup_config:
+                      CgroupMountpoint: "/sys/fs/cgroup"
+                      CgroupAutomount: yes
+                      ConstrainCores: yes
+                      TaskAffinity: no
+                      ConstrainRAMSpace: yes
+                      ConstrainSwapSpace: no
+                      ConstrainDevices: no
+                      AllowedRamSpace: 100
+                      AllowedSwapSpace: 0
+                      MaxRAMPercent: 100
+                      MaxSwapPercent: 100
+                      MinRAMSpace: 30
+              slurm_config:
+                      AccountingStorageType: "accounting_storage/none"
+                      ClusterName: cluster
+                      JobAcctGatherType: "jobacct_gather/none"
+                      MpiDefault: none
+                      ProctrackType: "proctrack/cgroup"
+                      ReturnToService: 1
+                      SchedulerType: "sched/backfill"
+                      SelectType: "select/cons_res"
+                      SelectTypeParameters: "CR_Core"
+                      SlurmctldHost: "slurmctl"
+                      SlurmctldLogFile: "/var/log/slurm/slurmctld.log"
+                      SlurmctldPidFile: "/var/run/slurmctld.pid"
+                      SlurmdLogFile: "/var/log/slurm/slurmd.log"
+                      SlurmdPidFile: "/var/run/slurmd.pid"
+                      SlurmdSpoolDir: "/var/spool/slurmd"
+                      StateSaveLocation: "/var/spool/slurmctld"
+                      SwitchType: "switch/none"
+                      TaskPlugin: "task/affinity,task/cgroup"
+                      TaskPluginParam: Sched
+              slurm_create_user: yes
+              slurm_munge_key: "../../../munge.key"
+              slurm_nodes:
+                 - name: "com0"
+                   CoresPerSocket: 2
+                   Sockets: 1
+                   ThreadsPerCore: 1
+              slurm_partitions:
+                 - name: "compute"
+                   Default: YES
+                   MaxTime: UNLIMITED
+                   Nodes: "com0"
+              slurm_user:
+                  comment: "Slurm Workload Manager"
+                  gid: 888
+                  group: slurm
+                  home: "/var/lib/slurm"
+                  name: slurm
+                  shell: "/bin/bash"
+                  uid: 888              
+              #- name: Setup slurm
+              #run: |
+              #ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
 
       - name: Test slurm submission
         run: |
