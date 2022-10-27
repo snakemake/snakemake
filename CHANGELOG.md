@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.17.0](https://github.com/snakemake/snakemake/compare/v7.16.2...v7.17.0) (2022-10-27)
+
+
+### Features
+
+* allow to define the cache mode per rule (this enables to exclude software envs from the caching hash value, which can be handy e.g. for download rules where the software version does not affect the result) ([#1933](https://github.com/snakemake/snakemake/issues/1933)) ([715e618](https://github.com/snakemake/snakemake/commit/715e6187e9a132c2a61f5bef34a1e10491680b0a))
+
+
+### Performance Improvements
+
+* cached os.pathconf() call in _record_path() ([#1920](https://github.com/snakemake/snakemake/issues/1920)) ([551badb](https://github.com/snakemake/snakemake/commit/551badb4eb9de582278185449d8fa9298ad7ae8c))
+
 ## [7.16.2](https://github.com/snakemake/snakemake/compare/v7.16.1...v7.16.2) (2022-10-26)
 
 
