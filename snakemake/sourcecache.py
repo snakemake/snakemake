@@ -42,7 +42,7 @@ class SourceFile(ABC):
     @abstractmethod
     def is_persistently_cacheable(self):
         ...
-    
+
     def get_cache_path(self):
         uri = parse_uri(self.get_path_or_uri())
         return os.path.join(uri.scheme, unquote(uri.uri_path.lstrip("/")))
