@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import hashlib
 from pathlib import Path
 import posixpath
 import re
@@ -13,7 +12,6 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from datetime import datetime
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -43,11 +41,10 @@ class SourceFile(ABC):
     @abstractmethod
     def is_persistently_cacheable(self):
         ...
-
-    def get_uri_hash(self):
-        urihash = hashlib.sha256()
-        urihash.update(self.get_path_or_uri().encode())
-        return urihash.hexdigest()
+    
+    def get_cache_path(self):
+        uri = parse_uri(self.get_path_or_uri())
+        return os.path.join(uri.scheme, uri.uri_path.lstrip("/"))
 
     def get_basedir(self):
         path = os.path.dirname(self.get_path_or_uri())
@@ -368,15 +365,16 @@ class SourceCache:
         return str(cache_entry)
 
     def _cache_entry(self, source_file):
-        urihash = source_file.get_uri_hash()
+        file_cache_path = source_file.get_cache_path()
+        assert file_cache_path
 
         # TODO add git support to smart_open!
         if source_file.is_persistently_cacheable():
             # check cache
-            return self.cache / urihash
+            return self.cache / file_cache_path
         else:
             # check runtime cache
-            return Path(self.runtime_cache_path) / urihash
+            return Path(self.runtime_cache_path) / file_cache_path
 
     def _cache(self, source_file):
         cache_entry = self._cache_entry(source_file)
@@ -387,6 +385,7 @@ class SourceCache:
     def _do_cache(self, source_file, cache_entry):
         # open from origin
         with self._open_local_or_remote(source_file, "rb") as source:
+            cache_entry.parent.mkdir(parents=True, exist_ok=True)
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
