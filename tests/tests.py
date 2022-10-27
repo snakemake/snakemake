@@ -954,7 +954,6 @@ def test_group_jobs():
 
 
 @skip_on_windows
-
 def test_group_jobs_resources(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
     run(
