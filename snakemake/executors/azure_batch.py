@@ -20,6 +20,8 @@ from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.common import get_container_image, get_file_hash
+from snakemake.parser import Workdir
+from snakemake.remote.AzBlob import AzureStorageHelper
 
 # Define an Azure Batch job. Snakemake requires this namedtuple to at least
 # contain the attributes: job, jobid, callback, error_callback. In AzBatch
@@ -72,6 +74,12 @@ class AzBatchExecutor(ClusterExecutor):
                 " must be installed to use Azure Batch"
             )
 
+        self.azblob_helper  = AzureStorageHelper()
+
+        # get container from remote prefix
+        self.prefix_container = str.split(workflow.default_remote_prefix, '/')[0]
+        self.resources_path = self.prefix_container + "/resources"
+
         # setup batch configuration sets self.az_batch_config
         self.az_batch_config = self.configure_az_batch(az_batch_account_url)
         logger.debug(self.az_batch_config)
@@ -86,9 +94,9 @@ class AzBatchExecutor(ClusterExecutor):
         self._set_workflow_sources()
 
         # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
-        ts = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-        self.pool_id = "snakemakepool-{:s}".format(ts)
-        self.job_id = "snakemakejob-{:s}".format(ts)
+        ts = datetime.datetime.now().strftime("%Y-%m%dT%H-%M-%S")
+        self.pool_id = "snakepool-{:s}".format(ts)
+        self.job_id = "snakejob-{:s}".format(ts)
 
         self.envvars = list(self.workflow.envvars) or []
 
@@ -114,17 +122,15 @@ class AzBatchExecutor(ClusterExecutor):
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already)
-        from azure.storage.blob import BlobClient
-        
+
         logger.debug("Deleting AzBatch job")
         self.batch_client.job.delete(self.job_id)
 
         logger.debug("Deleting AzBatch pool")
         self.batch_client.pool.delete(self.pool_id)
 
-        logger.debug("Deleting uploaded workflow sources")
-        blob_client = BlobClient.from_blob_url(blob_url=self.resource_file.http_url)
-        blob_client.delete_blob()
+        logger.debug("Deleting workflow sources from blob")
+        self.azblob_helper.delete_from_container(self.prefix_container, self.resource_file.file_path)
 
         super().shutdown()
 
@@ -156,9 +162,8 @@ class AzBatchExecutor(ClusterExecutor):
         logger.debug(f"Exec job = {exec_job}")
 
         # A string that uniquely identifies the Task within the Job.
-        task_id = str(
-            uuid.uuid1()
-        )
+        task_uuid = str(uuid.uuid1())
+        task_id = f"{job.rule.name}-{task_uuid}" 
 
         # This is the user who run the command inside the container.
         # An unprivileged one
@@ -171,11 +176,13 @@ class AzBatchExecutor(ClusterExecutor):
 
         # This is the docker image we want to run
         task_container_settings = batchmodels.TaskContainerSettings(
-            image_name=self.container_image, container_run_options="--rm"
+            image_name=self.container_image, container_run_options="--rm -v /:${AZ_BATCH_TASK_WORKING_DIR}"
         )
 
         # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.taskaddparameter?view=azure-python
-        # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node) are mapped into the container, all Task environment variables are mapped into the container, and the Task command line is executed in the container
+        # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node) 
+        # are mapped into the container, all Task environment variables are mapped into the container, 
+        # and the Task command line is executed in the container
         task = batch.models.TaskAddParameter(
             id=task_id,
             command_line=exec_job,
@@ -189,7 +196,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # register job as active, using your own namedtuple.
         self.batch_client.task.add(self.job_id, task)
-        self.active_jobs.append(AzBatchJob(job, task_id, callback, error_callback))
+        self.active_jobs.append(AzBatchJob(job, self.job_id, task_id, callback, error_callback))
         logger.debug(f"Added AzBatch task {task_id}")
 
     @staticmethod
@@ -223,14 +230,23 @@ class AzBatchExecutor(ClusterExecutor):
         config.setdefault("batch_pool_image_publisher", "microsoft-azure-batch")
         config.setdefault("batch_pool_image_offer", "ubuntu-server-container")
         config.setdefault("batch_pool_image_sku", "20-04-lts")
-        config.setdefault("batch_pool_vm_container_image", "snakemake/snakemake:latest")
+        config.setdefault("batch_pool_vm_container_image", "snakemake/snakemake")
 
         # must match batch_pool_image_sk
         config.setdefault("batch_pool_vm_node_agent_sku_id", "batch.node.ubuntu 20.04")
-        config.setdefault("batch_pool_vm_size", "Standard_D1_v2")
+        config.setdefault("batch_pool_vm_size", "Standard_D2_v3")
         config.setdefault("batch_pool_node_count", 1)
 
+        print(config)
         return config
+    
+    # todo cleanup config parse
+    @staticmethod
+    def set_config_var_if_exists(config, var):
+        gotvar = os.getenv(var)
+        if gotvar is not None:
+            config[var] = gotvar
+        return gotvar
 
     # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
     @staticmethod
@@ -255,8 +271,14 @@ class AzBatchExecutor(ClusterExecutor):
     def _get_task_output(self, job_id, task_id, stdout_or_stderr, encoding=None):
         assert stdout_or_stderr in ["stdout", "stderr"]
         fname = stdout_or_stderr + ".txt"
-        stream = self.batch_client.file.get_from_task(job_id, task_id, fname)
-        content = self._read_stream_as_string(stream, encoding)
+        try:
+            stream = self.batch_client.file.get_from_task(job_id, task_id, fname)
+            content = self._read_stream_as_string(stream, encoding)
+        except:
+            content = ""
+            pass
+
+
         return content
 
     def _wait_for_jobs(self):
@@ -278,67 +300,72 @@ class AzBatchExecutor(ClusterExecutor):
             logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
-                # use self.status_rate_limiter to avoid too many API calls.
-                with self.status_rate_limiter:
-                    task = self.batch_client.task.get(self.job_id, batch_job.task_id)
-                    # if j.task.status == batchmodels.TaskState.completed:
-                    if task.state == batchmodels.TaskState.completed:
-                        dt = (
-                            task.execution_info.end_time
-                            - task.execution_info.start_time
-                        )
-                        rc = task.execution_info.exit_code
-                        rt = task.execution_info.retry_count
-                        stderr = self._get_task_output(
-                            self.job_id, batch_job.task_id, "stderr"
-                        )
-                        stdout = self._get_task_output(
-                            self.job_id, batch_job.task_id, "stdout"
-                        )
-                        sys.stderr.write(
-                            "FIXME task {} completed: result={} exit_code={}\n".format(
-                                batch_job.task_id, task.execution_info.result, rc
-                            )
-                        )
-                        sys.stderr.write(
-                            "FIXME task {} completed: run_time={}, retry_count={}\n".format(
-                                batch_job.task_id, str(dt), rt
-                            )
-                        )
-                        sys.stderr.write(
-                            "FIXME task {}: stderr='{}'\n".format(
-                                batch_job.task_id, stderr
-                            )
-                        )
-                        sys.stderr.write(
-                            "FIXME task {}: stdout='{}'\n".format(
-                                batch_job.task_id, stdout
-                            )
-                        )
+                task = self.batch_client.task.get(self.job_id, batch_job.task_id)
 
-                        if (
-                            task.execution_info.result
-                            == batchmodels.TaskExecutionResult.failure
-                        ):
-                            batch_job.error_callback(batch_job.job)
-                        elif (
-                            task.execution_info.result
-                            == batchmodels.TaskExecutionResult.success
-                        ):
-                            batch_job.callback(batch_job.job)
-                        else:
-                            raise ValueError(
-                                "Unknown task execution result: {}".format(
-                                    task.execution_info.result
-                                )
-                            )
+                # print(task)
+                # # check compute node state to handle case where task remains active
+                # # because the node is "unusable"
+                # if task.node_info is not None:
+                #     node = self.batch_client.compute_node.get(task.node_info.pool_id, task.node_info.node_id)
+                #     print(node.state, node.errors)
 
-                    # The operation is still running
+                if task.state == batchmodels.TaskState.completed:
+                    dt = (
+                        task.execution_info.end_time
+                        - task.execution_info.start_time
+                    )
+                    rc = task.execution_info.exit_code
+                    rt = task.execution_info.retry_count
+                    stderr = self._get_task_output(
+                        self.job_id, batch_job.task_id, "stderr"
+                    )
+                    stdout = self._get_task_output(
+                        self.job_id, batch_job.task_id, "stdout"
+                    )
+                    sys.stderr.write(
+                        "FIXME task {} completed: result={} exit_code={}\n".format(
+                            batch_job.task_id, task.execution_info.result, rc
+                        )
+                    )
+                    sys.stderr.write(
+                        "FIXME task {} completed: run_time={}, retry_count={}\n".format(
+                            batch_job.task_id, str(dt), rt
+                        )
+                    )
+                    sys.stderr.write(
+                        "FIXME task {}: stderr='{}'\n".format(
+                            batch_job.task_id, stderr
+                        )
+                    )
+                    sys.stderr.write(
+                        "FIXME task {}: stdout='{}'\n".format(
+                            batch_job.task_id, stdout
+                        )
+                    )
+
+                    if (
+                        task.execution_info.result
+                        == batchmodels.TaskExecutionResult.failure
+                    ):
+                        batch_job.error_callback(batch_job.job)
+                    elif (
+                        task.execution_info.result
+                        == batchmodels.TaskExecutionResult.success
+                    ):
+                        batch_job.callback(batch_job.job)
                     else:
-                        logger.debug(f"Task {batch_job.task_id} not complete") 
-                        sys.stderr.write("FIXME task {}: creation_time={} state={} node_info={}\n".format(
-                            batch_job.task_id, task.creation_time, task.state, task.node_info))
-                        still_running.append(batch_job)
+                        raise ValueError(
+                            "Unknown task execution result: {}".format(
+                                task.execution_info.result
+                            )
+                        )
+
+                # The operation is still running
+                else:
+                    logger.debug(f"Task {batch_job.task_id} state={task.state}") 
+                    sys.stderr.write("FIXME task {}: creation_time={} state={} node_info={}\n".format(
+                        batch_job.task_id, task.creation_time, task.state, task.node_info))
+                    still_running.append(batch_job)
 
             with self.lock:
                 self.active_jobs.extend(still_running)
@@ -362,6 +389,7 @@ class AzBatchExecutor(ClusterExecutor):
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = bsc.models.ContainerConfiguration(
             container_image_names=[self.az_batch_config["batch_pool_vm_container_image"]]
+            # container_image_names=['andreaswilm/snakemaks:5.17']
         ) 
 
         start_task = None
@@ -485,42 +513,24 @@ class AzBatchExecutor(ClusterExecutor):
         return hash_tar
 
 
-    @staticmethod
-    def _upload_build_source_package(
-        targz, container_name="resources"
-    ):  # FIXME hardcoded container_name
+    def _upload_build_source_package(self, targz): 
         """given a .tar.gz created for a workflow, upload it to the blob
         storage account, only if the blob doesn't already exist.
         """
+
         import azure.batch.models as batchmodels
+        from azure.core.exceptions import ResourceExistsError
 
-        try:
-            from azure.storage.blob import BlobServiceClient
-            import azure.core.exceptions
-        except ImportError as e:
-            raise WorkflowError(
-                f"The Python 3 package 'azure-storage-blob' "
-                "needs to be installed to use Azure Storage remote() file functionality. {e.msg}"
-            )
-
-        account_url = os.getenv(
-            "AZ_BLOB_ACCOUNT_URL"
-        )  # same as used for storing. FIXME requires that we used a SAS
-        assert (
-            account_url
-        ), "Need AZ_BLOB_ACCOUNT_URL for resource file and data staging, but it's not defined"
-        bsc = BlobServiceClient(account_url)
-
-        # create container if needed
-        cc = bsc.get_container_client(container_name)
+        # create batch resources container if doesn't exist
+        cc = self.azblob_helper.blob_service_client.get_container_client(self.prefix_container)
         try:
             cc.create_container()
-        except azure.core.exceptions.ResourceExistsError:
+        except ResourceExistsError:
             pass
 
         # upload file
         # FIXME only if it doesn't exist
-        blob_name = os.path.basename(targz)
+        blob_name = "resources/" + os.path.basename(targz)
         bc = cc.get_blob_client(blob_name)
         try:
             with open(targz, "rb") as data:
