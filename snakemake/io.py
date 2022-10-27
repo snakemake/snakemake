@@ -884,7 +884,7 @@ def get_wildcard_names(pattern):
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(path) is not None
+    return _wildcard_regex.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
@@ -1610,11 +1610,10 @@ class Namedlist(list):
         return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
-        try:
+        if isinstance(key, str):
+            return getattr(self, key)
+        else:
             return super().__getitem__(key)
-        except TypeError:
-            pass
-        return getattr(self, key)
 
     def __hash__(self):
         return hash(tuple(self))

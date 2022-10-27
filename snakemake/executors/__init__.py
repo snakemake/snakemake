@@ -190,8 +190,9 @@ class DryrunExecutor(AbstractExecutor):
             self.printcache(job)
 
     def printcache(self, job):
-        if self.workflow.is_cached_rule(job.rule):
-            if self.workflow.output_file_cache.exists(job):
+        cache_mode = self.workflow.get_cache_mode(job.rule)
+        if cache_mode:
+            if self.workflow.output_file_cache.exists(job, cache_mode):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]
@@ -629,16 +630,16 @@ class CPUExecutor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        to_cache = self.workflow.is_cached_rule(job.rule)
+        cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
-            if to_cache:
-                self.workflow.output_file_cache.fetch(job)
+            if cache_mode:
+                self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if to_cache:
-            self.workflow.output_file_cache.store(job)
+        if cache_mode:
+            self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -1658,6 +1659,7 @@ class KubernetesExecutor(ClusterExecutor):
         dag,
         namespace,
         container_image=None,
+        k8s_cpu_scalar=1.0,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1698,6 +1700,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         import kubernetes.client
 
+        self.k8s_cpu_scalar = k8s_cpu_scalar
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1924,7 +1927,9 @@ class KubernetesExecutor(ClusterExecutor):
         logger.debug(f"job resources:  {dict(job.resources)}")
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        container.resources.requests["cpu"] = job.resources["_cores"]
+        container.resources.requests["cpu"] = "{}m".format(
+            int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000)
+        )
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]

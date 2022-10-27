@@ -360,8 +360,16 @@ class Job(AbstractJob):
     @property
     def resources(self):
         if self._resources is None:
+            if self.dag.workflow.run_local or self.is_local:
+                skip_evaluation = None
+            else:
+                # tmpdir should be evaluated in the context of the actual execution
+                skip_evaluation = {"tmpdir"}
             self._resources = self.rule.expand_resources(
-                self.wildcards_dict, self.input, self.attempt
+                self.wildcards_dict,
+                self.input,
+                self.attempt,
+                skip_evaluation=skip_evaluation,
             )
         return self._resources
 

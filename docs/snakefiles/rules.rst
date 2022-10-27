@@ -233,7 +233,7 @@ The multiext function
         shell:
             ...
 
-The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
 
 
@@ -399,14 +399,14 @@ Standard Resources
 There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
 All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
-* The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
+* The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
 
-* The ``runtime`` resource indicates how much time a job needs to run, and has a special meaning for cluster and cloud compute jobs.
-  See :ref:`the section below<resources_remote_execution>` for more information
+* The ``runtime`` resource indicates how many **minutes** a job needs to run. Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
+  See :ref:`the section below <resources_remote_execution>` for more information.
 
 * ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
   :ref:`See below<resources_remote_execution>` for more info.
-  ``mem_mb`` also has special meaning for some execution modes (e.g., when using :ref:`Kubernetes <kubernetes>`).
+  They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
 

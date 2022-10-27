@@ -160,6 +160,7 @@ def snakemake(
     wrapper_prefix=None,
     kubernetes=None,
     container_image=None,
+    k8s_cpu_scalar=1.0,
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
@@ -295,6 +296,7 @@ def snakemake(
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
+        k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
         flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
@@ -706,6 +708,7 @@ def snakemake(
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
+                    k8s_cpu_scalar=k8s_cpu_scalar,
                     conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
@@ -764,6 +767,7 @@ def snakemake(
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
                     container_image=container_image,
+                    k8s_cpu_scalar=k8s_cpu_scalar,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     google_lifesciences=google_lifesciences,
@@ -2323,6 +2327,20 @@ def get_argument_parser(profile=None):
         "that is compatible with (or ideally the same as) the currently "
         "running version.",
     )
+    group_kubernetes.add_argument(
+        "--k8s-cpu-scalar",
+        metavar="FLOAT",
+        default=0.95,
+        type=float,
+        help="K8s reserves some proportion of available CPUs for its own use. "
+        "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
+        "are allocatable to k8s pods (i.e. snakemake jobs). As 8 > 7.6, k8s can't "
+        "find a node with enough CPU resource to run such jobs. This argument acts "
+        "as a global scalar on each job's CPU request, so that e.g. a job whose "
+        "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
+        "allowing it to utilise one entire node. N.B: the job itself would still "
+        "see the original value, i.e. as the value substituted in {threads}.",
+    )
 
     group_tibanna.add_argument(
         "--tibanna",
@@ -2961,6 +2979,7 @@ def main(argv=None):
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
             container_image=args.container_image,
+            k8s_cpu_scalar=args.k8s_cpu_scalar,
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
