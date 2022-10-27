@@ -12,6 +12,7 @@ from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
+from urllib.parse import unquote
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -44,7 +45,7 @@ class SourceFile(ABC):
     
     def get_cache_path(self):
         uri = parse_uri(self.get_path_or_uri())
-        return os.path.join(uri.scheme, uri.uri_path.lstrip("/"))
+        return os.path.join(uri.scheme, unquote(uri.uri_path.lstrip("/")))
 
     def get_basedir(self):
         path = os.path.dirname(self.get_path_or_uri())
