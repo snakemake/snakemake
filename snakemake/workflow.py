@@ -267,7 +267,7 @@ class Workflow:
         self.enable_cache = False
         if cache is not None:
             self.enable_cache = True
-            self.cache_rules = set(cache)
+            self.cache_rules = {rulename: "all" for rulename in cache}
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
                     self.default_remote_provider
@@ -276,7 +276,7 @@ class Workflow:
                 self.output_file_cache = LocalOutputFileCache()
         else:
             self.output_file_cache = None
-            self.cache_rules = set()
+            self.cache_rules = dict()
 
         if default_resources is not None:
             self.default_resources = default_resources
@@ -337,8 +337,8 @@ class Workflow:
                 logger.info("Congratulations, your workflow is in a good condition!")
         return linted
 
-    def is_cached_rule(self, rule: Rule):
-        return rule.name in self.cache_rules
+    def get_cache_mode(self, rule: Rule):
+        return self.cache_rules.get(rule.name)
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
@@ -1587,7 +1587,7 @@ class Workflow:
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if ruleinfo.cache is True:
+            if ruleinfo.cache:
                 if len(rule.output) > 1:
                     if not rule.output[0].is_multiext:
                         raise WorkflowError(
@@ -1602,13 +1602,15 @@ class Workflow:
                         "(use the --cache argument to enable this).".format(rule.name)
                     )
                 else:
-                    self.cache_rules.add(rule.name)
-            elif not (ruleinfo.cache is False):
-                raise WorkflowError(
-                    "Invalid argument for 'cache:' directive. Only True allowed. "
-                    "To deactivate caching, remove directive.",
-                    rule=rule,
-                )
+                    if ruleinfo.cache is True or "omit-software" or "all":
+                        self.cache_rules[rule.name] = (
+                            "all" if ruleinfo.cache is True else ruleinfo.cache
+                        )
+                    else:
+                        raise WorkflowError(
+                            "Invalid value for cache directive. Use True or 'omit-software'.",
+                            rule=rule,
+                        )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name

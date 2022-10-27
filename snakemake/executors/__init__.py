@@ -190,8 +190,9 @@ class DryrunExecutor(AbstractExecutor):
             self.printcache(job)
 
     def printcache(self, job):
-        if self.workflow.is_cached_rule(job.rule):
-            if self.workflow.output_file_cache.exists(job):
+        cache_mode = self.workflow.get_cache_mode(job.rule)
+        if cache_mode:
+            if self.workflow.output_file_cache.exists(job, cache_mode):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]
@@ -622,16 +623,16 @@ class CPUExecutor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        to_cache = self.workflow.is_cached_rule(job.rule)
+        cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
-            if to_cache:
-                self.workflow.output_file_cache.fetch(job)
+            if cache_mode:
+                self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if to_cache:
-            self.workflow.output_file_cache.store(job)
+        if cache_mode:
+            self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()
