@@ -123,7 +123,7 @@ class ProvenanceHashMap:
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
         for dep_hash in sorted(
-            self._get_provenance_hash(dep)
+            self._get_provenance_hash(dep, cache_mode)
             for dep in set(job.dag.dependencies[job].keys())
         ):
             h.update(dep_hash.encode())
