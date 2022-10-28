@@ -7,6 +7,7 @@ import inspect
 import itertools
 import os
 from collections.abc import Iterable
+import typing
 
 from snakemake import sourcecache
 from snakemake.sourcecache import (
@@ -390,6 +391,7 @@ class ScriptBase(ABC):
     def __init__(
         self,
         path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -414,6 +416,7 @@ class ScriptBase(ABC):
         is_local,
     ):
         self.path = path
+        self.cache_path = cache_path
         self.source = source
 
         self.basedir = basedir
@@ -506,6 +509,7 @@ class PythonScript(ScriptBase):
     @staticmethod
     def generate_preamble(
         path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -550,6 +554,13 @@ class PythonScript(ScriptBase):
         if container_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
+
+        # Add the cache path to the search path so that other cached source files in the same dir
+        # can be imported.
+        if cache_path:
+            cache_searchpath = os.path.dirname(cache_path)
+            if cache_searchpath:
+                searchpath += ", " + repr(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
             searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
@@ -581,6 +592,7 @@ class PythonScript(ScriptBase):
 
         return PythonScript.generate_preamble(
             self.path,
+            self.cache_path,
             self.source,
             self.basedir,
             self.input,
@@ -1431,7 +1443,7 @@ def get_source(
 
     is_local = isinstance(source_file, LocalSourceFile)
 
-    return source_file, source, language, is_local
+    return source_file, source, language, is_local, sourcecache.get_path(source_file)
 
 
 def get_language(source_file, source):
@@ -1501,7 +1513,7 @@ def script(
     if isinstance(path, Path):
         path = str(path)
 
-    path, source, language, is_local = get_source(
+    path, source, language, is_local, cache_path = get_source(
         path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
     )
 
@@ -1520,6 +1532,7 @@ def script(
 
     executor = exec_class(
         path,
+        cache_path,
         source,
         basedir,
         input,

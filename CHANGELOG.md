@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.17.2](https://github.com/snakemake/snakemake/compare/v7.17.1...v7.17.2) (2022-10-28)
+
+
+### Bug Fixes
+
+* Consider source cache when setting search path for python scripts. This allows to import from Python modules next to scripts while deploying the workflow as a snakemake module, even from remote locations. ([#1940](https://github.com/snakemake/snakemake/issues/1940)) ([27be1d4](https://github.com/snakemake/snakemake/commit/27be1d41c397a974f33dcf93ccce331a80ab0198))
+
 ## [7.17.1](https://github.com/snakemake/snakemake/compare/v7.17.0...v7.17.1) (2022-10-28)
 
 
