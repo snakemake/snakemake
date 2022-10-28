@@ -7,6 +7,7 @@ import inspect
 import itertools
 import os
 from collections.abc import Iterable
+import typing
 
 from snakemake import sourcecache
 from snakemake.sourcecache import (
@@ -390,7 +391,7 @@ class ScriptBase(ABC):
     def __init__(
         self,
         path,
-        cache_path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -508,7 +509,7 @@ class PythonScript(ScriptBase):
     @staticmethod
     def generate_preamble(
         path,
-        cache_path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -556,9 +557,10 @@ class PythonScript(ScriptBase):
 
         # Add the cache path to the search path so that other cached source files in the same dir
         # can be imported.
-        cache_searchpath = os.path.dirname(cache_path)
-        if cache_searchpath:
-            searchpath += ", " + repr(cache_searchpath)
+        if cache_path:
+            cache_searchpath = os.path.dirname(cache_path)
+            if cache_searchpath:
+                searchpath += ", " + repr(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
             searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
