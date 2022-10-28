@@ -97,6 +97,7 @@ class DAG:
         dryrun=False,
         targetfiles=None,
         targetrules=None,
+        target_wildcards=None,
         forceall=False,
         forcerules=None,
         forcefiles=None,
@@ -127,6 +128,7 @@ class DAG:
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules
+        self.target_wildcards = target_wildcards
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
@@ -194,7 +196,7 @@ class DAG:
 
         for file in self.targetfiles:
             job = self.update(
-                self.file2jobs(file),
+                self.file2jobs(file, wildcards_dict=self.target_wildcards),
                 file=file,
                 progress=progress,
                 create_inventory=True,
@@ -1641,14 +1643,16 @@ class DAG:
 
         return potential_new_ready_jobs
 
-    def new_job(self, rule, targetfile=None, format_wildcards=None):
+    def new_job(
+        self, rule, targetfile=None, format_wildcards=None, wildcards_dict=None
+    ):
         """Create new job for given rule and (optional) targetfile.
         This will reuse existing jobs with the same wildcards."""
         key = (rule, targetfile)
         if key in self.job_cache:
             assert targetfile is not None
             return self.job_cache[key]
-        wildcards_dict = rule.get_wildcards(targetfile)
+        wildcards_dict = rule.get_wildcards(targetfile, wildcards_dict=wildcards_dict)
         job = self.job_factory.new(
             rule,
             self,
@@ -1822,11 +1826,21 @@ class DAG:
                     if file in job.dependencies:
                         yield PotentialDependency(
                             file,
-                            [self.new_job(job.dependencies[file], targetfile=file)],
+                            [
+                                self.new_job(
+                                    job.dependencies[file],
+                                    targetfile=file,
+                                    wildcards_dict=job.wildcards_dict,
+                                )
+                            ],
                             False,
                         )
                     else:
-                        yield PotentialDependency(file, file2jobs(file), False)
+                        yield PotentialDependency(
+                            file,
+                            file2jobs(file, wildcards_dict=job.wildcards_dict),
+                            False,
+                        )
                 except MissingRuleException as ex:
                     # no dependency found
                     yield PotentialDependency(file, None, False)
@@ -1907,14 +1921,18 @@ class DAG:
             )
         return self.new_job(targetrule)
 
-    def file2jobs(self, targetfile):
+    def file2jobs(self, targetfile, wildcards_dict=None):
         rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
         for rule in rules:
             if rule.is_producer(targetfile):
                 try:
-                    jobs.append(self.new_job(rule, targetfile=targetfile))
+                    jobs.append(
+                        self.new_job(
+                            rule, targetfile=targetfile, wildcards_dict=wildcards_dict
+                        )
+                    )
                 except InputFunctionException as e:
                     exceptions.append(e)
         if not jobs:

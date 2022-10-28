@@ -1177,16 +1177,47 @@ class Rule:
                 "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
             )
 
-    def get_wildcards(self, requested_output):
+    def get_wildcards(self, requested_output, wildcards_dict=None):
         """
-        Return wildcard dictionary by matching regular expression
-        output files to the requested concrete ones.
+        Return wildcard dictionary by
+        1. trying to format the output with the given wildcards and comparing with the requested output
+        2. matching regular expression output files to the requested concrete ones.
 
         Arguments
         requested_output -- a concrete filepath
         """
         if requested_output is None:
             return dict()
+
+        # first try to match the output with the given wildcards
+        if wildcards_dict is not None:
+            if self.wildcard_names <= wildcards_dict.keys():
+                wildcards_dict = {
+                    wildcard: value
+                    for wildcard, value in wildcards_dict.items()
+                    if wildcard in self.wildcard_names
+                }
+                for o in self.products:
+                    try:
+                        applied = o.apply_wildcards(wildcards_dict)
+                        # if the output formatted with the wildcards matches the requested output,
+                        if applied == requested_output:
+                            # we check whether the wildcards satisfy the constraints
+                            constraints = o.wildcard_constraints()
+
+                            def check_constraint(wildcard, value):
+                                constraint = constraints.get(wildcard)
+                                return constraint is None or constraint.match(value)
+
+                            if all(
+                                check_constraint(name, value)
+                                for name, value in wildcards_dict.items()
+                            ):
+                                # and then just return the given wildcards_dict limited to the wildcards that are actually used
+                                return wildcards_dict
+                    except WildcardError:
+                        continue
+
         bestmatchlen = 0
         bestmatch = None
 

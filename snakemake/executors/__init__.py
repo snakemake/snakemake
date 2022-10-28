@@ -23,8 +23,6 @@ import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
-from snakemake.io import _IOFile
 import random
 import base64
 import uuid
@@ -52,7 +50,10 @@ from snakemake.common import (
     get_container_image,
     get_uuid,
     lazy_property,
+    dict_to_key_value_args,
 )
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
+from snakemake.io import _IOFile
 
 
 # TODO move each executor into a separate submodule
@@ -357,6 +358,11 @@ class RealExecutor(AbstractExecutor):
         return join_cli_args(
             [
                 format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
+                format_cli_arg(
+                    "--target-wildcards",
+                    job.wildcards_dict,
+                    skip=not job.wildcards_dict,
+                ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
                 # to be updated in the spawned process as well.

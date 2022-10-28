@@ -29,7 +29,13 @@ from snakemake.utils import (
     update_config,
     available_cpu_count,
 )
-from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
+from snakemake.common import (
+    Mode,
+    __version__,
+    MIN_PY_VERSION,
+    get_appdirs,
+    dict_to_key_value_args,
+)
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
@@ -69,6 +75,7 @@ def snakemake(
     config_args=None,
     workdir=None,
     targets=None,
+    target_wildcards=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
@@ -213,6 +220,7 @@ def snakemake(
         config (dict):              override values for workflow config
         workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
+        target_wildcards (dict):    dict of wildcard:value pairs for constraining the matching of a single given target file (targets has to be of length 1) (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)
@@ -529,7 +537,7 @@ def snakemake(
     if config:
         update_config(overwrite_config, config)
         if config_args is None:
-            config_args = unparse_config(config)
+            config_args = dict_to_key_value_args(config)
 
     if workdir:
         olddir = os.getcwd()
@@ -735,6 +743,7 @@ def snakemake(
                 )
                 success = workflow.execute(
                     targets=targets,
+                    target_wildcards=target_wildcards,
                     dryrun=dryrun,
                     generate_unit_tests=generate_unit_tests,
                     touch=touch,
@@ -979,6 +988,16 @@ def _bool_parser(value):
     raise ValueError
 
 
+def parse_target_wildcards(args):
+    errmsg = "Invalid target wildcards definition: entries have to be defined as WILDCARD=VALUE pairs"
+    if args.target_wildcards is not None:
+        target_wildcards = dict()
+        for entry in args.target_wildcards:
+            wildcard, value = parse_key_value_arg(entry, errmsg=errmsg)
+            target_wildcards[wildcard] = value
+        return target_wildcards
+
+
 def parse_config(args):
     """Parse config from args."""
     import yaml
@@ -1009,16 +1028,6 @@ def parse_config(args):
             assert v is not None
             update_config(config, {key: v})
     return config
-
-
-def unparse_config(config):
-    if not isinstance(config, dict):
-        raise ValueError("config is not a dict")
-    items = []
-    for key, value in config.items():
-        encoded = "'{}'".format(value) if isinstance(value, str) else value
-        items.append("{}={}".format(key, encoded))
-    return items
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -1993,6 +2002,13 @@ def get_argument_parser(profile=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
+        "--target-wildcards",
+        nargs="+",
+        help="Wildcard values for the target file. "
+        "Only allowed if a single target file is provided as positional argument. "
+        "This can be used to avoid ambiguity and is meant for internal use by Snakemake itself only.",
+    )
+    group_behavior.add_argument(
         "--local-groupid",
         default="local",
         help="Name for local groupid, meant for internal use only.",
@@ -2914,6 +2930,7 @@ def main(argv=None):
             config_args=args.config,
             workdir=args.directory,
             targets=args.target,
+            target_wildcards=parse_target_wildcards(args),
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=True,  # always display reason
