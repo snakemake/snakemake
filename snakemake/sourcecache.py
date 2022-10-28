@@ -361,7 +361,7 @@ class SourceCache:
             return False
         return True
 
-    def get_path(self, source_file, mode="r"):
+    def get_path(self, source_file):
         cache_entry = self._cache(source_file)
         return str(cache_entry)
 
