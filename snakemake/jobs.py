@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import enum
 import os
 import sys
@@ -81,6 +82,9 @@ class AbstractJob:
         raise NotImplementedError()
 
     def reset_params_and_resources(self):
+        raise NotImplementedError()
+
+    def get_target_dict(self):
         raise NotImplementedError()
 
 
@@ -307,6 +311,9 @@ class Job(AbstractJob):
                     if not f.is_newer(script_mtime):
                         yield f
         # TODO also handle remote file case here.
+
+    def get_target_dict(self):
+        return {self.rule.name: self.wildcards_dict}
 
     @property
     def threads(self):
@@ -1147,9 +1154,6 @@ class Job(AbstractJob):
         products.extend(self.log)
         return products
 
-    def get_targets(self):
-        return [self.targetfile or self.rule.name]
-
     @property
     def is_branched(self):
         return self.rule.is_branched
@@ -1493,11 +1497,8 @@ class GroupJob(AbstractJob):
     def threads(self):
         return self.resources["_cores"]
 
-    def get_targets(self):
-        # jobs without output are targeted by rule name
-        targets = [job.rule.name for job in self.jobs if not job.products]
-        targets.extend(self.products)
-        return targets
+    def get_target_dict(self):
+        return {job.rule.name: job.wildcards_dict for job in self.jobs}
 
     @property
     def attempt(self):

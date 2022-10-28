@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import subprocess
 import glob
@@ -18,6 +19,7 @@ import importlib
 import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -75,7 +77,7 @@ def snakemake(
     config_args=None,
     workdir=None,
     targets=None,
-    target_wildcards=None,
+    target_jobs=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
@@ -220,7 +222,7 @@ def snakemake(
         config (dict):              override values for workflow config
         workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
-        target_wildcards (dict):    dict of wildcard:value pairs for constraining the matching of a single given target file (targets has to be of length 1) (default None)
+        target_jobs (dict):         dict of rulename vs dict of wildcard values pairs for for directly targeting specific jobs (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)
@@ -743,7 +745,7 @@ def snakemake(
                 )
                 success = workflow.execute(
                     targets=targets,
-                    target_wildcards=target_wildcards,
+                    target_jobs=target_jobs,
                     dryrun=dryrun,
                     generate_unit_tests=generate_unit_tests,
                     touch=touch,
@@ -972,30 +974,12 @@ def parse_group_components(args):
     return group_components
 
 
-def parse_key_value_arg(arg, errmsg):
-    try:
-        key, val = arg.split("=", 1)
-    except ValueError:
-        raise ValueError(errmsg + " Unparseable value: %r." % arg)
-    return key, val
-
-
 def _bool_parser(value):
     if value == "True":
         return True
     elif value == "False":
         return False
     raise ValueError
-
-
-def parse_target_wildcards(args):
-    errmsg = "Invalid target wildcards definition: entries have to be defined as WILDCARD=VALUE pairs"
-    if args.target_wildcards is not None:
-        target_wildcards = dict()
-        for entry in args.target_wildcards:
-            wildcard, value = parse_key_value_arg(entry, errmsg=errmsg)
-            target_wildcards[wildcard] = value
-        return target_wildcards
 
 
 def parse_config(args):
@@ -2002,11 +1986,10 @@ def get_argument_parser(profile=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
-        "--target-wildcards",
+        "--target-jobs",
         nargs="+",
-        help="Wildcard values for the target file. "
-        "Only allowed if a single target file is provided as positional argument. "
-        "This can be used to avoid ambiguity and is meant for internal use by Snakemake itself only.",
+        help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
+        "This is meant for internal use by Snakemake itself only.",
     )
     group_behavior.add_argument(
         "--local-groupid",
@@ -2930,7 +2913,7 @@ def main(argv=None):
             config_args=args.config,
             workdir=args.directory,
             targets=args.target,
-            target_wildcards=parse_target_wildcards(args),
+            target_jobs=parse_target_jobs_cli_args(args),
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=True,  # always display reason

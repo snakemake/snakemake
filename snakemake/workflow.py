@@ -494,7 +494,7 @@ class Workflow:
     def execute(
         self,
         targets=None,
-        target_wildcards=None,
+        target_jobs=None,
         dryrun=False,
         generate_unit_tests=None,
         touch=False,
@@ -605,12 +605,7 @@ class Workflow:
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if targets and target_wildcards and len(targets) != 1:
-            raise WorkflowError(
-                "Only one target allowed when specifying --target-wildcards."
-            )
-
-        if not targets:
+        if not targets and not target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
@@ -669,7 +664,7 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
-            target_wildcards=target_wildcards,
+            target_jobs_def=target_jobs,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
             forceall=forceall or conda_cleanup_envs,

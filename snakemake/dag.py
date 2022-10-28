@@ -97,7 +97,7 @@ class DAG:
         dryrun=False,
         targetfiles=None,
         targetrules=None,
-        target_wildcards=None,
+        target_jobs_def=None,
         forceall=False,
         forcerules=None,
         forcefiles=None,
@@ -128,7 +128,7 @@ class DAG:
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules
-        self.target_wildcards = target_wildcards
+        self.target_jobs_def = target_jobs_def
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
@@ -202,6 +202,20 @@ class DAG:
                 create_inventory=True,
             )
             self.targetjobs.add(job)
+
+        if self.target_jobs_def:
+            for rulename, wildcards_dict in self.target_jobs_def.items():
+                job = self.update(
+                    [
+                        self.new_job(
+                            self.workflow.get_rule(rulename),
+                            wildcards_dict=wildcards_dict,
+                        )
+                    ],
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
 
         self.cleanup()
 
