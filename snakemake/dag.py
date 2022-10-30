@@ -28,7 +28,7 @@ from snakemake.io import (
     IOFile,
 )
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
-from snakemake.exceptions import MissingInputException
+from snakemake.exceptions import MissingInputException, WildcardError
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
@@ -1097,6 +1097,8 @@ class DAG:
                         files = set(job.output)
                         if job.benchmark:
                             files.add(job.benchmark)
+                    elif job.rule.name in self.target_jobs_def:
+                        files = set(job.output)
                     else:
                         files = set(chain(*self.depending[job].values()))
                         if self.targetfiles:
@@ -1662,6 +1664,16 @@ class DAG:
     ):
         """Create new job for given rule and (optional) targetfile.
         This will reuse existing jobs with the same wildcards."""
+        if targetfile is None and wildcards_dict and rule.output:
+            # no targetfile given, but wildcards_dict is given, hence this job seems to contain wildcards
+            # just take one targetfile
+            try:
+                targetfile = rule.output[0].apply_wildcards(wildcards_dict)
+            except WildcardError as e:
+                raise WorkflowError(
+                    f"Given wildcards for rule {rule.name} do not match output file {repr(rule.output[0])}: {e}"
+                )
+
         key = (rule, targetfile)
         if key in self.job_cache:
             assert targetfile is not None
