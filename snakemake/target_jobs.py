@@ -7,7 +7,7 @@ def parse_target_jobs_cli_args(args):
     errmsg = "Invalid target wildcards definition: entries have to be defined as WILDCARD=VALUE pairs"
     if args.target_jobs is not None:
         target_jobs = defaultdict(dict)
-        for entry in args.target_wildcards:
+        for entry in args.target_jobs:
             rulename, wildcards = entry.split(":")
             for entry in wildcards.split(","):
                 wildcard, value = parse_key_value_arg(entry, errmsg=errmsg)
