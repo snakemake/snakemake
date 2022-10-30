@@ -196,7 +196,7 @@ class DAG:
 
         for file in self.targetfiles:
             job = self.update(
-                self.file2jobs(file, wildcards_dict=self.target_wildcards),
+                self.file2jobs(file),
                 file=file,
                 progress=progress,
                 create_inventory=True,
