@@ -203,7 +203,7 @@ class JobScheduler:
                 self._executor = constructor(
                     workflow,
                     dag,
-                    None,
+                    cores,
                     submitcmd=(cluster or cluster_sync),
                     cluster_config=cluster_config,
                     jobname=jobname,
@@ -223,7 +223,7 @@ class JobScheduler:
                 self._executor = DRMAAExecutor(
                     workflow,
                     dag,
-                    None,
+                    cores,
                     drmaa_args=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     jobname=jobname,
