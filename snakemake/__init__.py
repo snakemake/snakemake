@@ -37,6 +37,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     get_appdirs,
     dict_to_key_value_args,
+    parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
