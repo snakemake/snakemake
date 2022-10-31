@@ -1082,7 +1082,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.output and not job.benchmark:
+                if not job.has_products():
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
@@ -1094,24 +1094,18 @@ class DAG:
                         reason.noio = True
                 else:
                     if job.rule in self.targetrules:
-                        files = set(job.output)
-                        if job.benchmark:
-                            files.add(job.benchmark)
+                        files = set(job.products(include_logfiles=False))
                     elif (
                         self.target_jobs_def is not None
                         and job.rule.name in self.target_jobs_def
                     ):
-                        files = set(job.output)
+                        files = set(job.products(include_logfiles=False))
                     else:
                         files = set(chain(*self.depending[job].values()))
                         if self.targetfiles:
                             files.update(
-                                f
-                                for f in chain(job.output, job.log)
-                                if f in self.targetfiles
+                                f for f in job.products() if f in self.targetfiles
                             )
-                            if job.benchmark and job.benchmark in self.targetfiles:
-                                files.add(job.benchmark)
                     reason.missing_output.update(job.missing_output(files))
             if not reason:
                 output_mintime_ = output_mintime.get(job)
@@ -1667,11 +1661,12 @@ class DAG:
     ):
         """Create new job for given rule and (optional) targetfile.
         This will reuse existing jobs with the same wildcards."""
-        if targetfile is None and wildcards_dict and rule.output:
+        product = rule.get_some_product()
+        if targetfile is None and wildcards_dict is not None and product is not None:
             # no targetfile given, but wildcards_dict is given, hence this job seems to contain wildcards
             # just take one targetfile
             try:
-                targetfile = rule.output[0].apply_wildcards(wildcards_dict)
+                targetfile = product.apply_wildcards(wildcards_dict)
             except WildcardError as e:
                 raise WorkflowError(
                     f"Given wildcards for rule {rule.name} do not match output file {repr(rule.output[0])}: {e}"
@@ -1693,7 +1688,7 @@ class DAG:
         return job
 
     def cache_job(self, job):
-        for f in job.products:
+        for f in job.products():
             self.job_cache[(job.rule, f)] = job
 
     def update_dynamic(self, job):

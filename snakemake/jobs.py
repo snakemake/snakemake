@@ -87,6 +87,14 @@ class AbstractJob:
     def get_target_dict(self):
         raise NotImplementedError()
 
+    def products(self):
+        raise NotImplementedError()
+
+    def has_products(self):
+        for o in self.products():
+            return True
+        return False
+
 
 def _get_scheduler_resources(job):
     if job._scheduler_resources is None:
@@ -1146,12 +1154,12 @@ class Job(AbstractJob):
     def priority(self):
         return self.dag.priority(self)
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         products = list(self.output)
         if self.benchmark:
             products.append(self.benchmark)
-        products.extend(self.log)
+        if include_logfiles:
+            products.extend(self.log)
         return products
 
     @property
@@ -1257,7 +1265,7 @@ class GroupJob(AbstractJob):
     @property
     def all_products(self):
         if self._all_products is None:
-            self._all_products = set(f for job in self.jobs for f in job.products)
+            self._all_products = set(f for job in self.jobs for f in job.products())
         return self._all_products
 
     @property
@@ -1367,10 +1375,14 @@ class GroupJob(AbstractJob):
             self._log = [f for job in self.jobs for f in job.log]
         return self._log
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         all_input = set(f for job in self.jobs for f in job.input)
-        return [f for job in self.jobs for f in job.products if f not in all_input]
+        return [
+            f
+            for job in self.jobs
+            for f in job.products(include_logfiles=include_logfiles)
+            if f not in all_input
+        ]
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {

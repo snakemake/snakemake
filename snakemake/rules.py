@@ -398,12 +398,21 @@ class Rule:
     def output(self):
         return self._output
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
+        products = [self.output]
+        if include_logfiles:
+            products.append(self.log)
         if self.benchmark:
-            return chain(self.output, self.log, [self.benchmark])
-        else:
-            return chain(self.output, self.log)
+            products.append([self.benchmark])
+        return chain(*products)
+
+    def get_some_product(self):
+        for product in self.products():
+            return product
+        return None
+
+    def has_products(self):
+        return self.get_some_product() is not None
 
     def register_wildcards(self, wildcard_names):
         if self._wildcard_names is None:
@@ -1162,7 +1171,7 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.products:
+            for o in self.products():
                 if o.match(requested_output):
                     return True
             return False
@@ -1197,7 +1206,7 @@ class Rule:
                     for wildcard, value in wildcards_dict.items()
                     if wildcard in self.wildcard_names
                 }
-                for o in self.products:
+                for o in self.products():
                     try:
                         applied = o.apply_wildcards(wildcards_dict)
                         # if the output formatted with the wildcards matches the requested output,
@@ -1221,7 +1230,7 @@ class Rule:
         bestmatchlen = 0
         bestmatch = None
 
-        for o in self.products:
+        for o in self.products():
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
