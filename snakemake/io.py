@@ -203,6 +203,7 @@ class _IOFile(str):
         "_file",
         "rule",
         "_regex",
+        "_wildcard_constraints",
     ]
 
     def __new__(cls, file):
@@ -222,6 +223,7 @@ class _IOFile(str):
         obj._file = file
         obj.rule = None
         obj._regex = None
+        obj._wildcard_constraints = None
 
         if obj.is_remote:
             obj.remote_object._iofile = obj
@@ -756,6 +758,11 @@ class _IOFile(str):
             self._regex = re.compile(regex(self.file))
         return self._regex
 
+    def wildcard_constraints(self):
+        if self._wildcard_constraints is None:
+            self._wildcard_constraints = get_wildcard_constraints(self.file)
+        return self._wildcard_constraints
+
     def constant_prefix(self):
         first_wildcard = _wildcard_regex.search(self.file)
         if first_wildcard:
@@ -917,6 +924,14 @@ def remove(file, remove_non_empty_dir=False):
             os.remove(file)
         except FileNotFoundError:
             pass
+
+
+def get_wildcard_constraints(pattern):
+    constraints = {}
+    for match in _wildcard_regex.finditer(pattern):
+        if match.group("constraint"):
+            constraints[match.group("name")] = re.compile(match.group("constraint"))
+    return constraints
 
 
 def regex(filepattern):

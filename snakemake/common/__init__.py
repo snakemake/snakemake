@@ -33,6 +33,24 @@ NOTHING_TO_BE_DONE_MSG = (
 ON_WINDOWS = platform.system() == "Windows"
 
 
+def parse_key_value_arg(arg, errmsg):
+    try:
+        key, val = arg.split("=", 1)
+    except ValueError:
+        raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
+    return key, val
+
+
+def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
+    items = []
+    for key, value in some_dict.items():
+        encoded = (
+            "'{}'".format(value) if quote_str and isinstance(value, str) else value
+        )
+        items.append("{}={}".format(key, encoded))
+    return items
+
+
 def async_run(coroutine):
     """Attaches to running event loop or creates a new one to execute a
     coroutine.

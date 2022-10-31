@@ -23,13 +23,12 @@ import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
-from snakemake.io import _IOFile
 import random
 import base64
 import uuid
 import re
 import math
+from snakemake.target_jobs import encode_target_jobs_cli_args
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -52,7 +51,10 @@ from snakemake.common import (
     get_container_image,
     get_uuid,
     lazy_property,
+    dict_to_key_value_args,
 )
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
+from snakemake.io import _IOFile
 
 
 # TODO move each executor into a separate submodule
@@ -356,7 +358,10 @@ class RealExecutor(AbstractExecutor):
     def get_job_args(self, job, **kwargs):
         return join_cli_args(
             [
-                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
+                format_cli_arg(
+                    "--target-jobs",
+                    encode_target_jobs_cli_args(job.get_target_spec()),
+                ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
                 # to be updated in the spawned process as well.
@@ -381,9 +386,6 @@ class RealExecutor(AbstractExecutor):
 
     def get_snakefile(self):
         return self.snakefile
-
-    def get_job_targets(self, job):
-        return job.get_targets()
 
     @abstractmethod
     def get_python_executable(self):
@@ -2208,15 +2210,6 @@ class TibannaExecutor(ClusterExecutor):
 
     def remove_prefix(self, s):
         return re.sub("^{}/{}/".format(self.s3_bucket, self.s3_subdir), "", s)
-
-    def get_job_targets(self, job):
-        def handle_target(target):
-            if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
-                return self.remove_prefix(target)
-            else:
-                return target
-
-        return [handle_target(target) for target in job.get_targets()]
 
     def get_snakefile(self):
         return os.path.basename(self.snakefile)

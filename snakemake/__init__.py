@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import subprocess
 import glob
@@ -18,6 +19,7 @@ import importlib
 import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.executors import azure_batch
 from snakemake.executors.common import url_can_parse
 
@@ -31,7 +33,14 @@ from snakemake.utils import (
     update_config,
     available_cpu_count,
 )
-from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
+from snakemake.common import (
+    Mode,
+    __version__,
+    MIN_PY_VERSION,
+    get_appdirs,
+    dict_to_key_value_args,
+    parse_key_value_arg,
+)
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
@@ -71,6 +80,7 @@ def snakemake(
     config_args=None,
     workdir=None,
     targets=None,
+    target_jobs=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
@@ -217,6 +227,7 @@ def snakemake(
         config (dict):              override values for workflow config
         workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
+        target_jobs (dict):         list of snakemake.target_jobs.TargetSpec objects directly targeting specific jobs (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)
@@ -541,7 +552,7 @@ def snakemake(
     if config:
         update_config(overwrite_config, config)
         if config_args is None:
-            config_args = unparse_config(config)
+            config_args = dict_to_key_value_args(config)
 
     if workdir:
         olddir = os.getcwd()
@@ -749,6 +760,7 @@ def snakemake(
                 )
                 success = workflow.execute(
                     targets=targets,
+                    target_jobs=target_jobs,
                     dryrun=dryrun,
                     generate_unit_tests=generate_unit_tests,
                     touch=touch,
@@ -979,14 +991,6 @@ def parse_group_components(args):
     return group_components
 
 
-def parse_key_value_arg(arg, errmsg):
-    try:
-        key, val = arg.split("=", 1)
-    except ValueError:
-        raise ValueError(errmsg + " Unparseable value: %r." % arg)
-    return key, val
-
-
 def _bool_parser(value):
     if value == "True":
         return True
@@ -1025,16 +1029,6 @@ def parse_config(args):
             assert v is not None
             update_config(config, {key: v})
     return config
-
-
-def unparse_config(config):
-    if not isinstance(config, dict):
-        raise ValueError("config is not a dict")
-    items = []
-    for key, value in config.items():
-        encoded = "'{}'".format(value) if isinstance(value, str) else value
-        items.append("{}={}".format(key, encoded))
-    return items
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -2009,6 +2003,12 @@ def get_argument_parser(profile=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
+        "--target-jobs",
+        nargs="+",
+        help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
+        "This is meant for internal use by Snakemake itself only.",
+    )
+    group_behavior.add_argument(
         "--local-groupid",
         default="local",
         help="Name for local groupid, meant for internal use only.",
@@ -2282,6 +2282,7 @@ def get_argument_parser(profile=None):
 
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
+    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
@@ -2972,6 +2973,7 @@ def main(argv=None):
             config_args=args.config,
             workdir=args.directory,
             targets=args.target,
+            target_jobs=parse_target_jobs_cli_args(args),
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=True,  # always display reason
