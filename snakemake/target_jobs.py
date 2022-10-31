@@ -1,4 +1,5 @@
-from collections import defaultdict, namedtuple
+from collections import namedtuple
+import typing
 
 from snakemake.common import parse_key_value_arg
 
@@ -26,7 +27,7 @@ def parse_target_jobs_cli_args(args):
         return target_jobs
 
 
-def encode_target_jobs_cli_args(target_jobs: list[TargetSpec]) -> list[str]:
+def encode_target_jobs_cli_args(target_jobs: typing.List[TargetSpec]) -> typing.List[str]:
     items = []
     for spec in target_jobs:
         wildcards = ",".join(
