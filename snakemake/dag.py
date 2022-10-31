@@ -129,6 +129,7 @@ class DAG:
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_def = target_jobs_def
+        self.target_jobs_rules = {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
@@ -204,12 +205,12 @@ class DAG:
             self.targetjobs.add(job)
 
         if self.target_jobs_def:
-            for rulename, wildcards_dict in self.target_jobs_def.items():
+            for spec in self.target_jobs_def:
                 job = self.update(
                     [
                         self.new_job(
-                            self.workflow.get_rule(rulename),
-                            wildcards_dict=wildcards_dict,
+                            self.workflow.get_rule(spec.rulename),
+                            wildcards_dict=spec.wildcards_dict,
                         )
                     ],
                     progress=progress,
@@ -1097,7 +1098,7 @@ class DAG:
                         files = set(job.products(include_logfiles=False))
                     elif (
                         self.target_jobs_def is not None
-                        and job.rule.name in self.target_jobs_def
+                        and job.rule.name in self.target_jobs_rules
                     ):
                         files = set(job.products(include_logfiles=False))
                     else:

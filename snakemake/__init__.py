@@ -223,7 +223,7 @@ def snakemake(
         config (dict):              override values for workflow config
         workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
-        target_jobs (dict):         dict of rulename vs dict of wildcard values pairs for for directly targeting specific jobs (default None)
+        target_jobs (dict):         list of snakemake.target_jobs.TargetSpec objects directly targeting specific jobs (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)

@@ -360,7 +360,7 @@ class RealExecutor(AbstractExecutor):
             [
                 format_cli_arg(
                     "--target-jobs",
-                    encode_target_jobs_cli_args(job.get_target_dict()),
+                    encode_target_jobs_cli_args(job.get_target_spec()),
                 ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need

@@ -27,6 +27,7 @@ from snakemake.io import (
     wait_for_files,
 )
 from snakemake.resources import GroupResources
+from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
@@ -84,7 +85,7 @@ class AbstractJob:
     def reset_params_and_resources(self):
         raise NotImplementedError()
 
-    def get_target_dict(self):
+    def get_target_spec(self):
         raise NotImplementedError()
 
     def products(self):
@@ -320,8 +321,8 @@ class Job(AbstractJob):
                         yield f
         # TODO also handle remote file case here.
 
-    def get_target_dict(self):
-        return {self.rule.name: self.wildcards_dict}
+    def get_target_spec(self):
+        return [TargetSpec(self.rule.name, self.wildcards_dict)]
 
     @property
     def threads(self):
@@ -1509,8 +1510,8 @@ class GroupJob(AbstractJob):
     def threads(self):
         return self.resources["_cores"]
 
-    def get_target_dict(self):
-        return {job.rule.name: job.wildcards_dict for job in self.jobs}
+    def get_target_spec(self):
+        return [TargetSpec(job.rule.name, job.wildcards_dict) for job in self.jobs]
 
     @property
     def attempt(self):
