@@ -8,10 +8,13 @@ def parse_target_jobs_cli_args(args):
     if args.target_jobs is not None:
         target_jobs = defaultdict(dict)
         for entry in args.target_jobs:
-            rulename, wildcards = entry.split(":")
-            for entry in wildcards.split(","):
-                wildcard, value = parse_key_value_arg(entry, errmsg=errmsg)
-                target_jobs[rulename][wildcard] = value
+            rulename, wildcards = entry.split(":", 1)
+            if wildcards:
+                for entry in wildcards.split(","):
+                    wildcard, value = parse_key_value_arg(entry, errmsg=errmsg)
+                    target_jobs[rulename][wildcard] = value
+            else:
+                target_jobs[rulename] = {}
         return target_jobs
 
 

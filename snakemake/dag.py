@@ -1097,7 +1097,10 @@ class DAG:
                         files = set(job.output)
                         if job.benchmark:
                             files.add(job.benchmark)
-                    elif job.rule.name in self.target_jobs_def:
+                    elif (
+                        self.target_jobs_def is not None
+                        and job.rule.name in self.target_jobs_def
+                    ):
                         files = set(job.output)
                     else:
                         files = set(chain(*self.depending[job].values()))

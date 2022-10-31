@@ -37,7 +37,7 @@ def parse_key_value_arg(arg, errmsg):
     try:
         key, val = arg.split("=", 1)
     except ValueError:
-        raise ValueError(errmsg + " Unparseable value: %r." % arg)
+        raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
     return key, val
 
 
