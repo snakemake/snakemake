@@ -1987,3 +1987,8 @@ def test_conda_python_script():
 @skip_on_windows
 def test_github_issue1818():
     run(dpath("test_github_issue1818"), rerun_triggers="input")
+
+
+@skip_on_windows  # not platform dependent
+def test_match_by_wildcard_names():
+    run(dpath("test_match_by_wildcard_names"))
