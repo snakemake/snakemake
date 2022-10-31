@@ -13,9 +13,13 @@ def parse_target_jobs_cli_args(args):
         for entry in args.target_jobs:
             rulename, wildcards = entry.split(":", 1)
             if wildcards:
+
                 def parse_wildcard(entry):
                     return parse_key_value_arg(entry, errmsg)
-                wildcards = dict(parse_wildcard(entry) for entry in wildcards.split(","))
+
+                wildcards = dict(
+                    parse_wildcard(entry) for entry in wildcards.split(",")
+                )
                 target_jobs.append(TargetSpec(rulename, wildcards))
             else:
                 target_jobs.append(TargetSpec(rulename, dict()))
@@ -25,6 +29,8 @@ def parse_target_jobs_cli_args(args):
 def encode_target_jobs_cli_args(target_jobs: list[TargetSpec]) -> list[str]:
     items = []
     for spec in target_jobs:
-        wildcards = ",".join(f"{key}={value}" for key, value in spec.wildcards_dict.items())
+        wildcards = ",".join(
+            f"{key}={value}" for key, value in spec.wildcards_dict.items()
+        )
         items.append(f"{spec.rulename}:{wildcards}")
     return items

@@ -129,7 +129,9 @@ class DAG:
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_def = target_jobs_def
-        self.target_jobs_rules = {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
+        self.target_jobs_rules = (
+            {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
+        )
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
