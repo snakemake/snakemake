@@ -129,7 +129,7 @@ jobs:
                       MaxRAMPercent: 100
                       MaxSwapPercent: 100
                       MinRAMSpace: 30
-              slurm_config:
+                  slurm_config:
                       AccountingStorageType: "accounting_storage/none"
                       ClusterName: cluster
                       JobAcctGatherType: "jobacct_gather/none"
@@ -149,26 +149,26 @@ jobs:
                       SwitchType: "switch/none"
                       TaskPlugin: "task/affinity,task/cgroup"
                       TaskPluginParam: Sched
-              slurm_create_user: yes
-              slurm_munge_key: "../../../munge.key"
-              slurm_nodes:
-                 - name: "com0"
-                   CoresPerSocket: 2
-                   Sockets: 1
-                   ThreadsPerCore: 1
-              slurm_partitions:
-                 - name: "compute"
-                   Default: YES
-                   MaxTime: UNLIMITED
-                   Nodes: "com0"
-              slurm_user:
-                  comment: "Slurm Workload Manager"
-                  gid: 888
-                  group: slurm
-                  home: "/var/lib/slurm"
-                  name: slurm
-                  shell: "/bin/bash"
-                  uid: 888              
+                 slurm_create_user: yes
+                 slurm_munge_key: "../../../munge.key"
+                 slurm_nodes:
+                      - name: "com0"
+                          CoresPerSocket: 2
+                          Sockets: 1
+                          ThreadsPerCore: 1
+                 slurm_partitions:
+                      - name: "compute"
+                          Default: YES
+                          MaxTime: UNLIMITED
+                          Nodes: "com0"
+                 slurm_user:
+                      comment: "Slurm Workload Manager"
+                      gid: 888
+                      group: slurm
+                      home: "/var/lib/slurm"
+                      name: slurm
+                      shell: "/bin/bash"
+                      uid: 888              
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
