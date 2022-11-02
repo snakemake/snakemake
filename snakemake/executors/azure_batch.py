@@ -22,6 +22,7 @@ from snakemake.logging import logger
 from snakemake.common import get_container_image, get_file_hash
 from snakemake.parser import Workdir
 from snakemake.remote.AzBlob import AzureStorageHelper
+from snakemake.resources import DefaultResources
 
 # Define an Azure Batch job. Snakemake requires this namedtuple to at least
 # contain the attributes: job, jobid, callback, error_callback. In AzBatch
@@ -86,6 +87,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         self.workflow = workflow
         self.workdir = os.path.dirname(self.workflow.persistence.path)
+        self.workflow.default_resources = DefaultResources(mode="bare")
 
         # Relative path for running on instance
         self._set_snakefile()
@@ -157,9 +159,7 @@ class AzBatchExecutor(ClusterExecutor):
                 continue
 
         exec_job = self.format_job_exec(job) 
-        exec_job += self.get_default_resources_args()
-        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'"
-        logger.debug(f"Exec job = {exec_job}")
+        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'" 
 
         # A string that uniquely identifies the Task within the Job.
         task_uuid = str(uuid.uuid1())
@@ -176,7 +176,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # This is the docker image we want to run
         task_container_settings = batchmodels.TaskContainerSettings(
-            image_name=self.container_image, container_run_options="--rm -v /:${AZ_BATCH_TASK_WORKING_DIR}"
+            image_name=self.container_image, container_run_options="--rm"
         )
 
         # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.taskaddparameter?view=azure-python
@@ -198,6 +198,7 @@ class AzBatchExecutor(ClusterExecutor):
         self.batch_client.task.add(self.job_id, task)
         self.active_jobs.append(AzBatchJob(job, self.job_id, task_id, callback, error_callback))
         logger.debug(f"Added AzBatch task {task_id}")
+        logger.debug(f"Added AzBatch task {task}")
 
     @staticmethod
     def configure_az_batch(az_batch_account_url: str):
@@ -230,14 +231,13 @@ class AzBatchExecutor(ClusterExecutor):
         config.setdefault("batch_pool_image_publisher", "microsoft-azure-batch")
         config.setdefault("batch_pool_image_offer", "ubuntu-server-container")
         config.setdefault("batch_pool_image_sku", "20-04-lts")
-        config.setdefault("batch_pool_vm_container_image", "snakemake/snakemake")
+        config.setdefault("batch_pool_vm_container_image", "jakevc/snakemake")
 
         # must match batch_pool_image_sk
         config.setdefault("batch_pool_vm_node_agent_sku_id", "batch.node.ubuntu 20.04")
         config.setdefault("batch_pool_vm_size", "Standard_D2_v3")
         config.setdefault("batch_pool_node_count", 1)
 
-        print(config)
         return config
     
     # todo cleanup config parse
@@ -389,7 +389,6 @@ class AzBatchExecutor(ClusterExecutor):
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = bsc.models.ContainerConfiguration(
             container_image_names=[self.az_batch_config["batch_pool_vm_container_image"]]
-            # container_image_names=['andreaswilm/snakemaks:5.17']
         ) 
 
         start_task = None
@@ -438,12 +437,7 @@ class AzBatchExecutor(ClusterExecutor):
            execution into a temporary directory, and the initial Snakefile
            was somewhere else on the system.
         """
-        from snakemake import SNAKEFILE_CHOICES
-
-        for snakefile in SNAKEFILE_CHOICES:
-            if os.path.exists(os.path.join(self.workdir, snakefile)):
-                self.snakefile = snakefile
-                break
+        self.snakefile = os.path.basename(self.workflow.main_snakefile)
 
     # from google_lifesciences.py
     def _set_workflow_sources(self):

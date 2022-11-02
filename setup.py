@@ -79,6 +79,10 @@ setup(
     extras_require={
         "reports": ["jinja2", "pygments"],
         "messaging": ["slacker"],
+        "azure": [
+            "azure-storage-blob",
+            "azure-batch"
+        ],
         "google-cloud": [
             "oauth2client",
             "google-crc32c",

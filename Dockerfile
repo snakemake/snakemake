@@ -15,6 +15,6 @@ RUN /bin/bash -c "mamba create -q -y -c conda-forge -c bioconda -n snakemake sna
     mamba install -q -y -c conda-forge singularity && \
     conda clean --all -y && \
     which python && \
-    pip install .[reports,messaging,google-cloud]"
+    pip install .[reports,messaging,google-cloud,azure]"
 RUN echo "source activate snakemake" > ~/.bashrc
 ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
