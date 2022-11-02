@@ -165,7 +165,9 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self.rerun_triggers = frozenset(rerun_triggers)
+        self.rerun_triggers = (
+            frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
+        )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
@@ -265,7 +267,7 @@ class Workflow:
         self.enable_cache = False
         if cache is not None:
             self.enable_cache = True
-            self.cache_rules = set(cache)
+            self.cache_rules = {rulename: "all" for rulename in cache}
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
                     self.default_remote_provider
@@ -274,7 +276,7 @@ class Workflow:
                 self.output_file_cache = LocalOutputFileCache()
         else:
             self.output_file_cache = None
-            self.cache_rules = set()
+            self.cache_rules = dict()
 
         if default_resources is not None:
             self.default_resources = default_resources
@@ -335,8 +337,8 @@ class Workflow:
                 logger.info("Congratulations, your workflow is in a good condition!")
         return linted
 
-    def is_cached_rule(self, rule: Rule):
-        return rule.name in self.cache_rules
+    def get_cache_mode(self, rule: Rule):
+        return self.cache_rules.get(rule.name)
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
@@ -451,7 +453,7 @@ class Workflow:
         rules = self.rules
         if only_targets:
             rules = filterfalse(Rule.has_wildcards, rules)
-        for rule in rules:
+        for rule in sorted(rules, key=lambda r: r.name):
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def list_resources(self):
@@ -492,6 +494,7 @@ class Workflow:
     def execute(
         self,
         targets=None,
+        target_jobs=None,
         dryrun=False,
         generate_unit_tests=None,
         touch=False,
@@ -520,6 +523,8 @@ class Workflow:
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
+        k8s_cpu_scalar=1.0,
+        flux=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -600,7 +605,7 @@ class Workflow:
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if not targets:
+        if not targets and not target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
@@ -659,6 +664,7 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
+            target_jobs_def=target_jobs,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
             forceall=forceall or conda_cleanup_envs,
@@ -961,6 +967,8 @@ class Workflow:
             drmaa=drmaa,
             drmaa_log_dir=drmaa_log_dir,
             kubernetes=kubernetes,
+            k8s_cpu_scalar=k8s_cpu_scalar,
+            flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             google_lifesciences=google_lifesciences,
@@ -1577,7 +1585,7 @@ class Workflow:
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if ruleinfo.cache is True:
+            if ruleinfo.cache:
                 if len(rule.output) > 1:
                     if not rule.output[0].is_multiext:
                         raise WorkflowError(
@@ -1592,13 +1600,15 @@ class Workflow:
                         "(use the --cache argument to enable this).".format(rule.name)
                     )
                 else:
-                    self.cache_rules.add(rule.name)
-            elif not (ruleinfo.cache is False):
-                raise WorkflowError(
-                    "Invalid argument for 'cache:' directive. Only True allowed. "
-                    "To deactivate caching, remove directive.",
-                    rule=rule,
-                )
+                    if ruleinfo.cache is True or "omit-software" or "all":
+                        self.cache_rules[rule.name] = (
+                            "all" if ruleinfo.cache is True else ruleinfo.cache
+                        )
+                    else:
+                        raise WorkflowError(
+                            "Invalid value for cache directive. Use True or 'omit-software'.",
+                            rule=rule,
+                        )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
@@ -1626,7 +1636,7 @@ class Workflow:
 
     def docstring(self, string):
         def decorate(ruleinfo):
-            ruleinfo.docstring = string
+            ruleinfo.docstring = string.strip()
             return ruleinfo
 
         return decorate

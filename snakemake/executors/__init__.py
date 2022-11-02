@@ -23,13 +23,12 @@ import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
-from snakemake.io import _IOFile
 import random
 import base64
 import uuid
 import re
 import math
+from snakemake.target_jobs import encode_target_jobs_cli_args
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -52,7 +51,10 @@ from snakemake.common import (
     get_container_image,
     get_uuid,
     lazy_property,
+    dict_to_key_value_args,
 )
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
+from snakemake.io import _IOFile
 
 
 # TODO move each executor into a separate submodule
@@ -190,8 +192,9 @@ class DryrunExecutor(AbstractExecutor):
             self.printcache(job)
 
     def printcache(self, job):
-        if self.workflow.is_cached_rule(job.rule):
-            if self.workflow.output_file_cache.exists(job):
+        cache_mode = self.workflow.get_cache_mode(job.rule)
+        if cache_mode:
+            if self.workflow.output_file_cache.exists(job, cache_mode):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]
@@ -355,7 +358,10 @@ class RealExecutor(AbstractExecutor):
     def get_job_args(self, job, **kwargs):
         return join_cli_args(
             [
-                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
+                format_cli_arg(
+                    "--target-jobs",
+                    encode_target_jobs_cli_args(job.get_target_spec()),
+                ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
                 # to be updated in the spawned process as well.
@@ -380,9 +386,6 @@ class RealExecutor(AbstractExecutor):
 
     def get_snakefile(self):
         return self.snakefile
-
-    def get_job_targets(self, job):
-        return job.get_targets()
 
     @abstractmethod
     def get_python_executable(self):
@@ -494,7 +497,7 @@ class CPUExecutor(RealExecutor):
         return ""
 
     def get_job_args(self, job, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet all"
+        return f"{super().get_job_args(job, **kwargs)} --quiet"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -621,16 +624,16 @@ class CPUExecutor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        to_cache = self.workflow.is_cached_rule(job.rule)
+        cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
-            if to_cache:
-                self.workflow.output_file_cache.fetch(job)
+            if cache_mode:
+                self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if to_cache:
-            self.workflow.output_file_cache.store(job)
+        if cache_mode:
+            self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -1646,6 +1649,7 @@ class KubernetesExecutor(ClusterExecutor):
         dag,
         namespace,
         container_image=None,
+        k8s_cpu_scalar=1.0,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1686,6 +1690,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         import kubernetes.client
 
+        self.k8s_cpu_scalar = k8s_cpu_scalar
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1853,10 +1858,8 @@ class KubernetesExecutor(ClusterExecutor):
         container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
         container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
-        ]
-        container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
+            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir"),
+            kubernetes.client.V1VolumeMount(name="source", mount_path="/source"),
         ]
 
         node_selector = {}
@@ -1911,13 +1914,21 @@ class KubernetesExecutor(ClusterExecutor):
             container.env.append(envvar)
 
         # request resources
+        logger.debug(f"job resources:  {dict(job.resources)}")
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        container.resources.requests["cpu"] = job.resources["_cores"]
+        container.resources.requests["cpu"] = "{}m".format(
+            int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000)
+        )
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
             )
+        if "disk_mb" in job.resources.keys():
+            disk_mb = int(job.resources.get("disk_mb", 1024))
+            container.resources.requests["ephemeral-storage"] = f"{disk_mb}M"
+
+        logger.debug(f"k8s pod resources: {container.resources.requests}")
 
         # capabilities
         if job.needs_singularity and self.workflow.use_singularity:
@@ -2198,15 +2209,6 @@ class TibannaExecutor(ClusterExecutor):
 
     def remove_prefix(self, s):
         return re.sub("^{}/{}/".format(self.s3_bucket, self.s3_subdir), "", s)
-
-    def get_job_targets(self, job):
-        def handle_target(target):
-            if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
-                return self.remove_prefix(target)
-            else:
-                return target
-
-        return [handle_target(target) for target in job.get_targets()]
 
     def get_snakefile(self):
         return os.path.basename(self.snakefile)

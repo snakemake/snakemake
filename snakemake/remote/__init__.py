@@ -13,7 +13,7 @@ from contextlib import contextmanager
 import shutil
 
 from wrapt import ObjectProxy
-from retry import retry
+from reretry import retry
 
 try:
     from connection_pool import ConnectionPool

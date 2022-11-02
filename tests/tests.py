@@ -955,7 +955,6 @@ def test_group_jobs_resources(mocker):
         "_nodes": 1,
         "_cores": 6,
         "runtime": 420,
-        "tmpdir": "/tmp",
         "mem_mb": 60000,
         "fake_res": 600,
         "global_res": 2000,
@@ -979,7 +978,6 @@ def test_group_jobs_resources_with_max_threads(mocker):
         "_nodes": 1,
         "_cores": 5,
         "runtime": 380,
-        "tmpdir": "/tmp",
         "mem_mb": 60000,
         "fake_res": 1200,
         "global_res": 3000,
@@ -1003,7 +1001,6 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         "_nodes": 1,
         "_cores": 1,
         "runtime": 700,
-        "tmpdir": "/tmp",
         "mem_mb": 10000,
         "fake_res": 400,
         "global_res": 1000,
@@ -1152,7 +1149,6 @@ def test_group_job_resources_with_pipe(mocker):
         "_nodes": 1,
         "_cores": 6,
         "runtime": 240,
-        "tmpdir": "/tmp",
         "mem_mb": 50000,
         "disk_mb": 1000,
     }
@@ -2016,3 +2012,13 @@ def test_github_issue1618():
 
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
+
+
+@skip_on_windows
+def test_github_issue1818():
+    run(dpath("test_github_issue1818"), rerun_triggers="input")
+
+
+@skip_on_windows  # not platform dependent
+def test_match_by_wildcard_names():
+    run(dpath("test_match_by_wildcard_names"))
