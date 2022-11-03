@@ -1057,6 +1057,7 @@ class Job(AbstractJob):
         logger.job_error(
             name=self.rule.name,
             jobid=self.dag.jobid(self),
+            input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
             log=list(self.log),
             conda_env=self.conda_env.address if self.conda_env else None,
