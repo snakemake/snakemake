@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.18.1](https://github.com/snakemake/snakemake/compare/v7.18.0...v7.18.1) (2022-11-03)
+
+
+### Bug Fixes
+
+* regression ValueError introduced with 7.17.2 ([#1947](https://github.com/snakemake/snakemake/issues/1947)) ([53a4fca](https://github.com/snakemake/snakemake/commit/53a4fca8c67a3b58d61b146c8cfff3982889d77d))
+
 ## [7.18.0](https://github.com/snakemake/snakemake/compare/v7.17.2...v7.18.0) (2022-10-31)
 
 
