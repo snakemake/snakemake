@@ -3,8 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from configparser import ConfigParser
-from typing import Tuple
 import os
 from collections import namedtuple
 from urllib.parse import urlparse 
@@ -20,14 +18,9 @@ from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.common import get_container_image, get_file_hash
-from snakemake.parser import Workdir
 from snakemake.remote.AzBlob import AzureStorageHelper
 from snakemake.resources import DefaultResources
 
-# Define an Azure Batch job. Snakemake requires this namedtuple to at least
-# contain the attributes: job, jobid, callback, error_callback. In AzBatch
-# parlance this is actually a task and a job is the overarching container. FIXME
-# should probably make self.job_id part of this as well to get rid of it
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
 
@@ -75,6 +68,7 @@ class AzBatchExecutor(ClusterExecutor):
                 " must be installed to use Azure Batch"
             )
 
+        # use storage helper
         self.azblob_helper  = AzureStorageHelper()
 
         # get container from remote prefix
@@ -165,12 +159,9 @@ class AzBatchExecutor(ClusterExecutor):
         task_uuid = str(uuid.uuid1())
         task_id = f"{job.rule.name}-{task_uuid}" 
 
-        # This is the user who run the command inside the container.
-        # An unprivileged one
+        # This is the admin user who runs the command inside the container.
         user = batchmodels.AutoUserSpecification(
             scope=batchmodels.AutoUserScope.task,
-            # `non_admin` would be better, but conda complains
-            # about non writable path  /home/_azbatchtask_1/.conda/pkgs/urls.txt
             elevation_level=batchmodels.ElevationLevel.admin,
         )
 
@@ -187,12 +178,10 @@ class AzBatchExecutor(ClusterExecutor):
             id=task_id,
             command_line=exec_job,
             container_settings=task_container_settings,
-            resource_files=[self.resource_file],  # Snakefile, yml files etc.
+            resource_files=[self.resource_file],  # Snakefile, envs, yml files etc.
             user_identity=batchmodels.UserIdentity(auto_user=user),
             environment_settings=envsettings,
         )
-
-        # FIXME autorestart/retry should be handled here
 
         # register job as active, using your own namedtuple.
         self.batch_client.task.add(self.job_id, task)
@@ -282,10 +271,7 @@ class AzBatchExecutor(ClusterExecutor):
         return content
 
     def _wait_for_jobs(self):
-        # FIXME this is run early i.e self.batch_client.task.list()
-        # might not return anything. so we need to keep track
-        # of jobs differently. task.add doesn't return the tasks
-        # just task.add
+
         import azure.batch.models as batchmodels
 
         while True:
@@ -301,13 +287,6 @@ class AzBatchExecutor(ClusterExecutor):
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
                 task = self.batch_client.task.get(self.job_id, batch_job.task_id)
-
-                # print(task)
-                # # check compute node state to handle case where task remains active
-                # # because the node is "unusable"
-                # if task.node_info is not None:
-                #     node = self.batch_client.compute_node.get(task.node_info.pool_id, task.node_info.node_id)
-                #     print(node.state, node.errors)
 
                 if task.state == batchmodels.TaskState.completed:
                     dt = (
