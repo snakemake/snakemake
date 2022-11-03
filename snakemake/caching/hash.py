@@ -52,7 +52,7 @@ class ProvenanceHashMap:
             # resources, and filenames (which shall be irrelevant for the hash).
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 job.rule.script,
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -61,7 +61,7 @@ class ProvenanceHashMap:
             )
             h.update(source.encode())
         elif job.is_notebook:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 job.rule.notebook,
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -70,7 +70,7 @@ class ProvenanceHashMap:
             )
             h.update(source.encode())
         elif job.is_wrapper:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 wrapper.get_script(
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
