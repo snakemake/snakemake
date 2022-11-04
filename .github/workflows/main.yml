@@ -100,21 +100,22 @@ jobs:
           aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
           aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
           aws-region: us-east-1
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              vars:
-                slurm_roles: ['controller', 'exec']
+      #- name: Download slurm ansible roles
+      #  run: |
+      #    ansible-galaxy install galaxyproject.slurm
+      - name: Slurm setup
+        #uses: 1arp/create-a-file-action@0.2
+        
+        #with:
+        #  file: slurm-playbook.yml
+        #  content: |
+        #    - name: Slurm all in One
+        #      hosts: localhost
+        #      vars:
+        #        slurm_roles: ['controller', 'exec']
               roles:
                 - role: galaxyproject.slurm
-                  become: true
+                  become: True
               vars:
                   slurm_cgroup_config:
                       CgroupMountpoint: "/sys/fs/cgroup"
@@ -161,6 +162,7 @@ jobs:
                           Default: YES
                           MaxTime: UNLIMITED
                           Nodes: "com0"
+                 slurm_roles: ['controller', 'exec']
                  slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 888
