@@ -3,7 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from copy import copy
+from collections import namedtuple
+from copy import copy, deepcopy
+
+
+InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
 
 class RuleInfo:
@@ -40,6 +44,20 @@ class RuleInfo:
         self.path_modifier = None
         self.handover = False
         self.default_target = False
+
+    def copy(self, ref_attributes={"func", "path_modifier"}):
+        ruleinfo = RuleInfo(self.func)
+        for attribute in self.__dict__:
+            if attribute not in ref_attributes:
+                value = getattr(self, attribute)
+                if isinstance(value, InOutput):
+                    value = InOutput(
+                        deepcopy(value.paths), deepcopy(value.kwpaths), value.modifier
+                    )
+                elif value is not None:
+                    value = deepcopy(value)
+                setattr(ruleinfo, attribute, value)
+        return ruleinfo
 
     def apply_modifier(
         self, modifier, prefix_replacables={"input", "output", "log", "benchmark"}
