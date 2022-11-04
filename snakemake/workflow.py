@@ -1929,7 +1929,8 @@ class Workflow:
                     ruleinfo_overwrite=ruleinfo,
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
-                    orig_ruleinfo = orig_rule.ruleinfo.copy()
+                    import copy
+                    orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
                     self.rule(
                         name=name_modifier,
                         lineno=lineno,

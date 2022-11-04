@@ -11,6 +11,8 @@ InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
 
 class RuleInfo:
+    ref_attributes={"func", "path_modifier"}
+
     def __init__(self, func=None):
         self.func = func
         self.shellcmd = None
@@ -45,11 +47,11 @@ class RuleInfo:
         self.handover = False
         self.default_target = False
 
-    def copy(self, ref_attributes={"func", "path_modifier"}):
+    def __copy__(self):
         """Return a copy of this ruleinfo."""
         ruleinfo = RuleInfo(self.func)
         for attribute in self.__dict__:
-            if attribute in ref_attributes:
+            if attribute in self.ref_attributes:
                 setattr(ruleinfo, attribute, getattr(self, attribute))
             else:
                 # shallow copies are enough
