@@ -1930,6 +1930,7 @@ class Workflow:
                 ):
                     # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
                     import copy
+
                     orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
                     self.rule(
                         name=name_modifier,

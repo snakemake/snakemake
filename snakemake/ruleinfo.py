@@ -11,7 +11,7 @@ InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
 
 
 class RuleInfo:
-    ref_attributes={"func", "path_modifier"}
+    ref_attributes = {"func", "path_modifier"}
 
     def __init__(self, func=None):
         self.func = func
