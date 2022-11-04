@@ -1,5 +1,33 @@
 # Changelog
 
+## [7.18.1](https://github.com/snakemake/snakemake/compare/v7.18.0...v7.18.1) (2022-11-03)
+
+
+### Bug Fixes
+
+* regression ValueError introduced with 7.17.2 ([#1947](https://github.com/snakemake/snakemake/issues/1947)) ([53a4fca](https://github.com/snakemake/snakemake/commit/53a4fca8c67a3b58d61b146c8cfff3982889d77d))
+
+## [7.18.0](https://github.com/snakemake/snakemake/compare/v7.17.2...v7.18.0) (2022-10-31)
+
+
+### Features
+
+* first try to match output files against input files while persisting wildcard values from the consuming job. This can dramatically reduce ambiuity problems. Thanks to [@descostesn](https://github.com/descostesn)! ([#1939](https://github.com/snakemake/snakemake/issues/1939)) ([d093907](https://github.com/snakemake/snakemake/commit/d093907417778c7693a05ed1f38fc40b8d34d9ba))
+
+## [7.17.2](https://github.com/snakemake/snakemake/compare/v7.17.1...v7.17.2) (2022-10-28)
+
+
+### Bug Fixes
+
+* Consider source cache when setting search path for python scripts. This allows to import from Python modules next to scripts while deploying the workflow as a snakemake module, even from remote locations. ([#1940](https://github.com/snakemake/snakemake/issues/1940)) ([27be1d4](https://github.com/snakemake/snakemake/commit/27be1d41c397a974f33dcf93ccce331a80ab0198))
+
+## [7.17.1](https://github.com/snakemake/snakemake/compare/v7.17.0...v7.17.1) (2022-10-28)
+
+
+### Bug Fixes
+
+* change source cache entries to keep the original name and folder structure, such that imports from e.g. scripts also work with remote modules (if specified as additional input files with workflow.source_path) ([#1936](https://github.com/snakemake/snakemake/issues/1936)) ([c34f3f6](https://github.com/snakemake/snakemake/commit/c34f3f64ac19d2c2eaab361d73d3144430538bb6))
+
 ## [7.17.0](https://github.com/snakemake/snakemake/compare/v7.16.2...v7.17.0) (2022-10-27)
 
 
