@@ -190,7 +190,9 @@ class AzureStorageHelper(object):
         self._gen_cache()
 
     def container_exists(self, container_name):
-        return container_name in self._cache
+        if self._use_cache:
+            return container_name in self._cache
+
         return any(
             True for _ in self.blob_service_client.list_containers(container_name)
         )
