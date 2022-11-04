@@ -46,17 +46,14 @@ class RuleInfo:
         self.default_target = False
 
     def copy(self, ref_attributes={"func", "path_modifier"}):
+        """Return a copy of this ruleinfo."""
         ruleinfo = RuleInfo(self.func)
         for attribute in self.__dict__:
-            if attribute not in ref_attributes:
-                value = getattr(self, attribute)
-                if isinstance(value, InOutput):
-                    value = InOutput(
-                        value.paths, value.kwpaths, value.modifier
-                    )
-                elif value is not None:
-                    value = deepcopy(value)
-                setattr(ruleinfo, attribute, value)
+            if attribute in ref_attributes:
+                setattr(ruleinfo, attribute, getattr(self, attribute))
+            else:
+                # shallow copies are enough
+                setattr(ruleinfo, attribute, copy(getattr(self, attribute)))
         return ruleinfo
 
     def apply_modifier(
