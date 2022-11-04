@@ -52,7 +52,7 @@ class RuleInfo:
                 value = getattr(self, attribute)
                 if isinstance(value, InOutput):
                     value = InOutput(
-                        deepcopy(value.paths), deepcopy(value.kwpaths), value.modifier
+                        value.paths, value.kwpaths, value.modifier
                     )
                 elif value is not None:
                     value = deepcopy(value)
