@@ -13,7 +13,7 @@ import shutil
 import tarfile
 import tempfile
 import sys
-import json
+from pprint import pformat
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
@@ -25,7 +25,6 @@ from snakemake.resources import DefaultResources
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
 
-# AzBatchConfiguration class
 class AzBatchConfig():
 
     def __init__(self, batch_account_url: str):
@@ -49,7 +48,7 @@ class AzBatchConfig():
         self.batch_pool_vm_node_agent_sku_id = self.set_or_default("BATCH_POOL_VM_NODE_AGENT_SKU_ID", "batch.node.ubuntu 20.04")
         self.batch_pool_vm_size = self.set_or_default("BATCH_POOL_VM_SIZE", "Standard_D2_v3")
         self.batch_pool_node_count = self.set_or_default("BATCH_POOL_NODE_COUNT", 1) 
-        self.resource_file_prefix = self.set_or_default("BATCH_POOL_RESOURCE_FILE_PREFIX", "") 
+        self.resource_file_prefix = self.set_or_default("BATCH_POOL_RESOURCE_FILE_PREFIX", "resource-files") 
     
     @staticmethod
     def set_or_default(evar: str, default: str):
@@ -113,7 +112,7 @@ class AzBatchExecutor(ClusterExecutor):
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
         logger.debug("AzBatchConfig:")
-        logger.debug(json.dumps(self.batch_config.__dict__, indent=2))
+        logger.debug(pformat(self.batch_config.__dict__, indent=2))
 
         self.workflow = workflow
         self.workdir = os.path.dirname(self.workflow.persistence.path)
@@ -225,7 +224,7 @@ class AzBatchExecutor(ClusterExecutor):
         self.batch_client.task.add(self.job_id, task)
         self.active_jobs.append(AzBatchJob(job, self.job_id, task_id, callback, error_callback))
         logger.debug(f"Added AzBatch task {task_id}")
-        logger.debug(f"Added AzBatch task {task}")
+        logger.debug(f"Added AzBatch task {pformat(task.__dict__, indent=2)}")
 
     # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
     @staticmethod
@@ -302,12 +301,12 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                     )
                     sys.stderr.write(
-                        "task {} failed: stderr='{}'\n".format(
+                        "task {}: stderr='{}'\n".format(
                             batch_job.task_id, stderr
                         )
                     )
                     sys.stderr.write(
-                        "FIXME task {}: stdout='{}'\n".format(
+                        "task {}: stdout='{}'\n".format(
                             batch_job.task_id, stdout
                         )
                     )
@@ -331,7 +330,6 @@ class AzBatchExecutor(ClusterExecutor):
 
                 # The operation is still running
                 else:
-                    logger.debug(f"Task {batch_job.task_id} state={task.state}") 
                     logger.debug(f"task {batch_job.task_id}: creation_time={task.creation_time} state={task.state} node_info={task.node_info}\n")
                     still_running.append(batch_job)
 
@@ -481,21 +479,15 @@ class AzBatchExecutor(ClusterExecutor):
         """
 
         import azure.batch.models as batchmodels
-        from azure.core.exceptions import ResourceExistsError
-
-        # create batch resources container if doesn't exist
-        cc = self.azblob_helper.blob_service_client.get_container_client(self.prefix_container)
-        try:
-            cc.create_container()
-        except ResourceExistsError:
-            pass
 
         blob_name = os.path.join(resource_prefix, os.path.basename(targz))
-        bc = cc.get_blob_client(blob_name)
-        try:
-            with open(targz, "rb") as data:
-                bc.upload_blob(data, blob_type="BlockBlob")
-        except Exception as e:
-            raise WorkflowError(f"Error in creating blob. {str(e)}")
 
+        # upload blob to storage using storage helper
+        bc = self.azblob_helper.upload_to_azure_storage(
+            self.prefix_container,
+            targz,
+            blob_name=blob_name 
+        )
+
+        # return resource file
         return batchmodels.ResourceFile(http_url=bc.url, file_path=blob_name)

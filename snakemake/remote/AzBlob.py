@@ -244,7 +244,7 @@ class AzureStorageHelper(object):
         try:
             with open(file_path, "rb") as data:
                 blob_client.upload_blob(data, blob_type="BlockBlob")
-            return blob_client.get_blob_properties().name
+            return blob_client
         except Exception as e:
             raise WorkflowError("Error in creating blob. %s" % str(e))
             # return None
