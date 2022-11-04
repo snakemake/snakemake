@@ -4,7 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from collections import namedtuple
-from copy import copy, deepcopy
+from copy import copy
 
 
 InOutput = namedtuple("InOutput", ["paths", "kwpaths", "modifier"])
