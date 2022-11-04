@@ -153,7 +153,8 @@ for naming), they will be read from environment variables, named
 `AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
 `https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
 a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
-the storage account key.
+the storage account key. The optional `AZ_USE_CACHE` variable will instruct the provider to list
+the files once instead of querying each file individually.
 
 When using AzBlob as default remote provider you will almost always want to
 pass these environment variables on to the remote execution environment (e.g.
@@ -163,7 +164,7 @@ Kubernetes) with `--envvars`, e.g
 .. code-block:: python
 
     from snakemake.remote.AzBlob import RemoteProvider as AzureRemoteProvider
-    AS = AzureRemoteProvider()# assumes env vars AZ_BLOB_ACCOUNT_URL and possibly AZ_BLOB_CREDENTIAL are set
+    AS = AzureRemoteProvider()# assumes env vars AZ_BLOB_ACCOUNT_URL and possibly AZ_BLOB_CREDENTIAL are set. Optional AZ_USE_CACHE will cache the list of files
 
     rule a:
         input:
