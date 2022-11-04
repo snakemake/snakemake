@@ -150,20 +150,20 @@ jobs:
                       SwitchType: "switch/none"
                       TaskPlugin: "task/affinity,task/cgroup"
                       TaskPluginParam: Sched
-                 slurm_create_user: yes
-                 slurm_munge_key: "../../../munge.key"
-                 slurm_nodes:
+                  slurm_create_user: yes
+                  slurm_munge_key: "../../../munge.key"
+                  slurm_nodes:
                       - name: "com0"
                           CoresPerSocket: 2
                           Sockets: 1
                           ThreadsPerCore: 1
-                 slurm_partitions:
+                  slurm_partitions:
                       - name: "compute"
                           Default: YES
                           MaxTime: UNLIMITED
                           Nodes: "com0"
-                 slurm_roles: ['controller', 'exec']
-                 slurm_user:
+                  slurm_roles: ['controller', 'exec']
+                  slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 888
                       group: slurm
