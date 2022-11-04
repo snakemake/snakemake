@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import os
 import stat
 import time
@@ -11,7 +12,7 @@ from collections import namedtuple
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.common import Mode, get_container_image
+from snakemake.common import Mode, get_container_image, async_lock
 
 TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"
@@ -104,7 +105,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             TaskExecutionServiceJob(job, tes_id, callback, error_callback)
         )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         UNFINISHED_STATES = [
             "UNKNOWN",
             "INITIALIZING",
@@ -120,7 +121,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         while True:
 
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -128,7 +129,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 still_running = list()
 
             for j in active_jobs:
-                with self.status_rate_limiter:  # TODO: this doesn't seem to do anything?
+                async with self.status_rate_limiter:  # TODO: this doesn't seem to do anything?
                     res = self.tes_client.get_task(j.jobid, view="MINIMAL")
                     logger.debug(
                         "[TES] State of task '{id}': {state}".format(
@@ -145,9 +146,9 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                         logger.info("[TES] Task completed: {id}".format(id=j.jobid))
                         j.callback(j.job)
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            time.sleep(1 / self.max_status_checks_per_second)
+            await asyncio.sleep(1 / self.max_status_checks_per_second)
 
     def _check_file_in_dir(self, checkdir, f):
         if checkdir:

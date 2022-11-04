@@ -3,11 +3,14 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import concurrent.futures
+import contextlib
 from functools import update_wrapper
 import itertools
 import platform
 import hashlib
 import inspect
+import threading
 import uuid
 import os
 import asyncio
@@ -268,3 +271,17 @@ def get_input_function_aux_params(func, candidate_params):
     func_params = get_function_params(func)
 
     return {k: v for k, v in candidate_params.items() if k in func_params}
+
+
+_pool = concurrent.futures.ThreadPoolExecutor()
+
+
+@contextlib.asynccontextmanager
+async def async_lock(_lock: threading.Lock):
+    """Use a threaded lock form threading.Lock in an async context"""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(_pool, _lock.acquire)
+    try:
+        yield  # the lock is held
+    finally:
+        _lock.release()

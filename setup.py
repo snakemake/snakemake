@@ -56,7 +56,7 @@ setup(
     install_requires=[
         "wrapt",
         "requests",
-        "ratelimiter",
+        "throttler",
         "pyyaml",
         "configargparse",
         "appdirs",

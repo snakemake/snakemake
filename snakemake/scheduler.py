@@ -16,8 +16,15 @@ from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 
+from throttler import Throttler as RateLimiter
 
-from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import (
+    AbstractExecutor,
+    ClusterExecutor,
+    DryrunExecutor,
+    TouchExecutor,
+    CPUExecutor,
+)
 from snakemake.executors import (
     GenericClusterExecutor,
     SynchronousClusterExecutor,
@@ -106,7 +113,6 @@ class JobScheduler:
         scheduler_ilp_solver=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
-        from ratelimiter import RateLimiter
 
         cores = workflow.global_resources["_cores"]
 
@@ -158,7 +164,7 @@ class JobScheduler:
 
         self._local_executor = None
         if dryrun:
-            self._executor = DryrunExecutor(
+            self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
                 printreason=printreason,
@@ -369,7 +375,7 @@ class JobScheduler:
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
             self.rate_limiter = RateLimiter(
-                max_calls=max_jobs_frac.numerator, period=max_jobs_frac.denominator
+                rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
 
         else:
