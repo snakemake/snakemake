@@ -11,13 +11,15 @@ on Azure batch nodes without a shared file-system. One could use attached storag
 solutions as a shared file system, but this adds an unnecessary level of complexity
 and most importantly costs. Instead we use cheap Azure Blob storage,
 which is used by Snakemake to automatically stage data in and out for
-every job.
+every job. Please visit the `Azure Batch Documentation 
+<https://learn.microsoft.com/en-us/azure/batch/batch-technical-overview#how-it-works>`__
+for an overview of the various components of Azure Batch.
 
 Following the steps below you will
 
-#. set up Azure Blob storage, download the Snakemake tutorial data and upload to Azure
-#. then create an Azure Batch account  
-#. and finally run the analysis with Snakemake on the batch account
+#. Set up Azure Blob storage, download the Snakemake tutorial data and upload to storage account
+#. Create an Azure Batch account  
+#. Run the analysis with Snakemake on the batch account
 
 
 Setup
@@ -147,7 +149,7 @@ After downloading, unzip it and cd into the newly created directory.
    ./envs/mapping.yaml
 
 
-Now, we will need to setup the credentials that allow the Batch nodes to
+Now, we will need to setup the credentials that allow the batch nodes to
 read and write from blob storage. For the AzBlob storage provider in
 Snakemake this is done through the environment variables
 ``AZ_BLOB_ACCOUNT_URL`` and optionally ``AZ_BLOB_CREDENTIAL``. See the
@@ -157,8 +159,46 @@ or may also contain a shared access signature (SAS) ``https://<accountname>.blob
 which is a powerful way to define fine grained and even time controlled access to storage on Azure. 
 The SAS can be part of the URL, but if it’s missing, then you can set it with
 ``AZ_BLOB_CREDENTIAL`` or alternatively use the storage account key. 
-The SAS is generally a more powerful, and simple solution. We’ll pass those variables on to the batch nodes  
-with ``--envvars`` (see below).
+The blob account url with SAS is generally the best solution. We’ll pass the AZ_BLOB_ACCOUNT_URL on to the batch nodes  
+with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, 
+you will pass both variables to the --envvars command line argument.
+
+The following optional environment variables can be set to override their associated default values, 
+and are used to change the runtime configuraiton of the batch nodes themselves:
+
+
+.. list-table:: Optional Batch Node Configuration Environment Variables
+   :widths: 40 40 40
+   :header-rows: 1
+
+   * - Environment Variable
+     - Default Value
+     - Description
+   * - BATCH_POOL_IMAGE_PUBLISHER
+     - microsoft-azure-batch
+     - publisher of the vm image for the batch nodes 
+   * - BATCH_POOL_IMAGE_OFFER
+     - ubuntu-server-container
+     - vm image offer for the batch nodes
+   * - BATCH_POOL_IMAGE_SKU
+     - 20-04-lts
+     - vm image sku for batch nodes
+   * - BATCH_POOL_VM_CONTAINER_IMAGE
+     - ubuntu
+     - batch nodes vm container image
+   * - BATCH_POOL_VM_NODE_AGENT_SKU_ID
+     - batch.node.ubuntu 20.04
+     - sku id for batch node vm images
+   * - BATCH_POOL_VM_SIZE
+     - Standard_D2_v3
+     - batch node vm image size
+   * - BATCH_POOL_NODE_COUNT
+     - 1
+     - batch pool node count
+   * - BATCH_POOL_RESOURCE_FILE_PREFIX
+     - resource-files
+     - container prefix for temporary resource files tar ball (Snakefile, envs)
+   
 
 Now you are ready to run the analysis:
 
