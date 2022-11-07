@@ -57,10 +57,10 @@ _ERROR_MSG_ISSUE_823 = (
 
 
 class DummyRateLimiter(ContextDecorator):
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         return False
 
 
@@ -371,6 +371,7 @@ class JobScheduler:
                 keepincomplete=keepincomplete,
             )
         from throttler import Throttler
+
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
             self.rate_limiter = Throttler(
