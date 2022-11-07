@@ -1703,7 +1703,7 @@ For more complex workflows it's possible to define multiple processes, for examp
         
 The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
 
-For custom use cases, the value assigned to each `scattergather` process can be acessed via an internal property, `workflow._scatter`:
+For custom use cases, the value assigned to each `scattergather` process can be acessed via an internal property, `workflow._scatter`, which stores a dictionary with process name as key and the associated number of scatter items as the value:
 
 .. code-block:: python
 
