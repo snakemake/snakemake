@@ -30,7 +30,6 @@ import re
 import math
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
-from throttler import Throttler as RateLimiter
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -702,6 +701,8 @@ class ClusterExecutor(RealExecutor):
         disable_envvar_declarations=False,
         keepincomplete=False,
     ):
+        from throttler import Throttler
+
         local_input = local_input or []
         super().__init__(
             workflow,
@@ -755,7 +756,7 @@ class ClusterExecutor(RealExecutor):
         max_status_checks_frac = Fraction(
             max_status_checks_per_second
         ).limit_denominator()
-        self.status_rate_limiter = RateLimiter(
+        self.status_rate_limiter = Throttler(
             rate_limit=max_status_checks_frac.numerator,
             period=max_status_checks_frac.denominator,
         )
