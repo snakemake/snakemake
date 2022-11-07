@@ -512,6 +512,8 @@ class Logger:
             def job_error():
                 yield indent("Error in rule {}:".format(msg["name"]))
                 yield indent("    jobid: {}".format(msg["jobid"]))
+                if msg["input"]:
+                    yield indent("    input: {}".format(", ".join(msg["input"])))
                 if msg["output"]:
                     yield indent("    output: {}".format(", ".join(msg["output"])))
                 if msg["log"]:
