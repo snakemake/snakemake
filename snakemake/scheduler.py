@@ -16,8 +16,6 @@ from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 
-from throttler import Throttler as RateLimiter
-
 from snakemake.executors import (
     AbstractExecutor,
     ClusterExecutor,
@@ -372,9 +370,10 @@ class JobScheduler:
                 cores=cores,
                 keepincomplete=keepincomplete,
             )
+        from throttler import Throttler
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
-            self.rate_limiter = RateLimiter(
+            self.rate_limiter = Throttler(
                 rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
 
