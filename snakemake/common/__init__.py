@@ -278,7 +278,12 @@ _pool = concurrent.futures.ThreadPoolExecutor()
 
 @contextlib.asynccontextmanager
 async def async_lock(_lock: threading.Lock):
-    """Use a threaded lock form threading.Lock in an async context"""
+    """Use a threaded lock form threading.Lock in an async context
+
+    Necessary because asycio.Lock is not threadsafe, so only one thread can safely use
+    it at a time.
+    Source: https://stackoverflow.com/a/63425191
+    """
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(_pool, _lock.acquire)
     try:
