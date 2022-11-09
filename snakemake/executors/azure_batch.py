@@ -40,6 +40,9 @@ class AzBatchConfig():
         if self.batch_account_key is None:
             sys.Exit("Error: AZ_BATCH_ACCOUNT_KEY cannot be None")
 
+        # sas url to a batch node start task bash script
+        self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SASURL")
+
         # options configured with env vars or default
         self.batch_pool_image_publisher = self.set_or_default("BATCH_POOL_IMAGE_PUBLISHER", "microsoft-azure-batch")
         self.batch_pool_image_offer = self.set_or_default("BATCH_POOL_IMAGE_OFFER", "ubuntu-server-container")
@@ -357,7 +360,18 @@ class AzBatchExecutor(ClusterExecutor):
             container_image_names=[self.batch_config.batch_pool_vm_container_image]
         ) 
 
+        # default to no start task
         start_task = None
+
+        # if configured us start task bash script from sas url
+        if self.batch_config.batch_node_start_task_sasurl is not None:
+            _SIMPLE_TASK_NAME = "start_task.sh"
+            start_task = batchmodels.StartTask(
+            command_line="bash" + _SIMPLE_TASK_NAME,
+            resource_files=[batchmodels.ResourceFile(
+                            file_path=_SIMPLE_TASK_NAME,
+                            http_url=self.batch_config.batch_node_start_task_sasurl)])
+
         new_pool = bsc.models.PoolAddParameter(
             id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
