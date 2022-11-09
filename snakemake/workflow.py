@@ -86,7 +86,7 @@ from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
-from snakemake.ruleinfo import RuleInfo
+from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     GenericSourceFile,
     LocalSourceFile,
@@ -1390,13 +1390,11 @@ class Workflow:
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
             if ruleinfo.input:
-                pos_files, keyword_files, modifier = ruleinfo.input
-                rule.input_modifier = modifier
-                rule.set_input(*pos_files, **keyword_files)
+                rule.input_modifier = ruleinfo.input.modifier
+                rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
             if ruleinfo.output:
-                pos_files, keyword_files, modifier = ruleinfo.output
-                rule.output_modifier = modifier
-                rule.set_output(*pos_files, **keyword_files)
+                rule.output_modifier = ruleinfo.output.modifier
+                rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
@@ -1479,15 +1477,13 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                pos_files, keyword_files, modifier = ruleinfo.log
-                rule.log_modifier = modifier
-                rule.set_log(*pos_files, **keyword_files)
+                rule.log_modifier = ruleinfo.log.modifier
+                rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
-                benchmark, modifier = ruleinfo.benchmark
-                rule.benchmark_modifier = modifier
-                rule.benchmark = benchmark
+                rule.benchmark_modifier = ruleinfo.benchmark.modifier
+                rule.benchmark = ruleinfo.benchmark.paths
             if not self.run_local:
                 group = self.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
@@ -1647,14 +1643,14 @@ class Workflow:
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = (paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = (paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.output = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1699,7 +1695,7 @@ class Workflow:
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
-            ruleinfo.benchmark = (benchmark, self.modifier.path_modifier)
+            ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1797,7 +1793,7 @@ class Workflow:
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = (logs, kwlogs, self.modifier.path_modifier)
+            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1936,11 +1932,15 @@ class Workflow:
                     ),
                     ruleinfo_overwrite=ruleinfo,
                 ):
+                    # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
+                    import copy
+
+                    orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
                     self.rule(
                         name=name_modifier,
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
-                    )(orig_rule.ruleinfo)
+                    )(orig_ruleinfo)
 
         return decorate
 
