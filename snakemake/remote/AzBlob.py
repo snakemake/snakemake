@@ -45,7 +45,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
         self._as = AzureStorageHelper(*args, **kwargs)
@@ -166,7 +166,6 @@ class AzureStorageHelper(object):
     def __init__(self, *args, **kwargs):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
-
         # if not handed down explicitely, try to read credentials from
         # environment variables.
         for (csavar, envvar) in [
@@ -192,33 +191,33 @@ class AzureStorageHelper(object):
     def container_exists(self, container_name):
         if self._use_cache:
             return container_name in self._cache
-
         return any(
             True for _ in self.blob_service_client.list_containers(container_name)
         )
 
     def _gen_cache(self):
         if not self._use_cache:
-           self._cache = None
-           return
-
+            self._cache = None
+            return
         print("CREATING AZURE CACHE")
         self._cache = {}
-        num_files   = 0
-        sum_size    = 0
+        num_files = 0
+        sum_size = 0
         for container_properties in self.blob_service_client.list_containers():
             container_name = container_properties.name
             c = self.blob_service_client.get_container_client(container_name)
             container_files = {}
             for b in c.list_blobs():
-                blob_name           = b.name
-                blob_last_modified  = b.last_modified
-                blob_size           = b.size
-                num_files          += 1
-                sum_size           += blob_size
+                blob_name = b.name
+                blob_last_modified = b.last_modified
+                blob_size = b.size
+                num_files += 1
+                sum_size += blob_size
                 container_files[blob_name] = (blob_last_modified, blob_size)
             self._cache[container_name] = container_files
-        print(f"AZURE CACHE CREATED. {num_files:7,d} files. {sum_size//(1024*1024):16,d} Mb")
+        print(
+            f"AZURE CACHE CREATED. {num_files:7,d} files. {sum_size//(1024*1024):16,d} Mb"
+        )
 
     def upload_to_azure_storage(
         self,
@@ -253,7 +252,6 @@ class AzureStorageHelper(object):
             container_client.create_container()
         except azure.core.exceptions.ResourceExistsError:
             pass
-
         if not blob_name:
             if use_relative_path_for_blob_name:
                 if relative_start_dir:
@@ -360,8 +358,10 @@ class AzureStorageHelper(object):
         assert blob_name, "blob_name must be specified"
 
         if self._use_cache:
-            return container_name in self._cache and blob_name in self._cache[container_name]
-
+            return (
+                container_name in self._cache
+                and blob_name in self._cache[container_name]
+            )
         cc = self.blob_service_client.get_container_client(container_name)
         return any(True for _ in cc.list_blobs(name_starts_with=blob_name))
 
@@ -382,7 +382,6 @@ class AzureStorageHelper(object):
             assert container_name in self._cache
             assert blob_name in self._cache[container_name]
             return self._cache[container_name][blob_name][1] // 1024
-
         b = self.blob_service_client.get_blob_client(container_name, blob_name)
         return b.get_blob_properties().size // 1024
 
@@ -403,7 +402,6 @@ class AzureStorageHelper(object):
             assert container_name in self._cache
             assert blob_name in self._cache[container_name]
             return self._cache[container_name][blob_name][0].timestamp()
-
         b = self.blob_service_client.get_blob_client(container_name, blob_name)
         return b.get_blob_properties().last_modified.timestamp()
 
@@ -421,6 +419,5 @@ class AzureStorageHelper(object):
         if self._use_cache:
             assert container_name in self._cache
             return tuple(self._cache[container_name].keys())
-
         c = self.blob_service_client.get_container_client(container_name)
         return [b.name for b in c.list_blobs()]
