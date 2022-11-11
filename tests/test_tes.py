@@ -21,6 +21,7 @@ TES_TOKEN = (
     + "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
 )
 
+
 def _validate_task(task):
     print("\n>>>> _validate_task", file=sys.stderr)
     required_keys = ["inputs", "outputs", "executors"]
