@@ -50,7 +50,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
         self.tes_token = tes_token
-        self.tes_client = tes.HTTPClient(url=self.tes_url, token=self.token)
+        self.tes_client = tes.HTTPClient(url=self.tes_url, token=self.tes_token)
 
         logger.info("[TES] Job execution on TES: {url}".format(url=self.tes_url))
 
