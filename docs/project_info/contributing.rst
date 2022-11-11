@@ -129,14 +129,14 @@ Below you find a skeleton
             self.active_jobs.append(MyJob(
                 job, jobid, callback, error_callback))
 
-        def _wait_for_jobs(self):
+        async def _wait_for_jobs(self):
             from snakemake.executors import sleep
             # busy wait on job completion
             # This is only needed if your backend does not allow to use callbacks
             # for obtaining job status.
             while True:
                 # always use self.lock to avoid race conditions
-                with self.lock:
+                async with async_lock(self.lock):
                     if not self.wait:
                         return
                     active_jobs = self.active_jobs
@@ -144,16 +144,16 @@ Below you find a skeleton
                     still_running = list()
                 for j in active_jobs:
                     # use self.status_rate_limiter to avoid too many API calls.
-                    with self.status_rate_limiter:
+                    async with self.status_rate_limiter:
 
                         # Retrieve status of job j from your backend via j.jobid
                         # Handle completion and errors, calling either j.callback(j.job)
                         # or j.error_callback(j.job)
                         # In case of error, add job j to still_running.
                         pass
-                with self.lock:
+                async with async_lock(self.lock):
                     self.active_jobs.extend(still_running)
-                sleep()
+                await sleep()
 
 
 Write Documentation
