@@ -393,6 +393,7 @@ For simplicity, this guide recommends to attach a specific conda environment to 
 The TES module requires using a remote file storage system for input/output files such that all files are available on the cloud machines and within their running container.
 There are several options available in Snakemake to use remote files.
 This guide recommends to use S3 (or SWIFT) object storage.
+Please be aware to download final result files from S3 to your local machine by defining a rule that downloads files and gets executed locally (e.g. by setting `localrules: all, download`).
 
 **Install py-tes module:**
 TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip.
@@ -413,7 +414,7 @@ Therefore, we need to set two conda specific variables such that new environment
     $ export CONDA_PKGS_DIRS=/tmp/conda
     $ export CONDA_ENVS_PATH=/tmp/conda
 
-Next, using S3 or SWIFT storage, we also need to set credentials.
+Next, using S3 or SWIFT storage, we also need to set credentials. 
 
 .. code-block:: console
 
