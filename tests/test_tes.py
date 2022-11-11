@@ -15,10 +15,10 @@ TEST_POST_RESPONSE = {"id": "id_1"}
 
 TEST_TASK = {"id": "id_1", "state": "COMPLETE"}
 
-TES_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.\
-             eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG\
-             4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.\
-             SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+TES_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +\
+            "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG" +\
+            "4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ." +\
+            " SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
 
 def _validate_task(task):
     print("\n>>>> _validate_task", file=sys.stderr)
