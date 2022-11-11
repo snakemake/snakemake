@@ -430,3 +430,5 @@ Now we can run Snakemake using:
         --envvars CONDA_PKGS_DIRS CONDA_ENVS_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
         --conda-prefix $CONDA_ENVS_PATH \
         all
+
+If your TES instance requires authentication via OIDC tokens, you can forward your token via the `--tes_token` argument.
