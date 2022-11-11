@@ -87,6 +87,7 @@ class JobScheduler:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         tes=None,
+        tes_token=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -351,6 +352,7 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
                 tes_url=tes,
+                tes_token=tes_token,
                 container_image=container_image,
             )
 
