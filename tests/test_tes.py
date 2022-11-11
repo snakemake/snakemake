@@ -10,11 +10,12 @@ from common import *
 
 
 TES_URL = "http://localhost:8000"
-TES_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+
 TEST_POST_RESPONSE = {"id": "id_1"}
 
 TEST_TASK = {"id": "id_1", "state": "COMPLETE"}
 
+TES_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
 
 def _validate_task(task):
     print("\n>>>> _validate_task", file=sys.stderr)
@@ -36,7 +37,7 @@ def _post_task(request, context):
         # create log file
         with open("{}/test_log.txt".format(outdir), "w+") as f:
             f.write("log")
-        return l
+        return TEST_POST_RESPONSE
     else:
         context.status_code = 400
         return None
