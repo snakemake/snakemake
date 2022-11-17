@@ -16,8 +16,13 @@ from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 
-
-from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import (
+    AbstractExecutor,
+    ClusterExecutor,
+    DryrunExecutor,
+    TouchExecutor,
+    CPUExecutor,
+)
 from snakemake.executors import (
     GenericClusterExecutor,
     SynchronousClusterExecutor,
@@ -25,6 +30,8 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+
+from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -50,10 +57,10 @@ _ERROR_MSG_ISSUE_823 = (
 
 
 class DummyRateLimiter(ContextDecorator):
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         return False
 
 
@@ -75,7 +82,9 @@ class JobScheduler:
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
+        k8s_cpu_scalar=1.0,
         container_image=None,
+        flux=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -102,7 +111,6 @@ class JobScheduler:
         scheduler_ilp_solver=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
-        from ratelimiter import RateLimiter
 
         cores = workflow.global_resources["_cores"]
 
@@ -154,7 +162,7 @@ class JobScheduler:
 
         self._local_executor = None
         if dryrun:
-            self._executor = DryrunExecutor(
+            self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
                 printreason=printreason,
@@ -210,6 +218,7 @@ class JobScheduler:
                     keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
+                    self._submit_callback = self._proceed
                     self.update_dynamic = False
                     self.print_progress = False
                     self.update_resources = False
@@ -247,6 +256,7 @@ class JobScheduler:
                 dag,
                 kubernetes,
                 container_image=container_image,
+                k8s_cpu_scalar=k8s_cpu_scalar,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -279,6 +289,27 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 keepincomplete=keepincomplete,
             )
+
+        elif flux:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+
+            self._executor = FluxExecutor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
@@ -339,10 +370,12 @@ class JobScheduler:
                 cores=cores,
                 keepincomplete=keepincomplete,
             )
+        from throttler import Throttler
+
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
-            self.rate_limiter = RateLimiter(
-                max_calls=max_jobs_frac.numerator, period=max_jobs_frac.denominator
+            self.rate_limiter = Throttler(
+                rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
 
         else:

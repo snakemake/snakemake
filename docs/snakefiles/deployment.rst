@@ -183,7 +183,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -353,7 +353,15 @@ Post-deployment scripts must be placed next to their corresponding environment-f
         └── interproscan.post-deploy.sh
 
 The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+Importantly, if the script relies on certain shell specific syntax, (e.g. `set -o pipefail` for bash), make sure to add a matching shebang to the script, e.g.:
 
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    # ...
+
+If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
 
 .. _conda_named_env:
 

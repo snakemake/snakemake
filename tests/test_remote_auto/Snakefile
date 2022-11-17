@@ -1,0 +1,10 @@
+#import re, os, sys
+shell.executable("bash")
+
+from snakemake.remote import AUTO
+
+rule all:
+    input:
+        AUTO.remote("https://github.com/snakemake/snakemake/raw/main/images/logo.png")
+    run:
+        shell("cp {input} ./")

@@ -23,16 +23,19 @@ class OutputFileCache(AbstractOutputFileCache):
         super().__init__()
         self.remote_provider = remote_provider
 
-    def store(self, job: Job):
-        for entry in self._get_remotes(job, check_output_exists=True):
+    def store(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(job, cache_mode, check_output_exists=True):
             # upload to remote
             try:
                 entry.upload()
             except Exception as e:
                 self.raise_write_error(entry, exception=e)
 
-    def fetch(self, job: Job):
-        for entry in self._get_remotes(job):
+    def fetch(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(
+            job,
+            cache_mode,
+        ):
             if not entry.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -42,15 +45,15 @@ class OutputFileCache(AbstractOutputFileCache):
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def exists(self, job: Job):
-        for entry in self._get_remotes(job):
+    def exists(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(job, cache_mode):
             try:
                 return entry.exists()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def _get_remotes(self, job: Job, check_output_exists=False):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+    def _get_remotes(self, job: Job, cache_mode: str, check_output_exists=False):
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
 
         for outputfile, ext in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):
