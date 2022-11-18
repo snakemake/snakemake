@@ -314,25 +314,25 @@ class JobScheduler:
             )
 
         elif az_batch:
-             self._local_executor = CPUExecutor(
-                 workflow,
-                 dag,
-                 local_cores,
-                 printreason=printreason,
-                 quiet=quiet,
-                 printshellcmds=printshellcmds,
-                 cores=local_cores,
-             )
-             self._executor = AzBatchExecutor(
-                 workflow,
-                 dag,
-                 cores,
-                 container_image=container_image,
-                 az_batch_account_url=az_batch_account_url,
-                 printreason=printreason,
-                 quiet=quiet,
-                 printshellcmds=printshellcmds,
-             )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
 
         elif google_lifesciences:
             self._local_executor = CPUExecutor(

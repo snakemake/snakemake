@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 import os
 from collections import namedtuple
-from urllib.parse import urlparse 
+from urllib.parse import urlparse
 import datetime
 import uuid
 import io
@@ -25,8 +25,7 @@ from snakemake.resources import DefaultResources
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
 
-class AzBatchConfig():
-
+class AzBatchConfig:
     def __init__(self, batch_account_url: str):
 
         # configure defaults
@@ -44,15 +43,29 @@ class AzBatchConfig():
         self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SASURL")
 
         # options configured with env vars or default
-        self.batch_pool_image_publisher = self.set_or_default("BATCH_POOL_IMAGE_PUBLISHER", "microsoft-azure-batch")
-        self.batch_pool_image_offer = self.set_or_default("BATCH_POOL_IMAGE_OFFER", "ubuntu-server-container")
-        self.batch_pool_image_sku = self.set_or_default("BATCH_POOL_IMAGE_SKU", "20-04-lts")
-        self.batch_pool_vm_container_image = self.set_or_default("BATCH_POOL_VM_CONTAINER_IMAGE", "ubuntu")
-        self.batch_pool_vm_node_agent_sku_id = self.set_or_default("BATCH_POOL_VM_NODE_AGENT_SKU_ID", "batch.node.ubuntu 20.04")
-        self.batch_pool_vm_size = self.set_or_default("BATCH_POOL_VM_SIZE", "Standard_D2_v3")
-        self.batch_pool_node_count = self.set_or_default("BATCH_POOL_NODE_COUNT", 1) 
-        self.resource_file_prefix = self.set_or_default("BATCH_POOL_RESOURCE_FILE_PREFIX", "resource-files") 
-    
+        self.batch_pool_image_publisher = self.set_or_default(
+            "BATCH_POOL_IMAGE_PUBLISHER", "microsoft-azure-batch"
+        )
+        self.batch_pool_image_offer = self.set_or_default(
+            "BATCH_POOL_IMAGE_OFFER", "ubuntu-server-container"
+        )
+        self.batch_pool_image_sku = self.set_or_default(
+            "BATCH_POOL_IMAGE_SKU", "20-04-lts"
+        )
+        self.batch_pool_vm_container_image = self.set_or_default(
+            "BATCH_POOL_VM_CONTAINER_IMAGE", "ubuntu"
+        )
+        self.batch_pool_vm_node_agent_sku_id = self.set_or_default(
+            "BATCH_POOL_VM_NODE_AGENT_SKU_ID", "batch.node.ubuntu 20.04"
+        )
+        self.batch_pool_vm_size = self.set_or_default(
+            "BATCH_POOL_VM_SIZE", "Standard_D2_v3"
+        )
+        self.batch_pool_node_count = self.set_or_default("BATCH_POOL_NODE_COUNT", 1)
+        self.resource_file_prefix = self.set_or_default(
+            "BATCH_POOL_RESOURCE_FILE_PREFIX", "resource-files"
+        )
+
     @staticmethod
     def set_or_default(evar: str, default: str):
         gotvar = os.getenv(evar)
@@ -107,10 +120,10 @@ class AzBatchExecutor(ClusterExecutor):
             )
 
         # use storage helper
-        self.azblob_helper  = AzureStorageHelper()
+        self.azblob_helper = AzureStorageHelper()
 
         # get container from remote prefix
-        self.prefix_container = str.split(workflow.default_remote_prefix, '/')[0]
+        self.prefix_container = str.split(workflow.default_remote_prefix, "/")[0]
 
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
@@ -141,12 +154,13 @@ class AzBatchExecutor(ClusterExecutor):
         targz = self._generate_build_source_package()
 
         # removed after job failure/success
-        self.resource_file = self._upload_build_source_package(targz, resource_prefix=self.batch_config.resource_file_prefix)
+        self.resource_file = self._upload_build_source_package(
+            targz, resource_prefix=self.batch_config.resource_file_prefix
+        )
 
         # Create a Batch service client.
         credentials = SharedKeyCredentials(
-            self.batch_config.batch_account_name,
-            self.batch_config.batch_account_key
+            self.batch_config.batch_account_name, self.batch_config.batch_account_key
         )
         self.batch_client = BatchServiceClient(
             credentials, batch_url=self.batch_config.batch_account_url
@@ -154,7 +168,6 @@ class AzBatchExecutor(ClusterExecutor):
 
         self.create_batch_pool()
         self.create_batch_job()
-       
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already)
@@ -166,7 +179,9 @@ class AzBatchExecutor(ClusterExecutor):
         self.batch_client.pool.delete(self.pool_id)
 
         logger.debug("Deleting workflow sources from blob")
-        self.azblob_helper.delete_from_container(self.prefix_container, self.resource_file.file_path)
+        self.azblob_helper.delete_from_container(
+            self.prefix_container, self.resource_file.file_path
+        )
 
         super().shutdown()
 
@@ -192,12 +207,12 @@ class AzBatchExecutor(ClusterExecutor):
             except KeyError:
                 continue
 
-        exec_job = self.format_job_exec(job) 
-        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'" 
+        exec_job = self.format_job_exec(job)
+        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'"
 
         # A string that uniquely identifies the Task within the Job.
         task_uuid = str(uuid.uuid1())
-        task_id = f"{job.rule.name}-{task_uuid}" 
+        task_id = f"{job.rule.name}-{task_uuid}"
 
         # This is the admin user who runs the command inside the container.
         user = batchmodels.AutoUserSpecification(
@@ -211,8 +226,8 @@ class AzBatchExecutor(ClusterExecutor):
         )
 
         # https://docs.microsoft.com/en-us/python/api/azure-batch/azure.batch.models.taskaddparameter?view=azure-python
-        # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node) 
-        # are mapped into the container, all Task environment variables are mapped into the container, 
+        # all directories recursively below the AZ_BATCH_NODE_ROOT_DIR (the root of Azure Batch directories on the node)
+        # are mapped into the container, all Task environment variables are mapped into the container,
         # and the Task command line is executed in the container
         task = batch.models.TaskAddParameter(
             id=task_id,
@@ -225,7 +240,9 @@ class AzBatchExecutor(ClusterExecutor):
 
         # register job as active, using your own namedtuple.
         self.batch_client.task.add(self.job_id, task)
-        self.active_jobs.append(AzBatchJob(job, self.job_id, task_id, callback, error_callback))
+        self.active_jobs.append(
+            AzBatchJob(job, self.job_id, task_id, callback, error_callback)
+        )
         logger.debug(f"Added AzBatch task {task_id}")
         logger.debug(f"Added AzBatch task {pformat(task.__dict__, indent=2)}")
 
@@ -259,16 +276,15 @@ class AzBatchExecutor(ClusterExecutor):
             content = ""
             pass
 
-
         return content
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
 
         import azure.batch.models as batchmodels
 
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -281,10 +297,7 @@ class AzBatchExecutor(ClusterExecutor):
                 task = self.batch_client.task.get(self.job_id, batch_job.task_id)
 
                 if task.state == batchmodels.TaskState.completed:
-                    dt = (
-                        task.execution_info.end_time
-                        - task.execution_info.start_time
-                    )
+                    dt = task.execution_info.end_time - task.execution_info.start_time
                     rc = task.execution_info.exit_code
                     rt = task.execution_info.retry_count
                     stderr = self._get_task_output(
@@ -304,14 +317,10 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                     )
                     sys.stderr.write(
-                        "task {}: stderr='{}'\n".format(
-                            batch_job.task_id, stderr
-                        )
+                        "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
                     )
                     sys.stderr.write(
-                        "task {}: stdout='{}'\n".format(
-                            batch_job.task_id, stdout
-                        )
+                        "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
                     )
 
                     if (
@@ -333,32 +342,33 @@ class AzBatchExecutor(ClusterExecutor):
 
                 # The operation is still running
                 else:
-                    logger.debug(f"task {batch_job.task_id}: creation_time={task.creation_time} state={task.state} node_info={task.node_info}\n")
+                    logger.debug(
+                        f"task {batch_job.task_id}: creation_time={task.creation_time} state={task.state} node_info={task.node_info}\n"
+                    )
                     still_running.append(batch_job)
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
             sleep()
 
     def create_batch_pool(self):
-        """Creates a pool of compute nodes 
-        """
+        """Creates a pool of compute nodes"""
 
         import azure.batch._batch_service_client as bsc
         import azure.batch.models as batchmodels
 
         image_ref = bsc.models.ImageReference(
-             publisher=self.batch_config.batch_pool_image_publisher,
-             offer=self.batch_config.batch_pool_image_offer,
-             sku=self.batch_config.batch_pool_image_sku,
-             version="latest",
-        ) 
+            publisher=self.batch_config.batch_pool_image_publisher,
+            offer=self.batch_config.batch_pool_image_offer,
+            sku=self.batch_config.batch_pool_image_sku,
+            version="latest",
+        )
 
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = bsc.models.ContainerConfiguration(
             container_image_names=[self.batch_config.batch_pool_vm_container_image]
-        ) 
+        )
 
         # default to no start task
         start_task = None
@@ -367,18 +377,22 @@ class AzBatchExecutor(ClusterExecutor):
         if self.batch_config.batch_node_start_task_sasurl is not None:
             _SIMPLE_TASK_NAME = "start_task.sh"
             start_task = batchmodels.StartTask(
-            command_line="bash" + _SIMPLE_TASK_NAME,
-            resource_files=[batchmodels.ResourceFile(
-                            file_path=_SIMPLE_TASK_NAME,
-                            http_url=self.batch_config.batch_node_start_task_sasurl)])
+                command_line="bash" + _SIMPLE_TASK_NAME,
+                resource_files=[
+                    batchmodels.ResourceFile(
+                        file_path=_SIMPLE_TASK_NAME,
+                        http_url=self.batch_config.batch_node_start_task_sasurl,
+                    )
+                ],
+            )
 
         new_pool = bsc.models.PoolAddParameter(
             id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
                 image_reference=image_ref,
                 container_configuration=container_config,
-                node_agent_sku_id=self.batch_config.batch_pool_vm_node_agent_sku_id
-            ), 
+                node_agent_sku_id=self.batch_config.batch_pool_vm_node_agent_sku_id,
+            ),
             vm_size=self.batch_config.batch_pool_vm_size,
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
             target_low_priority_nodes=0,
@@ -395,10 +409,8 @@ class AzBatchExecutor(ClusterExecutor):
             else:
                 logger.debug(f"Pool {self.pool_id} exists.")
 
-
     def create_batch_job(self):
-        """Creates a job with the specified ID, associated with the specified pool
-        """
+        """Creates a job with the specified ID, associated with the specified pool"""
         import azure.batch._batch_service_client as bsc
 
         logger.debug(f"Creating job {self.job_id}")
@@ -413,16 +425,16 @@ class AzBatchExecutor(ClusterExecutor):
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which cannot be reliably
-           derived from the self.workflow.snakefile as we might have moved
-           execution into a temporary directory, and the initial Snakefile
-           was somewhere else on the system.
+        derived from the self.workflow.snakefile as we might have moved
+        execution into a temporary directory, and the initial Snakefile
+        was somewhere else on the system.
         """
         self.snakefile = os.path.basename(self.workflow.main_snakefile)
 
     # from google_lifesciences.py
     def _set_workflow_sources(self):
         """We only add files from the working directory that are config related
-           (e.g., the Snakefile or a config.yml equivalent), or checked into git. 
+        (e.g., the Snakefile or a config.yml equivalent), or checked into git.
         """
         self.workflow_sources = []
 
@@ -443,8 +455,8 @@ class AzBatchExecutor(ClusterExecutor):
     # from google_lifesciences.py
     def _generate_build_source_package(self):
         """in order for the instance to access the working directory in storage,
-           we need to upload it. This file is cleaned up at the end of the run.
-           We do this, and then obtain from the instance and extract.
+        we need to upload it. This file is cleaned up at the end of the run.
+        We do this, and then obtain from the instance and extract.
         """
         # Workflow sources for cloud executor must all be under same workdir root
         for filename in self.workflow_sources:
@@ -466,7 +478,9 @@ class AzBatchExecutor(ClusterExecutor):
         for filename in self.workflow_sources:
             arcname = filename.replace(self.workdir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
-        logger.debug(f"Created {targz} with the following contents: {self.workflow_sources}")
+        logger.debug(
+            f"Created {targz} with the following contents: {self.workflow_sources}"
+        )
         tar.close()
 
         # Rename based on hash, in case user wants to save cache
@@ -486,8 +500,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         return hash_tar
 
-
-    def _upload_build_source_package(self, targz, resource_prefix=""): 
+    def _upload_build_source_package(self, targz, resource_prefix=""):
         """given a .tar.gz created for a workflow, upload it to the blob
         storage account, only if the blob doesn't already exist.
         """
@@ -498,9 +511,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # upload blob to storage using storage helper
         bc = self.azblob_helper.upload_to_azure_storage(
-            self.prefix_container,
-            targz,
-            blob_name=blob_name 
+            self.prefix_container, targz, blob_name=blob_name
         )
 
         # return resource file

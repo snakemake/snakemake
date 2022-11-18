@@ -421,7 +421,7 @@ def snakemake(
             tibanna_config = tibanna_config_dict
 
     # Azure batch uses compute engine and storage
-    if az_batch: 
+    if az_batch:
         assume_shared_fs = False
         default_remote_provider = "AzBlob"
 
@@ -2409,7 +2409,7 @@ def get_argument_parser(profile=None):
     group_azure_batch.add_argument(
         "--az-batch-account-url",
         nargs="?",
-        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set."
+        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set.",
     )
 
     group_flux.add_argument(
@@ -2783,8 +2783,8 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
-    
-    if args.az_batch: 
+
+    if args.az_batch:
         if not args.default_remote_provider or not args.default_remote_prefix:
             print(
                 "Error: --az-batch must be combined with "
@@ -2796,18 +2796,18 @@ def main(argv=None):
         elif args.az_batch_account_url is None:
             print(
                 "Error: --az-batch-account-url must be set when --az-batch is used\n",
-                file=sys.stderr
+                file=sys.stderr,
             )
             sys.exit(1)
         elif not url_can_parse(args.az_batch_account_url):
             print(
                 "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
-            ) 
+            )
             sys.exit(1)
         elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
             print(
                 "Error: environment variable AZ_BATCH_ACCOUNT_KEY must be set when --az-batch is used\n",
-                file=sys.stderr
+                file=sys.stderr,
             )
             sys.exit(1)
 
