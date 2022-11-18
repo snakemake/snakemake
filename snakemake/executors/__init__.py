@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from abc import abstractmethod
+import asyncio
 import os
 import sys
 import contextlib
@@ -19,7 +20,6 @@ import concurrent.futures
 import subprocess
 import signal
 import tempfile
-import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
@@ -29,6 +29,7 @@ import uuid
 import re
 import math
 from snakemake.target_jobs import encode_target_jobs_cli_args
+from fractions import Fraction
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -52,6 +53,7 @@ from snakemake.common import (
     get_uuid,
     lazy_property,
     dict_to_key_value_args,
+    async_lock,
 )
 from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
 from snakemake.io import _IOFile
@@ -60,12 +62,12 @@ from snakemake.io import _IOFile
 # TODO move each executor into a separate submodule
 
 
-def sleep():
+async def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
     if os.environ.get("CI") != "true":
-        time.sleep(10)
+        await asyncio.sleep(10)
     else:
-        time.sleep(1)
+        await asyncio.sleep(1)
 
 
 class AbstractExecutor:
@@ -156,11 +158,13 @@ class AbstractExecutor:
         self._run(job)
         callback(job)
 
+    @abstractmethod
     def shutdown(self):
-        pass
+        ...
 
+    @abstractmethod
     def cancel(self):
-        pass
+        ...
 
     def _run(self, job):
         job.check_protected_output()
@@ -699,7 +703,7 @@ class ClusterExecutor(RealExecutor):
         disable_envvar_declarations=False,
         keepincomplete=False,
     ):
-        from ratelimiter import RateLimiter
+        from throttler import Throttler
 
         local_input = local_input or []
         super().__init__(
@@ -751,8 +755,12 @@ class ClusterExecutor(RealExecutor):
         self.disable_default_resources_args = disable_default_resources_args
         self.disable_envvar_declarations = disable_envvar_declarations
 
-        self.status_rate_limiter = RateLimiter(
-            max_calls=self.max_status_checks_per_second, period=1
+        max_status_checks_frac = Fraction(
+            max_status_checks_per_second
+        ).limit_denominator()
+        self.status_rate_limiter = Throttler(
+            rate_limit=max_status_checks_frac.numerator,
+            period=max_status_checks_frac.denominator,
         )
 
     def get_default_remote_provider_args(self):
@@ -808,9 +816,13 @@ class ClusterExecutor(RealExecutor):
 
         return f"{super().get_job_args(job)} {waitfiles_parameter}"
 
+    @abstractmethod
+    async def _wait_for_jobs(self):
+        ...
+
     def _wait_thread(self):
         try:
-            self._wait_for_jobs()
+            asyncio.run(self._wait_for_jobs())
         except Exception as e:
             self.workflow.scheduler.executor_error_callback(e)
 
@@ -1219,7 +1231,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 )
             )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         success = "success"
         failed = "failed"
         running = "running"
@@ -1286,7 +1298,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 return running
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -1294,7 +1306,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 still_running = list()
             # logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     status = job_status(active_job)
 
                     if status == success:
@@ -1312,9 +1324,9 @@ class GenericClusterExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
                     else:
                         still_running.append(active_job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 SynchronousClusterJob = namedtuple(
@@ -1402,16 +1414,16 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 )
             )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     exitcode = active_job.process.poll()
                     if exitcode is None:
                         # job not yet finished
@@ -1428,9 +1440,9 @@ class SynchronousClusterExecutor(ClusterExecutor):
                             active_job, self.dag.jobid(active_job.job)
                         )
                         active_job.error_callback(active_job.job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 DRMAAClusterJob = namedtuple(
@@ -1557,20 +1569,20 @@ class DRMAAExecutor(ClusterExecutor):
         super().shutdown()
         self.session.exit()
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         import drmaa
 
         suspended_msg = set()
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     try:
                         retval = self.session.jobStatus(active_job.jobid)
                     except drmaa.ExitTimeoutException as e:
@@ -1619,9 +1631,9 @@ class DRMAAExecutor(ClusterExecutor):
                                 # there was nothing to remove
                                 pass
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 @contextlib.contextmanager
@@ -2031,18 +2043,18 @@ class KubernetesExecutor(ClusterExecutor):
                         " that the k8 cluster master is reachable!",
                     )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         import kubernetes
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for j in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     logger.debug("Checking status for pod {}".format(j.jobid))
                     job_not_found = False
                     try:
@@ -2091,9 +2103,9 @@ class KubernetesExecutor(ClusterExecutor):
                     else:
                         # still active
                         still_running.append(j)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 TibannaJob = namedtuple(
@@ -2371,7 +2383,7 @@ class TibannaExecutor(ClusterExecutor):
             TibannaJob(job, jobname, jobid, exec_arn, callback, error_callback)
         )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
@@ -2379,7 +2391,7 @@ class TibannaExecutor(ClusterExecutor):
 
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -2387,7 +2399,7 @@ class TibannaExecutor(ClusterExecutor):
                 still_running = list()
             for j in active_jobs:
                 # use self.status_rate_limiter to avoid too many API calls.
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     if j.exec_arn:
                         status = API().check_status(j.exec_arn)
                     else:
@@ -2400,9 +2412,9 @@ class TibannaExecutor(ClusterExecutor):
                         j.callback(j.job)
                     else:
                         j.error_callback(j.job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 def run_wrapper(

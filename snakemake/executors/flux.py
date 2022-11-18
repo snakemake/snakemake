@@ -12,6 +12,7 @@ from snakemake.executors import ClusterExecutor, sleep
 from snakemake.executors.common import format_cli_arg, join_cli_args
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
+from snakemake.common import async_lock
 
 # Just import flux once
 try:
@@ -126,7 +127,7 @@ class FluxExecutor(ClusterExecutor):
             )
         )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         """
         Wait for jobs to complete. This means requesting their status,
         and then marking them as finished when a "done" parameter
@@ -134,7 +135,7 @@ class FluxExecutor(ClusterExecutor):
         """
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -168,8 +169,8 @@ class FluxExecutor(ClusterExecutor):
                 # Otherwise, we are still running
                 else:
                     still_running.append(j)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
 
             # Sleeps for 10 seconds
-            sleep()
+            await sleep()

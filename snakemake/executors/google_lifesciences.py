@@ -9,6 +9,7 @@ import sys
 import time
 import shutil
 import tarfile
+
 import tempfile
 from collections import namedtuple
 import uuid
@@ -20,7 +21,7 @@ from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.common import get_container_image, get_file_hash
+from snakemake.common import get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
 
@@ -951,7 +952,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             log_verbose_traceback(ex)
             raise ex
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         """
         Wait for jobs to complete. This means requesting their status,
         and then marking them as finished when a "done" parameter
@@ -961,7 +962,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -972,7 +973,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             for j in active_jobs:
 
                 # use self.status_rate_limiter to avoid too many API calls.
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
 
                     # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.operations/get
                     # Get status from projects.locations.operations/get
@@ -1013,6 +1014,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     else:
                         still_running.append(j)
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()

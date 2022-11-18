@@ -16,8 +16,13 @@ from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 
-
-from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import (
+    AbstractExecutor,
+    ClusterExecutor,
+    DryrunExecutor,
+    TouchExecutor,
+    CPUExecutor,
+)
 from snakemake.executors import (
     GenericClusterExecutor,
     SynchronousClusterExecutor,
@@ -53,10 +58,10 @@ _ERROR_MSG_ISSUE_823 = (
 
 
 class DummyRateLimiter(ContextDecorator):
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         return False
 
 
@@ -109,7 +114,6 @@ class JobScheduler:
         scheduler_ilp_solver=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
-        from ratelimiter import RateLimiter
 
         cores = workflow.global_resources["_cores"]
 
@@ -161,7 +165,7 @@ class JobScheduler:
 
         self._local_executor = None
         if dryrun:
-            self._executor = DryrunExecutor(
+            self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
                 printreason=printreason,
@@ -390,10 +394,12 @@ class JobScheduler:
                 cores=cores,
                 keepincomplete=keepincomplete,
             )
+        from throttler import Throttler
+
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
-            self.rate_limiter = RateLimiter(
-                max_calls=max_jobs_frac.numerator, period=max_jobs_frac.denominator
+            self.rate_limiter = Throttler(
+                rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
 
         else:
