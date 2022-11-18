@@ -19,6 +19,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
 from snakemake.utils import makedirs
 from snakemake.io import get_wildcard_names, Wildcards
+from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
@@ -341,7 +342,7 @@ class SlurmExecutor(ClusterExecutor):
 
         return res[jobid]  # == status
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
@@ -358,7 +359,7 @@ class SlurmExecutor(ClusterExecutor):
         )
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -381,6 +382,6 @@ class SlurmExecutor(ClusterExecutor):
                 else:  # still running?
                     still_running.append(j)
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
             time.sleep(1 / self.max_status_checks_per_second)
