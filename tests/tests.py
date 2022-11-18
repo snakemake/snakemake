@@ -1941,3 +1941,11 @@ def test_github_issue1818():
 @skip_on_windows  # not platform dependent
 def test_match_by_wildcard_names():
     run(dpath("test_match_by_wildcard_names"))
+
+
+@skip_on_windows  # not platform dependent
+def test_github_issue929():
+    # Huge thanks to Elmar Pruesse for providing this test case
+    # and pointing to the problem in the code!
+    # Huge thanks to Ronald Lehnigk for pointing me to the issue!
+    run(dpath("test_github_issue929"), targets=["childrule_2"])
