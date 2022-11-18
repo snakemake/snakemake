@@ -18,7 +18,7 @@ from pprint import pformat
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake.common import get_container_image, get_file_hash
+from snakemake.common import get_container_image, get_file_hash, async_lock
 from snakemake.remote.AzBlob import AzureStorageHelper
 from snakemake.resources import DefaultResources
 
