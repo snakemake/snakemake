@@ -69,11 +69,11 @@ def test_tes(requests_mock):
         cleanup=False,
         forceall=True,
     )
+    os.environ["TES_TOKEN"] = TES_TOKEN
     run(
         workdir,
         snakefile="Snakefile",
         tes=TES_URL,
-        tes_token=TES_TOKEN,
         no_tmpdir=True,
         cleanup=False,
         forceall=True,

@@ -177,7 +177,6 @@ def snakemake(
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
     tes=None,
-    tes_token=None,
     preemption_default=None,
     preemptible_rules=None,
     precommand="",
@@ -317,7 +316,6 @@ def snakemake(
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
-        tes_token (str):            JWT token used by GA4GH TES server for authentication.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
         preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
@@ -729,7 +727,6 @@ def snakemake(
                     google_lifesciences_cache=google_lifesciences_cache,
                     flux=flux,
                     tes=tes,
-                    tes_token=tes_token,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -784,7 +781,6 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    tes_token=tes_token,
                     flux=flux,
                     precommand=precommand,
                     preemption_default=preemption_default,
@@ -2394,10 +2390,6 @@ def get_argument_parser(profile=None):
         metavar="URL",
         help="Send workflow tasks to GA4GH TES server specified by url.",
     )
-    group_tes.add_argument(
-        "--tes_token",
-        help="JWT token used by GA4GH TES server for authentication..",
-    )
 
     group_conda = parser.add_argument_group("CONDA")
 
@@ -2959,7 +2951,6 @@ def main(argv=None):
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             tes=args.tes,
-            tes_token=args.tes_token,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,

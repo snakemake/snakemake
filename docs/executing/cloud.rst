@@ -432,4 +432,9 @@ Now we can run Snakemake using:
         --conda-prefix $CONDA_ENVS_PATH \
         all
 
-If your TES instance requires authentication via OIDC tokens, you can forward your token via the `--tes_token` argument.
+If your TES instance requires authentication via OIDC tokens,
+you can forward your token by setting the `TES_TOKEN` environmental variable.
+
+.. code-block:: console
+
+    $ export TES_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c

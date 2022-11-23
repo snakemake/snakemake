@@ -35,7 +35,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         assume_shared_fs=False,
         max_status_checks_per_second=0.5,
         tes_url=None,
-        tes_token=None,
         container_image=None,
     ):
         try:
@@ -50,7 +49,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         self.container_workdir = "/tmp"
         self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
-        self.tes_token = tes_token
+        self.tes_token = os.environ.get("TES_TOKEN")
         self.tes_client = tes.HTTPClient(url=self.tes_url, token=self.tes_token)
 
         logger.info("[TES] Job execution on TES: {url}".format(url=self.tes_url))
