@@ -2257,9 +2257,14 @@ class DAG:
 
                 status = "ok"
                 if not f.exists:
-                    if f in job.temp_output:
-                        status = "removed temp"
-                    status = "missing"
+                    if is_flagged(f, "temp"):
+                        status = "removed temp file"
+                    elif is_flagged(f, "pipe"):
+                        status = "pipe file"
+                    elif is_flagged(f, "service"):
+                        status = "service file"
+                    else:
+                        status = "missing"
                 elif self.reason(job).updated_input:
                     status = "updated input files"
                 elif self.workflow.persistence.version_changed(job, file=f):
