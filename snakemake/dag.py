@@ -2257,6 +2257,8 @@ class DAG:
 
                 status = "ok"
                 if not f.exists:
+                    if f in job.temp_output:
+                        status = "removed temp"
                     status = "missing"
                 elif self.reason(job).updated_input:
                     status = "updated input files"
