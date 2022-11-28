@@ -62,7 +62,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
         # if not self.mem_per_node
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         pass
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):

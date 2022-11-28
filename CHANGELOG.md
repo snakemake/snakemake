@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.18.2](https://github.com/snakemake/snakemake/compare/v7.18.1...v7.18.2) (2022-11-10)
+
+
+### Bug Fixes
+
+* Change ratelimiter dependency to throttler ([#1958](https://github.com/snakemake/snakemake/issues/1958)) ([50b8f16](https://github.com/snakemake/snakemake/commit/50b8f1609a597dc9f25d2fd86c9cdda531bdc041))
+* fixed problem with leaked modifications when inheriting multiple times from the same rule ([#1957](https://github.com/snakemake/snakemake/issues/1957)) ([2475cbc](https://github.com/snakemake/snakemake/commit/2475cbcd74d9c9f62e07617751979bb00025850a))
+* forwarding --keep-incomplete to cluster executor ([#1951](https://github.com/snakemake/snakemake/issues/1951)) ([2894c7d](https://github.com/snakemake/snakemake/commit/2894c7dfaa854ebe34b1248897c90b4110d3962b))
+* show input files on job error ([#1949](https://github.com/snakemake/snakemake/issues/1949)) ([ad21631](https://github.com/snakemake/snakemake/commit/ad2163187f031317d889e0cbe368176e1d48d13f))
+
 ## [7.18.1](https://github.com/snakemake/snakemake/compare/v7.18.0...v7.18.1) (2022-11-03)
 
 
