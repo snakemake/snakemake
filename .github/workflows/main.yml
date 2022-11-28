@@ -159,9 +159,9 @@ jobs:
                         ThreadsPerCore: 1
                   slurm_partitions:
                       - name: "compute"
-                          Default: YES
-                          MaxTime: UNLIMITED
-                          Nodes: "com0"
+                        Default: YES
+                        MaxTime: UNLIMITED
+                        Nodes: "com0"
                   slurm_roles: ['controller', 'exec']
                   slurm_user:
                       comment: "Slurm Workload Manager"
