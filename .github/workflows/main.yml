@@ -165,12 +165,12 @@ jobs:
                   slurm_roles: ['controller', 'exec']
                   slurm_user:
                       comment: "Slurm Workload Manager"
-                      gid: 121
+                      gid: 888
                       group: slurm
                       home: "/var/lib/slurm"
                       name: slurm
                       shell: "/bin/bash"
-                      uid: 1001              
+                      uid: 888              
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
