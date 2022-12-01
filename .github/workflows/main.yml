@@ -101,6 +101,12 @@ jobs:
           aws-region: us-east-1
 
       ###### slurm setup #####
+      # prior to slurm-setup we need the podmand-correct command
+      # see https://github.com/containers/podman/issues/13338
+      - name: correcting podman issue 
+        shell:
+          "mkdir -p /tmp/1002-runtime; export XDG_RUNTIME_DIR=/tmp/1002-runtime"
+        register: xdgcmd
       - name: Download slurm ansible roles
         run: |
           ansible-galaxy install galaxyproject.slurm
