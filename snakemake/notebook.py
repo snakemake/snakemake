@@ -117,6 +117,8 @@ class JupyterNotebook(ScriptBase):
                 for cell in nb["cells"]:
                     if "outputs" in cell:
                         cell["outputs"] = []
+                    if "execution_count" in cell:
+                        cell["execution_count"] = None
 
                 nbformat.write(nb, self.local_path)
 
