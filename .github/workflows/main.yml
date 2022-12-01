@@ -108,7 +108,6 @@ jobs:
           ansible-galaxy install galaxyproject.slurm
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
-        command: "mkdir -p /tmp/1002-runtime; export XDG_RUNTIME_DIR=/tmp/1002-runtime"
         with:
           file: slurm-playbook.yml
           content: |
@@ -173,7 +172,11 @@ jobs:
                       home: "/var/lib/slurm"
                       name: slurm
                       shell: "/bin/bash"
-                      uid: 1002              
+                      uid: 1002
+      - name: Set XDG_RUNTIME_DIR
+        run: |
+          mkdir -p /tmp/1002-runtime
+          echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
