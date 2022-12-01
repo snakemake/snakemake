@@ -174,7 +174,7 @@ jobs:
       - name: Set XDG_RUNTIME_DIR
         run: |
           mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
-          mkdir -p /etc/slurm-llnl # work around error in ansible playbook
+          sudo mkdir -p /etc/slurm-llnl # work around error in ansible playbook
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Setup slurm
         run: |
