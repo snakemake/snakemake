@@ -107,11 +107,8 @@ jobs:
         run: |
           ansible-galaxy install galaxyproject.slurm
       - name: Define slurm playbook
-        - name: correcting podman issue 
-          shell:
-            "mkdir -p /tmp/1002-runtime; export XDG_RUNTIME_DIR=/tmp/1002-runtime"
-          register: xdgcmd
         uses: 1arp/create-a-file-action@0.2
+        ansible.builtin.shell: "mkdir -p /tmp/1002-runtime; export XDG_RUNTIME_DIR=/tmp/1002-runtime"
         with:
           file: slurm-playbook.yml
           content: |
@@ -171,12 +168,12 @@ jobs:
                   slurm_roles: ['controller', 'exec']
                   slurm_user:
                       comment: "Slurm Workload Manager"
-                      gid: 121
+                      gid: 1002
                       group: slurm
                       home: "/var/lib/slurm"
                       name: slurm
                       shell: "/bin/bash"
-                      uid: 1001              
+                      uid: 1002              
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
