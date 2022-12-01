@@ -45,8 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: formatting
     env:
-      AWS_AVAILABLE: '${{ secrets.AWS_ACCESS_KEY_ID }}'
-      GCP_AVAILABLE: '${{ secrets.GCP_SA_KEY }}'
+      AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
       - uses: actions/checkout@v3
         with:
@@ -88,16 +88,16 @@ jobs:
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
         if: env.GCP_AVAILABLE
         with:
-          project_id: '${{ secrets.GCP_PROJECT_ID }}'
-          service_account_email: '${{ secrets.GCP_SA_EMAIL }}'
-          service_account_key: '${{ secrets.GCP_SA_KEY }}'
+          project_id: "${{ secrets.GCP_PROJECT_ID }}"
+          service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
+          service_account_key: "${{ secrets.GCP_SA_KEY }}"
           export_default_credentials: true
       - name: Setup AWS
         uses: aws-actions/configure-aws-credentials@v1
         if: env.AWS_AVAILABLE
         with:
-          aws-access-key-id: '${{ secrets.AWS_ACCESS_KEY_ID }}'
-          aws-secret-access-key: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           aws-region: us-east-1
 
       ###### slurm setup #####
@@ -163,7 +163,6 @@ jobs:
                         Default: YES
                         MaxTime: UNLIMITED
                         Nodes: "com0"
-                  slurm_roles: ['controller', 'exec']
                   slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 1002
@@ -183,11 +182,10 @@ jobs:
         run: |
           srun echo "hello world"
       ###### finalized slurm setup #####
-
       - name: Run tests
         env:
           CI: true
-          ZENODO_SANDBOX_PAT: '${{ secrets.ZENODO_SANDBOX_PAT }}'
+          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: >
           # activate conda env
 
@@ -281,7 +279,7 @@ jobs:
         with:
           activate-environment: snakemake
           python-version: 3.9
-          channels: 'conda-forge, bioconda'
+          channels: "conda-forge, bioconda"
       - name: Setup Snakemake environment
         run: |
           conda config --set channel_priority strict
@@ -290,7 +288,6 @@ jobs:
       - name: Run tests
         env:
           CI: true
-          ZENODO_SANDBOX_PAT: '${{ secrets.ZENODO_SANDBOX_PAT }}'
+          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
           python -m pytest -v -x tests/tests.py
-
