@@ -75,7 +75,7 @@ def test_account(account):
         out = subprocess.check_output(cmd, shell=True)
     except subprocess.CalledProcessError:
         raise WorkflowError(
-            "Unable to test the validity of the given or guess SLURM account."
+            "Unable to test the validity of the given or guessed SLURM account."
         )
 
     if account not in (a.decode("ascii") for a in out.split()):
