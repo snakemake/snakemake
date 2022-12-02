@@ -178,15 +178,15 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Start slurm
-        run: |
-          sudo systemctl start slurmctld
-          sudo systemctl start slurmdbd
-          sudo systemctl start slurmstepd
-          ssh com0 sudo systemctl start slurmstepd
       - name: Test slurm submission
         run: |
           srun echo "hello world"
+      # prior to actual SLURM-based tests we will need to add the
+      # runner account to the SLURM-DB
+      - name: Add Account
+        run: |
+          sudo sacctmgr -i create account "Name=runner"
+          sudo sacctmgr -i create user "Name=runner" "Account=runner"
       ###### finalized slurm setup #####
       - name: Run tests
         env:

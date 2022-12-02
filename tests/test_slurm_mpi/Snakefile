@@ -13,7 +13,7 @@ rule compile:
          "logs/compile.log"
      resources:
         mem_mb=0,
-        account='none'
+        account='runner'
         partition='compute'
      shell: 
          'mpicc -o {output} {input} &> {log}'
@@ -25,6 +25,6 @@ rule calc_pi:
         mem_mb=0,
         tasks=2,
         mpi='srun',
-        account='none'
+        account='runner'
         partition='compute'
      shell: "{resources.mpi} {input} &> {output}"
