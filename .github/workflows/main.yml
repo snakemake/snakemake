@@ -117,6 +117,7 @@ jobs:
                 - role: galaxyproject.slurm
                   become: true
               vars:
+                  slurm_config_dir: /etc/slurm
                   slurm_roles: ['controller', 'exec']
                   slurm_cgroup_config:
                       CgroupMountpoint: "/sys/fs/cgroup"
@@ -142,12 +143,12 @@ jobs:
                       SelectType: "select/cons_res"
                       SelectTypeParameters: "CR_Core"
                       SlurmctldHost: "slurmctl"
-                      SlurmctldLogFile: "/var/log/slurm/slurmctld.log"
-                      SlurmctldPidFile: "/var/run/slurmctld.pid"
-                      SlurmdLogFile: "/var/log/slurm/slurmd.log"
-                      SlurmdPidFile: "/var/run/slurmd.pid"
-                      SlurmdSpoolDir: "/var/spool/slurmd"
-                      StateSaveLocation: "/var/spool/slurmctld"
+                      SlurmctldLogFile: /var/log/slurm/slurmctld.log
+                      SlurmctldPidFile: /run/slurmctld.pid
+                      SlurmdLogFile: /var/log/slurm/slurmd.log
+                      SlurmdPidFile: /run/slurmd.pid
+                      SlurmdSpoolDir: /var/lib/slurm/slurmd
+                      StateSaveLocation: /var/lib/slurm/slurmctld
                       SwitchType: "switch/none"
                       TaskPlugin: "task/affinity,task/cgroup"
                       TaskPluginParam: Sched
@@ -174,7 +175,7 @@ jobs:
       - name: Set XDG_RUNTIME_DIR
         run: |
           mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
-          sudo mkdir -p /etc/slurm-llnl # work around error in ansible playbook
+          #sudo mkdir -p /etc/slurm-llnl # work around error in ansible playbook
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Setup slurm
         run: |
