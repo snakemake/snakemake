@@ -76,7 +76,7 @@ jobs:
           mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
       - name: Setup iRODS
         run: |
           docker build -t irods-server tests/test_remote_irods
@@ -143,6 +143,9 @@ jobs:
                       SlurmdSpoolDir: /var/lib/slurm/slurmd
                       StateSaveLocation: /var/lib/slurm/slurmctld
                       TaskPlugin: "task/affinity,task/cgroup"
+                      StorageType=accounting_storage/mysql
+                      StoragePass=slurmservice
+                      StorageUser=slurm
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   # slurm_nodes:
