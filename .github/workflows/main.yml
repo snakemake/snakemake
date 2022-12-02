@@ -170,12 +170,6 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Start slurm
-        run: |
-          sudo systemctl start slurmctld
-          sudo systemctl start slurmdbd
-          sudo systemctl start slurmstepd
-          ssh com0 sudo systemctl start slurmstepd
       - name: Test slurm submission
         run: |
           srun echo "hello world"
