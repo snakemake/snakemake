@@ -117,8 +117,8 @@ jobs:
                 - role: galaxyproject.slurm
                   become: true
               vars:
+                  slurm_roles: ['controller', 'exec', 'dbd']
                   slurm_config_dir: /etc/slurm
-                  slurm_roles: ['controller', 'exec']
                   slurm_cgroup_config:
                       CgroupMountpoint: "/sys/fs/cgroup"
                       CgroupAutomount: yes
@@ -133,36 +133,28 @@ jobs:
                       MaxSwapPercent: 100
                       MinRAMSpace: 30
                   slurm_config:
-                      AccountingStorageType: "accounting_storage/none"
                       ClusterName: cluster
-                      JobAcctGatherType: "jobacct_gather/none"
-                      MpiDefault: none
-                      ProctrackType: "proctrack/cgroup"
-                      ReturnToService: 1
-                      SchedulerType: "sched/backfill"
-                      SelectType: "select/cons_res"
-                      SelectTypeParameters: "CR_Core"
-                      SlurmctldHost: "slurmctl"
+                      ProctrackType: proctrack/pgid
+                      #SlurmctldHost: localhost # TODO try if we need this
                       SlurmctldLogFile: /var/log/slurm/slurmctld.log
                       SlurmctldPidFile: /run/slurmctld.pid
                       SlurmdLogFile: /var/log/slurm/slurmd.log
                       SlurmdPidFile: /run/slurmd.pid
                       SlurmdSpoolDir: /var/lib/slurm/slurmd
                       StateSaveLocation: /var/lib/slurm/slurmctld
-                      SwitchType: "switch/none"
                       TaskPlugin: "task/affinity,task/cgroup"
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
-                  slurm_nodes:
-                      - name: "com0"
-                        Sockets: 1
-                        CoresPerSocket: 2
-                        ThreadsPerCore: 1
-                  slurm_partitions:
-                      - name: "compute"
-                        Default: YES
-                        MaxTime: UNLIMITED
-                        Nodes: "com0"
+                  # slurm_nodes:
+                  #     - name: "com0"
+                  #       Sockets: 1
+                  #       CoresPerSocket: 2
+                  #       ThreadsPerCore: 1
+                  # slurm_partitions:
+                  #     - name: "compute"
+                  #       Default: YES
+                  #       MaxTime: UNLIMITED
+                  #       Nodes: "com0"
                   slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 1002
