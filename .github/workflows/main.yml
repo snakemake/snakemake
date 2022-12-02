@@ -144,10 +144,6 @@ jobs:
                       StateSaveLocation: /var/lib/slurm/slurmctld
                       TaskPlugin: "task/affinity,task/cgroup"
                       StorageType: accounting_storage/mysql
-                      LogFile: /var/log/slurm/slurmdbd.log
-                      PidFile: /var/slurmdbd.pid
-                      StoragePass: slurmservice
-                      StorageUser: slurm
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   # slurm_nodes:
