@@ -143,7 +143,7 @@ jobs:
                       SlurmdSpoolDir: /var/lib/slurm/slurmd
                       StateSaveLocation: /var/lib/slurm/slurmctld
                       TaskPlugin: "task/affinity,task/cgroup"
-                      #AccountingStorageType: accounting_storage/slurmdbd
+                      AccountingStorageType: accounting_storage/slurmdbd
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   # slurm_nodes:
@@ -171,15 +171,15 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Test slurm submission
-        run: |
-          srun echo "hello world"
       # prior to actual SLURM-based tests we will need to add the
       # runner account to the SLURM-DB
       - name: Add Account
         run: |
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
+      - name: Test slurm submission
+        run: |
+          srun echo "hello world"
       ###### finalized slurm setup #####
       - name: Run tests
         env:
