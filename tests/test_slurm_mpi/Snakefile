@@ -1,17 +1,26 @@
-localrules: all, clean
+localrules:
+    all,
+    clean,
+
 
 rule all:
-     input: "pi.calc"
+    input:
+        "pi.calc",
+
 
 rule clean:
-     shell: "rm -f pi.calc"
+    shell:
+        "rm -f pi.calc"
+
 
 rule compile:
-     input: "pi_MPI.c"
-     output: temp("pi_MPI")
-     log:
-         "logs/compile.log"
-     resources:
+    input:
+        "pi_MPI.c",
+    output:
+        temp("pi_MPI"),
+    log:
+        "logs/compile.log",
+    resources:
         mem_mb=0,
         account='runner'
         partition='compute'
@@ -19,9 +28,11 @@ rule compile:
          'mpicc -o {output} {input} &> {log}'
 
 rule calc_pi:
-     input: "pi_MPI"
-     output: "pi.calc"
-     resources:
+    input:
+        "pi_MPI",
+    output:
+        "pi.calc",
+    resources:
         mem_mb=0,
         tasks=2,
         mpi='srun',
