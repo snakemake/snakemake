@@ -152,7 +152,7 @@ jobs:
                       TaskPlugin: "task/affinity,task/cgroup"
                       TaskPluginParam: Sched
                   slurm_create_user: yes
-                  slurm_munge_key: "../../../munge.key"
+                  #slurm_munge_key: "../../../munge.key"
                   slurm_nodes:
                       - name: "com0"
                         Sockets: 1
