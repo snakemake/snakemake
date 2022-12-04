@@ -187,7 +187,7 @@ jobs:
       - name: Add Account
         run: |
           sudo systemctl status slurmdbd
-          cat /var/log/slurm/slurmdbd.log
+          sudo cat /var/log/slurm/slurmdbd.log
           #sudo slurmdbd -Dvv
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
