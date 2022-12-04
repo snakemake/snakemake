@@ -150,6 +150,8 @@ jobs:
                       LogFile: /var/log/slurm/slurmdbd.log
                       StoragePass: root
                       StorageUser: root
+                      StorageHost: localhost
+                      DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   # slurm_nodes:
