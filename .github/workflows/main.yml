@@ -150,7 +150,7 @@ jobs:
                       LogFile: /var/log/slurm/slurmdbd.log
                       StoragePass: root
                       StorageUser: root
-                      StorageHost: localhost
+                      StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
                       DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
