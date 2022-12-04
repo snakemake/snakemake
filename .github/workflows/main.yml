@@ -146,6 +146,8 @@ jobs:
                       AccountingStorageType: accounting_storage/slurmdbd
                   slurmdbd_config:
                       StorageType: accounting_storage/mysql
+                      PidFile: /run/slurmdbd.pid
+                      LogFile: /var/log/slurm/slurmdbd.log
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   # slurm_nodes:
