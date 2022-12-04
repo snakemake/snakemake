@@ -179,6 +179,9 @@ jobs:
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
       # prior to actual SLURM-based tests we will need to add the
       # runner account to the SLURM-DB
+      - name: Start mysql
+        run: |
+          sudo systemctl start mysql
       - name: Add Account
         run: |
           sudo systemctl status slurmdbd
