@@ -14,7 +14,15 @@ from .conftest import skip_on_windows
 
 @skip_on_windows
 def test_slurm_mpi():
-    run(dpath("test_slurm_mpi"), slurm=True, show_failed_logs=True)
+    run(
+        dpath("test_slurm_mpi"),
+        slurm=True,
+        show_failed_logs=True,
+        use_conda=True,
+        default_resources=DefaultResources(
+            ["account=runner", "partition=debug"]
+        )
+    )
 
 
 @skip_on_windows

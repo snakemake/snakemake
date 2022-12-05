@@ -79,10 +79,11 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
                 mem_per_cpu = max(level_mem // level_job.threads, 100)
                 exec_job = self.format_job_exec(level_job)
+                # TODO do we need --exclusive?? If so, our slurm says that it also needs --ntasks
                 return (
                     f"srun -J {job.groupid} --jobid {self.jobid}"
                     f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
-                    f" --exclusive -n 1 {aux} {exec_job}"
+                    f" -n 1 {aux} {exec_job}"
                 )
 
             for level in list(job.toposorted):
@@ -107,7 +108,8 @@ class SlurmJobstepExecutor(ClusterExecutor):
             call = self.format_job_exec(job)
         else:
             # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
-            call = f"srun --cpu-bind=q --exclusive {self.format_job_exec(job)}"
+            # TODO do we need --exclusive?? If so, our slurm says that it also needs --ntasks
+            call = f"srun --cpu-bind=q {self.format_job_exec(job)}"
 
         # this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
         jobsteps[job] = subprocess.Popen(call, shell=True)
