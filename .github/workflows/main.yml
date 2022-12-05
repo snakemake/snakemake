@@ -44,6 +44,14 @@ jobs:
   testing:
     runs-on: ubuntu-latest
     needs: formatting
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - "8888:3306"
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     env:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
@@ -151,6 +159,7 @@ jobs:
                       StoragePass: root
                       StorageUser: root
                       StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
+                      StoragePort: 8888
                       DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
@@ -179,11 +188,6 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      # prior to actual SLURM-based tests we will need to add the
-      # runner account to the SLURM-DB
-      - name: Start mysql
-        run: |
-          sudo systemctl start mysql
       - name: Add Account
         run: |
           sudo systemctl status slurmdbd
