@@ -278,7 +278,7 @@ class SlurmExecutor(ClusterExecutor):
         logger.debug(f"Job {jobid} '{jobname}' has been submitted")
         self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
 
-    def job_status(self, jobid: int):
+    async def job_status(self, jobid: int):
         """
         obtain SLURM job status of submitted jobs
         """
@@ -287,7 +287,7 @@ class SlurmExecutor(ClusterExecutor):
         # this code is inspired by the snakemake profile: TODO: link to github
         for i in range(STATUS_ATTEMPTS):
             # use self.status_rate_limiter to avoid too many API calls.
-            with self.status_rate_limiter:
+            async with self.status_rate_limiter:
                 try:
                     sacct_cmd = shlex.split("sacct -P -b -j {} -n".format(jobid))
                     sacct_res = subprocess.check_output(sacct_cmd, encoding="ascii")
