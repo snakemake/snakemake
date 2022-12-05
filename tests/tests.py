@@ -15,29 +15,6 @@ from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
 
 
-@skip_on_windows
-def test_slurm_mpi():
-    run(dpath("test_slurm_mpi"), slurm=True, show_failed_logs=True)
-
-
-@skip_on_windows
-def test14_mpi():
-    os.environ["TESTVAR"] = "test"
-    os.environ["TESTVAR2"] = "test"
-    run(dpath("test14"), snakefile="Snakefile.nonstandard", slurm=True)
-
-
-@skip_on_windows
-def test_slurm_group_job():
-    """
-    same test as test_group_job(),
-    but for SLURM - checks whether
-    the group-property is correctly
-    propagated.
-    """
-    run(dpath("test_group_job"), slurm=True)
-
-
 def test_list_untracked():
     run(dpath("test_list_untracked"))
 

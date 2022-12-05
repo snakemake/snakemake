@@ -198,8 +198,19 @@ jobs:
       - name: Test slurm submission
         run: |
           srun echo "hello world"
-      ###### finalized slurm setup #####
-      - name: Run tests
+
+      - name: Test Slurm
+        env:
+          CI: true
+        run: >
+          # activate conda env
+
+          export PATH="/usr/share/miniconda/bin:$PATH"
+
+          source activate snakemake
+          pytest -v -x tests/test_slurm.py
+
+      - name: Test local
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
