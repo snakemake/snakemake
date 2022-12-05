@@ -202,7 +202,7 @@ jobs:
       - name: Test Slurm
         env:
           CI: true
-        run: >
+        run: |
           # activate conda env
 
           export PATH="/usr/share/miniconda/bin:$PATH"
