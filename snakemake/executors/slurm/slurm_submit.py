@@ -31,11 +31,13 @@ def get_account():
     """
     cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
     try:
-        sacct_out = subprocess.check_output(cmd, shell=True, text=True)
+        sacct_out = subprocess.check_output(
+            cmd, shell=True, text=True, stderr=subprocess.PIPE
+        )
         return sacct_out.strip()
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         raise WorkflowError(
-            "No account was given, not able to get a SLURM account via sacct: {out.stderr.read()}"
+            f"No account was given, not able to get a SLURM account via sacct: {e.stderr}"
         )
 
 
@@ -45,10 +47,12 @@ def test_account(account):
     """
     cmd = f"sacctmgr -n -s list user {account} format=account%20"
     try:
-        accounts = subprocess.check_output(cmd, shell=True, text=True)
-    except subprocess.CalledProcessError:
+        accounts = subprocess.check_output(
+            cmd, shell=True, text=True, stderr=subprocess.PIPE
+        )
+    except subprocess.CalledProcessError as e:
         raise WorkflowError(
-            f"Unable to test the validity of the given or guessed SLURM account with sacctmgr: {out.stderr.read()}"
+            f"Unable to test the validity of the given or guessed SLURM account with sacctmgr: {e.stderr}"
         )
 
     accounts = accounts.split()
@@ -64,10 +68,12 @@ def check_default_partition(job):
     if no partition is given, checks whether a fallback onto a default partition is possible
     """
     try:
-        out = subprocess.check_output(r"sinfo -o %P", shell=True, text=True)
-    except subprocess.CalledProcessError:
+        out = subprocess.check_output(
+            r"sinfo -o %P", shell=True, text=True, stderr=subprocess.PIPE
+        )
+    except subprocess.CalledProcessError as e:
         raise WorkflowError(
-            f"Failed to run sinfo for retrieval of cluster partitions: {out.stderr.read()}"
+            f"Failed to run sinfo for retrieval of cluster partitions: {e.stderr}"
         )
     for partition in out.split():
         # a default partition is marked with an asterisk, but this is not part of the name
@@ -131,7 +137,13 @@ class SlurmExecutor(ClusterExecutor):
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
-                subprocess.run(shlex.split(f"scancel {jobid}"), timeout=60)
+                subprocess.check_output(
+                    f"scancel {jobid}",
+                    text=True,
+                    shell=True,
+                    timeout=60,
+                    stderr=subprocess.PIPE,
+                )
             except subprocess.TimeoutExpired:
                 logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
@@ -258,16 +270,17 @@ class SlurmExecutor(ClusterExecutor):
             # use self.status_rate_limiter to avoid too many API calls.
             async with self.status_rate_limiter:
                 try:
-                    sacct_cmd = shlex.split("sacct -P -b -j {} -n".format(jobid))
-                    sacct_res = subprocess.check_output(sacct_cmd, encoding="ascii")
+                    sacct_cmd = f"sacct -P -b -j {jobid} -n"
+                    sacct_res = subprocess.check_output(
+                        sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
+                    )
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
                     }
                     break
                 except subprocess.CalledProcessError as e:
-                    logger.error("sacct process error")
-                    logger.error(e)
+                    logger.warning(f"Error getting job status:\n{e.stderr}")
                 except IndexError as e:
                     pass
                 # Try getting job with scontrol instead in case sacct is misconfigured
@@ -281,11 +294,12 @@ class SlurmExecutor(ClusterExecutor):
                         )
                         logger.debug(f"scontrol command: {sctrl_cmd}")
                         process = subprocess.Popen(
-                            sctrl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                            sctrl_cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            text=True,
                         )
                         out, err = process.communicate()
-                        out = out.decode("ascii")
-                        err = err.decode("ascii")
                         logger.debug(
                             f"The scontrol output is: '{out}' and the error is: '{err}'"
                         )
@@ -303,8 +317,7 @@ class SlurmExecutor(ClusterExecutor):
                             res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
-                        logger.error("scontrol process error")
-                        logger.error(e)
+                        logger.error(f"Error getting job status:\n{e.stderr}")
 
                 if i >= STATUS_ATTEMPTS - 1:
                     raise WorkflowError("Unable to query job status for 10 times")
