@@ -1,11 +1,5 @@
 import os
-import shlex
-import sys
-import time
-import shutil
 import subprocess
-import tarfile
-import tempfile
 
 from snakemake.jobs import Job
 from snakemake.logging import logger
