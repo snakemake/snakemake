@@ -23,34 +23,6 @@ from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
 
-# the resource code is inspired by Michal Hall's fork of snakemakes slurm profile, see
-# https://github.com/mbhall88/slurm
-RESOURCE_MAPPING = {
-    "runtime": ("time", "runtime", "walltime"),
-    "mem_mb": ("mem", "mem_mb", "ram", "memory"),
-    "mem-per-cpu": ("mem-per-cpu", "mem_per_cpu", "mem_per_thread"),
-    "ntasks": ("ntasks", "tasks"),
-    "cpus-per-task": ("cpus-per-task", "cpus_per_task", "cpus", "threads"),
-    "nodes": ("nodes", "nnodes"),
-    "partition": ("partition", "queue"),
-}
-
-
-def _convert_units_to_mb(memory):
-    """If memory is specified with SI unit, convert to MB"""
-    if isinstance(memory, int) or isinstance(memory, float):
-        return int(memory)
-    # RAM is bought in iB, not B - hence the factors in power of 2
-    siunits = {"K": 0.0009765625, "M": 1, "G": 1024, "T": 1048576}
-    regex = re.compile(r"(\d+)({})$".format("|".join(siunits.keys())))
-    m = regex.match(memory)
-    if not m:  # no match
-        # In this case the SLURM default is M (== MiB)
-        factor = "M"
-    else:
-        factor = siunits[m.group(2)]
-    return int(int(m.group(1)) * factor)
-
 
 def get_account():
     """
@@ -59,27 +31,32 @@ def get_account():
     """
     cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
     try:
-        sacct_out = subprocess.check_output(cmd, shell=True)
-        return sacct_out.strip().decode("ascii")
+        sacct_out = subprocess.check_output(cmd, shell=True, text=True)
+        return sacct_out.strip()
     except subprocess.CalledProcessError:
-        logger.error("Unable to retrieve the default SLURM account")
-        raise WorkflowError("No account was given, not able to get a SLURM account")
+        raise WorkflowError(
+            "No account was given, not able to get a SLURM account via sacct: {out.stderr.read()}"
+        )
 
 
 def test_account(account):
     """
-    tests whether the given account is registered, raises an Error, if not
+    tests whether the given account is registered, raises an error, if not
     """
-    cmd = f"sacctmgr -n -s list user {os.environ['USER']} format=account%20"
+    cmd = f"sacctmgr -n -s list user {account} format=account%20"
     try:
-        out = subprocess.check_output(cmd, shell=True)
+        accounts = subprocess.check_output(cmd, shell=True, text=True)
     except subprocess.CalledProcessError:
         raise WorkflowError(
-            "Unable to test the validity of the given or guessed SLURM account."
+            f"Unable to test the validity of the given or guessed SLURM account with sacctmgr: {out.stderr.read()}"
         )
 
-    if account not in (a.decode("ascii") for a in out.split()):
-        raise WorkflowError("The given account appears not to be valid")
+    accounts = accounts.split()
+
+    if account not in accounts:
+        raise WorkflowError(
+            f"The given account {account} appears to be invalid. Available accounts:\n{', '.join(accounts)}"
+        )
 
 
 def check_default_partition(job):
@@ -87,18 +64,20 @@ def check_default_partition(job):
     if no partition is given, checks whether a fallback onto a default partition is possible
     """
     try:
-        out = subprocess.check_output(r"sinfo -o %P", shell=True, encoding="ascii")
+        out = subprocess.check_output(r"sinfo -o %P", shell=True, text=True)
     except subprocess.CalledProcessError:
-        logger.error("Unable to retrieve the partitions of your cluster.")
-        return
+        raise WorkflowError(
+            f"Failed to run sinfo for retrieval of cluster partitions: {out.stderr.read()}"
+        )
     for partition in out.split():
         # a default partition is marked with an asterisk, but this is not part of the name
         if "*" in partition:
             # the decode-call is necessary, because the output of sinfo is bytes
             return partition.replace("*", "")
     logger.warning(
-        f"No partition was given for rule '{job}', unable to find a default partition. Trying to submit without partition information."
-        " You may want to invoke snakemake with --deafult-resources=partition=<your default partition>."
+        f"No partition was given for rule '{job}', and unable to find a default partition."
+        " Trying to submit without partition information."
+        " You may want to invoke snakemake with --deafult-resources 'partition=<your default partition>'."
     )
 
 
@@ -117,19 +96,10 @@ class SlurmExecutor(ClusterExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        regions=None,
-        location=None,
-        cache=False,
-        local_input=None,
         restart_times=0,
-        exec_job=None,
         max_status_checks_per_second=0.03,
         cluster_config=None,
     ):
-        # needs to be set in either case for the submission string
-        if not cores:
-            cores = 1
-
         super().__init__(
             workflow,
             dag,
@@ -143,7 +113,6 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.max_status_checks_per_second = max_status_checks_per_second
 
     def additional_general_args(self):
         # we need to set -j to 1 here, because the behaviour
@@ -152,7 +121,7 @@ class SlurmExecutor(ClusterExecutor):
         # one after another, so we need to set -j to 1 for the
         # JobStep Executor, which in turn handles the launch of
         # SLURM jobsteps.
-        return [" --slurm-jobstep", "-j 1"]
+        return [" --slurm-jobstep", "--jobs 1"]
 
     def cancel(self):
         for job in self.active_jobs:
@@ -174,11 +143,10 @@ class SlurmExecutor(ClusterExecutor):
         else raises an error - implicetly.
         """
         if job.resources.get("account"):
-            account = job.resources.get("account")
             # here, we check whether the given or guessed account is valid
             # if not, a WorkflowError is raised
-            test_account(account)
-            return f" -A {account}"
+            test_account(job.resources.account)
+            return f" -A {job.resources.account}"
         else:
             logger.warning("No SLURM account given, trying to guess.")
             account = get_account()
@@ -189,7 +157,7 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(
                     "Unable to guess SLURM account. Trying to proceed without."
                 )
-                return ""  # at least an empty string is returned, otherwise the
+                return ""  # no account specific args for sbatch
 
     def set_partition(self, job):
         """
@@ -232,11 +200,11 @@ class SlurmExecutor(ClusterExecutor):
             call += " -t {}".format(job.resources.get("runtime", default_value=10))
 
         if job.resources.get("constraint"):
-            call += " -C {constraint}".format(**job.resources)
+            call += f" -C {job.resources.constraint}"
         if job.resources.get("mem_mb_per_cpu"):
-            call += " --mem-per-cpu={mem_mb_per_cpu}".format(**job.resources)
+            call += f" --mem-per-cpu {job.resources.mem_mb_per_cpu}"
         elif job.resources.get("mem_mb"):
-            call += " --mem {mem_mb}".format(**job.resources)
+            call += " --mem {job.resources.mem_mb}"
         else:
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
@@ -245,17 +213,18 @@ class SlurmExecutor(ClusterExecutor):
         # MPI job
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
-                call += " --nodes={}".format(job.resources.get("nodes", 1))
+                call += f" --nodes={job.resources.get('mpi_nodes', 1)}"
             if job.resources.get("tasks", False):
-                call += " --ntasks={}".format(job.resources.get("tasks", 1))
+                call += f" --ntasks={job.resources.get('mpi_tasks', 1)}"
 
-        if job.resources.get("threads", False) or job.resources.get(
-            "cpus_per_task", False
-        ):
-            cpus = max(
-                job.resources.get("threads", 1), job.resources.get("cpus_per_task", 1)
-            )
-            call += f" --cpus-per-task={cpus}"
+        cpus_per_task = job.threads
+        if job.resources.get("cpus_per_task"):
+            if not isinstance(cpus_per_task, int):
+                raise WorkflowError(
+                    "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
+                )
+            cpus_per_task = job.resources.cpus_per_task
+        call += f" --cpus-per-task={cpus_per_task}"
 
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
@@ -263,14 +232,14 @@ class SlurmExecutor(ClusterExecutor):
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
 
-        logger.debug(f"Submission call: {call}")
+        logger.debug(f"sbatch call: {call}")
         try:
             out = subprocess.check_output(
-                call, shell=True, encoding="ascii", stderr=subprocess.STDOUT
+                call, shell=True, text=True, stderr=subprocess.STDOUT
             ).strip()
         except subprocess.CalledProcessError as e:
             raise WorkflowError(
-                f"SLRURM job submission failed. The error message was {e.output}"
+                f"SLURM job submission failed. The error message was {e.output}"
             )
 
         jobid = out.split(" ")[-1]

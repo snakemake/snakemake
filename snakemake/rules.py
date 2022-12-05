@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import math
 import os
 import re
 import types
@@ -61,6 +62,7 @@ from snakemake.common import (
     get_input_function_aux_params,
     lazy_property,
     TBDString,
+    mb_to_mib,
 )
 
 
@@ -1114,7 +1116,19 @@ class Rule:
 
         for name, res in self.resources.items():
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+                resources[name] = value
+                for mb_item, mib_item in (
+                    ("mem_mb", "mem_mib"),
+                    ("disk_mb", "disk_mib"),
+                ):
+                    if (
+                        name == mb_item
+                        and mib_item not in self.resources.keys()
+                        and isinstance(value, int)
+                    ):
+                        # infer mem_mib (memory in Mebibytes) as additional resource
+                        resources[mib_item] = mb_to_mib(value)
         resources = Resources(fromdict=resources)
         return resources
 
