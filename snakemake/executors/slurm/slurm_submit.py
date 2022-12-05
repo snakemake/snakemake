@@ -36,7 +36,9 @@ def get_account():
         )
         return sacct_out.strip()
     except subprocess.CalledProcessError as e:
-        logger.warning(f"No account was given, not able to get a SLURM account via sacct: {e.stderr}")
+        logger.warning(
+            f"No account was given, not able to get a SLURM account via sacct: {e.stderr}"
+        )
         return None
 
 
@@ -286,20 +288,18 @@ class SlurmExecutor(ClusterExecutor):
                 if not res:
                     try:
                         sctrl_cmd = f"scontrol show jobid -dd {jobid}"
-                            # "squeue -j {} -h -o %T".format(jobid)
-                            # "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
-                            #    jobid
-                            # )
-                        #)
+                        # "squeue -j {} -h -o %T".format(jobid)
+                        # "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
+                        #    jobid
+                        # )
+                        # )
                         out = subprocess.check_output(
                             sctrl_cmd,
                             shell=True,
                             stderr=subprocess.PIPE,
                             text=True,
                         )
-                        logger.debug(
-                            f"The scontrol output is: '{out}'"
-                        )
+                        logger.debug(f"The scontrol output is: '{out}'")
                         m = re.search(r"JobState=(\w+)", out)
                         res = {jobid: m.group(1)}
                         break
