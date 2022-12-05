@@ -47,6 +47,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
         )
 
+        # These environment variables are set by SLURM.
         self.mem_per_node = os.getenv("SLURM_MEM_PER_NODE")
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
