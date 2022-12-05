@@ -197,7 +197,7 @@ jobs:
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
       - name: Test slurm submission
         run: |
-          srun echo "hello world"
+          srun -vvvv echo "hello world"
 
       - name: Test Slurm
         env:
