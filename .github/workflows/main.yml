@@ -80,7 +80,7 @@ jobs:
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
       - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.6.0
         if: env.GCP_AVAILABLE
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
