@@ -18,7 +18,7 @@ def test_slurm_mpi():
         dpath("test_slurm_mpi"),
         slurm=True,
         show_failed_logs=True,
-        #use_conda=True,
+        use_conda=True,
         default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
 
