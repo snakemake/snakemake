@@ -108,7 +108,9 @@ class SlurmJobstepExecutor(ClusterExecutor):
             call = self.format_job_exec(job)
         else:
             # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
-            # TODO do we need --exclusive?? If so, our slurm says that it also needs --ntasks
+            # Note: The '--exlusive' flag is a prevention for triggered job steps within an allocation
+            #       to oversubscribe within a given c-group. As we are dealing only with smp software
+            #       the '--ntasks' is explicetly set to 1 by '-n1', above.
             call = f"srun --cpu-bind=q {self.format_job_exec(job)}"
 
         # this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
