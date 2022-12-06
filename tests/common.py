@@ -99,6 +99,16 @@ def untar_folder(tar_file, output_path):
             tar.extractall(path=output_path)
 
 
+def print_tree(path):
+    for root, _dirs, files in os.walk(path):
+        level = root.replace(path, "").count(os.sep)
+        indent = " " * 4 * level
+        print(f"{indent}{os.path.basename(root)}/")
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            print(f"{subindent}{f}")
+
+
 def run(
     path,
     shouldfail=False,
@@ -216,6 +226,9 @@ def run(
     if shouldfail:
         assert not success, "expected error on execution"
     else:
+        if not success:
+            print("Workdir:")
+            print_tree(tmpdir)
         assert success, "expected successful execution"
 
     if check_results:
