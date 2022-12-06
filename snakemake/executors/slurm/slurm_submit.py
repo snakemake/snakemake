@@ -36,23 +36,24 @@ def get_account():
         )
         return sacct_out.strip()
     except subprocess.CalledProcessError as e:
-        raise WorkflowError(
+        logger.warning(
             f"No account was given, not able to get a SLURM account via sacct: {e.stderr}"
         )
+        return None
 
 
 def test_account(account):
     """
     tests whether the given account is registered, raises an error, if not
     """
-    cmd = f"sacctmgr -n -s list user {account} format=account%20"
+    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'
     try:
         accounts = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
         )
     except subprocess.CalledProcessError as e:
         raise WorkflowError(
-            f"Unable to test the validity of the given or guessed SLURM account with sacctmgr: {e.stderr}"
+            f"Unable to test the validity of the given or guessed SLURM account '{account}' with sacctmgr: {e.stderr}"
         )
 
     accounts = accounts.split()
@@ -83,7 +84,7 @@ def check_default_partition(job):
     logger.warning(
         f"No partition was given for rule '{job}', and unable to find a default partition."
         " Trying to submit without partition information."
-        " You may want to invoke snakemake with --deafult-resources 'partition=<your default partition>'."
+        " You may want to invoke snakemake with --default-resources 'partition=<your default partition>'."
     )
 
 
@@ -216,7 +217,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("mem_mb_per_cpu"):
             call += f" --mem-per-cpu {job.resources.mem_mb_per_cpu}"
         elif job.resources.get("mem_mb"):
-            call += " --mem {job.resources.mem_mb}"
+            call += f" --mem {job.resources.mem_mb}"
         else:
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
@@ -286,35 +287,21 @@ class SlurmExecutor(ClusterExecutor):
                 # Try getting job with scontrol instead in case sacct is misconfigured
                 if not res:
                     try:
-                        sctrl_cmd = shlex.split(
-                            "squeue -j {} -h -o %T".format(jobid)
-                            # "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
-                            #    jobid
-                            # )
-                        )
-                        logger.debug(f"scontrol command: {sctrl_cmd}")
-                        process = subprocess.Popen(
+                        sctrl_cmd = f"scontrol show jobid -dd {jobid}"
+                        # "squeue -j {} -h -o %T".format(jobid)
+                        # "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
+                        #    jobid
+                        # )
+                        # )
+                        out = subprocess.check_output(
                             sctrl_cmd,
-                            stdout=subprocess.PIPE,
+                            shell=True,
                             stderr=subprocess.PIPE,
                             text=True,
                         )
-                        out, err = process.communicate()
-                        logger.debug(
-                            f"The scontrol output is: '{out}' and the error is: '{err}'"
-                        )
-                        # this call will fail if the job is not PENDING or RUNNING
-                        if process.returncode:
-                            res = {jobid: "UNKNOWN"}
-                            # in case of a very short job, this state might indicate
-                            # a still 'running' job. Here, the default --latency-wait
-                            # might NOT be sufficient to catch the job status.
-                            # Therefore, we have to wait a typical scheduler cycle
-                            # time (e.g. 30s).
-                            time.sleep(30)
-                        else:
-                            m = re.search(r"JobState=(\w+)", out)
-                            res = {jobid: m.group(1)}
+                        logger.debug(f"The scontrol output is: '{out}'")
+                        m = re.search(r"JobState=(\w+)", out)
+                        res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
                         logger.error(f"Error getting job status:\n{e.stderr}")
@@ -348,7 +335,7 @@ class SlurmExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
             for j in active_jobs:
-                status = self.job_status(j.jobid)
+                status = await self.job_status(j.jobid)
                 if status == "COMPLETED":
                     j.callback(j.job)
                 elif status == "UNKNOWN":
@@ -358,7 +345,7 @@ class SlurmExecutor(ClusterExecutor):
                 elif status in fail_stati:
                     self.print_job_error(
                         j.job,
-                        msg="failed with SLURM status '{status}'".format(status=status),
+                        msg=f"SLURM-job '{j.jobid}' failed, SLURM status is: '{status}'"
                     )
                     j.error_callback(j.job)
                 else:  # still running?

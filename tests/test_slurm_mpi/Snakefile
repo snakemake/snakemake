@@ -26,10 +26,10 @@ rule compile:
         temp("pi_MPI"),
     log:
         "logs/compile.log",
+    conda:
+        "envs/mpicc.yaml"
     resources:
         mem_mb=0,
-        account="runner",  # name of the slurm account in our CI
-        partition="debug",  # name of the partition in our CI
     shell:
         "mpicc -o {output} {input} &> {log}"
 
@@ -43,7 +43,5 @@ rule calc_pi:
         mem_mb=0,
         tasks=2,
         mpi="srun",
-        account="runner",  # name of the slurm account in our CI
-        partition="debug",  # name of the partition in our CI
     shell:
         "{resources.mpi} {input} &> {output}"

@@ -1926,3 +1926,11 @@ def test_github_issue929():
     # and pointing to the problem in the code!
     # Huge thanks to Ronald Lehnigk for pointing me to the issue!
     run(dpath("test_github_issue929"), targets=["childrule_2"])
+
+
+def test_github_issue1882():
+    try:
+        tmpdir = run(dpath("test_github_issue1882"), cleanup=False)
+        run(tmpdir, forceall=True)
+    finally:
+        shutil.rmtree(tmpdir)

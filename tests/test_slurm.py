@@ -14,14 +14,25 @@ from .conftest import skip_on_windows
 
 @skip_on_windows
 def test_slurm_mpi():
-    run(dpath("test_slurm_mpi"), slurm=True, show_failed_logs=True)
+    run(
+        dpath("test_slurm_mpi"),
+        slurm=True,
+        show_failed_logs=True,
+        use_conda=True,
+        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+    )
 
 
 @skip_on_windows
 def test_slurm_complex():
     os.environ["TESTVAR"] = "test"
     os.environ["TESTVAR2"] = "test"
-    run(dpath("test14"), snakefile="Snakefile.nonstandard", slurm=True)
+    run(
+        dpath("test14"),
+        snakefile="Snakefile.nonstandard",
+        slurm=True,
+        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+    )
 
 
 @skip_on_windows
@@ -32,4 +43,8 @@ def test_slurm_group_job():
     the group-property is correctly
     propagated.
     """
-    run(dpath("test_group_job"), slurm=True)
+    run(
+        dpath("test_group_job"),
+        slurm=True,
+        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+    )
