@@ -46,7 +46,7 @@ def test_account(account):
     """
     tests whether the given account is registered, raises an error, if not
     """
-    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'    
+    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'
     try:
         accounts = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
