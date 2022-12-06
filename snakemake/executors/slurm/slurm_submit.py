@@ -275,6 +275,7 @@ class SlurmExecutor(ClusterExecutor):
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
+                    logger.debug(f"The sacct output is: '{sacct_res}'")
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
@@ -288,11 +289,6 @@ class SlurmExecutor(ClusterExecutor):
                 if not res:
                     try:
                         sctrl_cmd = f"scontrol show jobid -dd {jobid}"
-                        # "squeue -j {} -h -o %T".format(jobid)
-                        # "scontrol -o show job {} 2> /dev/null || echo COMPLETED".format(
-                        #    jobid
-                        # )
-                        # )
                         out = subprocess.check_output(
                             sctrl_cmd,
                             shell=True,
