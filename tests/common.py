@@ -102,7 +102,7 @@ def untar_folder(tar_file, output_path):
 
 def print_tree(path, exclude=None):
     for root, _dirs, files in os.walk(path):
-        if exclude and root.startswith(exclude):
+        if exclude and root.startswith(os.path.join(path, exclude)):
             continue
         level = root.replace(path, "").count(os.sep)
         indent = " " * 4 * level
