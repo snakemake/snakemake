@@ -84,7 +84,7 @@ def check_default_partition(job):
     logger.warning(
         f"No partition was given for rule '{job}', and unable to find a default partition."
         " Trying to submit without partition information."
-        " You may want to invoke snakemake with --deafult-resources 'partition=<your default partition>'."
+        " You may want to invoke snakemake with --default-resources 'partition=<your default partition>'."
     )
 
 
