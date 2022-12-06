@@ -222,7 +222,7 @@ class SlurmExecutor(ClusterExecutor):
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
-        
+
         # MPI job
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
