@@ -328,11 +328,6 @@ class Logger:
             self.logfile_handler.flush()
         return self.logfile
 
-    def remove_logfile(self):
-        if self.mode == Mode.default:
-            self.logfile_handler.close()
-            os.remove(self.logfile)
-
     def handler(self, msg):
         msg["timestamp"] = time.time()
         for handler in self.log_handler:
@@ -495,7 +490,7 @@ class Logger:
                 self.logger.info("\n".join(map(indent, job_info(msg))))
             if msg["is_checkpoint"]:
                 self.logger.warning(
-                    indent("Downstream jobs will be updated " "after completion.")
+                    indent("DAG of jobs will be updated after completion.")
                 )
             if msg["is_handover"]:
                 self.logger.warning("Handing over execution to foreign system...")
