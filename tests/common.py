@@ -100,8 +100,10 @@ def untar_folder(tar_file, output_path):
             tar.extractall(path=output_path)
 
 
-def print_tree(path):
+def print_tree(path, exclude=None):
     for root, _dirs, files in os.walk(path):
+        if exclude and root.startswith(exclude):
+            continue
         level = root.replace(path, "").count(os.sep)
         indent = " " * 4 * level
         print(f"{indent}{os.path.basename(root)}/")
@@ -229,7 +231,7 @@ def run(
     else:
         if not success:
             print("Workdir:")
-            print_tree(tmpdir)
+            print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
 
     if check_results:
