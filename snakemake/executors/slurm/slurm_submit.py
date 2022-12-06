@@ -217,12 +217,12 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("mem_mb_per_cpu"):
             call += f" --mem-per-cpu {job.resources.mem_mb_per_cpu}"
         elif job.resources.get("mem_mb"):
-            call += " --mem {job.resources.mem_mb}"
+            call += f" --mem {job.resources.mem_mb}"
         else:
             logger.warning(
                 "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
             )
-
+        print(call)
         # MPI job
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
