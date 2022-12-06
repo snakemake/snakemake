@@ -71,7 +71,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
                 # per CPU by itself.
 
                 # check whether level_job.resources.mem_mb is TBD
-                #TODO: This '100' merits an explanation, does it not?
+                # TODO: This '100' merits an explanation, does it not?
                 level_mem = (
                     100
                     if level_job.resources.mem_mb != type(int)
