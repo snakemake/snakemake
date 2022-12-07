@@ -59,54 +59,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Setup Snakemake environment
-        run: >
-          export PATH="/usr/share/miniconda/bin:$PATH"
-
-          conda config --set channel_priority strict
-
-          conda install -c conda-forge -q mamba
-
-          # ensure that mamba is happy to write into the cache
-
-          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
-
-          mamba env create -q --name snakemake --file test-environment.yml
-
-          # additionally add singularity
-
-          # TODO remove version constraint: needed because 3.8.7 fails with
-          missing libz:
-
-          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
-          cannot open shared object file: No such file or directory
-
-          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
-      - name: Setup apt dependencies
-        run: |
-          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
-      - name: Setup iRODS
-        run: |
-          docker build -t irods-server tests/test_remote_irods
-          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
-          sleep 10
-          docker exec -u irods provider iput /incoming/infile
-          cp -r tests/test_remote_irods/setup-data ~/.irods
-      - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
-        if: env.GCP_AVAILABLE
-        with:
-          project_id: "${{ secrets.GCP_PROJECT_ID }}"
-          service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
-          service_account_key: "${{ secrets.GCP_SA_KEY }}"
-          export_default_credentials: true
-      - name: Setup AWS
-        uses: aws-actions/configure-aws-credentials@v1
-        if: env.AWS_AVAILABLE
-        with:
-          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          aws-region: us-east-1
 
       ###### slurm setup #####
       # prior to slurm-setup we need the podmand-correct command
@@ -199,6 +151,56 @@ jobs:
         run: |
           srun -vvvv echo "hello world"
           sudo cat /var/log/slurm/slurmd.log
+
+      - name: Setup Snakemake environment
+        run: >
+          export PATH="/usr/share/miniconda/bin:$PATH"
+
+          conda config --set channel_priority strict
+
+          conda install -c conda-forge -q mamba
+
+          # ensure that mamba is happy to write into the cache
+
+          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
+
+          mamba env create -q --name snakemake --file test-environment.yml
+
+          # additionally add singularity
+
+          # TODO remove version constraint: needed because 3.8.7 fails with
+          missing libz:
+
+          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
+          cannot open shared object file: No such file or directory
+
+          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
+      - name: Setup apt dependencies
+        run: |
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
+      - name: Setup iRODS
+        run: |
+          docker build -t irods-server tests/test_remote_irods
+          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
+          sleep 10
+          docker exec -u irods provider iput /incoming/infile
+          cp -r tests/test_remote_irods/setup-data ~/.irods
+      - name: Setup Gcloud
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
+        if: env.GCP_AVAILABLE
+        with:
+          project_id: "${{ secrets.GCP_PROJECT_ID }}"
+          service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
+          service_account_key: "${{ secrets.GCP_SA_KEY }}"
+          export_default_credentials: true
+      - name: Setup AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        if: env.AWS_AVAILABLE
+        with:
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: us-east-1
+
       - name: Test Slurm
         env:
           CI: true
