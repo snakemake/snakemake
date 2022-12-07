@@ -43,7 +43,7 @@ rule calc_pi:
         "logs/calc_pi.log",
     resources:
         mem_mb=0,
-        tasks=2,
-        mpi="srun --mpi=pmi2",
+        tasks=1,
+        mpi="mpiexec",
     shell:
         "{resources.mpi} -n {resources.tasks} {input} > {output} 2> {log}"
