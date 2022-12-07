@@ -279,6 +279,23 @@ class Job(AbstractJob):
                         )
                 self.subworkflow_input[f] = sub
 
+    def logfile_suggestion(self, prefix):
+        """Return a suggestion for the log file name given a prefix."""
+        prefix = [] if not prefix else [prefix]
+        return (
+            "/".join(
+                prefix
+                + [self.rule.name]
+                + [
+                    f"{w}~{v}"
+                    for w, v in sorted(
+                        self.wildcards_dict.items(), key=lambda item: item[0]
+                    )
+                ]
+            )
+            + ".log"
+        )
+
     def updated(self):
         group = self.dag.get_job_group(self)
         groupid = None

@@ -21,7 +21,7 @@ from snakemake.utils import makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.common import async_lock
 
-SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback")
+SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
 
 
 def get_account():
@@ -187,21 +187,10 @@ class SlurmExecutor(ClusterExecutor):
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         jobid = job.jobid
-        os.makedirs(".snakemake/slurm_logs", exist_ok=True)
+        os.makedirs(".snakemake/slurm_logs", exist_ok=True)#
+        slurm_logfile = job.logfile_suggestion(prefix='.snakemake/slurm_logs')
         # generic part of a submission string:
-        try:
-            call = "sbatch \
-                    -J {jobname} \
-                    -o .snakemake/slurm_logs/%x_%j.log \
-                    --export=ALL".format(
-                **job.resources, jobname=self.get_jobname(job)
-            )
-        except KeyError as e:
-            WorkflowError.error(
-                "Missing job submission key '{}' for job '{}'.".format(
-                    e.args[0], job.name
-                )
-            )
+        call = f"sbatch -J {self.get_jobname(job)} -o {slurm_logfile} --export=ALL"
 
         account = self.set_account(job)
         call += account
@@ -258,7 +247,7 @@ class SlurmExecutor(ClusterExecutor):
         jobid = out.split(" ")[-1]
         jobname = self.get_jobname(job)
         logger.debug(f"Job {jobid} '{jobname}' has been submitted")
-        self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback))
+        self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback, slurm_logfile))
 
     async def job_status(self, jobid: int):
         """
@@ -342,6 +331,7 @@ class SlurmExecutor(ClusterExecutor):
                     self.print_job_error(
                         j.job,
                         msg=f"SLURM-job '{j.jobid}' failed, SLURM status is: '{status}'",
+                        slurmlog=j.slurm_logfile,
                     )
                     j.error_callback(j.job)
                 else:  # still running?
