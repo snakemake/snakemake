@@ -19,7 +19,7 @@ def test_slurm_mpi():
         slurm=True,
         show_failed_logs=True,
         use_conda=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+#        default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
 
 
@@ -31,7 +31,7 @@ def test_slurm_complex():
         dpath("test14"),
         snakefile="Snakefile.nonstandard",
         slurm=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+#        default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
 
 
@@ -46,5 +46,5 @@ def test_slurm_group_job():
     run(
         dpath("test_group_job"),
         slurm=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+#        default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
