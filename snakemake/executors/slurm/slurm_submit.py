@@ -331,7 +331,7 @@ class SlurmExecutor(ClusterExecutor):
                     j.callback(j.job)
                 elif status in fail_stati:
                     # TODO dbg, remove
-                    print(open(j.slurm_logfile).read())
+                    logger.error(open(j.slurm_logfile).read())
                     self.print_job_error(
                         j.job,
                         msg=f"SLURM-job '{j.jobid}' failed, SLURM status is: '{status}'",
