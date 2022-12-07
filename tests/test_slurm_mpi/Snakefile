@@ -44,6 +44,6 @@ rule calc_pi:
     resources:
         mem_mb=0,
         tasks=2,
-        mpi="srun",
+        mpi="srun --mpi=pmi2",
     shell:
         "{resources.mpi} -n {resources.tasks} {input} > {output} 2> {log}"
