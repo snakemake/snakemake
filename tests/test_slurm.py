@@ -13,6 +13,22 @@ from .conftest import skip_on_windows
 
 
 @skip_on_windows
+def test_slurm_group_job():
+    """
+    same test as test_group_job(),
+    but for SLURM - checks whether
+    the group-property is correctly
+    propagated.
+    """
+    run(
+        dpath("test_group_job"),
+        slurm=True,
+        verbose=True,
+        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+    )
+
+
+@skip_on_windows
 def test_slurm_mpi():
     run(
         dpath("test_slurm_mpi"),
@@ -30,21 +46,6 @@ def test_slurm_complex():
     run(
         dpath("test14"),
         snakefile="Snakefile.nonstandard",
-        slurm=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
-    )
-
-
-@skip_on_windows
-def test_slurm_group_job():
-    """
-    same test as test_group_job(),
-    but for SLURM - checks whether
-    the group-property is correctly
-    propagated.
-    """
-    run(
-        dpath("test_group_job"),
         slurm=True,
         default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
