@@ -1,0 +1,36 @@
+cluster:
+  mkdir -p logs/{rule} &&
+  bash slurm/get_jobid.sh
+  'logs/{rule}/{rule}-{wildcards}-%j'
+  '{dependencies}'
+  #  '--partition={resources.partition}
+  #  --ntasks-per-node={resources.threads}
+  #  --job-name=smk-{rule}-{wildcards}
+  #  --output=logs/{rule}/{rule}-{wildcards}-%j.out
+  #  --error=logs/{rule}/{rule}-{wildcards}-%j.err'
+default-resources:
+  - partition=cpu
+  - threads=40
+local-cores: 1
+jobs: 500
+keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+scheduler: greedy
+immediate-submit: True
+notemp: True
+# jobscript: "slurm-jobscript.sh"
+
+# Example resource configuration
+# default-resources:
+#   - runtime=100
+#   - mem_mb=6000
+#   - disk_mb=1000000
+# # set-threads: map rule names to threads
+# set-threads:
+#   - single_core_rule=1
+#   - multi_core_rule=10
+# # set-resources: map rule names to resources in general
+# set-resources:
+#   - high_memory_rule:mem_mb=12000
+#   - long_running_rule:runtime=1200

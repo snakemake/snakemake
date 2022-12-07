@@ -364,9 +364,9 @@ defined as `mem_mb` to Tibanna. Further, it will propagate the number of threads
 a job intends to use, such that Tibanna can allocate it to the most cost-effective
 cloud compute instance available.
 
------------------------------------------------------------------
+--------------------------------------------
 Executing a Snakemake workflow via GA4GH TES
------------------------------------------------------------------
+--------------------------------------------
 
 The task execution service (`TES <https://github.com/ga4gh/task-execution-schemas>`_) is an application programming interface developed by the Global Alliance for Genomics and Health (`GA4GH <https://www.ga4gh.org/>`_).
 It is used to process workflow tasks in a cloud environment.

@@ -24,7 +24,7 @@ We ensured that no bioinformatics knowledge is needed to understand the tutorial
    :maxdepth: 2
 
    google_lifesciences
-
    azure_aks
+   flux
 
    

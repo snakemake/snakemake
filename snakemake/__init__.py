@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os
 import subprocess
 import glob
@@ -18,6 +19,7 @@ import importlib
 import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -29,7 +31,14 @@ from snakemake.utils import (
     update_config,
     available_cpu_count,
 )
-from snakemake.common import Mode, __version__, MIN_PY_VERSION, get_appdirs
+from snakemake.common import (
+    Mode,
+    __version__,
+    MIN_PY_VERSION,
+    get_appdirs,
+    dict_to_key_value_args,
+    parse_key_value_arg,
+)
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
@@ -69,6 +78,7 @@ def snakemake(
     config_args=None,
     workdir=None,
     targets=None,
+    target_jobs=None,
     dryrun=False,
     touch=False,
     forcetargets=False,
@@ -158,6 +168,8 @@ def snakemake(
     wrapper_prefix=None,
     kubernetes=None,
     container_image=None,
+    k8s_cpu_scalar=1.0,
+    flux=False,
     tibanna=False,
     tibanna_sfn=None,
     google_lifesciences=False,
@@ -211,6 +223,7 @@ def snakemake(
         config (dict):              override values for workflow config
         workdir (str):              path to the working directory (default None)
         targets (list):             list of targets, e.g. rule or file names (default None)
+        target_jobs (dict):         list of snakemake.target_jobs.TargetSpec objects directly targeting specific jobs (default None)
         dryrun (bool):              only dry-run the workflow (default False)
         touch (bool):               only touch all output files if present (default False)
         forcetargets (bool):        force given targets to be re-created (default False)
@@ -292,6 +305,8 @@ def snakemake(
         wrapper_prefix (str):       prefix for wrapper script URLs (default None)
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
+        k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
+        flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -402,7 +417,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes:
+    if kubernetes or flux:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -485,6 +500,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            dryrun=dryrun,
         )
 
     if greediness is None:
@@ -525,7 +541,7 @@ def snakemake(
     if config:
         update_config(overwrite_config, config)
         if config_args is None:
-            config_args = unparse_config(config)
+            config_args = dict_to_key_value_args(config)
 
     if workdir:
         olddir = os.getcwd()
@@ -700,6 +716,7 @@ def snakemake(
                     list_conda_envs=list_conda_envs,
                     kubernetes=kubernetes,
                     container_image=container_image,
+                    k8s_cpu_scalar=k8s_cpu_scalar,
                     conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
@@ -709,6 +726,7 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    flux=flux,
                     tes=tes,
                     precommand=precommand,
                     preemption_default=preemption_default,
@@ -729,6 +747,7 @@ def snakemake(
                 )
                 success = workflow.execute(
                     targets=targets,
+                    target_jobs=target_jobs,
                     dryrun=dryrun,
                     generate_unit_tests=generate_unit_tests,
                     touch=touch,
@@ -755,6 +774,7 @@ def snakemake(
                     drmaa_log_dir=drmaa_log_dir,
                     kubernetes=kubernetes,
                     container_image=container_image,
+                    k8s_cpu_scalar=k8s_cpu_scalar,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     google_lifesciences=google_lifesciences,
@@ -762,6 +782,7 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
+                    flux=flux,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -955,14 +976,6 @@ def parse_group_components(args):
     return group_components
 
 
-def parse_key_value_arg(arg, errmsg):
-    try:
-        key, val = arg.split("=", 1)
-    except ValueError:
-        raise ValueError(errmsg + " Unparseable value: %r." % arg)
-    return key, val
-
-
 def _bool_parser(value):
     if value == "True":
         return True
@@ -1001,16 +1014,6 @@ def parse_config(args):
             assert v is not None
             update_config(config, {key: v})
     return config
-
-
-def unparse_config(config):
-    if not isinstance(config, dict):
-        raise ValueError("config is not a dict")
-    items = []
-    for key, value in config.items():
-        encoded = "'{}'".format(value) if isinstance(value, str) else value
-        items.append("{}={}".format(key, encoded))
-    return items
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -1985,6 +1988,12 @@ def get_argument_parser(profile=None):
         "lead to unexpected results otherwise.",
     )
     group_behavior.add_argument(
+        "--target-jobs",
+        nargs="+",
+        help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
+        "This is meant for internal use by Snakemake itself only.",
+    )
+    group_behavior.add_argument(
         "--local-groupid",
         default="local",
         help="Name for local groupid, meant for internal use only.",
@@ -2257,6 +2266,7 @@ def get_argument_parser(profile=None):
     )
 
     group_cloud = parser.add_argument_group("CLOUD")
+    group_flux = parser.add_argument_group("FLUX")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
@@ -2285,6 +2295,20 @@ def get_argument_parser(profile=None):
         "Any used image has to contain a working snakemake installation "
         "that is compatible with (or ideally the same as) the currently "
         "running version.",
+    )
+    group_kubernetes.add_argument(
+        "--k8s-cpu-scalar",
+        metavar="FLOAT",
+        default=0.95,
+        type=float,
+        help="K8s reserves some proportion of available CPUs for its own use. "
+        "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
+        "are allocatable to k8s pods (i.e. snakemake jobs). As 8 > 7.6, k8s can't "
+        "find a node with enough CPU resource to run such jobs. This argument acts "
+        "as a global scalar on each job's CPU request, so that e.g. a job whose "
+        "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
+        "allowing it to utilise one entire node. N.B: the job itself would still "
+        "see the original value, i.e. as the value substituted in {threads}.",
     )
 
     group_tibanna.add_argument(
@@ -2354,6 +2378,12 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_flux.add_argument(
+        "--flux",
+        action="store_true",
+        help="Execute your workflow on a flux cluster.",
     )
 
     group_tes.add_argument(
@@ -2885,6 +2915,7 @@ def main(argv=None):
             config_args=args.config,
             workdir=args.directory,
             targets=args.target,
+            target_jobs=parse_target_jobs_cli_args(args),
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
             printreason=True,  # always display reason
@@ -2912,6 +2943,8 @@ def main(argv=None):
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
             container_image=args.container_image,
+            k8s_cpu_scalar=args.k8s_cpu_scalar,
+            flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             google_lifesciences=args.google_lifesciences,

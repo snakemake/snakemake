@@ -300,9 +300,10 @@ class Logger:
         self.mode = Mode.default
         self.show_failed_logs = False
         self.logfile_handler = None
+        self.dryrun = False
 
     def setup_logfile(self):
-        if self.mode == Mode.default:
+        if self.mode == Mode.default and not self.dryrun:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
             self.logfile = os.path.abspath(
                 os.path.join(
@@ -327,11 +328,6 @@ class Logger:
             self.logfile_handler.flush()
         return self.logfile
 
-    def remove_logfile(self):
-        if self.mode == Mode.default:
-            self.logfile_handler.close()
-            os.remove(self.logfile)
-
     def handler(self, msg):
         msg["timestamp"] = time.time()
         for handler in self.log_handler:
@@ -347,7 +343,7 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        if self.mode == Mode.default:
+        if self.mode == Mode.default and not self.dryrun:
             logfile = self.get_logfile()
             self.info("Complete log: {}".format(os.path.relpath(logfile)))
 
@@ -494,7 +490,7 @@ class Logger:
                 self.logger.info("\n".join(map(indent, job_info(msg))))
             if msg["is_checkpoint"]:
                 self.logger.warning(
-                    indent("Downstream jobs will be updated " "after completion.")
+                    indent("DAG of jobs will be updated after completion.")
                 )
             if msg["is_handover"]:
                 self.logger.warning("Handing over execution to foreign system...")
@@ -512,6 +508,8 @@ class Logger:
             def job_error():
                 yield indent("Error in rule {}:".format(msg["name"]))
                 yield indent("    jobid: {}".format(msg["jobid"]))
+                if msg["input"]:
+                    yield indent("    input: {}".format(", ".join(msg["input"])))
                 if msg["output"]:
                     yield indent("    output: {}".format(", ".join(msg["output"])))
                 if msg["log"]:
@@ -664,6 +662,7 @@ def setup_logger(
     use_threads=False,
     mode=Mode.default,
     show_failed_logs=False,
+    dryrun=False,
 ):
     if quiet is None:
         # not quiet at all
@@ -696,4 +695,5 @@ def setup_logger(
     logger.printreason = printreason
     logger.debug_dag = debug_dag
     logger.mode = mode
+    logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs

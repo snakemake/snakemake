@@ -51,6 +51,7 @@ syn keyword pythonStatement
       \ configfile
       \ container
       \ default_target
+      \ envmodules
       \ group
       \ include
       \ input

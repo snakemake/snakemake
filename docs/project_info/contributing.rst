@@ -64,9 +64,6 @@ Below you find a skeleton
                  assume_shared_fs=True,
                  max_status_checks_per_second=1):
 
-            # overwrite the command to execute a single snakemake job if necessary
-            # exec_job = "..."
-
             super().__init__(workflow, dag, None,
                              jobname=jobname,
                              printreason=printreason,
@@ -76,9 +73,8 @@ Below you find a skeleton
                              cluster_config=cluster_config,
                              local_input=local_input,
                              restart_times=restart_times,
-                             exec_job=exec_job,
-                             assume_shared_fs=False,
-                             max_status_checks_per_second=10)
+                             assume_shared_fs=False, # if your executor relies on a shared file system, set this to True
+                             max_status_checks_per_second=max_status_checks_per_second)  # set this to a reasonable default
 
             # add additional attributes
 
@@ -89,6 +85,7 @@ Below you find a skeleton
         def cancel(self):
             for job in self.active_jobs:
                 # cancel active jobs here
+                pass
             self.shutdown()
         
         def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -116,7 +113,9 @@ Below you find a skeleton
             """Run an individual job or a job group.
             """
 
+            # Necessary: perform additional executor independent steps before running the job
             super()._run(job)
+
             # obtain job execution command
             exec_job = self.format_job(
                 self.exec_job, job, _quote_all=True,
@@ -130,13 +129,14 @@ Below you find a skeleton
             self.active_jobs.append(MyJob(
                 job, jobid, callback, error_callback))
 
-        def _wait_for_jobs(self):
+        async def _wait_for_jobs(self):
+            from snakemake.executors import sleep
             # busy wait on job completion
             # This is only needed if your backend does not allow to use callbacks
             # for obtaining job status.
             while True:
                 # always use self.lock to avoid race conditions
-                with self.lock:
+                async with async_lock(self.lock):
                     if not self.wait:
                         return
                     active_jobs = self.active_jobs
@@ -144,15 +144,16 @@ Below you find a skeleton
                     still_running = list()
                 for j in active_jobs:
                     # use self.status_rate_limiter to avoid too many API calls.
-                    with self.status_rate_limiter:
+                    async with self.status_rate_limiter:
 
                         # Retrieve status of job j from your backend via j.jobid
                         # Handle completion and errors, calling either j.callback(j.job)
                         # or j.error_callback(j.job)
                         # In case of error, add job j to still_running.
-                with self.lock:
+                        pass
+                async with async_lock(self.lock):
                     self.active_jobs.extend(still_running)
-                sleep()
+                await sleep()
 
 
 Write Documentation
