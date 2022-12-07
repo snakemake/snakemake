@@ -79,22 +79,22 @@ jobs:
               vars:
                   slurm_roles: ['controller', 'exec', 'dbd']
                   slurm_config_dir: /etc/slurm
-                  slurm_cgroup_config:
-                      CgroupMountpoint: "/sys/fs/cgroup"
-                      CgroupAutomount: yes
-                      ConstrainCores: yes
-                      TaskAffinity: no
-                      ConstrainRAMSpace: yes
-                      ConstrainSwapSpace: no
-                      ConstrainDevices: no
-                      AllowedRamSpace: 100
-                      AllowedSwapSpace: 0
-                      MaxRAMPercent: 100
-                      MaxSwapPercent: 100
-                      MinRAMSpace: 30
+                  #slurm_cgroup_config:
+                  #    CgroupMountpoint: "/sys/fs/cgroup"
+                  #    CgroupAutomount: yes
+                  #    ConstrainCores: yes
+                  #    TaskAffinity: no
+                  #    ConstrainRAMSpace: yes
+                  #    ConstrainSwapSpace: no
+                  #    ConstrainDevices: no
+                  #    AllowedRamSpace: 100
+                  #    AllowedSwapSpace: 0
+                  #    MaxRAMPercent: 100
+                  #    MaxSwapPercent: 100
+                  #    MinRAMSpace: 30
                   slurm_config:
                       ClusterName: cluster
-                      ProctrackType: proctrack/pgid
+                      #ProctrackType: proctrack/pgid
                       #SlurmctldHost: localhost # TODO try if we need this
                       SlurmctldLogFile: /var/log/slurm/slurmctld.log
                       SlurmctldPidFile: /run/slurmctld.pid
@@ -102,7 +102,7 @@ jobs:
                       SlurmdPidFile: /run/slurmd.pid
                       SlurmdSpoolDir: /var/lib/slurm/slurmd
                       StateSaveLocation: /var/lib/slurm/slurmctld
-                      TaskPlugin: "task/affinity,task/cgroup"
+                      #TaskPlugin: "task/affinity,task/cgroup"
                       AccountingStorageType: accounting_storage/slurmdbd
                   slurmdbd_config:
                       StorageType: accounting_storage/mysql
