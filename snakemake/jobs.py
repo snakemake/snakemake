@@ -1071,7 +1071,9 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def log_error(self, msg=None, indent=False, aux_logs: Optional[list]=None, **kwargs):
+    def log_error(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
         aux_logs = aux_logs or []
         logger.job_error(
             name=self.rule.name,
