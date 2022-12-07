@@ -39,9 +39,11 @@ rule calc_pi:
         "pi_MPI",
     output:
         "pi.calc",
+    log:
+        "logs/calc_pi.log",
     resources:
         mem_mb=0,
         tasks=2,
         mpi="srun",
     shell:
-        "{resources.mpi} {input} &> {output}"
+        "{resources.mpi} {input} > {output} 2> {log}"
