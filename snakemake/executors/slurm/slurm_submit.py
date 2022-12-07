@@ -187,8 +187,8 @@ class SlurmExecutor(ClusterExecutor):
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         jobid = job.jobid
-        os.makedirs(".snakemake/slurm_logs", exist_ok=True)#
-        slurm_logfile = job.logfile_suggestion(prefix='.snakemake/slurm_logs')
+        os.makedirs(".snakemake/slurm_logs", exist_ok=True)  #
+        slurm_logfile = job.logfile_suggestion(prefix=".snakemake/slurm_logs")
         # generic part of a submission string:
         call = f"sbatch -J {self.get_jobname(job)} -o {slurm_logfile} --export=ALL"
 
@@ -247,7 +247,9 @@ class SlurmExecutor(ClusterExecutor):
         jobid = out.split(" ")[-1]
         jobname = self.get_jobname(job)
         logger.debug(f"Job {jobid} '{jobname}' has been submitted")
-        self.active_jobs.append(SlurmJob(job, jobid, callback, error_callback, slurm_logfile))
+        self.active_jobs.append(
+            SlurmJob(job, jobid, callback, error_callback, slurm_logfile)
+        )
 
     async def job_status(self, jobid: int):
         """
