@@ -1,5 +1,4 @@
-Too many or no argument given; using n = 10000000 instead.
 
-Using 2 processes and the value n = 10000000.
-Calculated pi: 3.1415926535899850, with error 0.0000000000001918
+Using 1 processes and the value n = 10.
+Calculated pi: 3.1424259850010987, with error 0.0008333314113056
 

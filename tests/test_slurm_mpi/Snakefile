@@ -46,4 +46,4 @@ rule calc_pi:
         tasks=1,
         mpi="mpiexec",
     shell:
-        "{resources.mpi} -n {resources.tasks} {input} > {output} 2> {log}"
+        "{resources.mpi} -n {resources.tasks} {input} > {output}"# 2> {log}"
