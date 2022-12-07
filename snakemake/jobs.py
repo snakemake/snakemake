@@ -16,6 +16,7 @@ import copy
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
+from typing import Optional
 
 from snakemake.io import (
     IOFile,
@@ -1070,13 +1071,14 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def log_error(self, msg=None, indent=False, **kwargs):
+    def log_error(self, msg=None, indent=False, aux_logs: Optional[list]=None, **kwargs):
+        aux_logs = aux_logs or []
         logger.job_error(
             name=self.rule.name,
             jobid=self.dag.jobid(self),
             input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
-            log=list(self.log),
+            log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
