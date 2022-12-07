@@ -294,7 +294,7 @@ class MissingOutputException(RuleException):
     ):
         if jobid:
             jobid = f"{jobid} "
-        message = "Job {jobid}completed successfully, but some output files are missing. {message}"
+        message = f"Job {jobid}completed successfully, but some output files are missing. {message}"
         super().__init__(message, include, lineno, snakefile, rule)
 
 
