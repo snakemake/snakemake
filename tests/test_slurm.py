@@ -23,6 +23,7 @@ def test_slurm_group_job():
     run(
         dpath("test_group_job"),
         slurm=True,
+        verbose=True,
         default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
 
