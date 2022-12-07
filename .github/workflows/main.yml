@@ -198,7 +198,7 @@ jobs:
       - name: Test slurm submission
         run: |
           srun -vvvv echo "hello world"
-
+          sudo cat /var/log/slurm/slurmd.log
       - name: Test Slurm
         env:
           CI: true
