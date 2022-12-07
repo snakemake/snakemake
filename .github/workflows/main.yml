@@ -100,7 +100,7 @@ jobs:
                       SlurmctldPidFile: /run/slurmctld.pid
                       SlurmdLogFile: /var/log/slurm/slurmd.log
                       SlurmdPidFile: /run/slurmd.pid
-                      SlurmdSpoolDir: /var/lib/slurm/slurmd
+                      SlurmdSpoolDir: /tmp/slurmd # the default /var/lib/slurm/slurmd does not work because of noexec mounting in github actions
                       StateSaveLocation: /var/lib/slurm/slurmctld
                       #TaskPlugin: "task/affinity,task/cgroup"
                       AccountingStorageType: accounting_storage/slurmdbd
