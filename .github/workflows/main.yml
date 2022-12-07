@@ -151,7 +151,9 @@ jobs:
         run: |
           srun -vvvv echo "hello world"
           sudo cat /var/log/slurm/slurmd.log
-
+      - name: Indicate supported MPI types
+        run: |
+          srun --mpi=list
       - name: Setup Snakemake environment
         run: >
           export PATH="/usr/share/miniconda/bin:$PATH"
