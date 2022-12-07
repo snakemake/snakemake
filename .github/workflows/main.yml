@@ -96,35 +96,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      ###### slurm setup #####
-
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm
-
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              vars:
-                slurm_roles: ['controller', 'exec']
-              roles:
-                - role: galaxyproject.slurm
-                  become: true
-
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-
-      - name: Test slurm submission
-        run: |
-          srun echo "hello world"
-
-      ###### finalized slurm setup #####
-
       - name: Run tests
         env:
           CI: true
