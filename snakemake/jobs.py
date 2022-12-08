@@ -65,6 +65,9 @@ def jobfiles(jobs, type):
 
 
 class AbstractJob:
+    def logfile_suggestion(self, prefix: str) -> str:
+        raise NotImplementedError()
+
     def is_group(self):
         raise NotImplementedError()
 
@@ -280,13 +283,11 @@ class Job(AbstractJob):
                         )
                 self.subworkflow_input[f] = sub
 
-    def logfile_suggestion(self, prefix):
+    def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
-        prefix = [] if not prefix else [prefix]
         return (
             "/".join(
-                prefix
-                + [self.rule.name]
+                [prefix, self.rule.name]
                 + [
                     f"{w}~{v}"
                     for w, v in sorted(
@@ -1252,6 +1253,10 @@ class GroupJob(AbstractJob):
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
+
+    def logfile_suggestion(self, prefix: str) -> str:
+        """Return a suggestion for the log file name given a prefix."""
+        return f"{prefix}/{self.name}.log"
 
     @property
     def dag(self):
