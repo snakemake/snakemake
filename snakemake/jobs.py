@@ -1309,10 +1309,10 @@ class GroupJob(AbstractJob):
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(skip_dynamic, indent=True)
 
-    def log_error(self, msg=None, **kwargs):
+    def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
         logger.group_error(groupid=self.groupid)
         for job in self.jobs:
-            job.log_error(msg=msg, indent=True, **kwargs)
+            job.log_error(msg=msg, indent=True, aux_logs=aux_logs, **kwargs)
 
     def register(self):
         for job in self.jobs:
