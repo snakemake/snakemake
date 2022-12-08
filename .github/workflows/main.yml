@@ -5,7 +5,6 @@ on:
     branches:
       - main
   pull_request:
-    branches_ignore: []
 
 jobs:
   cancel-previous:
@@ -49,18 +48,32 @@ jobs:
     env:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
+    # https://github.com/marketplace/actions/setup-miniconda#use-a-default-shell
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # we need tags for versioneer to work
 
+      # See: https://github.com/marketplace/actions/setup-miniconda
+      - name: Setup mambaforge
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          miniforge-variant: Mambaforge
+          channels: conda-forge
+          python-version: 3.10
+          activate-environment: causality
+          environment-file: environment.yml
+          use-mamba: true
+
       - name: Setup Snakemake environment
         run: |
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          conda config --set channel_priority strict
-          conda install -c conda-forge -q mamba
+          mamba config --set channel_priority strict
           # ensure that mamba is happy to write into the cache
-          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
+          # sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
           mamba env create -q --name snakemake --file test-environment.yml
           # additionally add singularity
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
@@ -101,9 +114,7 @@ jobs:
           CI: true
           ZENODO_SANDBOX_PAT: ${{ secrets.ZENODO_SANDBOX_PAT }}
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+          mamba activate snakemake
 
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
@@ -125,9 +136,8 @@ jobs:
       - name: Test Google Life Sciences Executor
         if: env.GCP_AVAILABLE
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+          mamba activate snakemake
+
           pytest -s -v -x tests/test_google_lifesciences.py
 
       # TODO reactivate in April (we have no free resources left this month)
@@ -136,9 +146,7 @@ jobs:
         env:
           CI: true
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+          mamba activate snakemake
 
           pytest -s -v -x tests/test_kubernetes.py
 
@@ -148,17 +156,14 @@ jobs:
         env:
           CI: true
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+          mamba activate snakemake
 
-      #     pytest -v -x -s tests/test_tibanna.py
+          # pytest -v -x -s tests/test_tibanna.py
 
       - name: Test GA4GH TES executor
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+          mamba activate snakemake
+
           pytest -s -v -x tests/test_tes.py
 
       - name: Delete container image
