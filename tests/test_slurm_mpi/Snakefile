@@ -38,7 +38,7 @@ rule calc_pi:
     input:
         "pi_MPI",
     output:
-        touch("pi.calc"),
+        "pi.calc",
     log:
         "logs/calc_pi.log",
     resources:
@@ -46,4 +46,4 @@ rule calc_pi:
         tasks=2,
         mpi="mpiexec",
     shell:
-        "{resources.mpi} -n {resources.tasks} {input} 10 &> {log}"
+        "{resources.mpi} -n {resources.tasks} {input} 10 > {output} 2> {log}"
