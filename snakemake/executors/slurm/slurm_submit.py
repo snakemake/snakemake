@@ -187,8 +187,10 @@ class SlurmExecutor(ClusterExecutor):
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         jobid = job.jobid
-        os.makedirs(".snakemake/slurm_logs", exist_ok=True)  #
+
         slurm_logfile = job.logfile_suggestion(prefix=".snakemake/slurm_logs")
+        os.makedirs(os.path.dirname(slurm_logfile), exist_ok=True)
+
         # generic part of a submission string:
         call = f"sbatch -J {self.get_jobname(job)} -o {slurm_logfile} --export=ALL"
 
