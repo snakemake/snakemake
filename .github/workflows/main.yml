@@ -65,7 +65,7 @@ jobs:
           miniforge-variant: Mambaforge
           channels: conda-forge, bioconda, nodefaults
           channel-priority: strict
-          python-version: 3.10
+          python-version: "3.10"
           activate-environment: snakemake
           environment-file: test-environment.yml
           use-mamba: true
@@ -204,7 +204,7 @@ jobs:
           miniforge-variant: Mambaforge
           channels: conda-forge, bioconda, nodefaults
           channel-priority: strict
-          python-version: 3.10
+          python-version: "3.10"
           activate-environment: snakemake
           environment-file: test-environment.yml
           use-mamba: true
