@@ -45,6 +45,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
             restart_times=restart_times,
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
+            disable_envvar_declarations=True,
         )
 
         # These environment variables are set by SLURM.
