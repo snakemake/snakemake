@@ -20,6 +20,8 @@ rule compute1:
 	run:
 		for out in output:
 			shell('(cat {input[0]} && echo "Part {out}") > {out}')
+                        print(os.getcwd())
+                        print(os.listdir())
 
 rule compute2:
 	input: '{name}.{chromosome}.inter'
