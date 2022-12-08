@@ -34,6 +34,7 @@ def test_slurm_group_job():
     run(
         dpath("test_group_jobs"),
         slurm=True,
+        show_failed_logs=True,
         default_resources=DefaultResources(
             ["account=runner", "partition=debug", "tasks=1", "mem_mb=0"]
         ),
@@ -49,5 +50,7 @@ def test_slurm_complex():
         snakefile="Snakefile.nonstandard",
         show_failed_logs=True,
         slurm=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+        default_resources=DefaultResources(
+            ["account=runner", "partition=debug", "tasks=1", "mem_mb=0"]
+        ),
     )
