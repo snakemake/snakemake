@@ -212,7 +212,7 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
 
           source activate snakemake
-          pytest -v -x tests/test_slurm.py
+          pytest -v tests/test_slurm.py
 
       - name: Test local
         env:

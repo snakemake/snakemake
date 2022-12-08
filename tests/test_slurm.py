@@ -32,7 +32,7 @@ def test_slurm_group_job():
     propagated.
     """
     run(
-        dpath("test_group_job"),
+        dpath("test_group_jobs"),
         slurm=True,
         default_resources=DefaultResources(["account=runner", "partition=debug"]),
     )
