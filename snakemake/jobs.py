@@ -1256,7 +1256,7 @@ class GroupJob(AbstractJob):
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
-        return f"{prefix}/{self.name}.log"
+        return f"{prefix}/groupjobs/{self.name}.log"
 
     @property
     def dag(self):
