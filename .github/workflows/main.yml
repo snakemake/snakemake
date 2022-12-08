@@ -66,12 +66,13 @@ jobs:
           channels: conda-forge, bioconda, nodefaults
           channel-priority: strict
           python-version: "3.10"
-          activate-environment: snakemake
-          environment-file: test-environment.yml
+          auto-activate-base: true
+          activate-environment: ""
           use-mamba: true
 
       - name: Finalize Snakemake environment
         run: |
+          mamba env create -n snakemake -f test-environment.yaml
           # additionally add singularity
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1: cannot open shared object file: No such file or directory
@@ -205,9 +206,13 @@ jobs:
           channels: conda-forge, bioconda, nodefaults
           channel-priority: strict
           python-version: "3.10"
-          activate-environment: snakemake
-          environment-file: test-environment.yml
+          auto-activate-base: true
+          activate-environment: ""
           use-mamba: true
+
+      - name: Finalize Snakemake environment
+        run: |
+          mamba env create -n snakemake -f test-environment.yaml
 
       - name: Run tests
         env:
