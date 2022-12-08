@@ -9,9 +9,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v3
     - name: Publish to Registry
-      uses: elgohr/Publish-Docker-Github-Action@2.16
+      uses: elgohr/Publish-Docker-Github-Action@v4
       with:
         name: snakemake/snakemake
         username: ${{ secrets.DOCKER_USERNAME }}

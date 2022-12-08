@@ -6,6 +6,9 @@ __license__ = "MIT"
 import inspect
 import itertools
 import os
+from collections.abc import Iterable
+import typing
+
 from snakemake import sourcecache
 from snakemake.sourcecache import (
     LocalSourceFile,
@@ -22,7 +25,7 @@ import collections
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Tuple, Pattern, Union, Optional
+from typing import Tuple, Pattern, Union, Optional, List
 from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
@@ -180,6 +183,7 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
+
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -202,6 +206,9 @@ class REncoder:
 
                 if isinstance(value, np.number):
                     return str(value)
+                elif isinstance(value, np.bool_):
+                    return "TRUE" if value else "FALSE"
+
             except ImportError:
                 pass
         raise ValueError("Unsupported value for conversion into R: {}".format(value))
@@ -306,12 +313,85 @@ class JuliaEncoder:
         return source
 
 
+class BashEncoder:
+    """bash docs for associative arrays - https://www.gnu.org/software/bash/manual/html_node/Arrays.html#Arrays"""
+
+    def __init__(
+        self,
+        namedlists: List[str] = None,
+        dicts: List[str] = None,
+        prefix: str = "snakemake",
+    ):
+        """namedlists is a list of strings indicating the snakemake object's member
+        variables which are encoded as Namedlist.
+        dicts is a list of strings indicating the snakemake object's member variables
+        that are encoded as dictionaries.
+        Prefix is the prefix for the bash variable name(s) e.g., snakemake_input
+        """
+        if dicts is None:
+            dicts = []
+        if namedlists is None:
+            namedlists = []
+        self.namedlists = namedlists
+        self.dicts = dicts
+        self.prefix = prefix
+
+    def encode_snakemake(self, smk: Snakemake) -> str:
+        """Turn a snakemake object into a collection of bash associative arrays"""
+        arrays = []
+        main_aa = dict()
+        for var in vars(smk):
+            val = getattr(smk, var)
+            if var in self.namedlists:
+                aa = f"{self.prefix}_{var.strip('_').lower()}={self.encode_namedlist(val)}"
+                arrays.append(aa)
+            elif var in self.dicts:
+                aa = f"{self.prefix}_{var.strip('_').lower()}={self.dict_to_aa(val)}"
+                arrays.append(aa)
+            else:
+                main_aa[var] = val
+
+        arrays.append(f"{self.prefix}={self.dict_to_aa(main_aa)}")
+        return "\n".join([f"declare -A {aa}" for aa in arrays])
+
+    @staticmethod
+    def dict_to_aa(d: dict) -> str:
+        """Converts a dictionary to an associative array"""
+        s = "( "
+        for k, v in d.items():
+            s += f'[{k}]="{v}" '
+
+        s += ")"
+        return s
+
+    @classmethod
+    def encode_namedlist(cls, named_list) -> str:
+        """Convert a namedlist into a bash associative array
+        This produces the array component of the variable.
+        e.g. ( [var1]=val1 [var2]=val2 )
+        to make it a correct bash associative array, you need to name it with
+        name=<output of this method>
+        """
+        aa = "("
+
+        for i, (name, val) in enumerate(named_list._allitems()):
+            if isinstance(val, Iterable) and not isinstance(val, str):
+                val = " ".join(val)
+            aa += f' [{i}]="{val}"'
+            if name is not None:
+                aa += f' [{name}]="{val}"'
+
+        aa += " )"
+        return aa
+
+
 class ScriptBase(ABC):
     editable = False
 
     def __init__(
         self,
         path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -336,6 +416,7 @@ class ScriptBase(ABC):
         is_local,
     ):
         self.path = path
+        self.cache_path = cache_path
         self.source = source
 
         self.basedir = basedir
@@ -420,7 +501,7 @@ class ScriptBase(ABC):
             singularity_args=self.singularity_args,
             resources=self.resources,
             threads=self.threads,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -428,6 +509,7 @@ class PythonScript(ScriptBase):
     @staticmethod
     def generate_preamble(
         path,
+        cache_path: typing.Optional[str],
         source,
         basedir,
         input_,
@@ -472,6 +554,13 @@ class PythonScript(ScriptBase):
         if container_img is not None:
             searchpath = singularity.SNAKEMAKE_MOUNTPOINT
         searchpath = repr(searchpath)
+
+        # Add the cache path to the search path so that other cached source files in the same dir
+        # can be imported.
+        if cache_path:
+            cache_searchpath = os.path.dirname(cache_path)
+            if cache_searchpath:
+                searchpath += ", " + repr(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
             searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
@@ -503,6 +592,7 @@ class PythonScript(ScriptBase):
 
         return PythonScript.generate_preamble(
             self.path,
+            self.cache_path,
             self.source,
             self.basedir,
             self.input,
@@ -532,13 +622,18 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None:
+        if self.conda_env is not None and ON_WINDOWS:
+            prefix = self.conda_env
+        elif self.conda_env is not None:
             prefix = os.path.join(self.conda_env, "bin")
         elif self.env_modules is not None:
             prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
         else:
             raise NotImplementedError()
-        return os.path.exists(os.path.join(prefix, "python"))
+        if not ON_WINDOWS:
+            return os.path.exists(os.path.join(prefix, "python"))
+        else:
+            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
         out = self._execute_cmd(
@@ -1220,6 +1315,95 @@ class RustScript(ScriptBase):
             return "", src
 
 
+class BashScript(ScriptBase):
+    @staticmethod
+    def generate_preamble(
+        path,
+        source,
+        basedir,
+        input_,
+        output,
+        params,
+        wildcards,
+        threads,
+        resources,
+        log,
+        config,
+        rulename,
+        conda_env,
+        container_img,
+        singularity_args,
+        env_modules,
+        bench_record,
+        jobid,
+        bench_iteration,
+        cleanup_scripts,
+        shadow_dir,
+        is_local,
+    ) -> str:
+        snakemake = Snakemake(
+            input_=input_,
+            output=output,
+            params=params,
+            wildcards=wildcards,
+            threads=threads,
+            resources=resources,
+            log=log,
+            config=config,
+            rulename=rulename,
+            bench_iteration=bench_iteration,
+            scriptdir=path.get_basedir().get_path_or_uri(),
+        )
+
+        namedlists = ["input", "output", "log", "resources", "wildcards", "params"]
+        dicts = ["config"]
+        encoder = BashEncoder(namedlists=namedlists, dicts=dicts)
+        preamble = encoder.encode_snakemake(snakemake)
+        return preamble
+
+    def get_preamble(self):
+        preamble = BashScript.generate_preamble(
+            path=self.path,
+            source=self.source,
+            basedir=self.basedir,
+            input_=self.input,
+            output=self.output,
+            params=self.params,
+            wildcards=self.wildcards,
+            threads=self.threads,
+            resources=self.resources,
+            log=self.log,
+            config=self.config,
+            rulename=self.rulename,
+            conda_env=self.conda_env,
+            container_img=self.container_img,
+            singularity_args=self.singularity_args,
+            env_modules=self.env_modules,
+            bench_record=self.bench_record,
+            jobid=self.jobid,
+            bench_iteration=self.bench_iteration,
+            cleanup_scripts=self.cleanup_scripts,
+            shadow_dir=self.shadow_dir,
+            is_local=self.is_local,
+        )
+        return preamble
+
+    def write_script(self, preamble, fd):
+        content = self.combine_preamble_and_source(preamble)
+        fd.write(content.encode())
+
+    def combine_preamble_and_source(self, preamble: str):
+        rgx = re.compile(r"^#![^\[].*?(\r\n|\n)")
+        shebang, source = strip_re(rgx, self.source)
+        if not shebang:
+            shebang = r"#!/usr/bin/env bash"
+
+        return "\n".join([shebang, preamble, source])
+
+    def execute_script(self, fname, edit=False):
+        self._execute_cmd("bash {fname:q}", fname=fname)
+
+
 def strip_re(regex: Pattern, s: str) -> Tuple[str, str]:
     """Strip a substring matching a regex from a string and return the stripped part
     and the remainder of the original string.
@@ -1259,7 +1443,7 @@ def get_source(
 
     is_local = isinstance(source_file, LocalSourceFile)
 
-    return source_file, source, language, is_local
+    return source_file, source, language, is_local, sourcecache.get_path(source_file)
 
 
 def get_language(source_file, source):
@@ -1280,6 +1464,8 @@ def get_language(source_file, source):
         language = "julia"
     elif filename.endswith(".rs"):
         language = "rust"
+    elif filename.endswith(".sh"):
+        language = "bash"
 
     # detect kernel language for Jupyter Notebooks
     if language == "jupyter":
@@ -1324,8 +1510,10 @@ def script(
     """
     Load a script from the given basedir + path and execute it.
     """
+    if isinstance(path, Path):
+        path = str(path)
 
-    path, source, language, is_local = get_source(
+    path, source, language, is_local, cache_path = get_source(
         path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
     )
 
@@ -1335,6 +1523,7 @@ def script(
         "rmarkdown": RMarkdown,
         "julia": JuliaScript,
         "rust": RustScript,
+        "bash": BashScript,
     }.get(language, None)
     if exec_class is None:
         raise ValueError(
@@ -1343,6 +1532,7 @@ def script(
 
     executor = exec_class(
         path,
+        cache_path,
         source,
         basedir,
         input,

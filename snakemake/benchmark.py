@@ -12,7 +12,7 @@ import time
 import threading
 
 from snakemake.exceptions import WorkflowError
-
+from snakemake.logging import logger
 
 #: Interval (in seconds) between measuring resource usage
 BENCHMARK_INTERVAL = 30
@@ -56,6 +56,7 @@ class BenchmarkRecord:
         #: Running time in seconds
         self.running_time = running_time
         #: Maximal RSS in MB
+
         self.max_rss = max_rss
         #: Maximal VMS in MB
         self.max_vms = max_vms
@@ -75,6 +76,12 @@ class BenchmarkRecord:
         self.first_time = None
         #: Previous point when measured CPU load, for estimating total running time
         self.prev_time = None
+        #: Set with procs that has been skipped
+        self.processed_procs = set()
+        #: Set with procs that has been saved
+        self.skipped_procs = set()
+        #: Track if data has been collected
+        self.data_collected = False
 
     def to_tsv(self):
         """Return ``str`` with the TSV representation of this record"""
@@ -101,23 +108,63 @@ class BenchmarkRecord:
                 s = ("%d day%s, " % plural(x.days)) + s
             return s
 
-        return "\t".join(
-            map(
-                to_tsv_str,
-                (
+        if self.skipped_procs:
+            logger.debug(
+                "Benchmark: not collected for "
+                "; ".join(
+                    [
+                        "{{'pid': {}, 'name': '{}''}}".format(record[0], record[1])
+                        for record in self.skipped_procs
+                    ]
+                )
+            )
+            logger.debug(
+                "Benchmark: collected for "
+                "; ".join(
+                    [
+                        "{{'pid': {}, 'name': '{}'}}".format(record[0], record[1])
+                        for record in self.processed_procs
+                    ]
+                )
+            )
+        if self.data_collected:
+            return "\t".join(
+                map(
+                    to_tsv_str,
+                    (
+                        "{:.4f}".format(self.running_time),
+                        timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
+                        self.max_rss,
+                        self.max_vms,
+                        self.max_uss,
+                        self.max_pss,
+                        self.io_in,
+                        self.io_out,
+                        self.cpu_usages / self.running_time,
+                        self.cpu_time,
+                    ),
+                )
+            )
+        else:
+            # If no data has been collect mem and cpu statistics will be printed as NA
+            # to make it possible to distinguish this case from processes that complete instantly
+            logger.warning(
+                "Benchmark: unable to collect cpu and memory benchmark statistics"
+            )
+            return "\t".join(
+                [
                     "{:.4f}".format(self.running_time),
                     timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
-                    self.max_rss,
-                    self.max_vms,
-                    self.max_uss,
-                    self.max_pss,
-                    self.io_in,
-                    self.io_out,
-                    self.cpu_usages / self.running_time,
-                    self.cpu_time,
-                ),
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                    "NA",
+                ]
             )
-        )
 
 
 class DaemonTimer(threading.Thread):
@@ -226,6 +273,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
         # CPU usage time
         cpu_time = 0
 
+        data_collected = False
         # Iterate over process and all children
         try:
             this_time = time.time()
@@ -236,8 +284,16 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                         cpu_usages += proc.cpu_percent() * (
                             this_time - self.bench_record.prev_time
                         )
-
-                    meminfo = proc.memory_full_info()
+                    # Makes it possible to summarize information about the process even
+                    # if the benchmark has tried to access a process that the user does
+                    # not have access to.
+                    try:
+                        meminfo = proc.memory_full_info()
+                    except psutil.Error:
+                        # Continue to fetch information about the remaining processes
+                        # save skipped processes pid and name for debugging
+                        self.bench_record.skipped_procs.add((proc.pid, proc.name()))
+                        continue
                     rss += meminfo.rss
                     vms += meminfo.vms
                     uss += meminfo.uss
@@ -254,6 +310,7 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
 
                     cpu_times = proc.cpu_times()
                     cpu_time += cpu_times.user + cpu_times.system
+                    self.bench_record.processed_procs.add((proc.pid, proc.name()))
 
             self.bench_record.prev_time = this_time
             if not self.bench_record.first_time:
@@ -270,21 +327,23 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
             else:
                 io_in = None
                 io_out = None
-
+            data_collected = True
         except psutil.Error as e:
             return
 
         # Update benchmark record's RSS and VMS
-        self.bench_record.max_rss = max(self.bench_record.max_rss or 0, rss)
-        self.bench_record.max_vms = max(self.bench_record.max_vms or 0, vms)
-        self.bench_record.max_uss = max(self.bench_record.max_uss or 0, uss)
-        self.bench_record.max_pss = max(self.bench_record.max_pss or 0, pss)
+        if data_collected:
+            self.bench_record.data_collected = True
+            self.bench_record.max_rss = max(self.bench_record.max_rss or 0, rss)
+            self.bench_record.max_vms = max(self.bench_record.max_vms or 0, vms)
+            self.bench_record.max_uss = max(self.bench_record.max_uss or 0, uss)
+            self.bench_record.max_pss = max(self.bench_record.max_pss or 0, pss)
 
-        self.bench_record.io_in = io_in
-        self.bench_record.io_out = io_out
+            self.bench_record.io_in = io_in
+            self.bench_record.io_out = io_out
 
-        self.bench_record.cpu_usages += cpu_usages
-        self.bench_record.cpu_time = cpu_time
+            self.bench_record.cpu_usages += cpu_usages
+            self.bench_record.cpu_time = cpu_time
 
 
 @contextlib.contextmanager

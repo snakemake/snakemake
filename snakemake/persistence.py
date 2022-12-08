@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache, partial
@@ -19,6 +20,7 @@ import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
+from snakemake.io import is_flagged, get_flag_value
 
 
 class Persistence:
@@ -31,6 +33,7 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
+        self._max_len = None
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -418,7 +421,12 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        return sorted(job.input)
+        get_path = (
+            lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri()
+            if is_flagged(f, "sourcecache_entry")
+            else f
+        )
+        return sorted(get_path(f) for f in job.input)
 
     @lru_cache()
     def _log(self, job):
@@ -434,9 +442,24 @@ class Persistence:
 
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
-        os.makedirs(os.path.dirname(recpath), exist_ok=True)
-        with open(recpath, "w") as f:
-            json.dump(json_value, f)
+        recdir = os.path.dirname(recpath)
+        os.makedirs(recdir, exist_ok=True)
+        # Write content to temporary file and rename it to the final file.
+        # This avoids race-conditions while writing (e.g. on NFS when the main job
+        # and the cluster node job propagate their content and the system has some
+        # latency including non-atomic propagation processes).
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=recdir,
+            delete=False,
+            # Add short prefix to final filename for better debugging.
+            # This may not be the full one, because that may be too long
+            # for the filesystem in combination with the prefix from the temp
+            # file.
+            suffix=f".{os.path.basename(recpath)[:8]}",
+        ) as tmpfile:
+            json.dump(json_value, tmpfile)
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
@@ -462,7 +485,14 @@ class Persistence:
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError as e:
+                pass
+        # case: file is corrupted, delete it
+        logger.warning(f"Deleting corrupted metadata record.")
+        self._delete_record(subject, id)
+        return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
@@ -485,9 +515,14 @@ class Persistence:
                     print(*files, sep="\n", file=lock)
                 return
 
+    def _fetch_max_len(self, subject):
+        if self._max_len is None:
+            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
+        return self._max_len
+
     def _record_path(self, subject, id):
         max_len = (
-            os.pathconf(subject, "PC_NAME_MAX") if os.name == "posix" else 255
+            self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
         if max_len == 0:
             max_len = 255

@@ -183,7 +183,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -273,6 +273,12 @@ The path to the environment definition is interpreted as **relative to the Snake
 
 Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
 
+In addition, it is possible to use a callable which returns a ``str`` value.
+The signature of the callable has to be ``callable(wildcards [, params] [, input])`` (``params`` and ``input`` are optional parameters).
+
+Note that the use of distinct conda environments for different jobs from the same rule is currently not properly displayed in the generated reports.
+At the moment, only a single, random conda environment is shown.
+
 .. sidebar:: Note
 
    Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
@@ -347,7 +353,15 @@ Post-deployment scripts must be placed next to their corresponding environment-f
         └── interproscan.post-deploy.sh
 
 The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+Importantly, if the script relies on certain shell specific syntax, (e.g. `set -o pipefail` for bash), make sure to add a matching shebang to the script, e.g.:
 
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    # ...
+
+If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
 
 .. _conda_named_env:
 

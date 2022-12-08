@@ -1,0 +1,17 @@
+from snakemake.utils import min_version
+
+min_version("6.1.1")
+
+configfile: "config.yaml"
+
+module local_git_module:
+    snakefile:
+        gitfile("repo/module", path="workflow/Snakefile", tag="v0.0.1")
+    config:
+        config
+
+use rule * from local_git_module as local_git_module_*
+
+rule all:
+    input:
+        "test.txt"

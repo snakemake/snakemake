@@ -9,6 +9,7 @@ import sys
 import signal
 import json
 from tokenize import maybe
+from typing import DefaultDict
 import urllib
 from collections import OrderedDict, namedtuple
 from itertools import filterfalse, chain
@@ -81,11 +82,11 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoint, Checkpoints
-from snakemake.resources import DefaultResources
+from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
-from snakemake.ruleinfo import RuleInfo
+from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     GenericSourceFile,
     LocalSourceFile,
@@ -112,6 +113,7 @@ class Workflow:
         overwrite_scatter=None,
         overwrite_groups=None,
         overwrite_resources=None,
+        overwrite_resource_scopes=None,
         group_components=None,
         config_args=None,
         debug=False,
@@ -163,7 +165,9 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self.rerun_triggers = frozenset(rerun_triggers)
+        self.rerun_triggers = (
+            frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
+        )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
@@ -229,6 +233,9 @@ class Workflow:
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
         self.overwrite_scatter = overwrite_scatter or dict()
+        self.overwrite_resource_scopes = overwrite_resource_scopes or dict()
+        self.resource_scopes = ResourceScopes.defaults()
+        self.resource_scopes.update(self.overwrite_resource_scopes)
         self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
         self.execute_subworkflows = execute_subworkflows
         self.modules = dict()
@@ -252,6 +259,7 @@ class Workflow:
         _globals["gather"] = Gather()
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
+        _globals["gitfile"] = sourcecache.LocalGitFile
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -259,7 +267,7 @@ class Workflow:
         self.enable_cache = False
         if cache is not None:
             self.enable_cache = True
-            self.cache_rules = set(cache)
+            self.cache_rules = {rulename: "all" for rulename in cache}
             if self.default_remote_provider is not None:
                 self.output_file_cache = RemoteOutputFileCache(
                     self.default_remote_provider
@@ -268,7 +276,7 @@ class Workflow:
                 self.output_file_cache = LocalOutputFileCache()
         else:
             self.output_file_cache = None
-            self.cache_rules = set()
+            self.cache_rules = dict()
 
         if default_resources is not None:
             self.default_resources = default_resources
@@ -329,78 +337,8 @@ class Workflow:
                 logger.info("Congratulations, your workflow is in a good condition!")
         return linted
 
-    def is_cached_rule(self, rule: Rule):
-        return rule.name in self.cache_rules
-
-    def get_sources(self):
-        files = set()
-
-        def local_path(f):
-            if not isinstance(f, SourceFile) and is_local_file(f):
-                return f
-            if isinstance(f, LocalSourceFile):
-                return f.get_path_or_uri()
-
-        def norm_rule_relpath(f, rule):
-            if not os.path.isabs(f):
-                f = os.path.join(rule.basedir, f)
-            return os.path.relpath(f)
-
-        # get registered sources
-        for f in self.included:
-            f = local_path(f)
-            if f:
-                try:
-                    f = os.path.relpath(f)
-                except ValueError:
-                    if ON_WINDOWS:
-                        pass  # relpath doesn't work on win if files are on different drive
-                    else:
-                        raise
-                files.add(f)
-        for rule in self.rules:
-            script_path = rule.script or rule.notebook
-            if script_path:
-                script_path = norm_rule_relpath(script_path, rule)
-                files.add(script_path)
-                script_dir = os.path.dirname(script_path)
-                files.update(
-                    os.path.join(dirpath, f)
-                    for dirpath, _, files in os.walk(script_dir)
-                    for f in files
-                )
-            if rule.conda_env and rule.conda_env.is_file:
-                f = local_path(rule.conda_env.file)
-                if f:
-                    # url points to a local env file
-                    env_path = norm_rule_relpath(f, rule)
-                    files.add(env_path)
-
-        for f in self.configfiles:
-            files.add(f)
-
-        # get git-managed files
-        # TODO allow a manifest file as alternative
-        try:
-            out = subprocess.check_output(
-                ["git", "ls-files", "--recurse-submodules", "."], stderr=subprocess.PIPE
-            )
-            for f in out.decode().split("\n"):
-                if f:
-                    files.add(os.path.relpath(f))
-        except subprocess.CalledProcessError as e:
-            if "fatal: not a git repository" in e.stderr.decode().lower():
-                logger.warning(
-                    "Unable to retrieve additional files from git. "
-                    "This is not a git repository."
-                )
-            else:
-                raise WorkflowError(
-                    "Error executing git (Snakemake requires git to be installed for "
-                    "remote execution without shared filesystem):\n" + e.stderr.decode()
-                )
-
-        return files
+    def get_cache_mode(self, rule: Rule):
+        return self.cache_rules.get(rule.name)
 
     def check_source_sizes(self, filename, warning_size_gb=0.2):
         """A helper function to check the filesize, and return the file
@@ -515,7 +453,7 @@ class Workflow:
         rules = self.rules
         if only_targets:
             rules = filterfalse(Rule.has_wildcards, rules)
-        for rule in rules:
+        for rule in sorted(rules, key=lambda r: r.name):
             logger.rule_info(name=rule.name, docstring=rule.docstring)
 
     def list_resources(self):
@@ -556,6 +494,7 @@ class Workflow:
     def execute(
         self,
         targets=None,
+        target_jobs=None,
         dryrun=False,
         generate_unit_tests=None,
         touch=False,
@@ -584,6 +523,8 @@ class Workflow:
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
+        k8s_cpu_scalar=1.0,
+        flux=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -640,8 +581,8 @@ class Workflow:
         export_cwl=False,
         batch=None,
         keepincomplete=False,
+        containerize=False,
     ):
-
         self.check_localrules()
         self.immediate_submit = immediate_submit
         self.cleanup_scripts = cleanup_scripts
@@ -664,7 +605,7 @@ class Workflow:
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if not targets:
+        if not targets and not target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
@@ -723,6 +664,7 @@ class Workflow:
             dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
+            target_jobs_def=target_jobs,
             # when cleaning up conda, we should enforce all possible jobs
             # since their envs shall not be deleted
             forceall=forceall or conda_cleanup_envs,
@@ -807,6 +749,12 @@ class Workflow:
             self.persistence.cleanup_shadow()
             return True
 
+        if containerize:
+            from snakemake.deployment.containerize import containerize
+
+            containerize(self, dag)
+            return True
+
         if (
             self.subworkflows
             and self.execute_subworkflows
@@ -833,10 +781,12 @@ class Workflow:
                         targets=subworkflow_targets,
                         cores=self._cores,
                         nodes=self.nodes,
+                        resources=self.global_resources,
                         configfiles=[subworkflow.configfile]
                         if subworkflow.configfile
                         else None,
                         updated_files=updated,
+                        rerun_triggers=self.rerun_triggers,
                     ):
                         return False
                     dag.updated_subworkflow_files.update(
@@ -1017,6 +967,8 @@ class Workflow:
             drmaa=drmaa,
             drmaa_log_dir=drmaa_log_dir,
             kubernetes=kubernetes,
+            k8s_cpu_scalar=k8s_cpu_scalar,
+            flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
             google_lifesciences=google_lifesciences,
@@ -1097,7 +1049,40 @@ class Workflow:
         if not dryrun and not no_hooks:
             self._onstart(logger.get_logfile())
 
-        success = self.scheduler.schedule()
+        def log_provenance_info():
+            provenance_triggered_jobs = [
+                job
+                for job in dag.needrun_jobs(exclude_finished=False)
+                if dag.reason(job).is_provenance_triggered()
+            ]
+            if provenance_triggered_jobs:
+                logger.info(
+                    "Some jobs were triggered by provenance information, "
+                    "see 'reason' section in the rule displays above.\n"
+                    "If you prefer that only modification time is used to "
+                    "determine whether a job shall be executed, use the command "
+                    "line option '--rerun-triggers mtime' (also see --help).\n"
+                    "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                    "change the result (e.g. because you just changed the formatting of a script "
+                    "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                    "'snakemake --cleanup-metadata <outfile>'. "
+                )
+                logger.info(
+                    "Rules with provenance triggered jobs: "
+                    + ",".join(
+                        sorted(set(job.rule.name for job in provenance_triggered_jobs))
+                    )
+                )
+                logger.info("")
+
+        has_checkpoint_jobs = any(dag.checkpoint_jobs)
+
+        try:
+            success = self.scheduler.schedule()
+        except Exception as e:
+            if dryrun:
+                log_provenance_info()
+            raise e
 
         if not immediate_submit and not dryrun and self.mode == Mode.default:
             dag.cleanup_workdir()
@@ -1106,27 +1091,19 @@ class Workflow:
             if dryrun:
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                    if any(
-                        dag.reason(job).is_provenance_triggered()
-                        for job in dag.needrun_jobs(exclude_finished=False)
-                    ):
-                        logger.info(
-                            "Some jobs were triggered by provenance information, "
-                            "see 'reason' section in the rule displays above.\n"
-                            "If you prefer that only modification time is used to "
-                            "determine whether a job shall be executed, use the command "
-                            "line option '--rerun-triggers mtime' (also see --help).\n"
-                            "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                            "change the result (e.g. because you just changed the formatting of a script "
-                            "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                            "'snakemake --cleanup-metadata <outfile>'."
-                        )
-                    logger.info("")
+                    dag.print_reasons()
+                    log_provenance_info()
+                logger.info("")
+                logger.info(
+                    "This was a dry-run (flag -n). The order of jobs "
+                    "does not reflect the order of execution."
+                )
+                if has_checkpoint_jobs:
                     logger.info(
-                        "This was a dry-run (flag -n). The order of jobs "
-                        "does not reflect the order of execution."
+                        "The run involves checkpoint jobs, "
+                        "which will result in alteration of the DAG of "
+                        "jobs (e.g. adding more jobs) after their completion."
                     )
-                logger.remove_logfile()
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
@@ -1203,11 +1180,6 @@ class Workflow:
             )
         self.envvars.update(envvars)
 
-    def containerize(self):
-        from snakemake.deployment.containerize import containerize
-
-        containerize(self)
-
     def include(
         self,
         snakefile,
@@ -1279,7 +1251,7 @@ class Workflow:
         # add corresponding wildcard constraint
         self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
 
-        def func(*args, **wildcards):
+        def func(key, *args, **wildcards):
             n = self._scatter[key]
             return expand(
                 *args,
@@ -1288,8 +1260,13 @@ class Workflow:
             )
 
         for key in content:
-            setattr(self.globals["scatter"], key, func)
-            setattr(self.globals["gather"], key, func)
+            setattr(self.globals["scatter"], key, partial(func, key))
+            setattr(self.globals["gather"], key, partial(func, key))
+
+    def resourcescope(self, **content):
+        """Register resource scope defaults"""
+        self.resource_scopes.update(content)
+        self.resource_scopes.update(self.overwrite_resource_scopes)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1416,13 +1393,11 @@ class Workflow:
                 self._rules[ruleinfo.name] = rule
                 name = rule.name
             if ruleinfo.input:
-                pos_files, keyword_files, modifier = ruleinfo.input
-                rule.input_modifier = modifier
-                rule.set_input(*pos_files, **keyword_files)
+                rule.input_modifier = ruleinfo.input.modifier
+                rule.set_input(*ruleinfo.input.paths, **ruleinfo.input.kwpaths)
             if ruleinfo.output:
-                pos_files, keyword_files, modifier = ruleinfo.output
-                rule.output_modifier = modifier
-                rule.set_output(*pos_files, **keyword_files)
+                rule.output_modifier = ruleinfo.output.modifier
+                rule.set_output(*ruleinfo.output.paths, **ruleinfo.output.kwpaths)
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
@@ -1505,15 +1480,13 @@ class Workflow:
             if ruleinfo.version:
                 rule.version = ruleinfo.version
             if ruleinfo.log:
-                pos_files, keyword_files, modifier = ruleinfo.log
-                rule.log_modifier = modifier
-                rule.set_log(*pos_files, **keyword_files)
+                rule.log_modifier = ruleinfo.log.modifier
+                rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
             if ruleinfo.message:
                 rule.message = ruleinfo.message
             if ruleinfo.benchmark:
-                benchmark, modifier = ruleinfo.benchmark
-                rule.benchmark_modifier = modifier
-                rule.benchmark = benchmark
+                rule.benchmark_modifier = ruleinfo.benchmark.modifier
+                rule.benchmark = ruleinfo.benchmark.paths
             if not self.run_local:
                 group = self.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
@@ -1563,15 +1536,6 @@ class Workflow:
                 if isinstance(ruleinfo.conda_env, Path):
                     ruleinfo.conda_env = str(ruleinfo.conda_env)
 
-                if (
-                    ruleinfo.conda_env is not None
-                    and is_conda_env_file(ruleinfo.conda_env)
-                    and is_local_file(ruleinfo.conda_env)
-                    and not os.path.isabs(ruleinfo.conda_env)
-                ):
-                    ruleinfo.conda_env = self.current_basedir.join(
-                        ruleinfo.conda_env
-                    ).get_path_or_uri()
                 rule.conda_env = ruleinfo.conda_env
 
             invalid_rule = not (
@@ -1624,7 +1588,7 @@ class Workflow:
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if ruleinfo.cache is True:
+            if ruleinfo.cache:
                 if len(rule.output) > 1:
                     if not rule.output[0].is_multiext:
                         raise WorkflowError(
@@ -1639,13 +1603,15 @@ class Workflow:
                         "(use the --cache argument to enable this).".format(rule.name)
                     )
                 else:
-                    self.cache_rules.add(rule.name)
-            elif not (ruleinfo.cache is False):
-                raise WorkflowError(
-                    "Invalid argument for 'cache:' directive. Only True allowed. "
-                    "To deactivate caching, remove directive.",
-                    rule=rule,
-                )
+                    if ruleinfo.cache is True or "omit-software" or "all":
+                        self.cache_rules[rule.name] = (
+                            "all" if ruleinfo.cache is True else ruleinfo.cache
+                        )
+                    else:
+                        raise WorkflowError(
+                            "Invalid value for cache directive. Use True or 'omit-software'.",
+                            rule=rule,
+                        )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
@@ -1673,21 +1639,21 @@ class Workflow:
 
     def docstring(self, string):
         def decorate(ruleinfo):
-            ruleinfo.docstring = string
+            ruleinfo.docstring = string.strip()
             return ruleinfo
 
         return decorate
 
     def input(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.input = (paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.input = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
 
     def output(self, *paths, **kwpaths):
         def decorate(ruleinfo):
-            ruleinfo.output = (paths, kwpaths, self.modifier.path_modifier)
+            ruleinfo.output = InOutput(paths, kwpaths, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1732,7 +1698,7 @@ class Workflow:
 
     def benchmark(self, benchmark):
         def decorate(ruleinfo):
-            ruleinfo.benchmark = (benchmark, self.modifier.path_modifier)
+            ruleinfo.benchmark = InOutput(benchmark, {}, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1830,7 +1796,7 @@ class Workflow:
 
     def log(self, *logs, **kwlogs):
         def decorate(ruleinfo):
-            ruleinfo.log = (logs, kwlogs, self.modifier.path_modifier)
+            ruleinfo.log = InOutput(logs, kwlogs, self.modifier.path_modifier)
             return ruleinfo
 
         return decorate
@@ -1922,7 +1888,14 @@ class Workflow:
             prefix=prefix,
         )
 
-    def userule(self, rules=None, from_module=None, name_modifier=None, lineno=None):
+    def userule(
+        self,
+        rules=None,
+        from_module=None,
+        exclude_rules=None,
+        name_modifier=None,
+        lineno=None,
+    ):
         def decorate(maybe_ruleinfo):
             if from_module is not None:
                 try:
@@ -1936,6 +1909,7 @@ class Workflow:
                 module.use_rules(
                     rules,
                     name_modifier,
+                    exclude_rules=exclude_rules,
                     ruleinfo=None if callable(maybe_ruleinfo) else maybe_ruleinfo,
                     skip_global_report_caption=self.report_text
                     is not None,  # do not overwrite existing report text via module
@@ -1961,11 +1935,15 @@ class Workflow:
                     ),
                     ruleinfo_overwrite=ruleinfo,
                 ):
+                    # A copy is necessary to avoid leaking modifications in case of multiple inheritance statements.
+                    import copy
+
+                    orig_ruleinfo = copy.copy(orig_rule.ruleinfo)
                     self.rule(
                         name=name_modifier,
                         lineno=lineno,
                         snakefile=self.included_stack[-1],
-                    )(orig_rule.ruleinfo)
+                    )(orig_ruleinfo)
 
         return decorate
 

@@ -115,7 +115,10 @@ class JupyterNotebook(ScriptBase):
 
                 # clean up all outputs
                 for cell in nb["cells"]:
-                    cell["outputs"] = []
+                    if "outputs" in cell:
+                        cell["outputs"] = []
+                    if "execution_count" in cell:
+                        cell["execution_count"] = None
 
                 nbformat.write(nb, self.local_path)
 
@@ -157,6 +160,7 @@ class PythonJupyterNotebook(JupyterNotebook):
 
         return PythonScript.generate_preamble(
             self.path,
+            self.cache_path,
             self.source,
             self.basedir,
             self.input,
@@ -291,11 +295,12 @@ def notebook(
             )
 
     if not draft:
-        path, source, language, is_local = get_source(
+        path, source, language, is_local, cache_path = get_source(
             path, SourceCache(runtime_sourcecache_path), basedir, wildcards, params
         )
     else:
         source = None
+        cache_path = None
         is_local = True
         path = infer_source_file(path)
 
@@ -303,6 +308,7 @@ def notebook(
 
     executor = exec_class(
         path,
+        cache_path,
         source,
         basedir,
         input,
