@@ -35,11 +35,48 @@ If individual rules require e.g. a different partition, you can override the def
 
   $ snakemake --slurm --default-resources account=<your SLURM account> partition=<your SLURM partition> --set-resources <somerule>:partition=<some other partition>
 
+Ordinary SMP jobs
+~~~~~~~~~~~~~~~~~
+
+Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (:ref: shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>)
+in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM:
+
+.. code-block:: python
+  rule a:
+      input: ...
+      output: ...
+      threads: 8
+      resources:
+          mem_mb: 14000
+
+This will give jobs from this rule 14GB of memory and 8 CPU cores.
+It is advisable to use resonable default resources, such that you don't need to specify them for every rule.
+Snakemake already has reasonable defaults built in, which are automatically activated when using the ``--default-resources`` flag (see above, and also ``snakemake --help``).
+
+Group Jobs
+~~~~~~~~~~
+
+:ref: group jobs<snakefiles-grouping> may not oversubscribe one compute node. Best simply ask for one compute node with sufficient memory, e.g.:
+
+.. 
+  TODO why the nodes=1?, in general, group memory is handled automatically by inferring it from the rules
+
+.. code-block:: python
+  rule a:
+    input: ...
+    output: ...
+    resources:
+        mem_mb: 57000 # or more, consult your site's doctumentation
+        nodes: 1
 
 
+MPI jobs
+~~~~~~~~
 
-General Resource Specifications
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Snakemake's Slurm backend also supports MPI jobs, see :ref:`snakefiles-mpi` for details.
+
+Advanced Resource Specifications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A workflow rule may support a number of :ref:`resource <snakefiles-resources>` specification. For a SLURM cluster, 
 a mapping between Snakemake and SLURM needs to be performed.
@@ -66,7 +103,7 @@ We can use the following specifications, unique per rule:
 | `-N`/`--nodes`  | `nodes`               | number of nodes                                                  |
 +-----------------+-----------------------+------------------------------------------------------------------+
 
-Each of these parameters can be part of a rule, e.g.:
+Each of these can be part of a rule, e.g.:
 
 .. code-block:: python
   rule:
@@ -76,49 +113,8 @@ Each of these parameters can be part of a rule, e.g.:
           partition: <partition name>
           walltime_minutes: <some number>
 
-Please note: as `--mem` and `--mem-per-cpu` are mutually exclusive on SLURM clusters, there corresponding resource flags `mem_mb` and `mem_mb_per_cpu` are mutually exclusive, too.
-You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads). SLURM will try to sastify a combination of `mem_mb_per_cpu` and `cpus_per_task` and `nodes`, if `nodes` is not given.
-
-Ordinary SMP jobs
-~~~~~~~~~~~~~~~~~
-
-Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (:ref: shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>)
-in nature. Here, at most `mem_mb_per_cpu` and `cpus_per_task` need to be specified, e.g.:
-
-.. 
-  TODO the default should rather be threads and mem_mb, and the thing below is not portable!!
-
-.. code-block:: python
-  rule:
-      input: ...
-      output: ...
-      resources:
-          mem_mb_per_cpu: 1800
-          cpus_per_task: 8
-
-This will give your application 8*1800M, hence 14.4 GB. Please consult your site's documentation for your batch system default settings and memory distribution.
-
-Group Jobs
-~~~~~~~~~~
-
-:ref: group jobs<snakefiles-grouping> may not oversubscribe one compute node. Best simply ask for one compute node with sufficient memory, e.g.:
-
-.. 
-  TODO why the nodes=1?, in general, group memory is handled automatically by inferring it from the rules
-
-.. code-block:: python
-  rule:
-    input: ...
-    output: ...
-    resources:
-        mem_mb: 57000 # or more, consult your site's doctumentation
-        nodes: 1
-
-
-MPI jobs
-~~~~~~~~
-
-Snakemake's Slurm backend also supports MPI jobs, see :ref:`snakefiles-mpi` for details.
+Please note: as ``--mem`` and ``--mem-per-cpu`` are mutually exclusive on SLURM clusters, there corresponding resource flags ``mem_mb`` and ``mem_mb_per_cpu`` are mutually exclusive, too.
+You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads). SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
 
 .. _cluster-generic:
 

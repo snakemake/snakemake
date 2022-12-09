@@ -2384,12 +2384,11 @@ MPI support
 -----------
 
 Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an invidual compute node's boundary.
-The command to run the MPI program has to be specified in the `mpi`-resource, e.g.:
+The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
 
 .. code-block:: python
+
   rule calc_pi:
-    input:
-        "pi_MPI",
     output:
         "pi.calc",
     log:
@@ -2398,14 +2397,13 @@ The command to run the MPI program has to be specified in the `mpi`-resource, e.
         tasks=10,
         mpi="mpiexec",
     shell:
-        "{resources.mpi} -n {resources.tasks} {input} 10 > {output} 2> {log}"
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
 
 Thereby, additional parameters may be passed to the MPI-starter, e.g.:
 
 .. code-block:: python
+
   rule calc_pi:
-    input:
-        "pi_MPI",
     output:
         "pi.calc",
     log:
@@ -2414,11 +2412,12 @@ Thereby, additional parameters may be passed to the MPI-starter, e.g.:
         tasks=10,
         mpi="mpiexec -arch x86",
     shell:
-        "{resources.mpi} -n {resources.tasks} {input} 10 > {output} 2> {log}"
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
 
 As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`):
 
 .. code-block:: console
+
   $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
 
 Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
