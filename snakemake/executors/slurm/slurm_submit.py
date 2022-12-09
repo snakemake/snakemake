@@ -84,7 +84,7 @@ def check_default_partition(job):
     logger.warning(
         f"No partition was given for rule '{job}', and unable to find a default partition."
         " Trying to submit without partition information."
-        " You may want to invoke snakemake with --default-resources 'partition=<your default partition>'."
+        " You may want to invoke snakemake with --default-resources 'slurm_partition=<your default partition>'."
     )
 
 
@@ -155,11 +155,11 @@ class SlurmExecutor(ClusterExecutor):
         returns a default account, if applicable
         else raises an error - implicetly.
         """
-        if job.resources.get("account"):
+        if job.resources.get("slurm_account"):
             # here, we check whether the given or guessed account is valid
             # if not, a WorkflowError is raised
-            test_account(job.resources.account)
-            return f" -A {job.resources.account}"
+            test_account(job.resources.slurm_account)
+            return f" -A {job.resources.slurm_account}"
         else:
             logger.warning("No SLURM account given, trying to guess.")
             account = get_account()
@@ -178,8 +178,8 @@ class SlurmExecutor(ClusterExecutor):
         returns a default partition, if applicable
         else raises an error - implicetly.
         """
-        if job.resources.get("partition"):
-            partition = job.resources.get("partition")
+        if job.resources.get("slurm_partition"):
+            partition = job.resources.slurm_partition
         else:
             partition = check_default_partition(job)
         return f" -p {partition}"
@@ -198,10 +198,14 @@ class SlurmExecutor(ClusterExecutor):
         call += account
         call += self.set_partition(job)
 
-        if not job.resources.get("runtime"):
-            logger.warning("No wall time limit is set, setting 'runtime' to 10.")
+        if job.resources.get("runtime"):
+            call += f" -t {job.resources.runtime}"
         else:
-            call += " -t {}".format(job.resources.get("runtime", default_value=10))
+            logger.warning(
+                "No wall time information given. This might or might not work on your cluster. "
+                "If not, specify the resource runtime in your rule or as a reasonable "
+                "default via --default-resources."
+            )
 
         if job.resources.get("constraint"):
             call += f" -C {job.resources.constraint}"
@@ -211,15 +215,16 @@ class SlurmExecutor(ClusterExecutor):
             call += f" --mem {job.resources.mem_mb}"
         else:
             logger.warning(
-                "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given - submitting without. This might or might not work on your cluster."
+                "No job memory information ('mem_mb' or 'mem_mb_per_cpu') is given "
+                "- submitting without. This might or might not work on your cluster."
             )
 
         # MPI job
         if job.resources.get("mpi", False):
             if job.resources.get("nodes", False):
-                call += f" --nodes={job.resources.get('mpi_nodes', 1)}"
+                call += f" --nodes={job.resources.get('nodes', 1)}"
             if job.resources.get("tasks", False):
-                call += f" --ntasks={job.resources.get('mpi_tasks', 1)}"
+                call += f" --ntasks={job.resources.get('tasks', 1)}"
 
         cpus_per_task = job.threads
         if job.resources.get("cpus_per_task"):

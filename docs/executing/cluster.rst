@@ -93,21 +93,21 @@ We can use the following specifications, unique per rule:
 +-----------------+-----------------------+------------------------------------------------------------------+
 | SLURM Resource  | Snakemake resource    | Background Information                                           |
 +=================+=======================+==================================================================+
-| ``-p``/``--partition`` | ``slurm_partition``  | the partition a rule/job is to use                               |
+| ``-p``/``--partition`` | ``slurm_partition``  | the partition a rule/job is to use                         |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| ``-t``/``--time``   | ``runtime``             | the walltime per job in minutes                                  |
+| ``-t``/``--time``   | ``runtime``       | the walltime per job in minutes                                  |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| ``-C``/`--constraint`| ``constraint``         | may hold features on some clusters                               |
+| ``-C``/`--constraint`| ``constraint``   | may hold features on some clusters                               |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| ``--mem``         |  ``mem_mb``             | memory in MB a cluster node must provide                         |
+| ``--mem``         |  ``mem_mb``         | memory in MB a cluster node must provide                         |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| ``--mem-per-cpu`` |  ``mem_mb_per_cpu``     | memory per reserved CPU                                          |
+| ``--mem-per-cpu`` |  ``mem_mb_per_cpu``     | memory per reserved CPU                                      |
 +-----------------+-----------------------+------------------------------------------------------------------+
-|  ``-n``/``--ntasks``  |  ``ntasks``             | number of concurrent tasks / ranks                               |
+|  ``-n``/``--ntasks``  |  ``tasks``      | number of concurrent tasks / ranks                               |
 +-----------------+-----------------------+------------------------------------------------------------------+
 | ``-c``/``--cpus-per-task`` | ``cpus_per_task``| number of cpus per task (in case of SMP, rather use ``threads``) |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| ``-N``/``--nodes``  | ``nodes``               | number of nodes                                                  |
+| ``-N``/``--nodes``  | ``nodes``         | number of nodes                                                  |
 +-----------------+-----------------------+------------------------------------------------------------------+
 
 Each of these can be part of a rule, e.g.:

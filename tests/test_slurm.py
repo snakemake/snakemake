@@ -19,7 +19,7 @@ def test_slurm_mpi():
         slurm=True,
         show_failed_logs=True,
         use_conda=True,
-        default_resources=DefaultResources(["account=runner", "partition=debug"]),
+        default_resources=DefaultResources(["slurm_account=runner", "slurm_partition=debug"]),
     )
 
 
@@ -36,7 +36,7 @@ def test_slurm_group_job():
         slurm=True,
         show_failed_logs=True,
         default_resources=DefaultResources(
-            ["account=runner", "partition=debug", "tasks=1", "mem_mb=0"]
+            ["slurm_account=runner", "slurm_partition=debug", "tasks=1", "mem_mb=0"]
         ),
     )
 
@@ -51,6 +51,6 @@ def test_slurm_complex():
         show_failed_logs=True,
         slurm=True,
         default_resources=DefaultResources(
-            ["account=runner", "partition=debug", "tasks=1", "mem_mb=0"]
+            ["slurm_account=runner", "slurm_partition=debug", "tasks=1", "mem_mb=0"]
         ),
     )
