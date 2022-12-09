@@ -1072,7 +1072,9 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def get_log_error_info(self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs):
+    def get_log_error_info(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
         aux_logs = aux_logs or []
         return dict(
             name=self.rule.name,
@@ -1312,9 +1314,17 @@ class GroupJob(AbstractJob):
             job.log_info(skip_dynamic, indent=True)
 
     def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
-        job_error_info = [job.get_log_error_info(indent=True, **kwargs) for job in self.jobs]
+        job_error_info = [
+            job.get_log_error_info(indent=True, **kwargs) for job in self.jobs
+        ]
         aux_logs = aux_logs or []
-        logger.group_error(groupid=self.groupid, msg=msg, aux_logs=aux_logs, job_error_info=job_error_info, **kwargs)
+        logger.group_error(
+            groupid=self.groupid,
+            msg=msg,
+            aux_logs=aux_logs,
+            job_error_info=job_error_info,
+            **kwargs,
+        )
 
     def register(self):
         for job in self.jobs:

@@ -535,14 +535,14 @@ class Logger:
                     yield "    output: {}".format(", ".join(msg["output"]))
                 if msg["log"]:
                     yield "    log: {} (check log file(s) for error details)".format(
-                            ", ".join(msg["log"])
-                        )
+                        ", ".join(msg["log"])
+                    )
                 if msg["conda_env"]:
                     yield "    conda-env: {}".format(msg["conda_env"])
                 if msg["shellcmd"]:
                     yield "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
-                            msg["shellcmd"]
-                        )
+                        msg["shellcmd"]
+                    )
 
                 for item in msg["aux"].items():
                     yield "    {}: {}".format(*item)
@@ -555,6 +555,7 @@ class Logger:
             timestamp()
             self.logger.error("\n".join(map(indent, job_error())))
         elif level == "group_error":
+
             def group_error():
                 yield f"Error in group {msg['groupid']}:"
                 if msg["msg"]:
@@ -569,10 +570,13 @@ class Logger:
                         yield f"            output: {', '.join(info['output'])}"
                     if info["log"]:
                         yield f"            log: {', '.join(info['log'])} (check log file(s) for error details)"
-                logs = msg["aux_logs"] + [f for info in msg["job_error_info"] for f in info["log"]]
+                logs = msg["aux_logs"] + [
+                    f for info in msg["job_error_info"] for f in info["log"]
+                ]
                 if self.show_failed_logs and logs:
                     yield from show_logs(logs)
                 yield ""
+
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
