@@ -289,7 +289,7 @@ class Job(AbstractJob):
             "/".join(
                 [prefix, self.rule.name]
                 + [
-                    f"{w}~{v}"
+                    f"{w}_{v}"
                     for w, v in sorted(
                         self.wildcards_dict.items(), key=lambda item: item[0]
                     )
@@ -1256,7 +1256,7 @@ class GroupJob(AbstractJob):
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
-        return f"{prefix}/groupjobs/{self.name}.log"
+        return f"{prefix}/groupjobs/group_{self.name}/job_{self.jobid}.log"
 
     @property
     def dag(self):
