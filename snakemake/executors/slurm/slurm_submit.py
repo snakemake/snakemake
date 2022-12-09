@@ -230,6 +230,9 @@ class SlurmExecutor(ClusterExecutor):
             cpus_per_task = job.resources.cpus_per_task
         call += f" --cpus-per-task={cpus_per_task}"
 
+        if job.resources.get("slurm_extra"):
+            call += f" {job.resources.slurm_extra}"
+
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"

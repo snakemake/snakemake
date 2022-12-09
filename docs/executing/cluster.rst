@@ -27,13 +27,15 @@ To specify them at the command line, define them as default resources:
 
 .. code-block:: console
 
-  $ snakemake --slurm --default-resources account=<your SLURM account> partition=<your SLURM partition>
+  $ snakemake --slurm --default-resources slurm_account=<your SLURM account> slurm_partition=<your SLURM partition>
 
 If individual rules require e.g. a different partition, you can override the default per rule:
 
 .. code-block:: console
 
-  $ snakemake --slurm --default-resources account=<your SLURM account> partition=<your SLURM partition> --set-resources <somerule>:partition=<some other partition>
+  $ snakemake --slurm --default-resources slurm_account=<your SLURM account> slurm_partition=<your SLURM partition> --set-resources <somerule>:slurm_partition=<some other partition>
+
+Usually, it is advisable to persist such settings via a :ref:`configuration profile <profiles>`, which can be provided system-wide or per user.
 
 Ordinary SMP jobs
 ~~~~~~~~~~~~~~~~~
@@ -53,27 +55,32 @@ This will give jobs from this rule 14GB of memory and 8 CPU cores.
 It is advisable to use resonable default resources, such that you don't need to specify them for every rule.
 Snakemake already has reasonable defaults built in, which are automatically activated when using the ``--default-resources`` flag (see above, and also ``snakemake --help``).
 
-Group Jobs
-~~~~~~~~~~
-
-:ref: group jobs<snakefiles-grouping> may not oversubscribe one compute node. Best simply ask for one compute node with sufficient memory, e.g.:
-
-.. 
-  TODO why the nodes=1?, in general, group memory is handled automatically by inferring it from the rules
-
-.. code-block:: python
-  rule a:
-    input: ...
-    output: ...
-    resources:
-        mem_mb: 57000 # or more, consult your site's doctumentation
-        nodes: 1
-
+.. _cluster-slurm-mpi:
 
 MPI jobs
 ~~~~~~~~
 
 Snakemake's Slurm backend also supports MPI jobs, see :ref:`snakefiles-mpi` for details.
+When using MPI with slurm, it is advisable to use ``srun`` as MPI starter.
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="srun",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi > {output} 2> {log}"
+
+Note that the ``-n {resources.tasks}`` is not necessary in case of SLURM, but it should be kept in order to allow execution of the workflow on other systems, e.g. by replacing ``srun`` with ``mpiexec``:
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="mpiexec" ...
 
 Advanced Resource Specifications
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,21 +93,21 @@ We can use the following specifications, unique per rule:
 +-----------------+-----------------------+------------------------------------------------------------------+
 | SLURM Resource  | Snakemake resource    | Background Information                                           |
 +=================+=======================+==================================================================+
-| `-p`/`--partition` | `partition`        | the partition a rule/job is to use                               |
+| ``-p``/``--partition`` | ``slurm_partition``  | the partition a rule/job is to use                               |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `-t`/`--time`   | `runtime`             | the walltime per job in minutes                                  |
+| ``-t``/``--time``   | ``runtime``             | the walltime per job in minutes                                  |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `-C`/`constraint`| `constraint`         | may hold features on some clusters                               |
+| ``-C``/`--constraint`| ``constraint``         | may hold features on some clusters                               |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `--mem`         |  `mem_mb`             | memory in MB a cluster node must provide                         |
+| ``--mem``         |  ``mem_mb``             | memory in MB a cluster node must provide                         |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `--mem-per-cpu` |  `mem_mb_per_cpu`     | memory per reserved CPU                                          |
+| ``--mem-per-cpu`` |  ``mem_mb_per_cpu``     | memory per reserved CPU                                          |
 +-----------------+-----------------------+------------------------------------------------------------------+
-|  `-n`/`ntasks`  |  `ntasks`             | number of concurrent tasks / ranks                               |
+|  ``-n``/``--ntasks``  |  ``ntasks``             | number of concurrent tasks / ranks                               |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `-c`/`--cpus-per-taks` | `cpus_per_task`| number of cpus per task                                          |
+| ``-c``/``--cpus-per-task`` | ``cpus_per_task``| number of cpus per task (in case of SMP, rather use ``threads``) |
 +-----------------+-----------------------+------------------------------------------------------------------+
-| `-N`/`--nodes`  | `nodes`               | number of nodes                                                  |
+| ``-N``/``--nodes``  | ``nodes``               | number of nodes                                                  |
 +-----------------+-----------------------+------------------------------------------------------------------+
 
 Each of these can be part of a rule, e.g.:
@@ -111,10 +118,24 @@ Each of these can be part of a rule, e.g.:
       output: ...
       resources:
           partition: <partition name>
-          walltime_minutes: <some number>
+          runtime: <some number>
 
 Please note: as ``--mem`` and ``--mem-per-cpu`` are mutually exclusive on SLURM clusters, there corresponding resource flags ``mem_mb`` and ``mem_mb_per_cpu`` are mutually exclusive, too.
 You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads). SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
+
+Additional custom job configuration
+```````````````````````````````````
+
+SLURM installations can support custom plugins, which may add support for additional flags to ``sbatch``.
+In addition, there are various ``sbatch`` options not directly supported via the resource definitions shown above.
+You may use the ``slurm_extra`` resource to specify additional flags to ``sbatch``:
+
+.. code-block:: python
+  rule:
+      input: ...
+      output: ...
+      resources:
+          slurm_extra="--qos=long --mail-type=ALL --mail-user=<your email>"
 
 .. _cluster-generic:
 
