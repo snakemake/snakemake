@@ -1072,12 +1072,11 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def log_error(
-        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
-    ):
+    def get_log_error_info(self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs):
         aux_logs = aux_logs or []
-        logger.job_error(
+        return dict(
             name=self.rule.name,
+            msg=msg,
             jobid=self.dag.jobid(self),
             input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
@@ -1087,8 +1086,11 @@ class Job(AbstractJob):
             indent=indent,
             shellcmd=self.shellcmd,
         )
-        if msg is not None:
-            logger.error(msg)
+
+    def log_error(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
+        logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
     def register(self):
         self.dag.workflow.persistence.started(self)
@@ -1310,9 +1312,9 @@ class GroupJob(AbstractJob):
             job.log_info(skip_dynamic, indent=True)
 
     def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
-        logger.group_error(groupid=self.groupid)
-        for job in self.jobs:
-            job.log_error(msg=msg, indent=True, aux_logs=aux_logs, **kwargs)
+        job_error_info = [job.get_log_error_info(indent=True, **kwargs) for job in self.jobs]
+        aux_logs = aux_logs or []
+        logger.group_error(groupid=self.groupid, msg=msg, aux_logs=aux_logs, job_error_info=job_error_info, **kwargs)
 
     def register(self):
         for job in self.jobs:
