@@ -140,7 +140,7 @@ class AbstractExecutor:
     def get_resource_declarations(self, job):
         resources = [
             f"{resource}={value}"
-            for resource, value in self.get_resource_declarations_dict(job)
+            for resource, value in self.get_resource_declarations_dict(job).items()
         ]
         return format_cli_arg("--resources", resources)
 
