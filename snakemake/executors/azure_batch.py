@@ -19,7 +19,6 @@ from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.common import get_container_image, get_file_hash, async_lock
-from snakemake.remote.AzBlob import AzureStorageHelper
 from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
@@ -112,6 +111,7 @@ class AzBatchExecutor(ClusterExecutor):
         try:
             from azure.batch import BatchServiceClient
             from azure.batch.batch_auth import SharedKeyCredentials
+            from snakemake.remote.AzBlob import AzureStorageHelper
 
         except ImportError:
             raise WorkflowError(
