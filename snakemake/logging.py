@@ -476,7 +476,8 @@ class Logger:
                 try:
                     content = open(f, "r").read()
                 except FileNotFoundError:
-                    yield "Logfile {} not found.".format(f)
+                    yield f"Logfile {f} not found."
+                    return
                 logfile_header = f"Logfile {f}:"
                 yield logfile_header
                 lines = content.splitlines()
@@ -525,7 +526,8 @@ class Logger:
 
             def job_error():
                 yield "Error in rule {}:".format(msg["name"])
-                yield "    message: {}".format(msg["msg"])
+                if msg["msg"]:
+                    yield "    message: {}".format(msg["msg"])
                 yield "    jobid: {}".format(msg["jobid"])
                 if msg["input"]:
                     yield "    input: {}".format(", ".join(msg["input"]))
@@ -570,6 +572,7 @@ class Logger:
                 logs = msg["aux_logs"] + [f for info in msg["job_error_info"] for f in info["log"]]
                 if self.show_failed_logs and logs:
                     yield from show_logs(logs)
+                yield ""
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
