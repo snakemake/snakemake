@@ -1139,7 +1139,7 @@ def test_group_job_resources_with_pipe(mocker):
     assert_resources(
         dict(spy.spy_return),
         _nodes=1,
-        _cores=1,
+        _cores=6,
         runtime=240,
         mem_mb=50000,
         disk_mb=1000,
