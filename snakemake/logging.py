@@ -471,6 +471,13 @@ class Logger:
             if resources:
                 yield "    resources: " + resources
 
+        def show_logs(logs):
+            for f in logs:
+                try:
+                    yield "Logfile {}:\n{}".format(f, open(f).read())
+                except FileNotFoundError:
+                    yield "Logfile {} not found.".format(f)
+
         def indent(item):
             if msg.get("indent"):
                 return "    " + item
@@ -535,11 +542,7 @@ class Logger:
                     yield indent("    {}: {}".format(*item))
 
                 if self.show_failed_logs and msg["log"]:
-                    for f in msg["log"]:
-                        try:
-                            yield "Logfile {}:\n{}".format(f, open(f).read())
-                        except FileNotFoundError:
-                            yield "Logfile {} not found.".format(f)
+                    show_logs(msg["log"])
 
                 yield ""
 
