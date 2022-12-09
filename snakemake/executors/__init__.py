@@ -118,7 +118,7 @@ class AbstractExecutor:
             "--set-resource-scopes", self.workflow.overwrite_resource_scopes
         )
 
-    def get_resource_declarations(self, job):
+    def get_resource_declarations_dict(self, job):
         def isdigit(i):
             s = str(i)
             # Adapted from https://stackoverflow.com/a/1265696
@@ -129,12 +129,18 @@ class AbstractExecutor:
         excluded_resources = self.workflow.resource_scopes.excluded.union(
             {"_nodes", "_cores"}
         )
-        resources = [
-            f"{resource}={value}"
+        return {
+            resource: value
             for resource, value in job.resources.items()
             if isinstance(value, int)
             # need to check bool seperately because bool is a subclass of int
             and isdigit(value) and resource not in excluded_resources
+        }
+
+    def get_resource_declarations(self, job):
+        resources = [
+            f"{resource}={value}"
+            for resource, value in self.get_resource_declarations_dict(job)
         ]
         return format_cli_arg("--resources", resources)
 
