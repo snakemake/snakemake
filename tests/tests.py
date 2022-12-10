@@ -1136,6 +1136,10 @@ def test_group_job_resources_with_pipe(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
+
+    # revert to original version
+    RealExecutor.get_job_args = get_job_args
+
     assert_resources(
         dict(spy.spy_return),
         _nodes=1,
