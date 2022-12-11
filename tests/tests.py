@@ -1405,6 +1405,11 @@ def test_github_issue78():
 
 
 def test_envvars():
+    for var in ["TEST_ENV_VAR", "TEST_ENV_VAR2"]:
+        try:
+            del os.environ[var]
+        except KeyError:
+            pass
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
     os.environ["TEST_ENV_VAR2"] = "test"
