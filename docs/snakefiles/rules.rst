@@ -27,6 +27,7 @@ Inside the shell command, all local and global variables, especially input and o
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
+By default shell commands will be invoked with ``bash`` shell (unless the workflow specifies a different default shell via ``shell.executable(...)``).
 
 Instead of a shell command, a rule can run some python code to generate the output:
 
@@ -232,7 +233,7 @@ The multiext function
         shell:
             ...
 
-The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
 
 
@@ -398,14 +399,14 @@ Standard Resources
 There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
 All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
-* The ``tmpdir`` resource automatically leads to setting the TMPDIR variable for shell commands, scripts, wrappers and notebooks.
+* The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
 
-* The ``runtime`` resource indicates how much time a job needs to run, and has a special meaning for cluster and cloud compute jobs.
-  See :ref:`the section below<resources_remote_execution>` for more information
+* The ``runtime`` resource indicates how many **minutes** a job needs to run. Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
+  See :ref:`the section below <resources_remote_execution>` for more information.
 
 * ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
   :ref:`See below<resources_remote_execution>` for more info.
-  ``mem_mb`` also has special meaning for some execution modes (e.g., when using :ref:`Kubernetes <kubernetes>`).
+  They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
 
@@ -908,6 +909,124 @@ If your script uses any of these packages, you do not need to ``use`` them in yo
 .. _rust-script: https://rust-script.org/
 .. |json_typegen| replace:: ``json_typegen``
 .. _json_typegen: https://github.com/evestera/json_typegen
+
+
+Bash
+~~~~
+
+Bash scripts work much the same as the other script languages above, but with some important differences. Access to the
+rule's directives is provided through the use of `associative arrays <arrays_>`_ - **requiring Bash version 4.0 or greater**.
+One "limitation" of associative arrays is they cannot be nested. As such, the following rule directives are found in a separate
+variable, named as ``snakemake_<directive>``:
+
+* ``input``
+* ``output``
+* ``log``
+* ``wildcards``
+* ``resources``
+* ``params``
+* ``config``
+
+Access to the ``input`` directive is faciliated through the bash associative array named ``snakemake_input``. The
+remaining directives can be found in the variable ``snakemake``.
+
+.. sidebar:: Note
+
+    As arrays cannot be nested in Bash, use of python's ``dict`` in directives is not supported. So, adding a ``params`` key of ``data={"foo": "bar"}`` will not be reflected - ``${snakemake_params[data]}`` actually only returns ``"foo"``.
+
+Bash Example 1
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    rule align:
+        input:
+            "{sample}.fq",
+            reference="ref.fa",
+        output:
+            "{sample}.sam"
+        params:
+            opts="-a -x map-ont",
+        threads: 4
+        log:
+            "align/{sample}.log"
+        conda:
+            "envs/align.yaml"
+        script:
+            "scripts/align.sh"
+
+
+
+``align.sh``
+
+.. code-block:: bash
+
+    #!/usr/bin/env bash
+
+    echo "Aligning sample ${snakemake_wildcards[sample]} with minimap2" 2> "${snakemake_log[0]}"
+
+    minimap2 ${snakemake_params[opts]} -t ${snakemake[threads]} "${snakemake_input[reference]}" \
+        "${snakemake_input[0]}" > "${snakemake_output[0]}" 2>> "${snakemake_log[0]}"
+
+
+If you don't add a shebang, the default ``#!/usr/bin/env bash`` will be inserted for you. A tutorial on how to use
+associative arrays can be found `here <https://www.xmodulo.com/key-value-dictionary-bash.html>`_.
+
+You may also have noticed the mixed use of double-quotes when accessing some variables. It is generally good practice in
+Bash to double-quote variables for which you want to `prevent word splitting <split_>`_; generally, you will want to
+double-quote any variable that could contain a file name. However, `in some cases <exception_>`_, word splitting *is* desired,
+such as ``${snakemake_params[opts]}`` in the above example.
+
+Bash Example 2
+^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+    rule align:
+        input:
+            reads=["{sample}_R1.fq", "{sample}_R2.fq]"],
+            reference="ref.fa",
+        output:
+            "{sample}.sam"
+        params:
+            opts="-M",
+        threads: 4
+        log:
+            "align/{sample}.log"
+        conda:
+            "envs/align.yaml"
+        script:
+            "scripts/align.sh"
+
+
+In this example, the ``input`` variable ``reads``, which is a python list, actually gets stored as a space-separated string
+in Bash because, you guessed it, you can't nest arrays in Bash! So in order to access the individual members, we turn the
+string into an array; allowing us to access individual elements of the list/array. See `this stackoverflow question <so_>`_ for other solutions.
+
+``align.sh``
+
+.. code-block:: bash
+
+    #!/usr/bin/env bash
+
+    exec 2> "${snakemake_log[0]}"  # send all stderr from this script to the log file
+
+    reads=(${snakemake_input[reads]})  # don't double-quote this - we want word splitting
+
+    r1="${reads[0]}"
+    r2="${reads[1]}"
+
+    bwa index "${snakemake_input[reference]}"
+    bwa mem ${snakemake_params[opts]} -t ${snakemake[threads]} \
+        "${snakemake_input[reference]}" "$r1" "$r2" > "${snakemake_output[0]}"
+
+If, in the above example, the fastq reads were not in a named variable, but were instead just a list, they would be available
+as ``"${snakemake_input[0]}"`` and ``"${snakemake_input[1]}"``.
+
+.. _arrays: https://www.gnu.org/software/bash/manual/html_node/Arrays.html#Arrays
+.. _split: https://github.com/koalaman/shellcheck/wiki/SC2046
+.. _exception: https://github.com/koalaman/shellcheck/wiki/SC2046#exceptions
+.. _so: https://stackoverflow.com/q/1469849/5299417
 
 ----
 
@@ -1574,6 +1693,16 @@ For example
 would set the number of scatter items for the split process defined above to 2 instead of 8. 
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
+For more complex workflows it's possible to define multiple processes, for example:
+
+.. code-block:: python
+
+    scattergather:
+        split_a=8,
+        split_b=3,
+        
+The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
+
 .. _snakefiles-grouping:
 
 Defining groups for execution
@@ -2051,16 +2180,16 @@ This time, instead of explicitly writing
 
 .. code-block:: python
 
-  checkpoints.clustering.get(sample=wildcards.sample).output[0]
+  checkpoints.somestep.get(sample=wildcards.sample).output[0]
 
 we use the shorthand
 
 .. code-block:: python
 
-  checkpoints.clustering.get(**wildcards).output[0]
+  checkpoints.somestep.get(**wildcards).output[0]
 
 which automatically unpacks the wildcards as keyword arguments (this is standard python argument unpacking).
-If the checkpoint has not yet been executed, accessing ``checkpoints.clustering.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
+If the checkpoint has not yet been executed, accessing ``checkpoints.somestep.get(**wildcards)`` ensures that Snakemake records the checkpoint as a direct dependency of the rule ``aggregate``.
 Upon completion of the checkpoint, the input function is re-evaluated, and the code beyond its first line is executed.
 Here, we retrieve the values of the wildcard ``i`` based on all files named ``{i}.txt`` in the output directory of the checkpoint.
 Because the wildcard ``i`` is evaluated only after completion of the checkpoint, it is nescessay to use ``directory`` to declare its output, instead of using the full wildcard patterns as output.
@@ -2156,7 +2285,7 @@ Snakemake workflows can refer to various other source files via paths relative t
 This happens for example with the :ref:`script directive <snakefiles-external_scripts>` or the :ref:`conda directive <integrated_package_management>`.
 Sometimes, it is necessary to access further source files that are in a directory relative to the current Snakefile.
 Since workflows can be imported from remote locations (e.g. when using :ref:`modules <snakefiles-modules>`), it is important to not do this manually, so that Snakemake has the chance to cache these files locally before they are accessed.
-This can be achieved by accessing their path via the ``workflow.get_source``, which (a) computes the correct path relative to the current Snakefile such that the file can be accessed from any working directory, and (b) downloads remote files to a local cache:
+This can be achieved by accessing their path via the ``workflow.source_path``, which (a) computes the correct path relative to the current Snakefile such that the file can be accessed from any working directory, and (b) downloads remote files to a local cache:
 
 .. code-block:: python
 

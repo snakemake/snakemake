@@ -20,11 +20,13 @@ rule copy:
         "landsat-data.txt",
     resources:
         mem_mb=100,
+        disk_mb=301,
     run:
-        # we could test volume size like this but it is currently unclear what f1-micro instances provide as boot disk size
-        # stats = os.statvfs('.')
-        # volume_gib = stats.f_bsize * stats.f_blocks / 1.074e9
-        # assert volume_gib > 90
+        # Check whether there is enough storage attached
+        stats = os.statvfs(".")
+        volume_gb = stats.f_bsize * stats.f_blocks / 1.0e9
+        assert volume_gb >= 0.3, "Volume size is too small: {}GB".format(volume_gb)
+
         shell("cp {input} {output}")
 
 

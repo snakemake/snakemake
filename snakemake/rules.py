@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import re
 import types
+import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
@@ -397,12 +398,21 @@ class Rule:
     def output(self):
         return self._output
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
+        products = [self.output]
+        if include_logfiles:
+            products.append(self.log)
         if self.benchmark:
-            return chain(self.output, self.log, [self.benchmark])
-        else:
-            return chain(self.output, self.log)
+            products.append([self.benchmark])
+        return chain(*products)
+
+    def get_some_product(self):
+        for product in self.products():
+            return product
+        return None
+
+    def has_products(self):
+        return self.get_some_product() is not None
 
     def register_wildcards(self, wildcard_names):
         if self._wildcard_names is None:
@@ -711,8 +721,8 @@ class Rule:
 
         if missing_wildcards:
             raise RuleException(
-                "Could not resolve wildcards in rule {}:\n{}".format(
-                    self.name, "\n".join(self.wildcard_names)
+                "Could not resolve wildcards:\n{}".format(
+                    "\n".join(self.wildcard_names)
                 ),
                 lineno=self.lineno,
                 snakefile=self.snakefile,
@@ -1045,36 +1055,41 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(
+        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+    ):
         resources = dict()
 
         def apply(name, res, threads=None):
-            if callable(res):
-                aux = dict(rulename=self.name)
-                if threads is not None:
-                    aux["threads"] = threads
-                try:
-                    res, _ = self.apply_input_function(
-                        res,
-                        wildcards,
-                        input=input,
-                        attempt=attempt,
-                        incomplete_checkpoint_func=lambda e: 0,
-                        raw_exceptions=True,
-                        **aux,
+            if skip_evaluation is not None and name in skip_evaluation:
+                res = TBDString()
+            else:
+                if callable(res):
+                    aux = dict(rulename=self.name)
+                    if threads is not None:
+                        aux["threads"] = threads
+                    try:
+                        res, _ = self.apply_input_function(
+                            res,
+                            wildcards,
+                            input=input,
+                            attempt=attempt,
+                            incomplete_checkpoint_func=lambda e: 0,
+                            raw_exceptions=True,
+                            **aux,
+                        )
+                    except (Exception, BaseException) as e:
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+
+                if isinstance(res, float):
+                    # round to integer
+                    res = int(round(res))
+
+                if not isinstance(res, int) and not isinstance(res, str):
+                    raise WorkflowError(
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
+                        rule=self,
                     )
-                except (Exception, BaseException) as e:
-                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
-
-            if isinstance(res, float):
-                # round to integer
-                res = int(round(res))
-
-            if not isinstance(res, int) and not isinstance(res, str):
-                raise WorkflowError(
-                    f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
-                    rule=self,
-                )
 
             global_res = self.workflow.global_resources.get(name)
             if global_res is not None:
@@ -1156,7 +1171,7 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.products:
+            for o in self.products():
                 if o.match(requested_output):
                     return True
             return False
@@ -1171,20 +1186,51 @@ class Rule:
                 "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
             )
 
-    def get_wildcards(self, requested_output):
+    def get_wildcards(self, requested_output, wildcards_dict=None):
         """
-        Return wildcard dictionary by matching regular expression
-        output files to the requested concrete ones.
+        Return wildcard dictionary by
+        1. trying to format the output with the given wildcards and comparing with the requested output
+        2. matching regular expression output files to the requested concrete ones.
 
         Arguments
         requested_output -- a concrete filepath
         """
         if requested_output is None:
             return dict()
+
+        # first try to match the output with the given wildcards
+        if wildcards_dict is not None:
+            if self.wildcard_names <= wildcards_dict.keys():
+                wildcards_dict = {
+                    wildcard: value
+                    for wildcard, value in wildcards_dict.items()
+                    if wildcard in self.wildcard_names
+                }
+                for o in self.products():
+                    try:
+                        applied = o.apply_wildcards(wildcards_dict)
+                        # if the output formatted with the wildcards matches the requested output,
+                        if applied == requested_output:
+                            # we check whether the wildcards satisfy the constraints
+                            constraints = o.wildcard_constraints()
+
+                            def check_constraint(wildcard, value):
+                                constraint = constraints.get(wildcard)
+                                return constraint is None or constraint.match(value)
+
+                            if all(
+                                check_constraint(name, value)
+                                for name, value in wildcards_dict.items()
+                            ):
+                                # and then just return the given wildcards_dict limited to the wildcards that are actually used
+                                return wildcards_dict
+                    except WildcardError:
+                        continue
+
         bestmatchlen = 0
         bestmatch = None
 
-        for o in self.products:
+        for o in self.products():
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
@@ -1219,7 +1265,10 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.output == other.output
+        if isinstance(other, Rule):
+            return self.name == other.name and self.output == other.output
+        else:
+            return False
 
 
 class Ruleorder:

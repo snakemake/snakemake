@@ -28,10 +28,10 @@ def get_packages():
                 url="https://cdn.tailwindcss.com/3.0.23?plugins=forms@0.4.0,typography@0.5.2",
             ),
             "react": Package(
-                version="17",
+                version="18",
                 license_url="https://raw.githubusercontent.com/facebook/react/main/LICENSE",
-                main="https://unpkg.com/react@17/umd/react.development.js",
-                dom="https://unpkg.com/react-dom@17/umd/react-dom.development.js",
+                main="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js",
+                dom="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js",
             ),
             "vega": Package(
                 version="5.21",

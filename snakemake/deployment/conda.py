@@ -130,7 +130,7 @@ class Env:
             content = shell.check_output(
                 "conda env export {}".format(self.address_argument),
                 stderr=subprocess.STDOUT,
-                universal_newlines=True,
+                text=True,
             )
             return content.encode()
         else:
@@ -239,13 +239,16 @@ class Env:
             hash_candidates = [
                 hash[:8],
                 hash,
+                hash
+                + "_",  # activate no-shortcuts behavior (so that no admin rights are needed on win)
             ]  # [0] is the old fallback hash (shortened)
             exists = [os.path.exists(get_path(h)) for h in hash_candidates]
-            if self.is_containerized or exists[1] or (not exists[0]):
-                # containerizes, full hash exists or fallback hash does not exist: use full hash
+            if self.is_containerized:
                 return get_path(hash_candidates[1])
-            # use fallback hash
-            return get_path(hash_candidates[0])
+            for candidate, candidate_exists in zip(hash_candidates, exists):
+                if candidate_exists or candidate == hash_candidates[-1]:
+                    # exists or it is the last (i.e. the desired one)
+                    return get_path(candidate)
 
     @property
     def address_argument(self):
@@ -292,7 +295,7 @@ class Env:
                 out = shell.check_output(
                     "conda list --explicit {}".format(self.address_argument),
                     stderr=subprocess.STDOUT,
-                    universal_newlines=True,
+                    text=True,
                 )
                 logger.debug(out)
             except subprocess.CalledProcessError as e:
@@ -347,9 +350,18 @@ class Env:
                 os.path.relpath(path=deploy_file, start=os.getcwd())
             )
         )
+
+        # Determine interpreter from shebang or use sh as default.
+        interpreter = "sh"
+        with open(deploy_file, "r") as f:
+            first_line = next(iter(f))
+            if first_line.startswith("#!"):
+                interpreter = first_line[2:].strip()
+
         shell.check_output(
-            self.conda.shellcmd(self.address, "sh {}".format(deploy_file)),
+            self.conda.shellcmd(self.address, f"{interpreter} {deploy_file}"),
             stderr=subprocess.STDOUT,
+            text=True,
         )
 
     def create(self, dryrun=False):
@@ -406,13 +418,14 @@ class Env:
                             quiet=True,
                         ),
                         stderr=subprocess.PIPE,
+                        text=True,
                     )
                 except subprocess.CalledProcessError as e:
                     raise WorkflowError(
                         "Unable to find environment in container image. "
                         "Maybe a conda environment was modified without containerizing again "
                         "(see snakemake --containerize)?\nDetails:\n{}\n{}".format(
-                            e, e.stderr.decode()
+                            e, e.stderr
                         )
                     )
                 return env_path
@@ -479,6 +492,7 @@ class Env:
                             "conda",
                             "create",
                             "--quiet",
+                            "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
                             "--prefix '{}'".format(env_path),
                         ]
@@ -491,9 +505,7 @@ class Env:
                             args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                         )
-                    out = shell.check_output(
-                        cmd, stderr=subprocess.STDOUT, universal_newlines=True
-                    )
+                    out = shell.check_output(cmd, stderr=subprocess.STDOUT, text=True)
                 else:
 
                     def create_env(env_file, filetype="yaml"):
@@ -538,18 +550,20 @@ class Env:
                                 envvars=self.get_singularity_envvars(),
                             )
                         out = shell.check_output(
-                            cmd, stderr=subprocess.STDOUT, universal_newlines=True
+                            cmd, stderr=subprocess.STDOUT, text=True
                         )
 
                         # cleanup if requested
                         if self._cleanup is CondaCleanupMode.tarballs:
                             logger.info("Cleaning up conda package tarballs.")
-                            shell.check_output("conda clean -y --tarballs")
+                            shell.check_output("conda clean -y --tarballs", text=True)
                         elif self._cleanup is CondaCleanupMode.cache:
                             logger.info(
                                 "Cleaning up conda package tarballs and package cache."
                             )
-                            shell.check_output("conda clean -y --tarballs --packages")
+                            shell.check_output(
+                                "conda clean -y --tarballs --packages", text=True
+                            )
                         return out
 
                     if pin_file is not None:
@@ -650,10 +664,7 @@ class Conda:
             self.frontend = frontend
 
             self.info = json.loads(
-                shell.check_output(
-                    self._get_cmd(f"conda info --json"),
-                    universal_newlines=True,
-                )
+                shell.check_output(self._get_cmd(f"conda info --json"), text=True)
             )
 
             if prefix_path is None or container_img is not None:
@@ -694,7 +705,9 @@ class Conda:
                 locate_cmd = f"where {frontend}"
 
             try:
-                shell.check_output(self._get_cmd(locate_cmd), stderr=subprocess.STDOUT)
+                shell.check_output(
+                    self._get_cmd(locate_cmd), stderr=subprocess.STDOUT, text=True
+                )
             except subprocess.CalledProcessError as e:
                 if self.container_img:
                     msg = (
@@ -729,7 +742,7 @@ class Conda:
                         "It is the recommended way of using Snakemake's conda integration. "
                         "It can be installed with `conda install -n base -c conda-forge mamba`. "
                         "If you still prefer to use conda, you can enforce that by setting "
-                        "`--conda-frontend conda`.",
+                        "`--conda-frontend conda`."
                     )
                 raise CreateCondaEnvironmentException(msg)
 
@@ -745,9 +758,7 @@ class Conda:
         from snakemake.shell import shell
 
         version = shell.check_output(
-            self._get_cmd("conda --version"),
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
+            self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
         )
         version_matches = re.findall("\d+.\d+.\d+", version)
         if len(version_matches) != 1:
@@ -771,7 +782,7 @@ class Conda:
         res = json.loads(
             shell.check_output(
                 self._get_cmd("conda config --get channel_priority --json"),
-                universal_newlines=True,
+                text=True,
                 stderr=subprocess.PIPE,
             )
         )

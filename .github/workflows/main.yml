@@ -16,15 +16,15 @@ jobs:
         with:
           workflows: "main.yml"
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
   formatting:
     permissions:
-      contents: read  # for actions/checkout to fetch code
-      pull-requests: write  # for marocchino/sticky-pull-request-comment to create or update PR comment
+      contents: read # for actions/checkout to fetch code
+      pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
 
       - name: Setup black environment
         run: |
@@ -38,9 +38,9 @@ jobs:
 
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.2.0
+        uses: marocchino/sticky-pull-request-comment@v2.3.0
         with:
-          message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
+          message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   testing:
@@ -50,7 +50,7 @@ jobs:
       AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
       GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # we need tags for versioneer to work
 
@@ -66,11 +66,11 @@ jobs:
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1: cannot open shared object file: No such file or directory
           mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
-      
+
       - name: Setup apt dependencies
         run: |
           sudo apt install -y stress git wget
-        
+
       - name: Setup iRODS
         run: |
           docker build -t irods-server tests/test_remote_irods
@@ -95,35 +95,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
-      ###### slurm setup #####
-      
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm
-
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              vars:
-                slurm_roles: ['controller', 'exec']
-              roles:
-                - role: galaxyproject.slurm
-                  become: true
-
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-
-      - name: Test slurm submission
-        run: |
-          srun echo "hello world"
-      
-      ###### finalized slurm setup #####
 
       - name: Run tests
         env:
@@ -133,7 +104,7 @@ jobs:
           # activate conda env
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
-          
+
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
 
       - name: Build and publish docker image
@@ -144,7 +115,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
           tags: ${{ env.GITHUB_SHA }}
-      
+
       - name: Set container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: |
@@ -174,7 +145,7 @@ jobs:
       # TODO temporarily deactivate and fix in separate PR.
       - name: Test Tibanna (AWS) execution
         if: env.AWS_AVAILABLE
-        env: 
+        env:
           CI: true
         run: |
           # activate conda env
@@ -189,7 +160,7 @@ jobs:
           export PATH="/usr/share/miniconda/bin:$PATH"
           source activate snakemake
           pytest -s -v -x tests/test_tes.py
-        
+
       - name: Delete container image
         if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
         run: |
@@ -202,13 +173,12 @@ jobs:
         if: "!contains(github.event.pull_request.labels.*.name, 'update-container-image')"
         run: docker build .
 
-
   testing-windows:
     runs-on: windows-latest
     needs: formatting
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -216,7 +186,7 @@ jobs:
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules", "cwltool"]
+          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)

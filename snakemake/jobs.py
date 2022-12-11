@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import enum
 import os
 import sys
@@ -26,6 +27,7 @@ from snakemake.io import (
     wait_for_files,
 )
 from snakemake.resources import GroupResources
+from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
@@ -82,6 +84,17 @@ class AbstractJob:
 
     def reset_params_and_resources(self):
         raise NotImplementedError()
+
+    def get_target_spec(self):
+        raise NotImplementedError()
+
+    def products(self):
+        raise NotImplementedError()
+
+    def has_products(self):
+        for o in self.products():
+            return True
+        return False
 
 
 def _get_scheduler_resources(job):
@@ -308,6 +321,9 @@ class Job(AbstractJob):
                         yield f
         # TODO also handle remote file case here.
 
+    def get_target_spec(self):
+        return [TargetSpec(self.rule.name, self.wildcards_dict)]
+
     @property
     def threads(self):
         return self.resources._cores
@@ -360,8 +376,16 @@ class Job(AbstractJob):
     @property
     def resources(self):
         if self._resources is None:
+            if self.dag.workflow.run_local or self.is_local:
+                skip_evaluation = None
+            else:
+                # tmpdir should be evaluated in the context of the actual execution
+                skip_evaluation = {"tmpdir"}
             self._resources = self.rule.expand_resources(
-                self.wildcards_dict, self.input, self.attempt
+                self.wildcards_dict,
+                self.input,
+                self.attempt,
+                skip_evaluation=skip_evaluation,
             )
         return self._resources
 
@@ -938,13 +962,11 @@ class Job(AbstractJob):
         _variables.update(variables)
         try:
             return format(string, **_variables)
-        except NameError as ex:
-            raise RuleException("NameError: " + str(ex), rule=self.rule)
-        except IndexError as ex:
-            raise RuleException("IndexError: " + str(ex), rule=self.rule)
         except Exception as ex:
-            raise WorkflowError(
-                f"Error when formatting '{string}' for rule {self.rule.name}. {ex}"
+            raise RuleException(
+                f"{ex.__class__.__name__}: {ex}, when formatting the following:\n"
+                + string,
+                rule=self.rule,
             )
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
@@ -1035,6 +1057,7 @@ class Job(AbstractJob):
         logger.job_error(
             name=self.rule.name,
             jobid=self.dag.jobid(self),
+            input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
             log=list(self.log),
             conda_env=self.conda_env.address if self.conda_env else None,
@@ -1133,16 +1156,13 @@ class Job(AbstractJob):
     def priority(self):
         return self.dag.priority(self)
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         products = list(self.output)
         if self.benchmark:
             products.append(self.benchmark)
-        products.extend(self.log)
+        if include_logfiles:
+            products.extend(self.log)
         return products
-
-    def get_targets(self):
-        return [self.targetfile or self.rule.name]
 
     @property
     def is_branched(self):
@@ -1247,7 +1267,7 @@ class GroupJob(AbstractJob):
     @property
     def all_products(self):
         if self._all_products is None:
-            self._all_products = set(f for job in self.jobs for f in job.products)
+            self._all_products = set(f for job in self.jobs for f in job.products())
         return self._all_products
 
     @property
@@ -1357,10 +1377,14 @@ class GroupJob(AbstractJob):
             self._log = [f for job in self.jobs for f in job.log]
         return self._log
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         all_input = set(f for job in self.jobs for f in job.input)
-        return [f for job in self.jobs for f in job.products if f not in all_input]
+        return [
+            f
+            for job in self.jobs
+            for f in job.products(include_logfiles=include_logfiles)
+            if f not in all_input
+        ]
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
@@ -1439,8 +1463,19 @@ class GroupJob(AbstractJob):
     def is_local(self):
         return all(job.is_local for job in self.jobs)
 
+    def merged_wildcards(self):
+        jobs = iter(self.jobs)
+        merged_wildcards = Wildcards(toclone=next(jobs).wildcards)
+        for job in jobs:
+            for name, value in job.wildcards.items():
+                if name not in merged_wildcards.keys():
+                    merged_wildcards.append(value)
+                    merged_wildcards._add_name(name)
+        return merged_wildcards
+
     def format_wildcards(self, string, **variables):
         """Format a string with variables from the job."""
+
         _variables = dict()
         _variables.update(self.dag.workflow.globals)
         _variables.update(
@@ -1448,6 +1483,7 @@ class GroupJob(AbstractJob):
                 input=self.input,
                 output=self.output,
                 threads=self.threads,
+                wildcards=self.merged_wildcards(),
                 jobid=self.jobid,
                 name=self.name,
                 rule="GROUP",
@@ -1475,11 +1511,8 @@ class GroupJob(AbstractJob):
     def threads(self):
         return self.resources["_cores"]
 
-    def get_targets(self):
-        # jobs without output are targeted by rule name
-        targets = [job.rule.name for job in self.jobs if not job.products]
-        targets.extend(self.products)
-        return targets
+    def get_target_spec(self):
+        return [TargetSpec(job.rule.name, job.wildcards_dict) for job in self.jobs]
 
     @property
     def attempt(self):
