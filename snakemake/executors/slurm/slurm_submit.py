@@ -271,6 +271,7 @@ class SlurmExecutor(ClusterExecutor):
         for i in range(STATUS_ATTEMPTS):
             # use self.status_rate_limiter to avoid too many API calls.
             async with self.status_rate_limiter:
+                sacct_error = None
                 try:
                     sacct_cmd = f"sacct -P -b -j {jobid} -n"
                     sacct_res = subprocess.check_output(
@@ -283,7 +284,8 @@ class SlurmExecutor(ClusterExecutor):
                     }
                     break
                 except subprocess.CalledProcessError as e:
-                    logger.warning(f"Error getting job status:\n{e.stderr}")
+                    sacct_error = e.stderr
+                    pass # try scontrol below
                 except IndexError as e:
                     pass
                 # Try getting job with scontrol instead in case sacct is misconfigured
@@ -301,7 +303,7 @@ class SlurmExecutor(ClusterExecutor):
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
-                        logger.error(f"Error getting job status:\n{e.stderr}")
+                        logger.error(f"Error getting job status:\n    sacct error: {sacct_error}\n    scontrol error: {e.stderr}")
 
                 if i >= STATUS_ATTEMPTS - 1:
                     raise WorkflowError("Unable to query job status for 10 times")
