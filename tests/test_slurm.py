@@ -19,7 +19,9 @@ def test_slurm_mpi():
         slurm=True,
         show_failed_logs=True,
         use_conda=True,
-        default_resources=DefaultResources(["slurm_account=runner", "slurm_partition=debug"]),
+        default_resources=DefaultResources(
+            ["slurm_account=runner", "slurm_partition=debug"]
+        ),
     )
 
 

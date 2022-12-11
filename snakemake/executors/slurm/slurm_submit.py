@@ -174,7 +174,9 @@ class SlurmExecutor(ClusterExecutor):
                     logger.warning(
                         "Unable to guess SLURM account. Trying to proceed without."
                     )
-                    self._fallback_account_arg = ""  # no account specific args for sbatch
+                    self._fallback_account_arg = (
+                        ""  # no account specific args for sbatch
+                    )
             return self._fallback_account_arg
 
     def get_partition_arg(self, job):
@@ -294,7 +296,7 @@ class SlurmExecutor(ClusterExecutor):
                     break
                 except subprocess.CalledProcessError as e:
                     sacct_error = e.stderr
-                    pass # try scontrol below
+                    pass  # try scontrol below
                 except IndexError as e:
                     pass
                 # Try getting job with scontrol instead in case sacct is misconfigured
@@ -312,7 +314,9 @@ class SlurmExecutor(ClusterExecutor):
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
-                        logger.error(f"Error getting job status:\n    sacct error: {sacct_error}\n    scontrol error: {e.stderr}")
+                        logger.error(
+                            f"Error getting job status:\n    sacct error: {sacct_error}\n    scontrol error: {e.stderr}"
+                        )
 
                 if i >= STATUS_ATTEMPTS - 1:
                     raise WorkflowError("Unable to query job status for 10 times")
