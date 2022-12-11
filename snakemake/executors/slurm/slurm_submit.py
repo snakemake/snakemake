@@ -64,7 +64,7 @@ def test_account(account):
         )
 
 
-def check_default_partition(job):
+def get_default_partition(job):
     """
     if no partition is given, checks whether a fallback onto a default partition is possible
     """
@@ -86,6 +86,7 @@ def check_default_partition(job):
         " Trying to submit without partition information."
         " You may want to invoke snakemake with --default-resources 'slurm_partition=<your default partition>'."
     )
+    return ""
 
 
 class SlurmExecutor(ClusterExecutor):
@@ -120,6 +121,8 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
+        self._fallback_account_arg = None
+        self._fallback_partition = None
 
     def additional_general_args(self):
         # we need to set -j to 1 here, because the behaviour
@@ -149,7 +152,7 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning(f"Unable to cancel job {jobid} within a minute.")
         self.shutdown()
 
-    def set_account(self, job):
+    def get_account_arg(self, job):
         """
         checks whether the desired account is valid,
         returns a default account, if applicable
@@ -161,18 +164,20 @@ class SlurmExecutor(ClusterExecutor):
             test_account(job.resources.slurm_account)
             return f" -A {job.resources.slurm_account}"
         else:
-            logger.warning("No SLURM account given, trying to guess.")
-            account = get_account()
-            if account:
-                logger.warning(f"Guessed SLURM account: {account}")
-                return f" -A {account}"
-            else:
-                logger.warning(
-                    "Unable to guess SLURM account. Trying to proceed without."
-                )
-                return ""  # no account specific args for sbatch
+            if self._fallback_account_arg is None:
+                logger.warning("No SLURM account given, trying to guess.")
+                account = get_account()
+                if account:
+                    logger.warning(f"Guessed SLURM account: {account}")
+                    self._fallback_account_arg = f" -A {account}"
+                else:
+                    logger.warning(
+                        "Unable to guess SLURM account. Trying to proceed without."
+                    )
+                    self._fallback_account_arg = ""  # no account specific args for sbatch
+            return self._fallback_account_arg
 
-    def set_partition(self, job):
+    def get_partition_arg(self, job):
         """
         checks whether the desired partition is valid,
         returns a default partition, if applicable
@@ -181,8 +186,13 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("slurm_partition"):
             partition = job.resources.slurm_partition
         else:
-            partition = check_default_partition(job)
-        return f" -p {partition}"
+            if self._fallback_partition is None:
+                self._fallback_partition = get_default_partition(job)
+            partition = self._fallback_partition
+        if partition:
+            return f" -p {partition}"
+        else:
+            return ""
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -194,9 +204,8 @@ class SlurmExecutor(ClusterExecutor):
         # generic part of a submission string:
         call = f"sbatch -J {self.get_jobname(job)} -o {slurm_logfile} --export=ALL"
 
-        account = self.set_account(job)
-        call += account
-        call += self.set_partition(job)
+        call += self.get_account_arg(job)
+        call += self.get_partition_arg(job)
 
         if job.resources.get("runtime"):
             call += f" -t {job.resources.runtime}"
