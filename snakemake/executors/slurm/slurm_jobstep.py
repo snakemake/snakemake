@@ -22,7 +22,6 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self,
         workflow,
         dag,
-        jobname=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -113,9 +112,11 @@ class SlurmJobstepExecutor(ClusterExecutor):
             call = self.format_job_exec(job)
         else:
             # SMP job, execute snakemake with srun, to ensure proper placing of threaded executables within the c-group
-            call = f"srun --cpu-bind=q {self.format_job_exec(job)}"
+            # The -n1 is important to avoid that srun executes the given command multiple times, depending on the relation between
+            # cpus per task and the number of CPU cores.
+            call = f"srun -n1 --cpu-bind=q {self.format_job_exec(job)}"
 
-        # this dict is to support the to-implemented feature of oversubscription in "ordinary" group jobs.
+        # this dict is to support the to be implemented feature of oversubscription in "ordinary" group jobs.
         jobsteps[job] = subprocess.Popen(call, shell=True)
 
         # wait until all steps are finished

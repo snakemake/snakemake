@@ -200,7 +200,7 @@ class SlurmExecutor(ClusterExecutor):
         super()._run(job)
         jobid = job.jobid
 
-        slurm_logfile = job.logfile_suggestion(prefix=".snakemake/slurm_logs")
+        slurm_logfile = f".snakemake/slurm_logs/{job.rule.name}/%j.log"
         os.makedirs(os.path.dirname(slurm_logfile), exist_ok=True)
 
         # generic part of a submission string:
@@ -265,11 +265,13 @@ class SlurmExecutor(ClusterExecutor):
                 f"SLURM job submission failed. The error message was {e.output}"
             )
 
-        jobid = out.split(" ")[-1]
-        jobname = self.get_jobname(job)
-        logger.debug(f"Job {jobid} '{jobname}' has been submitted")
+        slurm_jobid = out.split(" ")[-1]
+        slurm_logfile = slurm_logfile.replace("%j", slurm_jobid)
+        logger.info(
+            f"Job {jobid} has been submitted with SLURM jobid {slurm_jobid} (log: {slurm_logfile})"
+        )
         self.active_jobs.append(
-            SlurmJob(job, jobid, callback, error_callback, slurm_logfile)
+            SlurmJob(job, slurm_jobid, callback, error_callback, slurm_logfile)
         )
 
     async def job_status(self, jobid: int):
