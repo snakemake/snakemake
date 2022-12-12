@@ -2558,8 +2558,9 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile:
-        # reparse args while inferring config file from profile
+    if args.profile and args.mode == Mode.default:
+        # Reparse args while inferring config file from profile.
+        # But only do this if the user has invoked Snakemake (Mode.default)
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
 
