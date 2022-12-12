@@ -1079,6 +1079,8 @@ class Workflow:
                 )
                 logger.info("")
 
+        has_checkpoint_jobs = any(dag.checkpoint_jobs)
+
         try:
             success = self.scheduler.schedule()
         except Exception as e:
@@ -1100,7 +1102,12 @@ class Workflow:
                     "This was a dry-run (flag -n). The order of jobs "
                     "does not reflect the order of execution."
                 )
-                logger.remove_logfile()
+                if has_checkpoint_jobs:
+                    logger.info(
+                        "The run involves checkpoint jobs, "
+                        "which will result in alteration of the DAG of "
+                        "jobs (e.g. adding more jobs) after their completion."
+                    )
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
