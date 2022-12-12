@@ -504,6 +504,7 @@ def snakemake(
             use_threads=use_threads,
             mode=mode,
             show_failed_logs=show_failed_logs,
+            dryrun=dryrun,
         )
 
     if greediness is None:
