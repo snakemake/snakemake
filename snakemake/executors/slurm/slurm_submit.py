@@ -200,7 +200,9 @@ class SlurmExecutor(ClusterExecutor):
         super()._run(job)
         jobid = job.jobid
 
-        slurm_logfile = f".snakemake/slurm_logs/{job.rule.name}/%j.log"
+        log_folder = f"group_{job.name}" if job.is_group() else f"rule_{job.name}"
+
+        slurm_logfile = f".snakemake/slurm_logs/{log_folder}/%j.log"
         os.makedirs(os.path.dirname(slurm_logfile), exist_ok=True)
 
         # generic part of a submission string:
