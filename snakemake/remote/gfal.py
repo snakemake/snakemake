@@ -41,7 +41,7 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
     allows_directories = True
     if gfal_python:
-        self.gfalcntx = gfal2.creat_context()
+        gfalcntx = gfal2.creat_context()
 
     def __init__(
         self,
