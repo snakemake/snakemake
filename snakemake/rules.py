@@ -1090,7 +1090,7 @@ class Rule:
                 if (
                     not isinstance(res, int)
                     and not isinstance(res, str)
-                    and not res is None
+                    and res is not None
                 ):
                     raise WorkflowError(
                         f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
