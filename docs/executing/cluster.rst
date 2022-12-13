@@ -44,6 +44,7 @@ Most jobs will be carried out by programs which are either single core scripts o
 in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM:
 
 .. code-block:: python
+
   rule a:
       input: ...
       output: ...
@@ -113,6 +114,7 @@ We can use the following specifications, unique per rule:
 Each of these can be part of a rule, e.g.:
 
 .. code-block:: python
+
   rule:
       input: ...
       output: ...
@@ -131,6 +133,7 @@ In addition, there are various ``sbatch`` options not directly supported via the
 You may use the ``slurm_extra`` resource to specify additional flags to ``sbatch``:
 
 .. code-block:: python
+
   rule:
       input: ...
       output: ...
