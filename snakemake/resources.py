@@ -84,6 +84,10 @@ class DefaultResources:
 
             self.parsed = dict(_cores=1, _nodes=1)
             self.parsed.update(parse_resources(self._args, fallback=fallback))
+            # remove resources where None has been assigned
+            for name, value in list(self.parsed.items()):
+                if value is None:
+                    del self.parsed[name]
 
     def set_resource(self, name, value):
         self._args[name] = "{}".format(value)
