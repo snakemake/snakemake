@@ -6,6 +6,7 @@ Cluster Execution
 
 Snakemake can make use of cluster engines that support shell scripts and have access to a common filesystem, (e.g. Slurm or PBS).
 There exists a generic cluster support which works with any such engine (see :ref:`cluster-generic`), and a specific support for Slurm (see :ref:`cluster-slurm`).
+When executing on a cluster, Snakemake implicitly assumes some default resources for all rules (see :ref:`default-resources`).
 
 .. _cluster-slurm:
 

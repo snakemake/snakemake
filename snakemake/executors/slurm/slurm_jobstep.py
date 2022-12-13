@@ -1,5 +1,6 @@
 import os
 import subprocess
+from snakemake.common.tbdstring import TBDString
 
 from snakemake.jobs import Job
 from snakemake.logging import logger
@@ -63,45 +64,42 @@ class SlurmJobstepExecutor(ClusterExecutor):
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         jobsteps = dict()
 
-        if job.is_group():
+        # TODO revisit special handling for group job levels via srun at a later stage
+        # if job.is_group():
 
-            def get_call(level_job, aux=""):
-                # we need this calculation, because of srun's greediness and
-                # SLURM's limits: it is not able to limit the memory if we divide the job
-                # per CPU by itself.
+        #     def get_call(level_job, aux=""):
+        #         # we need this calculation, because of srun's greediness and
+        #         # SLURM's limits: it is not able to limit the memory if we divide the job
+        #         # per CPU by itself.
 
-                # check whether level_job.resources.mem_mb is TBD
-                # TODO: This '100' merits an explanation, does it not?
-                level_mem = (
-                    100
-                    if level_job.resources.mem_mb != type(int)
-                    else level_job.resources.mem_mb
-                )
+        #         level_mem = level_job.resources.get("mem_mb")
+        #         if isinstance(level_mem, TBDString):
+        #             level_mem = 100
 
-                mem_per_cpu = max(level_mem // level_job.threads, 100)
-                exec_job = self.format_job_exec(level_job)
+        #         mem_per_cpu = max(level_mem // level_job.threads, 100)
+        #         exec_job = self.format_job_exec(level_job)
 
-                # Note: The '--exlusive' flag is a prevention for triggered job steps within an allocation
-                #       to oversubscribe within a given c-group. As we are dealing only with smp software
-                #       the '--ntasks' is explicitly set to 1 by '-n1' per group job(step).
-                return (
-                    f"srun -J {job.groupid} --jobid {self.jobid}"
-                    f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
-                    f" --exclusive -n 1 {aux} {exec_job}"
-                )
+        #         # Note: The '--exlusive' flag is a prevention for triggered job steps within an allocation
+        #         #       to oversubscribe within a given c-group. As we are dealing only with smp software
+        #         #       the '--ntasks' is explicitly set to 1 by '-n1' per group job(step).
+        #         return (
+        #             f"srun -J {job.groupid} --jobid {self.jobid}"
+        #             f" --mem-per-cpu {mem_per_cpu} -c {level_job.threads}"
+        #             f" --exclusive -n 1 {aux} {exec_job}"
+        #         )
 
-            for level in list(job.toposorted):
-                # we need to ensure order - any:
-                level_list = list(level)
-                for level_job in level_list[:-1]:
-                    jobsteps[level_job] = subprocess.Popen(
-                        get_call(level_job), shell=True
-                    )
-                # now: the last one
-                # this way, we ensure that level jobs depending on the current level get started
-                jobsteps[level_list[-1]] = subprocess.Popen(
-                    get_call(level_list[-1], aux="--dependency=singleton"), shell=True
-                )
+        #     for level in list(job.toposorted):
+        #         # we need to ensure order - any:
+        #         level_list = list(level)
+        #         for level_job in level_list[:-1]:
+        #             jobsteps[level_job] = subprocess.Popen(
+        #                 get_call(level_job), shell=True
+        #             )
+        #         # now: the last one
+        #         # this way, we ensure that level jobs depending on the current level get started
+        #         jobsteps[level_list[-1]] = subprocess.Popen(
+        #             get_call(level_list[-1], aux="--dependency=singleton"), shell=True
+        #         )
 
         if "mpi" in job.resources.keys():
             # MPI job:
