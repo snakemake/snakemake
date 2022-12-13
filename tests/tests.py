@@ -1438,6 +1438,9 @@ def test_github_issue988():
     run(dpath("test_github_issue988"))
 
 
+@pytest.mark.skip(
+    reason="ftp connections currently fail in github actions (TODO try again in the future)"
+)
 def test_github_issue1062():
     # old code failed in dry run
     run(dpath("test_github_issue1062"), dryrun=True)
