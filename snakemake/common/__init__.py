@@ -3,11 +3,15 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
+import concurrent.futures
+import contextlib
 from functools import update_wrapper
 import itertools
+import math
 import platform
 import hashlib
 import inspect
+import threading
 import uuid
 import os
 import asyncio
@@ -31,6 +35,28 @@ NOTHING_TO_BE_DONE_MSG = (
 )
 
 ON_WINDOWS = platform.system() == "Windows"
+
+
+def mb_to_mib(mb):
+    return int(math.ceil(mb * 0.95367431640625))
+
+
+def parse_key_value_arg(arg, errmsg):
+    try:
+        key, val = arg.split("=", 1)
+    except ValueError:
+        raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
+    return key, val
+
+
+def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
+    items = []
+    for key, value in some_dict.items():
+        encoded = (
+            "'{}'".format(value) if quote_str and isinstance(value, str) else value
+        )
+        items.append("{}={}".format(key, encoded))
+    return items
 
 
 def async_run(coroutine):
@@ -250,3 +276,22 @@ def get_input_function_aux_params(func, candidate_params):
     func_params = get_function_params(func)
 
     return {k: v for k, v in candidate_params.items() if k in func_params}
+
+
+_pool = concurrent.futures.ThreadPoolExecutor()
+
+
+@contextlib.asynccontextmanager
+async def async_lock(_lock: threading.Lock):
+    """Use a threaded lock form threading.Lock in an async context
+
+    Necessary because asycio.Lock is not threadsafe, so only one thread can safely use
+    it at a time.
+    Source: https://stackoverflow.com/a/63425191
+    """
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(_pool, _lock.acquire)
+    try:
+        yield  # the lock is held
+    finally:
+        _lock.release()

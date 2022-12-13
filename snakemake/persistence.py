@@ -33,6 +33,7 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
+        self._max_len = None
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
             os.mkdir(self.path)
@@ -458,7 +459,7 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
-        os.rename(tmpfile.name, recpath)
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
@@ -514,9 +515,14 @@ class Persistence:
                     print(*files, sep="\n", file=lock)
                 return
 
+    def _fetch_max_len(self, subject):
+        if self._max_len is None:
+            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
+        return self._max_len
+
     def _record_path(self, subject, id):
         max_len = (
-            os.pathconf(subject, "PC_NAME_MAX") if os.name == "posix" else 255
+            self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
         if max_len == 0:
             max_len = 255

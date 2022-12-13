@@ -233,7 +233,7 @@ The multiext function
         shell:
             ...
 
-The effect is the same as if you would write ``expand("some/plot.{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
+The effect is the same as if you would write ``expand("some/plot{ext}", ext=[".pdf", ".svg", ".png"])``, however, using a simpler syntax.
 Moreover, defining output with ``multiext`` is the only way to use :ref:`between workflow caching <caching>` for rules with multiple output files.
 
 
@@ -2377,3 +2377,48 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - ?config["threshold"]
 
 Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+
+.. _snakefiles_mpi_support:
+
+MPI support
+-----------
+
+Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an invidual compute node's boundary.
+The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+Thereby, additional parameters may be passed to the MPI-starter, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec -arch x86",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`):
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
+
+Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
+So far, explicit MPI support is implemented in the :ref:`SLURM backend <cluster-slurm>`.

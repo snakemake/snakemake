@@ -36,7 +36,7 @@ jobs:
 
       - name: Publish to PyPI
         if: ${{ steps.release.outputs.release_created }}
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.PYPI_TOKEN }}

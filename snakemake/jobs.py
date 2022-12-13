@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import abstractmethod
 import enum
 import os
 import sys
@@ -15,6 +16,7 @@ import copy
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
+from typing import Optional
 
 from snakemake.io import (
     IOFile,
@@ -26,6 +28,7 @@ from snakemake.io import (
     wait_for_files,
 )
 from snakemake.resources import GroupResources
+from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format, listfiles
 from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
 
@@ -62,6 +65,9 @@ def jobfiles(jobs, type):
 
 
 class AbstractJob:
+    def logfile_suggestion(self, prefix: str) -> str:
+        raise NotImplementedError()
+
     def is_group(self):
         raise NotImplementedError()
 
@@ -82,6 +88,17 @@ class AbstractJob:
 
     def reset_params_and_resources(self):
         raise NotImplementedError()
+
+    def get_target_spec(self):
+        raise NotImplementedError()
+
+    def products(self):
+        raise NotImplementedError()
+
+    def has_products(self):
+        for o in self.products():
+            return True
+        return False
 
 
 def _get_scheduler_resources(job):
@@ -266,6 +283,21 @@ class Job(AbstractJob):
                         )
                 self.subworkflow_input[f] = sub
 
+    def logfile_suggestion(self, prefix: str) -> str:
+        """Return a suggestion for the log file name given a prefix."""
+        return (
+            "/".join(
+                [prefix, self.rule.name]
+                + [
+                    f"{w}_{v}"
+                    for w, v in sorted(
+                        self.wildcards_dict.items(), key=lambda item: item[0]
+                    )
+                ]
+            )
+            + ".log"
+        )
+
     def updated(self):
         group = self.dag.get_job_group(self)
         groupid = None
@@ -307,6 +339,9 @@ class Job(AbstractJob):
                     if not f.is_newer(script_mtime):
                         yield f
         # TODO also handle remote file case here.
+
+    def get_target_spec(self):
+        return [TargetSpec(self.rule.name, self.wildcards_dict)]
 
     @property
     def threads(self):
@@ -1037,19 +1072,27 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def log_error(self, msg=None, indent=False, **kwargs):
-        logger.job_error(
+    def get_log_error_info(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
+        aux_logs = aux_logs or []
+        return dict(
             name=self.rule.name,
+            msg=msg,
             jobid=self.dag.jobid(self),
+            input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
-            log=list(self.log),
+            log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
         )
-        if msg is not None:
-            logger.error(msg)
+
+    def log_error(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
+        logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
     def register(self):
         self.dag.workflow.persistence.started(self)
@@ -1139,16 +1182,13 @@ class Job(AbstractJob):
     def priority(self):
         return self.dag.priority(self)
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         products = list(self.output)
         if self.benchmark:
             products.append(self.benchmark)
-        products.extend(self.log)
+        if include_logfiles:
+            products.extend(self.log)
         return products
-
-    def get_targets(self):
-        return [self.targetfile or self.rule.name]
 
     @property
     def is_branched(self):
@@ -1218,6 +1258,10 @@ class GroupJob(AbstractJob):
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
 
+    def logfile_suggestion(self, prefix: str) -> str:
+        """Return a suggestion for the log file name given a prefix."""
+        return f"{prefix}/groupjobs/group_{self.name}/job_{self.jobid}.log"
+
     @property
     def dag(self):
         return next(iter(self.jobs)).dag
@@ -1253,7 +1297,7 @@ class GroupJob(AbstractJob):
     @property
     def all_products(self):
         if self._all_products is None:
-            self._all_products = set(f for job in self.jobs for f in job.products)
+            self._all_products = set(f for job in self.jobs for f in job.products())
         return self._all_products
 
     @property
@@ -1269,10 +1313,18 @@ class GroupJob(AbstractJob):
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(skip_dynamic, indent=True)
 
-    def log_error(self, msg=None, **kwargs):
-        logger.group_error(groupid=self.groupid)
-        for job in self.jobs:
-            job.log_error(msg=msg, indent=True, **kwargs)
+    def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
+        job_error_info = [
+            job.get_log_error_info(indent=True, **kwargs) for job in self.jobs
+        ]
+        aux_logs = aux_logs or []
+        logger.group_error(
+            groupid=self.groupid,
+            msg=msg,
+            aux_logs=aux_logs,
+            job_error_info=job_error_info,
+            **kwargs,
+        )
 
     def register(self):
         for job in self.jobs:
@@ -1363,10 +1415,14 @@ class GroupJob(AbstractJob):
             self._log = [f for job in self.jobs for f in job.log]
         return self._log
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
         all_input = set(f for job in self.jobs for f in job.input)
-        return [f for job in self.jobs for f in job.products if f not in all_input]
+        return [
+            f
+            for job in self.jobs
+            for f in job.products(include_logfiles=include_logfiles)
+            if f not in all_input
+        ]
 
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
         resources = {
@@ -1493,11 +1549,8 @@ class GroupJob(AbstractJob):
     def threads(self):
         return self.resources["_cores"]
 
-    def get_targets(self):
-        # jobs without output are targeted by rule name
-        targets = [job.rule.name for job in self.jobs if not job.products]
-        targets.extend(self.products)
-        return targets
+    def get_target_spec(self):
+        return [TargetSpec(job.rule.name, job.wildcards_dict) for job in self.jobs]
 
     @property
     def attempt(self):

@@ -7,6 +7,25 @@ import tempfile
 from snakemake.exceptions import ResourceScopesException, WorkflowError
 from snakemake.common import TBDString
 
+# these keys are (almost) mandatory in the SLURM context
+# in a future version, we might want to add more and have
+# better validation functions (and perhaps conversion from --mem
+# to mem_mb, etc.)
+slurm_relevant_keys = {
+    "account": str,
+    "partition": str,
+    "runtime": int,
+    "constraint": str,
+    "mpi": str,
+    "mem_mb": int,
+    "mem_mb_per_cpu": int,
+    "ntasks": int,
+    "cpus_per_task": int,
+    "nodes": int,
+    # we reserve one for undocumented cases
+    "slurm_extra_args": str,
+}
+
 
 class DefaultResources:
     defaults = {
@@ -557,15 +576,19 @@ def parse_resources(resources_args, fallback=None):
                     "Resource definition must start with a valid identifier, but found "
                     "{}.".format(res)
                 )
+
+            # translate into supported type
+            functor = slurm_relevant_keys.get(res, int)
             try:
-                val = int(val)
+                val = functor(val)
             except ValueError:
                 if fallback is not None:
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer after the "
-                        "identifier."
+                        "Resource definiton must contain an {functor} after the identifier.".format(
+                            functor=functor.__name__
+                        )
                     )
             if res == "_cores":
                 raise ValueError(

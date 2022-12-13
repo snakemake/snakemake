@@ -16,8 +16,13 @@ from collections import defaultdict
 from itertools import chain, accumulate, product
 from contextlib import ContextDecorator
 
-
-from snakemake.executors import DryrunExecutor, TouchExecutor, CPUExecutor
+from snakemake.executors import (
+    AbstractExecutor,
+    ClusterExecutor,
+    DryrunExecutor,
+    TouchExecutor,
+    CPUExecutor,
+)
 from snakemake.executors import (
     GenericClusterExecutor,
     SynchronousClusterExecutor,
@@ -25,13 +30,14 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
-
+from snakemake.executors.slurm.slurm_submit import SlurmExecutor
+from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.shell import shell
-from snakemake.common import async_run
+from snakemake.common import ON_WINDOWS, async_run
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -52,10 +58,10 @@ _ERROR_MSG_ISSUE_823 = (
 
 
 class DummyRateLimiter(ContextDecorator):
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         return False
 
 
@@ -67,6 +73,8 @@ class JobScheduler:
         local_cores=1,
         dryrun=False,
         touch=False,
+        slurm=None,
+        slurm_jobstep=None,
         cluster=None,
         cluster_status=None,
         cluster_config=None,
@@ -76,6 +84,7 @@ class JobScheduler:
         cluster_sidecar=None,
         drmaa=None,
         drmaa_log_dir=None,
+        env_modules=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
         container_image=None,
@@ -106,7 +115,6 @@ class JobScheduler:
         scheduler_ilp_solver=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
-        from ratelimiter import RateLimiter
 
         cores = workflow.global_resources["_cores"]
 
@@ -158,7 +166,7 @@ class JobScheduler:
 
         self._local_executor = None
         if dryrun:
-            self._executor = DryrunExecutor(
+            self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
                 printreason=printreason,
@@ -173,6 +181,47 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
             )
+        elif slurm:
+            if ON_WINDOWS:
+                raise WorkflowError("SLURM execution is not supported on Windows.")
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+            # we need to adjust the maximum status checks on a
+            # SLURM cluster for not to overstrain the scheduler
+            if max_status_checks_per_second > 1:
+                # # every 30 sec is a resonable default
+                max_status_checks_per_second = 0.03
+
+            self._executor = SlurmExecutor(
+                workflow,
+                dag,
+                cores=None,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second,
+            )
+
+        elif slurm_jobstep:
+            self._executor = SlurmJobstepExecutor(
+                workflow,
+                dag,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                env_modules=env_modules,
+            )
+            self._local_executor = self._executor
+
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
                 # No local jobs when using immediate submit!
@@ -187,6 +236,7 @@ class JobScheduler:
                     cores=local_cores,
                     keepincomplete=keepincomplete,
                 )
+
             if cluster or cluster_sync:
                 if cluster_sync:
                     constructor = SynchronousClusterExecutor
@@ -366,10 +416,12 @@ class JobScheduler:
                 cores=cores,
                 keepincomplete=keepincomplete,
             )
+        from throttler import Throttler
+
         if self.max_jobs_per_second and not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
-            self.rate_limiter = RateLimiter(
-                max_calls=max_jobs_frac.numerator, period=max_jobs_frac.denominator
+            self.rate_limiter = Throttler(
+                rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
 
         else:
@@ -526,6 +578,7 @@ class JobScheduler:
                     logger.debug(
                         "Resources after job selection: {}".format(self.resources)
                     )
+
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
@@ -584,6 +637,7 @@ class JobScheduler:
     def run(self, jobs, executor=None):
         if executor is None:
             executor = self._executor
+
         executor.run_jobs(
             jobs,
             callback=self._finish_callback,
