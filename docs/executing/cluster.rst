@@ -13,7 +13,7 @@ There exists a generic cluster support which works with any such engine (see :re
 Executing on SLURM clusters
 --------------
 
-`SLURM <https://slurm.schedmd.com/documentation.html>(the Simple Linux Utility for Resource Management)`_ is a widely used batch system for
+`SLURM <https://slurm.schedmd.com/documentation.html>`_ is a widely used batch system for
 performance compute clusters. In order to use Snakemake with slurm, simply append ``--slurm`` to your Snakemake invocation.
 
 Specifying Account and Partition
