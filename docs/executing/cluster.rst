@@ -40,7 +40,7 @@ Usually, it is advisable to persist such settings via a :ref:`configuration prof
 Ordinary SMP jobs
 ~~~~~~~~~~~~~~~~~
 
-Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (`shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>`_`)
+Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (`shared memory programs <https://en.wikipedia.org/wiki/Shared_memory>`_)
 in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM:
 
 .. code-block:: python
