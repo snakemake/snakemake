@@ -13,8 +13,8 @@ There exists a generic cluster support which works with any such engine (see :re
 Executing on SLURM clusters
 --------------
 
-`SLURM <https://slurm.schedmd.com/documentation.html>(the Simple Linux Utility for Resource Management)` is a widely used batch system for
-performance compute clusters. In order to use Snakemake with slurm, simply append `--slurm` to your command line.
+`SLURM <https://slurm.schedmd.com/documentation.html>(the Simple Linux Utility for Resource Management)`_ is a widely used batch system for
+performance compute clusters. In order to use Snakemake with slurm, simply append ``--slurm`` to your Snakemake invocation.
 
 Specifying Account and Partition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,7 +40,7 @@ Usually, it is advisable to persist such settings via a :ref:`configuration prof
 Ordinary SMP jobs
 ~~~~~~~~~~~~~~~~~
 
-Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (:ref: shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>)
+Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (`shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>`_`)
 in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM:
 
 .. code-block:: python
