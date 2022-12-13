@@ -21,6 +21,7 @@ import tarfile
 from snakemake import snakemake
 from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
+from snakemake.resources import DefaultResources, GroupResources
 
 
 def dpath(path):
@@ -97,6 +98,18 @@ def untar_folder(tar_file, output_path):
     if not os.path.isdir(output_path):
         with tarfile.open(tar_file) as tar:
             tar.extractall(path=output_path)
+
+
+def print_tree(path, exclude=None):
+    for root, _dirs, files in os.walk(path):
+        if exclude and root.startswith(os.path.join(path, exclude)):
+            continue
+        level = root.replace(path, "").count(os.sep)
+        indent = " " * 4 * level
+        print(f"{indent}{os.path.basename(root)}/")
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            print(f"{subindent}{f}")
 
 
 def run(
@@ -216,6 +229,9 @@ def run(
     if shouldfail:
         assert not success, "expected error on execution"
     else:
+        if not success:
+            print("Workdir:")
+            print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
 
     if check_results:
