@@ -36,7 +36,6 @@ dependencies:
   - google-api-python-client
   - oauth2client
   - azure-storage-blob
-  - ratelimiter
   - configargparse
   - appdirs
   - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
@@ -63,6 +62,7 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
-  - retry
+  - reretry
   - graphviz
   - humanfriendly
+  - throttler

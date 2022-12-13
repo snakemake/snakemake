@@ -31,7 +31,7 @@ If you have to manually specify a file that has to be relative to the currently 
 
     rule read_a_file_relative_to_snakefile:
         input:
-            workflow.get_source("resources/some-file.txt")
+            workflow.source_path("resources/some-file.txt")
         output:
             "results/some-output.txt"
         shell:
