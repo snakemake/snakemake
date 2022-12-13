@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import hashlib
 from collections import namedtuple
+from functools import lru_cache
 import requests
 from requests.exceptions import HTTPError
 from snakemake.remote import (
@@ -148,6 +149,7 @@ class ZENHelper(object):
             self._bucket = None
             self.is_new_deposition = False
 
+    @lru_cache()
     def _api_request(
         self,
         url,
