@@ -89,7 +89,7 @@ Advanced Resource Specifications
 A workflow rule may support a number of :ref:`resource <snakefiles-resources>` specification. For a SLURM cluster, 
 a mapping between Snakemake and SLURM needs to be performed.
 
-We can use the following specifications, unique per rule:
+You can use the following specifications:
 
 +----------------------------+---------------------+------------------------------------------------------------------+
 |       SLURM Resource       | Snakemake resource  |                      Background Information                      |
@@ -123,7 +123,11 @@ Each of these can be part of a rule, e.g.:
           runtime: <some number>
 
 Please note: as ``--mem`` and ``--mem-per-cpu`` are mutually exclusive on SLURM clusters, there corresponding resource flags ``mem_mb`` and ``mem_mb_per_cpu`` are mutually exclusive, too.
-You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads). SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
+You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads).
+SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
+
+Note that it is usually advisable to avoid specifying SLURM (and compute infrastructure) specific resources (like ``constraint``) inside of your workflow because that can limit the reproducibility on other systems.
+Consider using the ``--default-resources`` and ``--set-resources`` flags to define such resources on the command line.
 
 Additional custom job configuration
 ```````````````````````````````````
