@@ -1087,7 +1087,11 @@ class Rule:
                     # round to integer
                     res = int(round(res))
 
-                if not isinstance(res, int) and not isinstance(res, str) and not res is None:
+                if (
+                    not isinstance(res, int)
+                    and not isinstance(res, str)
+                    and not res is None
+                ):
                     raise WorkflowError(
                         f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
                         rule=self,
