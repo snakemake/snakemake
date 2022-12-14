@@ -116,7 +116,7 @@ Create a new azure batch account. The batch account key will be given to snakema
 
 .. code:: console
 
-    az batch account keys --resource-group $resgroup --name $accountname --key-name primary
+    az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
 
 
 
