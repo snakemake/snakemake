@@ -60,13 +60,13 @@ existing resources instead.
 
    # change the following names as required
    # azure region where to run:
-   region=westus
+   export region=westus
 
    # name of the resource group to create:
-   resgroup=snakemaks-rg
+   export resgroup=snakemaks-rg
 
    # name of storage account to create (all lowercase, no hyphens etc.):
-   stgacct=snakemaksstg
+   export stgacct=snakemaksstg
 
    # create a resource group with name and in region as defined above
    az group create --name $resgroup --location $region
@@ -78,7 +78,7 @@ Get a key for that account and save it as ``stgkey`` for later use:
 
 .. code:: console
 
-   stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
+   export stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
 
 Next, you will create a storage container (think: bucket) to upload the Snakemake tutorial data to:
 
@@ -108,10 +108,8 @@ Create a new azure batch account. The batch account key will be given to snakema
 .. code:: console
 
     # can set variables as appropriate
-    resgroup = snakemake-rg
-    accountname = snakebatch01
-    location = westus
-    az batch account create --resource-group $resgroup --name $accountname --location $location\
+    export accountname=snakebatch01
+    az batch account create --resource-group $resgroup --name $accountname --location $region
 
 
 .. code:: console
