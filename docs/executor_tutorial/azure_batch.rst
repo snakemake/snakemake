@@ -78,7 +78,7 @@ Get a key for that account and save it as ``stgkey`` for later use:
 
 .. code:: console
 
-   stgkey=$(az storage account keys list -g $resgroup -n $storageacct | head -n1 | cut -f 3)
+   stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
 
 Next, you will create a storage container (think: bucket) to upload the Snakemake tutorial data to:
 
