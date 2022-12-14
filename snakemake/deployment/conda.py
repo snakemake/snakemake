@@ -535,7 +535,8 @@ class Env:
                             else "",
                             "create",
                             "--quiet",
-                            "--yes" if filetype != "yaml" else "",
+                            "--yes" if filetype != "yaml" or self.frontend == "micromamba"
+                            else "",
                             f'--file "{target_env_file}"',
                             f'--prefix "{env_path}"',
                         ]
