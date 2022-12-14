@@ -133,7 +133,7 @@ Running the workflow
 
 Below we will task Snakemake to install software on the fly with conda.
 For this we need a Snakefile with corresponding conda environment
-yaml files. You can download the package containing all those files `here <workflow/snakedir.zip>`__.
+yaml files. You can download the package containing all those files `here <https://andreas-wilm.github.io/data/2020-06-08/snakedir.zip>`__.
 After downloading, unzip it and cd into the newly created directory.
 
 .. code:: console
