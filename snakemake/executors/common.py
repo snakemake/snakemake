@@ -1,3 +1,4 @@
+from collections import UserDict
 from snakemake.io import not_iterable
 
 
@@ -12,13 +13,12 @@ def format_cli_arg(flag, value, quote=True, skip=False):
 
 
 def format_cli_pos_arg(value, quote=True):
-    try:
+    if isinstance(value, (dict, UserDict)):
         return join_cli_args(repr(f"{key}={val}") for key, val in value.items())
-    except AttributeError:
-        if not_iterable(value):
-            return repr(value)
-        else:
-            return join_cli_args(repr(v) for v in value)
+    elif not_iterable(value):
+        return repr(value)
+    else:
+        return join_cli_args(repr(v) for v in value)
 
 
 def join_cli_args(args):
