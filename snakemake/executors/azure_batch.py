@@ -105,7 +105,7 @@ class AzBatchExecutor(ClusterExecutor):
             printshellcmds=printshellcmds,
             restart_times=restart_times,
             assume_shared_fs=False,
-            max_status_checks_per_second=10,
+            max_status_checks_per_second=1,
         )
 
         try:
@@ -291,65 +291,71 @@ class AzBatchExecutor(ClusterExecutor):
                 self.active_jobs = list()
                 still_running = list()
 
-            logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
-                task = self.batch_client.task.get(self.job_id, batch_job.task_id)
 
-                if task.state == batchmodels.TaskState.completed:
-                    dt = task.execution_info.end_time - task.execution_info.start_time
-                    rc = task.execution_info.exit_code
-                    rt = task.execution_info.retry_count
-                    stderr = self._get_task_output(
-                        self.job_id, batch_job.task_id, "stderr"
-                    )
-                    stdout = self._get_task_output(
-                        self.job_id, batch_job.task_id, "stdout"
-                    )
-                    sys.stderr.write(
-                        "task {} completed: result={} exit_code={}\n".format(
-                            batch_job.task_id, task.execution_info.result, rc
-                        )
-                    )
-                    sys.stderr.write(
-                        "task {} completed: run_time={}, retry_count={}\n".format(
-                            batch_job.task_id, str(dt), rt
-                        )
-                    )
-                    sys.stderr.write(
-                        "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
-                    )
-                    sys.stderr.write(
-                        "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
-                    )
+                async with self.status_rate_limiter:
 
-                    if (
-                        task.execution_info.result
-                        == batchmodels.TaskExecutionResult.failure
-                    ):
-                        batch_job.error_callback(batch_job.job)
-                    elif (
-                        task.execution_info.result
-                        == batchmodels.TaskExecutionResult.success
-                    ):
-                        batch_job.callback(batch_job.job)
-                    else:
-                        raise ValueError(
-                            "Unknown task execution result: {}".format(
-                                task.execution_info.result
+                    logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
+                    task = self.batch_client.task.get(self.job_id, batch_job.task_id)
+
+                    if task.state == batchmodels.TaskState.completed:
+                        dt = (
+                            task.execution_info.end_time
+                            - task.execution_info.start_time
+                        )
+                        rc = task.execution_info.exit_code
+                        rt = task.execution_info.retry_count
+                        stderr = self._get_task_output(
+                            self.job_id, batch_job.task_id, "stderr"
+                        )
+                        stdout = self._get_task_output(
+                            self.job_id, batch_job.task_id, "stdout"
+                        )
+                        sys.stderr.write(
+                            "task {} completed: result={} exit_code={}\n".format(
+                                batch_job.task_id, task.execution_info.result, rc
                             )
                         )
+                        sys.stderr.write(
+                            "task {} completed: run_time={}, retry_count={}\n".format(
+                                batch_job.task_id, str(dt), rt
+                            )
+                        )
+                        sys.stderr.write(
+                            "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
+                        )
+                        sys.stderr.write(
+                            "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
+                        )
 
-                # The operation is still running
-                else:
-                    logger.debug(
-                        f"task {batch_job.task_id}: creation_time={task.creation_time} state={task.state} node_info={task.node_info}\n"
-                    )
-                    still_running.append(batch_job)
+                        if (
+                            task.execution_info.result
+                            == batchmodels.TaskExecutionResult.failure
+                        ):
+                            batch_job.error_callback(batch_job.job)
+                        elif (
+                            task.execution_info.result
+                            == batchmodels.TaskExecutionResult.success
+                        ):
+                            batch_job.callback(batch_job.job)
+                        else:
+                            raise ValueError(
+                                "Unknown task execution result: {}".format(
+                                    task.execution_info.result
+                                )
+                            )
+
+                    # The operation is still running
+                    else:
+                        logger.debug(
+                            f"task {batch_job.task_id}: creation_time={task.creation_time} state={task.state} node_info={task.node_info}\n"
+                        )
+                        still_running.append(batch_job)
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
     def create_batch_pool(self):
         """Creates a pool of compute nodes"""
