@@ -1,5 +1,39 @@
 # Changelog
 
+## [7.19.1](https://github.com/snakemake/snakemake/compare/v7.19.0...v7.19.1) (2022-12-13)
+
+
+### Bug Fixes
+
+* improved default resources parsing (also allowing to deactivate a default resource via setting it to None) ([#2006](https://github.com/snakemake/snakemake/issues/2006)) ([e6cdb32](https://github.com/snakemake/snakemake/commit/e6cdb32fd20a9899f441b3ec8aca3f36710f7a4a))
+
+
+### Documentation
+
+* fix link ([4889c93](https://github.com/snakemake/snakemake/commit/4889c93a031acc3ada22c9bdfd27301cce2c107e))
+* fix typo ([e1c3cc6](https://github.com/snakemake/snakemake/commit/e1c3cc6c6ddbf67e9d3cfc9dcef9bcf35b0060f3))
+* fix typos ([e45b9e6](https://github.com/snakemake/snakemake/commit/e45b9e608c31af5a5c3389520486d46935549eb4))
+* fix typos ([151095d](https://github.com/snakemake/snakemake/commit/151095ddc839860d33a27cafeb83260dc17d736b))
+* format table ([4180a1b](https://github.com/snakemake/snakemake/commit/4180a1b6a8b7104e27a748c638275b98c5998200))
+* polished text and table display ([413356c](https://github.com/snakemake/snakemake/commit/413356cceb8d3a96b24531ef350168e681c9d383))
+
+## [7.19.0](https://github.com/snakemake/snakemake/compare/v7.18.2...v7.19.0) (2022-12-13)
+
+
+### Features
+
+* add  keyword to gridftp remote provide to specify the number or disable usage of multiple data stream ([#1974](https://github.com/snakemake/snakemake/issues/1974)) ([3e6675d](https://github.com/snakemake/snakemake/commit/3e6675df26bf65fa27006ea57a4c3cf36b89d6da))
+* provide information about temp, pipe, and service files in --summary ([#1977](https://github.com/snakemake/snakemake/issues/1977)) ([c7c7776](https://github.com/snakemake/snakemake/commit/c7c7776f8722adf94e6a176174cb0a7564f11d9f))
+* native SLURM support (--slurm, see docs) ([#1015](https://github.com/snakemake/snakemake/issues/1015)) ([c7ea059](https://github.com/snakemake/snakemake/commit/c7ea0590c396c67fa5d56042e21f678c20784d3b))
+
+
+### Bug Fixes
+
+* avoid logfile writing in case of dryrun; better hints in case of incomplete checkpoints ([#1994](https://github.com/snakemake/snakemake/issues/1994)) ([a022705](https://github.com/snakemake/snakemake/commit/a022705db14c9409b1ceadf6d5ae6367833e2131))
+* handle case where zenodo deposition does not return files ([#2004](https://github.com/snakemake/snakemake/issues/2004)) ([b63c4a7](https://github.com/snakemake/snakemake/commit/b63c4a7e496ca7a3353e8a59b8ba493d65156cb5))
+* issue [#1882](https://github.com/snakemake/snakemake/issues/1882) WorkflowError: Metadata can't be created as it already exists (Windows) ([#1971](https://github.com/snakemake/snakemake/issues/1971)) ([d4484e6](https://github.com/snakemake/snakemake/commit/d4484e61ef49be23fc2bef8bf879185e521f5376))
+* json validation error with markdown cells ([#1986](https://github.com/snakemake/snakemake/issues/1986)) ([6c26f75](https://github.com/snakemake/snakemake/commit/6c26f757785226d796c80689fabae771f316af9f))
+
 ## [7.18.2](https://github.com/snakemake/snakemake/compare/v7.18.1...v7.18.2) (2022-11-10)
 
 
