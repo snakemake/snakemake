@@ -122,7 +122,6 @@ class Workflow:
         use_conda=False,
         conda_frontend=None,
         conda_prefix=None,
-        hosting_provider_token=None,
         use_singularity=False,
         use_env_modules=False,
         singularity_prefix=None,
@@ -204,7 +203,6 @@ class Workflow:
         self.use_conda = use_conda
         self.conda_frontend = conda_frontend
         self.conda_prefix = conda_prefix
-        self.hosting_provider_token = hosting_provider_token
         self.use_singularity = use_singularity
         self.use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
@@ -1200,8 +1198,8 @@ class Workflow:
         basedir = self.current_basedir if self.included_stack else None
         snakefile = infer_source_file(snakefile, basedir)
 
-        if self.hosting_provider_token and isinstance(snakefile, HostingProviderFile):
-            snakefile.set_token(self.hosting_provider_token)
+        if "HOSTING_PROVIDER_TOKEN" in os.environ and isinstance(snakefile, HostingProviderFile):
+            snakefile.set_token(os.environ["HOSTING_PROVIDER_TOKEN"])
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
