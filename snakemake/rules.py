@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import math
 import os
 import re
 import types
@@ -61,6 +62,7 @@ from snakemake.common import (
     get_input_function_aux_params,
     lazy_property,
     TBDString,
+    mb_to_mib,
 )
 
 
@@ -1085,14 +1087,18 @@ class Rule:
                     # round to integer
                     res = int(round(res))
 
-                if not isinstance(res, int) and not isinstance(res, str):
+                if (
+                    not isinstance(res, int)
+                    and not isinstance(res, str)
+                    and res is not None
+                ):
                     raise WorkflowError(
-                        f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
                         rule=self,
                     )
 
             global_res = self.workflow.global_resources.get(name)
-            if global_res is not None:
+            if global_res is not None and res is not None:
                 if not isinstance(res, TBDString) and type(res) != type(global_res):
                     global_type = (
                         "an int" if isinstance(global_res, int) else type(global_res)
@@ -1108,13 +1114,32 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if threads is None:
+            raise WorkflowError("Threads must be given as an int", rule=self)
         if self.workflow.max_threads is not None:
             threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
-        for name, res in self.resources.items():
+        for name, res in list(self.resources.items()):
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+
+                if value is not None:
+                    resources[name] = value
+
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
+                        ):
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
+
         resources = Resources(fromdict=resources)
         return resources
 

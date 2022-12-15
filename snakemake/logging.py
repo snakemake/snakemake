@@ -467,6 +467,21 @@ class Logger:
             if resources:
                 yield "    resources: " + resources
 
+        def show_logs(logs):
+            for f in logs:
+                try:
+                    content = open(f, "r").read()
+                except FileNotFoundError:
+                    yield f"Logfile {f} not found."
+                    return
+                logfile_header = f"Logfile {f}:"
+                yield logfile_header
+                lines = content.splitlines()
+                max_len = max(max(len(l) for l in lines), len(logfile_header))
+                yield "=" * max_len
+                yield from lines
+                yield "=" * max_len
+
         def indent(item):
             if msg.get("indent"):
                 return "    " + item
@@ -506,44 +521,60 @@ class Logger:
         elif level == "job_error":
 
             def job_error():
-                yield indent("Error in rule {}:".format(msg["name"]))
-                yield indent("    jobid: {}".format(msg["jobid"]))
+                yield "Error in rule {}:".format(msg["name"])
+                if msg["msg"]:
+                    yield "    message: {}".format(msg["msg"])
+                yield "    jobid: {}".format(msg["jobid"])
                 if msg["input"]:
-                    yield indent("    input: {}".format(", ".join(msg["input"])))
+                    yield "    input: {}".format(", ".join(msg["input"]))
                 if msg["output"]:
-                    yield indent("    output: {}".format(", ".join(msg["output"])))
+                    yield "    output: {}".format(", ".join(msg["output"]))
                 if msg["log"]:
-                    yield indent(
-                        "    log: {} (check log file(s) for error message)".format(
-                            ", ".join(msg["log"])
-                        )
+                    yield "    log: {} (check log file(s) for error details)".format(
+                        ", ".join(msg["log"])
                     )
                 if msg["conda_env"]:
-                    yield indent("    conda-env: {}".format(msg["conda_env"]))
+                    yield "    conda-env: {}".format(msg["conda_env"])
                 if msg["shellcmd"]:
-                    yield indent(
-                        "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
-                            msg["shellcmd"]
-                        )
+                    yield "    shell:\n        {}\n        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)".format(
+                        msg["shellcmd"]
                     )
 
                 for item in msg["aux"].items():
-                    yield indent("    {}: {}".format(*item))
+                    yield "    {}: {}".format(*item)
 
                 if self.show_failed_logs and msg["log"]:
-                    for f in msg["log"]:
-                        try:
-                            yield "Logfile {}:\n{}".format(f, open(f).read())
-                        except FileNotFoundError:
-                            yield "Logfile {} not found.".format(f)
+                    yield from show_logs(msg["log"])
 
                 yield ""
 
             timestamp()
             self.logger.error("\n".join(map(indent, job_error())))
         elif level == "group_error":
+
+            def group_error():
+                yield f"Error in group {msg['groupid']}:"
+                if msg["msg"]:
+                    yield f"    message: {msg['msg']}"
+                if msg["aux_logs"]:
+                    yield f"    log: {', '.join(msg['aux_logs'])} (check log file(s) for error details)"
+                yield "    jobs:"
+                for info in msg["job_error_info"]:
+                    yield f"        rule {info['name']}:"
+                    yield f"            jobid: {info['jobid']}"
+                    if info["output"]:
+                        yield f"            output: {', '.join(info['output'])}"
+                    if info["log"]:
+                        yield f"            log: {', '.join(info['log'])} (check log file(s) for error details)"
+                logs = msg["aux_logs"] + [
+                    f for info in msg["job_error_info"] for f in info["log"]
+                ]
+                if self.show_failed_logs and logs:
+                    yield from show_logs(logs)
+                yield ""
+
             timestamp()
-            self.logger.error("Error in group job {}:".format(msg["groupid"]))
+            self.logger.error("\n".join(group_error()))
         else:
             if level == "info":
                 self.logger.warning(msg["msg"])

@@ -347,7 +347,8 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 If no limits are given, the resources are ignored in local execution.
 
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
-They can also be callables that return ``int`` or ``str`` values.
+They can also be callables that return ``int``, ``str`` or ``None`` values.
+In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
@@ -410,6 +411,11 @@ All of these resources have specific meanings understood by snakemake and are tr
 
 Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
 
+.. _default-resources:
+
+Default Resources
+~~~~~~~~~~~~~~~~~~
+
 Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
@@ -418,6 +424,8 @@ Any resource definitions inside a rule override what has been defined with ``--d
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
+In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
 
 .. _resources-remote-execution:
 
@@ -2377,3 +2385,48 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - ?config["threshold"]
 
 Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+
+.. _snakefiles_mpi_support:
+
+MPI support
+-----------
+
+Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an invidual compute node's boundary.
+The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+Thereby, additional parameters may be passed to the MPI-starter, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec -arch x86",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`):
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
+
+Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
+So far, explicit MPI support is implemented in the :ref:`SLURM backend <cluster-slurm>`.
