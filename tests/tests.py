@@ -1053,7 +1053,7 @@ def test_new_resources_can_be_defined_as_local():
 
 @skip_on_windows
 def test_resources_can_be_overwritten_as_global():
-    # Test only works if both mem_mb and global_res are overwritten as local
+    # Test only works if fake_res overwritten as global
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1062,7 +1062,7 @@ def test_resources_can_be_overwritten_as_global():
         nodes=5,
         cleanup=False,
         resources={"typo": 23, "fake_res": 200},
-        overwrite_resource_scopes={"fake_res": "local"},
+        overwrite_resource_scopes={"fake_res": "global"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
