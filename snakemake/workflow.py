@@ -93,7 +93,6 @@ from snakemake.sourcecache import (
     SourceCache,
     SourceFile,
     infer_source_file,
-    HostingProviderFile,
 )
 from snakemake.deployment.conda import Conda, is_conda_env_file
 from snakemake import sourcecache
