@@ -280,7 +280,10 @@ class GithubFile(HostingProviderFile):
 
     def get_path_or_uri(self):
         auth = ":{}@".format(self.token) if self.token else ""
-        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(auth, self.repo, self.ref, self.path)
+        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
+            auth, self.repo, self.ref, self.path
+        )
+
 
 class GitlabFile(HostingProviderFile):
     def __init__(
