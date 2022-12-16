@@ -304,3 +304,10 @@ For the latter, it is also possible to specify an alternative host, e.g.
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
+
+~~~~~~~~~~~~~~~~~~~~
+Private repositories
+~~~~~~~~~~~~~~~~~~~~
+
+To access source code resources located in private repositories you can define an
+access token in the ``GITHUB_TOKEN`` and/or ``GITLAB_TOKEN`` environment variables.
