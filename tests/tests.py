@@ -956,7 +956,7 @@ def test_group_jobs_resources(mocker):
         disk_mb=2000,
     )
 
-    
+
 @skip_on_windows
 def test_group_jobs_resources_with_max_threads(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
@@ -1962,7 +1962,7 @@ def test_github_issue929():
     # Huge thanks to Ronald Lehnigk for pointing me to the issue!
     run(dpath("test_github_issue929"), targets=["childrule_2"])
 
-    
+
 def test_github_issue1882():
     try:
         tmpdir = run(dpath("test_github_issue1882"), cleanup=False)
