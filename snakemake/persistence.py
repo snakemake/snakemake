@@ -459,7 +459,7 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
-        os.rename(tmpfile.name, recpath)
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:

@@ -512,6 +512,8 @@ class Workflow:
         printshellcmds=False,
         printreason=False,
         printdag=False,
+        slurm=None,
+        slurm_jobstep=None,
         cluster=None,
         cluster_sync=None,
         jobname=None,
@@ -952,6 +954,8 @@ class Workflow:
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
+            slurm=slurm,
+            slurm_jobstep=slurm_jobstep,
             cluster=cluster,
             cluster_status=cluster_status,
             cluster_cancel=cluster_cancel,
@@ -1075,6 +1079,8 @@ class Workflow:
                 )
                 logger.info("")
 
+        has_checkpoint_jobs = any(dag.checkpoint_jobs)
+
         try:
             success = self.scheduler.schedule()
         except Exception as e:
@@ -1096,7 +1102,12 @@ class Workflow:
                     "This was a dry-run (flag -n). The order of jobs "
                     "does not reflect the order of execution."
                 )
-                logger.remove_logfile()
+                if has_checkpoint_jobs:
+                    logger.info(
+                        "The run involves checkpoint jobs, "
+                        "which will result in alteration of the DAG of "
+                        "jobs (e.g. adding more jobs) after their completion."
+                    )
             else:
                 if stats:
                     self.scheduler.stats.to_json(stats)
@@ -1505,7 +1516,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
+                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules

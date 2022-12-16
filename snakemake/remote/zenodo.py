@@ -223,10 +223,15 @@ class ZENHelper(object):
 
     def get_files_record(self):
         resp = self._api_request(
-            self._baseurl + "/api/records/{}".format(self.deposition),
+            self._baseurl + f"/api/records/{self.deposition}",
             headers={"Content-Type": "application/json"},
             json=True,
         )
+        if "files" not in resp:
+            raise WorkflowError(
+                f"No files found in zenodo deposition https://zenodo.org/record/{self.deposition}. "
+                "Either the depositon is empty or access is restricted. Please check in your browser."
+            )
         files = resp["files"]
 
         def get_checksum(f):

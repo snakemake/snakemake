@@ -7,6 +7,7 @@ import concurrent.futures
 import contextlib
 from functools import update_wrapper
 import itertools
+import math
 import platform
 import hashlib
 import inspect
@@ -34,6 +35,10 @@ NOTHING_TO_BE_DONE_MSG = (
 )
 
 ON_WINDOWS = platform.system() == "Windows"
+
+
+def mb_to_mib(mb):
+    return int(math.ceil(mb * 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg):
