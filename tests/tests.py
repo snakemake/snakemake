@@ -1945,6 +1945,7 @@ def test_prebuilt_conda_script():
     sp.run("conda create -n test_prebuilt_conda_script python=3.9 -y", shell=True)
     run(dpath("test_prebuilt_conda_script"), use_conda=True)
 
+
 @skip_on_windows
 def test_github_issue1818():
     run(dpath("test_github_issue1818"), rerun_triggers="input")
