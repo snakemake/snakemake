@@ -874,20 +874,9 @@ class CondaEnvFileSpec(CondaEnvSpec):
         self.file.check()
 
     def get_conda_env(self, workflow, env_dir=None, container_img=None, cleanup=None):
-        def apply_token(filepath):
-            if "HOSTING_PROVIDER_TOKEN" in os.environ:
-                token=os.environ["HOSTING_PROVIDER_TOKEN"]
-                if "github" in filepath:
-                    return filepath.replace("raw",f":{token}@raw")
-                elif "gitlab" in filepath:
-                    return filepath + f"&private_token={token}"
-                else:
-                    raise WorkflowError(
-                        f"Access to private repositories is only available for github.com and gitlab.org"
-                    )
         return Env(
             workflow,
-            env_file=apply_token(self.file),
+            env_file=self.file,
             env_dir=env_dir,
             container_img=container_img,
             cleanup=cleanup,

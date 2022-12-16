@@ -1198,9 +1198,6 @@ class Workflow:
         basedir = self.current_basedir if self.included_stack else None
         snakefile = infer_source_file(snakefile, basedir)
 
-        if "HOSTING_PROVIDER_TOKEN" in os.environ and isinstance(snakefile, HostingProviderFile):
-            snakefile.set_token(os.environ["HOSTING_PROVIDER_TOKEN"])
-
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
             logger.info("Multiple includes of {} ignored".format(snakefile))
             return
