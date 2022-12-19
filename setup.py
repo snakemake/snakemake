@@ -41,6 +41,7 @@ setup(
         "snakemake.deployment",
         "snakemake.linting",
         "snakemake.executors",
+        "snakemake.executors.slurm",
         "snakemake.unit_tests",
         "snakemake.unit_tests.templates",
         "snakemake.template_rendering",

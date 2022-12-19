@@ -557,6 +557,7 @@ def parse_resources(resources_args, fallback=None):
                     "Resource definition must start with a valid identifier, but found "
                     "{}.".format(res)
                 )
+
             try:
                 val = int(val)
             except ValueError:
@@ -564,8 +565,7 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer after the "
-                        "identifier."
+                        "Resource definiton must contain an integer, string or python expression after the identifier."
                     )
             if res == "_cores":
                 raise ValueError(

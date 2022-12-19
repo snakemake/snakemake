@@ -43,7 +43,7 @@ jobs:
 
       - name: Publish to Registry
         if: ${{ steps.release.outputs.release_created }}
-        uses: elgohr/Publish-Docker-Github-Action@v4
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}

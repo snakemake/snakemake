@@ -118,7 +118,7 @@ class AbstractExecutor:
             "--set-resource-scopes", self.workflow.overwrite_resource_scopes
         )
 
-    def get_resource_declarations(self, job):
+    def get_resource_declarations_dict(self, job):
         def isdigit(i):
             s = str(i)
             # Adapted from https://stackoverflow.com/a/1265696
@@ -129,12 +129,18 @@ class AbstractExecutor:
         excluded_resources = self.workflow.resource_scopes.excluded.union(
             {"_nodes", "_cores"}
         )
-        resources = [
-            f"{resource}={value}"
+        return {
+            resource: value
             for resource, value in job.resources.items()
             if isinstance(value, int)
             # need to check bool seperately because bool is a subclass of int
             and isdigit(value) and resource not in excluded_resources
+        }
+
+    def get_resource_declarations(self, job):
+        resources = [
+            f"{resource}={value}"
+            for resource, value in self.get_resource_declarations_dict(job).items()
         ]
         return format_cli_arg("--resources", resources)
 
@@ -353,9 +359,17 @@ class RealExecutor(AbstractExecutor):
                 self.get_default_resources_args(),
                 self.get_resource_scopes_args(),
                 self.get_workdir_arg(),
+                join_cli_args(self.additional_general_args()),
                 format_cli_arg("--mode", self.get_exec_mode()),
             ]
         )
+
+    def additional_general_args(self):
+        """Inherit this method to add stuff to the general args.
+
+        A list must be returned.
+        """
+        return []
 
     def get_workdir_arg(self):
         return self.workflow_property_to_arg("overwrite_workdir", flag="--directory")
@@ -824,6 +838,7 @@ class ClusterExecutor(RealExecutor):
         try:
             asyncio.run(self._wait_for_jobs())
         except Exception as e:
+            print(e)
             self.workflow.scheduler.executor_error_callback(e)
 
     def shutdown(self):
@@ -852,8 +867,11 @@ class ClusterExecutor(RealExecutor):
             self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
+    def get_jobname(self, job):
+        return job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
+
     def get_jobscript(self, job):
-        f = job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
+        f = self.get_jobname(job)
 
         if os.path.sep in f:
             raise WorkflowError(

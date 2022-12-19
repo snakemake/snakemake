@@ -4,7 +4,7 @@
 Cloud execution
 ===========================
 
-
+When executing on a cluster, Snakemake implicitly assumes some default resources for all rules (see :ref:`default-resources`).
 
 ------------------------------------
 Generic cloud support via Kubernetes

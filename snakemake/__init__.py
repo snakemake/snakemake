@@ -102,6 +102,8 @@ def snakemake(
     nocolor=False,
     quiet=False,
     keepgoing=False,
+    slurm=None,
+    slurm_jobstep=None,
     rerun_triggers=RERUN_TRIGGERS,
     cluster=None,
     cluster_config=None,
@@ -466,6 +468,8 @@ def snakemake(
         or az_batch
         or google_lifesciences
         or tes
+        or slurm
+        or slurm_jobstep
     )
     if run_local:
         if not dryrun:
@@ -783,6 +787,8 @@ def snakemake(
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
+                    slurm=slurm,
+                    slurm_jobstep=slurm_jobstep,
                     cluster=cluster,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
@@ -1184,7 +1190,7 @@ def get_argument_parser(profile=None):
         action="store",
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
-            "an alias for --cores."
+            "an alias for --cores. Note: Set to 'unlimited' in case, this does not play a role."
         ),
     )
     group_exec.add_argument(
@@ -1275,11 +1281,14 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
-            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
+            "The inputsize is the sum of the sizes of all input files of a rule. "
+            "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
+            "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
+            "The defaults are 'mem_mb=max(2*input.size_mb, 1000)', "
             "'disk_mb=max(2*input.size_mb, 1000)' "
-            "i.e., default disk and mem usage is twice the input file size but at least 1GB."
-            "In addition, the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
+            "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
+            "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
             "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
             "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
@@ -2153,6 +2162,32 @@ def get_argument_parser(profile=None):
         "Currently slack and workflow management system (wms) are supported.",
     )
 
+    group_slurm = parser.add_argument_group("SLURM")
+    slurm_mode_group = group_slurm.add_mutually_exclusive_group()
+
+    slurm_mode_group.add_argument(
+        "--slurm",
+        action="store_true",
+        help=(
+            "Execute snakemake rules as SLURM batch jobs according"
+            " to their 'resources' definition. SLRUM resources as "
+            " 'partition', 'ntasks', 'cpus', etc. need to be defined"
+            " per rule within the 'resources' definition. Note, that"
+            " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
+            " as analoguous to the SLURM 'mem' and 'mem-per-cpu' flags"
+            " to sbatch, respectively. Here, the unit is always 'MiB'."
+            " In addition '--default_resources' should contain the"
+            " SLURM account."
+        ),
+    ),
+    slurm_mode_group.add_argument(
+        "--slurm-jobstep",
+        action="store_true",
+        help=configargparse.SUPPRESS,  # this should be hidden and only be used
+        # for snakemake to be working in jobscript-
+        # mode
+    )
+
     group_cluster = parser.add_argument_group("CLUSTER")
 
     # TODO extend below description to explain the wildcards that can be used
@@ -2556,8 +2591,9 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile:
-        # reparse args while inferring config file from profile
+    if args.profile and args.mode == Mode.default:
+        # Reparse args while inferring config file from profile.
+        # But only do this if the user has invoked Snakemake (Mode.default)
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
 
@@ -2626,6 +2662,8 @@ def main(argv=None):
 
     non_local_exec = (
         args.cluster
+        or args.slurm
+        or args.slurm_jobstep
         or args.cluster_sync
         or args.tibanna
         or args.kubernetes
@@ -2707,6 +2745,8 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
+        elif args.jobs == "unlimited":
+            args.jobs = sys.maxsize
         else:
             try:
                 args.jobs = int(args.jobs)
@@ -2996,6 +3036,8 @@ def main(argv=None):
             nocolor=args.nocolor,
             quiet=args.quiet,
             keepgoing=args.keep_going,
+            slurm=args.slurm,
+            slurm_jobstep=args.slurm_jobstep,
             rerun_triggers=args.rerun_triggers,
             cluster=args.cluster,
             cluster_config=args.cluster_config,
