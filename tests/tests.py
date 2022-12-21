@@ -9,6 +9,10 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
+from snakemake import parse_cores_jobs
+from snakemake.exceptions import CliException
+from snakemake.utils import available_cpu_count
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
@@ -1502,6 +1506,59 @@ def test_core_dependent_threads():
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
+
+
+class TestParseCoresJobs:
+    def run_test(self, func, ref):
+        if ref is None:
+            with pytest.raises(CliException):
+                func()
+            return
+        assert func() == ref
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, None), (1, 1)],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_no_exec(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, True, False, False), output)
+        # Test dryrun seperately
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, True), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, 1), (None, 1)],
+            [(None, None), None],
+            [(1, None), None],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_non_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, True, False), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, None)],
+            [(4, 4), (4, None)],
+            [(None, 1), (1, None)],
+            [(None, None), None],
+            [(1, None), (1, None)],
+            [(None, "all"), (available_cpu_count(), None)],
+            [(None, "unlimited"), None],
+            [("all", "unlimited"), (available_cpu_count(), None)],
+        ],
+    )
+    def test_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, False), output)
 
 
 @skip_on_windows
