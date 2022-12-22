@@ -179,6 +179,7 @@ def snakemake(
     tibanna=False,
     tibanna_sfn=None,
     az_batch=False,
+    az_batch_enable_autoscale=False,
     az_batch_account_url=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
@@ -320,6 +321,7 @@ def snakemake(
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
         az_batch (bool):            Submit jobs to azure batch.
+        az_batch_enable_autoscale (bool): Enable autoscaling of the azure batch pool nodes. This sets the initial dedicated node pool count to zero and resizes the pool only after 5 minutes. So this flag is only recommended for relatively long running jobs.,
         az_batch_account_url (str): Azure batch account url.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
@@ -741,6 +743,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
                     az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
@@ -800,6 +803,7 @@ def snakemake(
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
                     az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
@@ -2443,6 +2447,12 @@ def get_argument_parser(profile=None):
     )
 
     group_azure_batch.add_argument(
+        "--az-batch-enable-autoscale",
+        action="store_true",
+        help="Enable autoscaling of the azure batch pool nodes, this option will set the initial dedicated node count to zero, and requires five minutes to resize the cluster, so is only recommended for longer running jobs.",
+    )
+
+    group_azure_batch.add_argument(
         "--az-batch-account-url",
         nargs="?",
         help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set.",
@@ -3051,6 +3061,7 @@ def main(argv=None):
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             az_batch=args.az_batch,
+            az_batch_enable_autoscale=args.az_batch_enable_autoscale,
             az_batch_account_url=args.az_batch_account_url,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,

@@ -60,7 +60,20 @@ class AzBatchConfig:
         self.batch_pool_vm_size = self.set_or_default(
             "BATCH_POOL_VM_SIZE", "Standard_D2_v3"
         )
+
+        # dedicated pool node count
         self.batch_pool_node_count = self.set_or_default("BATCH_POOL_NODE_COUNT", 1)
+
+        # default tasks per node
+        # see https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks
+        self.batch_tasks_per_node = self.set_or_default("BATCH_TASKS_PER_NODE", 1)
+
+        # possible values "spread" or "pack"
+        # see https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks
+        self.batch_node_fill_type = self.set_or_default(
+            "BATCH_NODE_FILL_TYPE", "spread"
+        )
+
         self.resource_file_prefix = self.set_or_default(
             "BATCH_POOL_RESOURCE_FILE_PREFIX", "resource-files"
         )
@@ -94,6 +107,7 @@ class AzBatchExecutor(ClusterExecutor):
         restart_times=None,
         max_status_checks_per_second=1,
         az_batch_account_url=None,
+        az_batch_enable_autoscale=False,
     ):
         super().__init__(
             workflow,
@@ -148,6 +162,9 @@ class AzBatchExecutor(ClusterExecutor):
         self.envvars = list(self.workflow.envvars) or []
 
         self.container_image = container_image or get_container_image()
+
+        # enable autoscale flag
+        self.az_batch_enable_autoscale = az_batch_enable_autoscale
 
         # Package workflow sources files and upload to storage
         self._build_packages = set()
@@ -392,6 +409,10 @@ class AzBatchExecutor(ClusterExecutor):
                 ],
             )
 
+        # autoscale requires the initial dedicated node count to be zero
+        if self.az_batch_enable_autoscale:
+            self.batch_config.batch_pool_node_count = 0
+
         new_pool = bsc.models.PoolAddParameter(
             id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
@@ -403,12 +424,38 @@ class AzBatchExecutor(ClusterExecutor):
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
             target_low_priority_nodes=0,
             start_task=start_task,
+            # task slots per node
+            task_slots_per_node=self.batch_config.batch_tasks_per_node,
+            task_scheduling_policy=batchmodels.TaskSchedulingPolicy(
+                node_fill_type=self.batch_config.batch_node_fill_type
+            ),
         )
 
         # create pool if not exists
         try:
             logger.debug(f"Creating pool: {self.pool_id}")
             self.batch_client.pool.add(new_pool)
+
+            if self.az_batch_enable_autoscale:
+
+                # define the autoscale formula
+                formula = """$samples = $PendingTasks.GetSamplePercent(TimeInterval_Minute * 5);
+                            $tasks = $samples < 70 ? max(0,$PendingTasks.GetSample(1)) : max( $PendingTasks.GetSample(1), avg($PendingTasks.GetSample(TimeInterval_Minute * 5)));
+                            $targetVMs = $tasks > 0? $tasks:max(0, $TargetDedicatedNodes/2);
+                            $TargetDedicatedNodes = max(0, min($targetVMs, 10));
+                            $NodeDeallocationOption = taskcompletion;"""
+
+                # Enable autoscale; specify the formula
+                self.batch_client.pool.enable_auto_scale(
+                    self.pool_id,
+                    auto_scale_formula=formula,
+                    # the minimum allowed autoscale interval is 5 minutes
+                    auto_scale_evaluation_interval=datetime.timedelta(minutes=5),
+                    pool_enable_auto_scale_options=None,
+                    custom_headers=None,
+                    raw=False,
+                )
+
         except batchmodels.BatchErrorException as err:
             if err.error.code != "PoolExists":
                 raise
