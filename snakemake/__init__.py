@@ -1009,6 +1009,9 @@ def parse_config(args):
                     "Invalid config definition: Config entry must start with a valid identifier."
                 )
             v = None
+            if val == "":
+                update_config(config, {key: v})
+                continue
             for parser in parsers:
                 try:
                     v = parser(val)
