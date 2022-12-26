@@ -288,7 +288,7 @@ class SlurmExecutor(ClusterExecutor):
             async with self.status_rate_limiter:
                 sacct_error = None
                 try:
-                    sacct_cmd = f"sacct -P -b -j {jobid} -n"
+                    sacct_cmd = f"sacct -P -n --format=JobIdRaw,State {jobid}"
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
