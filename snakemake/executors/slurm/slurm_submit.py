@@ -253,7 +253,7 @@ class SlurmExecutor(ClusterExecutor):
 
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
-        call += f" --chdir={self.workflow.workdir_init}"
+        call += f" -D {self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
         call += f" --wrap={repr(exec_job)}"
 
