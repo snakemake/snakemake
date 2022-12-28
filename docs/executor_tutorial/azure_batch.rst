@@ -19,7 +19,7 @@ Following the steps below you will
 
 #. Set up Azure Blob storage, download the Snakemake tutorial data and upload to storage account
 #. Create an Azure Batch account  
-#. Run the analysis with Snakemake on the batch account
+#. Run the example Sankemake workflow on the batch account
 
 
 Setup
@@ -129,25 +129,27 @@ To run the test workflow, two primary environment variables need to be set local
 Running the workflow
 ::::::::::::::::::::
 
-Below we will task Snakemake to install software on the fly with conda.
-For this we need a Snakefile with corresponding conda environment
-yaml files. You can download the package containing all those files `here <https://andreas-wilm.github.io/data/2020-06-08/snakedir.zip>`__.
-After downloading, unzip it and cd into the newly created directory.
+Below we will run an example Snakemake workflow, using conda to install software on the fly.
+Clone the example workflow and cd into the directory:
 
 .. code:: console
 
-   $ cd /tmp
-   $ unzip ~/Downloads/snakedir.zip
-   $ cd snakedir
-   $ find .
-   .
-   ./Snakefile
-   ./envs
-   ./envs/calling.yaml
-   ./envs/mapping.yaml
+   $ git clone https://github.com/jakevc/snakemake-azbatch-example.git
+   $ cd snakemake-azbatch-example
+   $ tree 
+   tree
+    .
+    ├── README.md
+    ├── Snakefile
+    ├── envs
+    │   ├── calling.yaml
+    │   ├── mapping.yaml
+    │   └── stats.yaml
+    ├── run.sh
+    └── src
+        └── plot-quals.py
 
-
-Now, we will need to setup the credentials that allow the batch nodes to
+Now we will need to setup the credentials that allow the batch nodes to
 read and write from blob storage. For the AzBlob storage provider in
 Snakemake this is done through the environment variables
 ``AZ_BLOB_ACCOUNT_URL`` and optionally ``AZ_BLOB_CREDENTIAL``. See the
@@ -196,53 +198,91 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
    * - BATCH_POOL_RESOURCE_FILE_PREFIX
      - resource-files
      - container prefix for temporary resource files tar ball (Snakefile, envs)
+   * - BATCH_NODE_FILL_TYPE
+     - spread
+     - possible values ("spread", or "pack") 
+   * - BATCH_POOL_NODE_COUNT
+     - 1
+     - the dedicated initial node count of the batch pool
+   * - BATCH_TASKS_PER_NODE
+     - 1
+     - the number of tasks allowed per batch node
    
 
 Now you are ready to run the analysis:
 
 .. code:: console
 
-    export AZ_BLOB_ACCOUNT_URL='${account_url_with_sas}'
+    # required env variables
+    export AZ_BLOB_PREFIX=snakemake-tutorial
+    export AZ_BATCH_ACCOUNT_URL='${batch_account_url}'
     export AZ_BATCH_ACCOUNT_KEY='${az_batch_account_key}'
+    export AZ_BLOB_ACCOUNT_URL='${account_url_with_sas}'
+
+    # optional environment variables with defaults listed
+
+    # don't recommend changing 
+    # export BATCH_POOL_IMAGE_PUBLISHER=microsoft-azure-batch
+    # export BATCH_POOL_IMAGE_OFFER=ubuntu-server-container
+    # export BATCH_POOL_IMAGE_SKU=20-04-lts
+    # export BATCH_POOL_RESOURCE_FILE_PREFIX=resource-files
+
+    # export BATCH_POOL_VM_CONTAINER_IMAGE=ubuntu
+    # export BATCH_POOL_VM_NODE_AGENT_SKU_ID="batch.node.ubuntu 20.04"
+
+    # can be useful to alter task distribution across nodes
+
+    # export BATCH_POOL_VM_SIZE=Standard_D2_v3
+    # export BATCH_NODE_FILL_TYPE=spread
+    # export BATCH_POOL_NODE_COUNT=1
+    # export BATCH_TASKS_PER_NODE=1
 
     snakemake \
-     --jobs 3 \
-     -rpf --default-remote-prefix snakemake-tutorial \
-     --use-conda \
-     --default-remote-provider AzBlob \
-     --envvars AZ_BLOB_ACCOUNT_URL \
-     --az-batch \
-     --container-image snakemake/snakemake \
-     --az-batch-account-url ${batch_account_url}
-
+        --jobs 3 \
+        -rpf --verbose --default-remote-prefix $AZ_BLOB_PREFIX \
+        --use-conda \
+        --default-remote-provider AzBlob \
+        --envvars AZ_BLOB_ACCOUNT_URL \
+        --az-batch \
+        --container-image snakemake/snakemake \
+        --az-batch-account-url $AZ_BATCH_ACCOUNT_URL
 
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
 and also supports Azure Blob storage. 
 
 After completion all results including
-logs can be found in the blob container. You will also find results
-listed in the first Snakefile target downloaded to the working directoy.
+logs can be found in the blob container prefix specified by `--default-remote-prefix`.
 
 ::
 
-   $ find snakemake-tutorial/
-   snakemake-tutorial/
-   snakemake-tutorial/calls
-   snakemake-tutorial/calls/all.vcf
-
-
    $ az storage blob list  --container-name snakemake-tutorial --account-name $stgacct --account-key $stgkey -o table
-   Name                     Blob Type    Blob Tier    Length    Content Type                       Last Modified              Snapshot
-   -----------------------  -----------  -----------  --------  ---------------------------------  -------------------------  ----------
-   calls/all.vcf            BlockBlob    Hot          90986     application/octet-stream           2020-06-08T05:11:31+00:00
-   data/genome.fa           BlockBlob    Hot          234112    application/octet-stream           2020-06-08T03:26:54+00:00
-   # etc.
-   logs/mapped_reads/A.log  BlockBlob    Hot          346       application/octet-stream           2020-06-08T04:59:50+00:00
-   mapped_reads/A.bam       BlockBlob    Hot          2258058   application/octet-stream           2020-06-08T04:59:50+00:00
-   sorted_reads/A.bam       BlockBlob    Hot          2244660   application/octet-stream           2020-06-08T05:03:41+00:00
-   sorted_reads/A.bam.bai   BlockBlob    Hot          344       application/octet-stream           2020-06-08T05:06:25+00:00
-   # same for samples B and C
+   Name                                                                                            IsDirectory    Blob Type    Blob Tier    Length    Content Type              Last Modified              Snapshot
+  ----------------------------------------------------------------------------------------------  -------------  -----------  -----------  --------  ------------------------  -------------------------  ----------
+  data/genome.fa                                                                                                 BlockBlob    Hot          234112    application/octet-stream  2022-12-14T23:28:00+00:00
+  data/genome.fa.amb                                                                                             BlockBlob    Hot          2598      application/octet-stream  2022-12-14T23:28:01+00:00
+  data/genome.fa.ann                                                                                             BlockBlob    Hot          83        application/octet-stream  2022-12-14T23:28:01+00:00
+  data/genome.fa.bwt                                                                                             BlockBlob    Hot          230320    application/octet-stream  2022-12-14T23:28:01+00:00
+  data/genome.fa.fai                                                                                             BlockBlob    Hot          18        application/octet-stream  2022-12-14T23:28:01+00:00
+  data/genome.fa.pac                                                                                             BlockBlob    Hot          57556     application/octet-stream  2022-12-14T23:28:00+00:00
+  data/genome.fa.sa                                                                                              BlockBlob    Hot          115160    application/octet-stream  2022-12-14T23:28:01+00:00
+  data/samples/A.fastq                                                                                           BlockBlob    Hot          5752788   application/octet-stream  2022-12-14T23:28:04+00:00
+  data/samples/B.fastq                                                                                           BlockBlob    Hot          5775000   application/octet-stream  2022-12-14T23:28:06+00:00
+  data/samples/C.fastq                                                                                           BlockBlob    Hot          5775000   application/octet-stream  2022-12-14T23:28:02+00:00
+  logs/mapped_reads/A.log                                                                                        BlockBlob    Hot                    application/octet-stream  2022-12-28T18:14:33+00:00
+  logs/mapped_reads/B.log                                                                                        BlockBlob    Hot                    application/octet-stream  2022-12-28T18:15:25+00:00
+  logs/mapped_reads/C.log                                                                                        BlockBlob    Hot                    application/octet-stream  2022-12-28T18:16:17+00:00
+  results/calls/all.vcf                                                                                          BlockBlob    Hot          90962     application/octet-stream  2022-12-28T18:22:20+00:00
+  results/mapped_reads/A.bam                                                                                     BlockBlob    Hot          2258050   application/octet-stream  2022-12-28T18:14:33+00:00
+  results/mapped_reads/B.bam                                                                                     BlockBlob    Hot          2262766   application/octet-stream  2022-12-28T18:15:25+00:00
+  results/mapped_reads/C.bam                                                                                     BlockBlob    Hot          2262766   application/octet-stream  2022-12-28T18:16:17+00:00
+  results/plots/quals.svg                                                                                        BlockBlob    Hot          12571     application/octet-stream  2022-12-28T19:16:28+00:00
+  results/sorted_reads/A.bam                                                                                     BlockBlob    Hot          2244652   application/octet-stream  2022-12-28T18:17:10+00:00
+  results/sorted_reads/A.bam.bai                                                                                 BlockBlob    Hot          344       application/octet-stream  2022-12-28T18:19:48+00:00
+  results/sorted_reads/B.bam                                                                                     BlockBlob    Hot          2248758   application/octet-stream  2022-12-28T18:18:08+00:00
+  results/sorted_reads/B.bam.bai                                                                                 BlockBlob    Hot          344       application/octet-stream  2022-12-28T18:20:36+00:00
+  results/sorted_reads/C.bam                                                                                     BlockBlob    Hot          2248758   application/octet-stream  2022-12-28T18:18:58+00:00
+  results/sorted_reads/C.bam.bai                                                                                 BlockBlob    Hot          344       application/octet-stream  2022-12-28T18:21:23+00:00
 
 Once the execution is complete, the Batch nodes will scale down
 automatically. If you are not planning to run anything else, it makes
@@ -251,3 +291,14 @@ sense to shut down it down entirely:
 ::
 
    az batch account delete --name $accountname --resource-group $resgroup
+
+
+Autoscaling and Task Distribution
+:::::
+
+The azure batch executor supports autoscaling of the batch nodes by including the flag --az-batch-enable-autoscale. 
+This flag sets the initial dedicated node count of the pool to zero, and re-evaluates the number of nodes to be spun up or down based on the number of remaining tasks to run over a five minute interval. 
+Since five minutes is the smallest allowed interval for azure batch autoscaling, this feature becomes more useful for long running jobs. For more information on azure batch autoscaling configuration, see: https://learn.microsoft.com/en-us/azure/batch/batch-automatic-scaling.
+
+For shorter running jobs it might be more cost/time effective to set VM size with more cores `BATCH_POOL_VM_SIZE` and increase the number of `BATCH_TASKS_PER_NODE`. Or, if you want to keep tasks running on separate nodes, you can set a larger number for `BATCH_POOL_NODE_COUNT`. 
+It may require experimentation to find the most efficient/cost effective task distribution model for your use case depending on what you are optimizing for. For more details on limitations of azure batch node / task distribution see: https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks.
