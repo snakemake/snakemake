@@ -192,6 +192,9 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
    * - BATCH_POOL_VM_SIZE
      - Standard_D2_v3
      - batch node vm image size
+   * - BATCH_NODE_START_TASK_SASURL
+     - None
+     - speicfy an SAS url to a bash script start task to run on each batch node
    * - BATCH_POOL_NODE_COUNT
      - 1
      - batch pool node count
@@ -229,6 +232,9 @@ Now you are ready to run the analysis:
 
     # export BATCH_POOL_VM_CONTAINER_IMAGE=ubuntu
     # export BATCH_POOL_VM_NODE_AGENT_SKU_ID="batch.node.ubuntu 20.04"
+
+    # can be used to add a startup task to the batch nodes formatted as an sas url to a bash script
+    # export BATCH_NODE_START_TASK_SASURL=
 
     # can be useful to alter task distribution across nodes
 
