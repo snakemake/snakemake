@@ -255,7 +255,7 @@ class SlurmExecutor(ClusterExecutor):
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
-        call += f" --wrap={repr(exec_job)}"
+        call += f" --wrap={shlex.quote(exec_job)}"
 
         logger.debug(f"sbatch call: {call}")
         try:
