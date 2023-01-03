@@ -419,7 +419,9 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes or flux:
+
+    # Flux with conda requires a shared filesystem
+    if kubernetes or (flux and not use_conda):
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
