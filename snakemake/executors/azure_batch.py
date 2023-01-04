@@ -13,6 +13,7 @@ import shutil
 import tarfile
 import tempfile
 import sys
+import re
 from pprint import pformat
 
 from snakemake.executors import ClusterExecutor, sleep
@@ -142,7 +143,12 @@ class AzBatchExecutor(ClusterExecutor):
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
         logger.debug("AzBatchConfig:")
-        logger.debug(pformat(self.batch_config.__dict__, indent=2))
+        logger.debug(
+            pformat(
+                self.mask_dict_val(self.batch_config.__dict__, "batch_account_key"),
+                indent=2,
+            )
+        )
 
         self.workflow = workflow
         self.workdir = os.path.dirname(self.workflow.persistence.path)
@@ -208,6 +214,25 @@ class AzBatchExecutor(ClusterExecutor):
             self.batch_client.task.terminate(self.job_id, task.id)
         self.shutdown()
 
+    # mask_dict_val masks a sensitive key from a dictionary value
+    # used to mask dicts with sensitive information from logging
+    def mask_dict_val(self, mdict: dict, key: str):
+        mlen = len(mdict[key])
+        ret_dict = mdict.copy()
+        ret_dict[key] = mlen * "*"
+        return ret_dict
+
+    # mask blob url is used to mask url values that may contain SAS
+    # token information from being printed to the logs
+    def mask_task_blob_url(self, task_attrs: dict):
+        task_attrs_new = task_attrs.copy()
+        task_attrs_new["command_line"] = re.sub(
+            r"https\S+\.blob\.core\.windows\.net\S+",
+            len(self.batch_config.batch_account_url) * "*",
+            task_attrs_new["command_line"],
+        )
+        return task_attrs_new
+
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
 
         import azure.batch._batch_service_client as batch
@@ -261,7 +286,9 @@ class AzBatchExecutor(ClusterExecutor):
             AzBatchJob(job, self.job_id, task_id, callback, error_callback)
         )
         logger.debug(f"Added AzBatch task {task_id}")
-        logger.debug(f"Added AzBatch task {pformat(task.__dict__, indent=2)}")
+        logger.debug(
+            f"Added AzBatch task {pformat(self.mask_task_blob_url(task.__dict__), indent=2)}"
+        )
 
     # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
     @staticmethod
