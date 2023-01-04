@@ -299,6 +299,25 @@ sense to shut down it down entirely:
    az batch account delete --name $accountname --resource-group $resgroup
 
 
+Defining a Start Task
+:::::
+A start task can be optionally specified as a shell scirpt that runs during each node's startup as it's added to the batch pool.
+To specify a start task, set the environment variable BATCH_NODE_START_TASK_SASURL to the SAS url of a start task shell script.
+Store your shell script in a blob storage account and generate an SAS url to a shell script blob object. 
+You can generate an SAS URL to the blob using the azure portal or the command line using the following command structure: 
+
+::
+
+  container="container-name"
+  expiry="2024-01-01"
+  blob_name="starttask.sh"
+  SAS_TOKEN=$(az storage blob generate-sas --account-name $stgacct --container-name $container --name $blob_name --permissions r --auth-mode login --as-user --expiry $expiry -o tsv)
+  BLOB_URL=$(az storage blob url --account-name cromwellstorage --container-name snaketest --name starttask.sh --auth-mode login -o tsv)
+
+  # then export the full SAS URL
+  export BATCH_NODE_START_TASK_SASURL="${BLOB_URL}?${SAS_TOKEN}"
+
+
 Autoscaling and Task Distribution
 :::::
 

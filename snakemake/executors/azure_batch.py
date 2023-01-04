@@ -399,8 +399,11 @@ class AzBatchExecutor(ClusterExecutor):
         # if configured us start task bash script from sas url
         if self.batch_config.batch_node_start_task_sasurl is not None:
             _SIMPLE_TASK_NAME = "start_task.sh"
+            logger.debug(
+                f"Using azure batch start task script: {self.batch_config.batch_node_start_task_sasurl}"
+            )
             start_task = batchmodels.StartTask(
-                command_line="bash" + _SIMPLE_TASK_NAME,
+                command_line=f"bash {_SIMPLE_TASK_NAME}",
                 resource_files=[
                     batchmodels.ResourceFile(
                         file_path=_SIMPLE_TASK_NAME,
