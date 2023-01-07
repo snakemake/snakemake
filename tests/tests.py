@@ -1922,6 +1922,10 @@ def test_retries():
     run(dpath("test_retries"))
 
 
+def test_retries_not_overriden():
+    run(dpath("test_retries_not_overriden"), restart_times=3, shouldfail=True)
+
+
 @skip_on_windows  # OS agnostic
 def test_module_input_func():
     run(dpath("test_module_input_func"))
