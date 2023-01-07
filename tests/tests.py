@@ -930,6 +930,11 @@ def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
 
+@skip_on_windows
+def test_group_jobs_attempts():
+    run(dpath("test_group_jobs_attempts"), cluster="./qsub", restart_times=2)
+
+
 def assert_resources(resources: dict, **expected_resources):
     assert {res: resources[res] for res in expected_resources} == expected_resources
 

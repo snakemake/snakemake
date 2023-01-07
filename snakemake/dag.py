@@ -2525,8 +2525,8 @@ class DAG:
 
             for group in pipe_groups.values():
                 sorted_layer.extend(
-                    chain(
-                        *toposort(
+                    chain.from_iterable(
+                        toposort(
                             {
                                 job: {
                                     dep
