@@ -1,0 +1,2 @@
+rule a:
+    output: directory('output/'),
