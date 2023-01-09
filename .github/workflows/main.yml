@@ -120,17 +120,17 @@ jobs:
                         Sockets: 1
                         CoresPerSocket: 1
                         ThreadsPerCore: 1
-                        Features: constraint_feature_1
+                        Features: "constraint_feature_1,both"
                       - name: "node-2"
                         Sockets: 1
                         CoresPerSocket: 1
                         ThreadsPerCore: 1
-                        Features: constraint_feature_2
-                  # slurm_partitions:
-                  #     - name: "compute"
-                  #       Default: YES
-                  #       MaxTime: UNLIMITED
-                  #       Nodes: "com0"
+                        Features: "constraint_feature_2,both"
+                  slurm_partitions:
+                      - name: "compute"
+                        Default: YES
+                        MaxTime: UNLIMITED
+                        Nodes: "node-1,node-1"
                   slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 1002
