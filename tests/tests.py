@@ -1554,6 +1554,10 @@ def test_scatter_gather():
 # SLURM tests go here, after successfull tests
 
 
+def test_parsing_terminal_comment_following_statement():
+    run(dpath("test_parsing_terminal_comment_following_statement"))
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
