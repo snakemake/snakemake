@@ -95,7 +95,7 @@ jobs:
                   slurm_config:
                       ClusterName: cluster
                       #ProctrackType: proctrack/pgid
-                      #SlurmctldHost: localhost # TODO try if we need this
+                      SlurmctldHost: "slurmctl" # TODO try if we need this
                       SlurmctldLogFile: /var/log/slurm/slurmctld.log
                       SlurmctldPidFile: /run/slurmctld.pid
                       SlurmdLogFile: /var/log/slurm/slurmd.log
@@ -112,7 +112,7 @@ jobs:
                       StorageUser: root
                       StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
                       StoragePort: 8888
-                      DbdHost: localhost
+                      # DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
                   slurm_nodes:
