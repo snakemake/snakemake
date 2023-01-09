@@ -130,7 +130,7 @@ jobs:
                       - name: "compute"
                         Default: YES
                         MaxTime: UNLIMITED
-                        Nodes: "node-1,node-1"
+                        Nodes: "node-[1-2]"
                   slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 1002
