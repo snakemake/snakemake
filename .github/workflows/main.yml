@@ -115,11 +115,17 @@ jobs:
                       DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
-                  # slurm_nodes:
-                  #     - name: "com0"
-                  #       Sockets: 1
-                  #       CoresPerSocket: 2
-                  #       ThreadsPerCore: 1
+                  slurm_nodes:
+                      - name: "node-1"
+                        Sockets: 1
+                        CoresPerSocket: 1
+                        ThreadsPerCore: 1
+                        Features: constraint_feature_1
+                      - name: "node-2"
+                        Sockets: 1
+                        CoresPerSocket: 1
+                        ThreadsPerCore: 1
+                        Features: constraint_feature_2
                   # slurm_partitions:
                   #     - name: "compute"
                   #       Default: YES
