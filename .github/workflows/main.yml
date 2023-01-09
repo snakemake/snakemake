@@ -146,13 +146,13 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-          sinfo
       - name: Add Slurm Account
         run: |
           echo "Waiting 5 seconds for slurm cluster to be fully initialized."
           sleep 5
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
+          sinfo
       - name: Test slurm submission
         run: |
           srun -vvvv echo "hello world"
