@@ -146,6 +146,7 @@ jobs:
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
+          sinfo
       - name: Add Slurm Account
         run: |
           echo "Waiting 5 seconds for slurm cluster to be fully initialized."
