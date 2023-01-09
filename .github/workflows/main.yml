@@ -72,7 +72,7 @@ jobs:
           file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
-              hosts: localhost
+              hosts: all
               roles:
                 - role: galaxyproject.slurm
                   become: true
