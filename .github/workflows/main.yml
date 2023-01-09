@@ -145,7 +145,7 @@ jobs:
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Setup slurm
         run: |
-          ansible-playbook slurm-playbook.yml -i node-1,node2 || (journalctl -xe && exit 1)
+          ansible-playbook slurm-playbook.yml -i 192.168.55.11,192.168.55.12 || (journalctl -xe && exit 1)
       - name: Add Slurm Account
         run: |
           echo "Waiting 5 seconds for slurm cluster to be fully initialized."
