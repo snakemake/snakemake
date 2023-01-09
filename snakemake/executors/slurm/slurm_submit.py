@@ -221,7 +221,7 @@ class SlurmExecutor(ClusterExecutor):
             )
 
         if job.resources.get("constraint"):
-            call += f" -C {shlex.quote(job.resources.constraint)}"
+            call += f" -C '{job.resources.constraint}'"
         if job.resources.get("mem_mb_per_cpu"):
             call += f" --mem-per-cpu {job.resources.mem_mb_per_cpu}"
         elif job.resources.get("mem_mb"):
