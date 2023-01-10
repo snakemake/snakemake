@@ -255,7 +255,7 @@ class SlurmExecutor(ClusterExecutor):
         # ensure that workdir is set correctly
         call += f" --chdir={self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
-        call += f" --wrap={repr(exec_job)}"
+        call += f" --wrap={shlex.quote(exec_job)}"
 
         logger.debug(f"sbatch call: {call}")
         try:
@@ -319,7 +319,7 @@ class SlurmExecutor(ClusterExecutor):
                         break
                     except subprocess.CalledProcessError as e:
                         logger.error(
-                            f"Error getting job status:\n    sacct error: {sacct_error}\n    scontrol error: {e.stderr}"
+                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error.strip()}\n    scontrol error: {e.stderr.strip()}"
                         )
 
                 if i >= STATUS_ATTEMPTS - 1:
@@ -359,7 +359,6 @@ class SlurmExecutor(ClusterExecutor):
                     # so we assume it is finished
                     j.callback(j.job)
                 elif status in fail_stati:
-                    # TODO dbg, remove
                     self.print_job_error(
                         j.job,
                         msg=f"SLURM-job '{j.jobid}' failed, SLURM status is: '{status}'",

@@ -226,6 +226,7 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
+        self.token = None
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -266,8 +267,22 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
+    def __init__(
+        self,
+        repo: str,
+        path: str,
+        tag: str = None,
+        branch: str = None,
+        commit: str = None,
+    ):
+        super().__init__(repo, path, tag, branch, commit)
+        self.token = os.environ.get("GITHUB_TOKEN", None)
+
     def get_path_or_uri(self):
-        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
+        auth = ":{}@".format(self.token) if self.token else ""
+        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
+            auth, self.repo, self.ref, self.path
+        )
 
 
 class GitlabFile(HostingProviderFile):
@@ -282,10 +297,18 @@ class GitlabFile(HostingProviderFile):
     ):
         super().__init__(repo, path, tag, branch, commit)
         self.host = host
+        self.token = os.environ.get("GITLAB_TOKEN", None)
 
     def get_path_or_uri(self):
-        return "https://{}/{}/-/raw/{}/{}".format(
-            self.host or "gitlab.com", self.repo, self.ref, self.path
+        from urllib.parse import quote
+
+        auth = "&private_token={}".format(self.token) if self.token else ""
+        return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
+            self.host or "gitlab.com",
+            quote(self.repo, safe=""),
+            quote(self.path, safe=""),
+            self.ref,
+            auth,
         )
 
 

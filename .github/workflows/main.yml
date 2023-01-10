@@ -36,7 +36,7 @@ jobs:
           tests/test_io.py tests/common.py tests/test_google_lifesciences.py
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.3.0
+        uses: marocchino/sticky-pull-request-comment@v2.3.1
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -230,7 +230,7 @@ jobs:
         if: >-
           contains(github.event.pull_request.labels.*.name,
           'update-container-image')
-        uses: elgohr/Publish-Docker-Github-Action@v4
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}

@@ -6,6 +6,7 @@ Cluster Execution
 
 Snakemake can make use of cluster engines that support shell scripts and have access to a common filesystem, (e.g. Slurm or PBS).
 There exists a generic cluster support which works with any such engine (see :ref:`cluster-generic`), and a specific support for Slurm (see :ref:`cluster-slurm`).
+When executing on a cluster, Snakemake implicitly assumes some default resources for all rules (see :ref:`default-resources`).
 
 .. _cluster-slurm:
 
@@ -13,8 +14,8 @@ There exists a generic cluster support which works with any such engine (see :re
 Executing on SLURM clusters
 --------------
 
-`SLURM <https://slurm.schedmd.com/documentation.html>(the Simple Linux Utility for Resource Management)` is a widely used batch system for
-performance compute clusters. In order to use Snakemake with slurm, simply append `--slurm` to your command line.
+`SLURM <https://slurm.schedmd.com/documentation.html>`_ is a widely used batch system for
+performance compute clusters. In order to use Snakemake with slurm, simply append ``--slurm`` to your Snakemake invocation.
 
 Specifying Account and Partition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -40,10 +41,11 @@ Usually, it is advisable to persist such settings via a :ref:`configuration prof
 Ordinary SMP jobs
 ~~~~~~~~~~~~~~~~~
 
-Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (:ref: shared memory programs<https://en.wikipedia.org/wiki/Shared_memory>)
+Most jobs will be carried out by programs which are either single core scripts or threaded programs, hence SMP (`shared memory programs <https://en.wikipedia.org/wiki/Shared_memory>`_)
 in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM:
 
 .. code-block:: python
+
   rule a:
       input: ...
       output: ...
@@ -88,31 +90,32 @@ Advanced Resource Specifications
 A workflow rule may support a number of :ref:`resource <snakefiles-resources>` specification. For a SLURM cluster, 
 a mapping between Snakemake and SLURM needs to be performed.
 
-We can use the following specifications, unique per rule:
+You can use the following specifications:
 
-+-----------------+-----------------------+------------------------------------------------------------------+
-| SLURM Resource  | Snakemake resource    | Background Information                                           |
-+=================+=======================+==================================================================+
-| ``-p``/``--partition`` | ``slurm_partition``  | the partition a rule/job is to use                         |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``-t``/``--time``   | ``runtime``       | the walltime per job in minutes                                  |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``-C``/`--constraint`| ``constraint``   | may hold features on some clusters                               |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``--mem``         |  ``mem_mb``         | memory in MB a cluster node must provide                         |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``--mem-per-cpu`` |  ``mem_mb_per_cpu``     | memory per reserved CPU                                      |
-+-----------------+-----------------------+------------------------------------------------------------------+
-|  ``-n``/``--ntasks``  |  ``tasks``      | number of concurrent tasks / ranks                               |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``-c``/``--cpus-per-task`` | ``cpus_per_task``| number of cpus per task (in case of SMP, rather use ``threads``) |
-+-----------------+-----------------------+------------------------------------------------------------------+
-| ``-N``/``--nodes``  | ``nodes``         | number of nodes                                                  |
-+-----------------+-----------------------+------------------------------------------------------------------+
++----------------------------+---------------------+------------------------------------------------------------------+
+|       SLURM Resource       | Snakemake resource  |                      Background Information                      |
++============================+=====================+==================================================================+
+| ``-p``/``--partition``     | ``slurm_partition`` | the partition a rule/job is to use                               |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``-t``/``--time``          | ``runtime``         | the walltime per job in minutes                                  |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``-C``/`--constraint`      | ``constraint``      | may hold features on some clusters                               |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``--mem``                  | ``mem_mb``          | memory in MB a cluster node must provide                         |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``--mem-per-cpu``          | ``mem_mb_per_cpu``  | memory per reserved CPU                                          |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``-n``/``--ntasks``        | ``tasks``           | number of concurrent tasks / ranks                               |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``-c``/``--cpus-per-task`` | ``cpus_per_task``   | number of cpus per task (in case of SMP, rather use ``threads``) |
++----------------------------+---------------------+------------------------------------------------------------------+
+| ``-N``/``--nodes``         | ``nodes``           | number of nodes                                                  |
++----------------------------+---------------------+------------------------------------------------------------------+
 
 Each of these can be part of a rule, e.g.:
 
 .. code-block:: python
+
   rule:
       input: ...
       output: ...
@@ -121,7 +124,11 @@ Each of these can be part of a rule, e.g.:
           runtime: <some number>
 
 Please note: as ``--mem`` and ``--mem-per-cpu`` are mutually exclusive on SLURM clusters, there corresponding resource flags ``mem_mb`` and ``mem_mb_per_cpu`` are mutually exclusive, too.
-You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads). SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
+You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads).
+SLURM will try to sastify a combination of ``mem_mb_per_cpu`` and ``cpus_per_task`` and ``nodes``, if ``nodes`` is not given.
+
+Note that it is usually advisable to avoid specifying SLURM (and compute infrastructure) specific resources (like ``constraint``) inside of your workflow because that can limit the reproducibility on other systems.
+Consider using the ``--default-resources`` and ``--set-resources`` flags to define such resources on the command line.
 
 Additional custom job configuration
 ```````````````````````````````````
@@ -131,6 +138,7 @@ In addition, there are various ``sbatch`` options not directly supported via the
 You may use the ``slurm_extra`` resource to specify additional flags to ``sbatch``:
 
 .. code-block:: python
+
   rule:
       input: ...
       output: ...
