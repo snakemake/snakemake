@@ -323,6 +323,10 @@ def test_touch():
     run(dpath("test_touch"))
 
 
+def test_touch_flag_with_directories():
+    run(dpath("test_touch_with_directories"), touch=True)
+
+
 def test_config():
     run(dpath("test_config"))
 
@@ -928,6 +932,11 @@ def test_pathlib_missing_file():
 @skip_on_windows
 def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
+
+
+@skip_on_windows
+def test_group_jobs_attempts():
+    run(dpath("test_group_jobs_attempts"), cluster="./qsub", restart_times=2)
 
 
 def assert_resources(resources: dict, **expected_resources):
@@ -1554,6 +1563,10 @@ def test_scatter_gather():
 # SLURM tests go here, after successfull tests
 
 
+def test_parsing_terminal_comment_following_statement():
+    run(dpath("test_parsing_terminal_comment_following_statement"))
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
@@ -1920,6 +1933,10 @@ def test_rule_inheritance_globals():
 
 def test_retries():
     run(dpath("test_retries"))
+
+
+def test_retries_not_overriden():
+    run(dpath("test_retries_not_overriden"), restart_times=3, shouldfail=True)
 
 
 @skip_on_windows  # OS agnostic

@@ -142,6 +142,8 @@ class KeywordState(TokenAutomaton):
         return self.__class__.__name__.lower()[len(self.prefix) :]
 
     def end(self):
+        # Add newline to prevent https://github.com/snakemake/snakemake/issues/1943
+        yield "\n"
         yield ")"
 
     def decorate_end(self, token):

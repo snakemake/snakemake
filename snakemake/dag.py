@@ -594,12 +594,20 @@ class DAG:
                     jobid=self.jobid(job),
                 )
 
-        # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa). We can't check for remote objects.
+        def correctly_flagged_with_dir(f):
+            """Check that files flagged as directories are in fact directories
+
+            In ambiguous cases, such as when f is remote, or f doesn't exist and
+            ignore_missing_output is true, always return True
+            """
+            if f.remote_object:
+                return True
+            if ignore_missing_output and not os.path.exists(f):
+                return True
+            return not (f.is_directory ^ os.path.isdir(f))
+
         for f in expanded_output:
-            if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
-                not f.remote_object and os.path.isdir(f) and not f.is_directory
-            ):
+            if not correctly_flagged_with_dir(f):
                 raise ImproperOutputException(job, [f])
 
         # Handle ensure flags
@@ -2525,8 +2533,8 @@ class DAG:
 
             for group in pipe_groups.values():
                 sorted_layer.extend(
-                    chain(
-                        *toposort(
+                    chain.from_iterable(
+                        toposort(
                             {
                                 job: {
                                     dep

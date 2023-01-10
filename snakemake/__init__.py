@@ -2152,7 +2152,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help=(
             "Execute snakemake rules as SLURM batch jobs according"
-            " to their 'resources' definition. SLRUM resources as "
+            " to their 'resources' definition. SLURM resources as "
             " 'partition', 'ntasks', 'cpus', etc. need to be defined"
             " per rule within the 'resources' definition. Note, that"
             " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
