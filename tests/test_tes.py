@@ -15,6 +15,12 @@ TEST_POST_RESPONSE = {"id": "id_1"}
 
 TEST_TASK = {"id": "id_1", "state": "COMPLETE"}
 
+TES_TOKEN = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    + "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+    + "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+)
+
 
 def _validate_task(task):
     print("\n>>>> _validate_task", file=sys.stderr)
@@ -55,6 +61,15 @@ def test_tes(requests_mock):
     )
     workdir = dpath("test_tes")
     print("\n>>>> run workflow in {}".format(workdir), file=sys.stderr)
+    run(
+        workdir,
+        snakefile="Snakefile",
+        tes=TES_URL,
+        no_tmpdir=True,
+        cleanup=False,
+        forceall=True,
+    )
+    os.environ["TES_TOKEN"] = TES_TOKEN
     run(
         workdir,
         snakefile="Snakefile",
