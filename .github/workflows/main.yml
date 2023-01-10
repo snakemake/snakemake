@@ -69,11 +69,6 @@ jobs:
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
-          file: hosts_inventory.txt
-          content: |
-            [servers]
-            server1 ansible_host=192.168.55.11 ansible_port=6817
-            server2 ansible_host=192.168.55.12 ansible_port=6817
           file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
@@ -148,6 +143,11 @@ jobs:
         run: |
           mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
+      - name: Create hosts_inventory.txt for slurm
+        run: |
+          echo "[servers]" > hosts_inventory.txt
+          echo "server1 ansible_host=192.168.55.11 ansible_port=6817" >> hosts_inventory.txt
+          echo "server2 ansible_host=192.168.55.12 ansible_port=6817" >> hosts_inventory.txt
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml -i hosts_inventory.txt || (journalctl -xe && exit 1)
