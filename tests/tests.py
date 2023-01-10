@@ -323,6 +323,10 @@ def test_touch():
     run(dpath("test_touch"))
 
 
+def test_touch_flag_with_directories():
+    run(dpath("test_touch_with_directories"), touch=True)
+
+
 def test_config():
     run(dpath("test_config"))
 
