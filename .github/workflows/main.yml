@@ -72,7 +72,7 @@ jobs:
           file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
-              hosts: all
+              hosts: localhost
               roles:
                 - role: galaxyproject.slurm
                   become: true
@@ -95,7 +95,7 @@ jobs:
                   slurm_config:
                       ClusterName: cluster
                       #ProctrackType: proctrack/pgid
-                      SlurmctldHost: "slurmctl" # TODO try if we need this
+                      #SlurmctldHost: localhost # TODO try if we need this
                       SlurmctldLogFile: /var/log/slurm/slurmctld.log
                       SlurmctldPidFile: /run/slurmctld.pid
                       SlurmdLogFile: /var/log/slurm/slurmd.log
@@ -112,25 +112,19 @@ jobs:
                       StorageUser: root
                       StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
                       StoragePort: 8888
-                      # DbdHost: localhost
+                      DbdHost: localhost
                   slurm_create_user: yes
                   #slurm_munge_key: "../../../munge.key"
-                  slurm_nodes:
-                      - name: "slurm-node-1"
-                        Sockets: 1
-                        CoresPerSocket: 1
-                        ThreadsPerCore: 1
-                        Features: "constraint_feature_1,both"
-                      - name: "slurm-node-2"
-                        Sockets: 1
-                        CoresPerSocket: 1
-                        ThreadsPerCore: 1
-                        Features: "constraint_feature_2,both"
-                  slurm_partitions:
-                      - name: "compute"
-                        Default: YES
-                        MaxTime: UNLIMITED
-                        Nodes: "slurm-node-[1-2]"
+                  # slurm_nodes:
+                  #     - name: "com0"
+                  #       Sockets: 1
+                  #       CoresPerSocket: 2
+                  #       ThreadsPerCore: 1
+                  # slurm_partitions:
+                  #     - name: "compute"
+                  #       Default: YES
+                  #       MaxTime: UNLIMITED
+                  #       Nodes: "com0"
                   slurm_user:
                       comment: "Slurm Workload Manager"
                       gid: 1002
@@ -143,24 +137,18 @@ jobs:
         run: |
           mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
-      - name: Create hosts_inventory.txt for slurm
-        run: |
-          echo "[all]" > hosts_inventory.txt
-          echo "server1 ansible_host=192.168.55.11 ansible_port=6818" >> hosts_inventory.txt
-          echo "server2 ansible_host=192.168.55.12 ansible_port=6818" >> hosts_inventory.txt
       - name: Setup slurm
         run: |
-          ansible-playbook slurm-playbook.yml -i hosts_inventory.txt || (journalctl -xe && exit 1)
+          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
       - name: Add Slurm Account
         run: |
           echo "Waiting 5 seconds for slurm cluster to be fully initialized."
           sleep 5
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
-          sinfo
       - name: Test slurm submission
         run: |
-          srun --partition="compute" -vvvv echo "hello world"
+          srun -vvvv echo "hello world"
           sudo cat /var/log/slurm/slurmd.log
       - name: Indicate supported MPI types
         run: |
