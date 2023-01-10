@@ -145,9 +145,9 @@ jobs:
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Create hosts_inventory.txt for slurm
         run: |
-          echo "[servers]" > hosts_inventory.txt
-          echo "server1 ansible_host=192.168.55.11 ansible_port=6817" >> hosts_inventory.txt
-          echo "server2 ansible_host=192.168.55.12 ansible_port=6817" >> hosts_inventory.txt
+          echo "[all]" > hosts_inventory.txt
+          echo "server1 ansible_host=192.168.55.11 ansible_port=6819" >> hosts_inventory.txt
+          echo "server2 ansible_host=192.168.55.12 ansible_port=6819" >> hosts_inventory.txt
       - name: Setup slurm
         run: |
           ansible-playbook slurm-playbook.yml -i hosts_inventory.txt || (journalctl -xe && exit 1)
