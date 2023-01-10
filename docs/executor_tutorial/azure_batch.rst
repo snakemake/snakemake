@@ -100,6 +100,17 @@ We are using `az storage blob` for uploading, because that `az` is already insta
 Another cli tool for uploading to azure storage is 
 `azcopy <https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10>`__.
 
+
+
+Azure Blob Storage Warning: 
+:::::::::::::::::::
+
+The snakemake azbatch executor will not work with data in a storage account that has "hierarchical namespace" enabled. 
+Azure hierarchical namespace is a new api on azure storage that is also called "ADLS Gen2". 
+Snakemake does not currently support this storage format becuse the Python API is distinct from traditional blob storage.
+For more details see: https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace.
+
+
 Create an Azure Batch Account
 :::::::::::::::::::::::::::::::::::::::::
 
