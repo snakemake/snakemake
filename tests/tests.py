@@ -2039,3 +2039,7 @@ def test_github_issue1882():
         run(tmpdir, forceall=True)
     finally:
         shutil.rmtree(tmpdir)
+
+
+def test_inferred_resources():
+    run(dpath("test_inferred_resources"))
