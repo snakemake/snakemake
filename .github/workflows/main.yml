@@ -69,6 +69,12 @@ jobs:
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
+          file: hosts_inventory.txt
+          content: |
+            [servers]
+            server1 ansible_host=192.168.55.11 ansible_port=6817
+            server2 ansible_host=192.168.55.12 ansible_port=6817
+        with:
           file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
@@ -145,7 +151,7 @@ jobs:
           echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
       - name: Setup slurm
         run: |
-          ansible-playbook slurm-playbook.yml -i 192.168.55.11:6817,192.168.55.12:6817 || (journalctl -xe && exit 1)
+          ansible-playbook slurm-playbook.yml -i hosts_inventory.txt || (journalctl -xe && exit 1)
       - name: Add Slurm Account
         run: |
           echo "Waiting 5 seconds for slurm cluster to be fully initialized."
