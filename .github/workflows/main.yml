@@ -74,7 +74,6 @@ jobs:
             [servers]
             server1 ansible_host=192.168.55.11 ansible_port=6817
             server2 ansible_host=192.168.55.12 ansible_port=6817
-        with:
           file: slurm-playbook.yml
           content: |
             - name: Slurm all in One
