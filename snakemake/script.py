@@ -643,7 +643,9 @@ class PythonScript(ScriptBase):
         try:
             return tuple(map(int, out.strip().split(".")))
         except ValueError as e:
-            raise WorkflowError(f"Unable to determine Python version from output '{out}': {e}")
+            raise WorkflowError(
+                f"Unable to determine Python version from output '{out}': {e}"
+            )
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
