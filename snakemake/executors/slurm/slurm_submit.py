@@ -319,7 +319,7 @@ class SlurmExecutor(ClusterExecutor):
                         break
                     except subprocess.CalledProcessError as e:
                         logger.error(
-                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error.strip()}\n    scontrol error: {e.stderr.strip()}"
+                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error}\n    scontrol error: {e.stderr.strip()}"
                         )
 
                 if i >= STATUS_ATTEMPTS - 1:
