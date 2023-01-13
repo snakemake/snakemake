@@ -163,7 +163,7 @@ jobs:
       - name: Setup Snakemake environment
         run: |
           conda config --set channel_priority strict
-          mamba env update -q --file test-environment.yml
+          mamba env update -q -n snakemake --file test-environment.yml
 
           # additionally add singularity
 
