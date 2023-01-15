@@ -161,6 +161,7 @@ jobs:
           miniforge-variant: Mambaforge
           miniforge-version: latest
       - name: Setup Snakemake environment
+        shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
           mamba env update -q -n snakemake --file test-environment.yml
@@ -200,16 +201,16 @@ jobs:
       - name: Test Slurm
         env:
           CI: true
+        shell: bash -el {0}
         run: |
-          source activate snakemake
           pytest -v tests/test_slurm.py
 
       - name: Test local
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+        shell: bash -el {0}
         run: |
-          source activate snakemake
           pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
       - name: Build and publish docker image
         if: >-
@@ -230,19 +231,19 @@ jobs:
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
       - name: Test Google Life Sciences Executor
         if: env.GCP_AVAILABLE
+        shell: bash -el {0}
         run: |
-          source activate snakemake
           pytest -s -v -x tests/test_google_lifesciences.py
       - name: Test Kubernetes execution
         if: env.GCP_AVAILABLE
         env:
           CI: true
+        shell: bash -el {0}
         run: |
-          source activate snakemake
           pytest -s -v -x tests/test_kubernetes.py
       - name: Test GA4GH TES executor
+        shell: bash -el {0}
         run: |
-          source activate snakemake
           pytest -s -v -x tests/test_tes.py
 
       - name: Delete container image
