@@ -2041,5 +2041,6 @@ def test_github_issue1882():
         shutil.rmtree(tmpdir)
 
 
+@skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
