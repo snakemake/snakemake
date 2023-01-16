@@ -1560,6 +1560,8 @@ class GroupJob(AbstractJob):
     def attempt(self, attempt):
         # reset resources
         self._resources = None
+        for job in self.jobs:
+            job.attempt = attempt
         self._attempt = attempt
 
     @property

@@ -8,6 +8,16 @@ This part of the documentation describes the ``snakemake`` executable.  Snakemak
 is primarily a command-line tool, so the ``snakemake`` executable is the primary way
 to execute, debug, and visualize workflows.
 
+.. user_manual-snakemake_envvars:
+
+-------------------------------
+Important environment variables
+-------------------------------
+
+Snakemake caches source files for performance and reproducibility.
+The location of this cache is determined by the `appdirs <https://github.com/ActiveState/appdirs>`_ package.
+If you want to change the location on a unix/linux system, you can define an override path via the environment variable ``XDG_CACHE_HOME``.
+
 .. user_manual-snakemake_options:
 
 -----------------------------
@@ -76,7 +86,7 @@ By running
 
     $ snakemake --cores 4 --batch myrule=1/3
 
-you instruct to only compute the first of three batches of the inputs of the rule `myrule`.
+you instruct to only compute the first of three batches of the inputs of the rule ``myrule``.
 To generate the second batch, run
 
 .. code-block:: console
@@ -90,7 +100,7 @@ Finally, when running
 
     $ snakemake --cores 4 --batch myrule=3/3
 
-Snakemake will process beyond the rule `myrule`, because all of its input files have been generated, and complete the workflow.
+Snakemake will process beyond the rule ``myrule``, because all of its input files have been generated, and complete the workflow.
 Obviously, a good choice of the rule to perform the batching is a rule that has a lot of input files and upstream jobs, for example a central aggregation step within your workflow.
 We advice all workflow developers to inform potential users of the best suited batching rule.
 

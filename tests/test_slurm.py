@@ -53,6 +53,6 @@ def test_slurm_complex():
         show_failed_logs=True,
         slurm=True,
         default_resources=DefaultResources(
-            ["slurm_account=runner", "slurm_partition=debug", "tasks=1", "mem_mb=0"]
+            ["slurm_account=runner", "slurm_partition=debug", "tasks=1", "mem_mb=0", "disk_mb=max(2*input.size_mb, 200)"]
         ),
     )
