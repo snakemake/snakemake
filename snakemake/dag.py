@@ -69,15 +69,18 @@ class Batch:
                 "Please choose a smaller number of batches.".format(self.rulename)
             )
         items = sorted(items)
-        batch_len = math.floor(len(items) / self.batches)
+        k, m = divmod(len(items), self.batches)
+
         # self.batch is one-based, hence we have to subtract 1
         idx = self.idx - 1
-        i = idx * batch_len
+        i = idx * k + min(idx, m)
+        batch_len = (idx + 1) * k + min(idx + 1, m) 
+
         if self.is_final:
             # extend the last batch to cover rest of list
             return items[i:]
         else:
-            return items[i : i + batch_len]
+            return items[i : batch_len]
 
     @property
     def is_final(self):
