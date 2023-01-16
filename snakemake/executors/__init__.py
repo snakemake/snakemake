@@ -674,7 +674,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if not (job.is_group() or job.shellcmd) or self.workflow.verbose:
+            if self.workflow.verbose or (job.is_run and not job.is_group()):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
