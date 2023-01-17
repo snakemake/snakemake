@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = [
+    "setuptools>=61",
+    'tomli; python_version < "3.11"',
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -92,3 +95,10 @@ include = ["snakemake", "snakemake.*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "snakemake/_version.py"
+versionfile_build = "snakemake/_version.py"
+tag_prefix = "v"
