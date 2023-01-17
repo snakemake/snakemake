@@ -1,3 +1,104 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = [
+    "setuptools>=61",
+    'tomli; python_version < "3.11"',
+]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "snakemake"
+authors = [
+    {name = "Johannes Köster", email = "johannes.koester@tu-dortmund.de"},
+]
+description = """\
+The Snakemake workflow management system is a tool to create \
+reproducible and scalable data analyses."""
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "appdirs",
+    "configargparse",
+    "connection_pool >=0.0.3",
+    "datrie",
+    "docutils",
+    "gitpython",
+    "jinja2 >=3.0,<4.0",
+    "jsonschema",
+    "nbformat",
+    "psutil",
+    "pulp >=2.0",
+    "pyyaml",
+    "requests",
+    "reretry",
+    "smart_open >=3.0",
+    "stopit",
+    "tabulate",
+    "throttler",
+    "toposort",
+    "wrapt",
+    "yte >=1.0,<2.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+reports = ["pygments"]
+messaging = ["slacker"]
+google-cloud = [
+    "google-api-python-client",
+    "google-cloud-storage",
+    "google-crc32c",
+    "oauth2client",
+]
+pep = [
+    "eido",
+    "peppy",
+]
+
+[project.readme]
+text = """\
+Snakemake is a workflow management system that aims to reduce the complexity
+of creating workflows by providing a fast and comfortable execution environment,
+together with a clean and modern specification language in python style.
+Snakemake workflows are essentially Python scripts extended by declarative
+code to define rules. Rules describe how to create output files from input files.
+"""
+content-type = "text/markdown"
+
+[project.scripts]
+snakemake = "snakemake:main"
+snakemake-bash-completion = "snakemake:bash_completion"
+
+[project.urls]
+Documentation = "https://snakemake.readthedocs.io"
+Source = "https://github.com/snakemake/snakemake"
+
+[tool.setuptools]
+include-package-data = false
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["snakemake", "snakemake.*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.css", "*.sh", "*.html", "*.jinja2", "*.js", "*.svg"]
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "snakemake/_version.py"
+versionfile_build = "snakemake/_version.py"
+tag_prefix = "v"
