@@ -94,15 +94,15 @@ class SlurmJobstepExecutor(ClusterExecutor):
             for level in list(job.toposorted):
                 # we need to ensure order - any:
                 level_list = list(level)
-                for level_job in level_list: #[:-1]:
+                for level_job in level_list:  # [:-1]:
                     jobsteps[level_job] = subprocess.Popen(
                         get_call(level_job), shell=True
                     )
                 # now: the last one
                 # this way, we ensure that level jobs depending on the current level get started
-                #jobsteps[level_list[-1]] = subprocess.Popen(
+                # jobsteps[level_list[-1]] = subprocess.Popen(
                 #    get_call(level_list[-1], aux="--dependency=singleton"), shell=True
-                #)
+                # )
 
         if "mpi" in job.resources.keys():
             # MPI job:
