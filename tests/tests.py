@@ -1942,7 +1942,7 @@ def test_conda_python_script():
 
 
 def test_prebuilt_conda_script():
-    sp.run("conda create -n test_prebuilt_conda_script python=3.9 -y", shell=True)
+    sp.run("conda env create -f tests/test_prebuilt_conda_script/env.yaml", shell=True)
     run(dpath("test_prebuilt_conda_script"), use_conda=True)
 
 
