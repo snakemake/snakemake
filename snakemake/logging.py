@@ -474,9 +474,13 @@ class Logger:
                 except FileNotFoundError:
                     yield f"Logfile {f} not found."
                     return
-                logfile_header = f"Logfile {f}:"
-                yield logfile_header
                 lines = content.splitlines()
+                logfile_header = f"Logfile {f}:"
+                if not lines:
+                    logfile_header += " empty file"
+                    yield logfile_header
+                    return
+                yield logfile_header
                 max_len = max(max(len(l) for l in lines), len(logfile_header))
                 yield "=" * max_len
                 yield from lines

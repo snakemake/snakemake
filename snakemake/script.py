@@ -641,10 +641,15 @@ class PythonScript(ScriptBase):
 
     def _get_python_version(self):
         out = self._execute_cmd(
-            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            "python -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\"",
             read=True,
         )
-        return tuple(map(int, out.strip().split(".")))
+        try:
+            return tuple(map(int, out.strip().split(".")))
+        except ValueError as e:
+            raise WorkflowError(
+                f"Unable to determine Python version from output '{out}': {e}"
+            )
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable
