@@ -320,8 +320,15 @@ class SlurmExecutor(ClusterExecutor):
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
+
+                        def fmt_err(err_type, err_msg):
+                            if err_msg is not None:
+                                return f"\n    {err_type} error: {err_msg.strip()}"
+                            else:
+                                return ""
+
                         logger.error(
-                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error.strip()}\n    scontrol error: {e.stderr.strip()}"
+                            f"Error getting status of slurm job {jobid}:{fmt_err('sacct', sacct_error)}{fmt_err('scontrol', e.stderr)}"
                         )
 
                 if i >= STATUS_ATTEMPTS - 1:
