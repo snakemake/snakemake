@@ -64,5 +64,5 @@ dependencies:
   - tabulate
   - reretry
   - graphviz
-  - pip:
-    - throttler
+  - humanfriendly
+  - throttler
