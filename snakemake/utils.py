@@ -730,6 +730,12 @@ class Paramspace:
                 return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
 
         if self.single_wildcard:
+            wildcard_value = wildcards.get(self.single_wildcard)
+            if wildcard_value is None:
+                raise WorkflowError(
+                    f"Error processing paramspace: wildcard {self.single_wildcard} is not used in rule."
+                )
+
             pattern = self.pattern.format(
                 *(
                     f"{name}{self.param_sep}{{{name}}}"
@@ -737,7 +743,7 @@ class Paramspace:
                 )
             )
             rexp = re.compile(regex(pattern))
-            match = rexp.match(wildcards.get(self.single_wildcard))
+            match = rexp.match(wildcard_value)
             if not match:
                 raise WorkflowError(
                     f"Error processing paramspace: wildcard {self.single_wildcard}={wildcards.get(self.single_wildcard)} does not match pattern {pattern}."
