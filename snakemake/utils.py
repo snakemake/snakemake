@@ -650,7 +650,12 @@ class Paramspace:
     """
 
     def __init__(
-        self, dataframe, filename_params=None, param_sep="~", filename_sep="_", single_wildcard=None,
+        self,
+        dataframe,
+        filename_params=None,
+        param_sep="~",
+        filename_sep="_",
+        single_wildcard=None,
     ):
         self.dataframe = dataframe
         self.param_sep = param_sep
@@ -697,7 +702,9 @@ class Paramspace:
             return f"{{{self.single_wildcard}}}"
         else:
             return self.pattern.format(
-                *map(self.param_sep.join(("{0}", "{{{0}}}")).format, self.ordered_columns)
+                *map(
+                    self.param_sep.join(("{0}", "{{{0}}}")).format, self.ordered_columns
+                )
             )
 
     @property
