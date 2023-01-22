@@ -28,7 +28,7 @@ from snakemake.io import (
     IOFile,
 )
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
-from snakemake.exceptions import MissingInputException
+from snakemake.exceptions import MissingInputException, WildcardError
 from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
 from snakemake.exceptions import CyclicGraphException, MissingOutputException
 from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
@@ -97,6 +97,7 @@ class DAG:
         dryrun=False,
         targetfiles=None,
         targetrules=None,
+        target_jobs_def=None,
         forceall=False,
         forcerules=None,
         forcefiles=None,
@@ -127,6 +128,10 @@ class DAG:
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules
+        self.target_jobs_def = target_jobs_def
+        self.target_jobs_rules = (
+            {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
+        )
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
@@ -200,6 +205,20 @@ class DAG:
                 create_inventory=True,
             )
             self.targetjobs.add(job)
+
+        if self.target_jobs_def:
+            for spec in self.target_jobs_def:
+                job = self.update(
+                    [
+                        self.new_job(
+                            self.workflow.get_rule(spec.rulename),
+                            wildcards_dict=spec.wildcards_dict,
+                        )
+                    ],
+                    progress=progress,
+                    create_inventory=True,
+                )
+                self.targetjobs.add(job)
 
         self.cleanup()
 
@@ -1066,7 +1085,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.output and not job.benchmark:
+                if not job.has_products():
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
@@ -1078,19 +1097,18 @@ class DAG:
                         reason.noio = True
                 else:
                     if job.rule in self.targetrules:
-                        files = set(job.output)
-                        if job.benchmark:
-                            files.add(job.benchmark)
+                        files = set(job.products(include_logfiles=False))
+                    elif (
+                        self.target_jobs_def is not None
+                        and job.rule.name in self.target_jobs_rules
+                    ):
+                        files = set(job.products(include_logfiles=False))
                     else:
                         files = set(chain(*self.depending[job].values()))
                         if self.targetfiles:
                             files.update(
-                                f
-                                for f in chain(job.output, job.log)
-                                if f in self.targetfiles
+                                f for f in job.products() if f in self.targetfiles
                             )
-                            if job.benchmark and job.benchmark in self.targetfiles:
-                                files.add(job.benchmark)
                     reason.missing_output.update(job.missing_output(files))
             if not reason:
                 output_mintime_ = output_mintime.get(job)
@@ -1108,22 +1126,32 @@ class DAG:
                     reason.updated_input.update(updated_input)
                 if not updated_input:
                     # check for other changes like parameters, set of input files, or code
-                    if "params" in self.workflow.rerun_triggers:
-                        reason.params_changed = any(
-                            self.workflow.persistence.params_changed(job)
-                        )
-                    if "input" in self.workflow.rerun_triggers:
-                        reason.input_changed = any(
-                            self.workflow.persistence.input_changed(job)
-                        )
-                    if "code" in self.workflow.rerun_triggers:
-                        reason.code_changed = any(
-                            job.outputs_older_than_script_or_notebook()
-                        ) or any(self.workflow.persistence.code_changed(job))
-                    if "software-env" in self.workflow.rerun_triggers:
-                        reason.software_stack_changed = any(
-                            self.workflow.persistence.conda_env_changed(job)
-                        ) or any(self.workflow.persistence.container_changed(job))
+                    depends_on_checkpoint_target = any(
+                        f.flags.get("checkpoint_target") for f in job.input
+                    )
+
+                    if not depends_on_checkpoint_target:
+                        # When the job depends on a checkpoint, it will be revaluated in a second pass
+                        # after the checkpoint output has been determined.
+                        # The first pass (with depends_on_checkpoint_target == True) is not informative
+                        # for determining any other changes than file modification dates, as it will
+                        # change after evaluating the input function of the job in the second pass.
+                        if "params" in self.workflow.rerun_triggers:
+                            reason.params_changed = any(
+                                self.workflow.persistence.params_changed(job)
+                            )
+                        if "input" in self.workflow.rerun_triggers:
+                            reason.input_changed = any(
+                                self.workflow.persistence.input_changed(job)
+                            )
+                        if "code" in self.workflow.rerun_triggers:
+                            reason.code_changed = any(
+                                job.outputs_older_than_script_or_notebook()
+                            ) or any(self.workflow.persistence.code_changed(job))
+                        if "software-env" in self.workflow.rerun_triggers:
+                            reason.software_stack_changed = any(
+                                self.workflow.persistence.conda_env_changed(job)
+                            ) or any(self.workflow.persistence.container_changed(job))
 
             if noinitreason and reason:
                 reason.derived = False
@@ -1626,18 +1654,32 @@ class DAG:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
-        self.handle_temp(job)
+        for job in jobs:
+            self.handle_temp(job)
 
         return potential_new_ready_jobs
 
-    def new_job(self, rule, targetfile=None, format_wildcards=None):
+    def new_job(
+        self, rule, targetfile=None, format_wildcards=None, wildcards_dict=None
+    ):
         """Create new job for given rule and (optional) targetfile.
         This will reuse existing jobs with the same wildcards."""
+        product = rule.get_some_product()
+        if targetfile is None and wildcards_dict is not None and product is not None:
+            # no targetfile given, but wildcards_dict is given, hence this job seems to contain wildcards
+            # just take one targetfile
+            try:
+                targetfile = product.apply_wildcards(wildcards_dict)
+            except WildcardError as e:
+                raise WorkflowError(
+                    f"Given wildcards for rule {rule.name} do not match output file {repr(rule.output[0])}: {e}"
+                )
+
         key = (rule, targetfile)
         if key in self.job_cache:
             assert targetfile is not None
             return self.job_cache[key]
-        wildcards_dict = rule.get_wildcards(targetfile)
+        wildcards_dict = rule.get_wildcards(targetfile, wildcards_dict=wildcards_dict)
         job = self.job_factory.new(
             rule,
             self,
@@ -1649,7 +1691,7 @@ class DAG:
         return job
 
     def cache_job(self, job):
-        for f in job.products:
+        for f in job.products():
             self.job_cache[(job.rule, f)] = job
 
     def update_dynamic(self, job):
@@ -1811,11 +1853,21 @@ class DAG:
                     if file in job.dependencies:
                         yield PotentialDependency(
                             file,
-                            [self.new_job(job.dependencies[file], targetfile=file)],
+                            [
+                                self.new_job(
+                                    job.dependencies[file],
+                                    targetfile=file,
+                                    wildcards_dict=job.wildcards_dict,
+                                )
+                            ],
                             False,
                         )
                     else:
-                        yield PotentialDependency(file, file2jobs(file), False)
+                        yield PotentialDependency(
+                            file,
+                            file2jobs(file, wildcards_dict=job.wildcards_dict),
+                            False,
+                        )
                 except MissingRuleException as ex:
                     # no dependency found
                     yield PotentialDependency(file, None, False)
@@ -1896,14 +1948,18 @@ class DAG:
             )
         return self.new_job(targetrule)
 
-    def file2jobs(self, targetfile):
+    def file2jobs(self, targetfile, wildcards_dict=None):
         rules = self.output_index.match(targetfile)
         jobs = []
         exceptions = list()
         for rule in rules:
             if rule.is_producer(targetfile):
                 try:
-                    jobs.append(self.new_job(rule, targetfile=targetfile))
+                    jobs.append(
+                        self.new_job(
+                            rule, targetfile=targetfile, wildcards_dict=wildcards_dict
+                        )
+                    )
                 except InputFunctionException as e:
                     exceptions.append(e)
         if not jobs:
@@ -2201,7 +2257,14 @@ class DAG:
 
                 status = "ok"
                 if not f.exists:
-                    status = "missing"
+                    if is_flagged(f, "temp"):
+                        status = "removed temp file"
+                    elif is_flagged(f, "pipe"):
+                        status = "pipe file"
+                    elif is_flagged(f, "service"):
+                        status = "service file"
+                    else:
+                        status = "missing"
                 elif self.reason(job).updated_input:
                     status = "updated input files"
                 elif self.workflow.persistence.version_changed(job, file=f):
@@ -2392,7 +2455,7 @@ class DAG:
             min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
-                "job": rule,
+                "job": rule.name,
                 "count": count,
                 "min threads": min_threads[rule],
                 "max threads": max_threads[rule],

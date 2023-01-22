@@ -955,7 +955,6 @@ def test_group_jobs_resources(mocker):
         "_nodes": 1,
         "_cores": 6,
         "runtime": 420,
-        "tmpdir": "/tmp",
         "mem_mb": 60000,
         "fake_res": 600,
         "global_res": 2000,
@@ -979,7 +978,6 @@ def test_group_jobs_resources_with_max_threads(mocker):
         "_nodes": 1,
         "_cores": 5,
         "runtime": 380,
-        "tmpdir": "/tmp",
         "mem_mb": 60000,
         "fake_res": 1200,
         "global_res": 3000,
@@ -1003,7 +1001,6 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         "_nodes": 1,
         "_cores": 1,
         "runtime": 700,
-        "tmpdir": "/tmp",
         "mem_mb": 10000,
         "fake_res": 400,
         "global_res": 1000,
@@ -1152,7 +1149,6 @@ def test_group_job_resources_with_pipe(mocker):
         "_nodes": 1,
         "_cores": 6,
         "runtime": 240,
-        "tmpdir": "/tmp",
         "mem_mb": 50000,
         "disk_mb": 1000,
     }
@@ -1534,6 +1530,13 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
+def test_scatter_gather_multiple_processes():
+    run(
+        dpath("test_scatter_gather_multiple_processes"),
+        overwrite_scatter={"rule_b": 2},
+    )
+
+
 @skip_on_windows
 def test_github_issue640():
     run(
@@ -1658,6 +1661,66 @@ def test_module_complex():
 
 def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
+
+
+@skip_on_windows
+def test_module_use_local_git_repo():
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(dpath("test_module_local_git"), dryrun=True)
+
+
+@skip_on_windows
+def test_module_use_local_relative_git_repo():
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(dpath("test_module_local_git"), snakefile="Snakefile_relative", dryrun=True)
+
+
+@skip_on_windows
+def test_module_use_local_git_repo_missing_rule():
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_missing_rule",
+        dryrun=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
+def test_module_use_local_git_repo_missing_schema():
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_missing_schema",
+        dryrun=True,
+        shouldfail=True,
+    )
+
+
+@skip_on_windows
+def test_module_use_local_git_repo_missing_rule_and_schema():
+    untar_folder(
+        dpath("test_module_local_git/module.tar.gz"),
+        dpath("test_module_local_git/repo/module"),
+    )
+    run(
+        dpath("test_module_local_git"),
+        snakefile="Snakefile_main_missing_rule_and_schema",
+        dryrun=True,
+        shouldfail=True,
+    )
 
 
 @skip_on_windows
@@ -1919,3 +1982,29 @@ def test_github_issue1618():
 
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
+
+
+@skip_on_windows
+def test_github_issue1818():
+    run(dpath("test_github_issue1818"), rerun_triggers="input")
+
+
+@skip_on_windows  # not platform dependent
+def test_match_by_wildcard_names():
+    run(dpath("test_match_by_wildcard_names"))
+
+
+@skip_on_windows  # not platform dependent
+def test_github_issue929():
+    # Huge thanks to Elmar Pruesse for providing this test case
+    # and pointing to the problem in the code!
+    # Huge thanks to Ronald Lehnigk for pointing me to the issue!
+    run(dpath("test_github_issue929"), targets=["childrule_2"])
+
+
+def test_github_issue1882():
+    try:
+        tmpdir = run(dpath("test_github_issue1882"), cleanup=False)
+        run(tmpdir, forceall=True)
+    finally:
+        shutil.rmtree(tmpdir)

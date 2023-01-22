@@ -13,7 +13,7 @@ from contextlib import contextmanager
 import shutil
 
 from wrapt import ObjectProxy
-from retry import retry
+from reretry import retry
 
 try:
     from connection_pool import ConnectionPool
@@ -471,10 +471,14 @@ class AutoRemoteProvider:
         # assemble scheme mapping
         protocol_dict = {}
         for Provider in provider_list:
-            for protocol in Provider().available_protocols:
-                protocol_short = protocol[:-3]  # remove "://" suffix
-                protocol_dict[protocol_short] = Provider
-
+            try:
+                for protocol in Provider().available_protocols:
+                    protocol_short = protocol[:-3]  # remove "://" suffix
+                    protocol_dict[protocol_short] = Provider
+            except Exception as e:
+                # If for any reason Provider() fails (e.g. missing python
+                # packages or config env vars), skip this provider.
+                logger.debug(f"Instantiating {Provider.__class__.__name__} failed: {e}")
         return protocol_dict
 
     def remote(self, value, *args, provider_kws=None, **kwargs):

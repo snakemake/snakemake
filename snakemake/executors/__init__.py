@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from abc import abstractmethod
+import asyncio
 import os
 import sys
 import contextlib
@@ -19,17 +20,16 @@ import concurrent.futures
 import subprocess
 import signal
 import tempfile
-import threading
 from functools import partial
 from itertools import chain
 from collections import namedtuple
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
-from snakemake.io import _IOFile
 import random
 import base64
 import uuid
 import re
 import math
+from snakemake.target_jobs import encode_target_jobs_cli_args
+from fractions import Fraction
 
 from snakemake.jobs import Job
 from snakemake.shell import shell
@@ -52,18 +52,22 @@ from snakemake.common import (
     get_container_image,
     get_uuid,
     lazy_property,
+    dict_to_key_value_args,
+    async_lock,
 )
+from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
+from snakemake.io import _IOFile
 
 
 # TODO move each executor into a separate submodule
 
 
-def sleep():
+async def sleep():
     # do not sleep on CI. In that case we just want to quickly test everything.
     if os.environ.get("CI") != "true":
-        time.sleep(10)
+        await asyncio.sleep(10)
     else:
-        time.sleep(1)
+        await asyncio.sleep(1)
 
 
 class AbstractExecutor:
@@ -154,11 +158,13 @@ class AbstractExecutor:
         self._run(job)
         callback(job)
 
+    @abstractmethod
     def shutdown(self):
-        pass
+        ...
 
+    @abstractmethod
     def cancel(self):
-        pass
+        ...
 
     def _run(self, job):
         job.check_protected_output()
@@ -190,8 +196,9 @@ class DryrunExecutor(AbstractExecutor):
             self.printcache(job)
 
     def printcache(self, job):
-        if self.workflow.is_cached_rule(job.rule):
-            if self.workflow.output_file_cache.exists(job):
+        cache_mode = self.workflow.get_cache_mode(job.rule)
+        if cache_mode:
+            if self.workflow.output_file_cache.exists(job, cache_mode):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]
@@ -311,6 +318,7 @@ class RealExecutor(AbstractExecutor):
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
+                format_cli_arg("--keep-incomplete", self.keepincomplete),
                 w2a("rerun_triggers"),
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("shadow_prefix"),
@@ -355,7 +363,10 @@ class RealExecutor(AbstractExecutor):
     def get_job_args(self, job, **kwargs):
         return join_cli_args(
             [
-                format_cli_pos_arg(kwargs.get("target", self.get_job_targets(job))),
+                format_cli_arg(
+                    "--target-jobs",
+                    encode_target_jobs_cli_args(job.get_target_spec()),
+                ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
                 # to be updated in the spawned process as well.
@@ -380,9 +391,6 @@ class RealExecutor(AbstractExecutor):
 
     def get_snakefile(self):
         return self.snakefile
-
-    def get_job_targets(self, job):
-        return job.get_targets()
 
     @abstractmethod
     def get_python_executable(self):
@@ -494,7 +502,7 @@ class CPUExecutor(RealExecutor):
         return ""
 
     def get_job_args(self, job, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet all"
+        return f"{super().get_job_args(job, **kwargs)} --quiet"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
@@ -621,16 +629,16 @@ class CPUExecutor(RealExecutor):
         """
         Either retrieve result from cache, or run job with given function.
         """
-        to_cache = self.workflow.is_cached_rule(job.rule)
+        cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
-            if to_cache:
-                self.workflow.output_file_cache.fetch(job)
+            if cache_mode:
+                self.workflow.output_file_cache.fetch(job, cache_mode)
                 return
         except CacheMissException:
             pass
         run_func(*args)
-        if to_cache:
-            self.workflow.output_file_cache.store(job)
+        if cache_mode:
+            self.workflow.output_file_cache.store(job, cache_mode)
 
     def shutdown(self):
         self.pool.shutdown()
@@ -687,7 +695,6 @@ class ClusterExecutor(RealExecutor):
         cluster_config=None,
         local_input=None,
         restart_times=None,
-        exec_job=None,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
         disable_default_remote_provider_args=False,
@@ -695,7 +702,7 @@ class ClusterExecutor(RealExecutor):
         disable_envvar_declarations=False,
         keepincomplete=False,
     ):
-        from ratelimiter import RateLimiter
+        from throttler import Throttler
 
         local_input = local_input or []
         super().__init__(
@@ -747,8 +754,12 @@ class ClusterExecutor(RealExecutor):
         self.disable_default_resources_args = disable_default_resources_args
         self.disable_envvar_declarations = disable_envvar_declarations
 
-        self.status_rate_limiter = RateLimiter(
-            max_calls=self.max_status_checks_per_second, period=1
+        max_status_checks_frac = Fraction(
+            max_status_checks_per_second
+        ).limit_denominator()
+        self.status_rate_limiter = Throttler(
+            rate_limit=max_status_checks_frac.numerator,
+            period=max_status_checks_frac.denominator,
         )
 
     def get_default_remote_provider_args(self):
@@ -804,9 +815,13 @@ class ClusterExecutor(RealExecutor):
 
         return f"{super().get_job_args(job)} {waitfiles_parameter}"
 
+    @abstractmethod
+    async def _wait_for_jobs(self):
+        ...
+
     def _wait_thread(self):
         try:
-            self._wait_for_jobs()
+            asyncio.run(self._wait_for_jobs())
         except Exception as e:
             self.workflow.scheduler.executor_error_callback(e)
 
@@ -1215,7 +1230,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 )
             )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         success = "success"
         failed = "failed"
         running = "running"
@@ -1282,7 +1297,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 return running
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -1290,7 +1305,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 still_running = list()
             # logger.debug("Checking status of {} jobs.".format(len(active_jobs)))
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     status = job_status(active_job)
 
                     if status == success:
@@ -1308,9 +1323,9 @@ class GenericClusterExecutor(ClusterExecutor):
                         active_job.error_callback(active_job.job)
                     else:
                         still_running.append(active_job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 SynchronousClusterJob = namedtuple(
@@ -1398,16 +1413,16 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 )
             )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     exitcode = active_job.process.poll()
                     if exitcode is None:
                         # job not yet finished
@@ -1424,9 +1439,9 @@ class SynchronousClusterExecutor(ClusterExecutor):
                             active_job, self.dag.jobid(active_job.job)
                         )
                         active_job.error_callback(active_job.job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 DRMAAClusterJob = namedtuple(
@@ -1553,20 +1568,20 @@ class DRMAAExecutor(ClusterExecutor):
         super().shutdown()
         self.session.exit()
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         import drmaa
 
         suspended_msg = set()
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for active_job in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     try:
                         retval = self.session.jobStatus(active_job.jobid)
                     except drmaa.ExitTimeoutException as e:
@@ -1615,9 +1630,9 @@ class DRMAAExecutor(ClusterExecutor):
                                 # there was nothing to remove
                                 pass
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 @contextlib.contextmanager
@@ -1647,6 +1662,7 @@ class KubernetesExecutor(ClusterExecutor):
         dag,
         namespace,
         container_image=None,
+        k8s_cpu_scalar=1.0,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1687,6 +1703,7 @@ class KubernetesExecutor(ClusterExecutor):
 
         import kubernetes.client
 
+        self.k8s_cpu_scalar = k8s_cpu_scalar
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1854,10 +1871,8 @@ class KubernetesExecutor(ClusterExecutor):
         container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
         container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
-        ]
-        container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
+            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir"),
+            kubernetes.client.V1VolumeMount(name="source", mount_path="/source"),
         ]
 
         node_selector = {}
@@ -1912,13 +1927,21 @@ class KubernetesExecutor(ClusterExecutor):
             container.env.append(envvar)
 
         # request resources
+        logger.debug(f"job resources:  {dict(job.resources)}")
         container.resources = kubernetes.client.V1ResourceRequirements()
         container.resources.requests = {}
-        container.resources.requests["cpu"] = job.resources["_cores"]
+        container.resources.requests["cpu"] = "{}m".format(
+            int(job.resources["_cores"] * self.k8s_cpu_scalar * 1000)
+        )
         if "mem_mb" in job.resources.keys():
             container.resources.requests["memory"] = "{}M".format(
                 job.resources["mem_mb"]
             )
+        if "disk_mb" in job.resources.keys():
+            disk_mb = int(job.resources.get("disk_mb", 1024))
+            container.resources.requests["ephemeral-storage"] = f"{disk_mb}M"
+
+        logger.debug(f"k8s pod resources: {container.resources.requests}")
 
         # capabilities
         if job.needs_singularity and self.workflow.use_singularity:
@@ -2019,18 +2042,18 @@ class KubernetesExecutor(ClusterExecutor):
                         " that the k8 cluster master is reachable!",
                     )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         import kubernetes
 
         while True:
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
                 self.active_jobs = list()
                 still_running = list()
             for j in active_jobs:
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     logger.debug("Checking status for pod {}".format(j.jobid))
                     job_not_found = False
                     try:
@@ -2079,9 +2102,9 @@ class KubernetesExecutor(ClusterExecutor):
                     else:
                         # still active
                         still_running.append(j)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 TibannaJob = namedtuple(
@@ -2199,15 +2222,6 @@ class TibannaExecutor(ClusterExecutor):
 
     def remove_prefix(self, s):
         return re.sub("^{}/{}/".format(self.s3_bucket, self.s3_subdir), "", s)
-
-    def get_job_targets(self, job):
-        def handle_target(target):
-            if isinstance(target, _IOFile) and target.remote_object.provider.is_default:
-                return self.remove_prefix(target)
-            else:
-                return target
-
-        return [handle_target(target) for target in job.get_targets()]
 
     def get_snakefile(self):
         return os.path.basename(self.snakefile)
@@ -2368,7 +2382,7 @@ class TibannaExecutor(ClusterExecutor):
             TibannaJob(job, jobname, jobid, exec_arn, callback, error_callback)
         )
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
@@ -2376,7 +2390,7 @@ class TibannaExecutor(ClusterExecutor):
 
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -2384,7 +2398,7 @@ class TibannaExecutor(ClusterExecutor):
                 still_running = list()
             for j in active_jobs:
                 # use self.status_rate_limiter to avoid too many API calls.
-                with self.status_rate_limiter:
+                async with self.status_rate_limiter:
                     if j.exec_arn:
                         status = API().check_status(j.exec_arn)
                     else:
@@ -2397,9 +2411,9 @@ class TibannaExecutor(ClusterExecutor):
                         j.callback(j.job)
                     else:
                         j.error_callback(j.job)
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()
 
 
 def run_wrapper(

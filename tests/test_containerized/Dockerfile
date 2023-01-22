@@ -6,16 +6,16 @@ LABEL io.github.snakemake.conda_env_hash="d630028d41ac6564d03ea65c4edb2d271d33f3
 
 # Conda environment:
 #   source: env.yaml
-#   prefix: /conda-envs/1219696ceec39be99ff366456467efb2
+#   prefix: /conda-envs/_1219696ceec39be99ff366456467efb2
 #   channels:
 #     - bioconda
 #     - conda-forge
 #   dependencies:
 #     - bcftools =1.10
-RUN mkdir -p /conda-envs/1219696ceec39be99ff366456467efb2
-COPY env.yaml /conda-envs/1219696ceec39be99ff366456467efb2/environment.yaml
+RUN mkdir -p /conda-envs/_1219696ceec39be99ff366456467efb2
+COPY env.yaml /conda-envs/_1219696ceec39be99ff366456467efb2/environment.yaml
 
 # Step 2: Generate conda environments
 
-RUN mamba env create --prefix /conda-envs/1219696ceec39be99ff366456467efb2 --file /conda-envs/1219696ceec39be99ff366456467efb2/environment.yaml && \
+RUN mamba env create --prefix /conda-envs/_1219696ceec39be99ff366456467efb2 --file /conda-envs/_1219696ceec39be99ff366456467efb2/environment.yaml && \
     mamba clean --all -y

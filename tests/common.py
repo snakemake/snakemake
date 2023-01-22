@@ -16,6 +16,7 @@ import urllib
 import pytest
 import glob
 import subprocess
+import tarfile
 
 from snakemake import snakemake
 from snakemake.shell import shell
@@ -92,6 +93,12 @@ def get_expected_files(results_dir):
     ]
 
 
+def untar_folder(tar_file, output_path):
+    if not os.path.isdir(output_path):
+        with tarfile.open(tar_file) as tar:
+            tar.extractall(path=output_path)
+
+
 def run(
     path,
     shouldfail=False,
@@ -107,7 +114,7 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
     **params,
