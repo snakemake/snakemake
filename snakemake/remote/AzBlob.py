@@ -223,6 +223,10 @@ class AzureStorageHelper(object):
 
         container_client = self.blob_service_client.get_container_client(container_name)
         
+        # create container if it doesn't exist.
+        # for sas token created in the level of container, the exists method will fail with error code 403. 
+        #   therefore the exception is passed to cover this type of sas tokens.
+        
         try:
             if not container_client.exists():
                 container_client.create_container()
@@ -230,13 +234,6 @@ class AzureStorageHelper(object):
             if (e.status_code==403):
                 pass
         
-        
-        try:
-            container_client.create_container()
-        except azure.core.exceptions.ResourceExistsError:
-            pass
-        except azure.core.exceptions.ClientAuthenticationError:
-            pass
 
         if not blob_name:
             if use_relative_path_for_blob_name:
