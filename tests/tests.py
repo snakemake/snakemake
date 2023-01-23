@@ -9,6 +9,10 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
+from snakemake import parse_cores_jobs
+from snakemake.exceptions import CliException
+from snakemake.utils import available_cpu_count
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
@@ -321,6 +325,10 @@ def test_url_include():
 
 def test_touch():
     run(dpath("test_touch"))
+
+
+def test_touch_flag_with_directories():
+    run(dpath("test_touch_with_directories"), touch=True)
 
 
 def test_config():
@@ -930,6 +938,11 @@ def test_group_jobs():
     run(dpath("test_group_jobs"), cluster="./qsub")
 
 
+@skip_on_windows
+def test_group_jobs_attempts():
+    run(dpath("test_group_jobs_attempts"), cluster="./qsub", restart_times=2)
+
+
 def assert_resources(resources: dict, **expected_resources):
     assert {res: resources[res] for res in expected_resources} == expected_resources
 
@@ -1053,7 +1066,7 @@ def test_new_resources_can_be_defined_as_local():
 
 @skip_on_windows
 def test_resources_can_be_overwritten_as_global():
-    # Test only works if both mem_mb and global_res are overwritten as local
+    # Test only works if fake_res overwritten as global
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1062,7 +1075,7 @@ def test_resources_can_be_overwritten_as_global():
         nodes=5,
         cleanup=False,
         resources={"typo": 23, "fake_res": 200},
-        overwrite_resource_scopes={"fake_res": {"local"}},
+        overwrite_resource_scopes={"fake_res": "global"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1072,6 +1085,23 @@ def test_resources_can_be_overwritten_as_global():
         lines = [l for l in f.readlines() if not l == "\n"]
     assert len(lines) == 1
     shutil.rmtree(tmp)
+
+
+@skip_on_windows
+def test_scopes_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_scopes_args")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        # cluster_status="./status_failed",
+        overwrite_resource_scopes={"fake_res": "local"},
+        max_threads=1,
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+
+    assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
 
 
 @skip_on_windows
@@ -1487,6 +1517,59 @@ def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
 
 
+class TestParseCoresJobs:
+    def run_test(self, func, ref):
+        if ref is None:
+            with pytest.raises(CliException):
+                func()
+            return
+        assert func() == ref
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, None), (1, 1)],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_no_exec(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, True, False, False), output)
+        # Test dryrun seperately
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, True), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, 1), (None, 1)],
+            [(None, None), None],
+            [(1, None), None],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_non_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, True, False), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, None)],
+            [(4, 4), (4, None)],
+            [(None, 1), (1, None)],
+            [(None, None), None],
+            [(1, None), (1, None)],
+            [(None, "all"), (available_cpu_count(), None)],
+            [(None, "unlimited"), None],
+            [("all", "unlimited"), (available_cpu_count(), None)],
+        ],
+    )
+    def test_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, False), output)
+
+
 @skip_on_windows
 @connected
 def test_container():
@@ -1535,6 +1618,10 @@ def test_scatter_gather():
 
 
 # SLURM tests go here, after successfull tests
+
+
+def test_parsing_terminal_comment_following_statement():
+    run(dpath("test_parsing_terminal_comment_following_statement"))
 
 
 @skip_on_windows
@@ -1594,6 +1681,10 @@ def test_metadata_migration():
 
 def test_paramspace():
     run(dpath("test_paramspace"))
+
+
+def test_paramspace_single_wildcard():
+    run(dpath("test_paramspace_single_wildcard"))
 
 
 def test_github_issue806():
@@ -1905,6 +1996,10 @@ def test_retries():
     run(dpath("test_retries"))
 
 
+def test_retries_not_overriden():
+    run(dpath("test_retries_not_overriden"), restart_times=3, shouldfail=True)
+
+
 @skip_on_windows  # OS agnostic
 def test_module_input_func():
     run(dpath("test_module_input_func"))
@@ -1952,3 +2047,8 @@ def test_github_issue1882():
 
 def test_micromamba():
     run(dpath("test_wrapper"), use_conda=True, conda_frontend="micromamba")
+
+
+@skip_on_windows  # not platform dependent
+def test_inferred_resources():
+    run(dpath("test_inferred_resources"))

@@ -23,7 +23,12 @@ from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
-from snakemake.exceptions import ResourceScopesException, print_exception, WorkflowError
+from snakemake.exceptions import (
+    CliException,
+    ResourceScopesException,
+    print_exception,
+    WorkflowError,
+)
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
@@ -1009,6 +1014,9 @@ def parse_config(args):
                     "Invalid config definition: Config entry must start with a valid identifier."
                 )
             v = None
+            if val == "":
+                update_config(config, {key: v})
+                continue
             for parser in parsers:
                 try:
                     v = parser(val)
@@ -1020,6 +1028,60 @@ def parse_config(args):
             assert v is not None
             update_config(config, {key: v})
     return config
+
+
+def parse_cores(cores, allow_none=False):
+    if cores is None:
+        if allow_none:
+            return cores
+        raise CliException(
+            "Error: you need to specify the maximum number of CPU cores to "
+            "be used at the same time. If you want to use N cores, say --cores N "
+            "or -cN. For all cores on your system (be sure that this is "
+            "appropriate) use --cores all. For no parallelization use --cores 1 or "
+            "-c1."
+        )
+    if cores == "all":
+        return available_cpu_count()
+    try:
+        return int(cores)
+    except ValueError:
+        raise CliException(
+            "Error parsing number of cores (--cores, -c, -j): must be integer, "
+            "empty, or 'all'."
+        )
+
+
+def parse_jobs(jobs, allow_none=False):
+    if jobs is None:
+        if allow_none:
+            return jobs
+        raise CliException(
+            "Error: you need to specify the maximum number of jobs to "
+            "be queued or executed at the same time with --jobs or -j.",
+        )
+    if jobs == "unlimited":
+        return sys.maxsize
+    try:
+        return int(jobs)
+    except ValueError:
+        raise CliException(
+            "Error parsing number of jobs (--jobs, -j): must be integer.",
+        )
+
+
+def parse_cores_jobs(cores, jobs, no_exec, non_local_exec, dryrun):
+    if no_exec or dryrun:
+        cores = parse_cores(cores, allow_none=True) or 1
+        jobs = parse_jobs(jobs, allow_none=True) or 1
+    elif non_local_exec:
+        cores = parse_cores(cores, allow_none=True)
+        jobs = parse_jobs(jobs)
+    else:
+        cores = parse_cores(cores or jobs)
+        jobs = None
+
+    return cores, jobs
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -2152,7 +2214,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help=(
             "Execute snakemake rules as SLURM batch jobs according"
-            " to their 'resources' definition. SLRUM resources as "
+            " to their 'resources' definition. SLURM resources as "
             " 'partition', 'ntasks', 'cpus', etc. need to be defined"
             " per rule within the 'resources' definition. Note, that"
             " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
@@ -2663,65 +2725,16 @@ def main(argv=None):
         or args.unlock
         or args.cleanup_metadata
     )
-    local_exec = not (no_exec or non_local_exec)
 
-    def parse_cores(cores):
-        if cores == "all":
-            return available_cpu_count()
-        else:
-            try:
-                return int(cores)
-            except ValueError:
-                print(
-                    "Error parsing number of cores (--cores, -c, -j): must be integer, empty, or 'all'.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if args.cores is not None:
-        args.cores = parse_cores(args.cores)
-        if local_exec:
-            # avoid people accidentally setting jobs as well
-            args.jobs = None
-    else:
-        if no_exec:
-            args.cores = 1
-        elif local_exec:
-            if args.jobs is not None:
-                args.cores = parse_cores(args.jobs)
-                args.jobs = None
-            elif args.dryrun:
-                # dryrun with single core if nothing specified
-                args.cores = 1
-            else:
-                print(
-                    "Error: you need to specify the maximum number of CPU cores to "
-                    "be used at the same time. If you want to use N cores, say --cores N or "
-                    "-cN. For all cores on your system (be sure that this is appropriate) "
-                    "use --cores all. For no parallelization use --cores 1 or -c1.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if non_local_exec:
-        if args.jobs is None:
-            print(
-                "Error: you need to specify the maximum number of jobs to "
-                "be queued or executed at the same time with --jobs or -j.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        elif args.jobs == "unlimited":
-            args.jobs = sys.maxsize
-        else:
-            try:
-                args.jobs = int(args.jobs)
-            except ValueError:
-                print(
-                    "Error parsing number of jobs (--jobs, -j): must be integer.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+    try:
+        cores, jobs = parse_cores_jobs(
+            args.cores, args.jobs, no_exec, non_local_exec, args.dryrun
+        )
+        args.cores = cores
+        args.jobs = jobs
+    except CliException as err:
+        print(err.msg, sys.stderr)
+        sys.exit(1)
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):

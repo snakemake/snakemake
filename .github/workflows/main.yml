@@ -36,7 +36,7 @@ jobs:
           tests/test_io.py tests/common.py tests/test_google_lifesciences.py
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.3.0
+        uses: marocchino/sticky-pull-request-comment@v2.3.1
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -153,29 +153,25 @@ jobs:
       - name: Indicate supported MPI types
         run: |
           srun --mpi=list
+      - name: Setup mamba
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: snakemake
+          channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
       - name: Setup Snakemake environment
-        run: >
-          export PATH="/usr/share/miniconda/bin:$PATH"
-
+        shell: bash -el {0}
+        run: |
           conda config --set channel_priority strict
-
-          conda install -c conda-forge -q mamba
-
-          # ensure that mamba is happy to write into the cache
-
-          sudo chown -R runner:docker /usr/share/miniconda/pkgs/cache
-
-          mamba env create -q --name snakemake --file test-environment.yml
+          mamba env update -q -n snakemake --file test-environment.yml
 
           # additionally add singularity
 
-          # TODO remove version constraint: needed because 3.8.7 fails with
-          missing libz:
-
+          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1:
-          cannot open shared object file: No such file or directory
-
-          mamba install -c conda-forge -n snakemake "singularity<=3.8.6"
+          # cannot open shared object file: No such file or directory
+          mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
@@ -186,51 +182,41 @@ jobs:
           sleep 10
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
-      - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
-        if: env.GCP_AVAILABLE
-        with:
-          project_id: "${{ secrets.GCP_PROJECT_ID }}"
-          service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
-          service_account_key: "${{ secrets.GCP_SA_KEY }}"
-          export_default_credentials: true
-      - name: Setup AWS
-        uses: aws-actions/configure-aws-credentials@v1
-        if: env.AWS_AVAILABLE
-        with:
-          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          aws-region: us-east-1
+      #- name: Setup Gcloud
+      #  uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
+      #  if: env.GCP_AVAILABLE
+      #  with:
+      #    project_id: "${{ secrets.GCP_PROJECT_ID }}"
+      #    service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
+      #    service_account_key: "${{ secrets.GCP_SA_KEY }}"
+      #    export_default_credentials: true
+      #- name: Setup AWS
+      #  uses: aws-actions/configure-aws-credentials@v1
+      #  if: env.AWS_AVAILABLE
+      #  with:
+      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+      #    aws-region: us-east-1
 
       - name: Test Slurm
         env:
           CI: true
+        shell: bash -el {0}
         run: |
-          # activate conda env
-
-          export PATH="/usr/share/miniconda/bin:$PATH"
-
-          source activate snakemake
           pytest -v tests/test_slurm.py
 
       - name: Test local
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
-        run: >
-          # activate conda env
-
-          export PATH="/usr/share/miniconda/bin:$PATH"
-
-          source activate snakemake
-
-          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
-          tests/test_schema.py tests/test_linting.py tests/tests.py
+        shell: bash -el {0}
+        run: |
+          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
       - name: Build and publish docker image
         if: >-
           contains(github.event.pull_request.labels.*.name,
           'update-container-image')
-        uses: elgohr/Publish-Docker-Github-Action@v4
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -243,36 +229,21 @@ jobs:
           'update-container-image')
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
-      - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_google_lifesciences.py
-      - name: Test Kubernetes execution
-        if: env.GCP_AVAILABLE
-        env:
-          CI: true
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-
-          pytest -s -v -x tests/test_kubernetes.py
-      - name: Test Tibanna (AWS) execution
-        if: env.AWS_AVAILABLE
-        env:
-          CI: true
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
+      #- name: Test Google Life Sciences Executor
+      #  if: env.GCP_AVAILABLE
+      #  shell: bash -el {0}
+      #  run: |
+      #    pytest -s -v -x tests/test_google_lifesciences.py
+      #- name: Test Kubernetes execution
+      #  if: env.GCP_AVAILABLE
+      #  env:
+      #    CI: true
+      #  shell: bash -el {0}
+      #  run: |
+      #    pytest -s -v -x tests/test_kubernetes.py
       - name: Test GA4GH TES executor
+        shell: bash -el {0}
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
           pytest -s -v -x tests/test_tes.py
 
       - name: Delete container image
