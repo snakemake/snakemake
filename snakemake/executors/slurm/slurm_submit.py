@@ -253,9 +253,11 @@ class SlurmExecutor(ClusterExecutor):
 
         exec_job = self.format_job_exec(job)
         # ensure that workdir is set correctly
-        call += f" --chdir={self.workflow.workdir_init}"
+        # use short argument as this is the same in all slurm versions
+        # (see https://github.com/snakemake/snakemake/issues/2014)
+        call += f" -D {self.workflow.workdir_init}"
         # and finally the job to execute with all the snakemake parameters
-        call += f" --wrap={repr(exec_job)}"
+        call += f" --wrap={shlex.quote(exec_job)}"
 
         logger.debug(f"sbatch call: {call}")
         try:
@@ -318,8 +320,15 @@ class SlurmExecutor(ClusterExecutor):
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
+
+                        def fmt_err(err_type, err_msg):
+                            if err_msg is not None:
+                                return f"\n    {err_type} error: {err_msg.strip()}"
+                            else:
+                                return ""
+
                         logger.error(
-                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error.strip()}\n    scontrol error: {e.stderr.strip()}"
+                            f"Error getting status of slurm job {jobid}:{fmt_err('sacct', sacct_error)}{fmt_err('scontrol', e.stderr)}"
                         )
 
                 if i >= STATUS_ATTEMPTS - 1:
