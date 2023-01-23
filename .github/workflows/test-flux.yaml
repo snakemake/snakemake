@@ -42,3 +42,9 @@ jobs:
           cd examples/flux
           which snakemake
           flux start snakemake --flux --jobs=1
+
+      - name: Test Flux with Conda
+        run: |
+          cp -R ./tests/test_conda /tmp/test_conda
+          cd /tmp/test_conda
+          flux start snakemake --flux --jobs=1 --use-conda
