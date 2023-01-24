@@ -7,6 +7,7 @@ import asyncio
 import os
 import stat
 import time
+import math
 from collections import namedtuple
 
 from snakemake.logging import logger
