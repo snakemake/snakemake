@@ -1687,6 +1687,10 @@ def test_paramspace():
     run(dpath("test_paramspace"))
 
 
+def test_paramspace_single_wildcard():
+    run(dpath("test_paramspace_single_wildcard"))
+
+
 def test_github_issue806():
     run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
 

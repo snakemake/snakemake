@@ -2071,7 +2071,9 @@ This workflow will run as follows:
 
 
 Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
-Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` constructor (see :ref:`utils-api`).
+Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` `constructor <https://snakemake-api.readthedocs.io/en/latest/api_reference/snakemake_utils.html#snakemake.utils.Paramspace>`_.
+In particular, using the argument ``single_wildcard`` the default behavior of encoding each column as a wildcard can be replaced with a single given wildcard name.
+This can be handy in case a rule shall serve multiple param spaces with different sets of columns.
 
 .. _snakefiles-checkpoints:
 
