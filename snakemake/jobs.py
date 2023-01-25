@@ -1461,8 +1461,14 @@ class GroupJob(AbstractJob):
             job.cleanup()
 
     def postprocess(self, error=False, **kwargs):
-        for job in self.jobs:
-            job.postprocess(error=error, **kwargs)
+        # Iterate over jobs in toposorted order (see self.__iter__) to
+        # ensure that outputs are touched in correct order.
+        for level in self.toposorted:
+            for job in level:
+                # postprocessing involves touching output files (to ensure that
+                # modification times are always correct. This has to happen in
+                # topological order, such that they are not mixed up.
+                job.postprocess(error=error, **kwargs)
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:
