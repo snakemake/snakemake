@@ -33,6 +33,13 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
+
+        try:
+            import pandas as pd
+            self._serialize_param = self._serialize_param_pandas
+        except ImportError:
+            self._serialize_param = self._serialize_param_builtin
+
         self._max_len = None
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
@@ -432,9 +439,21 @@ class Persistence:
     def _log(self, job):
         return sorted(job.log)
 
+    def _serialize_param_builtin(self, param):
+        if isinstance(param, (int, float, bool, str, complex, range, list, tuple, dict, set, frozenset, bytes, bytearray)):
+            return repr(param)
+        else:
+            return None
+
+    def _serialize_param_pandas(self, param):
+        import pandas as pd
+        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(param).tolist())
+        return self._serialize_param_builtin(param)
+
     @lru_cache()
     def _params(self, job):
-        return sorted(map(repr, job.params))
+        return sorted(filter(lambda p: p is not None, map(self._serialize_param, job.params)))
 
     @lru_cache()
     def _output(self, job):
