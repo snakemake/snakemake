@@ -367,7 +367,7 @@ class AmbiguousRuleException(RuleException):
             "\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
             "\t{job_a}: {job_a.input}\n"
-            "\t{job_b}: {job_b.input}"
+            "\t{job_b}: {job_b.input}\n"
             "Expected output files:\n"
             "\t{job_a}: {job_a.output}\n"
             "\t{job_b}: {job_b.output}".format(
