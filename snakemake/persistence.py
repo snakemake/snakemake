@@ -23,6 +23,9 @@ from snakemake.utils import listfiles
 from snakemake.io import is_flagged, get_flag_value
 
 
+UNREPRESENTABLE = object()
+
+
 class Persistence:
     def __init__(
         self,
@@ -441,7 +444,7 @@ class Persistence:
         return sorted(job.log)
 
     def _serialize_param_builtin(self, param):
-        if isinstance(
+        if param is None or isinstance(
             param,
             (
                 int,
@@ -461,7 +464,7 @@ class Persistence:
         ):
             return repr(param)
         else:
-            return None
+            return UNREPRESENTABLE
 
     def _serialize_param_pandas(self, param):
         import pandas as pd
@@ -473,7 +476,10 @@ class Persistence:
     @lru_cache()
     def _params(self, job):
         return sorted(
-            filter(lambda p: p is not None, map(self._serialize_param, job.params))
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                map(self._serialize_param, job.params),
+            )
         )
 
     @lru_cache()
