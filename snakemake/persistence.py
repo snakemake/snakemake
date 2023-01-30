@@ -476,7 +476,10 @@ class Persistence:
     @lru_cache()
     def _params(self, job):
         return sorted(
-            filter(lambda p: p is not UNREPRESENTABLE, map(self._serialize_param, job.params))
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                map(self._serialize_param, job.params),
+            )
         )
 
     @lru_cache()
