@@ -16,6 +16,8 @@ from functools import lru_cache, partial
 from itertools import filterfalse, count
 from pathlib import Path
 
+from humanfriendly import format_size
+
 import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -207,6 +209,28 @@ class Persistence:
         if os.path.exists(self.shadow_path):
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
+
+    def cleanup_containers(self):
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
 
     def conda_cleanup_envs(self):
         # cleanup envs
