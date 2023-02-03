@@ -95,7 +95,6 @@ class OutputFileCache(AbstractOutputFileCache):
         for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
             job, cache_mode
         ):
-
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -123,7 +122,6 @@ class OutputFileCache(AbstractOutputFileCache):
         for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
             job, cache_mode
         ):
-
             if not cachefile.exists():
                 return False
 

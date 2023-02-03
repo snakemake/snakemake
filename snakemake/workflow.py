@@ -1304,7 +1304,6 @@ class Workflow:
                 update_config(self.config, self.overwrite_config)
 
     def set_pepfile(self, path):
-
         try:
             import peppy
         except ImportError:

@@ -865,7 +865,7 @@ class Job(AbstractJob):
             or self.rule.shadow_depth == "copy-minimal"
         ):
             # Re-create the directory structure in the shadow directory
-            for (f, d) in set(
+            for f, d in set(
                 [
                     (item, os.path.dirname(item))
                     for sublist in [self.input, self.output, self.log]
@@ -1226,7 +1226,6 @@ class GroupJobFactory:
 
 
 class GroupJob(AbstractJob):
-
     obj_cache = dict()
 
     __slots__ = [
@@ -1272,7 +1271,6 @@ class GroupJob(AbstractJob):
 
     def finalize(self):
         if self.toposorted is None:
-
             self.toposorted = [
                 *self.dag.toposorted(self.jobs, inherit_pipe_dependencies=True)
             ]
@@ -1608,7 +1606,6 @@ class GroupJob(AbstractJob):
 
 
 class Reason:
-
     __slots__ = [
         "_updated_input",
         "_updated_input_run",

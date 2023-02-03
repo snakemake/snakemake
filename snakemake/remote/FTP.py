@@ -27,7 +27,6 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
     allows_directories = True
 
