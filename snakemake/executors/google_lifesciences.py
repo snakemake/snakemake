@@ -587,7 +587,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Filter down to those with greater than or equal to needed gpus
         keepers = {}
         for accelerator in accelerators.get("items", []):
-
             # Eliminate virtual workstations (vws) and models that don't match user preference
             if (gpu_model and accelerator["name"] != gpu_model) or accelerator[
                 "name"
@@ -636,7 +635,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [
                             self.workflow.check_source_sizes(os.path.join(dirpath, f))
@@ -826,7 +825,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return pipeline
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
@@ -889,7 +887,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status["metadata"]["events"]:
-
             logger.debug(event["description"])
 
             # Does it always result in fail for other failure reasons?
@@ -971,10 +968,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-
                 # use self.status_rate_limiter to avoid too many API calls.
                 async with self.status_rate_limiter:
-
                     # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.operations/get
                     # Get status from projects.locations.operations/get
                     operations = self._api.projects().locations().operations()
@@ -984,7 +979,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     try:
                         status = self._retry_request(request)
                     except googleapiclient.errors.HttpError as ex:
-
                         # Operation name not found, even finished should be found
                         if ex.status == 404:
                             j.error_callback(j.job)
@@ -1002,7 +996,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
                     # The operation is done
                     if status.get("done", False) == True:
-
                         # Derive success/failure from status codes (prints too)
                         if self._job_was_successful(status):
                             j.callback(j.job)

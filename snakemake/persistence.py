@@ -36,7 +36,6 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-
         try:
             import pandas as pd
 
