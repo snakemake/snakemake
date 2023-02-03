@@ -272,7 +272,7 @@ class SlurmExecutor(ClusterExecutor):
         slurm_jobid = out.split(" ")[-1]
         slurm_logfile = slurm_logfile.replace("%j", slurm_jobid)
         logger.info(
-            f"Job {jobid} has been submitted with SLURM jobid {slurm_jobid} (log: {slurm_logfile})"
+            f"Job {jobid} has been submitted with SLURM jobid {slurm_jobid} (log: {slurm_logfile})."
         )
         self.active_jobs.append(
             SlurmJob(job, slurm_jobid, callback, error_callback, slurm_logfile)
