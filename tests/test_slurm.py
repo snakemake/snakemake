@@ -44,6 +44,24 @@ def test_slurm_group_job():
 
 
 @skip_on_windows
+def test_slurm_group_parallel():
+    """
+    same test as test_group_job(),
+    but for SLURM - checks whether
+    the group-property is correctly
+    propagated.
+    """
+    run(
+        dpath("test_group_parallel"),
+        slurm=True,
+        show_failed_logs=True,
+        #default_resources=DefaultResources(
+        #    ["slurm_account=runner", "slurm_partition=debug"]
+        #),
+    )
+
+
+@skip_on_windows
 def test_slurm_complex():
     os.environ["TESTVAR"] = "test"
     os.environ["TESTVAR2"] = "test"
