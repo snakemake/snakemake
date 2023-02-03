@@ -121,6 +121,10 @@ class FluxExecutor(ClusterExecutor):
         fluxjob.environment = dict(os.environ)
         flux_future = self._fexecutor.submit(fluxjob)
 
+        logger.info(
+            f"Job {job.jobid} has been submitted with flux jobid {flux_future.jobid()} (log: {flux_logfile})."
+        )
+
         # Waiting for the jobid is a small performance penalty, same as calling flux.job.submit
         self.active_jobs.append(
             FluxJob(
