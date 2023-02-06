@@ -41,7 +41,7 @@ jobs:
           cd examples/flux
           # This run does not use conda
           which snakemake
-          flux start snakemake --show-failed-logs --verbose --flux --jobs=1
+          flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --no-shared-fs
 
       - name: Test Flux with Conda
         run: |
@@ -51,4 +51,4 @@ jobs:
           which conda
           cp -R ./tests/test_conda /tmp/test_conda
           cd /tmp/test_conda
-          flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --use-conda --conda-frontend=conda
+          flux start snakemake --show-failed-logs --verbose --flux --no-shared-fs false --jobs=1 --use-conda --conda-frontend=conda
