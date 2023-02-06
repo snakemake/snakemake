@@ -2483,7 +2483,7 @@ def get_argument_parser(profile=None):
         "--flux",
         action="store_true",
         help="Execute your workflow on a flux cluster. "
-        "As flux can work with both a shared network filesystem (like NFS) or without, "
+        "As Flux can work with both a shared network filesystem (like NFS) or without, "
         "you need to specify whether you want snakemake to assume a shared FS or not by "
         "specifying either '--no-shared-fs true' or '--no-shared-fs false'.",
     )
