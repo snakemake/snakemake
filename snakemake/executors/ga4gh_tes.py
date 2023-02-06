@@ -122,7 +122,6 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         ]
 
         while True:
-
             async with async_lock(self.lock):
                 if not self.wait:
                     return

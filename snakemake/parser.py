@@ -73,7 +73,6 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-
     subautomata = dict()
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -129,7 +128,6 @@ class TokenAutomaton:
 
 
 class KeywordState(TokenAutomaton):
-
     prefix = ""
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -347,7 +345,6 @@ class SubworkflowConfigfile(SubworkflowKeywordState):
 
 
 class Subworkflow(GlobalKeywordState):
-
     subautomata = dict(
         snakefile=SubworkflowSnakefile,
         workdir=SubworkflowWorkdir,
@@ -564,7 +561,6 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-
     overwrite_cmd = None
     start_func = None
     end_func = None
@@ -1204,7 +1200,6 @@ class UseRule(GlobalKeywordState):
 
 
 class Python(TokenAutomaton):
-
     subautomata = dict(
         envvars=Envvars,
         include=Include,

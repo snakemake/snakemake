@@ -498,7 +498,7 @@ def update_config(config, overwrite_config):
     """
 
     def _update(d, u):
-        for (key, value) in u.items():
+        for key, value in u.items():
             if isinstance(value, collections.abc.Mapping):
                 d[key] = _update(d.get(key, {}), value)
             else:

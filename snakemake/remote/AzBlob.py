@@ -34,7 +34,6 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
 
     def __init__(
@@ -171,7 +170,7 @@ class AzureStorageHelper(object):
 
         # if not handed down explicitely, try to read credentials from
         # environment variables.
-        for (csavar, envvar) in [
+        for csavar, envvar in [
             ("account_url", "AZ_BLOB_ACCOUNT_URL"),
             ("credential", "AZ_BLOB_CREDENTIAL"),
         ]:
