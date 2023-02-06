@@ -147,7 +147,6 @@ class XRootDHelper(object):
         return domain, dirname, filename
 
     def exists(self, url):
-
         domain, dirname, filename = self._parse_url(url)
 
         status, statInfo = self.get_client(domain).stat(os.path.join(dirname, filename))

@@ -183,7 +183,6 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -579,7 +578,6 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-
         if isinstance(self.path, LocalSourceFile):
             file_override = os.path.realpath(self.path.get_path_or_uri())
         else:

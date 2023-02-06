@@ -1,0 +1,28 @@
+import os.path
+import os, sys
+import time
+
+rule all:
+    group: "g1"
+    input:
+        "foo.txt",
+        "bar.txt",
+
+rule a:
+    output:
+        touch("bar.txt"),
+    group: "g1"
+    run:
+        time.sleep(5)
+        assert os.path.exists("b.txt")
+
+
+rule b:
+    output:
+        touch("foo.txt"),
+    group: "g1"
+    run:
+        with open("b.txt", "w") as out:
+            print("b", file=out)
+        time.sleep(10)
+        os.remove("b.txt")
