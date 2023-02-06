@@ -2828,11 +2828,12 @@ def main(argv=None):
             )
             sys.exit(1)
     if args.flux:
-        if args.no_shared_fs is None: # unspecified, error out
+        if args.no_shared_fs is None:  # unspecified, error out
             print(
                 "Error: --flux requires to specify either '--no-shared-fs true' or "
                 "'--no-shared-fs false' as the system works with both a shared network "
-                "filesystem (e.g. NFS) or without.", file=sys.stderr
+                "filesystem (e.g. NFS) or without.",
+                file=sys.stderr,
             )
             sys.exit(1)
     # convert no_shared_fs flag to boolean
