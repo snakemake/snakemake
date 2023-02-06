@@ -55,9 +55,9 @@ def test_slurm_group_parallel():
         dpath("test_group_parallel"),
         slurm=True,
         show_failed_logs=True,
-        # default_resources=DefaultResources(
-        #    ["slurm_account=runner", "slurm_partition=debug"]
-        # ),
+        default_resources=DefaultResources(
+            ["slurm_account=runner", "slurm_partition=debug", "tasks=1", "mem_mb=0"]
+        ),
     )
 
 
