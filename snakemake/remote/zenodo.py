@@ -113,7 +113,6 @@ class RemoteObject(AbstractRemoteRetryObject):
 
 class ZENHelper(object):
     def __init__(self, *args, **kwargs):
-
         try:
             self._access_token = kwargs.pop("access_token")
         except KeyError:
@@ -158,7 +157,6 @@ class ZENHelper(object):
         json=False,
         restricted_access=True,
     ):
-
         # Create a session with a hook to raise error on bad request.
         session = requests.Session()
         session.hooks = {"response": lambda r, *args, **kwargs: r.raise_for_status()}

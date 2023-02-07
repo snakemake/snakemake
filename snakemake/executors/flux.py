@@ -146,12 +146,10 @@ class FluxExecutor(ClusterExecutor):
             for j in active_jobs:
                 logger.debug("Checking status for job {}".format(j.jobid))
                 if j.flux_future.done():
-
                     # The exit code can help us determine if the job was successful
                     try:
                         exit_code = j.flux_future.result(0)
                     except RuntimeError:
-
                         # job did not complete
                         self.print_job_error(j.job, jobid=j.jobid)
                         j.error_callback(j.job)
