@@ -1,0 +1,8 @@
+
+rule main_target:
+    output: "combined_err.txt"
+    log: std="output.log", stdout="other.log"
+    shell: """touch {output}
+      echo stdout log >> /dev/stdout
+      echo stderr log >> /dev/stderr
+      """

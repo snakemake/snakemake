@@ -2048,3 +2048,39 @@ def test_github_issue1882():
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
+
+
+def test_output_redirection():
+    """ stdout() and stderr() flags on log files lead output from shell rule
+        to be redirected to those paths.
+    """
+    tempdir = run(
+        dpath("test_output_redirection"), targets=["redirect_output"], cleanup=False
+    )
+    with open(tempdir + "/output.log") as stdout_file:
+        assert stdout_file.read() == "stdout log\n"
+    with open(tempdir + "/output.err") as stderr_file:
+        assert stderr_file.read() == "stderr log\n"
+
+    shutil.rmtree(tempdir)
+
+    tempdir = run(
+        dpath("test_output_redirection"),
+        targets=["redirect_output_combine"],
+        cleanup=False,
+    )
+    with open(tempdir + "/output.log") as logfile:
+        assert logfile.read() == "stdout log\nstderr log\n"
+
+    shutil.rmtree(tempdir)
+
+    run(
+        dpath("test_output_redirection"), targets=["two_stdouts"], shouldfail=True,
+    )
+
+    run(
+        dpath("test_output_redirection"),
+        snakefile="Snakefile.compile_error",
+        targets=["invalid_combination"],
+        shouldfail=True,
+    )

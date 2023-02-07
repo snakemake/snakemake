@@ -19,6 +19,7 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
+from snakemake.io import Log
 
 
 __author__ = "Johannes Köster"
@@ -126,6 +127,18 @@ class shell:
         with cls._lock:
             cls._processes.clear()
 
+    @classmethod
+    def __get_output_streams(cls, log: Log, capture_stdout):
+        log = log if isinstance(log, Log) else Log()
+
+        streams = log.streams()
+
+        if "std" in streams:
+            return {"stdout": streams["std"], "stderr": sp.STDOUT}
+
+        streams.setdefault("stdout", sp.PIPE if capture_stdout else STDOUT)
+        return streams
+
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
     ):
@@ -137,8 +150,6 @@ class shell:
             kwargs["quote_func"] = cmd_exe_quote
 
         cmd = format(cmd, *args, stepout=2, **kwargs)
-
-        stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != "win32"
 
@@ -265,9 +276,9 @@ class shell:
             cmd,
             bufsize=-1,
             shell=use_shell,
-            stdout=stdout,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
+            **cls.__get_output_streams(context.get("log"), iterable or read),
             **cls._process_args,
             env=envvars,
         )

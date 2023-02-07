@@ -560,7 +560,7 @@ class CPUExecutor(RealExecutor):
             job.wildcards,
             job.threads,
             job.resources,
-            job.log._plainstrings(),
+            job.log,
             benchmark,
             benchmark_repeats,
             conda_env,

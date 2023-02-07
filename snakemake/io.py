@@ -1662,8 +1662,27 @@ class Resources(Namedlist):
     pass
 
 
-class Log(Namedlist):
+class LogStreamError(AttributeError):
     pass
+
+
+class Log(Namedlist):
+    def streams(self):
+        _streams = {
+            name: str(value)
+            for name, value in self.items()
+            if name in ("std", "stderr", "stdout")
+        }
+        if "std" in _streams and ("stderr" in _streams or "stdout" in _streams):
+            raise LogStreamError("Can't combine std stream with stdout/stderr.")
+        if any(path for path in _streams.values() if " " in path):
+            raise LogStreamError("Std output stream has more than one entry.")
+
+        for path in _streams.values():
+            dirname = os.path.dirname(path)
+            if any(dirname) and not os.path.exists(dirname):
+                os.makedirs(dirname)
+        return {name: open(value, "w") for name, value in _streams.items()}
 
 
 def _load_configfile(configpath_or_obj, filetype="Config"):
