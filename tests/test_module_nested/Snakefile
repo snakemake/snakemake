@@ -1,0 +1,21 @@
+from snakemake.utils import min_version
+min_version("6.0")
+
+module module_1:
+    snakefile: "nested-1st-level.Snakefile"
+    prefix: "nested-1st-level"
+
+rule top_level_do:
+    input:
+      "nested-1st-level/.done"
+    output:
+      ".done"
+    shell:
+      "touch {output}"
+      
+rule default:
+    input:
+       ".done"
+    default_target: True
+
+use rule * from module_1 exclude default as nested_1st_level_*
