@@ -2131,9 +2131,7 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--no-shared-fs",
-        choices=["true", "false"],
-        const="true",
-        nargs="?",
+        action="store_true",
         help="Do not assume that jobs share a common file "
         "system. When this flag is activated, Snakemake will "
         "assume that the filesystem on a cluster node is not "
@@ -2483,9 +2481,8 @@ def get_argument_parser(profile=None):
         "--flux",
         action="store_true",
         help="Execute your workflow on a flux cluster. "
-        "As Flux can work with both a shared network filesystem (like NFS) or without, "
-        "you need to specify whether you want snakemake to assume a shared FS or not by "
-        "specifying either '--no-shared-fs true' or '--no-shared-fs false'.",
+        "Flux can work with both a shared network filesystem (like NFS) or without. "
+        "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
     group_tes.add_argument(
@@ -2827,17 +2824,6 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
-    if args.flux:
-        if args.no_shared_fs is None:  # unspecified, error out
-            print(
-                "Error: --flux requires to specify either '--no-shared-fs true' or "
-                "'--no-shared-fs false' as the system works with both a shared network "
-                "filesystem (e.g. NFS) or without.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-    # convert no_shared_fs flag to boolean
-    args.no_shared_fs = args.no_shared_fs == "true"
 
     if args.delete_all_output and args.delete_temp_output:
         print(
