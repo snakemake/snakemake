@@ -424,7 +424,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes or flux:
+    if kubernetes:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -2131,7 +2131,9 @@ def get_argument_parser(profile=None):
     )
     group_behavior.add_argument(
         "--no-shared-fs",
-        action="store_true",
+        choices=["true", "false"],
+        const="true",
+        nargs="?",
         help="Do not assume that jobs share a common file "
         "system. When this flag is activated, Snakemake will "
         "assume that the filesystem on a cluster node is not "
@@ -2480,7 +2482,10 @@ def get_argument_parser(profile=None):
     group_flux.add_argument(
         "--flux",
         action="store_true",
-        help="Execute your workflow on a flux cluster.",
+        help="Execute your workflow on a flux cluster. "
+        "As Flux can work with both a shared network filesystem (like NFS) or without, "
+        "you need to specify whether you want snakemake to assume a shared FS or not by "
+        "specifying either '--no-shared-fs true' or '--no-shared-fs false'.",
     )
 
     group_tes.add_argument(
@@ -2699,6 +2704,7 @@ def main(argv=None):
         or args.tes
         or args.google_lifesciences
         or args.drmaa
+        or args.flux
     )
     no_exec = (
         args.print_compilation
@@ -2821,6 +2827,17 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
+    if args.flux:
+        if args.no_shared_fs is None:  # unspecified, error out
+            print(
+                "Error: --flux requires to specify either '--no-shared-fs true' or "
+                "'--no-shared-fs false' as the system works with both a shared network "
+                "filesystem (e.g. NFS) or without.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    # convert no_shared_fs flag to boolean
+    args.no_shared_fs = args.no_shared_fs == "true"
 
     if args.delete_all_output and args.delete_temp_output:
         print(

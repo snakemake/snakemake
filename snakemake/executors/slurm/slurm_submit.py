@@ -246,6 +246,9 @@ class SlurmExecutor(ClusterExecutor):
                     "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
                 )
             cpus_per_task = job.resources.cpus_per_task
+        # ensure that at least 1 cpu is requested
+        # because 0 is not allowed by slurm
+        cpus_per_task = max(1, cpus_per_task)
         call += f" --cpus-per-task={cpus_per_task}"
 
         if job.resources.get("slurm_extra"):

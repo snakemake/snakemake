@@ -30,7 +30,6 @@ jobs:
         run: |
           wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh           
           /bin/bash ~/miniconda.sh -b -p /opt/conda
-          export PATH=/opt/conda:/bin:$PATH
           # Install snakemake
           pip install .
 
@@ -40,11 +39,16 @@ jobs:
           ln -s /bin/python3 /usr/local/bin/python
           su fluxuser
           cd examples/flux
+          # This run does not use conda
           which snakemake
-          flux start snakemake --verbose --flux --jobs=1
+          flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --no-shared-fs
 
       - name: Test Flux with Conda
         run: |
+          # conda python needs to be after system python
+          export PATH=$PATH:/opt/conda/bin
+          which python
+          which conda
           cp -R ./tests/test_conda /tmp/test_conda
           cd /tmp/test_conda
-          flux start snakemake --verbose --flux --jobs=1 --use-conda || cat flux-*
+          flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --use-conda --conda-frontend=conda

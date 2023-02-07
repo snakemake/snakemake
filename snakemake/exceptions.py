@@ -138,6 +138,7 @@ def print_exception(ex, linemaps):
                 linemaps=linemaps,
                 snakefile=ex.snakefile,
                 show_traceback=True,
+                rule=ex.rule,
             )
         )
     elif isinstance(ex, KeyboardInterrupt):
