@@ -714,6 +714,7 @@ class Paramspace:
         or of the provided custom pattern.
         """
         import pandas as pd
+
         fmt_value = lambda value: "NA" if pd.isna(value) else value
         return (
             self.pattern.format(
