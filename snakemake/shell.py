@@ -291,7 +291,7 @@ class shell:
 
         ret = None
         if iterable:
-            return cls.iter_stdout(proc, cmd, tmpdir)
+            return cls.iter_stdout(proc, cmd, tmpdir, output_streams)
         if read:
             ret = proc.stdout.read()
         if bench_record is not None:
@@ -318,12 +318,15 @@ class shell:
         return ret
 
     @staticmethod
-    def iter_stdout(proc, cmd, tmpdir):
+    def iter_stdout(proc, cmd, tmpdir, output_streams):
         for l in proc.stdout:
             yield l[:-1]
         retcode = proc.wait()
         if tmpdir:
             shutil.rmtree(tmpdir)
+        for stream in output_streams.values():
+            if stream != sp.STDOUT:
+                stream.close()
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
 
