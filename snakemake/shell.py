@@ -128,7 +128,7 @@ class shell:
             cls._processes.clear()
 
     @classmethod
-    def __get_output_streams(cls, log: Log, capture_stdout):
+    def _get_output_streams(cls, log: Log, capture_stdout):
         log = log if isinstance(log, Log) else Log()
 
         streams = log.streams()
@@ -164,6 +164,8 @@ class shell:
             context = dict()
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
+
+        output_streams = cls._get_output_streams(context.get("log"), iterable or read)
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
@@ -278,7 +280,7 @@ class shell:
             shell=use_shell,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
-            **cls.__get_output_streams(context.get("log"), iterable or read),
+            **output_streams,
             **cls._process_args,
             env=envvars,
         )
@@ -307,6 +309,10 @@ class shell:
             with cls._lock:
                 del cls._processes[jobid]
 
+        for stream in output_streams.values():
+            if stream != sp.STDOUT:
+                stream.close()
+
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret
@@ -320,7 +326,6 @@ class shell:
             shutil.rmtree(tmpdir)
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
-
 
 # set bash as default shell on posix compatible OS
 if os.name == "posix":

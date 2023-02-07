@@ -1682,7 +1682,7 @@ class Log(Namedlist):
             dirname = os.path.dirname(path)
             if any(dirname) and not os.path.exists(dirname):
                 os.makedirs(dirname)
-        return {name: open(value, "w") for name, value in _streams.items()}
+        return {name: open(value, "a") for name, value in _streams.items()}
 
 
 def _load_configfile(configpath_or_obj, filetype="Config"):

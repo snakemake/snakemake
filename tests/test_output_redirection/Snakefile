@@ -1,28 +1,89 @@
-
 rule redirect_output:
     output: "output.txt"
+    log:
+        stdout="output.log",
+        stderr="output.err"
+    shell:
+        """
+        touch {output}
+        echo stdout log >> /dev/stdout
+        echo stderr log >> /dev/stderr
+        """
 
-    log: stdout="output.log", stderr="output.err"
-    shell: """touch {output}
-      echo stdout log >> /dev/stdout
-      echo stderr log >> /dev/stderr
-      """
+rule redirect_output_combined:
+    output:
+        "combined.txt"
+    log:
+        std="combined.log"
+    shell: 
+        """
+        touch {output}
+        echo stdout log >> /dev/stdout
+        echo stderr log >> /dev/stderr
+        """
 
+rule redirect_output_manual_pipe:
+    output:
+        "manual_pipe.txt"
+    log:
+        stdout="manual_pipe.log"
+    shell:
+        """
+        touch {output}
+        echo stdout log >> /dev/stdout
+        echo stdout log piped >> {log.stdout}
+        """
 
-rule redirect_output_combine:
-    output: "combined.txt"
+rule redirect_output_no_overwrite1:
+    output:
+        "no_overwrite1.txt"
+    log:
+        stdout="no_overwrite.log"
+    shell:
+        """
+        touch {output}
+        echo 1 >> /dev/stdout
+        """
 
-    log: std="output.log"
-    shell: """touch {output}
-      echo stdout log >> /dev/stdout
-      echo stderr log >> /dev/stderr
-      """
+rule redirect_output_no_overwrite2:
+    output:
+        "no_overwrite2.txt"
+    log:
+        stdout="no_overwrite.log"
+    shell:
+        """
+        touch {output}
+        echo 2 >> /dev/stdout
+        """
 
+rule redirect_output_no_overwrite:
+    output:
+        touch("no_overwrite.txt")
+    input:
+        "no_overwrite1.txt",
+        "no_overwrite2.txt"
 
-rule two_stdouts:
-    output: "two_stdouts.txt"
-    log: std=["output.log", "other.log"]
-    shell: """touch {output}
-      echo stdout log >> /dev/stdout
-      echo stderr log >> /dev/stderr
-      """
+rule redirect_output_multiple_std:
+    output:
+        "multiple_std.txt"
+    log:
+        std=["multiple_std1.log", "multiple_std2.log"]
+    shell:
+        """
+        touch {output}
+        echo stdout log >> /dev/stdout
+        echo stderr log >> /dev/stderr
+        """
+
+rule redirect_output_std_collision:
+    output:
+        "std_collision.txt"
+    log:
+        std="std_collision.log",
+        stdout="std_collision.log"
+    shell: 
+        """
+        touch {output}
+        echo stdout log >> /dev/stdout
+        echo stderr log >> /dev/stderr
+        """
