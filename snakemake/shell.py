@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import _io
 import sys
 import os
 import subprocess as sp
@@ -19,16 +18,10 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
-from snakemake.io import Log
+from snakemake.io import Log, STDOUT
 
 
 __author__ = "Johannes Köster"
-
-STDOUT = sys.stdout
-if not isinstance(sys.stdout, _io.TextIOWrapper):
-    # workaround for nosetest since it overwrites sys.stdout
-    # in a strange way that does not work with Popen
-    STDOUT = None
 
 
 # There is a max length for a command executed as well as a maximum
@@ -130,14 +123,13 @@ class shell:
     @classmethod
     def _get_output_streams(cls, log: Log, capture_stdout):
         log = log if isinstance(log, Log) else Log()
+        return log.streams(capture_stdout)
 
-        streams = log.streams()
-
-        if "std" in streams:
-            return {"stdout": streams["std"], "stderr": sp.STDOUT}
-
-        streams.setdefault("stdout", sp.PIPE if capture_stdout else STDOUT)
-        return streams
+    @staticmethod
+    def _close_streams(streams):
+        for stream in streams.values():
+            if stream not in (STDOUT, sp.PIPE):
+                stream.close()
 
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
@@ -309,9 +301,7 @@ class shell:
             with cls._lock:
                 del cls._processes[jobid]
 
-        for stream in output_streams.values():
-            if stream != sp.STDOUT:
-                stream.close()
+        cls._close_streams(output_streams)
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
@@ -324,9 +314,7 @@ class shell:
         retcode = proc.wait()
         if tmpdir:
             shutil.rmtree(tmpdir)
-        for stream in output_streams.values():
-            if stream != sp.STDOUT:
-                stream.close()
+        shell._close_streams(output_streams)
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
 
