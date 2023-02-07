@@ -45,7 +45,9 @@ rule redirect_output_no_overwrite1:
         echo 1 >> /dev/stdout
         """
 
-rule redirect_output_no_overwrite2:
+rule redirect_output_no_overwrite:
+    input:
+        "no_overwrite1.txt"
     output:
         "no_overwrite2.txt"
     log:
@@ -55,13 +57,6 @@ rule redirect_output_no_overwrite2:
         touch {output}
         echo 2 >> /dev/stdout
         """
-
-rule redirect_output_no_overwrite:
-    output:
-        touch("no_overwrite.txt")
-    input:
-        "no_overwrite1.txt",
-        "no_overwrite2.txt"
 
 rule redirect_output_multiple_std:
     output:
