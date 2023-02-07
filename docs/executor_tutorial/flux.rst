@@ -75,12 +75,11 @@ Here is how to run the workflow:
 
 .. code:: console
 
-    $ snakemake --flux --jobs=1 --no-shared-fs false
+    $ snakemake --flux --jobs=1
 
 The flags above refer to:
 
  - ``--flux``: tell Snakemake to use the flux executor
- - ``--no-shared-fs``: true/false to tell Snakemake if Flux is running with or without a shared filesystem.
 
 Once you submit the job, you'll immediately see the familiar Snakemake console output.
 The jobs happen very quickly, but the default wait time between checks is 10 seconds
@@ -149,6 +148,17 @@ At this point you can inspect the local directory to see your job output!
     Snakefile  hello  hola
     $ cat hello/world.txt 
     hello, World!
+
+
+Flux Without Shared Filesystem
+::::::::::::::::::::::::::::::
+
+By default, the Flux executor assumes a shared filesystem. If this isn't the case, you can add
+the ``--no-shared-fs`` flag, which will tell Snakemake that Flux is running without a shared filesystem.
+
+.. code:: console
+
+    $ snakemake --flux --jobs=1 --no-shared-fs
 
 
 See the `flux documentation <https://flux-framework.readthedocs.io/en/latest/quickstart.html#docker-recommended-for-quick-single-node-deployments>`_
