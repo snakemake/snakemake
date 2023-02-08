@@ -16,8 +16,6 @@ from functools import lru_cache, partial
 from itertools import filterfalse, count
 from pathlib import Path
 
-from humanfriendly import format_size
-
 import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
@@ -210,6 +208,8 @@ class Persistence:
             os.mkdir(self.shadow_path)
 
     def cleanup_containers(self):
+        from humanfriendly import format_size
+
         required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
         img_dir = Path(self.container_img_path)
         total_size_cleaned_up = 0
