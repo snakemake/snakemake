@@ -246,6 +246,9 @@ class SlurmExecutor(ClusterExecutor):
                     "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
                 )
             cpus_per_task = job.resources.cpus_per_task
+        # ensure that at least 1 cpu is requested
+        # because 0 is not allowed by slurm
+        cpus_per_task = max(1, cpus_per_task)
         call += f" --cpus-per-task={cpus_per_task}"
 
         if job.resources.get("slurm_extra"):
@@ -290,7 +293,7 @@ class SlurmExecutor(ClusterExecutor):
             async with self.status_rate_limiter:
                 sacct_error = None
                 try:
-                    sacct_cmd = f"sacct -P -b -j {jobid} -n"
+                    sacct_cmd = f"sacct -P -n --format=JobIdRaw,State -j {jobid}"
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
@@ -320,8 +323,15 @@ class SlurmExecutor(ClusterExecutor):
                         res = {jobid: m.group(1)}
                         break
                     except subprocess.CalledProcessError as e:
+
+                        def fmt_err(err_type, err_msg):
+                            if err_msg is not None:
+                                return f"\n    {err_type} error: {err_msg.strip()}"
+                            else:
+                                return ""
+
                         logger.error(
-                            f"Error getting status of slurm job {jobid}:\n    sacct error: {sacct_error.strip()}\n    scontrol error: {e.stderr.strip()}"
+                            f"Error getting status of slurm job {jobid}:{fmt_err('sacct', sacct_error)}{fmt_err('scontrol', e.stderr)}"
                         )
 
                 if i >= STATUS_ATTEMPTS - 1:

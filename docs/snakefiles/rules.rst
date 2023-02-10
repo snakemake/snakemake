@@ -341,6 +341,8 @@ If limits for the resources are given via the command line, e.g.
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
 
+**Importantly**, there are some :ref:`standard resources <snakefiles-standard-resources>` that should be considered before making up your own.
+
 In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check on the resource consumption of jobs in real time.
 Instead, resources are used to determine which jobs can be executed at the same time without exceeding the limits specified at the command line.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
@@ -394,22 +396,33 @@ Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
 
+.. _snakefiles-standard-resources:
+
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
+There are several **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem``, ``disk``, ``runtime``, and ``tmpdir``.
 All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
 * The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
 
-* The ``runtime`` resource indicates how many **minutes** a job needs to run. Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
+* The ``runtime`` resource indicates the amount of wall clock time a job needs to run.
+  It can be given as string defining a time span or as integer defining **minutes**.
+  In the former case, the time span can be defined as a string with a number followed by a unit
+  (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
+  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`_.
+  Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
   See :ref:`the section below <resources_remote_execution>` for more information.
 
-* ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below<resources_remote_execution>` for more info.
+* ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
+  They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
+  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`_.
+  Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
+  They are both locally scoped by default, a fact important for cluster and compute execution.
+  :ref:`See below <resources_remote_execution>` for more info.
   They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
-Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
+Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
 
 .. _default-resources:
 
@@ -2037,7 +2050,9 @@ This workflow will run as follows:
 
 
 Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
-Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` constructor (see :ref:`utils-api`).
+Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` `constructor <https://snakemake-api.readthedocs.io/en/latest/api_reference/snakemake_utils.html#snakemake.utils.Paramspace>`_.
+In particular, using the argument ``single_wildcard`` the default behavior of encoding each column as a wildcard can be replaced with a single given wildcard name.
+This can be handy in case a rule shall serve multiple param spaces with different sets of columns.
 
 .. _snakefiles-checkpoints:
 

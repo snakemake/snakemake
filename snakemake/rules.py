@@ -64,6 +64,7 @@ from snakemake.common import (
     TBDString,
     mb_to_mib,
 )
+from snakemake.resources import infer_resources
 
 
 class Rule:
@@ -1126,6 +1127,8 @@ class Rule:
 
                 if value is not None:
                     resources[name] = value
+                    # Infer standard resources from eventual human readable forms.
+                    infer_resources(name, value, resources)
 
                     # infer additional resources
                     for mb_item, mib_item in (

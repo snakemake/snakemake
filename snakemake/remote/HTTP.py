@@ -174,7 +174,6 @@ class RemoteObject(DomainObject):
     def mtime(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-
                 file_mtime = self.get_header_item(httpr, "last-modified", default=None)
                 logger.debug("HTTP last-modified: {}".format(file_mtime))
 
@@ -200,7 +199,6 @@ class RemoteObject(DomainObject):
     def size(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-
                 content_size = int(
                     self.get_header_item(httpr, "content-size", default=0)
                 )

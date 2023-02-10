@@ -35,7 +35,6 @@ def get_cell_sources(source):
 
 
 class JupyterNotebook(ScriptBase):
-
     editable = True
 
     def draft(self):

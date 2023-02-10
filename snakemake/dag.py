@@ -316,7 +316,7 @@ class DAG:
         }
 
         # Then based on md5sum values
-        for (env_spec, simg_url) in env_set:
+        for env_spec, simg_url in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
                 assert (
@@ -1424,7 +1424,6 @@ class DAG:
         if update_incomplete_input_expand_jobs:
             updated = self.update_incomplete_input_expand_jobs()
             if updated:
-
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
                 # on group ids.
@@ -1831,7 +1830,8 @@ class DAG:
 
     def collect_potential_dependencies(self, job, known_producers):
         """Collect all potential dependencies of a job. These might contain
-        ambiguities. The keys of the returned dict represent the files to be considered."""
+        ambiguities. The keys of the returned dict represent the files to be considered.
+        """
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
@@ -2051,7 +2051,6 @@ class DAG:
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-
         # color rules
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
@@ -2101,7 +2100,6 @@ class DAG:
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-
         # NOTE: This is code from the rule_dot method.
         # This method could be split like there as well, however,
         # it cannot easily reuse the _dot method due to the different node type
