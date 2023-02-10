@@ -1709,7 +1709,7 @@ class KubernetesExecutor(ClusterExecutor):
             disable_envvar_declarations=True,
         )
         # use relative path to Snakefile
-        self.snakefile = "Snakefile"
+        self.snakefile = os.path.relpath(workflow.main_snakefile)
 
         try:
             from kubernetes import config
@@ -1740,7 +1740,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def get_job_args(self, job):
         if self.persistent_volume_claim:
-            return f"{super().get_job_args(job)} --directory /pvc"
+            return f"{super().get_job_args(job)}"
         else:
             return super().get_job_args(job)
 
@@ -1896,21 +1896,14 @@ class KubernetesExecutor(ClusterExecutor):
         container.command = shlex.split("/bin/sh")
         container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
-        container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir"),
-            kubernetes.client.V1VolumeMount(name="source", mount_path="/source"),
-        ]
-        container.volume_mounts.append([
-            kubernetes.client.V1VolumeMount(name= "pvc", mount_path ="/pvc")
-        ])
 
         # mounts
         workdir = kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
         source = kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
 
         if self.persistent_volume_claim:
-            pvc =kubernetes.client.V1VolumeMount(name= "pvc", mount_path ="/pvc")
-            container.volume_mounts = [workdir, source,pvc]
+            pvc =kubernetes.client.V1VolumeMount(name= "pvc", mount_path = getattr(self.workflow, "default_remote_prefix"))
+            container.volume_mounts = [workdir, source, pvc]
         else:
             container.volume_mounts = [workdir,source]
         
