@@ -1683,6 +1683,10 @@ def test_paramspace():
     run(dpath("test_paramspace"))
 
 
+def test_paramspace_single_wildcard():
+    run(dpath("test_paramspace_single_wildcard"))
+
+
 def test_github_issue806():
     run(dpath("test_github_issue806"), config=dict(src_lang="es", trg_lang="en"))
 
@@ -2039,3 +2043,8 @@ def test_github_issue1882():
         run(tmpdir, forceall=True)
     finally:
         shutil.rmtree(tmpdir)
+
+
+@skip_on_windows  # not platform dependent
+def test_inferred_resources():
+    run(dpath("test_inferred_resources"))

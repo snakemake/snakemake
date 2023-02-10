@@ -20,7 +20,6 @@ from snakemake.common import Mode
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
-
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     RESET_SEQ = "\033[0m"
     COLOR_SEQ = "\033[%dm"
@@ -247,7 +246,6 @@ class WMSLogger:
         """
         result = {}
         for key, value in msg.items():
-
             # For a job, the name is sufficient
             if key == "job":
                 result[key] = str(value)

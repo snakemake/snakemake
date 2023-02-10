@@ -29,7 +29,6 @@ if not shutil.which("gfal-copy"):
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
     allows_directories = True
 

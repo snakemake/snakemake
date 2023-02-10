@@ -1,5 +1,54 @@
 # Changelog
 
+## [7.21.0](https://github.com/snakemake/snakemake/compare/v7.20.0...v7.21.0) (2023-01-30)
+
+
+### Features
+
+* ability to encode paramspaces into a single wildcard, via the newly introduced `single_wildcard` argument of `Paramspace`. ([#2069](https://github.com/snakemake/snakemake/issues/2069)) ([728ab3c](https://github.com/snakemake/snakemake/commit/728ab3cf59fb188bf1872a5cab3aba4519340a06))
+* allow input, output, and params to be used in functions passed to report mark arguments ([#2081](https://github.com/snakemake/snakemake/issues/2081)) ([93ff8b6](https://github.com/snakemake/snakemake/commit/93ff8b604a152f50ca31389ecffe1a7527c5b5a8))
+
+
+### Bug Fixes
+
+* more robust encoding of params in persistent metadata storage. This way, pandas parameters do not lead to spurious rerun triggers. ([#2080](https://github.com/snakemake/snakemake/issues/2080)) ([106a4c3](https://github.com/snakemake/snakemake/commit/106a4c3f4b181d787a6c309b8ea2e655780413e7))
+* more robust parsing of sacct output in slurm executor ([#2036](https://github.com/snakemake/snakemake/issues/2036)) ([fe651f8](https://github.com/snakemake/snakemake/commit/fe651f8a10b9ead94b07ab31efe2d560525fc3b6))
+* Postprocess job groups in toposorted order for correct touch times ([#2073](https://github.com/snakemake/snakemake/issues/2073)) ([10b5849](https://github.com/snakemake/snakemake/commit/10b584916a869fa1147a9f42d1de4fec4120b441))
+
+## [7.20.0](https://github.com/snakemake/snakemake/compare/v7.19.1...v7.20.0) (2023-01-18)
+
+
+### Features
+
+* add tes token ([#1966](https://github.com/snakemake/snakemake/issues/1966)) ([59a8fa0](https://github.com/snakemake/snakemake/commit/59a8fa04c4c6b113775fe11228b82510ecd36cb8))
+* Add token auth to GitLab/GitHub hosting providers ([#1761](https://github.com/snakemake/snakemake/issues/1761)) ([e03a3b4](https://github.com/snakemake/snakemake/commit/e03a3b42eea89d512290bf98ee7d77ce2e17447c)), closes [#1301](https://github.com/snakemake/snakemake/issues/1301)
+* allow for human friendly resource definitions (e.g. mem="5GB", runtime="1d") ([#1861](https://github.com/snakemake/snakemake/issues/1861)) ([24610ac](https://github.com/snakemake/snakemake/commit/24610ac75849d543fc38c83fb2454fa4f9b42075))
+
+
+### Bug Fixes
+
+* :bug: - fix hyperlink ([#2046](https://github.com/snakemake/snakemake/issues/2046)) ([9519d31](https://github.com/snakemake/snakemake/commit/9519d31b4ed2390d5c14f0f6a754ca665374d15c))
+* Catch missing error stream in Slurm executor ([#2063](https://github.com/snakemake/snakemake/issues/2063)) ([c21fc7e](https://github.com/snakemake/snakemake/commit/c21fc7e528327b13d762c5db90ee0e40506cf0bd))
+* correctly parse empty values in config cli ([#2032](https://github.com/snakemake/snakemake/issues/2032)) ([1b0689d](https://github.com/snakemake/snakemake/commit/1b0689dddf5eecbd8afd307c6df3dc31a32c338f))
+* Correctly parse UserDicts in executors ([#2016](https://github.com/snakemake/snakemake/issues/2016)) ([e3926fa](https://github.com/snakemake/snakemake/commit/e3926fa4b44bedf99745b949080397919a522aa1))
+* Fix handling of --jobs in no-exec state ([#2029](https://github.com/snakemake/snakemake/issues/2029)) ([e8e8222](https://github.com/snakemake/snakemake/commit/e8e8222a6f2192423aa55766304f9d1616a0d6e3))
+* make `--show-failed-logs` handle empty log files ([#2039](https://github.com/snakemake/snakemake/issues/2039)) ([683c6f2](https://github.com/snakemake/snakemake/commit/683c6f2284e867457d7ed25e838ed3018da8f2d4)), closes [#2023](https://github.com/snakemake/snakemake/issues/2023)
+* make python version check more robust ([#2058](https://github.com/snakemake/snakemake/issues/2058)) ([e685621](https://github.com/snakemake/snakemake/commit/e685621f3b4c0e21aa6f640dd571406d1d39e588))
+* parsing error when last line is comment ([#2054](https://github.com/snakemake/snakemake/issues/2054)) ([a928dd4](https://github.com/snakemake/snakemake/commit/a928dd4391d186b6ddb582331047f09fbee03f03))
+* prevent overriding of retries when set to 0 ([#2053](https://github.com/snakemake/snakemake/issues/2053)) ([a328f3e](https://github.com/snakemake/snakemake/commit/a328f3e009a53002781539dfe3e3c8c5d1738189))
+* propagate attempt count from group to subjobs ([#2052](https://github.com/snakemake/snakemake/issues/2052)) ([da3f1c0](https://github.com/snakemake/snakemake/commit/da3f1c0a80ffabbe9d02ce1361bfa2374c546007))
+* remove overflow from rulegraph div in report ([9a0aaa7](https://github.com/snakemake/snakemake/commit/9a0aaa703d6531d890b7116638dc515425f6ed34))
+* skip type checks of missing dir in touch mode ([#2051](https://github.com/snakemake/snakemake/issues/2051)) ([ae00c25](https://github.com/snakemake/snakemake/commit/ae00c25541600dba14ad68f1145bab3c4455de19))
+* slurm default_resources quoting ([#2043](https://github.com/snakemake/snakemake/issues/2043)) ([47d3fc3](https://github.com/snakemake/snakemake/commit/47d3fc3eef8ebe54df8b77f100fc2ab3fa36c190))
+* Update list of python versions in classifiers ([#2020](https://github.com/snakemake/snakemake/issues/2020)) ([7a98100](https://github.com/snakemake/snakemake/commit/7a98100ba92b0174c8ead3ae715042c1ab710c61))
+* use short argument name for `--chdir` for compatibility with Slurm &lt;=v17 ([#2040](https://github.com/snakemake/snakemake/issues/2040)) ([a9ed3ec](https://github.com/snakemake/snakemake/commit/a9ed3ec3e823442810388fce8a17ba4950bbdaa2))
+
+
+### Documentation
+
+* Fix typo in SLURM help text ([#2049](https://github.com/snakemake/snakemake/issues/2049)) ([79b7025](https://github.com/snakemake/snakemake/commit/79b702528b9801d0283766f2da377d4b9daeebd2))
+* mention XDG_CACHE_HOME ([#2057](https://github.com/snakemake/snakemake/issues/2057)) ([ec2ef45](https://github.com/snakemake/snakemake/commit/ec2ef45c5e49f97a0b58535f8e39152d2789d428))
+
 ## [7.19.1](https://github.com/snakemake/snakemake/compare/v7.19.0...v7.19.1) (2022-12-13)
 
 

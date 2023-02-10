@@ -113,7 +113,6 @@ class Crc32cCalculator:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
 
     def __init__(
@@ -287,7 +286,6 @@ class RemoteObject(AbstractRemoteObject):
             # Distinguish between single file, and folder
             f = self.local_file()
             if os.path.isdir(f):
-
                 # Ensure the "directory" exists
                 self.blob.upload_from_string(
                     "", content_type="application/x-www-form-urlencoded;charset=UTF-8"

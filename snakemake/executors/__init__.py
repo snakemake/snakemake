@@ -995,7 +995,6 @@ class GenericClusterExecutor(ClusterExecutor):
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):
-
         self.submitcmd = submitcmd
         if not assume_shared_fs and statuscmd is None:
             raise WorkflowError(
@@ -2173,7 +2172,7 @@ class TibannaExecutor(ClusterExecutor):
         self.workflow_sources = []
         for wfs in dag.get_sources():
             if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [os.path.join(dirpath, f) for f in filenames]
                     )
