@@ -318,6 +318,7 @@ class shell:
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
 
+
 # set bash as default shell on posix compatible OS
 if os.name == "posix":
     if not shutil.which("bash"):

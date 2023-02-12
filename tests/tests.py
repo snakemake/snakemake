@@ -2057,7 +2057,7 @@ def test_output_redirection():
             "redirect_output",
             "redirect_output_combined",
             "redirect_output_manual_pipe",
-        ]
+        ],
     )
 
 

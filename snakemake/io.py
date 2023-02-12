@@ -1683,7 +1683,11 @@ class Log(Namedlist):
         }
 
         for name, value in _streams.items():
-            if isinstance(value, tuple) or isinstance(value, list) or isinstance(value, dict):
+            if (
+                isinstance(value, tuple)
+                or isinstance(value, list)
+                or isinstance(value, dict)
+            ):
                 raise LogStreamError(
                     "Log stream called '{}' has more than one entry.".format(name)
                 )
@@ -1703,9 +1707,7 @@ class Log(Namedlist):
             stream = open(_streams["std"], "a")
             _streams = {"stdout": stream, "stderr": stream}
         else:
-            _streams = {
-                name: open(value, "a") for name, value in _streams.items()
-            }
+            _streams = {name: open(value, "a") for name, value in _streams.items()}
         if capture_stdout:
             _streams["stdout"] = sp.PIPE
         elif "stdout" not in _streams:
