@@ -169,6 +169,7 @@ def test_github_issue1460():
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
 
+
 @google_credentials
 def test_cloud_checkpoints_issue2021():
     """see Github issue #2021"""
@@ -186,4 +187,3 @@ def test_cloud_checkpoints_issue2021():
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
-
