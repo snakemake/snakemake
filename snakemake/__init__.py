@@ -424,7 +424,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes or flux:
+    if kubernetes:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -2480,7 +2480,9 @@ def get_argument_parser(profile=None):
     group_flux.add_argument(
         "--flux",
         action="store_true",
-        help="Execute your workflow on a flux cluster.",
+        help="Execute your workflow on a flux cluster. "
+        "Flux can work with both a shared network filesystem (like NFS) or without. "
+        "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
     group_tes.add_argument(
@@ -2699,6 +2701,7 @@ def main(argv=None):
         or args.tes
         or args.google_lifesciences
         or args.drmaa
+        or args.flux
     )
     no_exec = (
         args.print_compilation
