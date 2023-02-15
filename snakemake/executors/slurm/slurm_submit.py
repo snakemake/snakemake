@@ -134,22 +134,23 @@ class SlurmExecutor(ClusterExecutor):
         return [" --slurm-jobstep", "--jobs 1"]
 
     def cancel(self):
-        for job in self.active_jobs:
-            jobid = job.jobid
+        # Jobs are collected to reduce load on slurmctld
+        jobids = " ".join([job.jobid for job in self.active_jobs])
+        if len(jobids) > 0:
             try:
                 # timeout set to 60, because a scheduler cycle usually is
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
                 subprocess.check_output(
-                    f"scancel {jobid}",
+                    f"scancel {jobids}",
                     text=True,
                     shell=True,
                     timeout=60,
                     stderr=subprocess.PIPE,
                 )
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel job {jobid} within a minute.")
+                logger.warning(f"Unable to cancel jobs within a minute.")
         self.shutdown()
 
     def get_account_arg(self, job):
