@@ -8,10 +8,10 @@ class Navbar extends React.Component {
 
     render() {
         let showHideNavbar = `${this.getWidth()}`;
-        let showHideShowButton = "-translate-x-full"
+        let showHideShowButton = "-translate-x-full";
         if (this.props.app.state.hideNavbar) {
             showHideNavbar = "w-0";
-            showHideShowButton = ""
+            showHideShowButton = "";
         }
         return [
             e(
