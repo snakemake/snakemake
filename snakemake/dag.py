@@ -277,8 +277,11 @@ class DAG:
                     for io_file in chain(job.output, job.input)
                     if not os.path.exists(io_file)
                 ):
-                    if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
-                        os.removedirs(io_dir)
+                    if os.path.exists(io_dir):
+                        # check for empty dir
+                        with os.scandir(io_dir) as i:
+                            if next(i, None) is None:
+                                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()

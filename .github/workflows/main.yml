@@ -275,12 +275,12 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
-          python-version: 3.9
           channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
       - name: Setup Snakemake environment
         run: |
           conda config --set channel_priority strict
-          conda install -q --name base mamba
           mamba env update -q --file test-environment.yml
       - name: Run tests
         env:
