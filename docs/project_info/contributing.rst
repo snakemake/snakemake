@@ -52,7 +52,7 @@ Below you find a skeleton
 
     class SkeletonExecutor(ClusterExecutor):
         def __init__(self, workflow, dag, cores,
-                 jobname="snakejob.{name}.{jobid}.sh",
+                 jobname=None,
                  printreason=False,
                  quiet=False,
                  printshellcmds=False,

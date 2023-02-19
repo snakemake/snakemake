@@ -25,7 +25,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         workflow,
         dag,
         cores,
-        jobname="snakejob.{name}.{jobid}.sh",
+        jobname=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,
