@@ -100,7 +100,7 @@ class SlurmExecutor(ClusterExecutor):
         workflow,
         dag,
         cores,
-        jobname="snakejob_{name}_{jobid}",
+        jobname=None,
         printreason=False,
         quiet=False,
         printshellcmds=False,

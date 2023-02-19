@@ -204,6 +204,7 @@ class JobScheduler:
                 workflow,
                 dag,
                 cores=None,
+                jobname=jobname,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
