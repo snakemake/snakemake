@@ -305,7 +305,7 @@ class _IOFile(str):
         else:
             ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
 
-        for (i, path) in enumerate(ancestors):
+        for i, path in enumerate(ancestors):
             if path in cache.exists_local.has_inventory:
                 # This path was already scanned before, hence we can stop.
                 break
@@ -1503,7 +1503,12 @@ class Namedlist(list):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
-                self.extend(map(str, toclone))
+                self.extend(
+                    x.remote_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    else str(x)
+                    for x in toclone
+                )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:
@@ -1588,7 +1593,6 @@ class Namedlist(list):
                 item[1][0] + 1 if item[1][1] is None else item[1][1],
             ),
         ):
-
             start, end = index
             if end is None:
                 end = start + 1

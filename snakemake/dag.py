@@ -277,8 +277,11 @@ class DAG:
                     for io_file in chain(job.output, job.input)
                     if not os.path.exists(io_file)
                 ):
-                    if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
-                        os.removedirs(io_dir)
+                    if os.path.exists(io_dir):
+                        # check for empty dir
+                        with os.scandir(io_dir) as i:
+                            if next(i, None) is None:
+                                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
@@ -316,7 +319,7 @@ class DAG:
         }
 
         # Then based on md5sum values
-        for (env_spec, simg_url) in env_set:
+        for env_spec, simg_url in env_set:
             simg = None
             if simg_url and self.workflow.use_singularity:
                 assert (
@@ -594,12 +597,20 @@ class DAG:
                     jobid=self.jobid(job),
                 )
 
-        # Ensure that outputs are of the correct type (those flagged with directory()
-        # are directories and not files and vice versa). We can't check for remote objects.
+        def correctly_flagged_with_dir(f):
+            """Check that files flagged as directories are in fact directories
+
+            In ambiguous cases, such as when f is remote, or f doesn't exist and
+            ignore_missing_output is true, always return True
+            """
+            if f.remote_object:
+                return True
+            if ignore_missing_output and not os.path.exists(f):
+                return True
+            return not (f.is_directory ^ os.path.isdir(f))
+
         for f in expanded_output:
-            if (f.is_directory and not f.remote_object and not os.path.isdir(f)) or (
-                not f.remote_object and os.path.isdir(f) and not f.is_directory
-            ):
+            if not correctly_flagged_with_dir(f):
                 raise ImproperOutputException(job, [f])
 
         # Handle ensure flags
@@ -1416,7 +1427,6 @@ class DAG:
         if update_incomplete_input_expand_jobs:
             updated = self.update_incomplete_input_expand_jobs()
             if updated:
-
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
                 # on group ids.
@@ -1823,7 +1833,8 @@ class DAG:
 
     def collect_potential_dependencies(self, job, known_producers):
         """Collect all potential dependencies of a job. These might contain
-        ambiguities. The keys of the returned dict represent the files to be considered."""
+        ambiguities. The keys of the returned dict represent the files to be considered.
+        """
         # use a set to circumvent multiple jobs for the same file
         # if user specified it twice
         file2jobs = self.file2jobs
@@ -2043,7 +2054,6 @@ class DAG:
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-
         # color rules
         huefactor = 2 / (3 * len(self.rules))
         rulecolor = {
@@ -2093,7 +2103,6 @@ class DAG:
         node2style=lambda node: "rounded",
         node2label=lambda node: node,
     ):
-
         # NOTE: This is code from the rule_dot method.
         # This method could be split like there as well, however,
         # it cannot easily reuse the _dot method due to the different node type
@@ -2525,8 +2534,8 @@ class DAG:
 
             for group in pipe_groups.values():
                 sorted_layer.extend(
-                    chain(
-                        *toposort(
+                    chain.from_iterable(
+                        toposort(
                             {
                                 job: {
                                     dep

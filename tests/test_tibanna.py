@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from common import *
 
+
 # run tibanna test before any moto-related tests because they apparently render AWS environment variables invalid or uneffective.
 def test_tibanna():
     workdir = dpath("test_tibanna")

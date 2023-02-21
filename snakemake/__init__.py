@@ -23,7 +23,12 @@ from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
-from snakemake.exceptions import ResourceScopesException, print_exception, WorkflowError
+from snakemake.exceptions import (
+    CliException,
+    ResourceScopesException,
+    print_exception,
+    WorkflowError,
+)
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
@@ -98,6 +103,8 @@ def snakemake(
     nocolor=False,
     quiet=False,
     keepgoing=False,
+    slurm=None,
+    slurm_jobstep=None,
     rerun_triggers=RERUN_TRIGGERS,
     cluster=None,
     cluster_config=None,
@@ -115,6 +122,7 @@ def snakemake(
     conda_cleanup_envs=False,
     cleanup_shadow=False,
     cleanup_scripts=True,
+    cleanup_containers=False,
     force_incomplete=False,
     ignore_incomplete=False,
     list_version_changes=False,
@@ -258,6 +266,7 @@ def snakemake(
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
+        cleanup_containers (bool):  delete unused (singularity) containers (default False)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -417,7 +426,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes or flux:
+    if kubernetes:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -452,6 +461,8 @@ def snakemake(
         or tibanna
         or google_lifesciences
         or tes
+        or slurm
+        or slurm_jobstep
     )
     if run_local:
         if not dryrun:
@@ -683,6 +694,7 @@ def snakemake(
                     unlock=unlock,
                     cleanup_metadata=cleanup_metadata,
                     conda_cleanup_envs=conda_cleanup_envs,
+                    cleanup_containers=cleanup_containers,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
@@ -767,6 +779,8 @@ def snakemake(
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
+                    slurm=slurm,
+                    slurm_jobstep=slurm_jobstep,
                     cluster=cluster,
                     cluster_sync=cluster_sync,
                     jobname=jobname,
@@ -815,6 +829,7 @@ def snakemake(
                     keep_target_files=keep_target_files,
                     cleanup_metadata=cleanup_metadata,
                     conda_cleanup_envs=conda_cleanup_envs,
+                    cleanup_containers=cleanup_containers,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
@@ -1003,6 +1018,9 @@ def parse_config(args):
                     "Invalid config definition: Config entry must start with a valid identifier."
                 )
             v = None
+            if val == "":
+                update_config(config, {key: v})
+                continue
             for parser in parsers:
                 try:
                     v = parser(val)
@@ -1014,6 +1032,60 @@ def parse_config(args):
             assert v is not None
             update_config(config, {key: v})
     return config
+
+
+def parse_cores(cores, allow_none=False):
+    if cores is None:
+        if allow_none:
+            return cores
+        raise CliException(
+            "Error: you need to specify the maximum number of CPU cores to "
+            "be used at the same time. If you want to use N cores, say --cores N "
+            "or -cN. For all cores on your system (be sure that this is "
+            "appropriate) use --cores all. For no parallelization use --cores 1 or "
+            "-c1."
+        )
+    if cores == "all":
+        return available_cpu_count()
+    try:
+        return int(cores)
+    except ValueError:
+        raise CliException(
+            "Error parsing number of cores (--cores, -c, -j): must be integer, "
+            "empty, or 'all'."
+        )
+
+
+def parse_jobs(jobs, allow_none=False):
+    if jobs is None:
+        if allow_none:
+            return jobs
+        raise CliException(
+            "Error: you need to specify the maximum number of jobs to "
+            "be queued or executed at the same time with --jobs or -j.",
+        )
+    if jobs == "unlimited":
+        return sys.maxsize
+    try:
+        return int(jobs)
+    except ValueError:
+        raise CliException(
+            "Error parsing number of jobs (--jobs, -j): must be integer.",
+        )
+
+
+def parse_cores_jobs(cores, jobs, no_exec, non_local_exec, dryrun):
+    if no_exec or dryrun:
+        cores = parse_cores(cores, allow_none=True) or 1
+        jobs = parse_jobs(jobs, allow_none=True) or 1
+    elif non_local_exec:
+        cores = parse_cores(cores, allow_none=True)
+        jobs = parse_jobs(jobs)
+    else:
+        cores = parse_cores(cores or jobs)
+        jobs = None
+
+    return cores, jobs
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -1166,7 +1238,7 @@ def get_argument_parser(profile=None):
         action="store",
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
-            "an alias for --cores."
+            "an alias for --cores. Note: Set to 'unlimited' in case, this does not play a role."
         ),
     )
     group_exec.add_argument(
@@ -1257,11 +1329,14 @@ def get_argument_parser(profile=None):
         metavar="NAME=INT",
         help=(
             "Define default values of resources for rules that do not define their own values. "
-            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb')."
-            "When specifying this without any arguments (--default-resources), it defines 'mem_mb=max(2*input.size_mb, 1000)' "
+            "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
+            "The inputsize is the sum of the sizes of all input files of a rule. "
+            "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
+            "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
+            "The defaults are 'mem_mb=max(2*input.size_mb, 1000)', "
             "'disk_mb=max(2*input.size_mb, 1000)' "
-            "i.e., default disk and mem usage is twice the input file size but at least 1GB."
-            "In addition, the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
+            "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
+            "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
             "The tmpdir resource is automatically used by shell commands, scripts and wrappers to store temporary data (as it is "
             "mirrored into $TMPDIR, $TEMP, and $TMP for the executed subprocesses). "
             "If this argument is not specified at all, Snakemake just uses the tmpdir resource as outlined above."
@@ -2135,6 +2210,32 @@ def get_argument_parser(profile=None):
         "Currently slack and workflow management system (wms) are supported.",
     )
 
+    group_slurm = parser.add_argument_group("SLURM")
+    slurm_mode_group = group_slurm.add_mutually_exclusive_group()
+
+    slurm_mode_group.add_argument(
+        "--slurm",
+        action="store_true",
+        help=(
+            "Execute snakemake rules as SLURM batch jobs according"
+            " to their 'resources' definition. SLURM resources as "
+            " 'partition', 'ntasks', 'cpus', etc. need to be defined"
+            " per rule within the 'resources' definition. Note, that"
+            " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
+            " as analoguous to the SLURM 'mem' and 'mem-per-cpu' flags"
+            " to sbatch, respectively. Here, the unit is always 'MiB'."
+            " In addition '--default_resources' should contain the"
+            " SLURM account."
+        ),
+    ),
+    slurm_mode_group.add_argument(
+        "--slurm-jobstep",
+        action="store_true",
+        help=configargparse.SUPPRESS,  # this should be hidden and only be used
+        # for snakemake to be working in jobscript-
+        # mode
+    )
+
     group_cluster = parser.add_argument_group("CLUSTER")
 
     # TODO extend below description to explain the wildcards that can be used
@@ -2383,7 +2484,9 @@ def get_argument_parser(profile=None):
     group_flux.add_argument(
         "--flux",
         action="store_true",
-        help="Execute your workflow on a flux cluster.",
+        help="Execute your workflow on a flux cluster. "
+        "Flux can work with both a shared network filesystem (like NFS) or without. "
+        "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
     group_tes.add_argument(
@@ -2482,6 +2585,11 @@ def get_argument_parser(profile=None):
         metavar="ARGS",
         help="Pass additional args to singularity.",
     )
+    group_singularity.add_argument(
+        "--cleanup-containers",
+        action="store_true",
+        help="Remove unused (singularity) containers",
+    )
 
     group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
 
@@ -2523,8 +2631,9 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile:
-        # reparse args while inferring config file from profile
+    if args.profile and args.mode == Mode.default:
+        # Reparse args while inferring config file from profile.
+        # But only do this if the user has invoked Snakemake (Mode.default)
         parser = get_argument_parser(args.profile)
         args = parser.parse_args(argv)
 
@@ -2593,12 +2702,15 @@ def main(argv=None):
 
     non_local_exec = (
         args.cluster
+        or args.slurm
+        or args.slurm_jobstep
         or args.cluster_sync
         or args.tibanna
         or args.kubernetes
         or args.tes
         or args.google_lifesciences
         or args.drmaa
+        or args.flux
     )
     no_exec = (
         args.print_compilation
@@ -2625,63 +2737,16 @@ def main(argv=None):
         or args.unlock
         or args.cleanup_metadata
     )
-    local_exec = not (no_exec or non_local_exec)
 
-    def parse_cores(cores):
-        if cores == "all":
-            return available_cpu_count()
-        else:
-            try:
-                return int(cores)
-            except ValueError:
-                print(
-                    "Error parsing number of cores (--cores, -c, -j): must be integer, empty, or 'all'.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if args.cores is not None:
-        args.cores = parse_cores(args.cores)
-        if local_exec:
-            # avoid people accidentally setting jobs as well
-            args.jobs = None
-    else:
-        if no_exec:
-            args.cores = 1
-        elif local_exec:
-            if args.jobs is not None:
-                args.cores = parse_cores(args.jobs)
-                args.jobs = None
-            elif args.dryrun:
-                # dryrun with single core if nothing specified
-                args.cores = 1
-            else:
-                print(
-                    "Error: you need to specify the maximum number of CPU cores to "
-                    "be used at the same time. If you want to use N cores, say --cores N or "
-                    "-cN. For all cores on your system (be sure that this is appropriate) "
-                    "use --cores all. For no parallelization use --cores 1 or -c1.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if non_local_exec:
-        if args.jobs is None:
-            print(
-                "Error: you need to specify the maximum number of jobs to "
-                "be queued or executed at the same time with --jobs or -j.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        else:
-            try:
-                args.jobs = int(args.jobs)
-            except ValueError:
-                print(
-                    "Error parsing number of jobs (--jobs, -j): must be integer.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+    try:
+        cores, jobs = parse_cores_jobs(
+            args.cores, args.jobs, no_exec, non_local_exec, args.dryrun
+        )
+        args.cores = cores
+        args.jobs = jobs
+    except CliException as err:
+        print(err.msg, sys.stderr)
+        sys.exit(1)
 
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
@@ -2935,6 +3000,8 @@ def main(argv=None):
             nocolor=args.nocolor,
             quiet=args.quiet,
             keepgoing=args.keep_going,
+            slurm=args.slurm,
+            slurm_jobstep=args.slurm_jobstep,
             rerun_triggers=args.rerun_triggers,
             cluster=args.cluster,
             cluster_config=args.cluster_config,
@@ -2964,6 +3031,7 @@ def main(argv=None):
             unlock=args.unlock,
             cleanup_metadata=args.cleanup_metadata,
             conda_cleanup_envs=args.conda_cleanup_envs,
+            cleanup_containers=args.cleanup_containers,
             cleanup_shadow=args.cleanup_shadow,
             cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,

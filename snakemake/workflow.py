@@ -512,6 +512,8 @@ class Workflow:
         printshellcmds=False,
         printreason=False,
         printdag=False,
+        slurm=None,
+        slurm_jobstep=None,
         cluster=None,
         cluster_sync=None,
         jobname=None,
@@ -558,6 +560,7 @@ class Workflow:
         nodeps=False,
         cleanup_metadata=None,
         conda_cleanup_envs=False,
+        cleanup_containers=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -665,9 +668,9 @@ class Workflow:
             targetfiles=targetfiles,
             targetrules=targetrules,
             target_jobs_def=target_jobs,
-            # when cleaning up conda, we should enforce all possible jobs
+            # when cleaning up conda or containers, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or conda_cleanup_envs,
+            forceall=forceall or conda_cleanup_envs or cleanup_containers,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -920,7 +923,8 @@ class Workflow:
 
         if self.use_singularity and self.assume_shared_fs:
             dag.pull_container_imgs(
-                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+                dryrun=dryrun or list_conda_envs or cleanup_containers,
+                quiet=list_conda_envs,
             )
         if self.use_conda:
             dag.create_conda_envs(
@@ -946,12 +950,18 @@ class Workflow:
             self.persistence.conda_cleanup_envs()
             return True
 
+        if cleanup_containers:
+            self.persistence.cleanup_containers()
+            return True
+
         self.scheduler = JobScheduler(
             self,
             dag,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
+            slurm=slurm,
+            slurm_jobstep=slurm_jobstep,
             cluster=cluster,
             cluster_status=cluster_status,
             cluster_cancel=cluster_cancel,
@@ -1300,7 +1310,6 @@ class Workflow:
                 update_config(self.config, self.overwrite_config)
 
     def set_pepfile(self, path):
-
         try:
             import peppy
         except ImportError:
@@ -1475,7 +1484,9 @@ class Workflow:
                     raise RuleException(
                         "Retries values have to be integers >= 0", rule=rule
                     )
-            rule.restart_times = ruleinfo.retries or self.restart_times
+            rule.restart_times = (
+                self.restart_times if ruleinfo.retries is None else ruleinfo.retries
+            )
 
             if ruleinfo.version:
                 rule.version = ruleinfo.version
@@ -1512,7 +1523,7 @@ class Workflow:
                 if invalid_rule:
                     raise RuleException(
                         "envmodules directive is only allowed with "
-                        "shell, script, notebook, or wrapper directives (not with run or template_engine)",
+                        "shell, script, notebook, or wrapper directives (not with run or the template_engine)",
                         rule=rule,
                     )
                 from snakemake.deployment.env_modules import EnvModules

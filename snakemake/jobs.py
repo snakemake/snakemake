@@ -16,6 +16,7 @@ import copy
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
+from typing import Optional
 
 from snakemake.io import (
     IOFile,
@@ -64,6 +65,9 @@ def jobfiles(jobs, type):
 
 
 class AbstractJob:
+    def logfile_suggestion(self, prefix: str) -> str:
+        raise NotImplementedError()
+
     def is_group(self):
         raise NotImplementedError()
 
@@ -278,6 +282,21 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
+
+    def logfile_suggestion(self, prefix: str) -> str:
+        """Return a suggestion for the log file name given a prefix."""
+        return (
+            "/".join(
+                [prefix, self.rule.name]
+                + [
+                    f"{w}_{v}"
+                    for w, v in sorted(
+                        self.wildcards_dict.items(), key=lambda item: item[0]
+                    )
+                ]
+            )
+            + ".log"
+        )
 
     def updated(self):
         group = self.dag.get_job_group(self)
@@ -846,7 +865,7 @@ class Job(AbstractJob):
             or self.rule.shadow_depth == "copy-minimal"
         ):
             # Re-create the directory structure in the shadow directory
-            for (f, d) in set(
+            for f, d in set(
                 [
                     (item, os.path.dirname(item))
                     for sublist in [self.input, self.output, self.log]
@@ -1053,20 +1072,27 @@ class Job(AbstractJob):
                 indent=True,
             )
 
-    def log_error(self, msg=None, indent=False, **kwargs):
-        logger.job_error(
+    def get_log_error_info(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
+        aux_logs = aux_logs or []
+        return dict(
             name=self.rule.name,
+            msg=msg,
             jobid=self.dag.jobid(self),
             input=list(format_files(self, self.input, self.dynamic_output)),
             output=list(format_files(self, self.output, self.dynamic_output)),
-            log=list(self.log),
+            log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
             indent=indent,
             shellcmd=self.shellcmd,
         )
-        if msg is not None:
-            logger.error(msg)
+
+    def log_error(
+        self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
+    ):
+        logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
     def register(self):
         self.dag.workflow.persistence.started(self)
@@ -1200,7 +1226,6 @@ class GroupJobFactory:
 
 
 class GroupJob(AbstractJob):
-
     obj_cache = dict()
 
     __slots__ = [
@@ -1232,6 +1257,10 @@ class GroupJob(AbstractJob):
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
 
+    def logfile_suggestion(self, prefix: str) -> str:
+        """Return a suggestion for the log file name given a prefix."""
+        return f"{prefix}/groupjobs/group_{self.name}/job_{self.jobid}.log"
+
     @property
     def dag(self):
         return next(iter(self.jobs)).dag
@@ -1242,7 +1271,6 @@ class GroupJob(AbstractJob):
 
     def finalize(self):
         if self.toposorted is None:
-
             self.toposorted = [
                 *self.dag.toposorted(self.jobs, inherit_pipe_dependencies=True)
             ]
@@ -1283,10 +1311,18 @@ class GroupJob(AbstractJob):
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
             job.log_info(skip_dynamic, indent=True)
 
-    def log_error(self, msg=None, **kwargs):
-        logger.group_error(groupid=self.groupid)
-        for job in self.jobs:
-            job.log_error(msg=msg, indent=True, **kwargs)
+    def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
+        job_error_info = [
+            job.get_log_error_info(indent=True, **kwargs) for job in self.jobs
+        ]
+        aux_logs = aux_logs or []
+        logger.group_error(
+            groupid=self.groupid,
+            msg=msg,
+            aux_logs=aux_logs,
+            job_error_info=job_error_info,
+            **kwargs,
+        )
 
     def register(self):
         for job in self.jobs:
@@ -1423,8 +1459,14 @@ class GroupJob(AbstractJob):
             job.cleanup()
 
     def postprocess(self, error=False, **kwargs):
-        for job in self.jobs:
-            job.postprocess(error=error, **kwargs)
+        # Iterate over jobs in toposorted order (see self.__iter__) to
+        # ensure that outputs are touched in correct order.
+        for level in self.toposorted:
+            for job in level:
+                # postprocessing involves touching output files (to ensure that
+                # modification times are always correct. This has to happen in
+                # topological order, such that they are not mixed up.
+                job.postprocess(error=error, **kwargs)
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:
@@ -1522,6 +1564,8 @@ class GroupJob(AbstractJob):
     def attempt(self, attempt):
         # reset resources
         self._resources = None
+        for job in self.jobs:
+            job.attempt = attempt
         self._attempt = attempt
 
     @property
@@ -1562,7 +1606,6 @@ class GroupJob(AbstractJob):
 
 
 class Reason:
-
     __slots__ = [
         "_updated_input",
         "_updated_input_run",
