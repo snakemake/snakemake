@@ -676,7 +676,7 @@ class _IOFile(str):
                 for d in dirs:
                     lchmod(os.path.join(self.file, d), mode)
                 for f in files:
-                    lchmod(os.path.join(self.file, f), mode)
+                    lchmod(os.path.join(root, f), mode)
         lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
