@@ -33,7 +33,7 @@ except ImportError as e:
     if not shutil.which("gfal-copy"):
         raise WorkflowError(
             "Gfal-* are not found. Gfal-* commands are needed to be available for gfal remote support."
-        )
+        ) from e
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -201,7 +201,7 @@ class RemoteObject(AbstractRemoteRetryObject):
         params.create_parent = True
 
         try:
-            r = self.gfalcntxt.filecopy(params, source, target)
+            self.gfalcntxt.filecopy(params, source, target)
         except gfal2.GError as e:
             raise WorkflowError(
                 f"Error calling gfal2-python copy:\n\t{e.message} \n\t{e.code}"
@@ -226,7 +226,7 @@ class RemoteObject(AbstractRemoteRetryObject):
         if base_dir.endswith("/"):
             base_dir = f"{base_dir}/"
         contents = self.gfalcntxt.listdir(surl)
-        [self._do_rm(base_dir + c) for c in contents if c not in [".", ".."]]
+        [self._do_rm(base_dir + c) for c in contents if c not in (".", "..")]
         self.gfalcntx.rmdir(surl)
 
     @property
