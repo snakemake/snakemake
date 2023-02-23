@@ -577,7 +577,7 @@ class JobScheduler:
                     )
                     logger.debug(
                         "Ready jobs ({})".format(len(needrun))
-                        #+ "\n\t".join(map(str, needrun))
+                        # + "\n\t".join(map(str, needrun))
                     )
 
                     if not self._last_job_selection_empty:
@@ -587,7 +587,7 @@ class JobScheduler:
 
                     logger.debug(
                         "Selected jobs ({})".format(len(run))
-                        #+ "\n\t".join(map(str, run))
+                        # + "\n\t".join(map(str, run))
                     )
                     logger.debug(
                         "Resources after job selection: {}".format(self.resources)
