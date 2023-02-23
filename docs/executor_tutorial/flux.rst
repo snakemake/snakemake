@@ -18,7 +18,7 @@ To go through this tutorial, you need the following software installed:
 
 
 `Flux-framework <https://flux-framework.org/>`_ is a flexible resource scheduler that can work on both high performance computing systems and cloud (e.g., Kubernetes).
-Since it is more modern (e.g., has an official Python API) we define it under a cloud resource. For this example, we will show you how to set up a "single node" local flux container to interact with snakemake. You can use the `Dockerfile in examples/flux <https://github.com/snakemake/snakemake/blob/main/examples/flux/Dockerfile>`_ that will provide a container with flux and snakemake        
+Since it is more modern (e.g., has an official Python API) we define it under a cloud resource. For this example, we will show you how to set up a "single node" local Flux container to interact with snakemake. You can use the `Dockerfile in examples/flux <https://github.com/snakemake/snakemake/blob/main/examples/flux/Dockerfile>`_ that will provide a container with Flux and snakemake        
 Note that we install from source and bind to ``/home/fluxuser/snakemake`` with the intention of being able to develop (if desired).
 First, build the container:
 
@@ -32,7 +32,7 @@ And then you can run the container with or without any such bind:
 
     $ docker run -it --rm flux-snake 
 
-Once you shelled into the container, you can view and start a flux instance:
+Once you shelled into the container, you can view and start a Flux instance:
 
 .. code-block:: console
 
@@ -47,6 +47,7 @@ And see resources available:
     $ flux resource status
     STATUS NNODES NODELIST
      avail      4 5a74dc238d[98,98,98,98]
+
 
 Resources
 :::::::::
@@ -79,7 +80,6 @@ Here is how to run the workflow:
 The flags above refer to:
 
  - ``--flux``: tell Snakemake to use the flux executor
-
 
 Once you submit the job, you'll immediately see the familiar Snakemake console output.
 The jobs happen very quickly, but the default wait time between checks is 10 seconds
@@ -148,6 +148,18 @@ At this point you can inspect the local directory to see your job output!
     Snakefile  hello  hola
     $ cat hello/world.txt 
     hello, World!
+
+
+Flux Without Shared Filesystem
+::::::::::::::::::::::::::::::
+
+By default, the Flux executor assumes a shared filesystem. If this isn't the case, you can add
+the ``--no-shared-fs`` flag, which will tell Snakemake that Flux is running without a shared filesystem.
+
+.. code:: console
+
+    $ snakemake --flux --jobs=1 --no-shared-fs
+
 
 See the `flux documentation <https://flux-framework.readthedocs.io/en/latest/quickstart.html#docker-recommended-for-quick-single-node-deployments>`_
 for more detail. For now, let's try interacting with flux via snakemake via the `Flux Python Bindings <https://flux-framework.readthedocs.io/projects/flux-workflow-examples/en/latest/job-submit-api/README.html>`_.

@@ -10,7 +10,7 @@ class ContentDisplay extends React.Component {
     render() {
         return e(
             "div",
-            { className: "flex items-center justify-center min-h-screen z-0" },
+            { className: "grow flex items-center justify-center min-h-screen" },
             this.renderContent()
         )
     }
@@ -21,11 +21,7 @@ class ContentDisplay extends React.Component {
             case "rulegraph":
                 return e(
                     "div",
-                    { className: "flex gap-3 p-3 items-start w-screen" },
-                    e(
-                        "div",
-                        { className: "w-1/5" }
-                    ),
+                    { className: "grow flex gap-3 p-3 items-start" },
                     e(
                         "div",
                         { className: "overflow-auto max-h-screen" },
@@ -62,12 +58,12 @@ class ContentDisplay extends React.Component {
             case "pdf":
                 return e(
                     "iframe",
-                    { src: this.props.app.state.contentPath, className: "w-screen h-screen" }
+                    { src: this.props.app.state.contentPath, className: "w-full h-screen" }
                 );
             case "text":
                 return e(
                     "div",
-                    { className: "p-3 w-3/4" },
+                    { className: "p-3 w-full" },
                     e(
                         "pre",
                         { className: "whitespace-pre-line text-sm" },

@@ -122,6 +122,7 @@ def snakemake(
     conda_cleanup_envs=False,
     cleanup_shadow=False,
     cleanup_scripts=True,
+    cleanup_containers=False,
     force_incomplete=False,
     ignore_incomplete=False,
     list_version_changes=False,
@@ -265,6 +266,7 @@ def snakemake(
         conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
         cleanup_shadow (bool):      just cleanup old shadow directories (default False)
         cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
+        cleanup_containers (bool):  delete unused (singularity) containers (default False)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
         list_version_changes (bool): list output files with changed rule version (default False)
@@ -424,7 +426,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes or flux:
+    if kubernetes:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -692,6 +694,7 @@ def snakemake(
                     unlock=unlock,
                     cleanup_metadata=cleanup_metadata,
                     conda_cleanup_envs=conda_cleanup_envs,
+                    cleanup_containers=cleanup_containers,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     force_incomplete=force_incomplete,
@@ -826,6 +829,7 @@ def snakemake(
                     keep_target_files=keep_target_files,
                     cleanup_metadata=cleanup_metadata,
                     conda_cleanup_envs=conda_cleanup_envs,
+                    cleanup_containers=cleanup_containers,
                     cleanup_shadow=cleanup_shadow,
                     cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
@@ -2480,7 +2484,9 @@ def get_argument_parser(profile=None):
     group_flux.add_argument(
         "--flux",
         action="store_true",
-        help="Execute your workflow on a flux cluster.",
+        help="Execute your workflow on a flux cluster. "
+        "Flux can work with both a shared network filesystem (like NFS) or without. "
+        "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
     group_tes.add_argument(
@@ -2578,6 +2584,11 @@ def get_argument_parser(profile=None):
         default="",
         metavar="ARGS",
         help="Pass additional args to singularity.",
+    )
+    group_singularity.add_argument(
+        "--cleanup-containers",
+        action="store_true",
+        help="Remove unused (singularity) containers",
     )
 
     group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
@@ -2699,6 +2710,7 @@ def main(argv=None):
         or args.tes
         or args.google_lifesciences
         or args.drmaa
+        or args.flux
     )
     no_exec = (
         args.print_compilation
@@ -3019,6 +3031,7 @@ def main(argv=None):
             unlock=args.unlock,
             cleanup_metadata=args.cleanup_metadata,
             conda_cleanup_envs=args.conda_cleanup_envs,
+            cleanup_containers=args.cleanup_containers,
             cleanup_shadow=args.cleanup_shadow,
             cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
