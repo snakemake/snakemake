@@ -299,7 +299,9 @@ class SlurmExecutor(ClusterExecutor):
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
-                    logger.debug(f"The sacct output is (took {time.time() - before_sacct} seconds):\n'{sacct_res}'")
+                    logger.debug(
+                        f"The sacct output is (took {time.time() - before_sacct} seconds):\n'{sacct_res}'"
+                    )
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
@@ -321,7 +323,9 @@ class SlurmExecutor(ClusterExecutor):
                             stderr=subprocess.PIPE,
                             text=True,
                         )
-                        logger.debug(f"The scontrol output is (took {time.time() - before_scontrol} seconds):\n'{out}'")
+                        logger.debug(
+                            f"The scontrol output is (took {time.time() - before_scontrol} seconds):\n'{out}'"
+                        )
                         m = re.search(r"JobState=(\w+)", out)
                         res = {jobid: m.group(1)}
                         break
