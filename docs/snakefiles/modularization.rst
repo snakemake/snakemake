@@ -140,7 +140,7 @@ This can be handy to avoid rule name conflicts (note that rules from modules can
 
 .. note::
 
-    Keyword `workflow` is a reserved name, so the imported module cannot be named `workflow`.
+    The imported module cannot be named as `workflow`, which is a reserved name.
 
 The module is evaluated in a separate namespace, and only the selected rules are added to the current workflow.
 Non-rule Python statements inside the module are also evaluated in that separate namespace.
