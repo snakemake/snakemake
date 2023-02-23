@@ -671,12 +671,14 @@ class _IOFile(str):
         mode = (
             os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         )
+        # iterate over content if output is a directory
         if os.path.isdir(self.file):
-            for root, dirs, files in os.walk(self.file):
-                for d in dirs:
-                    lchmod(os.path.join(self.file, d), mode)
-                for f in files:
-                    lchmod(os.path.join(root, f), mode)
+            # topdown=False ensures we chmod first the content, then the dir itself
+            for dirpath, dirnames, filenames in os.walk(self.file, topdown=False):
+                # no need to treat differently directories or files
+                for content in (dirnames + filenames):
+                    lchmod(os.path.join(dirpath, content), mode)
+        # protect explicit output itself
         lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
