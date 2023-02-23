@@ -676,7 +676,7 @@ class _IOFile(str):
             # topdown=False ensures we chmod first the content, then the dir itself
             for dirpath, dirnames, filenames in os.walk(self.file, topdown=False):
                 # no need to treat differently directories or files
-                for content in (dirnames + filenames):
+                for content in dirnames + filenames:
                     lchmod(os.path.join(dirpath, content), mode)
         # protect explicit output itself
         lchmod(self.file, mode)
