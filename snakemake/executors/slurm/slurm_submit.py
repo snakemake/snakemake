@@ -105,7 +105,7 @@ class SlurmExecutor(ClusterExecutor):
         quiet=False,
         printshellcmds=False,
         restart_times=0,
-        max_status_checks_per_second=0.03,
+        max_status_checks_per_second=2,
         cluster_config=None,
     ):
         super().__init__(
