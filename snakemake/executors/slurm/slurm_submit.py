@@ -384,4 +384,4 @@ class SlurmExecutor(ClusterExecutor):
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            time.sleep(1 / self.max_status_checks_per_second)
+            time.sleep(30)
