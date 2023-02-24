@@ -27,7 +27,6 @@ AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback
 
 class AzBatchConfig:
     def __init__(self, batch_account_url: str):
-
         # configure defaults
         self.batch_account_url = batch_account_url
 
@@ -151,7 +150,15 @@ class AzBatchExecutor(ClusterExecutor):
         )
 
         self.workflow = workflow
-        self.workdir = os.path.dirname(self.workflow.persistence.path)
+
+        # handle case on OSX with /var/ symlinked to /private/var/ causing
+        # issues with workdir not matching other workflow file dirs
+        dirname = os.path.dirname(self.workflow.persistence.path)
+        osxprefix = "/private"
+        if osxprefix in dirname:
+            dirname = dirname.removeprefix(osxprefix)
+
+        self.workdir = dirname
         self.workflow.default_resources = DefaultResources(mode="bare")
 
         # Relative path for running on instance
@@ -234,7 +241,6 @@ class AzBatchExecutor(ClusterExecutor):
         return task_attrs_new
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-
         import azure.batch._batch_service_client as batch
         import azure.batch.models as batchmodels
 
@@ -323,7 +329,6 @@ class AzBatchExecutor(ClusterExecutor):
         return content
 
     async def _wait_for_jobs(self):
-
         import azure.batch.models as batchmodels
 
         while True:
@@ -337,9 +342,7 @@ class AzBatchExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
-
                 async with self.status_rate_limiter:
-
                     logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
                     task = self.batch_client.task.get(self.job_id, batch_job.task_id)
 
@@ -467,7 +470,6 @@ class AzBatchExecutor(ClusterExecutor):
             self.batch_client.pool.add(new_pool)
 
             if self.az_batch_enable_autoscale:
-
                 # define the autoscale formula
                 formula = """$samples = $PendingTasks.GetSamplePercent(TimeInterval_Minute * 5);
                             $tasks = $samples < 70 ? max(0,$PendingTasks.GetSample(1)) : max( $PendingTasks.GetSample(1), avg($PendingTasks.GetSample(TimeInterval_Minute * 5)));
@@ -523,7 +525,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [
                             self.workflow.check_source_sizes(os.path.join(dirpath, f))
@@ -545,11 +547,13 @@ class AzBatchExecutor(ClusterExecutor):
         for filename in self.workflow_sources:
             if self.workdir not in filename:
                 raise WorkflowError(
-                    f"All source files must be present in the working directory, "
-                    "{self.workdir} to be uploaded to a build package that respects "
+                    "All source files must be present in the working directory, "
+                    "{workdir} to be uploaded to a build package that respects "
                     "relative paths, but {filename} was found outside of this "
                     "directory. Please set your working directory accordingly, "
-                    "and the path of your Snakefile to be relative to it."
+                    "and the path of your Snakefile to be relative to it.".format(
+                        workdir=self.workdir, filename=filename
+                    )
                 )
 
         # We will generate a tar.gz package, renamed by hash
