@@ -136,7 +136,6 @@ class AzBatchExecutor(ClusterExecutor):
         # use storage helper
         self.azblob_helper = AzureStorageHelper()
 
-
         # get container from remote prefix
         self.prefix_container = str.split(workflow.default_remote_prefix, "/")[0]
 
