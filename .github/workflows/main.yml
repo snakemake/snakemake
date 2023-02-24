@@ -240,6 +240,7 @@ jobs:
       - name: Test Azure Batch Executor
         shell: bash -el {0}
         run: |
+          export AZ_BLOB_PREFIX=${{ secrets.AZ_BLOB_PREFIX }}
           export AZ_BLOB_ACCOUNT_URL=${{ secrets.AZ_STORAGE_ACCOUNT_URL }}
           export AZ_BLOB_AZ_BLOB_CREDENTIAL=${{ secrets.AZ_STORAGE_KEY }}
           export AZ_BATCH_ACCOUNT_URL=${{ secrets.AZ_BATCH_ACCOUNT_URL }}

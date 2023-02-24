@@ -136,6 +136,7 @@ class AzBatchExecutor(ClusterExecutor):
         # use storage helper
         self.azblob_helper = AzureStorageHelper()
 
+
         # get container from remote prefix
         self.prefix_container = str.split(workflow.default_remote_prefix, "/")[0]
 
@@ -221,7 +222,7 @@ class AzBatchExecutor(ClusterExecutor):
             self.batch_client.task.terminate(self.job_id, task.id)
         self.shutdown()
 
-    # mask_dict_val masks a sensitive key from a dictionary value
+    # mask_dict_val masks sensitive keys from a dictionary of values for logging
     # used to mask dicts with sensitive information from logging
     def mask_dict_val(self, mdict: dict, key: str):
         mlen = len(mdict[key])
@@ -234,7 +235,8 @@ class AzBatchExecutor(ClusterExecutor):
     def mask_task_blob_url(self, task_attrs: dict):
         task_attrs_new = task_attrs.copy()
         task_attrs_new["command_line"] = re.sub(
-            r"https\S+\.blob\.core\.windows\.net\S+",
+            # r"https\S+\.blob\.core\.windows\.net\S+",
+            r"\?sv=.+$",
             len(self.batch_config.batch_account_url) * "*",
             task_attrs_new["command_line"],
         )
