@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/main'
     steps:
-      - uses: khan/pull-request-workflow-cancel@1.0.0
+      - uses: khan/pull-request-workflow-cancel@1.0.1
         with:
           workflows: main.yml
         env:
@@ -36,7 +36,7 @@ jobs:
           tests/test_io.py tests/common.py tests/test_google_lifesciences.py
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.3.1
+        uses: marocchino/sticky-pull-request-comment@v2.5.0
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -275,12 +275,12 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
-          python-version: 3.9
           channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
       - name: Setup Snakemake environment
         run: |
           conda config --set channel_priority strict
-          conda install -q --name base mamba
           mamba env update -q --file test-environment.yml
       - name: Run tests
         env:

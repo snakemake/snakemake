@@ -1503,7 +1503,12 @@ class Namedlist(list):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
-                self.extend(map(str, toclone))
+                self.extend(
+                    x.remote_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    else str(x)
+                    for x in toclone
+                )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:
