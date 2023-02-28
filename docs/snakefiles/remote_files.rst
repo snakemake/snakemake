@@ -510,6 +510,14 @@ This flag can be overridden on a file by file basis as described in the S3 remot
         shell:
             'xrdcp {input[0]} {output[0]}'
 
+In order to access the files using autorization tokens, the "url_decorator" parameter can be used to append the necessary string to the URL e.g.
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+    XRootD = XRootDRemoteProvider(stay_on_remote=True, url_decorator=lambda x: x + "?xrd.wantprot=unix&authz=XXXXXX")
+    
+
 GenBank / NCBI Entrez
 =====================
 

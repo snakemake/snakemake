@@ -22,7 +22,9 @@ try:
 except ImportError:
     flux = None
 
-FluxJob = namedtuple("FluxJob", "job jobname jobid callback error_callback flux_future")
+FluxJob = namedtuple(
+    "FluxJob", "job jobname jobid callback error_callback flux_future flux_logfile"
+)
 
 
 class FluxExecutor(ClusterExecutor):
@@ -96,6 +98,9 @@ class FluxExecutor(ClusterExecutor):
         """
         super()._run(job)
 
+        flux_logfile = job.logfile_suggestion(".snakemake/flux_logs")
+        os.makedirs(os.path.dirname(flux_logfile), exist_ok=True)
+
         # Prepare job resourcces
         self._set_job_resources(job)
 
@@ -109,11 +114,16 @@ class FluxExecutor(ClusterExecutor):
 
         # A duration of zero (the default) means unlimited
         fluxjob.duration = job.resources.get("runtime", 0)
+        fluxjob.stderr = flux_logfile
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
         fluxjob.environment = dict(os.environ)
         flux_future = self._fexecutor.submit(fluxjob)
+
+        logger.info(
+            f"Job {job.jobid} has been submitted with flux jobid {flux_future.jobid()} (log: {flux_logfile})."
+        )
 
         # Waiting for the jobid is a small performance penalty, same as calling flux.job.submit
         self.active_jobs.append(
@@ -124,6 +134,7 @@ class FluxExecutor(ClusterExecutor):
                 callback,
                 error_callback,
                 flux_future,
+                flux_logfile,
             )
         )
 
@@ -157,7 +168,11 @@ class FluxExecutor(ClusterExecutor):
                     else:
                         # the job finished (but possibly with nonzero exit code)
                         if exit_code != 0:
-                            self.print_job_error(j.job, jobid=j.jobid)
+                            self.print_job_error(
+                                j.job,
+                                jobid=j.jobid,
+                                aux_logs=[j.flux_logfile],
+                            )
                             j.error_callback(j.job)
                             continue
 
