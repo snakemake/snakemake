@@ -1737,12 +1737,6 @@ class KubernetesExecutor(ClusterExecutor):
     def get_job_exec_prefix(self, job):
         return "cp -rf /source/. ."
 
-    def get_job_args(self, job):
-        if self.persistent_volume_claim:
-            return f"{super().get_job_args(job)}"
-        else:
-            return super().get_job_args(job)
-
     def register_secret(self):
         import kubernetes.client
 

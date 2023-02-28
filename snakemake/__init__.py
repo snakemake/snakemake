@@ -2789,6 +2789,11 @@ def main(argv=None):
             "#executing-a-snakemake-workflow-via-kubernetes",
             file=sys.stderr,
         )
+        sys.exit(1)
+
+    if args.kubernetes and args.persistent_volume_claim and not args.default_remote_provider == "LocalDirRemoteProvider":
+        print("Error: --persistent-volume-claim should be combined with --default-remote-provider LocalDirRemoteProvider", file=sys.stderr)
+        sys.exit(1)
 
     if args.tibanna:
         if not args.default_remote_prefix:
