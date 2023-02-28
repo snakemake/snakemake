@@ -169,7 +169,9 @@ jobs:
           mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
-          sudo apt update
+          sudo gem install apt-spy2
+          sudo apt-spy2 fix --commit --launchpad --country=US
+          sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
       - name: Setup iRODS
         run: |
