@@ -49,7 +49,7 @@ dependencies:
   - tibanna
   - environment-modules
   - nbformat
-  - toposort
+  - toposort >=1.10
   - mamba
   - crc32c
   - pip
