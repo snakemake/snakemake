@@ -138,6 +138,10 @@ The second statement, ``use rule * from other_workflow exclude ruleC as other_*`
 Thereby, the ``as other_*`` at the end renames all those rules with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
 
+.. note::
+
+    The imported module cannot be named as `workflow`, which is a reserved name.
+
 The module is evaluated in a separate namespace, and only the selected rules are added to the current workflow.
 Non-rule Python statements inside the module are also evaluated in that separate namespace.
 They are available in the module-defining workflow under the name of the module (e.g. here ``other_workflow.myfunction()`` would call the function ``myfunction`` that has been defined in the model, e.g. in ``other_workflow/Snakefile``).
