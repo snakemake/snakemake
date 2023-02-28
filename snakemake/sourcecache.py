@@ -418,7 +418,10 @@ class SourceCache:
             tmp_source.write(source.read())
             tmp_source.close()
             # ensure read and write permissions for owner and group
-            os.chmod(tmp_source.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP)
+            os.chmod(
+                tmp_source.name,
+                stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP,
+            )
             # Atomic move to right name.
             # This way we avoid the need to lock.
             shutil.move(tmp_source.name, cache_entry)

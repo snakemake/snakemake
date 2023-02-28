@@ -530,7 +530,9 @@ class Persistence:
         ) as tmpfile:
             json.dump(json_value, tmpfile)
         # ensure read and write permissions for user and group
-        os.chmod(tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP)
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
         os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
