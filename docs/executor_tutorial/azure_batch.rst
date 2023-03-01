@@ -114,13 +114,16 @@ For more details see: https://learn.microsoft.com/en-us/azure/storage/blobs/data
 Create an Azure Batch Account
 :::::::::::::::::::::::::::::::::::::::::
 
-Create a new azure batch account. The batch account key will be given to snakemake to enable creation of batch resources by snakemake.
+Create a new azure batch account and capture the batch account url and batch account key as environment variables. The batch account key will be given to snakemake to enable creation of batch resources by snakemake.
 
 .. code:: console
 
     # can set variables as appropriate
     export accountname=snakebatch01
     az batch account create --resource-group $resgroup --name $accountname --location $region
+
+
+The format of the batch acocunt url is :code:`https://${accountname}.${region}.batch.azure.com`, which can be constructed manually from the output of the command :code:`az batch account list` or copied from the azure portal overview page of your batch account.
 
 
 .. code:: console

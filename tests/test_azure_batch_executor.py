@@ -7,6 +7,7 @@ from common import *
 
 
 def test_az_batch_executor():
+    # AZ_BATCH_ACCOUNT_URL=https://${batch_account_name}.${region}.batch.azure.com
     bau = os.getenv("AZ_BATCH_ACCOUNT_URL")
     prefix = os.getenv("AZ_BLOB_PREFIX")
     wdir = dpath("test_azure_batch")
