@@ -557,6 +557,7 @@ def parse_resources(resources_args, fallback=None):
                     "Resource definition must start with a valid identifier, but found "
                     "{}.".format(res)
                 )
+
             try:
                 val = int(val)
             except ValueError:
@@ -564,8 +565,7 @@ def parse_resources(resources_args, fallback=None):
                     val = fallback(val)
                 else:
                     raise ValueError(
-                        "Resource definiton must contain an integer after the "
-                        "identifier."
+                        "Resource definiton must contain an integer, string or python expression after the identifier."
                     )
             if res == "_cores":
                 raise ValueError(
@@ -574,3 +574,25 @@ def parse_resources(resources_args, fallback=None):
                 )
             resources[res] = val
     return resources
+
+
+def infer_resources(name, value, resources: dict):
+    """Infer resources from a given one, if possible."""
+    from humanfriendly import parse_size, parse_timespan, InvalidTimespan, InvalidSize
+
+    if (name == "mem" or name == "disk") and isinstance(value, str):
+        inferred_name = f"{name}_mb"
+        try:
+            in_bytes = parse_size(value)
+        except InvalidSize:
+            raise WorkflowError(
+                f"Cannot parse mem or disk value into size in MB for setting {inferred_name} resource: {value}"
+            )
+        resources[inferred_name] = max(int(round(in_bytes / 1000 / 1000)), 1)
+    elif name == "runtime" and isinstance(value, str):
+        try:
+            resources["runtime"] = max(int(round(parse_timespan(value) / 60)), 1)
+        except InvalidTimespan:
+            raise WorkflowError(
+                f"Cannot parse runtime value into minutes for setting runtime resource: {value}"
+            )

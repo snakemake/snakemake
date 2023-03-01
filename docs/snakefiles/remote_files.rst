@@ -510,6 +510,14 @@ This flag can be overridden on a file by file basis as described in the S3 remot
         shell:
             'xrdcp {input[0]} {output[0]}'
 
+In order to access the files using autorization tokens, the "url_decorator" parameter can be used to append the necessary string to the URL e.g.
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+    XRootD = XRootDRemoteProvider(stay_on_remote=True, url_decorator=lambda x: x + "?xrd.wantprot=unix&authz=XXXXXX")
+    
+
 GenBank / NCBI Entrez
 =====================
 
@@ -602,7 +610,7 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
     from snakemake.remote import gfal
 
-    gfal = gfal.RemoteProvider(retry=5)
+    gfal = gfal.RemoteProvider()
 
     rule a:
         input:
@@ -614,8 +622,6 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
 
 Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
@@ -633,7 +639,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider(retry=5)
+    gridftp = gridftp.RemoteProvider(streams=4)
 
     rule a:
         input:
@@ -645,8 +651,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
+The keyword argument to the remote provider allows to set the number of parallel streams used for file tranfers(4 per default). When ``streams``is set to 1 or smaller, the files are trasfered in a serial way. Paralell stream may be unsupported depending on the system configuration.
 
 Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.

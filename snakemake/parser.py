@@ -73,7 +73,6 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-
     subautomata = dict()
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -129,7 +128,6 @@ class TokenAutomaton:
 
 
 class KeywordState(TokenAutomaton):
-
     prefix = ""
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -142,6 +140,8 @@ class KeywordState(TokenAutomaton):
         return self.__class__.__name__.lower()[len(self.prefix) :]
 
     def end(self):
+        # Add newline to prevent https://github.com/snakemake/snakemake/issues/1943
+        yield "\n"
         yield ")"
 
     def decorate_end(self, token):
@@ -345,7 +345,6 @@ class SubworkflowConfigfile(SubworkflowKeywordState):
 
 
 class Subworkflow(GlobalKeywordState):
-
     subautomata = dict(
         snakefile=SubworkflowSnakefile,
         workdir=SubworkflowWorkdir,
@@ -562,7 +561,6 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-
     overwrite_cmd = None
     start_func = None
     end_func = None
@@ -1202,7 +1200,6 @@ class UseRule(GlobalKeywordState):
 
 
 class Python(TokenAutomaton):
-
     subautomata = dict(
         envvars=Envvars,
         include=Include,

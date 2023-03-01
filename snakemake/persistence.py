@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
@@ -23,6 +24,9 @@ from snakemake.utils import listfiles
 from snakemake.io import is_flagged, get_flag_value
 
 
+UNREPRESENTABLE = object()
+
+
 class Persistence:
     def __init__(
         self,
@@ -33,6 +37,13 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
+        try:
+            import pandas as pd
+
+            self._serialize_param = self._serialize_param_pandas
+        except ImportError:
+            self._serialize_param = self._serialize_param_builtin
+
         self._max_len = None
         self.path = os.path.abspath(".snakemake")
         if not os.path.exists(self.path):
@@ -196,6 +207,30 @@ class Persistence:
         if os.path.exists(self.shadow_path):
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
+
+    def cleanup_containers(self):
+        from humanfriendly import format_size
+
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
 
     def conda_cleanup_envs(self):
         # cleanup envs
@@ -432,9 +467,44 @@ class Persistence:
     def _log(self, job):
         return sorted(job.log)
 
+    def _serialize_param_builtin(self, param):
+        if param is None or isinstance(
+            param,
+            (
+                int,
+                float,
+                bool,
+                str,
+                complex,
+                range,
+                list,
+                tuple,
+                dict,
+                set,
+                frozenset,
+                bytes,
+                bytearray,
+            ),
+        ):
+            return repr(param)
+        else:
+            return UNREPRESENTABLE
+
+    def _serialize_param_pandas(self, param):
+        import pandas as pd
+
+        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(param).tolist())
+        return self._serialize_param_builtin(param)
+
     @lru_cache()
     def _params(self, job):
-        return sorted(map(repr, job.params))
+        return sorted(
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                map(self._serialize_param, job.params),
+            )
+        )
 
     @lru_cache()
     def _output(self, job):
@@ -459,7 +529,11 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
-        os.rename(tmpfile.name, recpath)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:

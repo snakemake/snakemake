@@ -35,7 +35,6 @@ def get_cell_sources(source):
 
 
 class JupyterNotebook(ScriptBase):
-
     editable = True
 
     def draft(self):
@@ -115,7 +114,10 @@ class JupyterNotebook(ScriptBase):
 
                 # clean up all outputs
                 for cell in nb["cells"]:
-                    cell["outputs"] = []
+                    if "outputs" in cell:
+                        cell["outputs"] = []
+                    if "execution_count" in cell:
+                        cell["execution_count"] = None
 
                 nbformat.write(nb, self.local_path)
 
