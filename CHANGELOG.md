@@ -1,5 +1,26 @@
 # Changelog
 
+## [7.24.0](https://github.com/snakemake/snakemake/compare/v7.23.1...v7.24.0) (2023-03-01)
+
+
+### Features
+
+* limit the number of input/output files in job properties ([#2149](https://github.com/snakemake/snakemake/issues/2149)) ([d93f091](https://github.com/snakemake/snakemake/commit/d93f091acea63a662dcb350c3f86c15fa9bdf721))
+
+
+### Bug Fixes
+
+* [#2130](https://github.com/snakemake/snakemake/issues/2130) by patching the protect() method so the path of files in subdirectories is properly resolved during write-protection ([#2131](https://github.com/snakemake/snakemake/issues/2131)) ([1a754fd](https://github.com/snakemake/snakemake/commit/1a754fd094bd13bb4a201f1c80a077656c89f995))
+* `sre_constants` import because of deprecation ([#2139](https://github.com/snakemake/snakemake/issues/2139)) ([3b326db](https://github.com/snakemake/snakemake/commit/3b326dba22ef5358092c281479eafafe3480eeae))
+* ensure user and group rw permissions for metadata files and source cache ([#2132](https://github.com/snakemake/snakemake/issues/2132)) ([cc51faa](https://github.com/snakemake/snakemake/commit/cc51faaa7d4f20896fc46b9fd67d062936d641bb))
+* is_run error with local, group jobs ([#2133](https://github.com/snakemake/snakemake/issues/2133)) ([31bfcd5](https://github.com/snakemake/snakemake/commit/31bfcd5399540fc6cf52e3b76144e9abea6d4eab))
+* require toposort &gt;= 1.10 ([#2145](https://github.com/snakemake/snakemake/issues/2145)) ([3cb54b8](https://github.com/snakemake/snakemake/commit/3cb54b8c62743897f20feb3fcf269a7357878434))
+
+
+### Documentation
+
+* Update modularization.rst ([#2137](https://github.com/snakemake/snakemake/issues/2137)) ([16954c7](https://github.com/snakemake/snakemake/commit/16954c7b633049df6646275139251097d574fd35))
+
 ## [7.23.1](https://github.com/snakemake/snakemake/compare/v7.23.0...v7.23.1) (2023-02-18)
 
 
