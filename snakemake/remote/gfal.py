@@ -65,9 +65,6 @@ class RemoteProvider(AbstractRemoteProvider):
 
 
 class RemoteObject(AbstractRemoteRetryObject):
-    mtime_re = re.compile(r"^\s*Modify: (.+)$", flags=re.MULTILINE)
-    size_re = re.compile(r"^\s*Size: ([0-9]+).*$", flags=re.MULTILINE)
-
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
@@ -80,7 +77,6 @@ class RemoteObject(AbstractRemoteRetryObject):
     # === Implementations of abstract class members ===
 
     def exists(self):
-
         try:
             self.gfalcntxt.stat(self.remote_file())
         except gfal2.GError as e:
@@ -100,7 +96,6 @@ class RemoteObject(AbstractRemoteRetryObject):
         return self.gfalcntxt.stat(self.remote_file()).st_mtime
 
     def size(self):
-
         stat = self.gfalcntxt.stat(self.remote_file())
         return stat.st_size
 
