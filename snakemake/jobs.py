@@ -40,7 +40,7 @@ from snakemake.common import (
     lazy_property,
     get_uuid,
     TBDString,
-    IO_PROP_LIMIT
+    IO_PROP_LIMIT,
 )
 
 
