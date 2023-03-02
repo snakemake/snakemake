@@ -35,6 +35,9 @@ NOTHING_TO_BE_DONE_MSG = (
 )
 
 ON_WINDOWS = platform.system() == "Windows"
+# limit the number of input/output files list in job properties
+# see https://github.com/snakemake/snakemake/issues/2097
+IO_PROP_LIMIT = 100
 
 
 def mb_to_mib(mb):

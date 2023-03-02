@@ -169,6 +169,9 @@ jobs:
           mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
+          sudo gem install apt-spy2
+          sudo apt-spy2 fix --commit --launchpad --country=US
+          sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
       - name: Setup iRODS
         run: |
@@ -198,7 +201,7 @@ jobs:
           CI: true
         shell: bash -el {0}
         run: |
-          pytest -v tests/test_slurm.py
+          pytest --show-capture=stderr -v tests/test_slurm.py
 
       - name: Test local
         env:
@@ -206,7 +209,7 @@ jobs:
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         shell: bash -el {0}
         run: |
-          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
+          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
       - name: Build and publish docker image
         if: >-
           contains(github.event.pull_request.labels.*.name,
@@ -239,7 +242,7 @@ jobs:
       - name: Test GA4GH TES executor
         shell: bash -el {0}
         run: |
-          pytest -s -v -x tests/test_tes.py
+          pytest --show-capture=stderr -s -v -x tests/test_tes.py
 
       - name: Delete container image
         if: >-
@@ -287,4 +290,4 @@ jobs:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest -v -x tests/tests.py
+          python -m pytest --show-capture=stderr -v -x tests/tests.py
