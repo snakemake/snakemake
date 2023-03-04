@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
@@ -528,6 +529,10 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
         os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
