@@ -105,7 +105,7 @@ class SlurmExecutor(ClusterExecutor):
         quiet=False,
         printshellcmds=False,
         restart_times=0,
-        max_status_checks_per_second=0.03,
+        max_status_checks_per_second=2,
         cluster_config=None,
     ):
         super().__init__(
@@ -294,11 +294,14 @@ class SlurmExecutor(ClusterExecutor):
             async with self.status_rate_limiter:
                 sacct_error = None
                 try:
+                    before_sacct = time.time()
                     sacct_cmd = f"sacct -P -n --format=JobIdRaw,State -j {jobid}"
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
-                    logger.debug(f"The sacct output is: '{sacct_res}'")
+                    logger.debug(
+                        f"The sacct output is (took {time.time() - before_sacct} seconds):\n'{sacct_res}'"
+                    )
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
@@ -312,6 +315,7 @@ class SlurmExecutor(ClusterExecutor):
                 # Try getting job with scontrol instead in case sacct is misconfigured
                 if not res:
                     try:
+                        before_scontrol = time.time()
                         sctrl_cmd = f"scontrol show jobid -dd {jobid}"
                         out = subprocess.check_output(
                             sctrl_cmd,
@@ -319,7 +323,9 @@ class SlurmExecutor(ClusterExecutor):
                             stderr=subprocess.PIPE,
                             text=True,
                         )
-                        logger.debug(f"The scontrol output is: '{out}'")
+                        logger.debug(
+                            f"The scontrol output is (took {time.time() - before_scontrol} seconds):\n'{out}'"
+                        )
                         m = re.search(r"JobState=(\w+)", out)
                         res = {jobid: m.group(1)}
                         break
@@ -383,4 +389,4 @@ class SlurmExecutor(ClusterExecutor):
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            time.sleep(1 / self.max_status_checks_per_second)
+            time.sleep(30)
