@@ -6,7 +6,7 @@ ENV PATH /opt/conda/bin:${PATH}
 ENV LANG C.UTF-8
 ENV SHELL /bin/bash
 RUN install_packages wget curl bzip2 ca-certificates gnupg2 squashfs-tools git
-RUN /bin/bash -c "curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh > mambaforge.sh && \
+RUN /bin/bash -c "curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-\$(uname -m).sh > mambaforge.sh && \
     bash mambaforge.sh -b -p /opt/conda && \
     conda config --system --set channel_priority strict && \
     rm mambaforge.sh"

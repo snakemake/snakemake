@@ -11,12 +11,16 @@ import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
-import sre_constants
 import collections
 from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
 from functools import partial
+
+try:
+    import re._constants as sre_constants
+except ImportError:  # python < 3.11
+    import sre_constants
 
 from snakemake.io import (
     IOFile,

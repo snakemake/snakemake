@@ -40,6 +40,7 @@ from snakemake.common import (
     lazy_property,
     get_uuid,
     TBDString,
+    IO_PROP_LIMIT,
 )
 
 
@@ -1004,8 +1005,8 @@ class Job(AbstractJob):
             "type": "single",
             "rule": self.rule.name,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "wildcards": self.wildcards_dict,
             "params": params,
             "log": self.log,
@@ -1437,8 +1438,8 @@ class GroupJob(AbstractJob):
             "type": "group",
             "groupid": self.groupid,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "threads": self.threads,
             "resources": resources,
             "jobid": self.jobid,

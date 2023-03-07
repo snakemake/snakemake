@@ -1371,6 +1371,10 @@ With the ``touch`` flag, Snakemake touches (i.e. creates or updates) the file ``
 Job Properties
 --------------
 
+.. sidebar:: Note
+
+    If there are more than 100 input and/or output files for a job, ``None`` will be used instead of listing all values. This is to prevent the jobscript from becoming larger than `Slurm jobscript size limits <https://slurm.schedmd.com/slurm.conf.html#OPT_max_script_size=#>`_.
+
 When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute.
 This script is then invoked using the provided cluster submission command (e.g. ``qsub``).
 Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters.

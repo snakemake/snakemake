@@ -9,6 +9,7 @@ import signal
 import marshal
 import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
@@ -206,6 +207,30 @@ class Persistence:
         if os.path.exists(self.shadow_path):
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
+
+    def cleanup_containers(self):
+        from humanfriendly import format_size
+
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
 
     def conda_cleanup_envs(self):
         # cleanup envs
@@ -504,6 +529,10 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
         os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):

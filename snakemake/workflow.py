@@ -563,6 +563,7 @@ class Workflow:
         nodeps=False,
         cleanup_metadata=None,
         conda_cleanup_envs=False,
+        cleanup_containers=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -670,9 +671,9 @@ class Workflow:
             targetfiles=targetfiles,
             targetrules=targetrules,
             target_jobs_def=target_jobs,
-            # when cleaning up conda, we should enforce all possible jobs
+            # when cleaning up conda or containers, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or conda_cleanup_envs,
+            forceall=forceall or conda_cleanup_envs or cleanup_containers,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -925,7 +926,8 @@ class Workflow:
 
         if self.use_singularity and self.assume_shared_fs:
             dag.pull_container_imgs(
-                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+                dryrun=dryrun or list_conda_envs or cleanup_containers,
+                quiet=list_conda_envs,
             )
         if self.use_conda:
             dag.create_conda_envs(
@@ -949,6 +951,10 @@ class Workflow:
 
         if conda_cleanup_envs:
             self.persistence.conda_cleanup_envs()
+            return True
+
+        if cleanup_containers:
+            self.persistence.cleanup_containers()
             return True
 
         self.scheduler = JobScheduler(
