@@ -381,6 +381,8 @@ class AzBatchExecutor(ClusterExecutor):
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
+                            #cleanup on failure
+                            self.shutdown()
                             batch_job.error_callback(batch_job.job)
                         elif (
                             task.execution_info.result
@@ -388,6 +390,8 @@ class AzBatchExecutor(ClusterExecutor):
                         ):
                             batch_job.callback(batch_job.job)
                         else:
+                            #cleanup on failure
+                            self.shutdown()
                             raise ValueError(
                                 "Unknown task execution result: {}".format(
                                     task.execution_info.result
