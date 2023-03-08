@@ -634,8 +634,12 @@ class PythonScript(ScriptBase):
             return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
+        # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution
+        # stuff may be printed around in unpredictable ways.
+        # The code below has to work with python 2.7 as well, therefore it should be written backwards compatible.
         out = self._execute_cmd(
-            "python -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\"",
+            "python -c \"import sys; from __future__ import print_function; "
+            "print('{}.{}'.format(sys.version_info.major, sys.version_info.minor))\"",
             read=True,
         )
         try:
