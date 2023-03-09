@@ -639,7 +639,7 @@ class PythonScript(ScriptBase):
         # stuff may be printed around in unpredictable ways.
         # The code below has to work with python 2.7 as well, therefore it should be written backwards compatible.
         out = self._execute_cmd(
-            'python -c "import sys, json; from __future__ import print_function; '
+            'python -c "from __future__ import print_function; import sys, json; '
             'print(json.dumps([sys.version_info.major, sys.version_info.minor]))"',
             read=True,
         )
