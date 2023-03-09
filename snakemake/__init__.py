@@ -185,6 +185,8 @@ def snakemake(
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
     tes=None,
+    tes_user=None,
+    tes_password=None,
     preemption_default=None,
     preemptible_rules=None,
     precommand="",
@@ -740,6 +742,8 @@ def snakemake(
                     google_lifesciences_cache=google_lifesciences_cache,
                     flux=flux,
                     tes=tes,
+                    tes_user=tes_user,
+                    tes_password=tes_password,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -796,6 +800,8 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
+                    tes_user=tes_user,
+                    tes_password=tes_password,
                     flux=flux,
                     precommand=precommand,
                     preemption_default=preemption_default,
@@ -2495,6 +2501,18 @@ def get_argument_parser(profile=None):
         help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
+    group_tes.add_argument(
+        "--tes_user",
+        type=str,
+        help="Provide username to py-tes for simple authentification to e.g Funnel",
+    )
+
+    group_tes.add_argument(
+        "--tes_password",
+        type=str,
+        help="Provide password to py-tes for simple authentification to e.g Funnel",
+    )
+
     group_conda = parser.add_argument_group("CONDA")
 
     group_conda.add_argument(
@@ -3019,6 +3037,8 @@ def main(argv=None):
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             tes=args.tes,
+            tes_user=args.tes_user,
+            tes_password=args.tes_password,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,
