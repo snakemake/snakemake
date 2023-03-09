@@ -23,6 +23,7 @@ import pickle
 import subprocess
 import collections
 import re
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
@@ -638,12 +639,12 @@ class PythonScript(ScriptBase):
         # stuff may be printed around in unpredictable ways.
         # The code below has to work with python 2.7 as well, therefore it should be written backwards compatible.
         out = self._execute_cmd(
-            "python -c \"import sys; from __future__ import print_function; "
-            "print('{}.{}'.format(sys.version_info.major, sys.version_info.minor))\"",
+            'python -c "import sys, json; from __future__ import print_function; '
+            'print(json.dumps([sys.version_info.major, sys.version_info.minor]))"',
             read=True,
         )
         try:
-            return tuple(map(int, out.strip().split(".")))
+            return tuple(json.loads(out))
         except ValueError as e:
             raise WorkflowError(
                 f"Unable to determine Python version from output '{out}': {e}"
