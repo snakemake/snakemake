@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import sys
 import re
+import msrest.authentication as msa
 from pprint import pformat
 
 from snakemake.executors import ClusterExecutor, sleep
@@ -34,9 +35,20 @@ class AzBatchConfig:
         result = urlparse(self.batch_account_url)
         self.batch_account_name = str.split(result.hostname, ".")[0]
 
-        self.batch_account_key = os.getenv("AZ_BATCH_ACCOUNT_KEY")
-        if self.batch_account_key is None:
-            sys.Exit("Error: AZ_BATCH_ACCOUNT_KEY cannot be None")
+        self.batch_account_key = self.set_or_default("AZ_BATCH_ACCOUNT_KEY", None)
+
+        self.batch_pool_subnet_id = self.set_or_default("BATCH_POOL_SUBNET_ID", None)
+
+        # managed identity for use with private subnet
+        self.managed_identity_client_id = self.set_or_default(
+            "MANAGED_IDENTITY_CLIENT_ID", None
+        )
+
+        if self.batch_pool_subnet_id is not None:
+            if self.managed_identity_client_id is None:
+                sys.exit(
+                    "Error: MANAGED_IDENTITY_CLIENT_ID must be set when deploying batch nodes into a private subnet!"
+                )
 
         # sas url to a batch node start task bash script
         self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SASURL")
@@ -87,6 +99,65 @@ class AzBatchConfig:
             return default
 
 
+# the usage of this credential helper is required to authenitcate batch with managed identity credentials
+# because not all Azure SDKs support the azure.identity credentials yet, and batch is one of them.
+# ref1: https://gist.github.com/lmazuel/cc683d82ea1d7b40208de7c9fc8de59d
+# ref2: https://gist.github.com/lmazuel/cc683d82ea1d7b40208de7c9fc8de59d
+class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
+    def __init__(
+        self,
+        credential=None,
+        resource_id="https://management.azure.com/.default",
+        **kwargs,
+    ):
+        """Adapt any azure-identity credential to work with SDK that needs azure.common.credentials or msrestazure.
+        Default resource is ARM (syntax of endpoint v2)
+        :param credential: Any azure-identity credential (DefaultAzureCredential by default)
+        :param str resource_id: The scope to use to get the token (default ARM)
+        """
+        try:
+            from azure.core.pipeline.policies import BearerTokenCredentialPolicy
+            from azure.identity import DefaultAzureCredential
+
+        except ImportError:
+            raise WorkflowError(
+                "The Python 3 package 'azure-core and azure-identity are required'"
+            )
+
+        super(AzureIdentityCredentialAdapter, self).__init__(None)
+        if credential is None:
+            credential = DefaultAzureCredential()
+        self._policy = BearerTokenCredentialPolicy(credential, resource_id, **kwargs)
+
+    def _make_request(self):
+        try:
+            from azure.core.pipeline import PipelineRequest, PipelineContext
+            from azure.core.pipeline.transport import HttpRequest
+        except ImportError:
+            raise WorkflowError("The Python 3 package azure-core are required")
+
+        return PipelineRequest(
+            HttpRequest("AzureIdentityCredentialAdapter", "https://fakeurl"),
+            PipelineContext(None),
+        )
+
+    def set_token(self):
+        """Ask the azure-core BearerTokenCredentialPolicy policy to get a token.
+        Using the policy gives us for free the caching system of azure-core.
+        We could make this code simpler by using private method, but by definition
+        I can't assure they will be there forever, so mocking a fake call to the policy
+        to extract the token, using 100% public API."""
+        request = self._make_request()
+        self._policy.on_request(request)
+        # Read Authorization, and get the second part after Bearer
+        token = request.http_request.headers["Authorization"].split(" ", 1)[1]
+        self.token = {"access_token": token}
+
+    def signed_session(self, session=None):
+        self.set_token()
+        return super(AzureIdentityCredentialAdapter, self).signed_session(session)
+
+
 class AzBatchExecutor(ClusterExecutor):
     "Azure Batch Executor"
 
@@ -125,6 +196,7 @@ class AzBatchExecutor(ClusterExecutor):
         try:
             from azure.batch import BatchServiceClient
             from azure.batch.batch_auth import SharedKeyCredentials
+            from azure.identity import DefaultAzureCredential
             from snakemake.remote.AzBlob import AzureStorageHelper
 
         except ImportError:
@@ -142,12 +214,22 @@ class AzBatchExecutor(ClusterExecutor):
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
         logger.debug("AzBatchConfig:")
-        logger.debug(
-            pformat(
-                self.mask_dict_val(self.batch_config.__dict__, "batch_account_key"),
-                indent=2,
+        if self.batch_config.batch_account_key is not None:
+            logger.debug(
+                pformat(
+                    self.mask_dict_val(self.batch_config.__dict__, "batch_account_key"),
+                    indent=2,
+                )
             )
-        )
+        elif self.batch_config.managed_identity_client_id is not None:
+            logger.debug(
+                pformat(
+                    self.mask_dict_val(
+                        self.batch_config.__dict__, "managed_identity_client_id"
+                    ),
+                    indent=2,
+                )
+            )
 
         self.workflow = workflow
 
@@ -188,10 +270,23 @@ class AzBatchExecutor(ClusterExecutor):
             targz, resource_prefix=self.batch_config.resource_file_prefix
         )
 
-        # Create a Batch service client.
-        credentials = SharedKeyCredentials(
-            self.batch_config.batch_account_name, self.batch_config.batch_account_key
-        )
+        if self.batch_config.batch_account_key is not None:
+            logger.debug("Using batch account key for authentication...")
+            # authenticate batch client from SharedKeyCredentials
+            creds = SharedKeyCredentials(
+                self.batch_config.batch_account_name,
+                self.batch_config.batch_account_key,
+            )
+        elif self.batch_config.managed_identity_client_id is not None:
+            logger.debug("Using managed identity batch authentication...")
+            # authenticate batch client from managed identity credentials
+            creds = DefaultAzureCredential(
+                managed_identity_client_id=self.batch_config.managed_identity_client_id
+            )
+            credentials = AzureIdentityCredentialAdapter(
+                credential=creds, resource_id="https://batch.core.windows.net/"
+            )
+
         self.batch_client = BatchServiceClient(
             credentials, batch_url=self.batch_config.batch_account_url
         )
@@ -381,7 +476,7 @@ class AzBatchExecutor(ClusterExecutor):
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
-                            #cleanup on failure
+                            # cleanup on failure
                             self.shutdown()
                             batch_job.error_callback(batch_job.job)
                         elif (
@@ -390,7 +485,7 @@ class AzBatchExecutor(ClusterExecutor):
                         ):
                             batch_job.callback(batch_job.job)
                         else:
-                            #cleanup on failure
+                            # cleanup on failure
                             self.shutdown()
                             raise ValueError(
                                 "Unknown task execution result: {}".format(
@@ -421,6 +516,14 @@ class AzBatchExecutor(ClusterExecutor):
             sku=self.batch_config.batch_pool_image_sku,
             version="latest",
         )
+
+        # optional subnet network configuration
+        # requires AAD batch auth insead of batch key auth
+        network_config = None
+        if self.batch_config.batch_pool_subnet_id is not None:
+            network_config = batchmodels.NetworkConfiguration(
+                subnet_id=self.batch_config.batch_pool_subnet_id
+            )
 
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
@@ -458,6 +561,7 @@ class AzBatchExecutor(ClusterExecutor):
                 container_configuration=container_config,
                 node_agent_sku_id=self.batch_config.batch_pool_vm_node_agent_sku_id,
             ),
+            network_configuration=network_config,
             vm_size=self.batch_config.batch_pool_vm_size,
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
             target_low_priority_nodes=0,
