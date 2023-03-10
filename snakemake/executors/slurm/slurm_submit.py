@@ -444,7 +444,7 @@ class SlurmExecutor(ClusterExecutor):
             # no jobs finished in the last query period
             if not active_jobs_ids - { j.jobid for j in still_running }:
                 # sleep a little longer, but never longer than a max
-                sleepy_time = min(sleepy_time + 20, 240)
+                sleepy_time = min(sleepy_time + 10, 120)
             else:
                 sleepy_time = MIN_SLEEP_TIME
             async with async_lock(self.lock):
