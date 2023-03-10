@@ -363,7 +363,7 @@ class SlurmExecutor(ClusterExecutor):
                 # timing to avoid too many API calls.
                 rate_limit = Fraction(
                     min(
-                        self.status_rate_limiter._rate_limit/self.status_rate_limiter._preiod,
+                        self.status_rate_limiter._rate_limit/self.status_rate_limiter._period,
                         # if slurmdbd (sacct) is strained and slow, reduce the query frequency
                         (1/sacct_query_duration)/5,
                         # if slurmctld (squeue) is strained and slow, reduce the query frequency
