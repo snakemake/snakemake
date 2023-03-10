@@ -316,7 +316,7 @@ class SlurmExecutor(ClusterExecutor):
                         ),
                         header=None,
                         delimiter="|",
-                    )
+                    ).values
                 )
             except pd.errors.EmptyDataError:
                 res = {}
