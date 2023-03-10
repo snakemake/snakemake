@@ -308,13 +308,16 @@ class SlurmExecutor(ClusterExecutor):
                 f"It took: {query_duration} seconds\n"
                 f"The output is:\n'{command_res}'\n"
             )
-            res = dict(
-                pd.read_csv(
-                    StringIO(
-                        command_res
+            try:
+                res = dict(
+                    pd.read_csv(
+                        StringIO(
+                            command_res
+                        )
                     )
                 )
-            )
+            except pd.errors.EmptyDataError:
+                res = {}
         except subprocess.CalledProcessError as e:
             error = e.stderr
             pass
