@@ -313,7 +313,9 @@ class SlurmExecutor(ClusterExecutor):
                     pd.read_csv(
                         StringIO(
                             command_res
-                        )
+                        ),
+                        header=None,
+                        delimiter="|",
                     )
                 )
             except pd.errors.EmptyDataError:
@@ -383,7 +385,9 @@ class SlurmExecutor(ClusterExecutor):
                         # -X: only show main job, no substeps
                         f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
                     )
+                    logger.debug(f"status_of_jobs after sacct is: {status_of_jobs}")
                     no_sacct_status = active_jobs_ids - set(status_of_jobs.keys())
+                    logger.debug(f"no_sacct_status after sacct is: {no_sacct_status}")
                     if not no_sacct_status:
                         break
                     else:
@@ -395,9 +399,11 @@ class SlurmExecutor(ClusterExecutor):
                             # * %T: long job status
                             f"squeue --noheader --format=\"%F|%T\" --name {self.run_uuid} --jobs {job_ids_string}"
                         )
-                        status_of_jobs.update(squeue_stati)
+                        status_of_jobs = status_of_jobs | squeue_stati
+                        logger.debug(f"status_of_jobs after squeue is: {status_of_jobs}")
 
-                        remaining_without_status = active_jobs_ids - status_of_jobs
+                        remaining_without_status = active_jobs_ids - set(status_of_jobs.keys())
+                        logger.debug(f"remaining_without_status after squeue is: {remaining_without_status}")
                         if not remaining_without_status:
                             break
                         else:
