@@ -1,6 +1,7 @@
 from collections import namedtuple
 from functools import partial
 from io import StringIO
+from fractions import Fraction
 import os
 import re
 import stat
@@ -323,6 +324,7 @@ class SlurmExecutor(ClusterExecutor):
         return (res, error, query_duration)
 
     async def _wait_for_jobs(self):
+        from throttler import Throttler
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
@@ -345,7 +347,7 @@ class SlurmExecutor(ClusterExecutor):
             # 5 times the status_rate_limiter, to hit exactly
             # the status_rate_limiter for the first async below.
             # It is dynamically updated afterwards.
-            sacct_query_duration = squeue_query_duration = (1/self.status_rate_limiter)*5
+            sacct_query_duration = squeue_query_duration = (self.status_rate_limiter._period/self.status_rate_limiter._rate_limit)*5
             # always use self.lock to avoid race conditions
             async with async_lock(self.lock):
                 if not self.wait:
@@ -359,12 +361,18 @@ class SlurmExecutor(ClusterExecutor):
             for i in range(STATUS_ATTEMPTS):
                 # use self.status_rate_limiter and adaptive query
                 # timing to avoid too many API calls.
-                async with min(
-                    self.status_rate_limiter,
-                    # if slurmdbd (sacct) is strained and slow, reduce the query frequency
-                    (1/sacct_query_duration)/5,
-                    # if slurmctld (squeue) is strained and slow, reduce the query frequency
-                    (1/squeue_query_duration)/5,
+                rate_limit = Fraction(
+                    min(
+                        self.status_rate_limiter._rate_limit/self.status_rate_limiter._preiod,
+                        # if slurmdbd (sacct) is strained and slow, reduce the query frequency
+                        (1/sacct_query_duration)/5,
+                        # if slurmctld (squeue) is strained and slow, reduce the query frequency
+                        (1/squeue_query_duration)/5,
+                    )
+                ).limit_denominator()
+                async with Throttler(
+                    rate_limit = rate_limit.numerator,
+                    period = rate_limit.denominator
                 ):
                     (status_of_jobs, sacct_err, sacct_query_duration) = await self.job_stati(
                         # -X: only show main job, no substeps
