@@ -342,6 +342,8 @@ class SlurmExecutor(ClusterExecutor):
         # intialize time to sleep in seconds
         MIN_SLEEP_TIME = 20
         sleepy_time = MIN_SLEEP_TIME
+        # only start checking statuses after bit -- otherwise nothing has been committed
+        time.sleep(sleepy_time)
         while True:
             # Initialize all query durations to specified 
             # 5 times the status_rate_limiter, to hit exactly
