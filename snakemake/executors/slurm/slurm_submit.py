@@ -1,5 +1,6 @@
 from collections import namedtuple
 from functools import partial
+from io import StringIO
 import os
 import re
 import stat
@@ -10,6 +11,8 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import uuid
+import pandas as pd
 
 from snakemake.jobs import Job
 from snakemake.logging import logger
@@ -121,6 +124,7 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
+        self.run_uuid=str(uuid.uuid4())
         self._fallback_account_arg = None
         self._fallback_partition = None
 
@@ -207,7 +211,9 @@ class SlurmExecutor(ClusterExecutor):
         os.makedirs(os.path.dirname(slurm_logfile), exist_ok=True)
 
         # generic part of a submission string:
-        call = f"sbatch -J {self.get_jobname(job)} -o {slurm_logfile} --export=ALL"
+        # we use a run_uuid as the job-name, to allow `--name`-based
+        # filtering in the job status checks (`sacct --name` and `squeue --name`)
+        call = f"sbatch --job-name {self.run_uuid} -o {slurm_logfile} --export=ALL"
 
         call += self.get_account_arg(job)
         call += self.get_partition_arg(job)
@@ -282,69 +288,39 @@ class SlurmExecutor(ClusterExecutor):
             SlurmJob(job, slurm_jobid, callback, error_callback, slurm_logfile)
         )
 
-    async def job_status(self, jobid: int):
+    async def job_stati(self, command):
+        """obtain SLURM job status of all submitted jobs with sacct
+
+        Keyword arguments:
+        command -- a slurm command that returns one line for each job with: 
+                   "<raw/main_job_id>|<long_status_string>"
         """
-        obtain SLURM job status of submitted jobs
-        """
-        STATUS_ATTEMPTS = 10
-        res = None
-        # this code is inspired by the snakemake profile: TODO: link to github
-        for i in range(STATUS_ATTEMPTS):
-            # use self.status_rate_limiter to avoid too many API calls.
-            async with self.status_rate_limiter:
-                sacct_error = None
-                try:
-                    before_sacct = time.time()
-                    sacct_cmd = f"sacct -P -n --format=JobIdRaw,State -j {jobid}"
-                    sacct_res = subprocess.check_output(
-                        sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
+        error = None
+        try:
+            time_before_query = time.time()
+            command_res = subprocess.check_output(
+                command, text=True, shell=True, stderr=subprocess.PIPE
+            )
+            query_duration = time.time() - time_before_query
+            logger.debug(
+                f"The job status was queried with command: {command}\n"
+                f"It took: {query_duration} seconds\n"
+                f"The output is:\n'{command_res}'\n"
+            )
+            res = dict(
+                pd.read_csv(
+                    StringIO(
+                        command_res
                     )
-                    logger.debug(
-                        f"The sacct output is (took {time.time() - before_sacct} seconds):\n'{sacct_res}'"
-                    )
-                    res = {
-                        x.split("|")[0]: x.split("|")[1]
-                        for x in sacct_res.strip().split("\n")
-                    }
-                    break
-                except subprocess.CalledProcessError as e:
-                    sacct_error = e.stderr
-                    pass  # try scontrol below
-                except IndexError as e:
-                    pass
-                # Try getting job with scontrol instead in case sacct is misconfigured
-                if not res:
-                    try:
-                        before_scontrol = time.time()
-                        sctrl_cmd = f"scontrol show jobid -dd {jobid}"
-                        out = subprocess.check_output(
-                            sctrl_cmd,
-                            shell=True,
-                            stderr=subprocess.PIPE,
-                            text=True,
-                        )
-                        logger.debug(
-                            f"The scontrol output is (took {time.time() - before_scontrol} seconds):\n'{out}'"
-                        )
-                        m = re.search(r"JobState=(\w+)", out)
-                        res = {jobid: m.group(1)}
-                        break
-                    except subprocess.CalledProcessError as e:
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            error = e.stderr
+            pass
+        except IndexError as e:
+            pass
 
-                        def fmt_err(err_type, err_msg):
-                            if err_msg is not None:
-                                return f"\n    {err_type} error: {err_msg.strip()}"
-                            else:
-                                return ""
-
-                        logger.error(
-                            f"Error getting status of slurm job {jobid}:{fmt_err('sacct', sacct_error)}{fmt_err('scontrol', e.stderr)}"
-                        )
-
-                if i >= STATUS_ATTEMPTS - 1:
-                    raise WorkflowError("Unable to query job status for 10 times")
-
-        return res[jobid]  # == status
+        return (res, error, query_duration)
 
     async def _wait_for_jobs(self):
         # busy wait on job completion
@@ -352,25 +328,83 @@ class SlurmExecutor(ClusterExecutor):
         # for obtaining job status.
         fail_stati = (
             "BOOT_FAIL",
-            "OUT_OF_MEMORY",
             "CANCELLED",
+            "DEADLINE",
             "FAILED",
             "NODE_FAIL",
-            "DEADLINE",
+            "OUT_OF_MEMORY",
             "PREEMPTED",
             "TIMEOUT",
             "ERROR",
         )
+        # intialize time to sleep in seconds
+        MIN_SLEEP_TIME = 20
+        sleepy_time = MIN_SLEEP_TIME
         while True:
+            # Initialize all query durations to specified 
+            # 5 times the status_rate_limiter, to hit exactly
+            # the status_rate_limiter for the first async below.
+            # It is dynamically updated afterwards.
+            sacct_query_duration = squeue_query_duration = (1/self.status_rate_limiter)*5
             # always use self.lock to avoid race conditions
             async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
+                active_jobs_ids = { j.jobid for j in active_jobs }
                 self.active_jobs = list()
                 still_running = list()
+            STATUS_ATTEMPTS = 10
+            # this code is inspired by the snakemake profile: TODO: link to github
+            for i in range(STATUS_ATTEMPTS):
+                # use self.status_rate_limiter and adaptive query
+                # timing to avoid too many API calls.
+                async with min(
+                    self.status_rate_limiter,
+                    # if slurmdbd (sacct) is strained and slow, reduce the query frequency
+                    (1/sacct_query_duration)/5,
+                    # if slurmctld (squeue) is strained and slow, reduce the query frequency
+                    (1/squeue_query_duration)/5,
+                ):
+                    (status_of_jobs, sacct_err, sacct_query_duration) = await self.job_stati(
+                        # -X: only show main job, no substeps
+                        f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
+                    )
+                    no_sacct_status = active_jobs_ids - set(status_of_jobs.keys())
+                    if not no_sacct_status:
+                        break
+                    else:
+                        job_ids_string = ",".join(no_sacct_status)
+                        (squeue_stati, squeue_err, squeue_query_duration) = await self.job_stati(
+                            # * %F: job array ID gives either the main ID for the job array,
+                            #       or the regular job id for non-array jobs (this should be
+                            #       equivalent to JobIdRaw in sacct)
+                            # * %T: long job status
+                            f"squeue --noheader --format=\"%F|%T\" --name {self.run_uuid} --jobs {job_ids_string}"
+                        )
+                        status_of_jobs.update(squeue_stati)
+
+                        remaining_without_status = active_jobs_ids - status_of_jobs
+                        if not remaining_without_status:
+                            break
+                        else:
+                            def fmt_err(err_type, err_msg):
+                                if err_msg is not None:
+                                    return f"  {err_type} error: {err_msg.strip()}"
+                                else:
+                                    return ""
+
+                            logger.error(
+                                f"Could not get status of slurm jobs:\n"
+                                f"  {','.join(remaining_without_status)}\n"
+                                f"If the respective status queries reported errors, those were:\n"
+                                f"{fmt_err('sacct', sacct_err)}\n"
+                                f"{fmt_err('scontrol', squeue_err)}\n"
+                            )
+                if i >= STATUS_ATTEMPTS - 1:
+                    raise WorkflowError(f"Unable to get the status of all active_jobs with sacct and squeue, even after {STATUS_ATTEMPTS} attempts")
             for j in active_jobs:
-                status = await self.job_status(j.jobid)
+                status = status_of_jobs[j.jobid]
                 if status == "COMPLETED":
                     j.callback(j.job)
                 elif status == "UNKNOWN":
@@ -387,6 +421,12 @@ class SlurmExecutor(ClusterExecutor):
                 else:  # still running?
                     still_running.append(j)
 
+            # no jobs finished in the last query period
+            if not active_jobs_ids - { j.jobid for j in still_running }:
+                # sleep a little longer, but never longer than a max
+                sleepy_time = min(sleepy_time + 20, 240)
+            else:
+                sleepy_time = MIN_SLEEP_TIME
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            time.sleep(30)
+            time.sleep(sleepy_time)
