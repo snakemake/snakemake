@@ -10,6 +10,8 @@ from common import *
 
 
 TES_URL = "http://localhost:8000"
+TES_USER = "funnel"
+TES_PASSWORD = "funnel_password"
 
 TEST_POST_RESPONSE = {"id": "id_1"}
 
@@ -65,6 +67,8 @@ def test_tes(requests_mock):
         workdir,
         snakefile="Snakefile",
         tes=TES_URL,
+        tes_user=TES_USER,
+        tes_password=TES_PASSWORD,
         no_tmpdir=True,
         cleanup=False,
         forceall=True,
@@ -74,7 +78,28 @@ def test_tes(requests_mock):
         workdir,
         snakefile="Snakefile",
         tes=TES_URL,
+        tes_user=TES_USER,
+        tes_password=TES_PASSWORD,
         no_tmpdir=True,
         cleanup=False,
         forceall=True,
     )
+
+    def fail_auth(user, password):
+        run(
+            workdir,
+            snakefile="Snakefile",
+            tes=TES_URL,
+            tes_user=user,
+            tes_password=password,
+            no_tmpdir=True,
+            cleanup=False,
+            forceall=True,
+        )
+    #fail tes_user
+    with pytest.raises(AssertionError):
+        fail_auth(0, TES_PASSWORD)
+
+    #fail tes_password
+    with pytest.raises(AssertionError):
+        fail_auth(TES_USER, 0)
