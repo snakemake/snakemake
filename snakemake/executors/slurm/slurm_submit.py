@@ -2,6 +2,7 @@ from collections import namedtuple
 from functools import partial
 from io import StringIO
 from fractions import Fraction
+import csv
 import os
 import re
 import stat
@@ -13,7 +14,6 @@ import subprocess
 import tarfile
 import tempfile
 import uuid
-import pandas as pd
 
 from snakemake.jobs import Job
 from snakemake.logging import logger
@@ -308,19 +308,7 @@ class SlurmExecutor(ClusterExecutor):
                 f"It took: {query_duration} seconds\n"
                 f"The output is:\n'{command_res}'\n"
             )
-            try:
-                res = dict(
-                    pd.read_csv(
-                        StringIO(
-                            command_res
-                        ),
-                        header=None,
-                        delimiter="|",
-                        dtype=str,
-                    ).values
-                )
-            except pd.errors.EmptyDataError:
-                res = {}
+            res = { entry[0]:entry[1] for entry in csv.reader( StringIO( command_res ), delimiter="|") }
         except subprocess.CalledProcessError as e:
             error = e.stderr
             pass
