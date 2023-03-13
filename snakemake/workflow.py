@@ -1146,7 +1146,10 @@ class Workflow:
         frame = inspect.currentframe().f_back
         calling_file = frame.f_code.co_filename
 
-        if self.included_stack and calling_file == self.included_stack[-1].get_path_or_uri():
+        if (
+            self.included_stack
+            and calling_file == self.included_stack[-1].get_path_or_uri()
+        ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
             # This will only work if the method is evaluated during parsing mode.
