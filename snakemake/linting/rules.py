@@ -103,10 +103,10 @@ class RuleLinter(Linter):
         if rule.is_run and len(func_code) > 70:
             yield Lint(
                 title="Migrate long run directives into scripts or notebooks",
-                body="Long run directives hamper workflow readability. Use the script or notebook direcive instead. "
+                body="Long run directives hamper workflow readability. Use the script or notebook directive instead. "
                 "Note that the script or notebook directive does not involve boilerplate. Similar to run, you "
                 "will have direct access to params, input, output, and wildcards."
-                "Only use the run direcive for a handful of lines.",
+                "Only use the run directive for a handful of lines.",
                 links=[links.external_scripts, links.notebooks],
             )
 

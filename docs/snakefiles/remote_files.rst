@@ -510,6 +510,14 @@ This flag can be overridden on a file by file basis as described in the S3 remot
         shell:
             'xrdcp {input[0]} {output[0]}'
 
+In order to access the files using autorization tokens, the "url_decorator" parameter can be used to append the necessary string to the URL e.g.
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+    XRootD = XRootDRemoteProvider(stay_on_remote=True, url_decorator=lambda x: x + "?xrd.wantprot=unix&authz=XXXXXX")
+    
+
 GenBank / NCBI Entrez
 =====================
 
@@ -594,9 +602,10 @@ GFAL
 
 GFAL support is available in Snakemake 4.1 and later.
 
-Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+Snakemake supports reading and writing remote files via the `GFAL2 Python bindings <https://dmc-docs.web.cern.ch/dmc-docs/gfal2-python.html>`_ . This package is not installed by default with a Snakemake installation. The easiest installation method is with mamba or conda. e.g.: ``mamba install -c conda-forge python-gfal2``.
+
 By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
-In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
+
 
 .. code-block:: python
 

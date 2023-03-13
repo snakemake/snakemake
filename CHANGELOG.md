@@ -1,5 +1,83 @@
 # Changelog
 
+## [7.24.1](https://github.com/snakemake/snakemake/compare/v7.24.0...v7.24.1) (2023-03-09)
+
+
+### Bug Fixes
+
+* better job status queries for slurm executor  ([#2136](https://github.com/snakemake/snakemake/issues/2136)) ([a4df38c](https://github.com/snakemake/snakemake/commit/a4df38c56e935dde9c2745bed6afc13e1fed671f))
+* get python version for script environment in a backwards compatible way that works down to python 2.7 ([#2161](https://github.com/snakemake/snakemake/issues/2161)) ([44e59b9](https://github.com/snakemake/snakemake/commit/44e59b9baa0842e19c5e0f2e05cf2fe5c9f47790))
+* prevents DeprecationWarning caused by using old  draft of json schema ([#2152](https://github.com/snakemake/snakemake/issues/2152)) ([9791ffb](https://github.com/snakemake/snakemake/commit/9791ffb978a6d09d90d311cc98363c4d4efc2042))
+
+
+### Performance Improvements
+
+* Gfal2 remote provider using gfal2-python instead of  gfal2-utils. ([#2128](https://github.com/snakemake/snakemake/issues/2128)) ([0b9bfe5](https://github.com/snakemake/snakemake/commit/0b9bfe500a06e669d2557d897ed26550aec526d6))
+
+
+### Documentation
+
+* fix minor typos in a linting rule ([#2162](https://github.com/snakemake/snakemake/issues/2162)) ([71e1171](https://github.com/snakemake/snakemake/commit/71e1171a0dab824baed77bfe235268af9e095c1f))
+
+## [7.24.0](https://github.com/snakemake/snakemake/compare/v7.23.1...v7.24.0) (2023-03-01)
+
+
+### Features
+
+* limit the number of input/output files in job properties ([#2149](https://github.com/snakemake/snakemake/issues/2149)) ([d93f091](https://github.com/snakemake/snakemake/commit/d93f091acea63a662dcb350c3f86c15fa9bdf721))
+
+
+### Bug Fixes
+
+* [#2130](https://github.com/snakemake/snakemake/issues/2130) by patching the protect() method so the path of files in subdirectories is properly resolved during write-protection ([#2131](https://github.com/snakemake/snakemake/issues/2131)) ([1a754fd](https://github.com/snakemake/snakemake/commit/1a754fd094bd13bb4a201f1c80a077656c89f995))
+* `sre_constants` import because of deprecation ([#2139](https://github.com/snakemake/snakemake/issues/2139)) ([3b326db](https://github.com/snakemake/snakemake/commit/3b326dba22ef5358092c281479eafafe3480eeae))
+* ensure user and group rw permissions for metadata files and source cache ([#2132](https://github.com/snakemake/snakemake/issues/2132)) ([cc51faa](https://github.com/snakemake/snakemake/commit/cc51faaa7d4f20896fc46b9fd67d062936d641bb))
+* is_run error with local, group jobs ([#2133](https://github.com/snakemake/snakemake/issues/2133)) ([31bfcd5](https://github.com/snakemake/snakemake/commit/31bfcd5399540fc6cf52e3b76144e9abea6d4eab))
+* require toposort &gt;= 1.10 ([#2145](https://github.com/snakemake/snakemake/issues/2145)) ([3cb54b8](https://github.com/snakemake/snakemake/commit/3cb54b8c62743897f20feb3fcf269a7357878434))
+
+
+### Documentation
+
+* Update modularization.rst ([#2137](https://github.com/snakemake/snakemake/issues/2137)) ([16954c7](https://github.com/snakemake/snakemake/commit/16954c7b633049df6646275139251097d574fd35))
+
+## [7.23.1](https://github.com/snakemake/snakemake/compare/v7.23.0...v7.23.1) (2023-02-18)
+
+
+### Bug Fixes
+
+* batch collect jobs for scancel ([#2114](https://github.com/snakemake/snakemake/issues/2114)) ([0b1fe31](https://github.com/snakemake/snakemake/commit/0b1fe312e8c98a814b1c419940f35253f58f958e))
+
+## [7.23.0](https://github.com/snakemake/snakemake/compare/v7.22.0...v7.23.0) (2023-02-18)
+
+
+### Features
+
+* changed report layout to display menu always left of the results. For fullscreen, one can still hide the menu, which leads to automatic growth of the results ([#2116](https://github.com/snakemake/snakemake/issues/2116)) ([d771b1b](https://github.com/snakemake/snakemake/commit/d771b1b5fc8344aaffe1f30388d4e4d31d4fe937))
+* Publish docker images for amd64 & arm64 ([#2105](https://github.com/snakemake/snakemake/issues/2105)) ([4c898f5](https://github.com/snakemake/snakemake/commit/4c898f5587d832c45f0b534681f9502abe1de6ce))
+
+
+### Bug Fixes
+
+* use text/markdown for long_description_content_type ([#2112](https://github.com/snakemake/snakemake/issues/2112)) ([0241075](https://github.com/snakemake/snakemake/commit/02410755c51df21833199db70406b2179248380e))
+
+
+### Performance Improvements
+
+* Improve execution speed of cleanup_workdir (in dag)  ([#2103](https://github.com/snakemake/snakemake/issues/2103)) ([1fbc5f5](https://github.com/snakemake/snakemake/commit/1fbc5f5aee65bc8dd776765644d07051dd857670))
+
+## [7.22.0](https://github.com/snakemake/snakemake/compare/v7.21.0...v7.22.0) (2023-02-12)
+
+
+### Features
+
+* add cleanup containers option ([#2088](https://github.com/snakemake/snakemake/issues/2088)) ([053e3b3](https://github.com/snakemake/snakemake/commit/053e3b37cfcc6c67bae6ac3660b82879b75acb4c))
+
+
+### Bug Fixes
+
+* assume shared filesystem by default when running with --flux ([#2075](https://github.com/snakemake/snakemake/issues/2075)) ([4bec2fd](https://github.com/snakemake/snakemake/commit/4bec2fd3bb0c48a1f38506a966cb64dc8c2d1021))
+* properly handle NA values for paramspaces ([#2098](https://github.com/snakemake/snakemake/issues/2098)) ([6b6a880](https://github.com/snakemake/snakemake/commit/6b6a88074eac6e3a9aa8c89501fc9481f07ecc1d))
+
 ## [7.21.0](https://github.com/snakemake/snakemake/compare/v7.20.0...v7.21.0) (2023-01-30)
 
 

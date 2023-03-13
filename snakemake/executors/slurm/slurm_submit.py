@@ -105,7 +105,7 @@ class SlurmExecutor(ClusterExecutor):
         quiet=False,
         printshellcmds=False,
         restart_times=0,
-        max_status_checks_per_second=0.03,
+        max_status_checks_per_second=2,
         cluster_config=None,
     ):
         super().__init__(
@@ -134,22 +134,23 @@ class SlurmExecutor(ClusterExecutor):
         return [" --slurm-jobstep", "--jobs 1"]
 
     def cancel(self):
-        for job in self.active_jobs:
-            jobid = job.jobid
+        # Jobs are collected to reduce load on slurmctld
+        jobids = " ".join([job.jobid for job in self.active_jobs])
+        if len(jobids) > 0:
             try:
                 # timeout set to 60, because a scheduler cycle usually is
                 # about 30 sec, but can be longer in extreme cases.
                 # Under 'normal' circumstances, 'scancel' is executed in
                 # virtually no time.
                 subprocess.check_output(
-                    f"scancel {jobid}",
+                    f"scancel {jobids}",
                     text=True,
                     shell=True,
                     timeout=60,
                     stderr=subprocess.PIPE,
                 )
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel job {jobid} within a minute.")
+                logger.warning(f"Unable to cancel jobs within a minute.")
         self.shutdown()
 
     def get_account_arg(self, job):
@@ -275,7 +276,7 @@ class SlurmExecutor(ClusterExecutor):
         slurm_jobid = out.split(" ")[-1]
         slurm_logfile = slurm_logfile.replace("%j", slurm_jobid)
         logger.info(
-            f"Job {jobid} has been submitted with SLURM jobid {slurm_jobid} (log: {slurm_logfile})"
+            f"Job {jobid} has been submitted with SLURM jobid {slurm_jobid} (log: {slurm_logfile})."
         )
         self.active_jobs.append(
             SlurmJob(job, slurm_jobid, callback, error_callback, slurm_logfile)
@@ -293,11 +294,14 @@ class SlurmExecutor(ClusterExecutor):
             async with self.status_rate_limiter:
                 sacct_error = None
                 try:
+                    before_sacct = time.time()
                     sacct_cmd = f"sacct -P -n --format=JobIdRaw,State -j {jobid}"
                     sacct_res = subprocess.check_output(
                         sacct_cmd, text=True, shell=True, stderr=subprocess.PIPE
                     )
-                    logger.debug(f"The sacct output is: '{sacct_res}'")
+                    logger.debug(
+                        f"The sacct output is (took {time.time() - before_sacct} seconds):\n'{sacct_res}'"
+                    )
                     res = {
                         x.split("|")[0]: x.split("|")[1]
                         for x in sacct_res.strip().split("\n")
@@ -311,6 +315,7 @@ class SlurmExecutor(ClusterExecutor):
                 # Try getting job with scontrol instead in case sacct is misconfigured
                 if not res:
                     try:
+                        before_scontrol = time.time()
                         sctrl_cmd = f"scontrol show jobid -dd {jobid}"
                         out = subprocess.check_output(
                             sctrl_cmd,
@@ -318,7 +323,9 @@ class SlurmExecutor(ClusterExecutor):
                             stderr=subprocess.PIPE,
                             text=True,
                         )
-                        logger.debug(f"The scontrol output is: '{out}'")
+                        logger.debug(
+                            f"The scontrol output is (took {time.time() - before_scontrol} seconds):\n'{out}'"
+                        )
                         m = re.search(r"JobState=(\w+)", out)
                         res = {jobid: m.group(1)}
                         break
@@ -382,4 +389,4 @@ class SlurmExecutor(ClusterExecutor):
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            time.sleep(1 / self.max_status_checks_per_second)
+            time.sleep(30)

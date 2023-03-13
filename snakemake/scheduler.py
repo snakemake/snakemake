@@ -194,11 +194,25 @@ class JobScheduler:
                 cores=local_cores,
                 keepincomplete=keepincomplete,
             )
-            # we need to adjust the maximum status checks on a
-            # SLURM cluster for not to overstrain the scheduler
-            if max_status_checks_per_second > 1:
-                # # every 30 sec is a resonable default
-                max_status_checks_per_second = 0.03
+            # we need to adjust the maximum status checks per second
+            # on a SLURM cluster, to not overstrain the scheduler;
+            # timings for tested SLURM clusters, extracted from --verbose
+            # output with:
+            # ```
+            #   grep "sacct output" .snakemake/log/2023-02-13T210004.601290.snakemake.log | \
+            #   awk '{ counter += 1; sum += $6; sum_of_squares += ($6)^2 } \
+            #     END { print "average: ",sum/counter," sd: ",sqrt((sum_of_squares - sum^2/counter) / counter); }
+            # ````
+            #   * cluster 1:
+            #     * sacct:    average:  0.073896   sd:  0.0640178
+            #     * scontrol: average:  0.0193017  sd:  0.0358858
+            # Thus, 2 status checks per second should leave enough
+            # capacity for everybody.
+            # TODO: check timings on other slurm clusters, to:
+            #   * confirm that this cap is reasonable
+            #   * check if scontrol is the quicker option across the board
+            if max_status_checks_per_second > 2:
+                max_status_checks_per_second = 2
 
             self._executor = SlurmExecutor(
                 workflow,
@@ -562,8 +576,8 @@ class JobScheduler:
                         "Resources before job selection: {}".format(self.resources)
                     )
                     logger.debug(
-                        "Ready jobs ({}):\n\t".format(len(needrun))
-                        + "\n\t".join(map(str, needrun))
+                        "Ready jobs ({})".format(len(needrun))
+                        # + "\n\t".join(map(str, needrun))
                     )
 
                     if not self._last_job_selection_empty:
@@ -572,8 +586,8 @@ class JobScheduler:
                     self._last_job_selection_empty = not run
 
                     logger.debug(
-                        "Selected jobs ({}):\n\t".format(len(run))
-                        + "\n\t".join(map(str, run))
+                        "Selected jobs ({})".format(len(run))
+                        # + "\n\t".join(map(str, run))
                     )
                     logger.debug(
                         "Resources after job selection: {}".format(self.resources)

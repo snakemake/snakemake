@@ -69,15 +69,28 @@ class Batch:
                 "Please choose a smaller number of batches.".format(self.rulename)
             )
         items = sorted(items)
-        batch_len = math.floor(len(items) / self.batches)
+
+        # we can equally split items using divmod:
+        # len(items) = (self.batches * quotient) + remainder
+        # Because remainder always < divisor (self.batches),
+        # each batch will be equal to quotient + (1 or 0 item)
+        # from the remainder
+        k, m = divmod(len(items), self.batches)
+
         # self.batch is one-based, hence we have to subtract 1
         idx = self.idx - 1
-        i = idx * batch_len
+
+        # First n batches will have k (quotient) items +
+        # one item from the remainder (m). Once we consume all items
+        # from the remainder, last batches only contain k items.
+        i = idx * k + min(idx, m)
+        batch_len = (idx + 1) * k + min(idx + 1, m)
+
         if self.is_final:
             # extend the last batch to cover rest of list
             return items[i:]
         else:
-            return items[i : i + batch_len]
+            return items[i:batch_len]
 
     @property
     def is_final(self):
@@ -277,8 +290,11 @@ class DAG:
                     for io_file in chain(job.output, job.input)
                     if not os.path.exists(io_file)
                 ):
-                    if os.path.exists(io_dir) and not len(os.listdir(io_dir)):
-                        os.removedirs(io_dir)
+                    if os.path.exists(io_dir):
+                        # check for empty dir
+                        with os.scandir(io_dir) as i:
+                            if next(i, None) is None:
+                                os.removedirs(io_dir)
 
     def cleanup(self):
         self.job_cache.clear()
