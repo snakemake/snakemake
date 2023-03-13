@@ -141,6 +141,11 @@ jobs:
           sleep 5
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
+      - name: Configure proxy for sacct
+        run: |
+          # By using this script instead of the real sacct, we avoid the need to install
+          # a full slurmdbd in the CI.
+          echo 'alias sacct=.github/workflows/scripts/sacct-proxy.py' >> ~/.bashrc
       - name: Test slurm submission
         run: |
           srun -vvvv echo "hello world"
