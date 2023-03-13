@@ -479,7 +479,8 @@ class Logger:
                     yield logfile_header
                     return
                 yield logfile_header
-                max_len = max(max(len(l) for l in lines), len(logfile_header))
+                # take the length of the longest line, but limit to max 80
+                max_len = min(max(max(len(l) for l in lines), len(logfile_header)), 80)
                 yield "=" * max_len
                 yield from lines
                 yield "=" * max_len
