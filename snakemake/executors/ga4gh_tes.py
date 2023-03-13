@@ -1,4 +1,4 @@
-__author__ = "Sven Twardziok, Alex Kanitz, Johannes Köster"
+__author__ = "Sven Twardziok, Alex Kanitz, Valentin Schneider-Lunitz, Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
