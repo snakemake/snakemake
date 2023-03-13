@@ -3,7 +3,7 @@ min_version("6.0")
 
 rule leaf:
     output:
-        ".done"
+        "done"
     shell:
         "touch {output}"
 

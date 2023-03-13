@@ -8,14 +8,14 @@ module module_3:
 rule default:
     input:
        # rules.nested_3rd_level_default.input
-       ".done"
+       "done"
     default_target: True
 
 rule do:
     input:
-      "nested-3rd-level/.done"
+      "nested-3rd-level/done"
     output:
-      ".done"
+      "done"
     shell:
       "touch {output}"
 
