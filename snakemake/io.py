@@ -1246,6 +1246,16 @@ def expand(*args, **wildcards):
                 format_dict = dict
                 break
 
+    # raise error if function is passed as value for any wildcard
+    for key, value in wildcards.items():
+        if callable(value):
+            raise WorkflowError(
+                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
+                "This is most likely not what you want, as expand takes iterables of values or single values for "
+                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
+                "expand in another function that does the computation."
+            )
+
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
         filepattern: {

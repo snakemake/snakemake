@@ -1146,9 +1146,14 @@ class Workflow:
         frame = inspect.currentframe().f_back
         calling_file = frame.f_code.co_filename
 
-        if calling_file == self.included_stack[-1].get_path_or_uri():
+        if (
+            self.included_stack
+            and calling_file == self.included_stack[-1].get_path_or_uri()
+        ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
+            # This will only work if the method is evaluated during parsing mode.
+            # Otherwise, the stack can be empty already.
             path = self.current_basedir.join(rel_path)
         else:
             # heuristically determine path
@@ -1300,10 +1305,9 @@ class Workflow:
                     )
                     update_config(self.config, self.overwrite_config)
             elif not self.overwrite_configfiles:
+                fp_full = os.path.abspath(fp)
                 raise WorkflowError(
-                    "Workflow defines configfile {} but it is not present or accessible.".format(
-                        fp
-                    )
+                    f"Workflow defines configfile {fp} but it is not present or accessible (full checked path: {fp_full})."
                 )
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
