@@ -296,7 +296,6 @@ class SlurmExecutor(ClusterExecutor):
         command -- a slurm command that returns one line for each job with: 
                    "<raw/main_job_id>|<long_status_string>"
         """
-        error = None
         try:
             time_before_query = time.time()
             command_res = subprocess.check_output(
@@ -310,12 +309,19 @@ class SlurmExecutor(ClusterExecutor):
             )
             res = { entry[0]:entry[1] for entry in csv.reader( StringIO( command_res ), delimiter="|") }
         except subprocess.CalledProcessError as e:
-            error = e.stderr
-            pass
-        except IndexError as e:
+            def fmt_err(err_type, err_msg):
+                if err_msg is not None:
+                    return f"  {err_type} error: {err_msg.strip()}"
+                else:
+                    return ""
+
+            logger.error(
+                f"The job status query failed with command: {command}\n"
+                f"Error message: {e.stderr.strip()}\n"
+            )
             pass
 
-        return (res, error, query_duration)
+        return (res, query_duration)
 
     async def _wait_for_jobs(self):
         from throttler import Throttler
@@ -370,7 +376,7 @@ class SlurmExecutor(ClusterExecutor):
                     rate_limit = rate_limit.numerator,
                     period = rate_limit.denominator
                 ):
-                    (status_of_jobs, sacct_err, sacct_query_duration) = await self.job_stati(
+                    (status_of_jobs, sacct_query_duration) = await self.job_stati(
                         # -X: only show main job, no substeps
                         f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
                     )
@@ -379,38 +385,13 @@ class SlurmExecutor(ClusterExecutor):
                     logger.debug(f"no_sacct_status after sacct is: {no_sacct_status}")
                     if not no_sacct_status:
                         break
-                    else:
-                        job_ids_string = ",".join(no_sacct_status)
-                        (squeue_stati, squeue_err, squeue_query_duration) = await self.job_stati(
-                            # * %F: job array ID gives either the main ID for the job array,
-                            #       or the regular job id for non-array jobs (this should be
-                            #       equivalent to JobIdRaw in sacct)
-                            # * %T: long job status
-                            f"squeue --noheader --format=\"%F|%T\" --name {self.run_uuid} --jobs {job_ids_string}"
-                        )
-                        status_of_jobs = status_of_jobs | squeue_stati
-                        logger.debug(f"status_of_jobs after squeue is: {status_of_jobs}")
-
-                        remaining_without_status = active_jobs_ids - set(status_of_jobs.keys())
-                        logger.debug(f"remaining_without_status after squeue is: {remaining_without_status}")
-                        if not remaining_without_status:
-                            break
-                        else:
-                            def fmt_err(err_type, err_msg):
-                                if err_msg is not None:
-                                    return f"  {err_type} error: {err_msg.strip()}"
-                                else:
-                                    return ""
-
-                            logger.error(
-                                f"Could not get status of slurm jobs:\n"
-                                f"  {','.join(remaining_without_status)}\n"
-                                f"If the respective status queries reported errors, those were:\n"
-                                f"{fmt_err('sacct', sacct_err)}\n"
-                                f"{fmt_err('scontrol', squeue_err)}\n"
-                            )
                 if i >= STATUS_ATTEMPTS - 1:
-                    raise WorkflowError(f"Unable to get the status of all active_jobs with sacct and squeue, even after {STATUS_ATTEMPTS} attempts")
+                    logger.warning(
+                        f"Unable to get the status of all active_jobs that should be in slurmdbd, even after {STATUS_ATTEMPTS} attempts.\n"
+                        f"The jobs with the following slurm job ids were previously seen by sacct, but sacct doesn't report them any more:\n"
+                        f"{missing_sacct_status}\n"
+                        f"Please double-check with your slurm cluster administrator, that slurmdbd job accounting is properly set up.\n"
+                    )
             for j in active_jobs:
                 status = status_of_jobs[j.jobid]
                 if status == "COMPLETED":
