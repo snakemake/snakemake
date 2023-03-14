@@ -366,11 +366,12 @@ class SlurmExecutor(ClusterExecutor):
                 active_jobs_ids = { j.jobid for j in active_jobs }
                 self.active_jobs = list()
                 still_running = list()
-            STATUS_ATTEMPTS = 10
-            # this code is inspired by the snakemake profile: TODO: link to github
+            STATUS_ATTEMPTS = 5
+            # this code is inspired by the snakemake profile:
+            # https://github.com/Snakemake-Profiles/slurm/blob/a0e559e1eca607d0bd26c15f94d609e6905f8a8e/%7B%7Bcookiecutter.profile_name%7D%7D/slurm-status.py#L27
             for i in range(STATUS_ATTEMPTS):
                 # use self.status_rate_limiter and adaptive query
-                # timing to avoid too many API calls.
+                # timing to avoid too many API calls in retries.
                 rate_limit = Fraction(
                     min(
                         self.status_rate_limiter._rate_limit/self.status_rate_limiter._period,
