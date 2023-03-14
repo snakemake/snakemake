@@ -341,9 +341,17 @@ class SlurmExecutor(ClusterExecutor):
         )
         # intialize time to sleep in seconds
         MIN_SLEEP_TIME = 20
+        # Cap sleeping time between querying the status of all active jobs:
+        # If `AccountingStorageType`` for `sacct` is set to `accounting_storage/none`,
+        # sacct will query `slurmctld` (instead of `slurmdbd`) and this in turn can
+        # rely on default config, see: https://stackoverflow.com/a/46667605
+        # This config defaults to `MinJobAge=300`, which implies that jobs will be
+        # removed from `slurmctld` within 6 minutes of finishing. So we're conservative
+        # here, with half that time
+        MAX_SLEEP_TIME = 180
         sleepy_time = MIN_SLEEP_TIME
-        # only start checking statuses after bit -- otherwise nothing has been committed
-        time.sleep(sleepy_time)
+        # only start checking statuses after bit -- otherwise no jobs are in slurmdbd, yet
+        time.sleep(2 * sleepy_time)
         while True:
             # Initialize all query durations to specified 
             # 5 times the status_rate_limiter, to hit exactly
@@ -412,8 +420,8 @@ class SlurmExecutor(ClusterExecutor):
 
             # no jobs finished in the last query period
             if not active_jobs_ids - { j.jobid for j in still_running }:
-                # sleep a little longer, but never longer than a max
-                sleepy_time = min(sleepy_time + 10, 120)
+                # sleep a little longer, but never too long
+                sleepy_time = min(sleepy_time + 10, MAX_SLEEP_TIME)
             else:
                 sleepy_time = MIN_SLEEP_TIME
             async with async_lock(self.lock):
