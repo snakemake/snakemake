@@ -125,7 +125,7 @@ class SlurmExecutor(ClusterExecutor):
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
-        self.run_uuid=str(uuid.uuid4())
+        self.run_uuid = str(uuid.uuid4())
         self._fallback_account_arg = None
         self._fallback_partition = None
 
@@ -293,7 +293,7 @@ class SlurmExecutor(ClusterExecutor):
         """obtain SLURM job status of all submitted jobs with sacct
 
         Keyword arguments:
-        command -- a slurm command that returns one line for each job with: 
+        command -- a slurm command that returns one line for each job with:
                    "<raw/main_job_id>|<long_status_string>"
         """
         try:
@@ -307,8 +307,12 @@ class SlurmExecutor(ClusterExecutor):
                 f"It took: {query_duration} seconds\n"
                 f"The output is:\n'{command_res}'\n"
             )
-            res = { entry[0]:entry[1] for entry in csv.reader( StringIO( command_res ), delimiter="|") }
+            res = {
+                entry[0]: entry[1]
+                for entry in csv.reader(StringIO(command_res), delimiter="|")
+            }
         except subprocess.CalledProcessError as e:
+
             def fmt_err(err_type, err_msg):
                 if err_msg is not None:
                     return f"  {err_type} error: {err_msg.strip()}"
@@ -325,6 +329,7 @@ class SlurmExecutor(ClusterExecutor):
 
     async def _wait_for_jobs(self):
         from throttler import Throttler
+
         # busy wait on job completion
         # This is only needed if your backend does not allow to use callbacks
         # for obtaining job status.
@@ -353,11 +358,13 @@ class SlurmExecutor(ClusterExecutor):
         # only start checking statuses after bit -- otherwise no jobs are in slurmdbd, yet
         time.sleep(2 * sleepy_time)
         while True:
-            # Initialize all query durations to specified 
+            # Initialize all query durations to specified
             # 5 times the status_rate_limiter, to hit exactly
             # the status_rate_limiter for the first async below.
             # It is dynamically updated afterwards.
-            sacct_query_duration = (self.status_rate_limiter._period/self.status_rate_limiter._rate_limit)*5
+            sacct_query_duration = (
+                self.status_rate_limiter._period / self.status_rate_limiter._rate_limit
+            ) * 5
             # keep track of jobs already seen in sacct accounting
             active_jobs_seen_by_sacct = set()
             # always use self.lock to avoid race conditions
@@ -365,7 +372,7 @@ class SlurmExecutor(ClusterExecutor):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
-                active_jobs_ids = { j.jobid for j in active_jobs }
+                active_jobs_ids = {j.jobid for j in active_jobs}
                 self.active_jobs = list()
                 still_running = list()
             STATUS_ATTEMPTS = 5
@@ -376,15 +383,16 @@ class SlurmExecutor(ClusterExecutor):
                 # timing to avoid too many API calls in retries.
                 rate_limit = Fraction(
                     min(
-                        self.status_rate_limiter._rate_limit/self.status_rate_limiter._period,
+                        self.status_rate_limiter._rate_limit
+                        / self.status_rate_limiter._period,
                         # if slurmdbd (sacct) is strained and slow, reduce the query frequency
-                        (1/sacct_query_duration)/5,
+                        (1 / sacct_query_duration) / 5,
                     )
                 ).limit_denominator()
                 missing_sacct_status = set()
                 async with Throttler(
-                    rate_limit = rate_limit.numerator,
-                    period = rate_limit.denominator,
+                    rate_limit=rate_limit.numerator,
+                    period=rate_limit.denominator,
                 ):
                     (status_of_jobs, sacct_query_duration) = await self.job_stati(
                         # -X: only show main job, no substeps
@@ -392,9 +400,15 @@ class SlurmExecutor(ClusterExecutor):
                     )
                     logger.debug(f"status_of_jobs after sacct is: {status_of_jobs}")
                     ids_with_current_sacct_status = set(status_of_jobs.keys())
-                    active_jobs_seen_by_sacct = active_jobs_seen_by_sacct | ids_with_current_sacct_status
-                    logger.debug(f"active_jobs_seen_by_sacct are: {active_jobs_seen_by_sacct}")
-                    missing_sacct_status = active_jobs_seen_by_sacct - ids_with_current_sacct_status 
+                    active_jobs_seen_by_sacct = (
+                        active_jobs_seen_by_sacct | ids_with_current_sacct_status
+                    )
+                    logger.debug(
+                        f"active_jobs_seen_by_sacct are: {active_jobs_seen_by_sacct}"
+                    )
+                    missing_sacct_status = (
+                        active_jobs_seen_by_sacct - ids_with_current_sacct_status
+                    )
                     if not missing_sacct_status:
                         break
                 if i >= STATUS_ATTEMPTS - 1:
@@ -405,7 +419,7 @@ class SlurmExecutor(ClusterExecutor):
                         f"Please double-check with your slurm cluster administrator, that slurmdbd job accounting is properly set up.\n"
                     )
             for j in active_jobs:
-                # the job probably didn't make it into slurmdbd yet, so 
+                # the job probably didn't make it into slurmdbd yet, so
                 # `sacct` doesn't return it
                 if not j.jobid in status_of_jobs:
                     # but the job should still be queueing or running and
@@ -433,7 +447,7 @@ class SlurmExecutor(ClusterExecutor):
                     still_running.append(j)
 
             # no jobs finished in the last query period
-            if not active_jobs_ids - { j.jobid for j in still_running }:
+            if not active_jobs_ids - {j.jobid for j in still_running}:
                 # sleep a little longer, but never too long
                 sleepy_time = min(sleepy_time + 10, MAX_SLEEP_TIME)
             else:
