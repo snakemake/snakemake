@@ -357,7 +357,9 @@ class SlurmExecutor(ClusterExecutor):
             # 5 times the status_rate_limiter, to hit exactly
             # the status_rate_limiter for the first async below.
             # It is dynamically updated afterwards.
-            sacct_query_duration = squeue_query_duration = (self.status_rate_limiter._period/self.status_rate_limiter._rate_limit)*5
+            sacct_query_duration = (self.status_rate_limiter._period/self.status_rate_limiter._rate_limit)*5
+            # keep track of jobs already seen in sacct accounting
+            active_jobs_seen_by_sacct = set()
             # always use self.lock to avoid race conditions
             async with async_lock(self.lock):
                 if not self.wait:
@@ -377,22 +379,23 @@ class SlurmExecutor(ClusterExecutor):
                         self.status_rate_limiter._rate_limit/self.status_rate_limiter._period,
                         # if slurmdbd (sacct) is strained and slow, reduce the query frequency
                         (1/sacct_query_duration)/5,
-                        # if slurmctld (squeue) is strained and slow, reduce the query frequency
-                        (1/squeue_query_duration)/5,
                     )
                 ).limit_denominator()
+                missing_sacct_status = set()
                 async with Throttler(
                     rate_limit = rate_limit.numerator,
-                    period = rate_limit.denominator
+                    period = rate_limit.denominator,
                 ):
                     (status_of_jobs, sacct_query_duration) = await self.job_stati(
                         # -X: only show main job, no substeps
                         f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
                     )
                     logger.debug(f"status_of_jobs after sacct is: {status_of_jobs}")
-                    no_sacct_status = active_jobs_ids - set(status_of_jobs.keys())
-                    logger.debug(f"no_sacct_status after sacct is: {no_sacct_status}")
-                    if not no_sacct_status:
+                    ids_with_current_sacct_status = set(status_of_jobs.keys())
+                    active_jobs_seen_by_sacct = active_jobs_seen_by_sacct | ids_with_current_sacct_status
+                    logger.debug(f"active_jobs_seen_by_sacct are: {active_jobs_seen_by_sacct}")
+                    missing_sacct_status = active_jobs_seen_by_sacct - ids_with_current_sacct_status 
+                    if not missing_sacct_status:
                         break
                 if i >= STATUS_ATTEMPTS - 1:
                     logger.warning(
@@ -402,13 +405,22 @@ class SlurmExecutor(ClusterExecutor):
                         f"Please double-check with your slurm cluster administrator, that slurmdbd job accounting is properly set up.\n"
                     )
             for j in active_jobs:
+                # the job probably didn't make it into slurmdbd yet, so 
+                # `sacct` doesn't return it
+                if not j.jobid in status_of_jobs:
+                    # but the job should still be queueing or running and
+                    # appear in slurmdbd (and thus `sacct` output) later
+                    still_running.append(j)
+                    break
                 status = status_of_jobs[j.jobid]
                 if status == "COMPLETED":
                     j.callback(j.job)
+                    active_jobs_seen_by_sacct.remove(j.jobid)
                 elif status == "UNKNOWN":
                     # the job probably does not exist anymore, but 'sacct' did not work
                     # so we assume it is finished
                     j.callback(j.job)
+                    active_jobs_seen_by_sacct.remove(j.jobid)
                 elif status in fail_stati:
                     self.print_job_error(
                         j.job,
@@ -416,6 +428,7 @@ class SlurmExecutor(ClusterExecutor):
                         aux_logs=[j.slurm_logfile],
                     )
                     j.error_callback(j.job)
+                    active_jobs_seen_by_sacct.remove(j.jobid)
                 else:  # still running?
                     still_running.append(j)
 
