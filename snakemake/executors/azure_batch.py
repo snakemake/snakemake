@@ -37,18 +37,29 @@ class AzBatchConfig:
 
         self.batch_account_key = self.set_or_default("AZ_BATCH_ACCOUNT_KEY", None)
 
+        # optional subnet config
         self.batch_pool_subnet_id = self.set_or_default("BATCH_POOL_SUBNET_ID", None)
 
-        # managed identity for use with private subnet
+        # managed identity resource id configuration
+        self.managed_identity_resource_id = self.set_or_default(
+            "MANAGED_IDENTITY_RESOURCE_ID", None
+        )
         self.managed_identity_client_id = self.set_or_default(
             "MANAGED_IDENTITY_CLIENT_ID", None
         )
 
         if self.batch_pool_subnet_id is not None:
-            if self.managed_identity_client_id is None:
+            if (
+                self.managed_identity_client_id is None
+                or self.managed_identity_resource_id is None
+            ):
                 sys.exit(
-                    "Error: MANAGED_IDENTITY_CLIENT_ID must be set when deploying batch nodes into a private subnet!"
+                    "Error: MANAGED_IDENTITY_RESOURCE_ID, MANAGED_IDENTITY_CLIENT_ID must be set when deploying batch nodes into a private subnet!"
                 )
+
+            # parse account details necessary for batch client authentication steps
+            self.subscription_id = self.batch_pool_subnet_id.split("/")[2]
+            self.resource_group = self.batch_pool_subnet_id.split("/")[4]
 
         # sas url to a batch node start task bash script
         self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SASURL")
@@ -195,6 +206,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         try:
             from azure.batch import BatchServiceClient
+            from azure.mgmt.batch import BatchManagementClient
             from azure.batch.batch_auth import SharedKeyCredentials
             from azure.identity import DefaultAzureCredential
             from snakemake.remote.AzBlob import AzureStorageHelper
@@ -205,6 +217,8 @@ class AzBatchExecutor(ClusterExecutor):
                 " must be installed to use Azure Batch"
             )
 
+        AZURE_BATCH_RESOURCE_ENDPOINT = "https://batch.core.windows.net/"
+
         # use storage helper
         self.azblob_helper = AzureStorageHelper()
 
@@ -213,23 +227,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
-        logger.debug("AzBatchConfig:")
-        if self.batch_config.batch_account_key is not None:
-            logger.debug(
-                pformat(
-                    self.mask_dict_val(self.batch_config.__dict__, "batch_account_key"),
-                    indent=2,
-                )
-            )
-        elif self.batch_config.managed_identity_client_id is not None:
-            logger.debug(
-                pformat(
-                    self.mask_dict_val(
-                        self.batch_config.__dict__, "managed_identity_client_id"
-                    ),
-                    indent=2,
-                )
-            )
+        logger.debug(f"AzBatchConfig: {self.mask_batch_config_as_string()}")
 
         self.workflow = workflow
 
@@ -270,29 +268,45 @@ class AzBatchExecutor(ClusterExecutor):
             targz, resource_prefix=self.batch_config.resource_file_prefix
         )
 
+        # authenticate batch client from SharedKeyCredentials
         if self.batch_config.batch_account_key is not None:
             logger.debug("Using batch account key for authentication...")
-            # authenticate batch client from SharedKeyCredentials
             creds = SharedKeyCredentials(
                 self.batch_config.batch_account_name,
                 self.batch_config.batch_account_key,
             )
+        # else authenticate with managed indentity client id
         elif self.batch_config.managed_identity_client_id is not None:
             logger.debug("Using managed identity batch authentication...")
-            # authenticate batch client from managed identity credentials
             creds = DefaultAzureCredential(
                 managed_identity_client_id=self.batch_config.managed_identity_client_id
             )
             credentials = AzureIdentityCredentialAdapter(
-                credential=creds, resource_id="https://batch.core.windows.net/"
+                credential=creds, resource_id=AZURE_BATCH_RESOURCE_ENDPOINT
             )
 
         self.batch_client = BatchServiceClient(
             credentials, batch_url=self.batch_config.batch_account_url
         )
 
-        self.create_batch_pool()
-        self.create_batch_job()
+        self.batch_mgmt_client = BatchManagementClient(
+            credential=DefaultAzureCredential(
+                managed_identity_client_id=self.batch_config.managed_identity_client_id
+            ),
+            subscription_id=self.batch_config.subscription_id,
+        )
+
+        try:
+            self.create_batch_pool()
+        except WorkflowError:
+            logger.debug("Error: Failed to create batch pool, shutting down.")
+            self.shutdown()
+
+        try:
+            self.create_batch_job()
+        except WorkflowError:
+            logger.debug("Error: Failed to create batch job, shutting down.")
+            self.shutdown()
 
     def shutdown(self):
         # perform additional steps on shutdown if necessary (jobs were cancelled already)
@@ -316,25 +330,39 @@ class AzBatchExecutor(ClusterExecutor):
             self.batch_client.task.terminate(self.job_id, task.id)
         self.shutdown()
 
-    # mask_dict_val masks sensitive keys from a dictionary of values for logging
+    # mask_dict_vals masks sensitive keys from a dictionary of values for logging
     # used to mask dicts with sensitive information from logging
-    def mask_dict_val(self, mdict: dict, key: str):
-        mlen = len(mdict[key])
+    @staticmethod
+    def mask_dict_vals(mdict: dict, keys: list):
         ret_dict = mdict.copy()
-        ret_dict[key] = mlen * "*"
+        for k in keys:
+            if k in ret_dict.keys():
+                ret_dict[k] = 10 * "*"
         return ret_dict
 
     # mask blob url is used to mask url values that may contain SAS
     # token information from being printed to the logs
-    def mask_task_blob_url(self, task_attrs: dict):
-        task_attrs_new = task_attrs.copy()
-        task_attrs_new["command_line"] = re.sub(
-            # r"https\S+\.blob\.core\.windows\.net\S+",
-            r"\?sv=.+$",
-            len(self.batch_config.batch_account_url) * "*",
-            task_attrs_new["command_line"],
+    def mask_sas_urls(self, attrs: dict):
+        attrs_new = attrs.copy()
+        sas_pattern = r"\?s[v|p]=.+(\'|\"|$)"
+        mask = 10 * "*"
+        for k in attrs:
+            if attrs[k] is not None:
+                if re.search(sas_pattern, str(attrs[k])):
+                    attrs_new[k] = re.sub(sas_pattern, mask, attrs[k])
+
+        return attrs_new
+
+    def mask_batch_config_as_string(self) -> str:
+        masked_keys = self.mask_dict_vals(
+            self.batch_config.__dict__,
+            [
+                "batch_account_key",
+                "managed_identity_client_id",
+            ],
         )
-        return task_attrs_new
+        masked_urls = self.mask_sas_urls(masked_keys)
+        return pformat(masked_urls, indent=2)
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         import azure.batch._batch_service_client as batch
@@ -360,7 +388,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         # This is the admin user who runs the command inside the container.
         user = batchmodels.AutoUserSpecification(
-            scope=batchmodels.AutoUserScope.task,
+            scope=batchmodels.AutoUserScope.pool,
             elevation_level=batchmodels.ElevationLevel.admin,
         )
 
@@ -389,7 +417,7 @@ class AzBatchExecutor(ClusterExecutor):
         )
         logger.debug(f"Added AzBatch task {task_id}")
         logger.debug(
-            f"Added AzBatch task {pformat(self.mask_task_blob_url(task.__dict__), indent=2)}"
+            f"Added AzBatch task {pformat(self.mask_sas_urls(task.__dict__), indent=2)}"
         )
 
     # from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
@@ -500,6 +528,36 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                         still_running.append(batch_job)
 
+                        # fail if start task failes on a node and stream stderr stdout to stream
+                        nodeList = self.batch_client.compute_node.list(self.pool_id)
+                        for n in nodeList:
+                            if n.start_task_info is not None:
+                                if (
+                                    n.start_task_info.result
+                                    == batchmodels.TaskExecutionResult.failure
+                                ):
+                                    stderr_file = (
+                                        self.batch_client.file.get_from_compute_node(
+                                            self.pool_id, n.id, "/startup/stderr.txt"
+                                        )
+                                    )
+                                    stdout_file = (
+                                        self.batch_client.file.get_from_compute_node(
+                                            self.pool_id, n.id, "/startup/stdout.txt"
+                                        )
+                                    )
+                                    stderr_stream = self._read_stream_as_string(
+                                        stderr_file, "utf-8"
+                                    )
+                                    stdout_stream = self._read_stream_as_string(
+                                        stdout_file, "utf-8"
+                                    )
+                                    raise RuntimeError(
+                                        "start task execution failed on node.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
+                                            stdout_stream, stderr_stream
+                                        )
+                                    )
+
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
             await sleep()
@@ -509,6 +567,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         import azure.batch._batch_service_client as bsc
         import azure.batch.models as batchmodels
+        import azure.mgmt.batch.models as mgmtbatchmodels
 
         image_ref = bsc.models.ImageReference(
             publisher=self.batch_config.batch_pool_image_publisher,
@@ -537,8 +596,11 @@ class AzBatchExecutor(ClusterExecutor):
         # if configured us start task bash script from sas url
         if self.batch_config.batch_node_start_task_sasurl is not None:
             _SIMPLE_TASK_NAME = "start_task.sh"
-            logger.debug(
-                f"Using azure batch start task script: {self.batch_config.batch_node_start_task_sasurl}"
+            start_task_admin = batchmodels.UserIdentity(
+                auto_user=batchmodels.AutoUserSpecification(
+                    elevation_level=batchmodels.ElevationLevel.admin,
+                    scope=batchmodels.AutoUserScope.pool,
+                )
             )
             start_task = batchmodels.StartTask(
                 command_line=f"bash {_SIMPLE_TASK_NAME}",
@@ -548,6 +610,7 @@ class AzBatchExecutor(ClusterExecutor):
                         http_url=self.batch_config.batch_node_start_task_sasurl,
                     )
                 ],
+                user_identity=start_task_admin,
             )
 
         # autoscale requires the initial dedicated node count to be zero
@@ -564,6 +627,7 @@ class AzBatchExecutor(ClusterExecutor):
             network_configuration=network_config,
             vm_size=self.batch_config.batch_pool_vm_size,
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
+            # target_node_communication_mode=batchmodels.NodeCommunicationMode.simplified,
             target_low_priority_nodes=0,
             start_task=start_task,
             # task slots per node
@@ -595,6 +659,22 @@ class AzBatchExecutor(ClusterExecutor):
                     pool_enable_auto_scale_options=None,
                     custom_headers=None,
                     raw=False,
+                )
+
+            # update pool with managed identity, enables batch nodes to act as managed identity
+            if self.batch_config.managed_identity_resource_id is not None:
+                mid = mgmtbatchmodels.BatchPoolIdentity(
+                    type=mgmtbatchmodels.PoolIdentityType.user_assigned,
+                    user_assigned_identities={
+                        self.batch_config.managed_identity_resource_id: mgmtbatchmodels.UserAssignedIdentities()
+                    },
+                )
+                params = mgmtbatchmodels.Pool(identity=mid)
+                self.batch_mgmt_client.pool.update(
+                    resource_group_name=self.batch_config.resource_group,
+                    account_name=self.batch_config.batch_account_name,
+                    pool_name=self.pool_id,
+                    parameters=params,
                 )
 
         except batchmodels.BatchErrorException as err:
