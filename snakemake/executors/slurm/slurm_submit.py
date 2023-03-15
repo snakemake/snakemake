@@ -430,7 +430,7 @@ class SlurmExecutor(ClusterExecutor):
                     # but the job should still be queueing or running and
                     # appear in slurmdbd (and thus `sacct` output) later
                     still_running.append(j)
-                    break
+                    continue
                 status = status_of_jobs[j.jobid]
                 if status == "COMPLETED":
                     j.callback(j.job)
