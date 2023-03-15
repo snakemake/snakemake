@@ -5,11 +5,9 @@ __license__ = "MIT"
 
 import os
 import shlex
-import sys
 from collections import namedtuple
 
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.executors.common import format_cli_arg, join_cli_args
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -36,7 +34,6 @@ class FluxExecutor(ClusterExecutor):
         self,
         workflow,
         dag,
-        cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
         quiet=False,

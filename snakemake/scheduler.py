@@ -32,7 +32,7 @@ from snakemake.executors import (
 )
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
-from snakemake.executors.flux import FluxExecutor
+from snakemake.executors.flux import FluxExecutor, FluxOperatorExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -89,6 +89,8 @@ class JobScheduler:
         k8s_cpu_scalar=1.0,
         container_image=None,
         flux=None,
+        flux_operator=None,
+        flux_operator_ns=None,
         tibanna=None,
         tibanna_sfn=None,
         google_lifesciences=None,
@@ -350,7 +352,7 @@ class JobScheduler:
                 keepincomplete=keepincomplete,
             )
 
-        elif flux:
+        elif flux or flux_operator:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
@@ -360,15 +362,23 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cores=local_cores,
             )
-
-            self._executor = FluxExecutor(
-                workflow,
-                dag,
-                cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-            )
+            if flux:
+                self._executor = FluxExecutor(
+                    workflow,
+                    dag,
+                    printreason=printreason,
+                    quiet=quiet,
+                    printshellcmds=printshellcmds,
+                )
+            else:
+                self._executor = FluxOperatorExecutor(
+                    workflow,
+                    dag,
+                    printreason=printreason,
+                    quiet=quiet,
+                    printshellcmds=printshellcmds,
+                    flux_operator_ns=flux_operator_ns,
+                )
 
         elif google_lifesciences:
             self._local_executor = CPUExecutor(

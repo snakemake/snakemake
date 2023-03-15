@@ -175,6 +175,8 @@ def snakemake(
     container_image=None,
     k8s_cpu_scalar=1.0,
     flux=False,
+    flux_operator=False,
+    flux_operator_ns="flux-operator",
     tibanna=False,
     tibanna_sfn=None,
     google_lifesciences=False,
@@ -313,6 +315,7 @@ def snakemake(
         container_image (str):      Docker image to use, e.g., for Kubernetes.
         k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
         flux (bool):                Launch workflow to flux cluster.
+        flux-operator (bool):       Launch workflow to use Flux Operator MiniCluster (Kubernetes).
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -735,6 +738,8 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    flux_operator=flux_operator,
+                    flux_operator_ns=flux_operator_ns,
                     flux=flux,
                     tes=tes,
                     precommand=precommand,
@@ -794,6 +799,8 @@ def snakemake(
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
                     flux=flux,
+                    flux_operator=flux_operator,
+                    flux_operator_ns=flux_operator_ns,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -2365,6 +2372,7 @@ def get_argument_parser(profile=None):
 
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
+    group_flux_operator = parser.add_argument_group("FLUX_OPERATOR")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
@@ -2477,13 +2485,24 @@ def get_argument_parser(profile=None):
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
     )
-
     group_flux.add_argument(
         "--flux",
         action="store_true",
         help="Execute your workflow on a flux cluster. "
         "Flux can work with both a shared network filesystem (like NFS) or without. "
         "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
+    )
+
+    group_flux_operator.add_argument(
+        "--flux-operator",
+        action="store_true",
+        help="Execute your workflow on a flux MiniCluster cluster using the Flux Operator.",
+    )
+
+    group_flux_operator.add_argument(
+        "--flux-operator-namespace",
+        default="flux-operator",
+        help="Namespace for the Flux Operator MiniCluster(s).",
     )
 
     group_tes.add_argument(
@@ -2708,6 +2727,7 @@ def main(argv=None):
         or args.google_lifesciences
         or args.drmaa
         or args.flux
+        or args.flux_operator
     )
     no_exec = (
         args.print_compilation
@@ -2766,6 +2786,14 @@ def main(argv=None):
         print(
             "Error: --use-conda must be set if --conda-prefix or "
             "--create-envs-only is set.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Singularity does not work on the flux operator
+    if args.use_singularity and args.flux_operator:
+        print(
+            "Error: the --flux-operator does not support --use_singularity.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -3009,6 +3037,8 @@ def main(argv=None):
             container_image=args.container_image,
             k8s_cpu_scalar=args.k8s_cpu_scalar,
             flux=args.flux,
+            flux_operator=args.flux_operator,
+            flux_operator_ns=args.flux_operator_namespace,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             google_lifesciences=args.google_lifesciences,
