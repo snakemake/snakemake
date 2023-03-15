@@ -399,15 +399,20 @@ class SlurmExecutor(ClusterExecutor):
                         f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
                     )
                     logger.debug(f"status_of_jobs after sacct is: {status_of_jobs}")
-                    ids_with_current_sacct_status = set(status_of_jobs.keys())
+                    # only take jobs that are still active
+                    active_jobs_ids_with_current_sacct_status = (
+                        set(status_of_jobs.keys()) & active_jobs_ids
+                    )
                     active_jobs_seen_by_sacct = (
-                        active_jobs_seen_by_sacct | ids_with_current_sacct_status
+                        active_jobs_seen_by_sacct
+                        | active_jobs_ids_with_current_sacct_status
                     )
                     logger.debug(
                         f"active_jobs_seen_by_sacct are: {active_jobs_seen_by_sacct}"
                     )
                     missing_sacct_status = (
-                        active_jobs_seen_by_sacct - ids_with_current_sacct_status
+                        active_jobs_seen_by_sacct
+                        - active_jobs_ids_with_current_sacct_status
                     )
                     if not missing_sacct_status:
                         break
