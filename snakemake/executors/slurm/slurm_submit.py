@@ -308,7 +308,10 @@ class SlurmExecutor(ClusterExecutor):
                 f"The output is:\n'{command_res}'\n"
             )
             res = {
-                entry[0]: entry[1]
+                # We split the second field in the output, as the State field
+                # could contain info beyond the JOB STATE CODE according to:
+                # https://slurm.schedmd.com/sacct.html#OPT_State
+                entry[0]: entry[1].split(sep=None, maxsplit=1)[0]
                 for entry in csv.reader(StringIO(command_res), delimiter="|")
             }
         except subprocess.CalledProcessError as e:
