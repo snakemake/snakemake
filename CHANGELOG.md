@@ -110,8 +110,8 @@
 
 * add tes token ([#1966](https://github.com/snakemake/snakemake/issues/1966)) ([59a8fa0](https://github.com/snakemake/snakemake/commit/59a8fa04c4c6b113775fe11228b82510ecd36cb8))
 * Add token auth to GitLab/GitHub hosting providers ([#1761](https://github.com/snakemake/snakemake/issues/1761)) ([e03a3b4](https://github.com/snakemake/snakemake/commit/e03a3b42eea89d512290bf98ee7d77ce2e17447c)), closes [#1301](https://github.com/snakemake/snakemake/issues/1301)
-* allow for human friendly resource definitions (e.g. mem="5GB", runtime="1d") ([#1861](https://github.com/snakemake/snakemake/issues/1861)) ([24610ac](https://github.com/snakemake/snakemake/commit/24610ac75849d543fc38c83fb2454fa4f9b42075))
-* human friendly resource definitions introduce inability to parse slurm specific time format (e.g. "hh:mm:ss"). New time format (e.g. "1d") adds portability among various job schedulers and clusters ([#2154](https://github.com/snakemake/snakemake/issues/2154))
+* allow for human friendly resource definitions (e.g. mem="5GB", runtime="1d") which deprecates slurm constrained time format (e.g. runtime="hh:mm:ss") ([#1861](https://github.com/snakemake/snakemake/issues/1861)) ([24610ac](https://github.com/snakemake/snakemake/commit/24610ac75849d543fc38c83fb2454fa4f9b42075))
+
 
 
 ### Bug Fixes
@@ -131,6 +131,7 @@
 * slurm default_resources quoting ([#2043](https://github.com/snakemake/snakemake/issues/2043)) ([47d3fc3](https://github.com/snakemake/snakemake/commit/47d3fc3eef8ebe54df8b77f100fc2ab3fa36c190))
 * Update list of python versions in classifiers ([#2020](https://github.com/snakemake/snakemake/issues/2020)) ([7a98100](https://github.com/snakemake/snakemake/commit/7a98100ba92b0174c8ead3ae715042c1ab710c61))
 * use short argument name for `--chdir` for compatibility with Slurm &lt;=v17 ([#2040](https://github.com/snakemake/snakemake/issues/2040)) ([a9ed3ec](https://github.com/snakemake/snakemake/commit/a9ed3ec3e823442810388fce8a17ba4950bbdaa2))
+* human friendly resource definitions introduce inability to parse slurm specific time format (e.g. "hh:mm:ss"). New time format (e.g. "1d") adds portability among various job schedulers and clusters ([#2154](https://github.com/snakemake/snakemake/issues/2154))
 
 
 ### Documentation
