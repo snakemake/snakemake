@@ -232,7 +232,7 @@ class DAG:
                     create_inventory=True,
                 )
                 self.targetjobs.add(job)
-
+        
         self.cleanup()
 
         self.check_incomplete()

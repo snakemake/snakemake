@@ -153,6 +153,7 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        workflow_benchmark=None,
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
@@ -245,6 +246,7 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
+        self.workflow_benchmark = workflow_benchmark
         self.scheduler = None
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
@@ -402,9 +404,15 @@ class Workflow:
                     )
 
     def add_default_benchmark(self):
+        """
+        Add default benchmark files to rules without such directive. This is necessary for --workflow-benchmark.
+        """
+        self.default_target
+        
+        
         for rule in self.rules:
             if rule._benchmark is None:
-                default_name = [rule.name] + [f"{{name}}" for name in rule.wildcard_names]
+                default_name = [rule.name] + [f"{name}={{{name}}}" for name in rule.wildcard_names]
                 rule._benchmark = IOFile(f".snakemake/benchmarks/{'_'.join(default_name)}.txt", rule=rule)
 
     def add_rule(
@@ -751,7 +759,6 @@ class Workflow:
         dag.init()
         dag.update_checkpoint_dependencies()
         dag.check_dynamic()
-
         self.persistence.lock()
 
         if cleanup_shadow:
@@ -1124,8 +1131,12 @@ class Workflow:
                 if stats:
                     self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
-                #print([job._benchmark for job in dag._finished])
-                print([job.jobid for job in dag._finished])
+                if self.workflow_benchmark is not None:
+                   from snakemake.benchmark import gather_benchmark_records
+                   benchmark_files = [(job.jobid, job.rule.name, job.wildcards_dict, job._benchmark) for job in dag._finished]
+                   records = gather_benchmark_records(benchmark_files)
+                   records.to_csv(self.workflow_benchmark, sep="\t", index=False)
+
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
             return True

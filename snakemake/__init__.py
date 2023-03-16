@@ -637,6 +637,7 @@ def snakemake(
             scheduler_solver_path=scheduler_solver_path,
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
+            workflow_benchmark=workflow_benchmark,
             all_temp=all_temp,
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
@@ -649,10 +650,8 @@ def snakemake(
             overwrite_default_target=True,
             print_compilation=print_compilation,
         )
-        print([rule.benchmark for rule in workflow.rules])
         if workflow_benchmark is not None:
             workflow.add_default_benchmark()
-        print([rule.benchmark for rule in workflow.rules])
         workflow.check()
         
 
