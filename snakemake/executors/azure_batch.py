@@ -62,7 +62,7 @@ class AzBatchConfig:
             self.resource_group = self.batch_pool_subnet_id.split("/")[4]
 
         # sas url to a batch node start task bash script
-        self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SASURL")
+        self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SAS_URL")
 
         # options configured with env vars or default
         self.batch_pool_image_publisher = self.set_or_default(
@@ -99,6 +99,18 @@ class AzBatchConfig:
 
         self.resource_file_prefix = self.set_or_default(
             "BATCH_POOL_RESOURCE_FILE_PREFIX", "resource-files"
+        )
+
+        self.container_registry_url = self.set_or_default(
+            "BATCH_CONTAINER_REGISTRY_URL", None
+        )
+
+        self.container_registry_user = self.set_or_default(
+            "BATCH_CONTAINER_REGISTRY_USER", None
+        )
+
+        self.container_registry_pass = self.set_or_default(
+            "BATCH_CONTAINER_REGISTRY_PASS", None
         )
 
     @staticmethod
@@ -281,12 +293,12 @@ class AzBatchExecutor(ClusterExecutor):
             creds = DefaultAzureCredential(
                 managed_identity_client_id=self.batch_config.managed_identity_client_id
             )
-            credentials = AzureIdentityCredentialAdapter(
+            creds = AzureIdentityCredentialAdapter(
                 credential=creds, resource_id=AZURE_BATCH_RESOURCE_ENDPOINT
             )
 
         self.batch_client = BatchServiceClient(
-            credentials, batch_url=self.batch_config.batch_account_url
+            creds, batch_url=self.batch_config.batch_account_url
         )
 
         self.batch_mgmt_client = BatchManagementClient(
@@ -528,7 +540,7 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                         still_running.append(batch_job)
 
-                        # fail if start task failes on a node and stream stderr stdout to stream
+                        # fail if start task fails on a node and stream stderr stdout to stream
                         nodeList = self.batch_client.compute_node.list(self.pool_id)
                         for n in nodeList:
                             if n.start_task_info is not None:
@@ -536,25 +548,33 @@ class AzBatchExecutor(ClusterExecutor):
                                     n.start_task_info.result
                                     == batchmodels.TaskExecutionResult.failure
                                 ):
-                                    stderr_file = (
-                                        self.batch_client.file.get_from_compute_node(
+                                    try:
+                                        stderr_file = self.batch_client.file.get_from_compute_node(
                                             self.pool_id, n.id, "/startup/stderr.txt"
                                         )
-                                    )
-                                    stdout_file = (
-                                        self.batch_client.file.get_from_compute_node(
+                                        stderr_stream = self._read_stream_as_string(
+                                            stderr_file, "utf-8"
+                                        )
+                                    except:
+                                        stderr_stream = ""
+                                        pass
+
+                                    try:
+                                        stdout_file = self.batch_client.file.get_from_compute_node(
                                             self.pool_id, n.id, "/startup/stdout.txt"
                                         )
-                                    )
-                                    stderr_stream = self._read_stream_as_string(
-                                        stderr_file, "utf-8"
-                                    )
-                                    stdout_stream = self._read_stream_as_string(
-                                        stdout_file, "utf-8"
-                                    )
+                                        stdout_stream = self._read_stream_as_string(
+                                            stdout_file, "utf-8"
+                                        )
+                                    except:
+                                        stdout_stream = ""
+                                        pass
+
                                     raise RuntimeError(
-                                        "start task execution failed on node.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
-                                            stdout_stream, stderr_stream
+                                        "start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
+                                            n.start_task_info.failure_info.message,
+                                            stdout_stream,
+                                            stderr_stream,
                                         )
                                     )
 
@@ -584,10 +604,32 @@ class AzBatchExecutor(ClusterExecutor):
                 subnet_id=self.batch_config.batch_pool_subnet_id
             )
 
+        registry_conf = ""
+        if self.batch_config.container_registry_url is not None:
+            if (
+                self.batch_config.container_registry_user is not None
+                and self.batch_config.container_registry_pass is not None
+            ):
+                user = self.batch_config.container_registry_user
+                passw = self.batch_config.container_registry_pass
+                pass
+            else:
+                identity_ref = self.batch_config.managed_identity_resource_id
+                user = ""
+                passw = ""
+
+            registry_conf = [batchmodels.ContainerRegistry(
+                registry_server=self.batch_config.container_registry_url,
+                identity_reference=batchmodels.ComputeNodeIdentityReference(resource_id=self.batch_config.managed_identity_resource_id),
+                user_name=user,
+                password=passw
+            )]
+
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
-        container_config = bsc.models.ContainerConfiguration(
-            container_image_names=[self.batch_config.batch_pool_vm_container_image]
+        container_config = batchmodels.ContainerConfiguration(
+            container_image_names=[self.batch_config.batch_pool_vm_container_image],
+            container_registries=registry_conf,
         )
 
         # default to no start task
@@ -617,7 +659,7 @@ class AzBatchExecutor(ClusterExecutor):
         if self.az_batch_enable_autoscale:
             self.batch_config.batch_pool_node_count = 0
 
-        new_pool = bsc.models.PoolAddParameter(
+        new_pool = batchmodels.PoolAddParameter(
             id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
                 image_reference=image_ref,

@@ -206,7 +206,7 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
    * - BATCH_POOL_VM_SIZE
      - Standard_D2_v3
      - batch node vm image size
-   * - BATCH_NODE_START_TASK_SASURL
+   * - BATCH_NODE_START_TASK_SAS_URL
      - None
      - speicfy an SAS url to a bash script start task to run on each batch node
    * - BATCH_POOL_NODE_COUNT
@@ -248,7 +248,7 @@ Now you are ready to run the analysis:
     # export BATCH_POOL_VM_NODE_AGENT_SKU_ID="batch.node.ubuntu 20.04"
 
     # can be used to add a startup task to the batch nodes formatted as an sas url to a bash script
-    # export BATCH_NODE_START_TASK_SASURL=
+    # export BATCH_NODE_START_TASK_SAS_URL=
 
     # can be useful to alter task distribution across nodes
 
@@ -316,7 +316,7 @@ sense to shut down it down entirely:
 Defining a Start Task
 :::::
 A start task can be optionally specified as a shell scirpt that runs during each node's startup as it's added to the batch pool.
-To specify a start task, set the environment variable BATCH_NODE_START_TASK_SASURL to the SAS url of a start task shell script.
+To specify a start task, set the environment variable BATCH_NODE_START_TASK_SAS_URL to the SAS url of a start task shell script.
 Store your shell script in a blob storage account and generate an SAS url to a shell script blob object. 
 You can generate an SAS URL to the blob using the azure portal or the command line using the following command structure: 
 
@@ -329,7 +329,7 @@ You can generate an SAS URL to the blob using the azure portal or the command li
   BLOB_URL=$(az storage blob url --account-name cromwellstorage --container-name snaketest --name starttask.sh --auth-mode login -o tsv)
 
   # then export the full SAS URL
-  export BATCH_NODE_START_TASK_SASURL="${BLOB_URL}?${SAS_TOKEN}"
+  export BATCH_NODE_START_TASK_SAS_URL="${BLOB_URL}?${SAS_TOKEN}"
 
 
 Autoscaling and Task Distribution
