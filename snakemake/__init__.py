@@ -200,6 +200,7 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     keep_metadata=True,
+    workflow_benchmark=None,
     messaging=None,
     edit_notebook=None,
     envvars=None,
@@ -642,13 +643,18 @@ def snakemake(
             latency_wait=latency_wait,
         )
         success = True
-
+        
         workflow.include(
             snakefile,
             overwrite_default_target=True,
             print_compilation=print_compilation,
         )
+        print([rule.benchmark for rule in workflow.rules])
+        if workflow_benchmark is not None:
+            workflow.add_default_benchmark()
+        print([rule.benchmark for rule in workflow.rules])
         workflow.check()
+        
 
         if not print_compilation:
             if lint:
@@ -1648,6 +1654,11 @@ def get_argument_parser(profile=None):
         metavar="CSSFILE",
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
+    )
+    group_report.add_argument(
+        "--workflow-benchmark",
+        metavar="FILE",
+        help="File to write global benchmark of all jobs to.",
     )
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
@@ -2747,7 +2758,7 @@ def main(argv=None):
     except CliException as err:
         print(err.msg, sys.stderr)
         sys.exit(1)
-
+        
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
@@ -3091,6 +3102,7 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
+            workflow_benchmark=args.workflow_benchmark,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
