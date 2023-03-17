@@ -417,6 +417,14 @@ class Workflow:
                     f".snakemake/benchmarks/{'_'.join(default_name)}.txt", rule=rule
                 )
 
+    def remove_benchmark(self):
+        """
+        Disable benchmarking by removing benchmark from all rules
+        """
+
+        for rule in self.rules:
+            rule._benchmark = None
+
     def add_rule(
         self,
         name=None,
