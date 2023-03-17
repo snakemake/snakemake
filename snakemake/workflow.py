@@ -407,7 +407,6 @@ class Workflow:
         """
         Add default benchmark files to rules without such directive. This is necessary for --workflow-benchmark.
         """
-        self.default_target
 
         for rule in self.rules:
             if rule._benchmark is None:
