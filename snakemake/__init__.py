@@ -644,7 +644,7 @@ def snakemake(
             latency_wait=latency_wait,
         )
         success = True
-        
+
         workflow.include(
             snakefile,
             overwrite_default_target=True,
@@ -653,7 +653,6 @@ def snakemake(
         if workflow_benchmark is not None:
             workflow.add_default_benchmark()
         workflow.check()
-        
 
         if not print_compilation:
             if lint:
@@ -2757,7 +2756,7 @@ def main(argv=None):
     except CliException as err:
         print(err.msg, sys.stderr)
         sys.exit(1)
-        
+
     if args.drmaa_log_dir is not None:
         if not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))

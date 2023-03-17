@@ -408,12 +408,15 @@ class Workflow:
         Add default benchmark files to rules without such directive. This is necessary for --workflow-benchmark.
         """
         self.default_target
-        
-        
+
         for rule in self.rules:
             if rule._benchmark is None:
-                default_name = [rule.name] + [f"{name}={{{name}}}" for name in rule.wildcard_names]
-                rule._benchmark = IOFile(f".snakemake/benchmarks/{'_'.join(default_name)}.txt", rule=rule)
+                default_name = [rule.name] + [
+                    f"{name}={{{name}}}" for name in rule.wildcard_names
+                ]
+                rule._benchmark = IOFile(
+                    f".snakemake/benchmarks/{'_'.join(default_name)}.txt", rule=rule
+                )
 
     def add_rule(
         self,
@@ -703,7 +706,7 @@ class Workflow:
             keep_remote_local=keep_remote_local,
             batch=batch,
         )
-        
+
         self.persistence = Persistence(
             nolock=nolock,
             dag=dag,
@@ -855,7 +858,7 @@ class Workflow:
                 "execution in such cases."
             )
             return False
-        
+
         updated_files.extend(f for job in dag.needrun_jobs() for f in job.output)
 
         if generate_unit_tests:
@@ -1132,10 +1135,14 @@ class Workflow:
                     self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
                 if self.workflow_benchmark is not None:
-                   from snakemake.benchmark import gather_benchmark_records
-                   benchmark_files = [(job.jobid, job.rule.name, job.wildcards_dict, job._benchmark) for job in dag._finished]
-                   records = gather_benchmark_records(benchmark_files)
-                   records.to_csv(self.workflow_benchmark, sep="\t", index=False)
+                    from snakemake.benchmark import gather_benchmark_records
+
+                    benchmark_files = [
+                        (job.jobid, job.rule.name, job.wildcards_dict, job._benchmark)
+                        for job in dag._finished
+                    ]
+                    records = gather_benchmark_records(benchmark_files)
+                    records.to_csv(self.workflow_benchmark, sep="\t", index=False)
 
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
@@ -1251,7 +1258,7 @@ class Workflow:
             sys.path.insert(0, snakefile.get_basedir().get_path_or_uri())
 
         self.linemaps[snakefile.get_path_or_uri()] = linemap
-        
+
         exec(compile(code, snakefile.get_path_or_uri(), "exec"), self.globals)
 
         if not overwrite_default_target:

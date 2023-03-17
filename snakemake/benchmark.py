@@ -41,20 +41,6 @@ class BenchmarkRecord:
                 "cpu_time",
             )
         )
-    
-    @classmethod
-    def from_tsv(klass, file):
-        """
-        A class method to read benchmark records from a given tsv file
-        """
-        header = klass.get_header().split("\t")
-        with open(file) as f:
-            lines = f.readlines()
-        assert header == lines[0].strip().split("\t")
-        records = []
-        for line in lines[1:]:
-            records.append(klass(line.strip().split("\t")))
-        return records
 
     def __init__(
         self,
@@ -402,6 +388,7 @@ def write_benchmark_records(records, path):
     with open(path, "wt") as f:
         print_benchmark_records(records, f)
 
+
 def gather_benchmark_records(benchmark_files):
     """
     Gather benchmark from given files.
@@ -417,7 +404,11 @@ def gather_benchmark_records(benchmark_files):
     for job_attrs in benchmark_files:
         jobid, rule_name, wildcards, benchmark_file = job_attrs
         assert benchmark_file.exists
-        wildcard_str = ["NA"] if len(wildcards)==0 else [f"{name}={value}" for name, value in wildcards.items()]
+        wildcard_str = (
+            ["NA"]
+            if len(wildcards) == 0
+            else [f"{name}={value}" for name, value in wildcards.items()]
+        )
         _benchmark = pd.read_csv(benchmark_file, index_col=None, sep="\t")
         nrows = _benchmark.shape[0]
         _benchmark.insert(0, "wildcards", wildcard_str * nrows)
