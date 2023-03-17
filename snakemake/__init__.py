@@ -1667,7 +1667,6 @@ def get_argument_parser(profile=None):
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
-    
 
     group_notebooks = parser.add_argument_group("NOTEBOOKS")
 

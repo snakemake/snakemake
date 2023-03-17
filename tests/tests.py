@@ -354,10 +354,11 @@ def test_wildcard_keyword():
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
+
 @skip_on_windows
 def test_benchmark_global():
-    tmpdir = run(dpath(
-        "test_benchmark_global"),
+    tmpdir = run(
+        dpath("test_benchmark_global"),
         check_md5=False,
         workflow_benchmark="workflow.benchmark",
         cleanup=False,
@@ -370,6 +371,7 @@ def test_benchmark_global():
             else:
                 assert wildcards == "NA"
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
+
 
 def test_temp_expand():
     run(dpath("test_temp_expand"))
