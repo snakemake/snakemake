@@ -354,6 +354,22 @@ def test_wildcard_keyword():
 def test_benchmark():
     run(dpath("test_benchmark"), check_md5=False)
 
+@skip_on_windows
+def test_benchmark_global():
+    tmpdir = run(dpath(
+        "test_benchmark_global"),
+        check_md5=False,
+        workflow_benchmark="workflow.benchmark",
+        cleanup=False,
+    )
+    with open(os.path.join(tmpdir, "workflow.benchmark"), "r") as f:
+        for line in f.readlines()[1:]:
+            jobid, rule, wildcards, *_ = line.strip().split("\t")
+            if rule == "with_wildcards":
+                assert wildcards in ["num=1", "num=2", "num=3"]
+            else:
+                assert wildcards == "NA"
+    shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 def test_temp_expand():
     run(dpath("test_temp_expand"))
