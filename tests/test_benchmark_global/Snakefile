@@ -28,3 +28,4 @@ rule with_wildcards:
     output: "test.with_wildcards.{num}.output"
     shell:
         "touch {output}"
+        

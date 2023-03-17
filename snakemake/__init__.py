@@ -652,7 +652,9 @@ def snakemake(
         )
         if workflow_benchmark is not None:
             if not forceall:
-                logger.warning("Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!")
+                logger.warning(
+                    "Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!"
+                )
             workflow.add_default_benchmark()
         workflow.check()
 
