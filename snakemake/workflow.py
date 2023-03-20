@@ -1155,13 +1155,15 @@ class Workflow:
             # This will only work if the method is evaluated during parsing mode.
             # Otherwise, the stack can be empty already.
             path = self.current_basedir.join(rel_path)
+            orig_path = path.get_path_or_uri()
         else:
             # heuristically determine path
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
+            orig_path = path
 
         return sourcecache_entry(
-            self.sourcecache.get_path(infer_source_file(path)), path
+            self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
 
     @property
