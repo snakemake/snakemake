@@ -3,7 +3,7 @@ import subprocess as sp
 
 try:
     shell(
-        "source activate base; mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0 || true"
+        "mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0"
     )
 except sp.CalledProcessError as e:
     print(e.stderr)
