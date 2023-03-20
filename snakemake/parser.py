@@ -527,6 +527,10 @@ class WildcardConstraints(RuleKeywordState):
         return "wildcard_constraints"
 
 
+class LocalRule(RuleKeywordState):
+    pass
+
+
 class Run(RuleKeywordState):
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -715,6 +719,7 @@ rule_property_subautomata = dict(
     cache=Cache,
     handover=Handover,
     default_target=DefaultTarget,
+    localrule=LocalRule,
 )
 
 

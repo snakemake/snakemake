@@ -1637,6 +1637,9 @@ class Workflow:
                     rule=rule,
                 )
 
+            if ruleinfo.localrule is True:
+                self._localrules.add(rule.name)
+
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
@@ -1700,6 +1703,13 @@ class Workflow:
     def default_target_rule(self, value):
         def decorate(ruleinfo):
             ruleinfo.default_target = value
+            return ruleinfo
+
+        return decorate
+
+    def localrule(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.localrule = value
             return ruleinfo
 
         return decorate
