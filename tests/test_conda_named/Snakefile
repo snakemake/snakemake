@@ -1,4 +1,13 @@
-shell("source activate base; mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0")
+import subprocess as sp
+
+
+try:
+    shell(
+        "mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0"
+    )
+except sp.CalledProcessError as e:
+    print(e.stderr)
+    raise e
 
 
 onsuccess:
@@ -11,7 +20,7 @@ onerror:
 
 rule a:
     output:
-        "test.out"
+        "test.out",
     conda:
         "xxx-test-env"
     shell:
