@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import _io
 import sys
 import os
 import subprocess as sp
@@ -19,15 +18,10 @@ from snakemake.logging import logger
 from snakemake.deployment import singularity
 from snakemake.deployment.conda import Conda
 from snakemake.exceptions import WorkflowError
+from snakemake.io import Log, STDOUT
 
 
 __author__ = "Johannes Köster"
-
-STDOUT = sys.stdout
-if not isinstance(sys.stdout, _io.TextIOWrapper):
-    # workaround for nosetest since it overwrites sys.stdout
-    # in a strange way that does not work with Popen
-    STDOUT = None
 
 
 # There is a max length for a command executed as well as a maximum
@@ -126,6 +120,17 @@ class shell:
         with cls._lock:
             cls._processes.clear()
 
+    @classmethod
+    def _get_output_streams(cls, log: Log, capture_stdout):
+        log = log if isinstance(log, Log) else Log()
+        return log.streams(capture_stdout)
+
+    @staticmethod
+    def _close_streams(streams):
+        for stream in streams.values():
+            if stream not in (STDOUT, sp.PIPE):
+                stream.close()
+
     def __new__(
         cls, cmd, *args, iterable=False, read=False, bench_record=None, **kwargs
     ):
@@ -137,8 +142,6 @@ class shell:
             kwargs["quote_func"] = cmd_exe_quote
 
         cmd = format(cmd, *args, stepout=2, **kwargs)
-
-        stdout = sp.PIPE if iterable or read else STDOUT
 
         close_fds = sys.platform != "win32"
 
@@ -153,6 +156,8 @@ class shell:
             context = dict()
         # add kwargs to context (overwriting the locals of the caller)
         context.update(kwargs)
+
+        output_streams = cls._get_output_streams(context.get("log"), iterable or read)
 
         jobid = context.get("jobid")
         if not context.get("is_shell"):
@@ -265,9 +270,9 @@ class shell:
             cmd,
             bufsize=-1,
             shell=use_shell,
-            stdout=stdout,
             universal_newlines=iterable or read or None,
             close_fds=close_fds,
+            **output_streams,
             **cls._process_args,
             env=envvars,
         )
@@ -278,7 +283,7 @@ class shell:
 
         ret = None
         if iterable:
-            return cls.iter_stdout(proc, cmd, tmpdir)
+            return cls.iter_stdout(proc, cmd, tmpdir, output_streams)
         if read:
             ret = proc.stdout.read()
         if bench_record is not None:
@@ -296,17 +301,20 @@ class shell:
             with cls._lock:
                 del cls._processes[jobid]
 
+        cls._close_streams(output_streams)
+
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
         return ret
 
     @staticmethod
-    def iter_stdout(proc, cmd, tmpdir):
+    def iter_stdout(proc, cmd, tmpdir, output_streams):
         for l in proc.stdout:
             yield l[:-1]
         retcode = proc.wait()
         if tmpdir:
             shutil.rmtree(tmpdir)
+        shell._close_streams(output_streams)
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
 

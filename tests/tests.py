@@ -2048,3 +2048,41 @@ def test_github_issue1882():
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
+
+
+def test_output_redirection():
+    run(
+        dpath("test_output_redirection"),
+        targets=[
+            "redirect_output",
+            "redirect_output_combined",
+            "redirect_output_manual_pipe",
+        ],
+    )
+
+
+def test_output_redirection_no_overwrite():
+    tmpdir = run(
+        dpath("test_output_redirection"),
+        targets=["redirect_output_no_overwrite"],
+        cleanup=False,
+        check_results=False,
+    )
+    with Path(tmpdir, "no_overwrite.log").open("r") as f:
+        data = f.read()
+        assert "1" in data
+        assert "2" in data
+    shutil.rmtree(tmpdir)
+
+
+def test_output_redirection_invalid():
+    run(
+        dpath("test_output_redirection"),
+        targets=["redirect_output_multiple_std"],
+        shouldfail=True,
+    )
+    run(
+        dpath("test_output_redirection"),
+        targets=["redirect_output_std_collision"],
+        shouldfail=True,
+    )

@@ -3,9 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import _io
 import collections
 from hashlib import sha256
 import os
+import sys
 import shutil
 from pathlib import Path
 import re
@@ -31,6 +33,12 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
+
+STDOUT = sys.stdout
+if not isinstance(sys.stdout, _io.TextIOWrapper):
+    # workaround for nosetest since it overwrites sys.stdout
+    # in a strange way that does not work with Popen
+    STDOUT = None
 
 
 class Mtime:
@@ -1679,8 +1687,50 @@ class Resources(Namedlist):
     pass
 
 
-class Log(Namedlist):
+class LogStreamError(AttributeError):
     pass
+
+
+class Log(Namedlist):
+    def streams(self, capture_stdout=False):
+        _streams = {
+            name: value
+            for name, value in self.items()
+            if name in ("std", "stderr", "stdout")
+        }
+
+        for name, value in _streams.items():
+            if (
+                isinstance(value, tuple)
+                or isinstance(value, list)
+                or isinstance(value, dict)
+            ):
+                raise LogStreamError(
+                    "Log stream called '{}' has more than one entry.".format(name)
+                )
+            _streams[name] = str(value)
+
+        if "std" in _streams and ("stderr" in _streams or "stdout" in _streams):
+            raise LogStreamError("Can't combine std stream with stdout/stderr.")
+
+        for path in _streams.values():
+            dirname = os.path.dirname(path)
+            if any(dirname) and not os.path.exists(dirname):
+                os.makedirs(dirname)
+
+        if capture_stdout:
+            _streams.pop("stdout", None)
+        if "std" in _streams:
+            stream = open(_streams["std"], "a")
+            _streams = {"stdout": stream, "stderr": stream}
+        else:
+            _streams = {name: open(value, "a") for name, value in _streams.items()}
+        if capture_stdout:
+            _streams["stdout"] = sp.PIPE
+        elif "stdout" not in _streams:
+            _streams["stdout"] = STDOUT
+
+        return _streams
 
 
 def _load_configfile(configpath_or_obj, filetype="Config"):

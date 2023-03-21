@@ -602,7 +602,23 @@ The log file has to use the same wildcards as output files, e.g.
     log: "logs/abc.{dataset}.log"
 
 
-For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect standard output to a file (here, the ``log`` file) in Linux-based systems.
+You can use normal bash I/O redirection syntax, or alternativaly use special log
+names that instruct snakemake to write those streams to your log files:
+``stdout`` for standard output, ``stderr`` for standard error, or ``std``
+writes both streams to the same file.
+
+.. code-block:: python
+   rule X:
+     log: stdout="logs/abc.{dataset}.log", stderr="logs/abc.{dataset}.err"
+     shell: "myprog"
+   # is equivalent to:
+   rule X:
+     log: ["logs/abc.{dataset}.log", "logs/abc.{dataset}.err"]
+     shell: "myprog > log[0] 2> log[1]"
+
+   rule Y:
+     log: std="logs/combined.log"
+
 Note that it is also supported to have multiple (named) log files being specified:
 
 .. code-block:: python
