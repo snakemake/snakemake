@@ -324,6 +324,7 @@ class RealExecutor(AbstractExecutor):
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
+                "--show-failed-logs",
                 format_cli_arg("--keep-incomplete", self.keepincomplete),
                 w2a("rerun_triggers"),
                 w2a("cleanup_scripts", flag="--skip-script-cleanup"),
