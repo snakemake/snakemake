@@ -443,14 +443,14 @@ you can forward your token by setting the `TES_TOKEN` environmental variable.
     $ export TES_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 
 **Funnel basic authentication:** 
-In order to execute individual tasks for Funnel based TES servers, a basic authentication is required .
-An authentication via AOuth2 access token is not supported yet.
+In order to execute individual tasks for Funnel based TES servers, 
+a basic authentication is required. An authentication via AOuth2 access token is not supported yet.
+
+You can forward your credentials to Funnel by setting 
+the `FUNNEL_SERVER_USER` and  `FUNNEL_SERVER_PASSWORD` AS environmental variable.
 
 .. code-block:: console
 
-    $ snakemake \
-        --tes $TES_URL --tes_user $FUNNEL_USER --tes_password $FUNNEL_PASSWORD\
-        --use-conda \
-        --envvars CONDA_PKGS_DIRS CONDA_ENVS_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
-        --conda-prefix $CONDA_ENVS_PATH \
-        all
+    $ export FUNNEL_SERVER_USER=funnel
+    $ export FUNNEL_SERVER_PASSWORD=abc123
+

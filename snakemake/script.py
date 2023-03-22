@@ -583,10 +583,8 @@ class PythonScript(ScriptBase):
             file_override = os.path.realpath(self.path.get_path_or_uri())
         else:
             file_override = self.path.get_path_or_uri()
-        preamble_addendum = (
-            "__real_file__ = __file__; __file__ = {file_override};".format(
-                file_override=repr(file_override)
-            )
+        preamble_addendum = "__real_file__ = __file__; __file__ = {file_override};".format(
+            file_override=repr(file_override)
         )
 
         return PythonScript.generate_preamble(

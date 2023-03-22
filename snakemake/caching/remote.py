@@ -32,10 +32,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_write_error(entry, exception=e)
 
     def fetch(self, job: Job, cache_mode: str):
-        for entry in self._get_remotes(
-            job,
-            cache_mode,
-        ):
+        for entry in self._get_remotes(job, cache_mode):
             if not entry.exists():
                 self.raise_cache_miss_exception(job)
 

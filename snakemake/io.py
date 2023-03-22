@@ -48,9 +48,7 @@ class Mtime:
             return self._local_target
         return self._local
 
-    def remote(
-        self,
-    ):
+    def remote(self,):
         return self._remote
 
     def local(self, follow_symlinks=False):
@@ -96,6 +94,7 @@ if os.chmod in os.supports_follow_symlinks:
 
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
+
 
 else:
 
@@ -198,13 +197,7 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = [
-        "_is_function",
-        "_file",
-        "rule",
-        "_regex",
-        "_wildcard_constraints",
-    ]
+    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)

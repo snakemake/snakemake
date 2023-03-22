@@ -1160,9 +1160,7 @@ def test_group_job_resources_with_pipe(mocker):
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 60000,
-        },
+        resources={"mem_mb": 60000},
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
@@ -1186,9 +1184,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 20000,
-        },
+        resources={"mem_mb": 20000},
         group_components={0: 5},
         shouldfail=True,
         default_resources=DefaultResources(["mem_mb=0"]),

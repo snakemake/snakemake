@@ -136,10 +136,7 @@ class Persistence:
                             self._metadata_path
                         )
                         os.makedirs(target_path, exist_ok=True)
-                        shutil.copyfile(
-                            path / filename,
-                            target_path / filename,
-                        )
+                        shutil.copyfile(path / filename, target_path / filename)
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
@@ -250,11 +247,7 @@ class Persistence:
 
     def started(self, job, external_jobid=None):
         for f in job.output:
-            self._record(
-                self._incomplete_path,
-                {"external_jobid": external_jobid},
-                f,
-            )
+            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
     def finished(self, job, keep_metadata=True):
         if not keep_metadata:

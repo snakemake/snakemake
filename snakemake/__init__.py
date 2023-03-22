@@ -32,10 +32,7 @@ from snakemake.exceptions import (
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
-from snakemake.utils import (
-    update_config,
-    available_cpu_count,
-)
+from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     Mode,
     __version__,
@@ -185,8 +182,6 @@ def snakemake(
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
     tes=None,
-    tes_user=None,
-    tes_password=None,
     preemption_default=None,
     preemptible_rules=None,
     precommand="",
@@ -742,8 +737,6 @@ def snakemake(
                     google_lifesciences_cache=google_lifesciences_cache,
                     flux=flux,
                     tes=tes,
-                    tes_user=tes_user,
-                    tes_password=tes_password,
                     precommand=precommand,
                     preemption_default=preemption_default,
                     preemptible_rules=preemptible_rules,
@@ -800,8 +793,6 @@ def snakemake(
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
                     tes=tes,
-                    tes_user=tes_user,
-                    tes_password=tes_password,
                     flux=flux,
                     precommand=precommand,
                     preemption_default=preemption_default,
@@ -1068,7 +1059,7 @@ def parse_jobs(jobs, allow_none=False):
             return jobs
         raise CliException(
             "Error: you need to specify the maximum number of jobs to "
-            "be queued or executed at the same time with --jobs or -j.",
+            "be queued or executed at the same time with --jobs or -j."
         )
     if jobs == "unlimited":
         return sys.maxsize
@@ -1076,7 +1067,7 @@ def parse_jobs(jobs, allow_none=False):
         return int(jobs)
     except ValueError:
         raise CliException(
-            "Error parsing number of jobs (--jobs, -j): must be integer.",
+            "Error parsing number of jobs (--jobs, -j): must be integer."
         )
 
 
@@ -2501,18 +2492,6 @@ def get_argument_parser(profile=None):
         help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
-    group_tes.add_argument(
-        "--tes_user",
-        type=str,
-        help="Provide username to py-tes for simple authentification to e.g Funnel",
-    )
-
-    group_tes.add_argument(
-        "--tes_password",
-        type=str,
-        help="Provide password to py-tes for simple authentification to e.g Funnel",
-    )
-
     group_conda = parser.add_argument_group("CONDA")
 
     group_conda.add_argument(
@@ -3037,8 +3016,6 @@ def main(argv=None):
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
             tes=args.tes,
-            tes_user=args.tes_user,
-            tes_password=args.tes_password,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
             preemptible_rules=args.preemptible_rules,
