@@ -48,7 +48,9 @@ class Mtime:
             return self._local_target
         return self._local
 
-    def remote(self,):
+    def remote(
+        self,
+    ):
         return self._remote
 
     def local(self, follow_symlinks=False):
@@ -94,7 +96,6 @@ if os.chmod in os.supports_follow_symlinks:
 
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
-
 
 else:
 
