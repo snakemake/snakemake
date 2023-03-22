@@ -2048,3 +2048,8 @@ def test_github_issue1882():
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
+
+
+@skip_on_windows
+def test_localrule():
+    run(dpath("test_localrule"), targets=["1.txt", "2.txt"])

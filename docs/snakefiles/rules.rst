@@ -1601,6 +1601,21 @@ The keyword `localrules` allows to mark a rule as local, so that it is not submi
 Here, only jobs from the rule ``bar`` will be submitted to the cluster, whereas all and foo will be run locally.
 Note that you can use the localrules directive **multiple times**. The result will be the union of all declarations.
 
+Alternatively, you can also use the rule directive `localrule`:
+
+.. code-block:: python
+
+    rule all:
+        input: ...
+        localrule: True
+
+    rule foo:
+        ...
+        localrule: True
+
+    rule bar:
+        ...
+
 Benchmark Rules
 ---------------
 
