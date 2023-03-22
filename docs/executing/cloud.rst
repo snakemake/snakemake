@@ -396,7 +396,7 @@ This guide recommends to use S3 (or SWIFT) object storage.
 Please be aware to download final result files from S3 to your local machine by defining a rule that downloads files and gets executed locally (e.g. by setting `localrules: all, download`).
 
 **Install py-tes module:**
-TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip.
+For communication with (`GA4GH <https://www.ga4gh.org/>`_) TES servers py-tes needs to be installed. Please install py-tes, e.g. via Conda or Pip.
 
 .. code-block:: console
 
@@ -408,6 +408,9 @@ Execution
 Funnel starts container in read only mode, which is good practice.
 Anyhow, using the default Snakemake container image will likely require installing additional software within the running container.
 Therefore, we need to set two conda specific variables such that new environments will be installed at `/tmp` which will be mounted as a writable volume in the container.
+Furthermore `/tmp` may be used to write `.cache` files where the default user of the snakemake container and the default user of the TES server is USER 100.
+USER 100 is _apt user who has home as /nonexistent and thus $HOME/.cache is not writable.
+
 
 .. code-block:: console
 
@@ -438,3 +441,16 @@ you can forward your token by setting the `TES_TOKEN` environmental variable.
 .. code-block:: console
 
     $ export TES_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+**Funnel basic authentication:** 
+In order to execute individual tasks for Funnel based TES servers, 
+a basic authentication is required. An authentication via AOuth2 access token is not supported yet.
+
+You can forward your credentials to Funnel by setting 
+the `FUNNEL_SERVER_USER` and  `FUNNEL_SERVER_PASSWORD` AS environmental variable.
+
+.. code-block:: console
+
+    $ export FUNNEL_SERVER_USER=funnel
+    $ export FUNNEL_SERVER_PASSWORD=abc123
+

@@ -28,7 +28,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         printshellcmds=False,
         cluster_config=None,
         restart_times=0,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.5,
         **kwargs,
     ):
         # overwrite the command to execute a single snakemake job if necessary
