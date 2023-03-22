@@ -1150,6 +1150,7 @@ def checkpoint_target(value):
 
 def sourcecache_entry(value, orig_path_or_uri):
     from snakemake.sourcecache import SourceFile
+
     assert not isinstance(
         orig_path_or_uri, SourceFile
     ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
