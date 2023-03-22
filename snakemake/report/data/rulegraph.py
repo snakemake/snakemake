@@ -82,9 +82,7 @@ def render_rulegraph(nodes, links, links_direct):
                             "stroke": {"value": "#ccc"},
                             "strokeWidth": {"value": 1.0},
                         },
-                        "hover": {
-                            "strokeWidth": {"value": 4.0},
-                        },
+                        "hover": {"strokeWidth": {"value": 4.0}},
                     },
                     "transform": [
                         {
@@ -105,15 +103,13 @@ def render_rulegraph(nodes, links, links_direct):
                         "enter": {
                             "tooltip": {
                                 "signal": "{\"from rule\": datum['sourcerule'], \"to rule\": datum['targetrule']}"
-                            },
+                            }
                         },
                         "update": {
                             "stroke": {"value": "#ccc"},
                             "strokeWidth": {"value": 1.0},
                         },
-                        "hover": {
-                            "strokeWidth": {"value": 4.0},
-                        },
+                        "hover": {"strokeWidth": {"value": 4.0}},
                     },
                     "transform": [
                         {

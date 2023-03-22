@@ -224,10 +224,7 @@ class Job(AbstractJob):
             input_mapping,
             self.dependencies,
             self.incomplete_input_expand,
-        ) = self.rule.expand_input(
-            self.wildcards_dict,
-            groupid=groupid,
-        )
+        ) = self.rule.expand_input(self.wildcards_dict, groupid=groupid)
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files

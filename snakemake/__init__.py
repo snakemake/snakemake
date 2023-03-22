@@ -32,10 +32,7 @@ from snakemake.exceptions import (
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
-from snakemake.utils import (
-    update_config,
-    available_cpu_count,
-)
+from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     Mode,
     __version__,
@@ -1062,7 +1059,7 @@ def parse_jobs(jobs, allow_none=False):
             return jobs
         raise CliException(
             "Error: you need to specify the maximum number of jobs to "
-            "be queued or executed at the same time with --jobs or -j.",
+            "be queued or executed at the same time with --jobs or -j."
         )
     if jobs == "unlimited":
         return sys.maxsize
@@ -1070,7 +1067,7 @@ def parse_jobs(jobs, allow_none=False):
         return int(jobs)
     except ValueError:
         raise CliException(
-            "Error parsing number of jobs (--jobs, -j): must be integer.",
+            "Error parsing number of jobs (--jobs, -j): must be integer."
         )
 
 

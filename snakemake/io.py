@@ -198,13 +198,7 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = [
-        "_is_function",
-        "_file",
-        "rule",
-        "_regex",
-        "_wildcard_constraints",
-    ]
+    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)

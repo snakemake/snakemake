@@ -10,6 +10,8 @@ from common import *
 
 
 TES_URL = "http://localhost:8000"
+FUNNEL_SERVER_USER = "funnel"
+FUNNEL_SERVER_PASSWORD = "funnel_password"
 
 TEST_POST_RESPONSE = {"id": "id_1"}
 
@@ -70,6 +72,8 @@ def test_tes(requests_mock):
         forceall=True,
     )
     os.environ["TES_TOKEN"] = TES_TOKEN
+    os.environ["FUNNEL_SERVER_USER"] = FUNNEL_SERVER_USER
+    os.environ["FUNNEL_SERVER_PASSWORD"] = FUNNEL_SERVER_PASSWORD
     run(
         workdir,
         snakefile="Snakefile",

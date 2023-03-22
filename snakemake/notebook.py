@@ -91,7 +91,7 @@ class JupyterNotebook(ScriptBase):
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                        output_parameter=output_parameter,
+                        output_parameter=output_parameter
                     )
                 )
 
