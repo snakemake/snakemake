@@ -794,9 +794,8 @@ class Rule(GlobalKeywordState):
                 ):
                     if self.run:
                         raise self.error(
-                            "Multiple run or shell keywords in rule {}.".format(
-                                self.rulename
-                            ),
+                            "Multiple run/shell/script/notebook/wrapper/template_engine/cwl "
+                            "keywords in rule {}.".format(self.rulename),
                             token,
                         )
                     self.run = True
