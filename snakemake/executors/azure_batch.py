@@ -42,7 +42,7 @@ class AzBatchConfig:
 
         # managed identity resource id configuration
         self.managed_identity_resource_id = self.set_or_default(
-            "MANAGED_IDENTITY_RESOURCE_ID", None
+            "BATCH_MANAGED_IDENTITY_RESOURCE_ID", None
         )
 
         # parse subscription and resource id
@@ -51,7 +51,7 @@ class AzBatchConfig:
             self.resource_group = self.managed_identity_resource_id.split("/")[4]
 
         self.managed_identity_client_id = self.set_or_default(
-            "MANAGED_IDENTITY_CLIENT_ID", None
+            "BATCH_MANAGED_IDENTITY_CLIENT_ID", None
         )
 
         if self.batch_pool_subnet_id is not None:
@@ -60,7 +60,7 @@ class AzBatchConfig:
                 or self.managed_identity_resource_id is None
             ):
                 sys.exit(
-                    "Error: MANAGED_IDENTITY_RESOURCE_ID, MANAGED_IDENTITY_CLIENT_ID must be set when deploying batch nodes into a private subnet!"
+                    "Error: BATCH_MANAGED_IDENTITY_RESOURCE_ID, BATCH_MANAGED_IDENTITY_CLIENT_ID must be set when deploying batch nodes into a private subnet!"
                 )
 
             # parse account details necessary for batch client authentication steps
@@ -108,6 +108,12 @@ class AzBatchConfig:
         # see https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks
         self.batch_node_fill_type = self.set_or_default(
             "BATCH_NODE_FILL_TYPE", "spread"
+        )
+
+        # enables simplified batch node communication if set
+        # see: https://learn.microsoft.com/en-us/azure/batch/simplified-compute-node-communication
+        self.batch_node_communication_mode = self.set_or_default(
+            "BATCH_NODE_COMMUNICATION_SIMPLIFIED", None
         )
 
         self.resource_file_prefix = self.set_or_default(
@@ -347,6 +353,7 @@ class AzBatchExecutor(ClusterExecutor):
         self.batch_client.pool.delete(self.pool_id)
 
         logger.debug("Deleting workflow sources from blob")
+
         self.azblob_helper.delete_from_container(
             self.prefix_container, self.resource_file.file_path
         )
@@ -533,13 +540,9 @@ class AzBatchExecutor(ClusterExecutor):
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
-                            # print failures
-                            for n in self.batch_client.compute_node.list(self.pool_id):
-                                if n.errors is not None:
-                                    for e in n.errors:
-                                        print(
-                                            f"Error: {e.message}, {str(e.error_details)}"
-                                        )
+                            print(f"Error Task Failed: code={str(task.execution_info.failure_info.code)}, message={str(task.execution_info.failure_info.message)}")
+                            for d in task.execution_info.failure_info.details:
+                                print(f"Error Detailes: {str(d)}")
 
                             # cleanup on failure
                             self.shutdown()
@@ -713,6 +716,10 @@ class AzBatchExecutor(ClusterExecutor):
         if self.az_batch_enable_autoscale:
             self.batch_config.batch_pool_node_count = 0
 
+        node_communication_strategy=None
+        if self.batch_config.batch_node_communication_mode is not None:
+            node_communication_strategy=batchmodels.NodeCommunicationMode.simplified
+
         new_pool = batchmodels.PoolAddParameter(
             id=self.pool_id,
             virtual_machine_configuration=batchmodels.VirtualMachineConfiguration(
@@ -723,12 +730,12 @@ class AzBatchExecutor(ClusterExecutor):
             network_configuration=network_config,
             vm_size=self.batch_config.batch_pool_vm_size,
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
-            target_node_communication_mode=batchmodels.NodeCommunicationMode.simplified,
+            target_node_communication_mode=node_communication_strategy,
             target_low_priority_nodes=0,
             start_task=start_task,
             task_slots_per_node=self.batch_config.batch_tasks_per_node,
             task_scheduling_policy=batchmodels.TaskSchedulingPolicy(
-                node_fill_type=self.batch_config.batch_node_fill_type
+               node_fill_type=self.batch_config.batch_node_fill_type
             ),
         )
 
