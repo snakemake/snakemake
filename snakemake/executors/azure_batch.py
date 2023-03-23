@@ -44,6 +44,12 @@ class AzBatchConfig:
         self.managed_identity_resource_id = self.set_or_default(
             "MANAGED_IDENTITY_RESOURCE_ID", None
         )
+
+        # parse subscription and resource id
+        if self.managed_identity_resource_id is not None:
+            self.subscription_id = self.managed_identity_resource_id.split("/")[2]
+            self.resource_group = self.managed_identity_resource_id.split("/")[4]
+
         self.managed_identity_client_id = self.set_or_default(
             "MANAGED_IDENTITY_CLIENT_ID", None
         )
@@ -58,8 +64,15 @@ class AzBatchConfig:
                 )
 
             # parse account details necessary for batch client authentication steps
-            self.subscription_id = self.batch_pool_subnet_id.split("/")[2]
-            self.resource_group = self.batch_pool_subnet_id.split("/")[4]
+            if self.batch_pool_subnet_id.split("/")[2] != self.subscription_id:
+                raise ValueError(
+                    "Error: managed identity must be in the same subscription as the batch pool subnet."
+                )
+
+            if self.batch_pool_subnet_id.split("/")[4] != self.resource_group:
+                raise ValueError(
+                    "Error: managed identity must be in the same resource group as the batch pool subnet."
+                )
 
         # sas url to a batch node start task bash script
         self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SAS_URL")
@@ -281,7 +294,10 @@ class AzBatchExecutor(ClusterExecutor):
         )
 
         # authenticate batch client from SharedKeyCredentials
-        if self.batch_config.batch_account_key is not None:
+        if (
+            self.batch_config.batch_account_key is not None
+            and self.batch_config.managed_identity_client_id is None
+        ):
             logger.debug("Using batch account key for authentication...")
             creds = SharedKeyCredentials(
                 self.batch_config.batch_account_name,
@@ -301,12 +317,13 @@ class AzBatchExecutor(ClusterExecutor):
             creds, batch_url=self.batch_config.batch_account_url
         )
 
-        self.batch_mgmt_client = BatchManagementClient(
-            credential=DefaultAzureCredential(
-                managed_identity_client_id=self.batch_config.managed_identity_client_id
-            ),
-            subscription_id=self.batch_config.subscription_id,
-        )
+        if self.batch_config.managed_identity_resource_id is not None:
+            self.batch_mgmt_client = BatchManagementClient(
+                credential=DefaultAzureCredential(
+                    managed_identity_client_id=self.batch_config.managed_identity_client_id
+                ),
+                subscription_id=self.batch_config.subscription_id,
+            )
 
         try:
             self.create_batch_pool()
@@ -348,7 +365,7 @@ class AzBatchExecutor(ClusterExecutor):
     def mask_dict_vals(mdict: dict, keys: list):
         ret_dict = mdict.copy()
         for k in keys:
-            if k in ret_dict.keys():
+            if k in ret_dict.keys() and ret_dict[k] is not None:
                 ret_dict[k] = 10 * "*"
         return ret_dict
 
@@ -516,6 +533,14 @@ class AzBatchExecutor(ClusterExecutor):
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
+                            # print failures
+                            for n in self.batch_client.compute_node.list(self.pool_id):
+                                if n.errors is not None:
+                                    for e in n.errors:
+                                        print(
+                                            f"Error: {e.message}, {str(e.error_details)}"
+                                        )
+
                             # cleanup on failure
                             self.shutdown()
                             batch_job.error_callback(batch_job.job)
@@ -540,9 +565,21 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                         still_running.append(batch_job)
 
-                        # fail if start task fails on a node and stream stderr stdout to stream
+                        # fail if start task fails on a node or node state becomes unusable
+                        # and stream stderr stdout to stream
                         nodeList = self.batch_client.compute_node.list(self.pool_id)
                         for n in nodeList:
+                            # error on unusable node (this occurs if your container image fails to pull)
+                            if n.state == "unusable":
+                                if n.errors is not None:
+                                    for e in n.errors:
+                                        print(
+                                            f"Error: {e.message}, {e.error_details[0].__dict__}"
+                                        )
+                                raise RuntimeError(
+                                    "A node entered an unusable state, quitting."
+                                )
+
                             if n.start_task_info is not None:
                                 if (
                                     n.start_task_info.result
@@ -604,7 +641,19 @@ class AzBatchExecutor(ClusterExecutor):
                 subnet_id=self.batch_config.batch_pool_subnet_id
             )
 
-        registry_conf = ""
+        # configure a container registry
+
+        # Specify container configuration, fetching an image
+        #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
+        container_config = batchmodels.ContainerConfiguration(
+            container_image_names=[self.container_image]
+        )
+
+        user = None
+        passw = None
+        identity_ref = None
+        registry_conf = None
+
         if self.batch_config.container_registry_url is not None:
             if (
                 self.batch_config.container_registry_user is not None
@@ -612,25 +661,30 @@ class AzBatchExecutor(ClusterExecutor):
             ):
                 user = self.batch_config.container_registry_user
                 passw = self.batch_config.container_registry_pass
-                pass
+            elif self.batch_config.managed_identity_resource_id is not None:
+                identity_ref = batchmodels.ComputeNodeIdentityReference(
+                    resource_id=self.batch_config.managed_identity_resource_id
+                )
             else:
-                identity_ref = self.batch_config.managed_identity_resource_id
-                user = ""
-                passw = ""
+                raise azure.core.BatchErrorException(
+                    "No container registry authentication scheme set. Please set the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS or set MANAGED_IDENTITY_CLIENT_ID and MANAGED_IDENTITY_RESOURCE_ID."
+                )
 
-            registry_conf = [batchmodels.ContainerRegistry(
-                registry_server=self.batch_config.container_registry_url,
-                identity_reference=batchmodels.ComputeNodeIdentityReference(resource_id=self.batch_config.managed_identity_resource_id),
-                user_name=user,
-                password=passw
-            )]
+            registry_conf = [
+                batchmodels.ContainerRegistry(
+                    registry_server=self.batch_config.container_registry_url,
+                    identity_reference=identity_ref,
+                    user_name=str(user),
+                    password=str(passw),
+                )
+            ]
 
-        # Specify container configuration, fetching an image
-        #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
-        container_config = batchmodels.ContainerConfiguration(
-            container_image_names=[self.batch_config.batch_pool_vm_container_image],
-            container_registries=registry_conf,
-        )
+            # Specify container configuration, fetching an image
+            #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
+            container_config = batchmodels.ContainerConfiguration(
+                container_image_names=[self.container_image],
+                container_registries=registry_conf,
+            )
 
         # default to no start task
         start_task = None
@@ -669,10 +723,9 @@ class AzBatchExecutor(ClusterExecutor):
             network_configuration=network_config,
             vm_size=self.batch_config.batch_pool_vm_size,
             target_dedicated_nodes=self.batch_config.batch_pool_node_count,
-            # target_node_communication_mode=batchmodels.NodeCommunicationMode.simplified,
+            target_node_communication_mode=batchmodels.NodeCommunicationMode.simplified,
             target_low_priority_nodes=0,
             start_task=start_task,
-            # task slots per node
             task_slots_per_node=self.batch_config.batch_tasks_per_node,
             task_scheduling_policy=batchmodels.TaskSchedulingPolicy(
                 node_fill_type=self.batch_config.batch_node_fill_type
@@ -721,7 +774,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         except batchmodels.BatchErrorException as err:
             if err.error.code != "PoolExists":
-                raise
+                raise RuntimeError(f"Error: Failed to create pool: {err.error.message}")
             else:
                 logger.debug(f"Pool {self.pool_id} exists.")
 
