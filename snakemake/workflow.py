@@ -1146,7 +1146,8 @@ class Workflow:
 
                     benchmark_files = [
                         (job.jobid, job.rule.name, job.wildcards_dict, job._benchmark)
-                        for job in dag._finished if job.rule.name is not self.default_target
+                        for job in dag._finished
+                        if job.rule.name is not self.default_target
                     ]
                     records = gather_benchmark_records(benchmark_files)
                     records.to_csv(self.workflow_benchmark, sep="\t", index=False)
