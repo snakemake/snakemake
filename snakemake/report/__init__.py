@@ -23,6 +23,7 @@ import urllib.parse
 import hashlib
 from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
+import numbers
 
 import requests
 
@@ -213,7 +214,9 @@ def report(
 
 def expand_report_argument(item, wildcards, job):
     if is_callable(item):
-        aux_params = get_input_function_aux_params(item, {"params": job.params})
+        aux_params = get_input_function_aux_params(
+            item, {"params": job.params, "input": job.input, "output": job.output}
+        )
         try:
             item = item(wildcards, **aux_params)
         except Exception as e:
@@ -223,6 +226,8 @@ def expand_report_argument(item, wildcards, job):
             return apply_wildcards(item, wildcards)
         except AttributeError as e:
             raise WorkflowError("Failed to resolve wildcards.", e, rule=job.rule)
+    elif isinstance(item, numbers.Number) and not isinstance(item, (int, float)):
+        return str(item)
     else:
         return item
 
@@ -291,7 +296,7 @@ class RuleRecord:
             language = "bash"
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
             logger.info("Loading script code for rule {}".format(self.name))
-            _, source, language, _ = script.get_source(
+            _, source, language, _, _ = script.get_source(
                 self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
             sources = [source]
@@ -299,7 +304,7 @@ class RuleRecord:
             self._rule.wrapper
         ):
             logger.info("Loading wrapper code for rule {}".format(self.name))
-            _, source, language, _ = script.get_source(
+            _, source, language, _, _ = script.get_source(
                 wrapper.get_script(
                     self._rule.wrapper,
                     self._rule.workflow.sourcecache,
@@ -311,10 +316,8 @@ class RuleRecord:
         elif self._rule.notebook is not None and not contains_wildcard(
             self._rule.notebook
         ):
-            _, source, language, _ = script.get_source(
-                self._rule.notebook,
-                self._rule.workflow.sourcecache,
-                self._rule.basedir,
+            _, source, language, _, _ = script.get_source(
+                self._rule.notebook, self._rule.workflow.sourcecache, self._rule.basedir
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)
@@ -552,10 +555,16 @@ def expand_labels(labels, wildcards, job):
         return None
 
     if not isinstance(labels, dict) or not all(
-        isinstance(col, str) for col in labels.values()
+        isinstance(col, str) or isinstance(col, numbers.Number)
+        for col in labels.values()
     ):
+        if isinstance(labels, dict):
+            label_types = {name: type(value) for name, value in labels.items()}
+        else:
+            label_types = type(labels)
         raise WorkflowError(
-            "Expected dict of strings as labels argument given to report flag.",
+            "Expected dict of strings or numbers as labels argument given to report flag. "
+            f"Received: {label_types}",
             rule=job.rule,
         )
     return {

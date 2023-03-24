@@ -1,0 +1,10 @@
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo test '{config}' > {output}"
+
+
+use rule a as b with:
+    output:
+        report("foo.txt", caption="caption.rst")

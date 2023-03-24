@@ -48,7 +48,7 @@ class OutputFileCache(AbstractOutputFileCache):
         if not os.access(cachefile, os.R_OK):
             self.raise_read_error(cachefile)
 
-    def store(self, job: Job):
+    def store(self, job: Job, cache_mode: str):
         """
         Store generated job output in the cache.
         """
@@ -61,14 +61,16 @@ class OutputFileCache(AbstractOutputFileCache):
         with TemporaryDirectory(dir=self.path) as tmpdirname:
             tmpdir = Path(tmpdirname)
 
-            for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
+            for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
+                job, cache_mode
+            ):
                 if not os.path.exists(outputfile):
                     raise WorkflowError(
-                        "Cannot move output file {} to cache. It does not exist "
+                        f"Cannot move output file {outputfile} to cache. It does not exist "
                         "(maybe it was not created by the job?)."
                     )
                 self.check_writeable(cachefile)
-                logger.info("Moving output file {} to cache.".format(outputfile))
+                logger.info(f"Moving output file {outputfile} to cache.")
 
                 tmp = tmpdir / cachefile.name
                 # First move is performed into a tempdir (it might involve a copy if not on the same FS).
@@ -86,12 +88,13 @@ class OutputFileCache(AbstractOutputFileCache):
                 # now restore the outputfile via a symlink
                 self.symlink(cachefile, outputfile, utime=False)
 
-    def fetch(self, job: Job):
+    def fetch(self, job: Job, cache_mode: str):
         """
         Retrieve cached output file and symlink to the place where the job expects it's output.
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
-
+        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
+            job, cache_mode
+        ):
             if not cachefile.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -112,12 +115,13 @@ class OutputFileCache(AbstractOutputFileCache):
             else:
                 self.symlink(cachefile, outputfile)
 
-    def exists(self, job: Job):
+    def exists(self, job: Job, cache_mode: str):
         """
         Return True if job is already cached
         """
-        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(job):
-
+        for outputfile, cachefile in self.get_outputfiles_and_cachefiles(
+            job, cache_mode
+        ):
             if not cachefile.exists():
                 return False
 
@@ -130,8 +134,8 @@ class OutputFileCache(AbstractOutputFileCache):
             self.check_readable(cachefile)
         return True
 
-    def get_outputfiles_and_cachefiles(self, job: Job):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+    def get_outputfiles_and_cachefiles(self, job: Job, cache_mode: str):
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
         base_path = self.path / provenance_hash
 
         return (

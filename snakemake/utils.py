@@ -7,6 +7,7 @@ import os
 import json
 import re
 import inspect
+from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 import platform
@@ -60,7 +61,7 @@ def validate(data, schema, set_default=True):
 
     if isinstance(schemafile, LocalSourceFile) and not schemafile.isabs() and workflow:
         # if workflow object is not available this has not been started from a workflow
-        schemafile = workflow.current_basedir.join(schemafile)
+        schemafile = workflow.current_basedir.join(schemafile.get_path_or_uri())
 
     source = (
         workflow.sourcecache.open(schemafile)
@@ -77,10 +78,7 @@ def validate(data, schema, set_default=True):
             },
         )
     else:
-        resolver = RefResolver(
-            schemafile.get_path_or_uri(),
-            schema,
-        )
+        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -227,7 +225,7 @@ def report(
     defaultenc="utf8",
     template=None,
     metadata=None,
-    **files
+    **files,
 ):
     """Create an HTML report using python docutils.
 
@@ -284,7 +282,7 @@ def report(
         defaultenc=defaultenc,
         template=template,
         metadata=metadata,
-        **files
+        **files,
     )
 
 
@@ -429,7 +427,10 @@ def format(_pattern, *args, stepout=1, _quote_all=False, quote_func=None, **kwar
     try:
         return fmt.format(_pattern, *args, **variables)
     except KeyError as ex:
-        if str(ex).strip("'") in variables["wildcards"].keys():
+        if (
+            "wildcards" in variables
+            and str(ex).strip("'") in variables["wildcards"].keys()
+        ):
             raise NameError(
                 "The name '{0}' is unknown in this context. "
                 "Did you mean 'wildcards.{0}'?".format(str(ex).strip("'"))
@@ -494,7 +495,7 @@ def update_config(config, overwrite_config):
     """
 
     def _update(d, u):
-        for (key, value) in u.items():
+        for key, value in u.items():
             if isinstance(value, collections.abc.Mapping):
                 d[key] = _update(d.get(key, {}), value)
             else:
@@ -608,7 +609,7 @@ class Paramspace:
     By default, a directory structure with on folder level per parameter is created
     (e.g. column1~{column1}/column2~{column2}/***).
 
-    The exact behavior can be tweaked with three parameters:
+    The exact behavior can be tweaked with four parameters:
 
       - ``filename_params`` takes a list of column names of the passed dataframe.
         These names are used to build the filename (separated by '_') in the order
@@ -634,14 +635,29 @@ class Paramspace:
 
         | ``Paramspace(df, filename_params="*", filename_sep="-")`` ->
         | column1~{value1}-column2~{value2}-column3~{value3}-column4~{value4}
+
+      - ``single_wildcard`` takes a string which is used to replace the
+        default behavior of using a wildcard for each column in the dataframe
+        with a single wildcard that is used to encode all column values.
+        The given string is the name of that wildcard. The value of the wildcard
+        for individual instances of the paramspace is still controlled by above
+        other arguments. The single_wildcard mechanism can be handy if you want
+        to define a rule that shall be used for multiple paramspaces with different
+        columns.
     """
 
     def __init__(
-        self, dataframe, filename_params=None, param_sep="~", filename_sep="_"
+        self,
+        dataframe,
+        filename_params=None,
+        param_sep="~",
+        filename_sep="_",
+        single_wildcard=None,
     ):
         self.dataframe = dataframe
         self.param_sep = param_sep
         self.filename_sep = filename_sep
+        self.single_wildcard = single_wildcard
         if filename_params is None or not filename_params:
             # create a pattern of the form {}/{}/{} with one entry for each
             # column in the dataframe
@@ -679,9 +695,14 @@ class Paramspace:
         """Wildcard pattern over all columns of the underlying dataframe of the form
         column1~{column1}/column2~{column2}/*** or of the provided custom pattern.
         """
-        return self.pattern.format(
-            *map(self.param_sep.join(("{0}", "{{{0}}}")).format, self.ordered_columns)
-        )
+        if self.single_wildcard:
+            return f"{{{self.single_wildcard}}}"
+        else:
+            return self.pattern.format(
+                *map(
+                    self.param_sep.join(("{0}", "{{{0}}}")).format, self.ordered_columns
+                )
+            )
 
     @property
     def instance_patterns(self):
@@ -689,33 +710,63 @@ class Paramspace:
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
         or of the provided custom pattern.
         """
+        import pandas as pd
+
+        fmt_value = lambda value: "NA" if pd.isna(value) else value
         return (
             self.pattern.format(
                 *(
-                    self.param_sep.join(("{}", "{}")).format(name, value)
-                    for name, value in row.items()
+                    self.param_sep.join(("{}", "{}")).format(name, fmt_value(value))
+                    for name, value in row._asdict().items()
                 )
             )
-            for index, row in self.dataframe.iterrows()
+            for row in self.dataframe.itertuples(index=False)
         )
 
     def instance(self, wildcards):
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
+        from snakemake.io import regex
 
         def convert_value_dtype(name, value):
             if self.dataframe.dtypes[name] == bool and value == "False":
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return False
+            if value == "NA":
+                return pd.NA
             else:
                 return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
 
-        return {
-            name: convert_value_dtype(name, value)
-            for name, value in wildcards.items()
-            if name in self.ordered_columns
-        }
+        if self.single_wildcard:
+            wildcard_value = wildcards.get(self.single_wildcard)
+            if wildcard_value is None:
+                raise WorkflowError(
+                    f"Error processing paramspace: wildcard {self.single_wildcard} is not used in rule."
+                )
+
+            pattern = self.pattern.format(
+                *(
+                    f"{name}{self.param_sep}{{{name}}}"
+                    for name in self.dataframe.columns
+                )
+            )
+            rexp = re.compile(regex(pattern))
+            match = rexp.match(wildcard_value)
+            if not match:
+                raise WorkflowError(
+                    f"Error processing paramspace: wildcard {self.single_wildcard}={wildcards.get(self.single_wildcard)} does not match pattern {pattern}."
+                )
+            return {
+                name: convert_value_dtype(name, value)
+                for name, value in match.groupdict().items()
+            }
+        else:
+            return {
+                name: convert_value_dtype(name, value)
+                for name, value in wildcards.items()
+                if name in self.ordered_columns
+            }
 
     def __getattr__(self, name):
         import pandas as pd

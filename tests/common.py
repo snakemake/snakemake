@@ -16,10 +16,12 @@ import urllib
 import pytest
 import glob
 import subprocess
+import tarfile
 
 from snakemake import snakemake
 from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
+from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
 
 
 def dpath(path):
@@ -92,6 +94,24 @@ def get_expected_files(results_dir):
     ]
 
 
+def untar_folder(tar_file, output_path):
+    if not os.path.isdir(output_path):
+        with tarfile.open(tar_file) as tar:
+            tar.extractall(path=output_path)
+
+
+def print_tree(path, exclude=None):
+    for root, _dirs, files in os.walk(path):
+        if exclude and root.startswith(os.path.join(path, exclude)):
+            continue
+        level = root.replace(path, "").count(os.sep)
+        indent = " " * 4 * level
+        print(f"{indent}{os.path.basename(root)}/")
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            print(f"{subindent}{f}")
+
+
 def run(
     path,
     shouldfail=False,
@@ -99,17 +119,18 @@ def run(
     subpath=None,
     no_tmpdir=False,
     check_md5=True,
-    check_results=True,
+    check_results=None,
     cores=3,
-    nodes=1,
+    nodes=None,
     set_pythonpath=True,
     cleanup=True,
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
+    overwrite_resource_scopes=None,
     **params,
 ):
     """
@@ -119,6 +140,12 @@ def run(
     directory to the calling test for inspection, and the test should
     clean it up.
     """
+    if check_results is None:
+        if not shouldfail:
+            check_results = True
+        else:
+            check_results = False
+
     if set_pythonpath:
         # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
         # when subprocesses are invoked in the tempdir defined below.
@@ -197,50 +224,59 @@ def run(
             targets=targets,
             conda_frontend=conda_frontend,
             container_image=container_image,
+            overwrite_resource_scopes=(
+                ResourceScopes(overwrite_resource_scopes)
+                if overwrite_resource_scopes is not None
+                else overwrite_resource_scopes
+            ),
             **params,
         )
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
+        if not success:
+            print("Workdir:")
+            print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
-        if check_results:
-            for resultfile in get_expected_files(results_dir):
-                if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                    os.path.join(results_dir, resultfile)
-                ):
-                    # this means tests cannot use directories as output files
-                    continue
-                targetfile = join(tmpdir, resultfile)
-                expectedfile = join(results_dir, resultfile)
 
-                if ON_WINDOWS:
-                    if os.path.exists(join(results_dir, resultfile + "_WIN")):
-                        continue  # Skip test if a Windows specific file exists
-                    if resultfile.endswith("_WIN"):
-                        targetfile = join(tmpdir, resultfile[:-4])
-                elif resultfile.endswith("_WIN"):
-                    # Skip win specific result files on Posix platforms
-                    continue
+    if check_results:
+        for resultfile in get_expected_files(results_dir):
+            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
+                os.path.join(results_dir, resultfile)
+            ):
+                # this means tests cannot use directories as output files
+                continue
+            targetfile = join(tmpdir, resultfile)
+            expectedfile = join(results_dir, resultfile)
 
-                assert os.path.exists(
-                    targetfile
-                ), 'expected file "{}" not produced'.format(resultfile)
-                if check_md5:
-                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
-                    if md5target != md5expected:
-                        with open(expectedfile) as expected:
-                            expected_content = expected.read()
-                        with open(targetfile) as target:
-                            content = target.read()
-                        assert (
-                            False
-                        ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
-                            resultfile=resultfile,
-                            content=content,
-                            expected_content=expected_content,
-                        )
+            if ON_WINDOWS:
+                if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                    continue  # Skip test if a Windows specific file exists
+                if resultfile.endswith("_WIN"):
+                    targetfile = join(tmpdir, resultfile[:-4])
+            elif resultfile.endswith("_WIN"):
+                # Skip win specific result files on Posix platforms
+                continue
+
+            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
+                resultfile
+            )
+            if check_md5:
+                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                if md5target != md5expected:
+                    with open(expectedfile) as expected:
+                        expected_content = expected.read()
+                    with open(targetfile) as target:
+                        content = target.read()
+                    assert (
+                        False
+                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                        resultfile=resultfile,
+                        content=content,
+                        expected_content=expected_content,
+                    )
 
     if not cleanup:
         return tmpdir

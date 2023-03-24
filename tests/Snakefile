@@ -1,0 +1,33 @@
+localrules: all, clean
+
+rule all:
+     input: "pi.calc"
+
+rule clean:
+     shell: "rm -f pi.calc"
+
+rule compile:
+     input: "pi_MPI.c"
+     output: temp("pi_MPI")
+     resources:
+         walltime_minutes=10,
+         partition="smp",
+         tasks=1,
+         threads=1,
+         mem_mb_per_cpu=1800,
+     envmodules: "mpi/OpenMPI/4.0.5-GCC-10.2.0"
+     shell: 
+         'mpicc -o {output} {input}'
+
+rule calc_pi:
+     envmodules: "mpi/OpenMPI/4.0.5-GCC-10.2.0"
+     input: "pi_MPI"
+     output: "pi.calc"
+     resources:
+           nodes=2,
+           mem_mb=57000,
+           walltime_minutes=10,
+           tasks=2,
+           partition="parallel",
+           mpi=True,
+     shell: "{input} {output}"

@@ -56,14 +56,7 @@ def test_allow_missing():
         a="1 2".split(),
         b="3 4".split(),
         allow_missing=True,
-    ) == [
-        "1_3_{C}.ab",
-        "1_4_{C}.ab",
-        "2_3_{C}.ab",
-        "2_4_{C}.ab",
-        "3_{c}.b",
-        "4_{c}.b",
-    ]
+    ) == ["1_3_{C}.ab", "1_4_{C}.ab", "2_3_{C}.ab", "2_4_{C}.ab", "3_{c}.b", "4_{c}.b"]
     # replace product
     assert expand(
         ["{a}_{b}_{C}.ab", "{b}_{c}.b"],

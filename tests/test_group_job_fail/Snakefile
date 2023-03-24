@@ -19,9 +19,11 @@ rule b:
         "a/{sample}.out"
     output:
         "b/{sample}.out"
+    log:
+        "logs/b/{sample}.log"
     group: 0
     shell:
-        "touch {output}; exit 1"
+        "touch {output}; echo failed > {log}; exit 1"
 
 
 rule c:

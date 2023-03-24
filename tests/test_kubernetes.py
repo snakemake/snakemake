@@ -4,6 +4,8 @@ import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from snakemake.resources import DefaultResources
+
 from common import *
 
 
@@ -17,7 +19,7 @@ def kubernetes_cluster():
             try:
                 shell(
                     """
-                    gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2
+                    gcloud container clusters create {self.cluster} --num-nodes 3 --scopes storage-rw --zone us-central1-a --machine-type n1-standard-2 --local-ssd-count=1
                     gcloud container clusters get-credentials {self.cluster} --zone us-central1-a
                     gsutil mb gs://{self.bucket_name}
                     """
@@ -46,6 +48,9 @@ def kubernetes_cluster():
                     default_remote_provider="GS",
                     default_remote_prefix=self.bucket_name,
                     no_tmpdir=True,
+                    default_resources=DefaultResources(
+                        ["mem_mb=1000", "disk_mb=50"]
+                    ),  # ensure that we don't get charged too much
                     **kwargs
                 )
             except Exception as e:

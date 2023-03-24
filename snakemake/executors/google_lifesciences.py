@@ -9,6 +9,7 @@ import sys
 import time
 import shutil
 import tarfile
+
 import tempfile
 from collections import namedtuple
 import uuid
@@ -20,7 +21,7 @@ from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.common import get_container_image, get_file_hash
+from snakemake.common import get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
 
@@ -58,20 +59,30 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         preemption_default=None,
         preemptible_rules=None,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            restart_times=restart_times,
+            assume_shared_fs=False,
+            max_status_checks_per_second=10,
+        )
+        # Prepare workflow sources for build package
+        self._set_workflow_sources()
 
         # Attach variables for easy access
-        self.workflow = workflow
         self.quiet = quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
-        # Prepare workflow sources for build package
-        self._set_workflow_sources()
-
         # Set preemptible instances
         self._set_preemptible_rules(preemption_default, preemptible_rules)
 
-        # IMPORTANT: using Compute Engine API and not k8s == no support secrets
+        # IMPORTANT: using Compute Engine API and not k8s == no support for secrets
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't authenticate
@@ -105,19 +116,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # we need to add custom
         # default resources depending on the instance requested
         self.default_resources = None
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
-        )
 
     def get_default_resources_args(self, default_resources=None):
         assert default_resources is None
@@ -589,7 +587,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Filter down to those with greater than or equal to needed gpus
         keepers = {}
         for accelerator in accelerators.get("items", []):
-
             # Eliminate virtual workstations (vws) and models that don't match user preference
             if (gpu_model and accelerator["name"] != gpu_model) or accelerator[
                 "name"
@@ -636,9 +633,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         """
         self.workflow_sources = []
 
-        for wfs in self.workflow.get_sources():
+        for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [
                             self.workflow.check_source_sizes(os.path.join(dirpath, f))
@@ -828,7 +825,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return pipeline
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
@@ -891,7 +887,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status["metadata"]["events"]:
-
             logger.debug(event["description"])
 
             # Does it always result in fail for other failure reasons?
@@ -954,7 +949,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             log_verbose_traceback(ex)
             raise ex
 
-    def _wait_for_jobs(self):
+    async def _wait_for_jobs(self):
         """
         Wait for jobs to complete. This means requesting their status,
         and then marking them as finished when a "done" parameter
@@ -964,7 +959,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         while True:
             # always use self.lock to avoid race conditions
-            with self.lock:
+            async with async_lock(self.lock):
                 if not self.wait:
                     return
                 active_jobs = self.active_jobs
@@ -973,10 +968,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-
                 # use self.status_rate_limiter to avoid too many API calls.
-                with self.status_rate_limiter:
-
+                async with self.status_rate_limiter:
                     # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.operations/get
                     # Get status from projects.locations.operations/get
                     operations = self._api.projects().locations().operations()
@@ -986,7 +979,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     try:
                         status = self._retry_request(request)
                     except googleapiclient.errors.HttpError as ex:
-
                         # Operation name not found, even finished should be found
                         if ex.status == 404:
                             j.error_callback(j.job)
@@ -1004,7 +996,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
                     # The operation is done
                     if status.get("done", False) == True:
-
                         # Derive success/failure from status codes (prints too)
                         if self._job_was_successful(status):
                             j.callback(j.job)
@@ -1016,6 +1007,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     else:
                         still_running.append(j)
 
-            with self.lock:
+            async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
-            sleep()
+            await sleep()

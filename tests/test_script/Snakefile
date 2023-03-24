@@ -1,3 +1,5 @@
+from pathlib import Path
+
 
 configfile: "config.yaml"
 
@@ -10,6 +12,7 @@ rule all:
         "rust.out",
         "rust-manifest.out",
         "rust-outer-line-doc.out",
+        "bash.out",
 
 rule:
     input:
@@ -27,7 +30,7 @@ rule:
     output:
         "test.in"
     script:
-        "scripts/test.py"
+        Path("scripts/test.py")
 
 rule:
     output:
@@ -96,3 +99,23 @@ rule:
         "envs/rust.yaml"
     script:
         "scripts/test-outer-line-doc.rs"
+
+
+rule bash:
+    input:
+        "test2.in",
+        named_input="test.in",
+    output:
+        "bash.out"
+    params:
+        integer=123,
+        string="foo",
+        d={"a": "foo"}
+    resources:
+        mem_mb=1024
+    log:
+        "bash.log"
+    conda:
+        "envs/bash.yaml"
+    script:
+        "scripts/test.sh"
