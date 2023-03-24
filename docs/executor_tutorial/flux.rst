@@ -197,20 +197,16 @@ Setup
 
 To go through this tutorial, you need the following additional software installed or accessible
 
-- Kubernetes (e.g., MiniKube or similar)
+- Kubernetes (e.g., kind or an actual cluster)
 - kubectl 
 
-For this tutorial we will show you how to launch MiniKube and create a MiniCluster to run your jobs. We will
-do this in two parts - the first assuming that all job steps require the same resources (and thus can run on the
-same cluster) and the second assuming the steps need different resources, and we will create more than one
-MiniCluster.  First, bring up MiniKube and create a namespace for your jobs:
+For this tutorial we will show you how to launch kind and create a MiniCluster to run your jobs. We will
+demonstrate running with conda, and then singularity:
 
-.. code-block:: console
+Tutorial Workflow with Conda
+::::::::::::::::::::::::::::
 
-    $ minikube start
-    $ kubectl create namespace flux-operator
-
-Next, prepare the Snakemake tutorial data in a temporary directory, ``/tmp/workflow``.
+First, prepare the Snakemake tutorial data in a temporary directory, ``/tmp/workflow``.
 
 .. code-block:: console
 
@@ -225,20 +221,26 @@ The Snakefile can be found in the ``./examples/flux/operator`` directory of Snak
 
     $ cp ./examples/flux/operator/Snakefile /tmp/workflow/Snakefile
 
-The main difference is that it has a container defined for each step. Since we are using MiniKube
-(which isn't great at pulling containers like a production cluster) let's pull the container first:
+The main difference is that it has a container defined for each step. Let's create 
+a cluster now with `kind <https://kind.sigs.k8s.io/>`_. You'll need this config file 
+to mount the workflow directory to the same location:
+
+.. code-block:: yaml
+
+    apiVersion: kind.x-k8s.io/v1alpha4
+    kind: Cluster
+    nodes:
+      - role: control-plane
+        extraMounts:
+          - hostPath: /tmp/workflow
+            containerPath: /tmp/workflow
+
+
+And create the cluster, targeting the config:
 
 .. code-block:: console
 
-    $ minikube ssh docker pull ghcr.io/rse-ops/mamba:mamba-app
-
-And finally, in a separate terminal, make sure your host ``/tmp/workflow`` is bound to the same
-path in the MiniKube virtual machine:
-
-.. code-block:: console
-
-    $ minikube ssh -- mkdir -p /tmp/workflow
-    $ minikube mount /tmp/workflow:/tmp/workflow 
+    $ kind create cluster --config kind-config.yaml
 
 You'll need to install the Flux Operator! This is the easiest way:
 
@@ -247,18 +249,37 @@ You'll need to install the Flux Operator! This is the easiest way:
     $ wget https://raw.githubusercontent.com/flux-framework/flux-operator/main/examples/dist/flux-operator.yaml
     $ kubectl apply -f flux-operator.yaml 
 
-Run the Workflow 
-::::::::::::::::
-
-Finally, run the workflow from this directory, and ask for the flux Operator.
-Note that this currently depends on having the same input files locally and 
-in the cluster (created as a volume), and this is because we are running the demo 
-locally. For a production run, we'd want to mount the volume from cloud storage,
-and then run the command from there.
+And create the flux-operator namespace:
 
 .. code-block:: console
 
-    $ snakemake --cores 1 --jobs 1 --flux-operator
+    $ kubectl create namespace flux-operator
+
+For advanced users, if you shell into your control plane, you should see the files (also on the host!)
+
+.. code-block:: console
+
+    $ docker exec -it kind-control-plane bash
+    root@kind-control-plane:/# ls /tmp/workflow/
+    Dockerfile  README.md  Snakefile  config.yaml  data  environment.yaml  scripts
+
+
+Finally, load the snakemake image into kind.
+
+.. code-block:: console
+
+    $ docker pull ghcr.io/rse-ops/mamba:app-mamba
+    $ kind load docker-image ghcr.io/rse-ops/mamba:app-mamba
+
+Run the Workflow 
+^^^^^^^^^^^^^^^^
+
+Finally, run the workflow from the ``/tmp/workflow`` directory on your host, and ask for 
+the flux Operator. 
+
+.. code-block:: console
+
+    $ snakemake --cores 1 --jobs 1 --flux-operator --use-conda
 
 And you'll see the jobs run! When it's done (and you see outputs) try deleting everything,
 and then running again and allowing for more than one job to be run at once.
@@ -266,10 +287,12 @@ and then running again and allowing for more than one job to be run at once.
 .. code-block:: console
 
     $ rm -rf calls/ mapped_reads/ sorted_reads/ plots/
-    $ snakemake --cores 1 --jobs 2 --flux-operator
+    $ snakemake --cores 1 --jobs 2 --flux-operator --use-conda
+
 
 You'll notice the workflow moving faster, and this is because we have submit more
-than one job at once!
+than one job at once! Note that we discourage using MiniKube, as the conda environments
+create a lot of tiny files that (in practice) will not finish in any amount of reasonable time.
 
 How does it work?
 :::::::::::::::::

@@ -36,9 +36,9 @@ done_states = ["CD", "F", "CA", "TO"]
 fluxuser = "fluxuser"
 socket = "local:///run/flux/local"
 
+
 # Wrap the MiniCluster to add extra execution logic
 class MiniClusterExec(FluxMiniCluster):
-
     def execute(self, command, print_result=False, quiet=True):
         """
         Wrap the kubectl_exec to add logic to issue to the broker instance.
@@ -162,8 +162,6 @@ class FluxManager:
             logger.warning(f"WARNING: {name} is not a known MiniCluster")
             return
 
-        import IPython
-        IPython.embed()
         to_delete = [name] if name else list(self._clusters.keys())
         for name in to_delete:
             logger.info(f"Deleting MiniCluster {name}")
@@ -225,7 +223,7 @@ class FluxOperatorExecutor(ClusterExecutor):
         )
 
         # Set the default container image
-        self.container_image = container_image or 'ghcr.io/rse-ops/mamba:app-mamba'
+        self.container_image = container_image or "ghcr.io/rse-ops/mamba:app-mamba"
 
         # Attach variables for easy access
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
@@ -357,15 +355,18 @@ class FluxOperatorExecutor(ClusterExecutor):
         if self.ctrl.has_cluster(uid):
             return self.ctrl.get_cluster(uid), uid
 
-        # TODO If we don't have the MiniCluster, ensure we have enough room for it
-        # If we do, we can create, otherwise we need to cleanup or wait
-        # The container has a named volume "data" bound at the working directory path
+        # This is the working directory that must be present in the MiniCluster
         container = {
             "image": assignment["image"],
             "run_flux": True,
             "volumes": {"data": {"path": self.workdir}},
             "flux_user": {"name": fluxuser},
         }
+
+        # Privileged if we want to run singularity
+        # This doesn't currently work.
+        if self.workflow.use_singularity:
+            container["securityContext"] = {"privileged": True}
 
         # The MiniCluster is expecting /tmp/workflow to be bound on the node
         minicluster = {

@@ -2509,7 +2509,7 @@ def get_argument_parser(profile=None):
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to the Flux MiniCluster"
         "on Kubernetes. It must contain a Flux install and have active user root. "
-        "Defaults to ghcr.io/rse-ops/mamba:app-mamba"
+        "Defaults to ghcr.io/rse-ops/mamba:app-mamba",
     )
 
     group_tes.add_argument(
