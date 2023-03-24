@@ -540,7 +540,9 @@ class AzBatchExecutor(ClusterExecutor):
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
-                            print(f"Error Task Failed: code={str(task.execution_info.failure_info.code)}, message={str(task.execution_info.failure_info.message)}")
+                            print(
+                                f"Error Task Failed: code={str(task.execution_info.failure_info.code)}, message={str(task.execution_info.failure_info.message)}"
+                            )
                             for d in task.execution_info.failure_info.details:
                                 print(f"Error Detailes: {str(d)}")
 
@@ -716,9 +718,9 @@ class AzBatchExecutor(ClusterExecutor):
         if self.az_batch_enable_autoscale:
             self.batch_config.batch_pool_node_count = 0
 
-        node_communication_strategy=None
+        node_communication_strategy = None
         if self.batch_config.batch_node_communication_mode is not None:
-            node_communication_strategy=batchmodels.NodeCommunicationMode.simplified
+            node_communication_strategy = batchmodels.NodeCommunicationMode.simplified
 
         new_pool = batchmodels.PoolAddParameter(
             id=self.pool_id,
@@ -735,7 +737,7 @@ class AzBatchExecutor(ClusterExecutor):
             start_task=start_task,
             task_slots_per_node=self.batch_config.batch_tasks_per_node,
             task_scheduling_policy=batchmodels.TaskSchedulingPolicy(
-               node_fill_type=self.batch_config.batch_node_fill_type
+                node_fill_type=self.batch_config.batch_node_fill_type
             ),
         )
 
