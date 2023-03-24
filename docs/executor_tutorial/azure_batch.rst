@@ -5,6 +5,7 @@ Azure Batch Tutorial
 
 .. _Snakemake: http://snakemake.readthedocs.io
 .. _Python: https://www.python.org/
+.. _AZCLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
 
 In this tutorial we will show how to execute a Snakemake workflow
 on Azure batch nodes without a shared file-system. One could use attached storage 
@@ -17,7 +18,7 @@ for an overview of the various components of Azure Batch.
 
 Following the steps below you will
 
-#. Set up Azure Blob storage, download the Snakemake tutorial data and upload to storage account
+#. Set up Azure Blob storage, and sync the Snakemake tutorial data to a storage container.
 #. Create an Azure Batch account  
 #. Run the example Sankemake workflow on the batch account
 
@@ -29,8 +30,10 @@ To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.6
 * Snakemake_ ≥7.18
+* AZCLI_
 
-You should install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
+
+First install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
 and then install full snakemake with:
 
 .. code:: console
@@ -38,16 +41,12 @@ and then install full snakemake with:
     conda create -c bioconda -c conda-forge -n snakemake snakemake
 
 Make sure that the ``azure-batch`` and ``azure-storage-blob`` modules are installed
-in this environment. Should they be missing install with:
+in this environment. Should they be missing, they can be installed with:
 
 .. code:: console
 
    pip install azure-batch
    pip install azure-storage-blob
-
-In addition you will need the
-`Azure CLI command <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`__ 
-installed.
 
 Create an Azure storage account and upload example data
 :::::::::::::::::::::::::::::::::::::::::::::::
@@ -96,11 +95,9 @@ Next, you will create a storage container (think: bucket) to upload the Snakemak
    az storage blob upload-batch -d snakemake-tutorial --account-name $stgacct \
        --account-key $stgkey -s data/ --destination-path data
 
-We are using `az storage blob` for uploading, because that `az` is already installed.
+Here we are using `az storage blob` for uploading the tutorial data, because the AZCLI_ is already installed.
 Another cli tool for uploading to azure storage is 
 `azcopy <https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10>`__.
-
-
 
 Azure Blob Storage Warning: 
 :::::::::::::::::::
@@ -206,24 +203,43 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
    * - BATCH_POOL_VM_SIZE
      - Standard_D2_v3
      - batch node vm image size
-   * - BATCH_NODE_START_TASK_SAS_URL
+   * - BATCH_POOL_SUBNET_ID
      - None
-     - speicfy an SAS url to a bash script start task to run on each batch node
+     - subnetwork to deploy batch nodes into, requires the configuration of BATCH_MANAGED_IDENTITY
    * - BATCH_POOL_NODE_COUNT
      - 1
      - batch pool node count
    * - BATCH_POOL_RESOURCE_FILE_PREFIX
      - resource-files
      - container prefix for temporary resource files tar ball (Snakefile, envs)
+   * - BATCH_NODE_START_TASK_SAS_URL
+     - None
+     - speicfy an SAS url to a bash script start task to run on each batch node
    * - BATCH_NODE_FILL_TYPE
      - spread
      - possible values ("spread", or "pack") 
-   * - BATCH_POOL_NODE_COUNT
-     - 1
-     - the dedicated initial node count of the batch pool
+   * - BATCH_NODE_COMMUNICATION_SIMPLIFIED 
+     - None, "classic" 
+     - If set, configures the batch pool to use the 'simplified' node communication mode. 
    * - BATCH_TASKS_PER_NODE
      - 1
      - the number of tasks allowed per batch node
+   * - BATCH_MANAGED_IDENTITY_RESOURCE_ID
+     - None
+     - The resource ID of the managed identity to use
+   * - BATCH_MANAGED_IDENTITY_CLIENT_ID
+     - None
+     - The client ID of the managed identity to use
+   * - BATCH_CONTAINER_REGISTRY_URL
+     - None
+     - Contianer registry url to configure on the batch nodes 
+   * - BATCH_CONTAINER_REGISTRY_USER
+     - None
+     - Contianer registry user, overrides managed identity authentication if set with password.
+   * - BATCH_CONTAINER_REGISTRY_PASS
+     - None
+     - Contianer registry password
+  
    
 
 Now you are ready to run the analysis:
@@ -237,6 +253,14 @@ Now you are ready to run the analysis:
     export AZ_BLOB_ACCOUNT_URL='${account_url_with_sas}'
 
     # optional environment variables with defaults listed
+
+    # network and identity
+    # export BATCH_POOL_SUBNET_ID=
+    # export BATCH_MANAGED_IDENTITY_RESOURCE_ID=
+    # export BATCH_MANAGED_IDENTITY_CLIENT_ID=
+
+    # if unset, default is "classic"
+    # export BATCH_NODE_COMMUNICATION_SIMPLIFIED=true
 
     # don't recommend changing 
     # export BATCH_POOL_IMAGE_PUBLISHER=microsoft-azure-batch
@@ -257,6 +281,11 @@ Now you are ready to run the analysis:
     # export BATCH_POOL_NODE_COUNT=1
     # export BATCH_TASKS_PER_NODE=1
 
+    # container registry configuration to pull container image from custom registry
+    # export BATCH_CONTAINER_REGISTRY_URL=
+    # export BATCH_CONTAINER_REGISTRY_USER=
+    # export BATCH_CONTAINER_REGISTRY_PASS=
+
     snakemake \
         --jobs 3 \
         -rpf --verbose --default-remote-prefix $AZ_BLOB_PREFIX \
@@ -269,7 +298,9 @@ Now you are ready to run the analysis:
 
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
-and also supports Azure Blob storage. 
+and also supports Azure Blob storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
+to fetch from your own container registry. If that registry is an azure container registry 
+that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
 
 After completion all results including
 logs can be found in the blob container prefix specified by `--default-remote-prefix`.
