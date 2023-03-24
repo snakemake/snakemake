@@ -13,11 +13,11 @@ from snakemake.sourcecache import LocalSourceFile
 CONDA_ENV_PATH = "/conda-envs"
 
 
-def containerize(workflow):
+def containerize(workflow, dag):
     if any(
-        rule.conda_env.contains_wildcard
-        for rule in workflow.rules
-        if rule.conda_env is not None
+        job.conda_env_spec.contains_wildcard
+        for job in dag.jobs
+        if job.conda_env_spec is not None
     ):
         raise WorkflowError(
             "Containerization of conda based workflows is not allowed if any conda env definition contains a wildcard."
@@ -31,9 +31,9 @@ def containerize(workflow):
 
     envs = sorted(
         set(
-            rule.conda_env.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
-            for rule in workflow.rules
-            if rule.conda_env is not None
+            job.conda_env_spec.get_conda_env(workflow, env_dir=CONDA_ENV_PATH)
+            for job in dag.jobs
+            if job.conda_env_spec is not None
         ),
         key=relfile,
     )

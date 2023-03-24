@@ -16,10 +16,12 @@ import urllib
 import pytest
 import glob
 import subprocess
+import tarfile
 
 from snakemake import snakemake
 from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
+from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
 
 
 def dpath(path):
@@ -92,6 +94,24 @@ def get_expected_files(results_dir):
     ]
 
 
+def untar_folder(tar_file, output_path):
+    if not os.path.isdir(output_path):
+        with tarfile.open(tar_file) as tar:
+            tar.extractall(path=output_path)
+
+
+def print_tree(path, exclude=None):
+    for root, _dirs, files in os.walk(path):
+        if exclude and root.startswith(os.path.join(path, exclude)):
+            continue
+        level = root.replace(path, "").count(os.sep)
+        indent = " " * 4 * level
+        print(f"{indent}{os.path.basename(root)}/")
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            print(f"{subindent}{f}")
+
+
 def run(
     path,
     shouldfail=False,
@@ -107,9 +127,10 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
+    overwrite_resource_scopes=None,
     **params,
 ):
     """
@@ -203,12 +224,20 @@ def run(
             targets=targets,
             conda_frontend=conda_frontend,
             container_image=container_image,
+            overwrite_resource_scopes=(
+                ResourceScopes(overwrite_resource_scopes)
+                if overwrite_resource_scopes is not None
+                else overwrite_resource_scopes
+            ),
             **params,
         )
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
+        if not success:
+            print("Workdir:")
+            print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
 
     if check_results:

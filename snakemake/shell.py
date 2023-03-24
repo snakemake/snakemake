@@ -169,20 +169,24 @@ class shell:
 
         cmd = " ".join((cls._process_prefix, cmd, cls._process_suffix)).strip()
 
-        if env_modules:
+        # If the executor is the submit executor or the jobstep executor for the SLURM
+        # backend, we do not want the environment modules to be activated:
+        # if the rule requires a Python module, snakemake's environment might be
+        # incompatible with the module's environment.
+        if env_modules and "slurm" not in (item.filename for item in inspect.stack()):
             cmd = env_modules.shellcmd(cmd)
             logger.info("Activating environment modules: {}".format(env_modules))
 
         if conda_env:
             if ON_WINDOWS and not cls.get_executable():
                 # If we use cmd.exe directly on winodws we need to prepend batch activation script.
-                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd_win(
-                    conda_env, cmd
-                )
+                cmd = Conda(
+                    container_img=container_img, prefix_path=conda_base_path
+                ).shellcmd_win(conda_env, cmd)
             else:
-                cmd = Conda(container_img, prefix_path=conda_base_path).shellcmd(
-                    conda_env, cmd
-                )
+                cmd = Conda(
+                    container_img=container_img, prefix_path=conda_base_path
+                ).shellcmd(conda_env, cmd)
 
         tmpdir = None
         if len(cmd.replace("'", r"'\''")) + 2 > MAX_ARG_LEN:

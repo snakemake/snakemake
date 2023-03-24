@@ -3,18 +3,24 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import math
 import os
 import re
 import types
+import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import sys
 import inspect
-import sre_constants
 import collections
 from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
 from functools import partial
+
+try:
+    import re._constants as sre_constants
+except ImportError:  # python < 3.11
+    import sre_constants
 
 from snakemake.io import (
     IOFile,
@@ -28,8 +34,6 @@ from snakemake.io import (
     update_wildcard_constraints,
     flag,
     get_flag_value,
-)
-from snakemake.io import (
     expand,
     InputFiles,
     OutputFiles,
@@ -38,10 +42,9 @@ from snakemake.io import (
     Log,
     Resources,
     strip_wildcard_constraints,
-)
-from snakemake.io import (
     apply_wildcards,
     is_flagged,
+    flag,
     not_iterable,
     is_callable,
     DYNAMIC_FILL,
@@ -63,8 +66,9 @@ from snakemake.common import (
     get_input_function_aux_params,
     lazy_property,
     TBDString,
+    mb_to_mib,
 )
-import snakemake.io
+from snakemake.resources import infer_resources
 
 
 class Rule:
@@ -371,16 +375,7 @@ class Rule:
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        from snakemake.deployment.conda import (
-            is_conda_env_file,
-            CondaEnvFileSpec,
-            CondaEnvNameSpec,
-        )
-
-        if is_conda_env_file(conda_env):
-            self._conda_env = CondaEnvFileSpec(conda_env, rule=self)
-        else:
-            self._conda_env = CondaEnvNameSpec(conda_env)
+        self._conda_env = conda_env
 
     @property
     def container_img(self):
@@ -410,12 +405,21 @@ class Rule:
     def output(self):
         return self._output
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
+        products = [self.output]
+        if include_logfiles:
+            products.append(self.log)
         if self.benchmark:
-            return chain(self.output, self.log, [self.benchmark])
-        else:
-            return chain(self.output, self.log)
+            products.append([self.benchmark])
+        return chain(*products)
+
+    def get_some_product(self):
+        for product in self.products():
+            return product
+        return None
+
+    def has_products(self):
+        return self.get_some_product() is not None
 
     def register_wildcards(self, wildcard_names):
         if self._wildcard_names is None:
@@ -523,6 +527,7 @@ class Rule:
         inoutput -- a Namedlist of either input or output items
         name     -- an optional name for the item
         """
+
         inoutput = self.output if output else self.input
 
         # Check to see if the item is a path, if so, just make it a string
@@ -551,8 +556,8 @@ class Rule:
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
-                for flag in item.flags:
-                    if not output and flag in [
+                for item_flag in item.flags:
+                    if not output and item_flag in [
                         "protected",
                         "temp",
                         "temporary",
@@ -560,16 +565,17 @@ class Rule:
                         "touch",
                         "pipe",
                         "service",
+                        "ensure",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
-                    if output and flag in ["ancient"]:
+                    if output and item_flag in ["ancient"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
 
@@ -591,7 +597,7 @@ class Rule:
 
             if self.workflow.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
-                item = snakemake.io.flag(item, "temp")
+                item = flag(item, "temp")
 
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
@@ -722,8 +728,8 @@ class Rule:
 
         if missing_wildcards:
             raise RuleException(
-                "Could not resolve wildcards in rule {}:\n{}".format(
-                    self.name, "\n".join(self.wildcard_names)
+                "Could not resolve wildcards:\n{}".format(
+                    "\n".join(self.wildcard_names)
                 ),
                 lineno=self.lineno,
                 snakefile=self.snakefile,
@@ -1056,39 +1062,48 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(
+        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+    ):
         resources = dict()
 
         def apply(name, res, threads=None):
-            if callable(res):
-                aux = dict(rulename=self.name)
-                if threads is not None:
-                    aux["threads"] = threads
-                try:
-                    res, _ = self.apply_input_function(
-                        res,
-                        wildcards,
-                        input=input,
-                        attempt=attempt,
-                        incomplete_checkpoint_func=lambda e: 0,
-                        raw_exceptions=True,
-                        **aux,
+            if skip_evaluation is not None and name in skip_evaluation:
+                res = TBDString()
+            else:
+                if callable(res):
+                    aux = dict(rulename=self.name)
+                    if threads is not None:
+                        aux["threads"] = threads
+                    try:
+                        res, _ = self.apply_input_function(
+                            res,
+                            wildcards,
+                            input=input,
+                            attempt=attempt,
+                            incomplete_checkpoint_func=lambda e: 0,
+                            raw_exceptions=True,
+                            **aux,
+                        )
+                    except (Exception, BaseException) as e:
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+
+                if isinstance(res, float):
+                    # round to integer
+                    res = int(round(res))
+
+                if (
+                    not isinstance(res, int)
+                    and not isinstance(res, str)
+                    and res is not None
+                ):
+                    raise WorkflowError(
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
+                        rule=self,
                     )
-                except (Exception, BaseException) as e:
-                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
-
-            if isinstance(res, float):
-                # round to integer
-                res = int(round(res))
-
-            if not isinstance(res, int) and not isinstance(res, str):
-                raise WorkflowError(
-                    f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
-                    rule=self,
-                )
 
             global_res = self.workflow.global_resources.get(name)
-            if global_res is not None:
+            if global_res is not None and res is not None:
                 if not isinstance(res, TBDString) and type(res) != type(global_res):
                     global_type = (
                         "an int" if isinstance(global_res, int) else type(global_res)
@@ -1104,13 +1119,34 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if threads is None:
+            raise WorkflowError("Threads must be given as an int", rule=self)
         if self.workflow.max_threads is not None:
             threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
-        for name, res in self.resources.items():
+        for name, res in list(self.resources.items()):
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+
+                if value is not None:
+                    resources[name] = value
+                    # Infer standard resources from eventual human readable forms.
+                    infer_resources(name, value, resources)
+
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
+                        ):
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
+
         resources = Resources(fromdict=resources)
         return resources
 
@@ -1124,23 +1160,41 @@ class Rule:
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards):
-        try:
-            conda_env = (
-                self.conda_env.apply_wildcards(wildcards, self)
-                if self.conda_env
-                else None
-            )
-        except WildcardError as e:
-            raise WildcardError(
-                "Wildcards in conda environment file cannot be "
-                "determined from output files:",
-                str(e),
-                rule=self,
+    def expand_conda_env(self, wildcards, params=None, input=None):
+        from snakemake.common import is_local_file
+        from snakemake.sourcecache import SourceFile, infer_source_file
+        from snakemake.deployment.conda import (
+            is_conda_env_file,
+            CondaEnvFileSpec,
+            CondaEnvNameSpec,
+        )
+
+        conda_env = self._conda_env
+        if callable(conda_env):
+            conda_env, _ = self.apply_input_function(
+                conda_env, wildcards=wildcards, params=params, input=input
             )
 
-        if conda_env is not None:
-            conda_env.check()
+        if conda_env is None:
+            return None
+
+        if is_conda_env_file(conda_env):
+            if not isinstance(conda_env, SourceFile):
+                if is_local_file(conda_env) and not os.path.isabs(conda_env):
+                    # Conda env file paths are considered to be relative to the directory of the Snakefile
+                    # hence we adjust the path accordingly.
+                    # This is not necessary in case of receiving a SourceFile.
+                    conda_env = self.basedir.join(conda_env)
+                else:
+                    # infer source file from unmodified uri or path
+                    conda_env = infer_source_file(conda_env)
+
+            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            conda_env = CondaEnvNameSpec(conda_env)
+
+        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env.check()
 
         return conda_env
 
@@ -1149,7 +1203,7 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.products:
+            for o in self.products():
                 if o.match(requested_output):
                     return True
             return False
@@ -1164,20 +1218,51 @@ class Rule:
                 "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
             )
 
-    def get_wildcards(self, requested_output):
+    def get_wildcards(self, requested_output, wildcards_dict=None):
         """
-        Return wildcard dictionary by matching regular expression
-        output files to the requested concrete ones.
+        Return wildcard dictionary by
+        1. trying to format the output with the given wildcards and comparing with the requested output
+        2. matching regular expression output files to the requested concrete ones.
 
         Arguments
         requested_output -- a concrete filepath
         """
         if requested_output is None:
             return dict()
+
+        # first try to match the output with the given wildcards
+        if wildcards_dict is not None:
+            if self.wildcard_names <= wildcards_dict.keys():
+                wildcards_dict = {
+                    wildcard: value
+                    for wildcard, value in wildcards_dict.items()
+                    if wildcard in self.wildcard_names
+                }
+                for o in self.products():
+                    try:
+                        applied = o.apply_wildcards(wildcards_dict)
+                        # if the output formatted with the wildcards matches the requested output,
+                        if applied == requested_output:
+                            # we check whether the wildcards satisfy the constraints
+                            constraints = o.wildcard_constraints()
+
+                            def check_constraint(wildcard, value):
+                                constraint = constraints.get(wildcard)
+                                return constraint is None or constraint.match(value)
+
+                            if all(
+                                check_constraint(name, value)
+                                for name, value in wildcards_dict.items()
+                            ):
+                                # and then just return the given wildcards_dict limited to the wildcards that are actually used
+                                return wildcards_dict
+                    except WildcardError:
+                        continue
+
         bestmatchlen = 0
         bestmatch = None
 
-        for o in self.products:
+        for o in self.products():
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
@@ -1212,7 +1297,10 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.output == other.output
+        if isinstance(other, Rule):
+            return self.name == other.name and self.output == other.output
+        else:
+            return False
 
 
 class Ruleorder:
@@ -1269,7 +1357,23 @@ class RuleProxy:
 
     @lazy_property
     def input(self):
-        return self.rule.input._stripped_constraints()
+        def modify_callable(item):
+            if is_callable(item):
+                # For callables ensure that the rule's original path modifier is applied as well.
+
+                def inner(wildcards):
+                    return self.rule.apply_path_modifier(
+                        item(wildcards), self.rule.input_modifier, property="input"
+                    )
+
+                return inner
+            else:
+                # For strings, the path modifier has been already applied.
+                return item
+
+        return InputFiles(
+            toclone=self.rule.input, strip_constraints=True, custom_map=modify_callable
+        )
 
     @lazy_property
     def params(self):

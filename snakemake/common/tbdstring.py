@@ -8,9 +8,6 @@ class TBDString(str):
     def __getitem__(self, __item):
         return self
 
-    def __getattribute__(self, __name):
-        return self
-
     def __bool__(self):
         return False
 

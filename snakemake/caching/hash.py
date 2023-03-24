@@ -20,14 +20,14 @@ class ProvenanceHashMap:
     def __init__(self):
         self._hashes = dict()
 
-    def get_provenance_hash(self, job: Job):
+    def get_provenance_hash(self, job: Job, cache_mode: str):
         versioned_hash = hashlib.sha256()
         # Ensure that semantic version changes in this module
-        versioned_hash.update(self._get_provenance_hash(job).encode())
+        versioned_hash.update(self._get_provenance_hash(job, cache_mode).encode())
         versioned_hash.update(__version__.encode())
         return versioned_hash.hexdigest()
 
-    def _get_provenance_hash(self, job: Job):
+    def _get_provenance_hash(self, job: Job, cache_mode: str):
         """
         Recursively calculate hash for the output of the given job
         and all upstream jobs in a blockchain fashion.
@@ -38,6 +38,8 @@ class ProvenanceHashMap:
         This hash, however, shall work without having to generate the files,
         just by describing all steps down to a given job.
         """
+        assert (cache_mode == "omit-software") or (cache_mode == "all")
+
         if job in self._hashes:
             return self._hashes[job]
 
@@ -50,7 +52,7 @@ class ProvenanceHashMap:
             # resources, and filenames (which shall be irrelevant for the hash).
             h.update(job.rule.shellcmd.encode())
         elif job.is_script:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 job.rule.script,
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -59,7 +61,7 @@ class ProvenanceHashMap:
             )
             h.update(source.encode())
         elif job.is_notebook:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 job.rule.notebook,
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -68,7 +70,7 @@ class ProvenanceHashMap:
             )
             h.update(source.encode())
         elif job.is_wrapper:
-            _, source, _, _ = script.get_source(
+            _, source, _, _, _ = script.get_source(
                 wrapper.get_script(
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
@@ -111,16 +113,17 @@ class ProvenanceHashMap:
             h.update(file_hash.encode())
 
         # Hash used containers or conda environments.
-        if workflow.use_conda and job.conda_env:
-            if workflow.use_singularity and job.conda_env.container_img_url:
-                h.update(job.conda_env.container_img_url.encode())
-            h.update(job.conda_env.content)
-        elif workflow.use_singularity and job.container_img_url:
-            h.update(job.container_img_url.encode())
+        if cache_mode != "omit-software":
+            if workflow.use_conda and job.conda_env:
+                if workflow.use_singularity and job.conda_env.container_img_url:
+                    h.update(job.conda_env.container_img_url.encode())
+                h.update(job.conda_env.content)
+            elif workflow.use_singularity and job.container_img_url:
+                h.update(job.container_img_url.encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).
         for dep_hash in sorted(
-            self._get_provenance_hash(dep)
+            self._get_provenance_hash(dep, cache_mode)
             for dep in set(job.dag.dependencies[job].keys())
         ):
             h.update(dep_hash.encode())

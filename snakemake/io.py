@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import collections
+from hashlib import sha256
 import os
 import shutil
 from pathlib import Path
@@ -197,12 +198,7 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = [
-        "_is_function",
-        "_file",
-        "rule",
-        "_regex",
-    ]
+    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -221,6 +217,7 @@ class _IOFile(str):
         obj._file = file
         obj.rule = None
         obj._regex = None
+        obj._wildcard_constraints = None
 
         if obj.is_remote:
             obj.remote_object._iofile = obj
@@ -302,7 +299,7 @@ class _IOFile(str):
         else:
             ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
 
-        for (i, path) in enumerate(ancestors):
+        for i, path in enumerate(ancestors):
             if path in cache.exists_local.has_inventory:
                 # This path was already scanned before, hence we can stop.
                 break
@@ -561,6 +558,10 @@ class _IOFile(str):
     def flags(self):
         return getattr(self._file, "flags", {})
 
+    def is_fifo(self):
+        """Return True if file is a FIFO according to the filesystem."""
+        return stat.S_ISFIFO(os.stat(self).st_mode)
+
     @property
     @iocache
     @_refer_to_remote
@@ -573,12 +574,52 @@ class _IOFile(str):
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
+    def is_checksum_eligible(self):
+        return (
+            self.exists_local
+            and not os.path.isdir(self.file)
+            and self.size < 100000
+            and not self.is_fifo()
+        )
+
+    def checksum(self, force=False):
+        """Return checksum if file is small enough, else None.
+        Returns None if file does not exist. If force is True,
+        omit eligibility check."""
+        if force or self.is_checksum_eligible():  # less than 100000 bytes
+            checksum = sha256()
+            if self.size > 0:
+                # only read if file is bigger than zero
+                # otherwise the checksum is the same as taking hexdigest
+                # from the empty sha256 as initialized above
+                # This helps endless reading in case the input
+                # is a named pipe or a socket or a symlink to a device like
+                # /dev/random.
+                with open(self.file, "rb") as f:
+                    checksum.update(f.read())
+            return checksum.hexdigest()
+        else:
+            return None
+
+    def is_same_checksum(self, other_checksum, force=False):
+        checksum = self.checksum(force=force)
+        if checksum is None or other_checksum is None:
+            # if no checksum available or files too large, not the same
+            return False
+        else:
+            return checksum == other_checksum
+
     def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local and os.lstat(self.file):
-            raise WorkflowError(
-                "File {} seems to be a broken symlink.".format(self.file)
-            )
+        if not self.exists_local:
+            try:
+                if os.lstat(self.file):
+                    raise WorkflowError(
+                        "File {} seems to be a broken symlink.".format(self.file)
+                    )
+            except FileNotFoundError as e:
+                # there is no broken symlink present, hence all fine
+                return
 
     @_refer_to_remote
     def is_newer(self, time):
@@ -624,12 +665,14 @@ class _IOFile(str):
         mode = (
             os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         )
+        # iterate over content if output is a directory
         if os.path.isdir(self.file):
-            for root, dirs, files in os.walk(self.file):
-                for d in dirs:
-                    lchmod(os.path.join(self.file, d), mode)
-                for f in files:
-                    lchmod(os.path.join(self.file, f), mode)
+            # topdown=False ensures we chmod first the content, then the dir itself
+            for dirpath, dirnames, filenames in os.walk(self.file, topdown=False):
+                # no need to treat differently directories or files
+                for content in dirnames + filenames:
+                    lchmod(os.path.join(dirpath, content), mode)
+        # protect explicit output itself
         lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
@@ -710,6 +753,11 @@ class _IOFile(str):
             # compile a regular expression
             self._regex = re.compile(regex(self.file))
         return self._regex
+
+    def wildcard_constraints(self):
+        if self._wildcard_constraints is None:
+            self._wildcard_constraints = get_wildcard_constraints(self.file)
+        return self._wildcard_constraints
 
     def constant_prefix(self):
         first_wildcard = _wildcard_regex.search(self.file)
@@ -839,7 +887,7 @@ def get_wildcard_names(pattern):
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(path) is not None
+    return _wildcard_regex.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
@@ -872,6 +920,14 @@ def remove(file, remove_non_empty_dir=False):
             os.remove(file)
         except FileNotFoundError:
             pass
+
+
+def get_wildcard_constraints(pattern):
+    constraints = {}
+    for match in _wildcard_regex.finditer(pattern):
+        if match.group("constraint"):
+            constraints[match.group("name")] = re.compile(match.group("constraint"))
+    return constraints
 
 
 def regex(filepattern):
@@ -1020,7 +1076,7 @@ def pipe(value):
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
     if ON_WINDOWS:
-        logger.warning("Pipes is not yet supported on Windows.")
+        logger.warning("Pipes are not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
 
 
@@ -1069,6 +1125,10 @@ def touch(value):
     return flag(value, "touch")
 
 
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+
+
 def unpack(value):
     return flag(value, "unpack")
 
@@ -1083,6 +1143,11 @@ def checkpoint_target(value):
 
 
 def sourcecache_entry(value, orig_path_or_uri):
+    from snakemake.sourcecache import SourceFile
+
+    assert not isinstance(
+        orig_path_or_uri, SourceFile
+    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 
@@ -1179,6 +1244,16 @@ def expand(*args, **wildcards):
             if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
                 format_dict = dict
                 break
+
+    # raise error if function is passed as value for any wildcard
+    for key, value in wildcards.items():
+        if callable(value):
+            raise WorkflowError(
+                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
+                "This is most likely not what you want, as expand takes iterables of values or single values for "
+                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
+                "expand in another function that does the computation."
+            )
 
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
@@ -1394,6 +1469,9 @@ def git_content(git_file):
 
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
+    if is_callable(pattern):
+        # do not apply on e.g. input functions
+        return pattern
 
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))
@@ -1436,7 +1514,12 @@ class Namedlist(list):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
-                self.extend(map(str, toclone))
+                self.extend(
+                    x.remote_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    else str(x)
+                    for x in toclone
+                )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:
@@ -1521,7 +1604,6 @@ class Namedlist(list):
                 item[1][0] + 1 if item[1][1] is None else item[1][1],
             ),
         ):
-
             start, end = index
             if end is None:
                 end = start + 1
@@ -1558,11 +1640,10 @@ class Namedlist(list):
         return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
-        try:
+        if isinstance(key, str):
+            return getattr(self, key)
+        else:
             return super().__getitem__(key)
-        except TypeError:
-            pass
-        return getattr(self, key)
 
     def __hash__(self):
         return hash(tuple(self))

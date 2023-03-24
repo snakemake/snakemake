@@ -13,6 +13,7 @@ dependencies:
   - wrapt
   - pyyaml
   - pytest
+  - pytest-mock
   - pytest-cov
   - ftputil
   - pysftp
@@ -35,11 +36,11 @@ dependencies:
   - google-api-python-client
   - oauth2client
   - azure-storage-blob
-  - ratelimiter
   - configargparse
   - appdirs
   - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
   - cwltool
+  - cwl-utils
   - jsonschema
   - pandas
   - python-kubernetes
@@ -48,7 +49,7 @@ dependencies:
   - tibanna
   - environment-modules
   - nbformat
-  - toposort
+  - toposort >=1.10
   - mamba
   - crc32c
   - pip
@@ -61,5 +62,7 @@ dependencies:
   - smart_open
   - filelock
   - tabulate
-  - retry
+  - reretry
   - graphviz
+  - humanfriendly
+  - throttler
