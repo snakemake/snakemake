@@ -32,18 +32,24 @@ JobInfo = namedtuple("JobInfo", "jobid user name state ntasks nnodes time node")
 # completed, failed, cancelled, timeout
 done_states = ["CD", "F", "CA", "TO"]
 
+# Shared flux user
+fluxuser = "fluxuser"
+socket = "local:///run/flux/local"
 
 # Wrap the MiniCluster to add extra execution logic
 class MiniClusterExec(FluxMiniCluster):
-    fluxuser = "flux"
 
     def execute(self, command, print_result=False, quiet=True):
         """
         Wrap the kubectl_exec to add logic to issue to the broker instance.
         """
+        envars = ["PATH", "PYTHONPATH", "LD_LIBRARY_PATH"]
+        envars = " ".join([f"-E {e}=${e}" for e in envars])
+        home = f"/home/{fluxuser}"
+
         # Always execute to the broker pod
         res = self.ctrl.kubectl_exec(
-            f"sudo -u {self.fluxuser} flux proxy local:///var/run/flux/local {command}",
+            f"sudo -u {fluxuser} {envars} -E HOME={home} flux proxy {socket} {command}",
             quiet=quiet,
             pod=self.broker_pod,
             namespace=self.namespace,
@@ -59,6 +65,7 @@ class MiniClusterExec(FluxMiniCluster):
         """
         while True:
             res = self.execute("flux jobs -a")
+            logger.debug(res)
             # flux-jobs: ERROR: No service matching job-list.list is registered
             if "JOBID" in res:
                 break
@@ -95,6 +102,12 @@ class FluxManager:
         raw = self._clusters[uid].execute(f"flux jobs {jobid} --no-header")
         parts = [x for x in re.split("[ ]+", raw) if x]
         return JobInfo(*parts)
+
+    def job_log(self, jobid, uid):
+        """
+        Get the log for a failed job (this will hang otherwise)
+        """
+        return self._clusters[uid].execute(f"flux job attach {jobid}")
 
     def has_cluster(self, name):
         """
@@ -149,6 +162,8 @@ class FluxManager:
             logger.warning(f"WARNING: {name} is not a known MiniCluster")
             return
 
+        import IPython
+        IPython.embed()
         to_delete = [name] if name else list(self._clusters.keys())
         for name in to_delete:
             logger.info(f"Deleting MiniCluster {name}")
@@ -195,6 +210,7 @@ class FluxOperatorExecutor(ClusterExecutor):
         printshellcmds=False,
         kubernetes_nodes=4,
         flux_operator_ns="flux-operator",
+        container_image=None,
     ):
         super().__init__(
             workflow,
@@ -208,6 +224,9 @@ class FluxOperatorExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
 
+        # Set the default container image
+        self.container_image = container_image or 'ghcr.io/rse-ops/mamba:app-mamba'
+
         # Attach variables for easy access
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self.envvars = list(self.workflow.envvars) or []
@@ -220,8 +239,7 @@ class FluxOperatorExecutor(ClusterExecutor):
             )
         self.ctrl = FluxManager(flux_operator_ns)
 
-        # Ensure each step has a container defined, and get max nodes of k8s cluster
-        self.check_dag()
+        # Set max nodes of k8s cluster
         self.set_max_nodes(kubernetes_nodes)
 
         # Plan execution of dag - minicluster assignments
@@ -244,23 +262,6 @@ class FluxOperatorExecutor(ClusterExecutor):
             self._max_nodes = int(os.environ.get("SNAKEMAKE_FLUX_OPERATOR_MAX_NODES"))
         except:
             self._max_nodes = max_nodes
-
-    def check_dag(self):
-        """
-        Ensure that each step in the workflow has a container defined.
-        """
-        for step in self.dag._needrun:
-            if step.name == "all":
-                continue
-            container = step.container_img_url
-            if not container:
-                raise WorkflowError(
-                    f"{step} is missing a container directive. All Flux Operator steps require a container."
-                )
-            if not container.startswith("docker://"):
-                raise WorkflowError(
-                    f"{step} has an invalid container {container}: must be a docker:// unique resource identifier."
-                )
 
     def cancel(self):
         """
@@ -321,23 +322,11 @@ class FluxOperatorExecutor(ClusterExecutor):
                 if job.name == "all":
                     continue
 
-                image = self._get_job_image(job)
-                uid = self.ctrl.assign(job.name, needed, image)
+                uid = self.ctrl.assign(job.name, needed, self.container_image)
 
                 # The deletion for the UID happens at the time the job is last seen
                 # When this job completes
                 self.ctrl.set_deletion_after(uid, job.name)
-
-    def _get_job_image(self, job):
-        """
-        Given a job, derive the image URI
-        """
-        image = job.container_img_url.replace("docker://", "", 1)
-
-        # If we do not have a tag, add latest
-        if ":" not in image:
-            image = f"{image}:latest"
-        return image
 
     def _set_job_resources(self, job):
         """
@@ -375,6 +364,7 @@ class FluxOperatorExecutor(ClusterExecutor):
             "image": assignment["image"],
             "run_flux": True,
             "volumes": {"data": {"path": self.workdir}},
+            "flux_user": {"name": fluxuser},
         }
 
         # The MiniCluster is expecting /tmp/workflow to be bound on the node
@@ -465,6 +455,8 @@ class FluxOperatorExecutor(ClusterExecutor):
 
                     # the job finished (but possibly with nonzero exit code)
                     if jobinfo.state == "F":
+                        log = self.ctrl.job_log(j.jobid, j.uid)
+                        logger.error(log)
                         self.print_job_error(j.job, jobid=j.jobid)
                         j.error_callback(j.job)
                         continue

@@ -617,6 +617,8 @@ class PythonScript(ScriptBase):
         )
 
     def write_script(self, preamble, fd):
+        print(preamble)
+        print(self.source)
         fd.write(preamble.encode())
         fd.write(self.source.encode())
 
@@ -802,6 +804,8 @@ class RScript(ScriptBase):
         )
 
     def write_script(self, preamble, fd):
+        print(preamble)
+        print(self.source)
         fd.write(preamble.encode())
         fd.write(self.source.encode())
 
@@ -897,6 +901,8 @@ class RMarkdown(ScriptBase):
             """
             % preamble
         )
+        print(preamble)
+        print(code[pos:])
         fd.write(preamble.encode())
         fd.write(code[pos:].encode())
 
@@ -972,6 +978,8 @@ class JuliaScript(ScriptBase):
         )
 
     def write_script(self, preamble, fd):
+        print(preamble)
+        print(self.source)
         fd.write(preamble.encode())
         fd.write(self.source.encode())
 
@@ -1212,6 +1220,7 @@ class RustScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
+        print(content)
         fd.write(content.encode())
 
     def execute_script(self, fname, edit=False):
@@ -1398,6 +1407,7 @@ class BashScript(ScriptBase):
 
     def write_script(self, preamble, fd):
         content = self.combine_preamble_and_source(preamble)
+        print(content)
         fd.write(content.encode())
 
     def combine_preamble_and_source(self, preamble: str):

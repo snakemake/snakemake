@@ -230,7 +230,7 @@ The main difference is that it has a container defined for each step. Since we a
 
 .. code-block:: console
 
-    $ minikube ssh docker pull ghcr.io/rse-ops/atacseq-vanilla:app-latest
+    $ minikube ssh docker pull ghcr.io/rse-ops/mamba:mamba-app
 
 And finally, in a separate terminal, make sure your host ``/tmp/workflow`` is bound to the same
 path in the MiniKube virtual machine:

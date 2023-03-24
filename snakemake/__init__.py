@@ -426,7 +426,7 @@ def snakemake(
         assume_shared_fs = False
         default_remote_provider = "GS"
         default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes:
+    if kubernetes or flux_operator:
         assume_shared_fs = False
 
     # Currently preemptible instances only supported for Google LifeSciences Executor
@@ -2392,7 +2392,7 @@ def get_argument_parser(profile=None):
         "integration via --use-conda.",
     )
     group_kubernetes.add_argument(
-        "--container-image",
+        "--minicluster-container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes "
         "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
@@ -2503,6 +2503,13 @@ def get_argument_parser(profile=None):
         "--flux-operator-namespace",
         default="flux-operator",
         help="Namespace for the Flux Operator MiniCluster(s).",
+    )
+    group_flux_operator.add_argument(
+        "--container-image",
+        metavar="IMAGE",
+        help="Docker image to use, e.g., when submitting jobs to the Flux MiniCluster"
+        "on Kubernetes. It must contain a Flux install and have active user root. "
+        "Defaults to ghcr.io/rse-ops/mamba:app-mamba"
     )
 
     group_tes.add_argument(
@@ -2790,13 +2797,12 @@ def main(argv=None):
         )
         sys.exit(1)
 
-    # Singularity does not work on the flux operator
+    # Singularity does not typically work on the flux operator
     if args.use_singularity and args.flux_operator:
         print(
-            "Error: the --flux-operator does not support --use_singularity.",
+            "Warning: if you use --singularity with the --flux-operator you must run privileged.",
             file=sys.stderr,
         )
-        sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(
@@ -2979,6 +2985,8 @@ def main(argv=None):
             else:
                 aggregated_wait_for_files.extend(extra_wait_files)
 
+        # Shared (different arguments) between Kubernetes / Flux Operator
+        container_image = args.container_image or args.minicluster_container_image
         success = snakemake(
             args.snakefile,
             batch=batch,
@@ -3034,7 +3042,7 @@ def main(argv=None):
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,
             kubernetes=args.kubernetes,
-            container_image=args.container_image,
+            container_image=container_image,
             k8s_cpu_scalar=args.k8s_cpu_scalar,
             flux=args.flux,
             flux_operator=args.flux_operator,

@@ -542,6 +542,7 @@ class Env:
                             + yes_flag
                         )
                         cmd = " ".join(cmd)
+                        logger.info(cmd)
                         if self._container_img:
                             cmd = singularity.shellcmd(
                                 self._container_img.path,

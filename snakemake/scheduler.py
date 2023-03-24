@@ -377,6 +377,7 @@ class JobScheduler:
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
+                    container_image=container_image,
                     flux_operator_ns=flux_operator_ns,
                 )
 
