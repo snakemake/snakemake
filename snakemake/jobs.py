@@ -93,7 +93,7 @@ class AbstractJob:
     def get_target_spec(self):
         raise NotImplementedError()
 
-    def products(self):
+    def products(self, include_logfiles=True):
         raise NotImplementedError()
 
     def has_products(self, include_logfiles=True):
