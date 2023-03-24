@@ -96,8 +96,8 @@ class AbstractJob:
     def products(self):
         raise NotImplementedError()
 
-    def has_products(self):
-        for o in self.products():
+    def has_products(self, include_logfiles=True):
+        for o in self.products(include_logfiles=include_logfiles):
             return True
         return False
 
