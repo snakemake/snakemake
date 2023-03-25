@@ -1,0 +1,26 @@
+#import re, os, sys
+shell.executable("bash")
+
+from snakemake.remote import SQL
+import pandas as pd
+import sqlite3 as sqlite
+from pandas import util
+from sqlalchemy.engine import create_engine
+import pathlib as pl
+db_file = pl.Path("./test.sqlite")
+#Setup database
+db = sqlite.connect(db_file)
+df = util.testing.makeDataFrame()
+df.to_sql("test", db, if_exists="replace")
+
+#Create engine
+
+
+provider = SQL.RemoteProvider(f"sqlite:///{db_file.resolve()}")
+
+rule all:
+    input:
+        data = provider.remote("test", )
+    run:
+        print(1)
+        import pdb; pdb.set_trace()

@@ -66,3 +66,4 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
+  - sqlalchemy
