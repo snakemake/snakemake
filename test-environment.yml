@@ -67,3 +67,5 @@ dependencies:
   - humanfriendly
   - throttler
   - sqlalchemy
+  - python-duckdb
+  - duckdb-engine

@@ -14,12 +14,14 @@ import sqlalchemy.databases
 from sqlalchemy import MetaData, Table, create_engine, engine, sql
 from sqlalchemy.engine.url import URL
 
-from snakemake.exceptions import (HTTPFileException, RuleException,
-                                  WorkflowError)
+from snakemake.exceptions import HTTPFileException, RuleException, WorkflowError
 from snakemake.logging import logger
+
 # module-specific
-from snakemake.remote import (AbstractRemoteObject, AbstractRemoteProvider,
-                              DomainObject)
+from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider, DomainObject
+
+
+import datetime as dt
 
 # def row_to_dict(cur):
 # return dict(zip([t[0] for t in row.cursor_description], row))
@@ -178,7 +180,6 @@ class RemoteProvider(AbstractRemoteProvider):
         # Create sqlalchemy engine
         self._sqlc = engine.create_engine(*args, **kwargs)
 
-
     @property
     def remote_interface(self):
         return self._sqlc
@@ -192,7 +193,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
         db_names = sqlalchemy.databases.__all__
-        return ["sql://", "postgresql://", "mysql://", "sqlite://"]
+        return ["sql://", "postgresql://", "mysql://", "sqlite://", "duckdb://"]
 
     def connect(self, **kwargs):
         print("Connecting")
@@ -207,11 +208,11 @@ class RemoteObject(AbstractRemoteObject):
     def __init__(
         self,
         *args,
-        keep_local:bool=False,
-        stay_on_remote:bool=True,
+        keep_local: bool = False,
+        stay_on_remote: bool = True,
         provider=None,
-        ancient:bool=False,
-        time_query:str=None
+        ancient: bool = False,
+        time_query: str = None,
         **kwargs,
     ):
         super(RemoteObject, self).__init__(
@@ -260,17 +261,20 @@ class RemoteObject(AbstractRemoteObject):
 
     @property
     def fully_qualified_table(self) -> str:
-        return f"{self.schema}.{self.table}"
+        if self.schema:
+            return f"{self.schema}.{self.table}"
+        else:
+            return self.table
 
     def check_existence(self) -> bool:
         """
         Check if the table exists by querying the information schema
         """
-        breakpoint()
         return self._sqlc.has_table(self.table, schema=self.schema)
 
-    def exists(self):
+    def exists(self) -> bool:
         """
+
         This is used by Snakemake to check if the "file" represented by the table exists
 
         """
@@ -286,36 +290,45 @@ class RemoteObject(AbstractRemoteObject):
                 f"The file cannot be found in {self.fully_qualified_table}"
             )
 
-    def is_newer(self, time):
+    def is_newer(self, time) -> bool:
         if not self.ancient:
             return self.mtime() > time
         else:
             return False
-        
+
     def get_table(self) -> Table:
         return self._md.tables[self.table]
 
-    def modified_query(self):
+    def modified_query(self) -> dt.datetime:
         tb = self.get_table()
-        tb.select(sql.expression.text(self.time_query).)
+        res = sql.select([sql.literal_column((self.time_query))]).select_from(tb)
+        result = self._sqlc.execute(res)
+        dates = [r for r, *rest in result.all()]
+        print(dates)
+        if len(dates) > 0:
+            return dates[0]
+        else:
+            return dt.datetime.now()
 
-    def last_modified(self):
-        breakpoint()
-        mod_query = f"""
-        SELECT
-            TABLE_NAME,
-            TABLE_SCHEMA,
-            COALESCE(UPDATE_TIME, CREATE_TIME)  AS modification_date
-        FROM INFORMATION_SCHEMA.TABLES 
-        WHERE TABLE_TYPE IN ('BASE TABLE','VIEW') AND TABLE_NAME = \'{self.table}\' AND TABLE_SCHEMA = \'{self.schema}\'
-        """.strip()
-        with self._sqlc.connect() as cur:
-            res = cur.execute(mod_query)
-            rw = res.fetchall()
-        if len(rw) > 0:
-            md = rw[0]["modification_date"]
-            if md:
-                return md.timestamp()
+    def last_modified(self) -> dt.datetime:
+        if self.time_query:
+            return self.modified_query()
+        else:
+            mod_query = f"""
+            SELECT
+                TABLE_NAME,
+                TABLE_SCHEMA,
+                COALESCE(UPDATE_TIME, CREATE_TIME)  AS modification_date
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_TYPE IN ('BASE TABLE','VIEW') AND TABLE_NAME = \'{self.table}\' AND TABLE_SCHEMA = \'{self.schema}\'
+            """.strip()
+            with self._sqlc.connect() as cur:
+                res = cur.execute(mod_query)
+                rw = res.fetchall()
+            if len(rw) > 0:
+                md = rw[0]["modification_date"]
+                if md:
+                    return md.timestamp()
 
     def size(self):
         size_query = f"""
@@ -348,7 +361,7 @@ class RemoteObject(AbstractRemoteObject):
                 return True
         return True
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.check_existence():
             if make_dest_dirs:
                 os.makedirs(os.path.dirname(self.local_path), exist_ok=True)

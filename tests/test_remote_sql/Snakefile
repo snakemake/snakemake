@@ -1,26 +1,41 @@
-#import re, os, sys
+# import re, os, sys
 shell.executable("bash")
 
 from snakemake.remote import SQL
 import pandas as pd
 import sqlite3 as sqlite
-from pandas import util
-from sqlalchemy.engine import create_engine
+from pandas import testing
+import duckdb
 import pathlib as pl
-db_file = pl.Path("./test.sqlite")
-#Setup database
-db = sqlite.connect(db_file)
-df = util.testing.makeDataFrame()
-df.to_sql("test", db, if_exists="replace")
+import datetime as dt
+import subprocess
 
-#Create engine
+db_file = pl.Path("./test.db")
+def random_time_df() -> pd.DataFrame:
+    dti = pd.date_range(dt.datetime.now() - dt.timedelta(hours=3), periods=3, freq="H")
+    return pd.DataFrame({"time":dti})
+
+def setup_db(path: pl.Path, table:str):
+    print("Running")
+    with sqlite.connect(path) as db_con:
+        # Create table
+        test_df = random_time_df()
+        test_df.to_sql(table, db_con, if_exists="replace")
+
+table = "test"
+setup_db(db_file, "test")
+provider = SQL.RemoteProvider(f"sqlite:////{str((db_file).resolve())}", stay_on_remote=True)
 
 
-provider = SQL.RemoteProvider(f"sqlite:///{db_file.resolve()}")
 
-rule all:
+rule do:
     input:
-        data = provider.remote("test", )
+        data=provider.remote(
+            table,
+            time_query="max(time)", 
+        ),
     run:
         print(1)
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
