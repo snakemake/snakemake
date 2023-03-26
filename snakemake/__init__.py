@@ -2392,7 +2392,7 @@ def get_argument_parser(profile=None):
         "integration via --use-conda.",
     )
     group_kubernetes.add_argument(
-        "--minicluster-container-image",
+        "--container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to kubernetes "
         "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
@@ -2505,7 +2505,7 @@ def get_argument_parser(profile=None):
         help="Namespace for the Flux Operator MiniCluster(s).",
     )
     group_flux_operator.add_argument(
-        "--container-image",
+        "--flux-minicluster-container-image",
         metavar="IMAGE",
         help="Docker image to use, e.g., when submitting jobs to the Flux MiniCluster"
         "on Kubernetes. It must contain a Flux install and have active user root. "
@@ -2986,7 +2986,7 @@ def main(argv=None):
                 aggregated_wait_for_files.extend(extra_wait_files)
 
         # Shared (different arguments) between Kubernetes / Flux Operator
-        container_image = args.container_image or args.minicluster_container_image
+        container_image = args.container_image or args.flux_minicluster_container_image
         success = snakemake(
             args.snakefile,
             batch=batch,

@@ -5,6 +5,13 @@ on:
 jobs:
   test-flux-operator-executor:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Note that we cannot test conda because the bind of the filesystem is too slow
+        commands: [["singularity", "cp -R ./tests/test_singularity_module/* /tmp/workflow/", "snakemake --cores 1 --jobs 2 --flux-operator --use-singularity"],
+                   ["vanilla", "", "snakemake --cores 1 --jobs 1 --flux-operator --minicluster-container-image ghcr.io/rse-ops/atacseq-vanilla:app-latest"]]
+
     steps:
     - name: Checkout the code
       uses: actions/checkout@v3
@@ -36,25 +43,34 @@ jobs:
       run: |
         export SHELL=/bin/bash
         eval $(minikube -p minikube docker-env)
-        minikube ssh docker pull ghcr.io/rse-ops/atacseq-vanilla:app-latest
-        
-    - name: Prepare workflow on Runner
-      run: |
-        git clone --depth 1 https://github.com/snakemake/snakemake-tutorial-data /tmp/workflow
-        mkdir -p /tmp/workflow/scripts
-        wget -O /tmp/workflow/scripts/plot-quals.py https://raw.githubusercontent.com/rse-ops/flux-hpc/main/snakemake/atacseq/scripts/plot-quals.py
-        cp ./examples/flux/operator/Snakefile /tmp/workflow/Snakefile
+        minikube ssh docker pull ghcr.io/rse-ops/mamba:app-mamba
 
     - name: Install Flux Operator
       run: |
         wget https://raw.githubusercontent.com/flux-framework/flux-operator/main/examples/dist/flux-operator.yaml
         kubectl apply -f flux-operator.yaml
 
-    - name: Run Jobs
+    - name: Make workflow directory
+      run: mkdir -p /tmp/workflow
+
+    - name: Prepare workflow on Runner
+      if: (matrix.commands[0] != 'singularity') 
       run: |
-        cd /tmp/workflow
+        git clone --depth 1 https://github.com/snakemake/snakemake-tutorial-data /tmp/workflow
+        mkdir -p /tmp/workflow/scripts
+        wget -O /tmp/workflow/scripts/plot-quals.py https://raw.githubusercontent.com/rse-ops/flux-hpc/main/snakemake/atacseq/scripts/plot-quals.py
+        cp ./examples/flux/operator/Snakefile /tmp/workflow/Snakefile
+
+    - name: Run ${{ matrix.commands[0] }} Test Job
+      env:
+        prep_command: ${{ matrix.commands[1] }}
+        run_command: ${{ matrix.commands[2] }}
+      run: |
         minikube mount /tmp/workflow:/tmp/workflow &
-        snakemake --cores 1 --jobs 1 --flux-operator    
+        ${prep_command}
+        sudo chmod -R 775 /tmp/workflow/
+        cd /tmp/workflow
+        ${run_command}
 
   test-flux-executor:
     runs-on: ubuntu-latest

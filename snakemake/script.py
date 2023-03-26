@@ -617,8 +617,6 @@ class PythonScript(ScriptBase):
         )
 
     def write_script(self, preamble, fd):
-        print(preamble)
-        print(self.source)
         fd.write(preamble.encode())
         fd.write(self.source.encode())
 

@@ -222,7 +222,7 @@ class FluxOperatorExecutor(ClusterExecutor):
             max_status_checks_per_second=10,
         )
 
-        # Set the default container image
+        # Set the default container image (has singularity and udocker)
         self.container_image = container_image or "ghcr.io/rse-ops/mamba:app-mamba"
 
         # Attach variables for easy access
@@ -235,6 +235,13 @@ class FluxOperatorExecutor(ClusterExecutor):
             raise WorkflowError(
                 "Please install the fluxoperator python package (pip install fluxoperator)"
             )
+
+        # Using singularity will require priviledged
+        if self.workflow.use_singularity:
+            logger.warning(
+                f"WARNING: Singularity will require pods running as priviledged."
+            )
+
         self.ctrl = FluxManager(flux_operator_ns)
 
         # Set max nodes of k8s cluster

@@ -294,6 +294,69 @@ You'll notice the workflow moving faster, and this is because we have submit mor
 than one job at once! Note that we discourage using MiniKube, as the conda environments
 create a lot of tiny files that (in practice) will not finish in any amount of reasonable time.
 
+Tutorial Workflow with Singularity
+::::::::::::::::::::::::::::::::::
+
+Now let's do the same, but ask to run Singularity. 
+
+.. warning::
+
+    Using Singularity in the Flux Operator requires running the pod in priviledged
+    mode, as we are running a container inside of a container. If you cluster
+    administrator does not allow this you may encounter errors.
+
+
+We can first remove the contents we have in ``/tmp/workflow``
+and replace with a Singularity workflow (test) from Snakemake:
+
+.. code-block:: console
+
+    $ rm -rf /tmp/workflow/*
+    $ cp -R ./tests/test_singularity_module/* /tmp/workflow/
+
+And run Snakemake:
+
+.. code-block:: console
+
+    $ snakemake --cores 1 --jobs 2 --flux-operator --use-singularity
+
+Note that since we need to pull the singularity containers, this step will take slightly
+longer. You will likely get optimal peformance to have many commands run that share one or 
+more common containers. And that's it! Snakemake will run the workflows and clean up 
+the MiniClusters.
+
+
+Tutorial Workflow with udocker
+::::::::::::::::::::::::::::::
+
+Let's now run a similar test, but using a "udocker" container.
+
+.. warning::
+
+    Using udocker in the Flux Operator requires running the pod in priviledged
+    mode, as we are running a container inside of a container. If you cluster
+    administrator does not allow this you may encounter errors.
+
+We can first remove the contents we have in ``/tmp/workflow``
+and replace with a Singularity workflow (test) from Snakemake:
+
+.. code-block:: console
+
+    $ rm -rf /tmp/workflow/*
+    $ cp -R ./tests/test_containerized/* /tmp/workflow/
+
+And run Snakemake:
+
+.. code-block:: console
+
+    $ snakemake --cores 1 --jobs 2 --flux-operator
+
+Note that since we need to pull the singularity containers, this step will take slightly
+longer. You will likely get optimal peformance to have many commands run that share one or 
+more common containers. And that's it! Snakemake will run the workflows and clean up 
+the MiniClusters.
+
+
 How does it work?
 :::::::::::::::::
 
