@@ -50,7 +50,7 @@ rule do:
             time_query="min(time)",
             date_parser=lambda x: (x), 
         ),
-        result="result.csv"
+        result="result.txt"
     run:
         print("Recreating table")
         eng = create_engine(format_engine(db_file), connect_args={"check_same_thread":False})
@@ -61,5 +61,5 @@ rule do:
         output_data["time"] = output_data["time"] + 100
         output_data["b"] = output_data["a"] + 1
         output_data.to_sql(output_table, con, if_exists="replace")
-        output_data["b"].to_csv("result.txt", index=False)
+        output_data["b"].to_csv(output.result, index=False)
         con.close()

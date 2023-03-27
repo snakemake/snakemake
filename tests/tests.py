@@ -822,7 +822,7 @@ def test_remote_http_cluster():
 
 
 @connected
-def test_rempote_sql():
+def test_remote_sql():
     run(dpath("test_remote_sql"))
 
 
