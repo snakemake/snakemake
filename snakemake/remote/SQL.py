@@ -8,7 +8,7 @@ import re
 import time
 from pathlib import Path
 from re import Match
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 import sqlalchemy.databases
 from sqlalchemy import MetaData, Table, create_engine, engine, sql
@@ -23,87 +23,10 @@ from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider, Domai
 
 import datetime as dt
 
-# def row_to_dict(cur):
-# return dict(zip([t[0] for t in row.cursor_description], row))
-
 
 class SQLFileException(RuleException):
     def __init__(self, msg, lineno=None, snakefile=None):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
-
-
-# class MySQLConnectionManager():
-#     def __init__(self, *args, **kwargs):
-#         self.args = args
-#         self.kwargs = kwargs
-#         self.connection = None
-#         self.eng = None
-
-#     def create_conn(self):
-#             return mysql.connector.connect(*self.args, **self.kwargs)
-
-#     def __enter__(self):
-#         self.eng  = create_engine("mysql+mysqlconnector://", creator=self.create_conn)
-#         self.connection = self.eng.connect()
-#         return self.connection
-
-#     def __exit__(self, exc_type, exc_value, exc_traceback):
-#         self.connection.close()
-
-#     def cursor(self):
-#         return ManagedCursor(self.connection)
-
-
-# class ManagedCursor():
-#     def __init__(self, conn, **kwargs):
-#         self.conn = conn
-#         self.cur = None
-
-#     def __enter__(self):
-#         self.cur = self.conn.cursor(dictionary=True)
-#         return self
-
-#     def __exit__(self, exc_type, exc_value, exc_traceback):
-#         if not self.conn.is_connected():
-#             self.conn.reconnect()
-#         self.cur.close()
-
-#     def cursor(self):
-#         if self.cur:
-#             return self.cur
-#         else:
-#             return self.conn.cursor(dictionary=True)
-
-#     def close(self):
-#         if self.cur:
-#             self.cur.close()
-
-#     def execute(self, *args, **kwargs):
-#         if self.cur:
-#             try:
-#                 self.cur.execute(*args, **kwargs)
-#             except msqe.ProgrammingError as e:
-#                 print(e)
-#                 raise e
-#         else:
-#             raise(ConnectionError('There is no open MySql Connection'))
-
-
-#     def fetchone(self):
-#         return self.cur.fetchone()
-
-
-# def backup_database(**kwargs, path):
-#     cmd= sql.SQL("""\
-#     USE {db};
-#     BACKUP DATABASE {db}
-#     TO DISK = 'c:\tmp\{db}.bak'
-#     WITH FORMAT,
-#         MEDIANAME = 'SQLServerBackups',
-#         NAME = 'Full Backup of {db}';
-#     GO
-#     """.fomat(db=sql.identifier(kwargs.get(database))))
-#     return cmd
 
 
 def run_query_on_connection(query: str, eng: engine):
@@ -124,46 +47,6 @@ def run_query_from_file_on_connection(query, conn, multi=True):
         valids = [r.fetchall() for r in res if r.rowcount > 0 and r.returns_rows]
         [r.close() for r in valids]
         return valids
-
-
-# class BulkLoggeddDbSession:
-#     """
-#     Class to represent an bulk logged db session
-#     This is a context manager which switches the
-#     logging behavior of the db in the context
-#     """
-#     def __init__(self, *args, **kwargs):
-#         self.params = kwargs
-#         self._conn = mysql.connector.connect(*args, as_dict=True,**kwargs)
-
-#     def __enter__(self):
-#         alter_query =\
-#         f"""
-#         ALTER DATABASE [{self.params['database']}] SET RECOVERY BULK_LOGGED;
-#         """
-#         with self._conn.cursor() as cur:
-#             cur.execute(alter_query)
-
-#     def __exit__(self, type, value, traceback):
-#         alter_query =\
-#         f"""
-#         ALTER DATABASE [{self.params['database']}] SET RECOVERY FULL;
-#         """
-#         with self._conn.cursor() as cur:
-#             cur.execute(alter_query)
-
-#     def run_query(self, query):
-#         run_query_on_connection(query, self._conn)
-
-
-# class ExplicitelyCommitedTransaction:
-#     """
-#     Implement a context manager in which SQL transactions are
-#     only commited after leaving the context
-#     """
-#     def __init__(self, *args, **kwargs):
-#         self.params = kwargs
-#         #self._conn = pymssql.connect(*args, as_dict=True,**kwargs)
 
 
 class RemoteProvider(AbstractRemoteProvider):
@@ -212,7 +95,8 @@ class RemoteObject(AbstractRemoteObject):
         stay_on_remote: bool = True,
         provider=None,
         ancient: bool = False,
-        time_query: str = None,
+        time_query: Optional[str] = None,
+        date_parser: Optional[Callable[[str], dt.datetime]] = None,
         **kwargs,
     ):
         super(RemoteObject, self).__init__(
@@ -304,9 +188,8 @@ class RemoteObject(AbstractRemoteObject):
         res = sql.select([sql.literal_column((self.time_query))]).select_from(tb)
         result = self._sqlc.execute(res)
         dates = [r for r, *rest in result.all()]
-        print(dates)
         if len(dates) > 0:
-            return dates[0]
+            return dt.datetime.fromisoformat(dates[0])
         else:
             return dt.datetime.now()
 

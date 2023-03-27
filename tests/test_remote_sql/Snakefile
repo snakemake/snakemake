@@ -1,14 +1,11 @@
 # import re, os, sys
-shell.executable("bash")
 
 from snakemake.remote import SQL
 import pandas as pd
 import sqlite3 as sqlite
 from pandas import testing
-import duckdb
 import pathlib as pl
 import datetime as dt
-import subprocess
 
 db_file = pl.Path("./test.db")
 def random_time_df() -> pd.DataFrame:
@@ -32,7 +29,8 @@ rule do:
     input:
         data=provider.remote(
             table,
-            time_query="max(time)", 
+            time_query="max(time)"
+            date_parser=lambda x: , 
         ),
     run:
         print(1)
