@@ -94,7 +94,6 @@ class RemoteObject(AbstractRemoteObject):
         provider=None,
         ancient: bool = False,
         time_query: Optional[str] = None,
-        date_parser: Optional[Callable[[str], dt.datetime]] = None,
         **kwargs,
     ):
         super(RemoteObject, self).__init__(
