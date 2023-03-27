@@ -41,7 +41,7 @@ rule do:
     input:
         data=provider.remote(
             input_table,
-            time_query="min(time)",
+            time_query="min(time),max(time)",
             date_parser=lambda x: (x), 
         ),
     output:

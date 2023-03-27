@@ -10,8 +10,9 @@ from pathlib import Path
 from re import Match
 from typing import Optional, Tuple, Callable
 
-import sqlalchemy.databases
-from sqlalchemy import MetaData, Table, create_engine, engine, sql
+import sqlalchemy.databases as databases
+from sqlalchemy import MetaData, Table, create_engine, engine, sql, inspect
+from sqlalchemy.engine import Inspector
 from sqlalchemy.engine.url import URL
 
 from snakemake.exceptions import HTTPFileException, RuleException, WorkflowError
@@ -74,7 +75,7 @@ class RemoteProvider(AbstractRemoteProvider):
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        db_names = ["{name}://" for name in sqlalchemy.databases.__all__]
+        db_names = ["{name}://" for name in databases.__all__]
         return db_names + ["sqlite://", "duckdb://"]
 
     def connect(self, **kwargs):
@@ -151,7 +152,8 @@ class RemoteObject(AbstractRemoteObject):
         """
         Check if the table exists by querying the information schema
         """
-        return self._sqlc.has_table(self.table, schema=self.schema)
+        insp = inspect(self._sqlc)
+        return insp.has_table(self.table, schema=self.schema)
 
     def exists(self) -> bool:
         """
@@ -184,10 +186,11 @@ class RemoteObject(AbstractRemoteObject):
         res = sql.select([sql.literal_column((self.time_query))]).select_from(tb)
         result = self._sqlc.execute(res)
         dates = [r for r, *rest in result.all()]
-        if len(dates) > 0:
+        if len(dates) == 1:
             return float(dates[0])
         else:
-            float("-Inf")
+            raise ValueError("The query returned more than one row")
+
 
     def last_modified(self) -> float:
         if self.time_query:
@@ -232,11 +235,11 @@ class RemoteObject(AbstractRemoteObject):
         """.strip()
         if self.check_existence():
             try:
-                with self._sqlc.connection() as cur:
-                    res = cur.execute(rm_query)
-                    res.fetchall()
+                with self._sqlc.connect() as cur:
+                    tb = self.get_table()
+                    tb.drop(bind=cur)
             except:
-                return True
+                raise SQLFileException(f"Cannot drop table {self.fully_qualified_table}")
         return True
 
     def _download(self, make_dest_dirs=True):
