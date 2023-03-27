@@ -191,7 +191,6 @@ class RemoteObject(AbstractRemoteObject):
         else:
             raise ValueError("The query returned more than one row")
 
-
     def last_modified(self) -> float:
         if self.time_query:
             return self.modified_query()
@@ -239,7 +238,9 @@ class RemoteObject(AbstractRemoteObject):
                     tb = self.get_table()
                     tb.drop(bind=cur)
             except:
-                raise SQLFileException(f"Cannot drop table {self.fully_qualified_table}")
+                raise SQLFileException(
+                    f"Cannot drop table {self.fully_qualified_table}"
+                )
         return True
 
     def _download(self, make_dest_dirs=True):
