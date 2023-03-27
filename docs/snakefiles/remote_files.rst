@@ -916,11 +916,11 @@ The auto remote provider only works for those which do not require the passing o
             """
 
 
-SQL remote provider
+Relational database remote provider
 ===================
 
-This provider offers a dummy remote provider and remote files to add a table of a relational database as a dependency. This should work with any database supported by `Sqlalchemy <https://docs.sqlalchemy.org/en/20/dialects/index.html>`.
-For databases that support this, modification time is obtained from ``INFORMATION_SCHEMA.UPDATE_TIME``, otherwise you need to provide a ``time_query`` SQL expression that returns the modification time of the table and a ``date_parser`` function that converts the value of this expression into a ``datetime.datetime`` object. In the example below,
+This provider offers a dummy remote provider and remote files to add a table of a relational database as an input or output "file". This should work with any database supported by `Sqlalchemy <https://docs.sqlalchemy.org/en/20/dialects/index.html>`.
+For databases that support this, modification time is obtained from ``INFORMATION_SCHEMA.UPDATE_TIME``, otherwise you need to provide a ``time_query`` SQL expression that returns the modification time of the table as an unix timestamp. In the example below,
 we simply take the ``max`` of the *timestamp* column in the table. 
 
 .. code-block:: python
