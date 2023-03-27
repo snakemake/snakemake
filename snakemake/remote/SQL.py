@@ -34,7 +34,6 @@ def run_query_on_connection(query: str, eng: engine):
         with eng.connect() as conn:
             conn.execute(query)
     except Exception as e:
-        print(e)
         raise (e)
 
 
@@ -70,16 +69,15 @@ class RemoteProvider(AbstractRemoteProvider):
     @property
     def default_protocol(self):
         """The protocol that is prepended to the path when no protocol is specified."""
-        return "sql://"
+        return "jdbc://"
 
     @property
     def available_protocols(self):
         """List of valid protocols for this remote provider."""
-        db_names = sqlalchemy.databases.__all__
-        return ["sql://", "postgresql://", "mysql://", "sqlite://", "duckdb://"]
+        db_names = ["{name}://" for name in sqlalchemy.databases.__all__]
+        return db_names + ["sqlite://", "duckdb://"]
 
     def connect(self, **kwargs):
-        print("Connecting")
         return self._sqlc.connect(**kwargs)
 
 
@@ -168,32 +166,31 @@ class RemoteObject(AbstractRemoteObject):
         if self.exists() and not self.ancient:
             return self.last_modified()
         elif self.exists() and self.ancient:
-            return self.last_modified() - 1000000000
+            return float("-Inf")
         else:
-            raise SQLFileException(
-                f"The file cannot be found in {self.fully_qualified_table}"
-            )
+            return float("-Inf")
 
-    def is_newer(self, time) -> bool:
+    def is_newer(self, time: float) -> bool:
         if not self.ancient:
             return self.mtime() > time
         else:
             return False
 
     def get_table(self) -> Table:
+        self._md.reflect()
         return self._md.tables[self.table]
 
-    def modified_query(self) -> dt.datetime:
+    def modified_query(self) -> float:
         tb = self.get_table()
         res = sql.select([sql.literal_column((self.time_query))]).select_from(tb)
         result = self._sqlc.execute(res)
         dates = [r for r, *rest in result.all()]
         if len(dates) > 0:
-            return dt.datetime.fromisoformat(dates[0])
+            return float(dates[0])
         else:
-            return dt.datetime.now()
+            float("-Inf")
 
-    def last_modified(self) -> dt.datetime:
+    def last_modified(self) -> float:
         if self.time_query:
             return self.modified_query()
         else:
@@ -231,7 +228,6 @@ class RemoteObject(AbstractRemoteObject):
             )
 
     def remove(self):
-        pass
         rm_query = f"""
         DROP TABLE IF EXISTS {self.fully_qualified_table};
         """.strip()
