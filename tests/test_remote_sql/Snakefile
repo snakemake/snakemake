@@ -37,11 +37,18 @@ setup_db(db_file, input_table)
 provider = SQL.RemoteProvider(format_engine(db_file), stay_on_remote=True)
 
 
+onsuccess:
+    os.remove(db_file)
+
+onerror:
+    os.remove(db_file)
+
+
 rule do:
     input:
         data=provider.remote(
             input_table,
-            time_query="min(time),max(time)",
+            time_query="min(time)",
             date_parser=lambda x: (x), 
         ),
     output:

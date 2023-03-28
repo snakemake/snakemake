@@ -87,6 +87,8 @@ class RemoteObject(AbstractRemoteObject):
     This is a class to interact with an SQL server as if it were a file
     """
 
+    _sqlc: engine.Engine
+
     def __init__(
         self,
         *args,
@@ -108,8 +110,8 @@ class RemoteObject(AbstractRemoteObject):
             self._sqlc = provider.remote_interface
         else:
             self._sqlc = args[0]
-        md = MetaData(bind=self._sqlc)
-        md.reflect()
+        md = MetaData()
+        md.reflect(bind=self._sqlc)
         self._md = md
         self.ancient = ancient
         self.time_query = time_query
@@ -178,18 +180,21 @@ class RemoteObject(AbstractRemoteObject):
             return False
 
     def get_table(self) -> Table:
-        self._md.reflect()
+        self._md.reflect(bind=self._sqlc)
         return self._md.tables[self.table]
 
     def modified_query(self) -> float:
         tb = self.get_table()
-        res = sql.select([sql.literal_column((self.time_query))]).select_from(tb)
-        result = self._sqlc.execute(res)
+        with self._sqlc.connect() as cur:
+            qr = sql.select(sql.literal_column((self.time_query))).select_from(tb)
+            result = cur.execute(qr)
         dates = [r for r, *rest in result.all()]
-        if len(dates) == 1:
+        if len(dates) == 1 and dates[0]:
             return float(dates[0])
-        else:
+        elif len(dates) > 1:
             raise ValueError("The query returned more than one row")
+        else:
+            return float("-Inf")
 
     def last_modified(self) -> float:
         if self.time_query:
@@ -212,14 +217,10 @@ class RemoteObject(AbstractRemoteObject):
                     return md.timestamp()
 
     def size(self):
-        size_query = f"""
-        SELECT 
-            COUNT(*) AS n 
-        FROM {self.fully_qualified_table} 
-        """.strip()
+        tb = self.get_table()
         if self.check_existence():
             with self._sqlc.connect() as cur:
-                res = cur.execute(size_query)
+                res = cur.execute(sql.select(sql.func.count()).select_from(tb))
                 sz = res.fetchone()[0]
                 res.fetchall()
             return sz
@@ -229,9 +230,6 @@ class RemoteObject(AbstractRemoteObject):
             )
 
     def remove(self):
-        rm_query = f"""
-        DROP TABLE IF EXISTS {self.fully_qualified_table};
-        """.strip()
         if self.check_existence():
             try:
                 with self._sqlc.connect() as cur:
