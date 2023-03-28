@@ -10,7 +10,7 @@ from pathlib import Path
 from re import Match
 from typing import Optional, Tuple, Callable
 
-import sqlalchemy.databases as databases
+import sqlalchemy.dialects as databases
 from sqlalchemy import MetaData, Table, create_engine, engine, sql, inspect
 from sqlalchemy.engine import Inspector
 from sqlalchemy.engine.url import URL
