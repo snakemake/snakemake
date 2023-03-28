@@ -503,7 +503,7 @@ class CPUExecutor(RealExecutor):
         return False
 
     def get_job_exec_prefix(self, job):
-        return f"cd {self.workflow.workdir_init}"
+        return f"cd {shlex.quote(self.workflow.workdir_init)}"
 
     def get_exec_mode(self):
         return Mode.subprocess
@@ -1037,8 +1037,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job):
         if self.assume_shared_fs:
-            # quoting the workdir since it may contain spaces
-            return f"cd {repr(self.workflow.workdir_init)}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
@@ -1390,7 +1389,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job):
         if self.assume_shared_fs:
-            return f"cd {self.workflow.workdir_init}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
@@ -1514,7 +1513,7 @@ class DRMAAExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job):
         if self.assume_shared_fs:
-            return f"cd {self.workflow.workdir_init}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
