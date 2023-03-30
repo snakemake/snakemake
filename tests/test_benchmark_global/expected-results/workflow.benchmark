@@ -1,10 +1,9 @@
-jobid	rule	wildcards	s	h:m:s	max_rss	max_vms	max_uss	max_pss	io_in	io_out	mean_load	cpu_time
-2	with_repeat	NA	0.0015	0:00:00	2.99	8.42	0.25	0.64	0.0	0.0	0.0	0.0
-2	with_repeat	NA	0.0011	0:00:00	3.01	8.42	0.28	0.66	0.0	0.0	0.0	0.0
-2	with_repeat	NA	0.0012	0:00:00	3.0	8.42	0.27	0.68	0.0	0.0	0.0	0.0
-4	with_wildcards	num=1	0.0017	0:00:00	3.05	8.42	0.29	0.7	0.0	0.0	0.0	0.0
-6	with_wildcards	num=3	0.0016	0:00:00	3.06	8.42	0.25	0.63	0.0	0.0	0.0	0.0
-1	with_directive	NA	0.0018	0:00:00	3.02	8.42	0.26	0.65	0.0	0.0	0.0	0.0
-3	without_directive	NA	0.0017	0:00:00	1.06	8.42	0.21	0.54	0.0	0.0	0.0	0.0
-5	with_wildcards	num=2	0.0072	0:00:00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
-0	all	NA	0.0024	0:00:00	153.44	3448.97	128.96	140.28	0.0	0.13	0.0	2.28
+jobid	rule	wildcards	resources	input_size	threads	s	h:m:s	max_rss	max_vms	max_uss	max_pss	io_in	io_out	mean_load	cpu_time
+2	with_repeat	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0017	0:00:00	1.0	8.22	0.21	0.64	0.0	0.0	0.0	0.0
+2	with_repeat	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0014	0:00:00	3.05	8.42	0.25	1.02	0.0	0.0	0.0	0.0
+2	with_repeat	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0013	0:00:00	3.06	8.42	0.3	1.07	0.0	0.0	0.0	0.0
+4	with_wildcards	num=1	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0015	0:00:00	1.06	8.42	0.24	0.79	0.0	0.0	0.0	0.0
+6	with_wildcards	num=3	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0015	0:00:00	1.05	8.42	0.2	0.84	0.0	0.0	0.0	0.0
+1	with_directive	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0017	0:00:00	3.0	8.42	0.26	1.0	0.0	0.0	0.0	0.0
+3	without_directive	NA	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0018	0:00:00	3.02	8.42	0.28	1.04	0.0	0.0	0.0	0.0
+5	with_wildcards	num=2	_cores=1;_nodes=1;tmpdir=/tmp	0.0	1	0.0067	0:00:00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0

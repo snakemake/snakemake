@@ -389,30 +389,36 @@ def write_benchmark_records(records, path):
         print_benchmark_records(records, f)
 
 
-def gather_benchmark_records(benchmark_files):
+def gather_benchmark_records(benchmark_jobs):
     """
     Gather benchmark from given files.
 
     Args:
-        benchmark_files (Dict[int, Path]): A dictionary with jobid as key,
-            associated benchmark file path as value
+        benchmark_jobs (List[Job]): A list of jobs to extract benchmark from
     Return:
         (DataFrame): A Pandas DataFrame object with jobid as index,
             containing benchmark values for all jobs
     """
     benchmarks = pd.DataFrame()
-    for job_attrs in benchmark_files:
-        jobid, rule_name, wildcards, benchmark_file = job_attrs
-        assert benchmark_file.exists
-        wildcard_str = (
+    for job in benchmark_jobs:
+        assert job._benchmark.exists
+        wildcard_str = ";".join(
             ["NA"]
-            if len(wildcards) == 0
-            else [f"{name}={value}" for name, value in wildcards.items()]
+            if len(job.wildcards_dict) == 0
+            else [f"{name}={value}" for name, value in job.wildcards_dict.items()]
         )
-        _benchmark = pd.read_csv(benchmark_file, index_col=None, sep="\t")
-        nrows = _benchmark.shape[0]
-        _benchmark.insert(0, "wildcards", wildcard_str * nrows)
-        _benchmark.insert(0, "rule", rule_name)
-        _benchmark.insert(0, "jobid", jobid)
+        resources = job.resources
+        resources_str = ";".join(
+            ["NA"]
+            if len(resources) == 0
+            else [f"{name}={value}" for name, value in resources.items()]
+        )
+        _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
+        _benchmark.insert(0, "threads", job.threads)
+        _benchmark.insert(0, "input_size", job.input.size_mb)
+        _benchmark.insert(0, "resources", resources_str)
+        _benchmark.insert(0, "wildcards", wildcard_str)
+        _benchmark.insert(0, "rule", job.rule.name)
+        _benchmark.insert(0, "jobid", job.jobid)
         benchmarks = pd.concat([benchmarks, _benchmark])
     return benchmarks
