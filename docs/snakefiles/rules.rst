@@ -1652,19 +1652,22 @@ The resulting tsv file can be used as input for other rules, just like any other
 Alternatively, a file can be supplied via ``--workflow-benchmark benchmark_file.tsv`` to automatically benchmark all rules.
 When this option is specified, rules without a ``benchmark`` directive will have their benchmark stats written to ``.snakemake/benchmark`` directory.
 The output ``benchmark_file.tsv`` is a tab-separated text file with following columns:
-* jobid: Internal job id,
-* rule: Name of the rule,
-* wildcards: A list of wildcard values from this job,
-* s: CPU time (in seconds),
-* h:m:s: Wall clock time,
-* max_rss: Max memory usage (MB) in `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_,
-* max_vms: Max memory usage (MB) in `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_,
-* max_uss: Max memory usage (MB) in `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_,
-* max_pss: Max memory usage (MB) in `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_,
-* io_in: Input load (B)
-* io_out: Output load (B)
-* mean_load: Mean CPU load
-* cpu_time: CPU time in seconds
+* jobid: Internal job id,  
+* rule: Name of the rule,  
+* wildcards: A list of wildcard values from this job,  
+* resources: Default and additional resources used for this job,  
+* input_size: Total size (MB) of input files,  
+* threads: Number of threads requested for this job,  
+* s: CPU time (in seconds),  
+* h:m:s: Wall clock time,  
+* max_rss: Max memory usage (MB) in `RSS <https://en.wikipedia.org/wiki/Resident_set_size>`_,  
+* max_vms: Max memory usage (MB) in `VMS <https://en.wikipedia.org/wiki/Virtual_memory>`_,  
+* max_uss: Max memory usage (MB) in `USS <https://en.wikipedia.org/wiki/Unique_set_size>`_,  
+* max_pss: Max memory usage (MB) in `PSS <https://en.wikipedia.org/wiki/Proportional_set_size>`_,  
+* io_in: Input load (B),  
+* io_out: Output load (B),  
+* mean_load: Mean CPU load,  
+* cpu_time: CPU time in seconds,  
 
 If a a benchmark file is annotated with ``repeat()`` in ``benchmark`` directive, each repeated measurement will show up as a separate row with identical ``jobid``, ``rule``, and ``wildcards`` values. 
 
