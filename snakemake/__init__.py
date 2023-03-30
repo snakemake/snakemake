@@ -201,7 +201,7 @@ def snakemake(
     keep_incomplete=False,
     keep_metadata=True,
     workflow_benchmark=None,
-    disable_benchmark=False,
+    nobenchmark=False,
     messaging=None,
     edit_notebook=None,
     envvars=None,
@@ -339,7 +339,7 @@ def snakemake(
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
-        disable_benchmark (bool):   Disable benchmarking for all rules
+        nobenchmark (bool):   Disable benchmarking for all rules
         workflow_benchmark (str):   Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
         edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
@@ -659,7 +659,7 @@ def snakemake(
                     "Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!"
                 )
             workflow.add_default_benchmark()
-        if disable_benchmark:
+        if nobenchmark:
             workflow.remove_benchmark()
         workflow.check()
 
@@ -2074,7 +2074,7 @@ def get_argument_parser(profile=None):
         help="Do not adjust the paths of given target files relative to the working directory.",
     )
     group_behavior.add_argument(
-        "--disable-benchmark",
+        "--nobenchmark",
         action="store_true",
         help="Disable benchmarking for all rules",
     )
@@ -3115,7 +3115,7 @@ def main(argv=None):
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
             workflow_benchmark=args.workflow_benchmark,
-            disable_benchmark=args.disable_benchmark,
+            nobenchmark=args.nobenchmark,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,
             overwrite_groups=overwrite_groups,
