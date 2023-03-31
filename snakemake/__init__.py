@@ -498,8 +498,6 @@ def snakemake(
     for f in configfiles:
         # get values to override. Later configfiles override earlier ones.
         overwrite_config.update(load_configfile(f))
-    # convert provided paths to absolute paths
-    configfiles = list(map(os.path.abspath, configfiles))
 
     # directly specified elements override any configfiles
     if config:
