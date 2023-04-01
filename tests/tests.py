@@ -380,6 +380,10 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
+def test_dhall_config():
+    run(dpath("test_dhall_config"))
+
+
 @skip_on_windows
 @pytest.mark.xfail(
     reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""

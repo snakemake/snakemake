@@ -14,7 +14,7 @@ Standard Configuration
 ----------------------
 
 Snakemake directly supports the configuration of your workflow.
-A configuration is provided as a JSON or YAML file and can be loaded with:
+A configuration is provided as a JSON, YAML, or `Dhall <https://dhall-lang.org/>`_ file and can be loaded with:
 
 .. code-block:: python
 
@@ -108,7 +108,7 @@ Instead, for data provenance and reproducibility reasons, you are required to pa
 Validation
 ----------
 
-With Snakemake 5.1, it is possible to validate both types of configuration via `JSON schemas <https://json-schema.org>`_.
+With Snakemake 5.1, it is possible to validate all types of configuration via `JSON schemas <https://json-schema.org>`_.
 The function ``snakemake.utils.validate`` takes a loaded configuration (a config dictionary or a Pandas data frame) and validates it with a given JSON schema.
 Thereby, the schema can be provided in JSON or YAML format. Also, by using the defaults property it is possible to populate entries with default values. See `jsonschema FAQ on setting default values <https://python-jsonschema.readthedocs.io/en/latest/faq/>`_ for details.
 In case of the data frame, the schema should model the record that is expected in each row of the data frame.
@@ -161,6 +161,10 @@ the schema for validating the samples data frame looks like this:
 
 Here, in case the case column is missing, the validate function will
 populate it with True for all entries.
+
+Note that if using Dhall, a separate JSON schema might not be necessary (although it can still be used).
+In the Dhall language, the assurances provided by a schema can be replicated by types, functions, and assert statements.
+Furthermore, Dhall provides convenient syntax for assigning/overriding default values.
 
 .. _snakefiles-peps:
 
