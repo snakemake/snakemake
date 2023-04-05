@@ -2049,6 +2049,14 @@ def test_micromamba():
     run(dpath("test_wrapper"), use_conda=True, conda_frontend="micromamba")
 
 
+def test_conda_micromamba():
+    run(dpath("test_conda"), use_conda=True, conda_frontend="micromamba")
+
+
+def test_micromamba_list_envs():
+    run(dpath("test_conda"), list_conda_envs=True, check_results=False)
+
+
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
