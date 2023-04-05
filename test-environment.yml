@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python
+  - python < 3.10 # 3.10 breaks nose
   - yte
   - stopit
   - datrie
