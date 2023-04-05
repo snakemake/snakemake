@@ -519,7 +519,9 @@ class Env:
                         logger.info("Downloading and installing remote packages.")
 
                         strict_priority = (
-                            ["conda config --set channel_priority strict &&"]
+                            ["micromamba config set channel_priority strict &&"]
+                            if self._container_img and self.frontend == "micromamba"
+                            else ["conda config --set channel_priority strict &&"]
                             if self._container_img
                             else []
                         )
@@ -544,9 +546,20 @@ class Env:
                                 args=self._singularity_args,
                                 envvars=self.get_singularity_envvars(),
                             )
+
+                        # micromamba can't create environment in an existing directory.
+                        # as a hack we'll temporarily delete env_path
+                        if self.frontend == "micromamba" and os.path.exists(env_path):
+                            shutil.rmtree(env_path)
+
                         out = shell.check_output(
                             cmd, stderr=subprocess.STDOUT, text=True
                         )
+
+                        # Re-add env_setup_start if we deleted env_path before
+                        if self.frontend == "micromamba" and not os.path.exists(os.path.join(env_path, "env_setup_start")):
+                            with open(os.path.join(env_path, "env_setup_start"), "a") as f:
+                                pass
 
                         # cleanup if requested
                         if self._cleanup is CondaCleanupMode.tarballs:
@@ -659,11 +672,15 @@ class Conda:
             self.frontend = frontend
 
             self.info = json.loads(
-                shell.check_output(self._get_cmd(f"conda info --json"), text=True)
+                shell.check_output(self._get_cmd(f"{self.frontend} info --json"), text=True)
             )
 
             if prefix_path is None or container_img is not None:
-                self.prefix_path = self.info["conda_prefix"]
+                if self.frontend == "micromamba":
+                    self.prefix_path = self.info["env location"]
+                else:
+                    self.prefix_path = self.info["conda_prefix"]
+
             else:
                 self.prefix_path = prefix_path
 
