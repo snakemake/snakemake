@@ -10,7 +10,7 @@ jobs:
       matrix:
         # Note that we cannot test conda because the bind of the filesystem is too slow
         commands: [["singularity", "cp -R ./tests/test_singularity_module/* /tmp/workflow/", "snakemake --cores 1 --jobs 2 --flux-operator --use-singularity"],
-                   ["vanilla", "", "snakemake --cores 1 --jobs 1 --flux-operator --minicluster-container-image ghcr.io/rse-ops/atacseq-vanilla:app-latest"]]
+                   ["vanilla", "", "snakemake --cores 1 --jobs 1 --flux-operator --flux-minicluster-container-image ghcr.io/rse-ops/atacseq-vanilla:app-latest"]]
 
     steps:
     - name: Checkout the code
