@@ -32,6 +32,9 @@ class Checkpoint:
         output, _ = self.rule.expand_output(wildcards)
         if self.checkpoints.future_output is not None:
             for iofile in output:
+                if iofile.exists_remote and not iofile.exists_local:
+                    iofile.download_from_remote()
+                    return CheckpointJob(self.rule, output)
                 if iofile in self.checkpoints.future_output:
                     break
                 if not iofile.exists and not iofile.is_temp:
