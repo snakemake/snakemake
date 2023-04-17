@@ -198,13 +198,7 @@ class _IOFile(str):
     A file that is either input or output of a rule.
     """
 
-    __slots__ = [
-        "_is_function",
-        "_file",
-        "rule",
-        "_regex",
-        "_wildcard_constraints",
-    ]
+    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -671,12 +665,14 @@ class _IOFile(str):
         mode = (
             os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         )
+        # iterate over content if output is a directory
         if os.path.isdir(self.file):
-            for root, dirs, files in os.walk(self.file):
-                for d in dirs:
-                    lchmod(os.path.join(self.file, d), mode)
-                for f in files:
-                    lchmod(os.path.join(self.file, f), mode)
+            # topdown=False ensures we chmod first the content, then the dir itself
+            for dirpath, dirnames, filenames in os.walk(self.file, topdown=False):
+                # no need to treat differently directories or files
+                for content in dirnames + filenames:
+                    lchmod(os.path.join(dirpath, content), mode)
+        # protect explicit output itself
         lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
@@ -1147,6 +1143,11 @@ def checkpoint_target(value):
 
 
 def sourcecache_entry(value, orig_path_or_uri):
+    from snakemake.sourcecache import SourceFile
+
+    assert not isinstance(
+        orig_path_or_uri, SourceFile
+    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
     return flag(value, "sourcecache_entry", orig_path_or_uri)
 
 
@@ -1243,6 +1244,16 @@ def expand(*args, **wildcards):
             if "allow_missing" in re.findall(r"{([^}\.[!:]+)", filepattern):
                 format_dict = dict
                 break
+
+    # raise error if function is passed as value for any wildcard
+    for key, value in wildcards.items():
+        if callable(value):
+            raise WorkflowError(
+                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
+                "This is most likely not what you want, as expand takes iterables of values or single values for "
+                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
+                "expand in another function that does the computation."
+            )
 
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
@@ -1503,7 +1514,12 @@ class Namedlist(list):
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
-                self.extend(map(str, toclone))
+                self.extend(
+                    x.remote_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    else str(x)
+                    for x in toclone
+                )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:

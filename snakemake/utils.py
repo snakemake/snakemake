@@ -78,10 +78,7 @@ def validate(data, schema, set_default=True):
             },
         )
     else:
-        resolver = RefResolver(
-            schemafile.get_path_or_uri(),
-            schema,
-        )
+        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -713,10 +710,13 @@ class Paramspace:
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
         or of the provided custom pattern.
         """
+        import pandas as pd
+
+        fmt_value = lambda value: "NA" if pd.isna(value) else value
         return (
             self.pattern.format(
                 *(
-                    self.param_sep.join(("{}", "{}")).format(name, value)
+                    self.param_sep.join(("{}", "{}")).format(name, fmt_value(value))
                     for name, value in row._asdict().items()
                 )
             )
@@ -733,6 +733,8 @@ class Paramspace:
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return False
+            if value == "NA":
+                return pd.NA
             else:
                 return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
 

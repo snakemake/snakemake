@@ -317,9 +317,7 @@ class RuleRecord:
             self._rule.notebook
         ):
             _, source, language, _, _ = script.get_source(
-                self._rule.notebook,
-                self._rule.workflow.sourcecache,
-                self._rule.basedir,
+                self._rule.notebook, self._rule.workflow.sourcecache, self._rule.basedir
             )
             language = language.split("_")[1]
             sources = notebook.get_cell_sources(source)

@@ -560,6 +560,7 @@ class Workflow:
         nodeps=False,
         cleanup_metadata=None,
         conda_cleanup_envs=False,
+        cleanup_containers=False,
         cleanup_shadow=False,
         cleanup_scripts=True,
         subsnakemake=None,
@@ -667,9 +668,9 @@ class Workflow:
             targetfiles=targetfiles,
             targetrules=targetrules,
             target_jobs_def=target_jobs,
-            # when cleaning up conda, we should enforce all possible jobs
+            # when cleaning up conda or containers, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or conda_cleanup_envs,
+            forceall=forceall or conda_cleanup_envs or cleanup_containers,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -922,7 +923,8 @@ class Workflow:
 
         if self.use_singularity and self.assume_shared_fs:
             dag.pull_container_imgs(
-                dryrun=dryrun or list_conda_envs, quiet=list_conda_envs
+                dryrun=dryrun or list_conda_envs or cleanup_containers,
+                quiet=list_conda_envs,
             )
         if self.use_conda:
             dag.create_conda_envs(
@@ -946,6 +948,10 @@ class Workflow:
 
         if conda_cleanup_envs:
             self.persistence.conda_cleanup_envs()
+            return True
+
+        if cleanup_containers:
+            self.persistence.cleanup_containers()
             return True
 
         self.scheduler = JobScheduler(
@@ -1140,17 +1146,24 @@ class Workflow:
         frame = inspect.currentframe().f_back
         calling_file = frame.f_code.co_filename
 
-        if calling_file == self.included_stack[-1].get_path_or_uri():
+        if (
+            self.included_stack
+            and calling_file == self.included_stack[-1].get_path_or_uri()
+        ):
             # called from current snakefile, we can try to keep the original source
             # file annotation
+            # This will only work if the method is evaluated during parsing mode.
+            # Otherwise, the stack can be empty already.
             path = self.current_basedir.join(rel_path)
+            orig_path = path.get_path_or_uri()
         else:
             # heuristically determine path
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
+            orig_path = path
 
         return sourcecache_entry(
-            self.sourcecache.get_path(infer_source_file(path)), path
+            self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
 
     @property
@@ -1294,10 +1307,9 @@ class Workflow:
                     )
                     update_config(self.config, self.overwrite_config)
             elif not self.overwrite_configfiles:
+                fp_full = os.path.abspath(fp)
                 raise WorkflowError(
-                    "Workflow defines configfile {} but it is not present or accessible.".format(
-                        fp
-                    )
+                    f"Workflow defines configfile {fp} but it is not present or accessible (full checked path: {fp_full})."
                 )
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
@@ -1627,6 +1639,9 @@ class Workflow:
                     rule=rule,
                 )
 
+            if ruleinfo.localrule is True:
+                self._localrules.add(rule.name)
+
             ruleinfo.func.__name__ = "__{}".format(rule.name)
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
@@ -1690,6 +1705,13 @@ class Workflow:
     def default_target_rule(self, value):
         def decorate(ruleinfo):
             ruleinfo.default_target = value
+            return ruleinfo
+
+        return decorate
+
+    def localrule(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.localrule = value
             return ruleinfo
 
         return decorate

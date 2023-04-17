@@ -378,8 +378,7 @@ class RealExecutor(AbstractExecutor):
         return join_cli_args(
             [
                 format_cli_arg(
-                    "--target-jobs",
-                    encode_target_jobs_cli_args(job.get_target_spec()),
+                    "--target-jobs", encode_target_jobs_cli_args(job.get_target_spec())
                 ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need
@@ -674,7 +673,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if self.workflow.verbose or (job.is_run and not job.is_group()):
+            if self.workflow.verbose or (not job.is_group() and job.is_run):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 

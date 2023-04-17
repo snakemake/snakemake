@@ -40,6 +40,7 @@ from snakemake.common import (
     lazy_property,
     get_uuid,
     TBDString,
+    IO_PROP_LIMIT,
 )
 
 
@@ -223,10 +224,7 @@ class Job(AbstractJob):
             input_mapping,
             self.dependencies,
             self.incomplete_input_expand,
-        ) = self.rule.expand_input(
-            self.wildcards_dict,
-            groupid=groupid,
-        )
+        ) = self.rule.expand_input(self.wildcards_dict, groupid=groupid)
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
@@ -999,8 +997,8 @@ class Job(AbstractJob):
             "type": "single",
             "rule": self.rule.name,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "wildcards": self.wildcards_dict,
             "params": params,
             "log": self.log,
@@ -1432,8 +1430,8 @@ class GroupJob(AbstractJob):
             "type": "group",
             "groupid": self.groupid,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "threads": self.threads,
             "resources": resources,
             "jobid": self.jobid,

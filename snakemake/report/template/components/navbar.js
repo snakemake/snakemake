@@ -7,21 +7,21 @@ class Navbar extends React.Component {
     }
 
     render() {
-        let translateNavbar = "";
-        let translateShowButton = "-translate-x-full"
+        let showHideNavbar = `${this.getWidth()}`;
+        let showHideShowButton = "-translate-x-full";
         if (this.props.app.state.hideNavbar) {
-            translateNavbar = "-translate-x-full";
-            translateShowButton = ""
+            showHideNavbar = "w-0";
+            showHideShowButton = "";
         }
         return [
             e(
                 "div",
-                { className: `fixed z-50 p-2 transition-translate bg-white/70 backdrop-blur-sm rounded-br-lg ${translateShowButton}` },
+                { className: `fixed z-50 p-2 transition-translate bg-white/70 backdrop-blur-sm rounded-br-lg ${showHideShowButton}` },
                 this.getShowButton()
             ),
             e(
                 "nav",
-                { className: `fixed z-50 transition-all ${translateNavbar} ${this.getWidth()} text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-auto` },
+                { className: `transition-all ${showHideNavbar} text-white text-sm bg-slate-900/70 backdrop-blur-sm h-screen overflow-auto` },
                 e(
                     "h1",
                     { className: "sticky relative top-0 left-0 bg-white/80 backdrop-blur-sm text-slate-700 text-l tracking-wide px-3 py-1 mb-1 flex items-center" },

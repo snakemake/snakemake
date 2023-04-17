@@ -15,9 +15,7 @@ class DefaultResources:
         "tmpdir": "system_tmpdir",
     }
 
-    bare_defaults = {
-        "tmpdir": "system_tmpdir",
-    }
+    bare_defaults = {"tmpdir": "system_tmpdir"}
 
     @classmethod
     def decode_arg(cls, arg):
