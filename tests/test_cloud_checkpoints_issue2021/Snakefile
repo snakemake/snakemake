@@ -22,9 +22,12 @@ checkpoint copy:
             shell('cp {input} {output}/landsat-data-$(date "+%s%N").txt')
 
 def get_files(wc):
+    import glob
     checkpoint_output = checkpoints.copy.get().output[0]
     query = os.path.join(checkpoint_output, "landsat-data-{s}.txt")
-    return expand(query, s=glob_wildcards(query).s)
+    files = [os.path.basename(f) for f in glob.glob(query)]
+    wildcards = [f.split("-")[2].strip(".txt") for f in files]
+    return expand("landsat-dir/landsat-data-{s}", s=wildcards)
 
 rule pack:
     input: get_files
