@@ -331,15 +331,11 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         # define resources
         if job.resources.get("_cores"):
-            setattr(task["resources"], "cpu_cores", job.resources["_cores"])
+            task.resource.cpu_cores = job.resources["_cores"]
         if job.resources.get("mem_mb"):
-            setattr(
-                task["resources"], "ram_gb", math.ceil(job.resources["mem_mb"] / 1000)
-            )
+            task.resources.ram_gb = math.ceil(job.resources["mem_mb"] / 1000)
         if job.resources.get("disk_mb"):
-            setattr(
-                task["resources"], "disk_gb", math.ceil(job.resources["disk_mb"] / 1000)
-            )
+            task.resources.disk_gb = math.ceil(job.resources["disk_mb"] / 1000)
 
         tes_task = tes.Task(**task)
         logger.debug("[TES] Built task: {task}".format(task=tes_task))
