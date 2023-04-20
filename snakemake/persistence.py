@@ -45,12 +45,12 @@ class Persistence:
             self._serialize_param = self._serialize_param_builtin
 
         self._max_len = None
+
         self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir) and not nolock:
-            os.makedirs(self._lockdir, exist_ok=True)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
