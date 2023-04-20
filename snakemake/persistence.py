@@ -49,8 +49,8 @@ class Persistence:
         if not os.path.exists(self.path):
             os.mkdir(self.path)
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        if not os.path.exists(self._lockdir) and not nolock:
+            os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
