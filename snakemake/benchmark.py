@@ -417,7 +417,10 @@ def gather_benchmark_records(benchmark_jobs):
             ["NA"]
             if len(job.input) == 0
             else [
-                f"{name if name is not None else file}={file.size / 1024 / 1024}"
+                "{name}={size:0.2f}".format(
+                    name=name if name is not None else file,
+                    size=file.size / 1024 / 1024,
+                )
                 for name, file in job.input._allitems()
             ]
         )
