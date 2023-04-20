@@ -533,7 +533,8 @@ class Env:
                             else "",
                             "create",
                             "--quiet",
-                            "--yes" if filetype != "yaml" or self.frontend == "micromamba"
+                            "--yes"
+                            if filetype != "yaml" or self.frontend == "micromamba"
                             else "",
                             f'--file "{target_env_file}"',
                             f'--prefix "{env_path}"',
@@ -557,8 +558,12 @@ class Env:
                         )
 
                         # Re-add env_setup_start if we deleted env_path before
-                        if self.frontend == "micromamba" and not os.path.exists(os.path.join(env_path, "env_setup_start")):
-                            with open(os.path.join(env_path, "env_setup_start"), "a") as f:
+                        if self.frontend == "micromamba" and not os.path.exists(
+                            os.path.join(env_path, "env_setup_start")
+                        ):
+                            with open(
+                                os.path.join(env_path, "env_setup_start"), "a"
+                            ) as f:
                                 pass
 
                         # cleanup if requested
@@ -672,7 +677,9 @@ class Conda:
             self.frontend = frontend
 
             self.info = json.loads(
-                shell.check_output(self._get_cmd(f"{self.frontend} info --json"), text=True)
+                shell.check_output(
+                    self._get_cmd(f"{self.frontend} info --json"), text=True
+                )
             )
 
             if prefix_path is None or container_img is not None:
