@@ -6,6 +6,7 @@ rule all:
         "test.with_wildcards.1.output",
         "test.with_wildcards.2.output",
         "test.with_wildcards.3.output",
+        "test.named_input.output",
 
 rule with_directive:
     output: "test.with_directive.output"
@@ -29,3 +30,8 @@ rule with_wildcards:
     shell:
         "touch {output}"
         
+rule named_input:
+    input: in_data="test.without_directive.output"
+    output: "test.named_input.output"
+    shell:
+        "touch {output}"

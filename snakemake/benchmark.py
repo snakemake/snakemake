@@ -413,9 +413,17 @@ def gather_benchmark_records(benchmark_jobs):
             if len(resources) == 0
             else [f"{name}={value}" for name, value in resources.items()]
         )
+        input_file_size = ";".join(
+            ["NA"]
+            if len(job.input) == 0
+            else [
+                f"{name if name is not None else file}={file.size / 1024 / 1024}"
+                for name, file in job.input._allitems()
+            ]
+        )
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
         _benchmark.insert(0, "threads", job.threads)
-        _benchmark.insert(0, "input_size", job.input.size_mb)
+        _benchmark.insert(0, "input_size_mb", input_file_size)
         _benchmark.insert(0, "resources", resources_str)
         _benchmark.insert(0, "wildcards", wildcard_str)
         _benchmark.insert(0, "rule", job.rule.name)
