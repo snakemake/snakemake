@@ -1962,6 +1962,10 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
+def test_github_issue2142():
+    run(dpath("test_github_issue2142"))
+
+
 def test_ensure_nonempty_fail():
     run(dpath("test_ensure"), targets=["a"], shouldfail=True)
 
