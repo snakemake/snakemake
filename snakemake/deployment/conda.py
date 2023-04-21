@@ -550,21 +550,32 @@ class Env:
 
                         # micromamba can't create environment in an existing directory.
                         # as a hack we'll temporarily delete env_path
+                        # see https://github.com/mamba-org/mamba/issues/2402
+                        # TODO: revert this if micromamba issue is ever fixed
                         if self.frontend == "micromamba" and os.path.exists(env_path):
                             shutil.rmtree(env_path)
 
-                        out = shell.check_output(
-                            cmd, stderr=subprocess.STDOUT, text=True
-                        )
+                            out = shell.check_output(
+                                cmd, stderr=subprocess.STDOUT, text=True
+                            )
 
-                        # Re-add env_setup_start if we deleted env_path before
-                        if self.frontend == "micromamba" and not os.path.exists(
-                            os.path.join(env_path, "env_setup_start")
-                        ):
-                            with open(
-                                os.path.join(env_path, "env_setup_start"), "a"
-                            ) as f:
-                                pass
+                            # Re-add env_setup_start after we deleted env_path before
+                            if not os.path.exists(
+                                os.path.join(env_path, "env_setup_start")
+                            ):
+                                with open(
+                                    os.path.join(env_path, "env_setup_start"), "a"
+                                ) as f:
+                                    pass
+                            else:
+                                logger.warning(
+                                    "Unexpected behaviour. Environment creation with micromamba may have finished incorrectly."
+                                )
+
+                        else:
+                            out = shell.check_output(
+                                cmd, stderr=subprocess.STDOUT, text=True
+                            )
 
                         # cleanup if requested
                         if self._cleanup is CondaCleanupMode.tarballs:
