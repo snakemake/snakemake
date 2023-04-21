@@ -28,6 +28,7 @@ from enum import Enum
 import threading
 import shutil
 from abc import ABC, abstractmethod
+import yaml
 
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -781,26 +782,27 @@ class Conda:
             self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                f"Unable to check conda installation:" "\n" + e.stderr.decode()
+                f"Unable to check conda installation:" "\n" + (e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
             )
 
     def _check_version(self):
         from snakemake.shell import shell
 
         version = shell.check_output(
-            self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
+            self._get_cmd(f"{self.frontend} --version"), stderr=subprocess.PIPE, text=True
         )
         version_matches = re.findall("\d+.\d+.\d+", version)
         if len(version_matches) != 1:
             raise WorkflowError(
-                f"Unable to determine conda version. 'conda --version' returned {version}"
+                f"Unable to determine conda version. '{self.frontend} --version' returned {version}"
             )
         else:
             version = version_matches[0]
-        if StrictVersion(version) < StrictVersion("4.2"):
+        if self.frontend == "conda" and StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
-                "Conda must be version 4.2 or later, found version {}.".format(version)
+                f"Conda must be version 4.2 or later, found version {version}."
             )
+        # If we learn minimum versions for Mamba or Micromamba, they would go here.
 
     def _check_condarc(self):
         if self.container_img:
@@ -809,20 +811,39 @@ class Conda:
             return
         from snakemake.shell import shell
 
-        res = json.loads(
-            shell.check_output(
-                self._get_cmd("conda config --get channel_priority --json"),
-                text=True,
-                stderr=subprocess.PIPE,
+        if self.frontend == "conda":
+            res = json.loads(
+                shell.check_output(
+                    self._get_cmd("conda config --get channel_priority --json"),
+                    text=True,
+                    stderr=subprocess.PIPE,
+                )
             )
-        )
-        if res["get"].get("channel_priority") != "strict":
-            logger.warning(
-                "Your conda installation is not configured to use strict channel priorities. "
-                "This is however crucial for having robust and correct environments (for details, "
-                "see https://conda-forge.org/docs/user/tipsandtricks.html). "
-                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+            if res["get"].get("channel_priority") != "strict":
+                logger.warning(
+                    "Your Conda installation is not configured to use strict channel priorities. "
+                    "This is however crucial for having robust and correct environments (for details, "
+                    "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                    "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+                )
+        elif self.frontend == "micromamba":
+            # Micromamba only supports YAML at the moment
+            # See https://github.com/mamba-org/mamba/issues/2480
+            res = yaml.safe_load(
+                shell.check_output(
+                    self._get_cmd("micromamba config get channel_priority"),
+                    text=True,
+                    stderr=subprocess.PIPE,
+                )
             )
+            if res.get("channel_priority") != "strict":
+                logger.warning(
+                    f"Your Micromamba installation is not configured to use strict channel priorities. "
+                    "This is however crucial for having robust and correct environments (for details, "
+                    "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                    f"Please consider to configure strict priorities by executing 'micromamba config --set channel_priority strict'."
+                )
+        # TODO: implement channel_priority check for mamba.
 
     def bin_path(self):
         if ON_WINDOWS:
