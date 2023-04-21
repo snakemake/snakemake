@@ -36,7 +36,28 @@ If individual rules require e.g. a different partition, you can override the def
 
   $ snakemake --slurm --default-resources slurm_account=<your SLURM account> slurm_partition=<your SLURM partition> --set-resources <somerule>:slurm_partition=<some other partition>
 
-Usually, it is advisable to persist such settings via a :ref:`configuration profile <profiles>`, which can be provided system-wide or per user.
+Usually, it is advisable to persist such settings via a :ref:`configuration profile <profiles>`, which can be provided system-wide or per user. 
+A configuration profile for the above example could look like this:
+
+.. code-block:: console
+
+  $ cat /repo/root/workflow/profiles/mycluster/config.yaml
+  default-resources:
+  - slurm_account="<your SLURM account>"
+  - slurm_partition="your SLURM partition"
+  - runtime=30 #in minutes
+  set-resources:
+  - <somerule>:slurm_partition=<some other partition>
+  - <somerule>:slurm_extra="--gres=gpu:1"
+  - <somerule>:runtime=100
+
+With such a configuration profile in place, the workflow can be called as:
+
+.. code-block:: console
+
+  $ snakemake --slurm --profile /repo/root/workflow/profiles/mycluster
+
+
 
 Ordinary SMP jobs
 ~~~~~~~~~~~~~~~~~
