@@ -782,14 +782,17 @@ class Conda:
             self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                f"Unable to check conda installation:" "\n" + (e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
+                f"Unable to check conda installation:"
+                "\n" + (e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
             )
 
     def _check_version(self):
         from snakemake.shell import shell
 
         version = shell.check_output(
-            self._get_cmd(f"{self.frontend} --version"), stderr=subprocess.PIPE, text=True
+            self._get_cmd(f"{self.frontend} --version"),
+            stderr=subprocess.PIPE,
+            text=True,
         )
         version_matches = re.findall("\d+.\d+.\d+", version)
         if len(version_matches) != 1:
