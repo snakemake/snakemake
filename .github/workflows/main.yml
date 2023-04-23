@@ -65,7 +65,7 @@ jobs:
       # see https://github.com/containers/podman/issues/13338
       - name: Download slurm ansible roles
         run: |
-          ansible-galaxy install galaxyproject.slurm,v1.0.1
+          ansible-galaxy install galaxyproject.slurm,1.0.1
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
