@@ -78,10 +78,7 @@ def validate(data, schema, set_default=True):
             },
         )
     else:
-        resolver = RefResolver(
-            schemafile.get_path_or_uri(),
-            schema,
-        )
+        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):

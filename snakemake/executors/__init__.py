@@ -378,8 +378,7 @@ class RealExecutor(AbstractExecutor):
         return join_cli_args(
             [
                 format_cli_arg(
-                    "--target-jobs",
-                    encode_target_jobs_cli_args(job.get_target_spec()),
+                    "--target-jobs", encode_target_jobs_cli_args(job.get_target_spec())
                 ),
                 # Restrict considered rules for faster DAG computation.
                 # This does not work for updated jobs because they need

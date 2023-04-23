@@ -93,11 +93,11 @@ class AbstractJob:
     def get_target_spec(self):
         raise NotImplementedError()
 
-    def products(self):
+    def products(self, include_logfiles=True):
         raise NotImplementedError()
 
-    def has_products(self):
-        for o in self.products():
+    def has_products(self, include_logfiles=True):
+        for o in self.products(include_logfiles=include_logfiles):
             return True
         return False
 
@@ -224,10 +224,7 @@ class Job(AbstractJob):
             input_mapping,
             self.dependencies,
             self.incomplete_input_expand,
-        ) = self.rule.expand_input(
-            self.wildcards_dict,
-            groupid=groupid,
-        )
+        ) = self.rule.expand_input(self.wildcards_dict, groupid=groupid)
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files

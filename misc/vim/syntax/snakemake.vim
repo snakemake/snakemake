@@ -55,6 +55,7 @@ syn keyword pythonStatement
       \ group
       \ include
       \ input
+      \ localrule
       \ localrules
       \ log
       \ message

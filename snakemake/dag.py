@@ -40,10 +40,7 @@ from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_loc
 from snakemake.deployment import conda, singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
-from snakemake.sourcecache import (
-    LocalSourceFile,
-    SourceFile,
-)
+from snakemake.sourcecache import LocalSourceFile, SourceFile
 
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
@@ -605,9 +602,7 @@ class DAG:
                 )
             except IOError as e:
                 raise MissingOutputException(
-                    str(e),
-                    rule=job.rule,
-                    jobid=self.jobid(job),
+                    str(e), rule=job.rule, jobid=self.jobid(job)
                 )
 
         def correctly_flagged_with_dir(f):
@@ -1109,7 +1104,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.has_products():
+                if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
@@ -1444,8 +1439,7 @@ class DAG:
                 # with potentially new input files that have depended
                 # on group ids.
                 self.postprocess(
-                    update_needrun=True,
-                    update_incomplete_input_expand_jobs=False,
+                    update_needrun=True, update_incomplete_input_expand_jobs=False
                 )
 
                 return
