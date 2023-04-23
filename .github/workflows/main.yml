@@ -137,8 +137,8 @@ jobs:
           ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
       - name: Add Slurm Account
         run: |
-          echo "Waiting 30 seconds for slurm cluster to be fully initialized."
-          sleep 30
+          echo "Waiting 5 seconds for slurm cluster to be fully initialized."
+          sleep 5
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
       - name: Configure proxy for sacct
