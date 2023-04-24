@@ -2053,3 +2053,11 @@ def test_inferred_resources():
 @skip_on_windows
 def test_localrule():
     run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
+
+
+def test_pep_amendment():
+    run(dpath("test_pep_amendment"), pep_amendment="test_workflow")
+
+
+def test_pep_amendment_false_name():
+    run(dpath("test_pep_amendment"), pep_amendment="false_name", shouldfail=True)

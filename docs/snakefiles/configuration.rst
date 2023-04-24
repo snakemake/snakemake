@@ -191,6 +191,9 @@ Using the ``pepfile`` directive leads to parsing of the provided PEP with `peppy
 The resulting project object is made globally available under the name ``pep``.
 Here, we use it to aggregate over the set of sample names that is defined in the corresponding PEP.
 
+PEP provides a convinient way to configure multiple projects (e.g. production and testing) in one configuration file via [amendments](http://pep.databio.org/en/2.0.0/howto_mixmatch/).
+To activate an amendment for a snakemake run, the desired amendmen name can be specified via a command line option `--pep-amendment`.
+
 **Importantly**, note that PEPs are meant to contain sample metadata and any global information about a project or experiment. 
 They should **not** be used to encode workflow specific configuration options.
 For those, one should always complement the pepfile with an ordinary :ref:`config file <snakefiles_standard_configuration>`.

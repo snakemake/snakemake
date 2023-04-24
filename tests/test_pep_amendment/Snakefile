@@ -1,0 +1,11 @@
+pepfile: "config/pep/config.yaml"
+
+rule all:
+    input: expand("{sample}.txt", sample = pep.sample_table['sample_name'])
+
+rule A:
+    output: "{sample}.txt"
+    shell:
+     """
+     touch {output}
+     """
