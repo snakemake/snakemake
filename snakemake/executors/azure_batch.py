@@ -385,7 +385,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         for k, value in attrs.items():
             if value is not None and re.search(sas_pattern, str(value)):
-                    attrs_new[k] = re.sub(sas_pattern, mask, value)
+                attrs_new[k] = re.sub(sas_pattern, mask, value)
 
         return attrs_new
 
@@ -585,36 +585,40 @@ class AzBatchExecutor(ClusterExecutor):
                                 )
 
                             if n.start_task_info is not None and (
-                                    n.start_task_info.result
-                                    == batchmodels.TaskExecutionResult.failure
-                                ):
-                                    try:
-                                        stderr_file = self.batch_client.file.get_from_compute_node(
+                                n.start_task_info.result
+                                == batchmodels.TaskExecutionResult.failure
+                            ):
+                                try:
+                                    stderr_file = (
+                                        self.batch_client.file.get_from_compute_node(
                                             self.pool_id, n.id, "/startup/stderr.txt"
                                         )
-                                        stderr_stream = self._read_stream_as_string(
-                                            stderr_file, "utf-8"
-                                        )
-                                    except Exception:
-                                        stderr_stream = ""
+                                    )
+                                    stderr_stream = self._read_stream_as_string(
+                                        stderr_file, "utf-8"
+                                    )
+                                except Exception:
+                                    stderr_stream = ""
 
-                                    try:
-                                        stdout_file = self.batch_client.file.get_from_compute_node(
+                                try:
+                                    stdout_file = (
+                                        self.batch_client.file.get_from_compute_node(
                                             self.pool_id, n.id, "/startup/stdout.txt"
                                         )
-                                        stdout_stream = self._read_stream_as_string(
-                                            stdout_file, "utf-8"
-                                        )
-                                    except Exception:
-                                        stdout_stream = ""
-
-                                    raise WorkflowError(
-                                        "AZBatch start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
-                                            n.start_task_info.failure_info.message,
-                                            stdout_stream,
-                                            stderr_stream,
-                                        )
                                     )
+                                    stdout_stream = self._read_stream_as_string(
+                                        stdout_file, "utf-8"
+                                    )
+                                except Exception:
+                                    stdout_stream = ""
+
+                                raise WorkflowError(
+                                    "AZBatch start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
+                                        n.start_task_info.failure_info.message,
+                                        stdout_stream,
+                                        stderr_stream,
+                                    )
+                                )
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
@@ -779,7 +783,9 @@ class AzBatchExecutor(ClusterExecutor):
 
         except batchmodels.BatchErrorException as err:
             if err.error.code != "PoolExists":
-                raise WorkflowError(f"Error: Failed to create pool: {err.error.message}")
+                raise WorkflowError(
+                    f"Error: Failed to create pool: {err.error.message}"
+                )
             else:
                 logger.debug(f"Pool {self.pool_id} exists.")
 
