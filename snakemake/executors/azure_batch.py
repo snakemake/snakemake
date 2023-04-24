@@ -65,12 +65,12 @@ class AzBatchConfig:
 
             # parse account details necessary for batch client authentication steps
             if self.batch_pool_subnet_id.split("/")[2] != self.subscription_id:
-                raise ValueError(
+                raise WorkflowError(
                     "Error: managed identity must be in the same subscription as the batch pool subnet."
                 )
 
             if self.batch_pool_subnet_id.split("/")[4] != self.resource_group:
-                raise ValueError(
+                raise WorkflowError(
                     "Error: managed identity must be in the same resource group as the batch pool subnet."
                 )
 
@@ -556,7 +556,7 @@ class AzBatchExecutor(ClusterExecutor):
                         else:
                             # cleanup on failure
                             self.shutdown()
-                            raise ValueError(
+                            raise WorkflowError(
                                 "Unknown task execution result: {}".format(
                                     task.execution_info.result
                                 )
@@ -580,7 +580,7 @@ class AzBatchExecutor(ClusterExecutor):
                                         print(
                                             f"Error: {e.message}, {e.error_details[0].__dict__}"
                                         )
-                                raise RuntimeError(
+                                raise WorkflowError(
                                     "A node entered an unusable state, quitting."
                                 )
 
@@ -608,8 +608,8 @@ class AzBatchExecutor(ClusterExecutor):
                                     except Exception:
                                         stdout_stream = ""
 
-                                    raise RuntimeError(
-                                        "start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
+                                    raise WorkflowError(
+                                        "AZBatch start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
                                             n.start_task_info.failure_info.message,
                                             stdout_stream,
                                             stderr_stream,
@@ -667,7 +667,7 @@ class AzBatchExecutor(ClusterExecutor):
                     resource_id=self.batch_config.managed_identity_resource_id
                 )
             else:
-                raise azure.core.BatchErrorException(
+                raise WorkflowError(
                     "No container registry authentication scheme set. Please set the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS or set MANAGED_IDENTITY_CLIENT_ID and MANAGED_IDENTITY_RESOURCE_ID."
                 )
 
@@ -779,7 +779,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         except batchmodels.BatchErrorException as err:
             if err.error.code != "PoolExists":
-                raise RuntimeError(f"Error: Failed to create pool: {err.error.message}")
+                raise WorkflowError(f"Error: Failed to create pool: {err.error.message}")
             else:
                 logger.debug(f"Pool {self.pool_id} exists.")
 
