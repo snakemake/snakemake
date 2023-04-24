@@ -133,7 +133,7 @@ class AzBatchConfig:
         )
 
     @staticmethod
-    def set_or_default(evar: str, default: str):
+    def set_or_default(evar: str, default: str | None):
         gotvar = os.getenv(evar)
         if gotvar is not None:
             return gotvar
@@ -382,10 +382,10 @@ class AzBatchExecutor(ClusterExecutor):
         attrs_new = attrs.copy()
         sas_pattern = r"\?s[v|p]=.+(\'|\"|$)"
         mask = 10 * "*"
-        for k in attrs:
-            if attrs[k] is not None:
-                if re.search(sas_pattern, str(attrs[k])):
-                    attrs_new[k] = re.sub(sas_pattern, mask, attrs[k])
+
+        for k, value in attrs.items():
+            if value is not None and re.search(sas_pattern, str(value)):
+                    attrs_new[k] = re.sub(sas_pattern, mask, value)
 
         return attrs_new
 
@@ -482,9 +482,8 @@ class AzBatchExecutor(ClusterExecutor):
         try:
             stream = self.batch_client.file.get_from_task(job_id, task_id, fname)
             content = self._read_stream_as_string(stream, encoding)
-        except:
+        except Exception:
             content = ""
-            pass
 
         return content
 
@@ -572,8 +571,8 @@ class AzBatchExecutor(ClusterExecutor):
 
                         # fail if start task fails on a node or node state becomes unusable
                         # and stream stderr stdout to stream
-                        nodeList = self.batch_client.compute_node.list(self.pool_id)
-                        for n in nodeList:
+                        node_list = self.batch_client.compute_node.list(self.pool_id)
+                        for n in node_list:
                             # error on unusable node (this occurs if your container image fails to pull)
                             if n.state == "unusable":
                                 if n.errors is not None:
@@ -585,8 +584,7 @@ class AzBatchExecutor(ClusterExecutor):
                                     "A node entered an unusable state, quitting."
                                 )
 
-                            if n.start_task_info is not None:
-                                if (
+                            if n.start_task_info is not None and (
                                     n.start_task_info.result
                                     == batchmodels.TaskExecutionResult.failure
                                 ):
@@ -597,9 +595,8 @@ class AzBatchExecutor(ClusterExecutor):
                                         stderr_stream = self._read_stream_as_string(
                                             stderr_file, "utf-8"
                                         )
-                                    except:
+                                    except Exception:
                                         stderr_stream = ""
-                                        pass
 
                                     try:
                                         stdout_file = self.batch_client.file.get_from_compute_node(
@@ -608,9 +605,8 @@ class AzBatchExecutor(ClusterExecutor):
                                         stdout_stream = self._read_stream_as_string(
                                             stdout_file, "utf-8"
                                         )
-                                    except:
+                                    except Exception:
                                         stdout_stream = ""
-                                        pass
 
                                     raise RuntimeError(
                                         "start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
