@@ -19,10 +19,8 @@ import importlib
 import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.executors import azure_batch
 from snakemake.executors.common import url_can_parse
 from snakemake.target_jobs import parse_target_jobs_cli_args
-from snakemake.executors import azure_batch
 from snakemake.executors.common import url_can_parse
 
 from snakemake.workflow import Workflow
