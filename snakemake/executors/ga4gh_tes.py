@@ -4,10 +4,10 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+import math
 import os
 import stat
 import time
-import math
 from collections import namedtuple
 
 from snakemake.logging import logger
