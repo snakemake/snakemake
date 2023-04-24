@@ -33,7 +33,6 @@ from snakemake.executors import (
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
-from snakemake.executors.azure_batch import AzBatchExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -375,6 +374,14 @@ class JobScheduler:
             )
 
         elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core and azure-identity packages.",
+                    e,
+                )
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,

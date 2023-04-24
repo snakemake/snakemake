@@ -163,7 +163,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
 
         except ImportError:
             raise WorkflowError(
-                "The Python 3 package 'azure-core and azure-identity are required'"
+                "The Python 3 packages 'azure-core' and 'azure-identity' are required"
             )
 
         super(AzureIdentityCredentialAdapter, self).__init__(None)
@@ -176,7 +176,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
             from azure.core.pipeline import PipelineRequest, PipelineContext
             from azure.core.pipeline.transport import HttpRequest
         except ImportError:
-            raise WorkflowError("The Python 3 package azure-core are required")
+            raise WorkflowError("The Python 3 package azure-core is required")
 
         return PipelineRequest(
             HttpRequest("AzureIdentityCredentialAdapter", "https://fakeurl"),
