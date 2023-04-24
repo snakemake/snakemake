@@ -28,6 +28,7 @@ from enum import Enum
 import threading
 import shutil
 from abc import ABC, abstractmethod
+import yaml
 
 
 from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
@@ -412,7 +413,7 @@ class Env:
                     shell.check_output(
                         singularity.shellcmd(
                             self._container_img.path,
-                            "[ -d '{}' ]".format(env_path),
+                            f"[ -d '{env_path}' ]",
                             args=self._singularity_args,
                             envvars=self.get_singularity_envvars(),
                             quiet=True,
@@ -475,7 +476,7 @@ class Env:
                     logger.info("Installing archived conda packages.")
                     pkg_list = os.path.join(env_archive, "packages.txt")
                     if os.path.exists(pkg_list):
-                        # read pacakges in correct order
+                        # read packages in correct order
                         # this is for newer env archives where the package list
                         # was stored
                         packages = [
@@ -489,12 +490,12 @@ class Env:
                     # install packages manually from env archive
                     cmd = " ".join(
                         [
-                            "conda",
+                            self.frontend,
                             "create",
                             "--quiet",
                             "--no-shortcuts" if ON_WINDOWS else "",
                             "--yes",
-                            "--prefix '{}'".format(env_path),
+                            f"--prefix '{env_path}'",
                         ]
                         + packages
                     )
@@ -513,34 +514,32 @@ class Env:
                         # different volumes and singularity should only mount one).
                         # In addition, this allows to immediately see what an
                         # environment in .snakemake/conda contains.
-                        target_env_file = env_path + f".{filetype}"
+                        target_env_file = f"{env_path}.{filetype}"
                         shutil.copy(env_file, target_env_file)
 
                         logger.info("Downloading and installing remote packages.")
 
                         strict_priority = (
-                            ["conda config --set channel_priority strict &&"]
+                            ["micromamba config set channel_priority strict &&"]
+                            if self._container_img and self.frontend == "micromamba"
+                            else ["conda config --set channel_priority strict &&"]
                             if self._container_img
                             else []
                         )
 
-                        subcommand = [self.frontend]
-                        yes_flag = ["--yes"]
-                        if filetype == "yaml":
-                            subcommand.append("env")
-                            yes_flag = []
-
-                        cmd = (
-                            strict_priority
-                            + subcommand
-                            + [
-                                "create",
-                                "--quiet",
-                                '--file "{}"'.format(target_env_file),
-                                '--prefix "{}"'.format(env_path),
-                            ]
-                            + yes_flag
-                        )
+                        cmd = strict_priority + [
+                            self.frontend,
+                            "env"
+                            if filetype == "yaml" and self.frontend != "micromamba"
+                            else "",
+                            "create",
+                            "--quiet",
+                            "--yes"
+                            if filetype != "yaml" or self.frontend == "micromamba"
+                            else "",
+                            f'--file "{target_env_file}"',
+                            f'--prefix "{env_path}"',
+                        ]
                         cmd = " ".join(cmd)
                         if self._container_img:
                             cmd = singularity.shellcmd(
@@ -549,9 +548,35 @@ class Env:
                                 args=self._singularity_args,
                                 envvars=self.get_singularity_envvars(),
                             )
-                        out = shell.check_output(
-                            cmd, stderr=subprocess.STDOUT, text=True
-                        )
+
+                        # micromamba can't create environment in an existing directory.
+                        # as a hack we'll temporarily delete env_path
+                        # see https://github.com/mamba-org/mamba/issues/2402
+                        # TODO: revert this if micromamba issue is ever fixed
+                        if self.frontend == "micromamba" and os.path.exists(env_path):
+                            shutil.rmtree(env_path)
+
+                            out = shell.check_output(
+                                cmd, stderr=subprocess.STDOUT, text=True
+                            )
+
+                            # Re-add env_setup_start after we deleted env_path before
+                            if not os.path.exists(
+                                os.path.join(env_path, "env_setup_start")
+                            ):
+                                with open(
+                                    os.path.join(env_path, "env_setup_start"), "a"
+                                ) as f:
+                                    pass
+                            else:
+                                logger.warning(
+                                    "Unexpected behaviour. Environment creation with micromamba may have finished incorrectly."
+                                )
+
+                        else:
+                            out = shell.check_output(
+                                cmd, stderr=subprocess.STDOUT, text=True
+                            )
 
                         # cleanup if requested
                         if self._cleanup is CondaCleanupMode.tarballs:
@@ -664,11 +689,17 @@ class Conda:
             self.frontend = frontend
 
             self.info = json.loads(
-                shell.check_output(self._get_cmd(f"conda info --json"), text=True)
+                shell.check_output(
+                    self._get_cmd(f"{self.frontend} info --json"), text=True
+                )
             )
 
             if prefix_path is None or container_img is not None:
-                self.prefix_path = self.info["conda_prefix"]
+                if self.frontend == "micromamba":
+                    self.prefix_path = self.info["env location"]
+                else:
+                    self.prefix_path = self.info["conda_prefix"]
+
             else:
                 self.prefix_path = prefix_path
 
@@ -693,8 +724,8 @@ class Conda:
         from snakemake.shell import shell
 
         frontends = ["conda"]
-        if self.frontend == "mamba":
-            frontends = ["mamba", "conda"]
+        if self.frontend != "conda":
+            frontends.append(self.frontend)
 
         for frontend in frontends:
             # Use type here since conda now is a function.
@@ -751,26 +782,30 @@ class Conda:
             self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                f"Unable to check conda installation:" "\n" + e.stderr.decode()
+                f"Unable to check conda installation:"
+                "\n" + (e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr)
             )
 
     def _check_version(self):
         from snakemake.shell import shell
 
         version = shell.check_output(
-            self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
+            self._get_cmd(f"{self.frontend} --version"),
+            stderr=subprocess.PIPE,
+            text=True,
         )
         version_matches = re.findall("\d+.\d+.\d+", version)
         if len(version_matches) != 1:
             raise WorkflowError(
-                f"Unable to determine conda version. 'conda --version' returned {version}"
+                f"Unable to determine conda version. '{self.frontend} --version' returned {version}"
             )
         else:
             version = version_matches[0]
-        if StrictVersion(version) < StrictVersion("4.2"):
+        if self.frontend == "conda" and StrictVersion(version) < StrictVersion("4.2"):
             raise CreateCondaEnvironmentException(
-                "Conda must be version 4.2 or later, found version {}.".format(version)
+                f"Conda must be version 4.2 or later, found version {version}."
             )
+        # If we learn minimum versions for Mamba or Micromamba, they would go here.
 
     def _check_condarc(self):
         if self.container_img:
@@ -779,20 +814,39 @@ class Conda:
             return
         from snakemake.shell import shell
 
-        res = json.loads(
-            shell.check_output(
-                self._get_cmd("conda config --get channel_priority --json"),
-                text=True,
-                stderr=subprocess.PIPE,
+        if self.frontend == "conda":
+            res = json.loads(
+                shell.check_output(
+                    self._get_cmd("conda config --get channel_priority --json"),
+                    text=True,
+                    stderr=subprocess.PIPE,
+                )
             )
-        )
-        if res["get"].get("channel_priority") != "strict":
-            logger.warning(
-                "Your conda installation is not configured to use strict channel priorities. "
-                "This is however crucial for having robust and correct environments (for details, "
-                "see https://conda-forge.org/docs/user/tipsandtricks.html). "
-                "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+            if res["get"].get("channel_priority") != "strict":
+                logger.warning(
+                    "Your Conda installation is not configured to use strict channel priorities. "
+                    "This is however crucial for having robust and correct environments (for details, "
+                    "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                    "Please consider to configure strict priorities by executing 'conda config --set channel_priority strict'."
+                )
+        elif self.frontend == "micromamba":
+            # Micromamba only supports YAML at the moment
+            # See https://github.com/mamba-org/mamba/issues/2480
+            res = yaml.safe_load(
+                shell.check_output(
+                    self._get_cmd("micromamba config get channel_priority"),
+                    text=True,
+                    stderr=subprocess.PIPE,
+                )
             )
+            if res.get("channel_priority") != "strict":
+                logger.warning(
+                    f"Your Micromamba installation is not configured to use strict channel priorities. "
+                    "This is however crucial for having robust and correct environments (for details, "
+                    "see https://conda-forge.org/docs/user/tipsandtricks.html). "
+                    f"Please consider to configure strict priorities by executing 'micromamba config --set channel_priority strict'."
+                )
+        # TODO: implement channel_priority check for mamba.
 
     def bin_path(self):
         if ON_WINDOWS:

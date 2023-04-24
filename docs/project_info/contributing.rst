@@ -219,13 +219,12 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
-From the base snakemake folder you call :code:`nosetests` to run all the tests, or choose one specific test. For this to work, Nose (the testing framework we use) can be installed to the conda environment using pip:
+From the base snakemake folder you call :code:`pytest` to run all the tests, or select specific tests with the :code:`-k` flag.
 
 .. code-block:: console
 
-   $ pip install nose
-   $ nosetests
-   $ nosetests tests.tests:test_log_input
+   $ pytest
+   $ pytest tests/tests.py -k test_log_input
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 
