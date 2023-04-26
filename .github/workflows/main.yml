@@ -247,12 +247,12 @@ jobs:
 
       - name: Test Azure Batch Executor
         shell: bash -el {0}
+        env: 
+          AZ_BLOB_PREFIX: $${{ secrets.AZ_BLOB_PREFIX }}
+          AZ_BLOB_ACCOUNT_URL: ${{ secrets.AZ_STORAGE_ACCOUNT_URL }}
+          AZ_BATCH_ACCOUNT_URL: ${{ secrets.AZ_BATCH_ACCOUNT_URL }}
+          AZ_BATCH_ACCOUNT_KEY: ${{ secrets.AZ_BATCH_KEY }}
         run: |
-          export AZ_BLOB_PREFIX=${{ secrets.AZ_BLOB_PREFIX }}
-          export AZ_BLOB_ACCOUNT_URL=${{ secrets.AZ_STORAGE_ACCOUNT_URL }}
-          export AZ_BLOB_CREDENTIAL=${{ secrets.AZ_STORAGE_KEY }}
-          export AZ_BATCH_ACCOUNT_URL=${{ secrets.AZ_BATCH_ACCOUNT_URL }}
-          export AZ_BATCH_ACCOUNT_KEY=${{ secrets.AZ_BATCH_KEY }}
           pytest -s -v -x tests/test_azure_batch_executor.py
 
       - name: Test GA4GH TES executor
