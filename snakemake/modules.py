@@ -170,6 +170,8 @@ class WorkflowModifier:
             self.globals = (
                 globals if globals is not None else dict(workflow.vanilla_globals)
             )
+        self.wildcard_constraints = dict()
+        self.rules = set()
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
