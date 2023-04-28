@@ -1104,7 +1104,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.has_products():
+                if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
@@ -2250,8 +2250,7 @@ class DAG:
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
-                rule = self.workflow.persistence.rule(f)
-                rule = "-" if rule is None else rule
+                rule = job.rule.name
 
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)

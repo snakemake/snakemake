@@ -509,11 +509,11 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
-        if not (self.wildcard_constraints or self.workflow._wildcard_constraints):
+        if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
         try:
             return update_wildcard_constraints(
-                item, self.wildcard_constraints, self.workflow._wildcard_constraints
+                item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
             raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
