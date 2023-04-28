@@ -129,7 +129,7 @@ The format of the batch acocunt url is :code:`https://${accountname}.${region}.b
 
 
 
-To run the test workflow, two primary environment variables need to be set local to the snakemake invocation. The azure batch account key, and the azure storage account url with an SAS key.
+To run the test workflow, two primary environment variables need to be set local to the snakemake invocation. The azure batch account key, and the azure storage account url with an SAS key. The SAS key must be wrapped in quotes when set as it contains special characters that must be escaped.
 
 .. code:: console
 
