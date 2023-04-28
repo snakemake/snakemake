@@ -2055,5 +2055,6 @@ def test_localrule():
     run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
 
 
+@skip_on_windows
 def test_module_wildcard_constraints():
     run(dpath("test_module_wildcard_constraints"))
