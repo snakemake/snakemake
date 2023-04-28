@@ -57,7 +57,7 @@ rule do:
             time_query="min(time)",
             date_parser=lambda x: (x), 
         ),
-        result="result.txt"
+        result="result.csv"
     run:
         print("Recreating table")
         eng = create_engine(format_engine(db_file), connect_args={"check_same_thread":False})

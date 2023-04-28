@@ -821,6 +821,7 @@ def test_remote_http_cluster():
     run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
 
 
+@skip_on_windows
 @connected
 def test_remote_sql():
     run(dpath("test_remote_sql"))
