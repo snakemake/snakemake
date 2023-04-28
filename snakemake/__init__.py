@@ -2768,6 +2768,7 @@ def main(argv=None):
         or args.filegraph
         or args.rulegraph
         or args.summary
+        or args.detailed_summary
         or args.lint
         or args.containerize
         or args.report

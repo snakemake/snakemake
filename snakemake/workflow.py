@@ -195,7 +195,6 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
-        self._wildcard_constraints = dict()
         self.debug = debug
         self.verbose = verbose
         self._rulecount = 0
@@ -307,6 +306,10 @@ class Workflow:
     @property
     def modifier(self):
         return self.modifier_stack[-1]
+
+    @property
+    def wildcard_constraints(self):
+        return self.modifier.wildcard_constraints
 
     @property
     def globals(self):
@@ -421,6 +424,7 @@ class Workflow:
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
+        self.modifier.rules.add(rule)
         if not is_overwrite:
             self.rule_count += 1
         if not self.default_target:
@@ -704,6 +708,7 @@ class Workflow:
             or printfilegraph
             or printdag
             or summary
+            or detailed_summary
             or archive
             or list_version_changes
             or list_code_changes
@@ -1261,9 +1266,9 @@ class Workflow:
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
-        self._wildcard_constraints.update(content)
+        self.modifier.wildcard_constraints.update(content)
         # update all rules so far
-        for rule in self.rules:
+        for rule in self.modifier.rules:
             rule.update_wildcard_constraints()
 
     def scattergather(self, **content):
@@ -1691,7 +1696,9 @@ class Workflow:
 
         return decorate
 
-    def wildcard_constraints(self, *wildcard_constraints, **kwwildcard_constraints):
+    def register_wildcard_constraints(
+        self, *wildcard_constraints, **kwwildcard_constraints
+    ):
         def decorate(ruleinfo):
             ruleinfo.wildcard_constraints = (
                 wildcard_constraints,
