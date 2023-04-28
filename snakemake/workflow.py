@@ -705,6 +705,7 @@ class Workflow:
             or printfilegraph
             or printdag
             or summary
+            or detailed_summary
             or archive
             or list_version_changes
             or list_code_changes
