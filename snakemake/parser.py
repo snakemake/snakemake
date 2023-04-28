@@ -524,7 +524,7 @@ class Handover(RuleKeywordState):
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
-        return "wildcard_constraints"
+        return "register_wildcard_constraints"
 
 
 class LocalRule(RuleKeywordState):

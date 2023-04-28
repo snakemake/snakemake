@@ -1,5 +1,36 @@
 # Changelog
 
+## [7.25.2](https://github.com/snakemake/snakemake/compare/v7.25.1...v7.25.2) (2023-04-28)
+
+
+### Bug Fixes
+
+* Fix inconsistencies between detailed summary and normal summary ([#2218](https://github.com/snakemake/snakemake/issues/2218)) ([d903123](https://github.com/snakemake/snakemake/commit/d9031236563b7dd8e31ed27208c9ad39699f765e))
+* Fix race condition when creating lock directory ([#2225](https://github.com/snakemake/snakemake/issues/2225)) ([66ea4d1](https://github.com/snakemake/snakemake/commit/66ea4d199e3d9266b1b5fdb8752772e8137ffdea))
+* quote paths given to singularity in order to ensure that it does not fail when paths contain whitespace ([#2190](https://github.com/snakemake/snakemake/issues/2190)) ([a572fb7](https://github.com/snakemake/snakemake/commit/a572fb7b8f00e39723cd98d6936f63171b26c8d9))
+
+
+### Documentation
+
+* added changelog info for &gt;v7.19.1 parsing error of "hh:mm:ss" time format in runtime resource ([#2189](https://github.com/snakemake/snakemake/issues/2189)) ([2889f38](https://github.com/snakemake/snakemake/commit/2889f3851b64cee7885fbf73f64a453eed5e806a))
+* update misc/vim/Readme with info for packer.nvim ([#2095](https://github.com/snakemake/snakemake/issues/2095)) ([32166a7](https://github.com/snakemake/snakemake/commit/32166a7fce95312bfa6b6d3ae76bf94accf6d5de))
+* Update workflow syntax with priority directive ([#2188](https://github.com/snakemake/snakemake/issues/2188)) ([af10db5](https://github.com/snakemake/snakemake/commit/af10db56b11badfab2aa4f3aa9fa4bbe3c05fe7d))
+
+## [7.25.1](https://github.com/snakemake/snakemake/compare/v7.25.0...v7.25.1) (2023-04-28)
+
+
+### Bug Fixes
+
+* allow log directive in default target rule ([#2191](https://github.com/snakemake/snakemake/issues/2191)) ([86e9624](https://github.com/snakemake/snakemake/commit/86e962488dcd346cd0a29a2ff1b2dcd1abafb841))
+* only consider global wildcard_constraints from the same module ([#2235](https://github.com/snakemake/snakemake/issues/2235)) ([c412b71](https://github.com/snakemake/snakemake/commit/c412b714a9fbe5cad9ad30de4a0b78b3c13068f6))
+* Use `job.rule.name` attribute to fill rule field in summary ([#2217](https://github.com/snakemake/snakemake/issues/2217)) ([837c3fd](https://github.com/snakemake/snakemake/commit/837c3fd97b5a16ddb4f6b74bd2c2b5479d77bd8a))
+
+
+### Documentation
+
+* fix formatting ([087fe63](https://github.com/snakemake/snakemake/commit/087fe6307a72a577daefcea0cb150f69092138c7))
+* replace `nosetest` with `pytest` ([#2211](https://github.com/snakemake/snakemake/issues/2211)) ([f6b3c47](https://github.com/snakemake/snakemake/commit/f6b3c47983bfe436f8ec33ab5830ba577fc38f90))
+
 ## [7.25.0](https://github.com/snakemake/snakemake/compare/v7.24.2...v7.25.0) (2023-03-23)
 
 
@@ -131,7 +162,8 @@
 
 * add tes token ([#1966](https://github.com/snakemake/snakemake/issues/1966)) ([59a8fa0](https://github.com/snakemake/snakemake/commit/59a8fa04c4c6b113775fe11228b82510ecd36cb8))
 * Add token auth to GitLab/GitHub hosting providers ([#1761](https://github.com/snakemake/snakemake/issues/1761)) ([e03a3b4](https://github.com/snakemake/snakemake/commit/e03a3b42eea89d512290bf98ee7d77ce2e17447c)), closes [#1301](https://github.com/snakemake/snakemake/issues/1301)
-* allow for human friendly resource definitions (e.g. mem="5GB", runtime="1d") ([#1861](https://github.com/snakemake/snakemake/issues/1861)) ([24610ac](https://github.com/snakemake/snakemake/commit/24610ac75849d543fc38c83fb2454fa4f9b42075))
+* allow for human friendly resource definitions (e.g. mem="5GB", runtime="1d") which deprecates slurm constrained time format (e.g. runtime="hh:mm:ss") ([#1861](https://github.com/snakemake/snakemake/issues/1861)) ([24610ac](https://github.com/snakemake/snakemake/commit/24610ac75849d543fc38c83fb2454fa4f9b42075)) ([#2154](https://github.com/snakemake/snakemake/issues/2154))
+
 
 
 ### Bug Fixes
@@ -151,6 +183,7 @@
 * slurm default_resources quoting ([#2043](https://github.com/snakemake/snakemake/issues/2043)) ([47d3fc3](https://github.com/snakemake/snakemake/commit/47d3fc3eef8ebe54df8b77f100fc2ab3fa36c190))
 * Update list of python versions in classifiers ([#2020](https://github.com/snakemake/snakemake/issues/2020)) ([7a98100](https://github.com/snakemake/snakemake/commit/7a98100ba92b0174c8ead3ae715042c1ab710c61))
 * use short argument name for `--chdir` for compatibility with Slurm &lt;=v17 ([#2040](https://github.com/snakemake/snakemake/issues/2040)) ([a9ed3ec](https://github.com/snakemake/snakemake/commit/a9ed3ec3e823442810388fce8a17ba4950bbdaa2))
+* human friendly resource definitions introduce inability to parse slurm specific time format (e.g. "hh:mm:ss"). New time format (e.g. "1d") adds portability among various job schedulers and clusters ([#2154](https://github.com/snakemake/snakemake/issues/2154))
 
 
 ### Documentation
