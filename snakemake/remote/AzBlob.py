@@ -184,7 +184,7 @@ class AzureStorageHelper(object):
         #    kwargs["sas_token"] = kwargs["sas_token"][1:]
 
         # TODO REMOVE
-        if os.getenv('AZ_BLOB_ACCOUNT_URL') is None:
+        if os.getenv("AZ_BLOB_ACCOUNT_URL") is None:
             raise ValueError("The blob account url envrionment variable is None")
 
         # by right only account_key or sas_token should be set, but we let
