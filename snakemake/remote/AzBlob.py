@@ -206,7 +206,7 @@ class AzureStorageHelper(object):
         bool: True if the environment variable is a valid Azure Storage Account URL, False otherwise.
         """
         url_pattern = re.compile(
-            r"https://(?P<account_name>[a-z0-9]{3,24})\.blob\.core\.windows\.net/?(?P<container_name>[a-z0-9-]{3,63})?/?(?P<folder_path>.*)?"
+            r"^https:\/\/[a-z0-9]+(\.[a-z0-9]+)*\.blob\.core\.windows\.net\/?$"
         )
 
         return bool(url_pattern.match(blob_account_url))
