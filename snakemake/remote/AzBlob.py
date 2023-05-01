@@ -182,11 +182,34 @@ class AzureStorageHelper(object):
         # remove leading '?' from SAS if needed
         # if kwargs.get("sas_token", "").startswith("?"):
         #    kwargs["sas_token"] = kwargs["sas_token"][1:]
-        print(kwargs["account_url"])
+        if kwargs["account_url"] == "" or kwargs["account_url"] is None:
+            raise ValueError("Blob Account URL is None or empty string")
+
+        if not self.is_valid_azure_storage_account_url(kwargs["account_url"]):
+            raise ValueError(
+                "Blob Account URL does not match azure storage blob account url pattern."
+            )
 
         # by right only account_key or sas_token should be set, but we let
         # BlobServiceClient deal with the ambiguity
         self.blob_service_client = BlobServiceClient(**kwargs)
+
+    @staticmethod
+    def is_valid_azure_storage_account_url(blob_account_url: str) -> bool:
+        """
+        Validates if the blob account url is a valid Azure Storage Account URL.
+
+        Args:
+        blob_account_url (str): The name of the environment variable.
+
+        Returns:
+        bool: True if the environment variable is a valid Azure Storage Account URL, False otherwise.
+        """
+        url_pattern = re.compile(
+            r"https://(?P<account_name>[a-z0-9]{3,24})\.blob\.core\.windows\.net/?(?P<container_name>[a-z0-9-]{3,63})?/?(?P<folder_path>.*)?"
+        )
+
+        return bool(url_pattern.match(blob_account_url))
 
     def container_exists(self, container_name):
         return any(
