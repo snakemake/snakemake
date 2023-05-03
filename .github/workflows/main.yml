@@ -247,7 +247,7 @@ jobs:
 
       - name: Test Azure Batch Executor
         shell: bash -el {0}
-        env: 
+        env:
           AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
           AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
           AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"

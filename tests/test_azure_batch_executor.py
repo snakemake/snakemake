@@ -11,6 +11,8 @@ def test_az_batch_executor():
     bau = os.getenv("AZ_BATCH_ACCOUNT_URL")
     prefix = os.getenv("AZ_BLOB_PREFIX")
     wdir = dpath("test_azure_batch")
+    blob_account_url = os.getenv("AZ_BLOB_ACCOUNT_URL")
+    assert blob_account_url is not None and blob_account_url.strip() != ""
     run(
         path=wdir,
         default_remote_prefix=prefix,
