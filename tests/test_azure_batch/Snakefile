@@ -1,0 +1,11 @@
+# Test Azure Batch Executor
+rule all:
+    input:
+        "test.txt",
+
+
+rule write_test:
+    output:
+        "test.txt",
+    shell:
+        "echo 'test' > {output}"
