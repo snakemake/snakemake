@@ -67,3 +67,4 @@ dependencies:
   - humanfriendly
   - throttler
   - msrest
+  - azure-batch
