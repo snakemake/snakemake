@@ -125,7 +125,7 @@ def validate(data, schema, set_default=True):
                             jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
-                            "Error validating row {} of data frame.".format(i), e
+                            f"Error validating row {i} of data frame.", e
                         )
                 if set_default:
                     newdata = pd.DataFrame(recordlist, data.index)
@@ -337,7 +337,7 @@ class SequenceFormatter(string.Formatter):
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
             return ",".join(
-                "{}={}".format(name, value)
+                f"{name}={value}"
                 for name, value in sorted(value.items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):

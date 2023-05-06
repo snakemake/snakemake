@@ -155,7 +155,7 @@ class JupyterNotebook(ScriptBase):
 
 class PythonJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "import os; os.chdir(r'{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = f"import os; os.chdir(r'{os.getcwd()}');"
 
         return PythonScript.generate_preamble(
             self.path,
@@ -193,7 +193,7 @@ class PythonJupyterNotebook(JupyterNotebook):
 
 class RJupyterNotebook(JupyterNotebook):
     def get_preamble(self):
-        preamble_addendum = "setwd('{cwd}');".format(cwd=os.getcwd())
+        preamble_addendum = f"setwd('{os.getcwd()}');"
 
         return RScript.generate_preamble(
             self.path,
@@ -277,7 +277,7 @@ def notebook(
                 # draft the notebook, it does not exist yet
                 language = None
                 draft = True
-                path = "file://{}".format(os.path.abspath(local_path))
+                path = f"file://{os.path.abspath(local_path)}"
                 if path.endswith(".py.ipynb"):
                     language = "jupyter_python"
                 elif path.endswith(".r.ipynb"):
@@ -336,7 +336,7 @@ def notebook(
         executor.evaluate(edit=edit)
     elif edit.draft_only:
         executor.draft()
-        msg = "Generated skeleton notebook:\n{} ".format(path)
+        msg = f"Generated skeleton notebook:\n{path} "
         if conda_env and not container_img:
             msg += (
                 "\n\nEditing with VSCode:\nOpen notebook, run command 'Select notebook kernel' (Ctrl+Shift+P or Cmd+Shift+P), and choose:"
