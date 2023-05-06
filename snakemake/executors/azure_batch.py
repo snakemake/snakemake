@@ -528,12 +528,17 @@ class AzBatchExecutor(ClusterExecutor):
                                 batch_job.task_id, str(dt), rt
                             )
                         )
+
                         def print_output():
                             logger.debug(
-                                "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
+                                "task {}: stderr='{}'\n".format(
+                                    batch_job.task_id, stderr
+                                )
                             )
                             logger.debug(
-                                "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
+                                "task {}: stdout='{}'\n".format(
+                                    batch_job.task_id, stdout
+                                )
                             )
 
                         if (
