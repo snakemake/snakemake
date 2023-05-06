@@ -10,7 +10,7 @@ class ContentDisplay extends React.Component {
     render() {
         return e(
             "div",
-            { className: "grow flex items-center justify-center min-h-screen" },
+            { className: "grow flex items-center justify-center h-screen overflow-auto" },
             this.renderContent()
         )
     }
