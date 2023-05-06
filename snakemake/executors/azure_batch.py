@@ -518,35 +518,34 @@ class AzBatchExecutor(ClusterExecutor):
                         stdout = self._get_task_output(
                             self.job_id, batch_job.task_id, "stdout"
                         )
-                        sys.stderr.write(
+                        logger.debug(
                             "task {} completed: result={} exit_code={}\n".format(
                                 batch_job.task_id, task.execution_info.result, rc
                             )
                         )
-                        sys.stderr.write(
+                        logger.debug(
                             "task {} completed: run_time={}, retry_count={}\n".format(
                                 batch_job.task_id, str(dt), rt
                             )
                         )
-                        sys.stderr.write(
-                            "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
-                        )
-                        sys.stderr.write(
-                            "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
-                        )
+                        def print_output():
+                            logger.debug(
+                                "task {}: stderr='{}'\n".format(batch_job.task_id, stderr)
+                            )
+                            logger.debug(
+                                "task {}: stdout='{}'\n".format(batch_job.task_id, stdout)
+                            )
 
                         if (
                             task.execution_info.result
                             == batchmodels.TaskExecutionResult.failure
                         ):
-                            print(
-                                f"Error Task Failed: code={str(task.execution_info.failure_info.code)}, message={str(task.execution_info.failure_info.message)}"
+                            logger.error(
+                                f"Azure task failed: code={str(task.execution_info.failure_info.code)}, message={str(task.execution_info.failure_info.message)}"
                             )
                             for d in task.execution_info.failure_info.details:
-                                print(f"Error Detailes: {str(d)}")
-
-                            # cleanup on failure
-                            self.shutdown()
+                                logger.error(f"Error Details: {str(d)}")
+                            print_output()
                             batch_job.error_callback(batch_job.job)
                         elif (
                             task.execution_info.result
@@ -554,13 +553,13 @@ class AzBatchExecutor(ClusterExecutor):
                         ):
                             batch_job.callback(batch_job.job)
                         else:
-                            # cleanup on failure
-                            self.shutdown()
-                            raise WorkflowError(
-                                "Unknown task execution result: {}".format(
+                            logger.error(
+                                "Unknown Azure task execution result: {}".format(
                                     task.execution_info.result
                                 )
                             )
+                            print_output()
+                            batch_job.error_callback(batch_job.job)
 
                     # The operation is still running
                     else:
@@ -577,12 +576,13 @@ class AzBatchExecutor(ClusterExecutor):
                             if n.state == "unusable":
                                 if n.errors is not None:
                                     for e in n.errors:
-                                        print(
-                                            f"Error: {e.message}, {e.error_details[0].__dict__}"
+                                        logger.error(
+                                            f"Azure task error: {e.message}, {e.error_details[0].__dict__}"
                                         )
-                                raise WorkflowError(
+                                logger.error(
                                     "A node entered an unusable state, quitting."
                                 )
+                                return
 
                             if n.start_task_info is not None and (
                                 n.start_task_info.result
@@ -612,13 +612,14 @@ class AzBatchExecutor(ClusterExecutor):
                                 except Exception:
                                     stdout_stream = ""
 
-                                raise WorkflowError(
-                                    "AZBatch start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
+                                logger.error(
+                                    "Azure start task execution failed on node: {}.\nSTART_TASK_STDERR:{}\nSTART_TASK_STDOUT: {}".format(
                                         n.start_task_info.failure_info.message,
                                         stdout_stream,
                                         stderr_stream,
                                     )
                                 )
+                                return
 
             async with async_lock(self.lock):
                 self.active_jobs.extend(still_running)
