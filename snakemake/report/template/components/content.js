@@ -24,7 +24,7 @@ class ContentDisplay extends React.Component {
                     { className: "grow flex gap-3 p-3 items-start" },
                     e(
                         "div",
-                        { className: "overflow-auto max-h-screen" },
+                        { className: "py-2" },
                         e(
                             "div",
                             {
