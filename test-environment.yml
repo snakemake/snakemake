@@ -68,3 +68,4 @@ dependencies:
   - throttler
   - msrest
   - azure-batch
+  - azure-mgmt-batch

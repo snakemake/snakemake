@@ -244,7 +244,7 @@ class AzBatchExecutor(ClusterExecutor):
 
         except ImportError:
             raise WorkflowError(
-                "The Python 3 package 'azure-batch'"
+                "The Python 3 packages 'azure-batch' and 'azure-mgmt-batch'"
                 " must be installed to use Azure Batch"
             )
 

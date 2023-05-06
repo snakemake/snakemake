@@ -379,7 +379,7 @@ class JobScheduler:
             except ImportError as e:
                 raise WorkflowError(
                     "Unable to load Azure Batch executor. You have to install "
-                    "the msrest, azure-core and azure-identity packages.",
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
                     e,
                 )
             self._local_executor = CPUExecutor(
