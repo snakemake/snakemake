@@ -69,3 +69,4 @@ dependencies:
   - msrest
   - azure-batch
   - azure-mgmt-batch
+  - azure-identity
