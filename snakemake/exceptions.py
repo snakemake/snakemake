@@ -34,7 +34,7 @@ def format_error(
         ex.__class__.__name__,
         location,
         ":\n" + msg if msg else ".",
-        "\n{}".format(tb) if show_traceback and tb else "",
+        f"\n{tb}" if show_traceback and tb else "",
     )
 
 
@@ -62,7 +62,7 @@ def format_traceback(tb, linemaps):
         if file in linemaps:
             lineno = linemaps[file][lineno]
         if code is not None:
-            yield '  File "{}", line {}, in {}'.format(file, lineno, function)
+            yield f'  File "{file}", line {lineno}, in {function}'
 
 
 def log_verbose_traceback(ex):
@@ -155,20 +155,20 @@ class WorkflowError(Exception):
         elif isinstance(arg, WorkflowError):
             spec = ""
             if arg.rule is not None:
-                spec += "rule {}".format(arg.rule)
+                spec += f"rule {arg.rule}"
             if arg.snakefile is not None:
                 if spec:
                     spec += ", "
-                spec += "line {}, {}".format(arg.lineno, arg.snakefile)
+                spec += f"line {arg.lineno}, {arg.snakefile}"
 
             if spec:
-                spec = " ({})".format(spec)
+                spec = f" ({spec})"
 
             return "{}{}:\n{}".format(
                 arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
             )
         else:
-            return "{}: {}".format(arg.__class__.__name__, str(arg))
+            return f"{arg.__class__.__name__}: {arg}"
 
     def __init__(self, *args, lineno=None, snakefile=None, rule=None):
         super().__init__("\n".join(self.format_arg(arg) for arg in args))
@@ -183,7 +183,7 @@ class WorkflowError(Exception):
 
 class SourceFileError(WorkflowError):
     def __init__(self, msg):
-        super().__init__("Error in source file definition: {}".format(msg))
+        super().__init__(f"Error in source file definition: {msg}")
 
 
 class WildcardError(WorkflowError):
@@ -237,9 +237,7 @@ class InputFunctionException(WorkflowError):
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
-            + "\n".join(
-                "  {}={}".format(name, value) for name, value in wildcards.items()
-            )
+            + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
             + "\nTraceback:\n"
             + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
@@ -385,9 +383,7 @@ class AmbiguousRuleException(RuleException):
 
 class CyclicGraphException(RuleException):
     def __init__(self, repeatedrule, file, rule=None):
-        super().__init__(
-            "Cyclic dependency on rule {}.".format(repeatedrule), rule=rule
-        )
+        super().__init__(f"Cyclic dependency on rule {repeatedrule}.", rule=rule)
         self.file = file
 
 
@@ -404,9 +400,9 @@ class MissingRuleException(RuleException):
 
 class UnknownRuleException(RuleException):
     def __init__(self, name, prefix="", lineno=None, snakefile=None):
-        msg = "There is no rule named {}.".format(name)
+        msg = f"There is no rule named {name}."
         if prefix:
-            msg = "{} {}".format(prefix, msg)
+            msg = f"{prefix} {msg}"
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 

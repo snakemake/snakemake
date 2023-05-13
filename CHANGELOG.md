@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.25.4](https://github.com/snakemake/snakemake/compare/v7.25.3...v7.25.4) (2023-05-12)
+
+
+### Bug Fixes
+
+* fix scrolling behavior in landing page of report for large workflows ([63c0c31](https://github.com/snakemake/snakemake/commit/63c0c31c222a921a843d83e330a6f91e430f209a))
+* report spacing ([f3954b3](https://github.com/snakemake/snakemake/commit/f3954b33536314e6a252c044eee5f424dd234065))
+
+
+### Documentation
+
+* fix statement about logging ([#2252](https://github.com/snakemake/snakemake/issues/2252)) ([56c24b6](https://github.com/snakemake/snakemake/commit/56c24b6436cee9a4962d006bb201708c7a37c474))
+
 ## [7.25.3](https://github.com/snakemake/snakemake/compare/v7.25.2...v7.25.3) (2023-05-03)
 
 

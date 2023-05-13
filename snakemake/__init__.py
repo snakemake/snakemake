@@ -533,7 +533,7 @@ def snakemake(
             return False
 
     if not os.path.exists(snakefile):
-        logger.error('Error: Snakefile "{}" not found.'.format(snakefile))
+        logger.error(f'Error: Snakefile "{snakefile}" not found.')
         return False
     snakefile = os.path.abspath(snakefile)
 
@@ -568,7 +568,7 @@ def snakemake(
     if workdir:
         olddir = os.getcwd()
         if not os.path.exists(workdir):
-            logger.info("Creating specified working directory {}.".format(workdir))
+            logger.info(f"Creating specified working directory {workdir}.")
             os.makedirs(workdir)
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
@@ -2661,7 +2661,7 @@ def main(argv=None):
 
     if sys.version_info < MIN_PY_VERSION:
         print(
-            "Snakemake requires at least Python {}.".format(MIN_PY_VERSION),
+            f"Snakemake requires at least Python {MIN_PY_VERSION}.",
             file=sys.stderr,
         )
         exit(1)
@@ -2943,8 +2943,8 @@ def main(argv=None):
             port = args.gui
             host = "127.0.0.1"
 
-        url = "http://{}:{}".format(host, port)
-        print("Listening on {}.".format(url), file=sys.stderr)
+        url = f"http://{host}:{port}"
+        print(f"Listening on {url}.", file=sys.stderr)
 
         def open_browser():
             try:
@@ -3216,7 +3216,7 @@ def bash_completion(snakefile="Snakefile"):
         )
     else:
         candidates = []
-        files = glob.glob("{}*".format(prefix))
+        files = glob.glob(f"{prefix}*")
         if files:
             candidates.extend(files)
         if os.path.exists(snakefile):
