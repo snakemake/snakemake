@@ -110,6 +110,23 @@ def test14():
 
 
 @skip_on_windows
+def test_force_local():
+    os.environ["TESTVAR"] = "test"
+    # without force local this command will try to read
+    # ./qsub with --cluster but that file does not exist
+    # so the job will fail
+    run(
+        dpath("test_force_local"),
+        snakefile="Snakefile.nonstandard",
+        shellcmd=(
+            "snakemake -j 10 --cluster=./qsub "
+            "-s Snakefile.nonstandard "
+            "--force-local "
+        ),
+    )
+
+
+@skip_on_windows
 def test_cluster_statusscript():
     os.environ["TESTVAR"] = "test"
     run(
