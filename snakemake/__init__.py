@@ -2362,6 +2362,11 @@ def get_argument_parser(profile=None):
         " '-e' native specification. If not given, all DRMAA stdout and"
         " stderr files are written to the current working directory.",
     )
+    group_cluster.add_argument(
+        "--force-local",
+        action="store_true",
+        help="Regardless of other flags force local execution of snakemake. Useful for forcing local testing when a default execution profile is set.",
+    )
 
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
@@ -2696,6 +2701,18 @@ def main(argv=None):
         print(e, file=sys.stderr)
         print("", file=sys.stderr)
         sys.exit(1)
+
+    if args.force_local:
+        args.cluster = None
+        args.slurm = False
+        args.slurm_jobstep = False
+        args.cluster_sync = None
+        args.tibanna = False
+        args.kubernetes = None
+        args.tes = None
+        args.google_lifesciences = False
+        args.drmaa = None
+        args.flux = False
 
     non_local_exec = (
         args.cluster
