@@ -1,0 +1,34 @@
+rule joint_all:
+    input:
+        ["level2/test_final_b.txt", "test_final_b.txt", "test_final_c.txt"]
+
+module level2_1:
+    snakefile: "level2/Snakefile"
+    config: config
+    prefix: "level2"
+
+use rule * from level2_1 as l2_1_*
+
+
+module level2_2:
+    snakefile: "level2/Snakefile"
+    config: config
+
+use rule * from level2_2 as l2_2_*
+
+use rule a_1 from level2_2 as l2_2_a_1 with:
+    input:
+        "test1.txt"
+
+use rule a_2 from level2_2 as l2_2_a_2 with:
+    input:
+        "test2.txt"
+
+
+rule c:
+    input:
+        ["level2/test_final_b.txt", "test_final_b.txt"]
+    output:
+        "test_final_c.txt"
+    shell:
+        "cat {input} > {output}"
