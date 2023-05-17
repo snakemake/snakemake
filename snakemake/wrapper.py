@@ -50,11 +50,11 @@ def is_url(path):
 
 def find_extension(source_file, sourcecache: SourceCache):
     for ext in EXTENSIONS:
-        if source_file.get_filename().endswith("wrapper{}".format(ext)):
+        if source_file.get_filename().endswith(f"wrapper{ext}"):
             return source_file
 
     for ext in EXTENSIONS:
-        script = source_file.join("wrapper{}".format(ext))
+        script = source_file.join(f"wrapper{ext}")
 
         if sourcecache.exists(script):
             return script
