@@ -2764,7 +2764,7 @@ def main(argv=None):
         sys.exit(1)
 
     if (args.conda_prefix or args.conda_create_envs_only) and not args.use_conda:
-        if os.environ.get("SNAKEMAKE_CONDA_PREFIX", False):
+        if args.conda_prefix and os.environ.get("SNAKEMAKE_CONDA_PREFIX", False):
             print(
                 "Warning: The enviorment variable SNAKEMAKE_CONDA_PREFIX is set"
                 "but --use-conda is not."
