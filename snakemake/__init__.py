@@ -2764,12 +2764,22 @@ def main(argv=None):
         sys.exit(1)
 
     if (args.conda_prefix or args.conda_create_envs_only) and not args.use_conda:
-        print(
-            "Error: --use-conda must be set if --conda-prefix or "
-            "--create-envs-only is set.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        if os.environ.get("SNAKEMAKE_CONDA_PREFIX", False):
+            print(
+                "Warning: The enviorment variable SNAKEMAKE_CONDA_PREFIX is set"
+                "but --use-conda is not."
+                "Snakemake will ignore SNAKEMAKE_CONDA_PREFIX"
+                "and conda enviorments will not be used or created.",
+                file=sys.stderr,
+            )
+            args.conda_prefix = None
+        else:
+            print(
+                "Error: --use-conda must be set if --conda-prefix or "
+                "--create-envs-only is set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(
