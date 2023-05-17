@@ -313,7 +313,7 @@ def snakemake(
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
         k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
-        k8s_service_account_name:   Custom k8s service account, needed for workload identity.
+        k8s_service_account_name (str): Custom k8s service account, needed for workload identity.
         flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
