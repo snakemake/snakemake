@@ -73,7 +73,6 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-
     subautomata = dict()
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -129,7 +128,6 @@ class TokenAutomaton:
 
 
 class KeywordState(TokenAutomaton):
-
     prefix = ""
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
@@ -142,6 +140,8 @@ class KeywordState(TokenAutomaton):
         return self.__class__.__name__.lower()[len(self.prefix) :]
 
     def end(self):
+        # Add newline to prevent https://github.com/snakemake/snakemake/issues/1943
+        yield "\n"
         yield ")"
 
     def decorate_end(self, token):
@@ -345,7 +345,6 @@ class SubworkflowConfigfile(SubworkflowKeywordState):
 
 
 class Subworkflow(GlobalKeywordState):
-
     subautomata = dict(
         snakefile=SubworkflowSnakefile,
         workdir=SubworkflowWorkdir,
@@ -528,6 +527,10 @@ class WildcardConstraints(RuleKeywordState):
         return "wildcard_constraints"
 
 
+class LocalRule(RuleKeywordState):
+    pass
+
+
 class Run(RuleKeywordState):
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -562,7 +565,6 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-
     overwrite_cmd = None
     start_func = None
     end_func = None
@@ -717,6 +719,7 @@ rule_property_subautomata = dict(
     cache=Cache,
     handover=Handover,
     default_target=DefaultTarget,
+    localrule=LocalRule,
 )
 
 
@@ -791,9 +794,8 @@ class Rule(GlobalKeywordState):
                 ):
                     if self.run:
                         raise self.error(
-                            "Multiple run or shell keywords in rule {}.".format(
-                                self.rulename
-                            ),
+                            "Multiple run/shell/script/notebook/wrapper/template_engine/cwl "
+                            "keywords in rule {}.".format(self.rulename),
                             token,
                         )
                     self.run = True
@@ -1136,8 +1138,7 @@ class UseRule(GlobalKeywordState):
             yield from ()
         else:
             self.error(
-                "Expecting colon after 'with' keyword in 'use rule' statement.",
-                token,
+                "Expecting colon after 'with' keyword in 'use rule' statement.", token
             )
 
     def state_exclude(self, token):
@@ -1155,10 +1156,7 @@ class UseRule(GlobalKeywordState):
         if is_name(token):
             if token.string == "from" or token.string == "as":
                 if not self.exclude_rules:
-                    self.error(
-                        "Expecting rule names after 'exclude' statement.",
-                        token,
-                    )
+                    self.error("Expecting rule names after 'exclude' statement.", token)
                 if token.string == "from":
                     self.state = self.state_from
                 else:
@@ -1202,7 +1200,6 @@ class UseRule(GlobalKeywordState):
 
 
 class Python(TokenAutomaton):
-
     subautomata = dict(
         envvars=Envvars,
         include=Include,

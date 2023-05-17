@@ -341,13 +341,16 @@ If limits for the resources are given via the command line, e.g.
 the scheduler will ensure that the given resources are not exceeded by running jobs.
 Resources are always meant to be specified as total per job, not by thread (i.e. above ``mem_mb=100`` in rule ``a`` means that any job from rule ``a`` will require ``100`` megabytes of memory in total, and not per thread).
 
+**Importantly**, there are some :ref:`standard resources <snakefiles-standard-resources>` that should be considered before making up your own.
+
 In general, resources are just names to the Snakemake scheduler, i.e., Snakemake does not check on the resource consumption of jobs in real time.
 Instead, resources are used to determine which jobs can be executed at the same time without exceeding the limits specified at the command line.
 Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a limited number of additional devices like GPUs) this allows us to control scheduling in various ways, e.g. to limit IO-heavy jobs by assigning an artificial IO-resource to them and limiting it via the ``--resources`` flag.
 If no limits are given, the resources are ignored in local execution.
 
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
-They can also be callables that return ``int`` or ``str`` values.
+They can also be callables that return ``int``, ``str`` or ``None`` values.
+In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
@@ -393,22 +396,38 @@ Of course, any other arithmetic could be performed in that function.
 
 Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
 
+.. _snakefiles-standard-resources:
+
 Standard Resources
 ~~~~~~~~~~~~~~~~~~
 
-There are four **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem_mb``, ``disk_mb``, ``runtime``, and ``tmpdir``.
+There are several **standard resources**, for total memory, disk usage, runtime, and the temporary directory of a job: ``mem``, ``disk``, ``runtime``, and ``tmpdir``.
 All of these resources have specific meanings understood by snakemake and are treated in varying unique ways:
 
 * The ``tmpdir`` resource automatically leads to setting the ``$TMPDIR`` variable for shell commands, scripts, wrappers and notebooks. In cluster or cloud setups, its evaluation is delayed until the actual execution of the job. This way, it can dynamically react on the context of the node of execution.
 
-* The ``runtime`` resource indicates how many **minutes** a job needs to run. Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
+* The ``runtime`` resource indicates the amount of wall clock time a job needs to run.
+  It can be given as string defining a time span or as integer defining **minutes**.
+  In the former case, the time span can be defined as a string with a number followed by a unit
+  (``ms``, ``s``, ``m``, ``h``, ``d``, ``w``, ``y`` for seconds, minutes, hours, days, and years, respectively).
+  The interpretation happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_timespan>`_.
+  Cluster or cloud backends may use this to constrain the allowed execution time of the submitted job.
   See :ref:`the section below <resources_remote_execution>` for more information.
 
-* ``disk_mb`` and ``mem_mb`` are both locally scoped by default, a fact important for cluster and compute execution.
-  :ref:`See below<resources_remote_execution>` for more info.
+* ``disk`` and ``mem`` define the amount of memory and disk space needed by the job.
+  They are given as strings with a number followed by a unit (``B``, ``KB``, ``MB``, ``GB``, ``TB``, ``PB``, ``KiB``, ``MiB``, ``GiB``, ``TiB``, ``PiB``).
+  The interpretation of the definition happens via the `humanfriendly package <https://humanfriendly.readthedocs.io/en/latest/api.html?highlight=parse_timespan#humanfriendly.parse_size>`_.
+  Alternatively, the two can be directly defined as integers via the resources ``mem_mb`` and ``disk_mb`` (to which ``disk`` and ``mem`` are also automatically translated internally).
+  They are both locally scoped by default, a fact important for cluster and compute execution.
+  :ref:`See below <resources_remote_execution>` for more info.
   They are usually passed to execution backends, e.g. to allow the selection of appropriate compute nodes for the job execution.
 
-Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``mem``, ``time``, ``temp``, etc).
+Because of these special meanings, the above names should always be used instead of possible synonyms (e.g. ``tmp``, ``time``, ``temp``, etc).
+
+.. _default-resources:
+
+Default Resources
+~~~~~~~~~~~~~~~~~~
 
 Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
 the terminal or in a :ref:`profile <profiles>`.
@@ -418,6 +437,8 @@ Any resource definitions inside a rule override what has been defined with ``--d
 If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
+If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
+In order to explicitly unset these defaults, assign them a value of ``None``, e.g. ``--default-resources mem_mb=None``.
 
 .. _resources-remote-execution:
 
@@ -1350,6 +1371,10 @@ With the ``touch`` flag, Snakemake touches (i.e. creates or updates) the file ``
 Job Properties
 --------------
 
+.. sidebar:: Note
+
+    If there are more than 100 input and/or output files for a job, ``None`` will be used instead of listing all values. This is to prevent the jobscript from becoming larger than `Slurm jobscript size limits <https://slurm.schedmd.com/slurm.conf.html#OPT_max_script_size=#>`_.
+
 When executing a workflow on a cluster using the ``--cluster`` parameter (see below), Snakemake creates a job script for each job to execute.
 This script is then invoked using the provided cluster submission command (e.g. ``qsub``).
 Sometimes you want to provide a custom wrapper for the cluster submission command that decides about additional parameters.
@@ -1575,6 +1600,21 @@ The keyword `localrules` allows to mark a rule as local, so that it is not submi
 
 Here, only jobs from the rule ``bar`` will be submitted to the cluster, whereas all and foo will be run locally.
 Note that you can use the localrules directive **multiple times**. The result will be the union of all declarations.
+
+Alternatively, you can also use the rule directive `localrule`:
+
+.. code-block:: python
+
+    rule all:
+        input: ...
+        localrule: True
+
+    rule foo:
+        ...
+        localrule: True
+
+    rule bar:
+        ...
 
 Benchmark Rules
 ---------------
@@ -2029,7 +2069,9 @@ This workflow will run as follows:
 
 
 Naturally, it is possible to create sub-spaces from ``Paramspace`` objects, simply by applying all the usual methods and attributes that Pandas data frames provide (e.g. ``.loc[...]``, ``.filter()`` etc.).
-Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` constructor (see :ref:`utils-api`).
+Further, the form of the created ``wildcard_pattern`` can be controlled via additional arguments of the ``Paramspace`` `constructor <https://snakemake-api.readthedocs.io/en/latest/api_reference/snakemake_utils.html#snakemake.utils.Paramspace>`_.
+In particular, using the argument ``single_wildcard`` the default behavior of encoding each column as a wildcard can be replaced with a single given wildcard name.
+This can be handy in case a rule shall serve multiple param spaces with different sets of columns.
 
 .. _snakefiles-checkpoints:
 
@@ -2377,3 +2419,48 @@ Analogously to the jinja2 case YTE has access to ``params``, ``wildcards``, and 
         - ?config["threshold"]
 
 Template rendering rules are always executed locally, without submission to cluster or cloud processes (since templating is usually not resource intensive).
+
+.. _snakefiles_mpi_support:
+
+MPI support
+-----------
+
+Highly parallel programs may use the MPI (:ref: message passing interface<https://en.wikipedia.org/wiki/Message_Passing_Interface>) to enable a programm to span work across an invidual compute node's boundary.
+The command to run the MPI program (in below example we assume there exists a program ``calc-pi-mpi``) has to be specified in the ``mpi``-resource, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+Thereby, additional parameters may be passed to the MPI-starter, e.g.:
+
+.. code-block:: python
+
+  rule calc_pi:
+    output:
+        "pi.calc",
+    log:
+        "logs/calc_pi.log",
+    resources:
+        tasks=10,
+        mpi="mpiexec -arch x86",
+    shell:
+        "{resources.mpi} -n {resources.tasks} calc-pi-mpi 10 > {output} 2> {log}"
+
+As any other resource, the `mpi`-resource can be overwritten via the command line e.g. in order to adapt to a specific platform (see :ref:`snakefiles-resources`):
+
+.. code-block:: console
+
+  $ snakemake --set-resources calc_pi:mpi="srun --hint nomultithread" ...
+
+Note that in case of distributed, remote execution (cluster, cloud), MPI support might not be available.
+So far, explicit MPI support is implemented in the :ref:`SLURM backend <cluster-slurm>`.

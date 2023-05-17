@@ -46,7 +46,6 @@ def save_files(bucket_name, source_path, destination_path):
 
     # Do the upload!
     for filename in filenames:
-
         # The relative path of the filename from the source path
         relative_path = filename.replace(source_path, "", 1).strip("/")
         # The path in storage includes relative path from destination_path

@@ -217,6 +217,12 @@ class AbstractRemoteObject:
     def remote_file(self):
         return self.protocol + self.local_file()
 
+    def to_plainstr(self):
+        if self.stay_on_remote:
+            return str(self.remote_file())
+        else:
+            return str(self.local_file())
+
     @abstractmethod
     def close(self):
         pass

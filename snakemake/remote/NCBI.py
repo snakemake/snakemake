@@ -623,7 +623,6 @@ class NCBIHelper(object):
                             outf.write(line)
                     output_files.append(output_file_path)
                 except IOError:
-
                     logger.warning(
                         "Error fetching file {}: {}, try #{} probably because NCBI is too busy.".format(
                             chunk_num + 1, acc_string, try_count

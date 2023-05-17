@@ -4,7 +4,7 @@
 Cloud execution
 ===========================
 
-
+When executing on a cluster, Snakemake implicitly assumes some default resources for all rules (see :ref:`default-resources`).
 
 ------------------------------------
 Generic cloud support via Kubernetes
@@ -393,9 +393,10 @@ For simplicity, this guide recommends to attach a specific conda environment to 
 The TES module requires using a remote file storage system for input/output files such that all files are available on the cloud machines and within their running container.
 There are several options available in Snakemake to use remote files.
 This guide recommends to use S3 (or SWIFT) object storage.
+Please be aware to download final result files from S3 to your local machine by defining a rule that downloads files and gets executed locally (e.g. by setting `localrules: all, download`).
 
 **Install py-tes module:**
-TES backend requires py-tes to be installed. Please install py-tes, e.g. via Conda or Pip.
+For communication with (`GA4GH <https://www.ga4gh.org/>`_) TES servers py-tes needs to be installed. Please install py-tes, e.g. via Conda or Pip.
 
 .. code-block:: console
 
@@ -407,13 +408,16 @@ Execution
 Funnel starts container in read only mode, which is good practice.
 Anyhow, using the default Snakemake container image will likely require installing additional software within the running container.
 Therefore, we need to set two conda specific variables such that new environments will be installed at `/tmp` which will be mounted as a writable volume in the container.
+Furthermore `/tmp` may be used to write `.cache` files where the default user of the snakemake container and the default user of the TES server is USER 100.
+USER 100 is _apt user who has home as /nonexistent and thus $HOME/.cache is not writable.
+
 
 .. code-block:: console
 
     $ export CONDA_PKGS_DIRS=/tmp/conda
     $ export CONDA_ENVS_PATH=/tmp/conda
 
-Next, using S3 or SWIFT storage, we also need to set credentials.
+Next, using S3 or SWIFT storage, we also need to set credentials. 
 
 .. code-block:: console
 
@@ -430,3 +434,23 @@ Now we can run Snakemake using:
         --envvars CONDA_PKGS_DIRS CONDA_ENVS_PATH AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
         --conda-prefix $CONDA_ENVS_PATH \
         all
+
+If your TES instance requires authentication via OIDC tokens,
+you can forward your token by setting the `TES_TOKEN` environmental variable.
+
+.. code-block:: console
+
+    $ export TES_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+**Funnel basic authentication:** 
+In order to execute individual tasks for Funnel based TES servers, 
+a basic authentication is required. An authentication via AOuth2 access token is not supported yet.
+
+You can forward your credentials to Funnel by setting 
+the `FUNNEL_SERVER_USER` and  `FUNNEL_SERVER_PASSWORD` AS environmental variable.
+
+.. code-block:: console
+
+    $ export FUNNEL_SERVER_USER=funnel
+    $ export FUNNEL_SERVER_PASSWORD=abc123
+

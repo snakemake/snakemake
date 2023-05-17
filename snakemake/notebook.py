@@ -35,7 +35,6 @@ def get_cell_sources(source):
 
 
 class JupyterNotebook(ScriptBase):
-
     editable = True
 
     def draft(self):
@@ -92,7 +91,7 @@ class JupyterNotebook(ScriptBase):
                 cmd = (
                     "jupyter-nbconvert --log-level ERROR --execute {output_parameter} "
                     "--to notebook --ExecutePreprocessor.timeout=-1 {{fname:q}}".format(
-                        output_parameter=output_parameter,
+                        output_parameter=output_parameter
                     )
                 )
 
@@ -115,7 +114,10 @@ class JupyterNotebook(ScriptBase):
 
                 # clean up all outputs
                 for cell in nb["cells"]:
-                    cell["outputs"] = []
+                    if "outputs" in cell:
+                        cell["outputs"] = []
+                    if "execution_count" in cell:
+                        cell["execution_count"] = None
 
                 nbformat.write(nb, self.local_path)
 

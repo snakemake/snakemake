@@ -1,0 +1,5 @@
+rule all:
+    output:
+        "foo.txt"
+    run:
+        with open('foo.txt', 'w') as f: pass

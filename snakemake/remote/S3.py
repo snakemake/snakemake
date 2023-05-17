@@ -33,7 +33,6 @@ except ImportError as e:
 class RemoteProvider(
     AbstractRemoteProvider
 ):  # class inherits from AbstractRemoteProvider
-
     supports_default = True  # class variable
 
     def __init__(

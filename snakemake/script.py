@@ -23,6 +23,7 @@ import pickle
 import subprocess
 import collections
 import re
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
@@ -183,7 +184,6 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -579,7 +579,6 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-
         if isinstance(self.path, LocalSourceFile):
             file_override = os.path.realpath(self.path.get_path_or_uri())
         else:
@@ -636,11 +635,20 @@ class PythonScript(ScriptBase):
             return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
+        # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution
+        # stuff may be printed around in unpredictable ways.
+        # The code below has to work with python 2.7 as well, therefore it should be written backwards compatible.
         out = self._execute_cmd(
-            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            'python -c "from __future__ import print_function; import sys, json; '
+            'print(json.dumps([sys.version_info.major, sys.version_info.minor]))"',
             read=True,
         )
-        return tuple(map(int, out.strip().split(".")))
+        try:
+            return tuple(json.loads(out))
+        except ValueError as e:
+            raise WorkflowError(
+                f"Unable to determine Python version from output '{out}': {e}"
+            )
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable

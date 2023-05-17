@@ -1,35 +1,50 @@
 from snakemake import shell
 
-chromosomes = [1,2,3,4,5]
+chromosomes = [1, 2, 3, 4, 5]
+
 
 envvars:
     "TESTVAR",
-	"TESTVAR2"
-
+    "TESTVAR2",
 
 
 rule all:
-	input: 'test.predictions', 'test.2.inter2'
+    input:
+        "test.predictions",
+        "test.2.inter2",
+
 
 rule compute1:
-	input:
-            '{name}.in',
-            expand("raw.{i}.txt", i=range(22))
-	output: ['{name}.%s.inter'%c for c in chromosomes]
-        params: prefix="{name}"
-	run:
-		for out in output:
-			shell('(cat {input[0]} && echo "Part {out}") > {out}')
+    input:
+        "{name}.in",
+        expand("raw.{i}.txt", i=range(22)),
+    output:
+        ["{name}.%s.inter" % c for c in chromosomes],
+    params:
+        prefix="{name}",
+    run:
+        for out in output:
+            shell('(cat {input[0]} && echo "Part {out}") > {out}')
+            print(os.getcwd())
+            print(os.listdir())
+
 
 rule compute2:
-	input: '{name}.{chromosome}.inter'
-	output: '{name}.{chromosome}.inter2'
-	params: test="a=b"
-        threads: workflow.cores * 0.5
-	shell: 'echo copy; cp {input[0]} {output[0]}'
+    input:
+        "{name}.{chromosome}.inter",
+    output:
+        "{name}.{chromosome}.inter2",
+    params:
+        test="a=b",
+    threads: workflow.cores * 0.5
+    shell:
+        "echo copy; cp {input[0]} {output[0]}"
+
 
 rule gather:
-	input: ['{name}.%s.inter2'%c for c in chromosomes]
-	output: '{name}.predictions'
-	run:
-		shell('cat {} > {}'.format(' '.join(input), output[0]))
+    input:
+        ["{name}.%s.inter2" % c for c in chromosomes],
+    output:
+        "{name}.predictions",
+    run:
+        shell("cat {} > {}".format(" ".join(input), output[0]))

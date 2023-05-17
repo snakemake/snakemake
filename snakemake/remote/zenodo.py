@@ -113,7 +113,6 @@ class RemoteObject(AbstractRemoteRetryObject):
 
 class ZENHelper(object):
     def __init__(self, *args, **kwargs):
-
         try:
             self._access_token = kwargs.pop("access_token")
         except KeyError:
@@ -158,7 +157,6 @@ class ZENHelper(object):
         json=False,
         restricted_access=True,
     ):
-
         # Create a session with a hook to raise error on bad request.
         session = requests.Session()
         session.hooks = {"response": lambda r, *args, **kwargs: r.raise_for_status()}
@@ -223,10 +221,15 @@ class ZENHelper(object):
 
     def get_files_record(self):
         resp = self._api_request(
-            self._baseurl + "/api/records/{}".format(self.deposition),
+            self._baseurl + f"/api/records/{self.deposition}",
             headers={"Content-Type": "application/json"},
             json=True,
         )
+        if "files" not in resp:
+            raise WorkflowError(
+                f"No files found in zenodo deposition https://zenodo.org/record/{self.deposition}. "
+                "Either the depositon is empty or access is restricted. Please check in your browser."
+            )
         files = resp["files"]
 
         def get_checksum(f):
