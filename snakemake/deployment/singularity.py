@@ -117,15 +117,15 @@ def shellcmd(
 
     if is_python_script:
         # mount host snakemake module into container
-        args += " --bind {}:{}".format(SNAKEMAKE_SEARCHPATH, SNAKEMAKE_MOUNTPOINT)
+        args += f" --bind {repr(SNAKEMAKE_SEARCHPATH)}:{repr(SNAKEMAKE_MOUNTPOINT)}"
 
     if container_workdir:
-        args += " --pwd {}".format(container_workdir)
+        args += f" --pwd {repr(container_workdir)}"
 
     cmd = "{} singularity {} exec --home {} {} {} {} -c '{}'".format(
         envvars,
         "--quiet --silent" if quiet else "",
-        os.getcwd(),
+        repr(os.getcwd()),
         args,
         img_path,
         shell_executable,

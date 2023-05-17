@@ -157,7 +157,7 @@ class KeywordState(TokenAutomaton):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Colon expected after keyword {}.".format(self.keyword), token)
+            self.error(f"Colon expected after keyword {self.keyword}.", token)
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
@@ -189,7 +189,7 @@ class KeywordState(TokenAutomaton):
 
 class GlobalKeywordState(KeywordState):
     def start(self):
-        yield "workflow.{keyword}(".format(keyword=self.keyword)
+        yield f"workflow.{self.keyword}("
 
 
 class DecoratorKeywordState(KeywordState):
@@ -197,7 +197,7 @@ class DecoratorKeywordState(KeywordState):
     args = list()
 
     def start(self):
-        yield "@workflow.{}".format(self.decorator)
+        yield f"@workflow.{self.decorator}"
         yield "\n"
         yield "def __{}({}):".format(self.decorator, ", ".join(self.args))
 
@@ -212,12 +212,12 @@ class RuleKeywordState(KeywordState):
 
     def start(self):
         yield "\n"
-        yield "@workflow.{keyword}(".format(keyword=self.keyword)
+        yield f"@workflow.{self.keyword}("
 
 
 class SectionKeywordState(KeywordState):
     def start(self):
-        yield ", {keyword}=".format(keyword=self.keyword)
+        yield f", {self.keyword}="
 
     def end(self):
         # no end needed
@@ -369,7 +369,7 @@ class Subworkflow(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow({name!r}".format(name=token.string), token
+            yield f"workflow.subworkflow({token.string!r}", token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -524,7 +524,7 @@ class Handover(RuleKeywordState):
 class WildcardConstraints(RuleKeywordState):
     @property
     def keyword(self):
-        return "wildcard_constraints"
+        return "register_wildcard_constraints"
 
 
 class LocalRule(RuleKeywordState):
@@ -812,7 +812,7 @@ class Rule(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in rule definition".format(token.string),
+                    f"Unexpected keyword {token.string} in rule definition",
                     token,
                 )
             except StopAutomaton as e:
@@ -824,7 +824,7 @@ class Rule(GlobalKeywordState):
             yield token.string, token
         elif is_string(token):
             yield "\n", token
-            yield "@workflow.docstring({})".format(token.string), token
+            yield f"@workflow.docstring({token.string})", token
         else:
             self.error(
                 "Expecting rule keyword, comment or docstrings "
@@ -922,7 +922,7 @@ class Module(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.module({name!r}".format(name=token.string), token
+            yield f"workflow.module({token.string!r}", token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -994,7 +994,7 @@ class UseRule(GlobalKeywordState):
         rulename = self.rules[0]
         if rulename == "*":
             rulename = "__allrules__"
-        yield "def __userule_{}_{}():".format(self.from_module, rulename)
+        yield f"def __userule_{self.from_module}_{rulename}():"
         # the end is detected.
         # So we can savely reset the indent to zero here
         self.indent = 0
@@ -1181,7 +1181,7 @@ class UseRule(GlobalKeywordState):
                 yield from ()
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in rule definition".format(token.string),
+                    f"Unexpected keyword {token.string} in rule definition",
                     token,
                 )
             except StopAutomaton as e:

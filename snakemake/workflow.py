@@ -195,7 +195,6 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
-        self._wildcard_constraints = dict()
         self.debug = debug
         self.verbose = verbose
         self._rulecount = 0
@@ -309,6 +308,10 @@ class Workflow:
         return self.modifier_stack[-1]
 
     @property
+    def wildcard_constraints(self):
+        return self.modifier.wildcard_constraints
+
+    @property
     def globals(self):
         return self.modifier.globals
 
@@ -348,10 +351,7 @@ class Workflow:
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
             logger.warning(
-                "File {} (size {} GB) is greater than the {} GB suggested size "
-                "Consider uploading larger files to storage first.".format(
-                    filename, gb, warning_size_gb
-                )
+                f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB suggested size Consider uploading larger files to storage first."
             )
         return filename
 
@@ -415,12 +415,13 @@ class Workflow:
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
-                "The name {} is already used by another rule".format(name),
+                f"The name {name} is already used by another rule",
                 lineno=lineno,
                 snakefile=snakefile,
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
+        self.modifier.rules.add(rule)
         if not is_overwrite:
             self.rule_count += 1
         if not self.default_target:
@@ -701,6 +702,7 @@ class Workflow:
             or printfilegraph
             or printdag
             or summary
+            or detailed_summary
             or archive
             or list_version_changes
             or list_code_changes
@@ -777,7 +779,7 @@ class Workflow:
                 )
                 updated = list()
                 if subworkflow_targets:
-                    logger.info("Executing subworkflow {}.".format(subworkflow.name))
+                    logger.info(f"Executing subworkflow {subworkflow.name}.")
                     if not subsnakemake(
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
@@ -797,9 +799,7 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: {}".format(
-                            subworkflow.name, NOTHING_TO_BE_DONE_MSG
-                        )
+                        f"Subworkflow {subworkflow.name}: {NOTHING_TO_BE_DONE_MSG}"
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
@@ -1005,13 +1005,11 @@ class Workflow:
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
-                    logger.info("Using shell: {}".format(shell_exec))
+                    logger.info(f"Using shell: {shell_exec}")
                 if cluster or cluster_sync or drmaa:
-                    logger.resources_info(
-                        "Provided cluster nodes: {}".format(self.nodes)
-                    )
+                    logger.resources_info(f"Provided cluster nodes: {self.nodes}")
                 elif kubernetes or tibanna or google_lifesciences:
-                    logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
+                    logger.resources_info(f"Provided cloud nodes: {self.nodes}")
                 else:
                     if self._cores is not None:
                         warning = (
@@ -1019,16 +1017,14 @@ class Workflow:
                             if self._cores > 1
                             else " (use --cores to define parallelism)"
                         )
-                        logger.resources_info(
-                            "Provided cores: {}{}".format(self._cores, warning)
-                        )
+                        logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
                             "Rules claiming more threads " "will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)
                 if provided_resources:
-                    logger.resources_info("Provided resources: " + provided_resources)
+                    logger.resources_info(f"Provided resources: {provided_resources}")
 
                 if self.run_local and any(rule.group for rule in self.rules):
                     logger.info("Group jobs: inactive (local execution)")
@@ -1211,7 +1207,7 @@ class Workflow:
         snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
-            logger.info("Multiple includes of {} ignored".format(snakefile))
+            logger.info(f"Multiple includes of {snakefile} ignored")
             return
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
@@ -1255,9 +1251,9 @@ class Workflow:
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
-        self._wildcard_constraints.update(content)
+        self.modifier.wildcard_constraints.update(content)
         # update all rules so far
-        for rule in self.rules:
+        for rule in self.modifier.rules:
             rule.update_wildcard_constraints()
 
     def scattergather(self, **content):
@@ -1272,7 +1268,7 @@ class Workflow:
             n = self._scatter[key]
             return expand(
                 *args,
-                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
+                scatteritem=map(f"{{}}-of-{n}".format, range(1, n + 1)),
                 **wildcards,
             )
 
@@ -1642,7 +1638,7 @@ class Workflow:
             if ruleinfo.localrule is True:
                 self._localrules.add(rule.name)
 
-            ruleinfo.func.__name__ = "__{}".format(rule.name)
+            ruleinfo.func.__name__ = f"__{rule.name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
             rule_proxy = RuleProxy(rule)
@@ -1685,7 +1681,9 @@ class Workflow:
 
         return decorate
 
-    def wildcard_constraints(self, *wildcard_constraints, **kwwildcard_constraints):
+    def register_wildcard_constraints(
+        self, *wildcard_constraints, **kwwildcard_constraints
+    ):
         def decorate(ruleinfo):
             ruleinfo.wildcard_constraints = (
                 wildcard_constraints,

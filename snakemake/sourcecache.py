@@ -245,7 +245,7 @@ class HostingProviderFile(SourceFile):
         )
 
     def join(self, path):
-        path = os.path.normpath("{}/{}".format(self.path, path))
+        path = os.path.normpath(f"{self.path}/{path}")
         if ON_WINDOWS:
             # convert back to URL separators
             # (win specific separators are introduced by normpath above)
@@ -276,7 +276,7 @@ class GithubFile(HostingProviderFile):
         self.token = os.environ.get("GITHUB_TOKEN", None)
 
     def get_path_or_uri(self):
-        auth = ":{}@".format(self.token) if self.token else ""
+        auth = f":{self.token}@" if self.token else ""
         return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
             auth, self.repo, self.ref, self.path
         )
@@ -299,7 +299,7 @@ class GitlabFile(HostingProviderFile):
     def get_path_or_uri(self):
         from urllib.parse import quote
 
-        auth = "&private_token={}".format(self.token) if self.token else ""
+        auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host or "gitlab.com",
             quote(self.repo, safe=""),
@@ -446,7 +446,7 @@ class SourceCache:
 
             return io.BytesIO(
                 git.Repo(source_file.repo_path)
-                .git.show("{}:{}".format(source_file.ref, source_file.path))
+                .git.show(f"{source_file.ref}:{source_file.path}")
                 .encode()
             )
 
@@ -455,4 +455,4 @@ class SourceCache:
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError("Failed to open source file {}".format(path_or_uri), e)
+            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)
