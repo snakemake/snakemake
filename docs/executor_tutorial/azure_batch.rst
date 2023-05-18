@@ -29,12 +29,12 @@ Setup
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.6
-* Snakemake_ ≥7.18
+* Snakemake_ ≥7.25.4
 * AZCLI_
 
 
 First install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
-and then install full snakemake with:
+and then install full Snakemake with:
 
 .. code:: console
 
@@ -104,7 +104,7 @@ Azure Blob Storage Warning:
 
 The snakemake azbatch executor will not work with data in a storage account that has "hierarchical namespace" enabled. 
 Azure hierarchical namespace is a new api on azure storage that is also called "ADLS Gen2". 
-Snakemake does not currently support this storage format becuse the Python API is distinct from traditional blob storage.
+Snakemake does not currently support this storage format because the Python API is distinct from traditional blob storage.
 For more details see: https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace.
 
 
@@ -120,7 +120,7 @@ Create a new azure batch account and capture the batch account url and batch acc
     az batch account create --resource-group $resgroup --name $accountname --location $region
 
 
-The format of the batch acocunt url is :code:`https://${accountname}.${region}.batch.azure.com`, which can be constructed manually from the output of the command :code:`az batch account list` or copied from the azure portal overview page of your batch account.
+The format of the batch account url is :code:`https://${accountname}.${region}.batch.azure.com`, which can be constructed manually from the output of the command :code:`az batch account list` or copied from the azure portal overview page of your batch account.
 
 
 .. code:: console
@@ -129,7 +129,9 @@ The format of the batch acocunt url is :code:`https://${accountname}.${region}.b
 
 
 
-To run the test workflow, two primary environment variables need to be set local to the snakemake invocation. The azure batch account key, and the azure storage account url with an SAS key. The SAS key must be wrapped in quotes when set as it contains special characters that must be escaped.
+To run the test workflow, two primary environment variables need to be set local to the snakemake invocation.
+The azure batch account key, and the azure storage account url with an SAS key. More details about the AZ_BLOB_ACCOUNT_URL 
+are described in the section below. 
 
 .. code:: console
 
@@ -165,17 +167,21 @@ read and write from blob storage. For the AzBlob storage provider in
 Snakemake this is done through the environment variables
 ``AZ_BLOB_ACCOUNT_URL`` and optionally ``AZ_BLOB_CREDENTIAL``. See the
 `documentation <snakefiles/remote_files.html#microsoft-azure-storage>`__ for more info.
-``AZ_BLOB_ACCOUNT_URL`` takes the form ``https://<accountname>.blob.core.windows.net/`` 
-or may also contain a shared access signature (SAS) ``https://<accountname>.blob.core.windows.net/<sas>``, 
-which is a powerful way to define fine grained and even time controlled access to storage on Azure. 
-The SAS can be part of the URL, but if it’s missing, then you can set it with
-``AZ_BLOB_CREDENTIAL`` or alternatively use the storage account key. 
-The blob account url with SAS is generally the best solution. We’ll pass the AZ_BLOB_ACCOUNT_URL on to the batch nodes  
-with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, 
-you will pass both variables to the --envvars command line argument.
+``AZ_BLOB_ACCOUNT_URL`` takes the form ``https://<accountname>.blob.core.windows.net/``
+or may also contain a storage account shared access signature (SAS) token with the form ``https://<accountname>.blob.core.windows.net/<sas_token>``, 
+which is a powerful way to define fine grained and even time controlled access to storage blobs on Azure. 
+If the SAS token is not specified as part of the ``AZ_BLOB_ACCOUNT_URL`` it must be specified using ``AZ_BLOB_CREDENTIAL``.
+``AZ_BLOB_CREDENTIAL`` must be a storage account SAS token, and usually needs to be enclosed in quotes when set from the 
+command line as it contains special characters that need to be escaped.
+
+When using azure storage and snakemake without the azure batch executor, it is valid to use storage account key credentials for ``AZ_BLOB_CREDENTIAL``, 
+but this type of authentication is not supported with Azure batch so we must use a storage account SAS token credential when using the azure batch executor.
+
+The blob account url combined with SAS token is generally the simplest solution because it results in only needing to specify the ``AZ_BLOB_ACCOUNT_URL``. We’ll pass the ``AZ_BLOB_ACCOUNT_URL`` on to the batch nodes  
+with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, you will pass both variables to the --envvars command line argument.
 
 The following optional environment variables can be set to override their associated default values, 
-and are used to change the runtime configuraiton of the batch nodes themselves:
+and are used to change the runtime configuration of the batch nodes themselves:
 
 
 .. list-table:: Optional Batch Node Configuration Environment Variables
@@ -214,7 +220,7 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
      - container prefix for temporary resource files tar ball (Snakefile, envs)
    * - BATCH_NODE_START_TASK_SAS_URL
      - None
-     - speicfy an SAS url to a bash script start task to run on each batch node
+     - specify an SAS url to a bash script start task to run on each batch node
    * - BATCH_NODE_FILL_TYPE
      - spread
      - possible values ("spread", or "pack") 
@@ -232,13 +238,13 @@ and are used to change the runtime configuraiton of the batch nodes themselves:
      - The client ID of the managed identity to use
    * - BATCH_CONTAINER_REGISTRY_URL
      - None
-     - Contianer registry url to configure on the batch nodes 
+     - Container registry url to configure on the batch nodes 
    * - BATCH_CONTAINER_REGISTRY_USER
      - None
-     - Contianer registry user, overrides managed identity authentication if set with password.
+     - Container registry user, overrides managed identity authentication if set with password.
    * - BATCH_CONTAINER_REGISTRY_PASS
      - None
-     - Contianer registry password
+     - Container registry password
   
    
 
