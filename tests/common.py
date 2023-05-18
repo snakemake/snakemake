@@ -131,6 +131,7 @@ def run(
     shellcmd=None,
     sigint_after=None,
     overwrite_resource_scopes=None,
+    results_dir="expected-results",
     **params,
 ):
     """
@@ -153,7 +154,7 @@ def run(
     elif "PYTHONPATH" in os.environ:
         del os.environ["PYTHONPATH"]
 
-    results_dir = join(path, "expected-results")
+    results_dir = join(path, results_dir)
     original_snakefile = join(path, snakefile)
     assert os.path.exists(original_snakefile)
     assert os.path.exists(results_dir) and os.path.isdir(

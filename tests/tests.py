@@ -228,9 +228,12 @@ def test_ancient():
     run(dpath("test_ancient"), targets=["D", "C", "old_file"])
 
 
-def test_ancient_cli():
-    run(dpath("test_ancient_cli"), targets=["D", "C", "old_file"], ancient=True)
+def test_ancient_cli_true():
+    run(dpath("test_ancient_cli"), targets=["D", "C", "old_file"], ancient=True, results_dir="expected-results-true")
 
+
+def test_ancient_cli_false():
+    run(dpath("test_ancient_cli"), targets=["D", "C", "old_file"], ancient=False, results_dir="expected-results-false")
 
 def test_report():
     run(
