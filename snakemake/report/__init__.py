@@ -451,12 +451,6 @@ class FileRecord:
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
-            try:
-                pass
-            except ImportError as e:
-                raise WorkflowError(
-                    "Python package jinja2 must be installed to create reports."
-                )
 
             job = self.job
             snakemake = Snakemake(

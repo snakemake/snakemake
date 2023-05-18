@@ -263,12 +263,6 @@ class Env:
         """Create self-contained archive of environment."""
         from snakemake.shell import shell
 
-        try:
-            pass
-        except ImportError:
-            raise WorkflowError(
-                "Error importing PyYAML. " "Please install PyYAML to archive workflows."
-            )
         # importing requests locally because it interferes with instantiating conda environments
         import requests
 
