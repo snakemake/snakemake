@@ -1235,6 +1235,8 @@ The timestamp of such files is ignored and always assumed to be older than any o
 Here, this means that the file ``path/to/outputfile`` will not be triggered for re-creation after it has been generated once, even when the input file is modified in the future.
 Note that any flag that forces re-creation of files still also applies to files marked as ``ancient``.
 
+All input files can be treated as ``ancient`` by setting the ``--ancient` command line option.
+
 .. _snakefiles_ensure::
 
 Ensuring output file properties like non-emptyness or checksum compliance
