@@ -324,10 +324,10 @@ class Job(AbstractJob):
 
     def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
+        if self.dag.mark_all_ancient:
+            return
         path = self.rule.script or self.rule.notebook
         if not path:
-            return
-        if self.dag.workflow.mark_all_ancient:
             return
         if self.rule.basedir:
             # needed if rule is included from another subdirectory
