@@ -1235,7 +1235,10 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
                     if job_ not in visited:
-                        if all((self.mark_all_ancient or f.is_ancient) and f.exists for f in files):
+                        if all(
+                            (self.mark_all_ancient or f.is_ancient) and f.exists
+                            for f in files
+                        ):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue

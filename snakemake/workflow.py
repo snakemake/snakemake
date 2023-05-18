@@ -690,7 +690,7 @@ class Workflow:
             notemp=notemp,
             keep_remote_local=keep_remote_local,
             batch=batch,
-            mark_all_ancient=mark_all_ancient
+            mark_all_ancient=mark_all_ancient,
         )
 
         self.persistence = Persistence(

@@ -848,7 +848,7 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     containerize=containerize,
-                    mark_all_ancient=ancient
+                    mark_all_ancient=ancient,
                 )
 
     except BrokenPipeError:
