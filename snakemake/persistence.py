@@ -36,7 +36,6 @@ class Persistence:
         warn_only=False,
     ):
         try:
-
             self._serialize_param = self._serialize_param_pandas
         except ImportError:
             self._serialize_param = self._serialize_param_builtin
