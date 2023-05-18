@@ -451,7 +451,6 @@ class FileRecord:
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
-
             job = self.job
             snakemake = Snakemake(
                 job.input,
