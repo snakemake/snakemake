@@ -25,7 +25,7 @@ from snakemake.exceptions import (
     print_exception,
     WorkflowError,
 )
-from snakemake.logging import setup_logger, logger
+from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
