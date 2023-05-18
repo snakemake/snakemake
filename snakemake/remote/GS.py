@@ -197,7 +197,7 @@ class RemoteObject(AbstractRemoteObject):
     # === Implementations of abstract class members ===
 
     def get_inventory_parent(self):
-        return self.bucket_name
+        return "%s/%s" % (self.bucket_name, os.path.dirname(self.blob.name))
 
     @retry.Retry(predicate=google_cloud_retry_predicate)
     def exists(self):
