@@ -14,8 +14,6 @@ from snakemake.sourcecache import (
 )
 import subprocess
 import tempfile
-from urllib.request import urlopen
-from urllib.error import URLError
 import hashlib
 import shutil
 from distutils.version import StrictVersion
@@ -36,16 +34,13 @@ from snakemake.common import (
     is_local_file,
     lazy_property,
     parse_uri,
-    strip_prefix,
     ON_WINDOWS,
 )
-from snakemake import utils
 from snakemake.deployment import singularity, containerize
 from snakemake.io import (
     IOFile,
     apply_wildcards,
     contains_wildcard,
-    git_content,
     _IOFile,
 )
 
@@ -269,7 +264,7 @@ class Env:
         from snakemake.shell import shell
 
         try:
-            import yaml
+            pass
         except ImportError:
             raise WorkflowError(
                 "Error importing PyYAML. " "Please install PyYAML to archive workflows."

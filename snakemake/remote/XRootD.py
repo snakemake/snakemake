@@ -7,9 +7,7 @@ import os
 from os.path import abspath, join, normpath
 import re
 
-from stat import S_ISREG
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )

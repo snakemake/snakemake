@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import inspect
 import itertools
 import os
 from collections.abc import Iterable
@@ -20,14 +19,12 @@ import tempfile
 import textwrap
 import sys
 import pickle
-import subprocess
 import collections
 import re
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
-from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
 
 from snakemake.utils import format
@@ -38,10 +35,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
-    smart_join,
-    is_local_file,
 )
-from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble

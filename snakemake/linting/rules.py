@@ -1,7 +1,7 @@
 from itertools import chain
 import re
 
-from snakemake.io import get_wildcard_names, is_flagged
+from snakemake.io import is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 

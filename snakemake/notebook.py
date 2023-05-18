@@ -1,13 +1,10 @@
 from abc import abstractmethod
-import os, sys
+import os
 from pathlib import Path
-from urllib.error import URLError
 import tempfile
 import re
-import shutil
 
 from snakemake.exceptions import WorkflowError
-from snakemake.shell import shell
 from snakemake.script import get_source, ScriptBase, PythonScript, RScript
 from snakemake.logging import logger
 from snakemake.common import is_local_file

@@ -12,8 +12,7 @@ import stat
 from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.exceptions import WorkflowError
-from snakemake.caching.hash import ProvenanceHashMap
-from snakemake.caching import LOCATION_ENVVAR, AbstractOutputFileCache
+from snakemake.caching import AbstractOutputFileCache
 
 
 class OutputFileCache(AbstractOutputFileCache):

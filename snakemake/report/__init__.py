@@ -13,19 +13,13 @@ import io
 import uuid
 import json
 import time
-import shutil
-import subprocess as sp
 import itertools
-import csv
-from collections import namedtuple, defaultdict
-from itertools import accumulate, chain
-import urllib.parse
+from collections import defaultdict
 import hashlib
 from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import numbers
 
-import requests
 
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
@@ -46,11 +40,8 @@ from snakemake.io import (
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
-from snakemake import __version__
 from snakemake.common import (
     get_input_function_aux_params,
-    is_local_file,
-    num_if_possible,
     lazy_property,
 )
 from snakemake import logging
@@ -461,7 +452,7 @@ class FileRecord:
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
             try:
-                from jinja2 import Template
+                pass
             except ImportError as e:
                 raise WorkflowError(
                     "Python package jinja2 must be installed to create reports."
@@ -575,7 +566,7 @@ def expand_labels(labels, wildcards, job):
 
 def auto_report(dag, path, stylesheet=None):
     try:
-        from jinja2 import Template, Environment, PackageLoader, UndefinedError
+        from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."

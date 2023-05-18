@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import logging
 import os
-import sys
 import time
 import shutil
 import tarfile

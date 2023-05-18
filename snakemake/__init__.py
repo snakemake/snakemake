@@ -3,20 +3,16 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import defaultdict
 import os
-import subprocess
 import glob
-from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
-import inspect
 import threading
 import webbrowser
 from functools import partial
 import importlib
-import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
 from snakemake.target_jobs import parse_target_jobs_cli_args
@@ -29,7 +25,7 @@ from snakemake.exceptions import (
     print_exception,
     WorkflowError,
 )
-from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
+from snakemake.logging import setup_logger, logger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count

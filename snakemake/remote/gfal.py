@@ -4,9 +4,7 @@ __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
-import re
 import stat
-from datetime import datetime
 
 from snakemake.remote import (
     AbstractRemoteProvider,

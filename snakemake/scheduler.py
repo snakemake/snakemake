@@ -4,21 +4,14 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
-import datetime
 import threading
-import operator
-import time
-import math
-import asyncio
 
 from functools import partial
-from collections import defaultdict
-from itertools import chain, accumulate, product
+from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
 from snakemake.executors import (
     AbstractExecutor,
-    ClusterExecutor,
     DryrunExecutor,
     TouchExecutor,
     CPUExecutor,
@@ -36,8 +29,7 @@ from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
