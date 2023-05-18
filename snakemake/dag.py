@@ -123,6 +123,7 @@ class DAG:
         notemp=False,
         keep_remote_local=False,
         batch=None,
+        mark_all_ancient=False,
     ):
         self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
@@ -200,6 +201,8 @@ class DAG:
         self.periodic_wildcard_detector = PeriodicityDetector()
 
         self.update_output_index()
+
+        self.mark_all_ancient = mark_all_ancient
 
     def init(self, progress=False):
         """Initialise the DAG."""
@@ -1140,6 +1143,7 @@ class DAG:
                         for f in job.input
                         if f.exists
                         and f.is_newer(output_mintime_)
+                        and not self.mark_all_ancient
                         and not is_same_checksum(f, job)
                     ]
                     reason.updated_input.update(updated_input)
@@ -1231,7 +1235,7 @@ class DAG:
             for job_, files in depending[job].items():
                 if job_ in candidates_set:
                     if job_ not in visited:
-                        if all(f.is_ancient and f.exists for f in files):
+                        if all((self.mark_all_ancient or f.is_ancient) and f.exists for f in files):
                             # No other reason to run job_.
                             # Since all files are ancient, we do not trigger it.
                             continue

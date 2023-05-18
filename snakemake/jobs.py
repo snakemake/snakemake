@@ -334,7 +334,7 @@ class Job(AbstractJob):
             script_mtime = os.lstat(path).st_mtime
             for f in self.expanded_output:
                 if f.exists:
-                    if not f.is_newer(script_mtime):
+                    if not f.is_newer(script_mtime) and not self.dag.workflow.mark_all_ancient:
                         yield f
         # TODO also handle remote file case here.
 
