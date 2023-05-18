@@ -172,7 +172,7 @@ class IOCache:
         await asyncio.gather(*tasks)
 
     async def collect_mtime(self, path):
-        return path.mtime_uncached
+        return path.mtime
 
     def clear(self):
         self.mtime.clear()
