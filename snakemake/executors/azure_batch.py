@@ -28,7 +28,6 @@ AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback
 
 class AzBatchConfig:
     def __init__(self, batch_account_url: str):
-
         # configure defaults
         self.batch_account_url = batch_account_url
 
@@ -813,7 +812,6 @@ class AzBatchExecutor(ClusterExecutor):
             )
         )
 
-
     @staticmethod
     def validate_az_blob_credential_is_sas():
         """
@@ -828,7 +826,6 @@ class AzBatchExecutor(ClusterExecutor):
                 raise WorkflowError(
                     "AZ_BLOB_CREDENTIAL is not a valid storage account SAS token."
                 )
-
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which cannot be reliably
