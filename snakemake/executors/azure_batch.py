@@ -28,13 +28,9 @@ AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback
 
 class AzBatchConfig:
     def __init__(self, batch_account_url: str):
+
         # configure defaults
         self.batch_account_url = batch_account_url
-
-        # validate AZ_BLOB_CREDENTIAL we need to do this here
-        # rather than in AzBlob.py because this requirement is specific
-        # to the azure batch executor
-        self.validate_az_blob_credential_is_sas()
 
         # parse batch account name
         result = urlparse(self.batch_account_url)
@@ -136,17 +132,6 @@ class AzBatchConfig:
         self.container_registry_pass = self.set_or_default(
             "BATCH_CONTAINER_REGISTRY_PASS", None
         )
-
-    @staticmethod
-    def validate_az_blob_credential_is_sas():
-        cred = os.environ.get("AZ_BLOB_CREDENTIAL")
-        if cred is not None:
-            # regex pattern for Storage Account SAS Token
-            rgx = r"\?sv=.*&ss=.*&srt=.*&sp=.*&se=.*&st=.*&spr=.*&sig=.*"
-            if re.compile(rgx).match(cred) is None:
-                raise WorkflowError(
-                    "AZ_BLOB_CREDENTIAL is not a valid storage account SAS."
-                )
 
     @staticmethod
     def set_or_default(evar: str, default: str | None):
@@ -266,7 +251,9 @@ class AzBatchExecutor(ClusterExecutor):
 
         AZURE_BATCH_RESOURCE_ENDPOINT = "https://batch.core.windows.net/"
 
-        # use storage helper
+        # Here we validate that az blob credential is SAS
+        # token because it is specific to azure batch executor
+        self.validate_az_blob_credential_is_sas()
         self.azblob_helper = AzureStorageHelper()
 
         # get container from remote prefix
@@ -825,6 +812,23 @@ class AzBatchExecutor(ClusterExecutor):
                 pool_info=bsc.models.PoolInformation(pool_id=self.pool_id),
             )
         )
+
+
+    @staticmethod
+    def validate_az_blob_credential_is_sas():
+        """
+        Validates that the AZ_BLOB_CREDENTIAL is a valid storage account SAS
+        token, required when using --az-batch with AzBlob remote.
+        """
+        cred = os.environ.get("AZ_BLOB_CREDENTIAL")
+        if cred is not None:
+            # regex pattern for Storage Account SAS Token
+            rgx = r"\?sv=.*&ss=.*&srt=.*&sp=.*&se=.*&st=.*&spr=.*&sig=.*"
+            if re.compile(rgx).match(cred) is None:
+                raise WorkflowError(
+                    "AZ_BLOB_CREDENTIAL is not a valid storage account SAS token."
+                )
+
 
     def _set_snakefile(self):
         """The snakefile must be a relative path, which cannot be reliably
