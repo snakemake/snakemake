@@ -168,7 +168,7 @@ class AzureStorageHelper(object):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
 
-        # if not handed down explicitely, try to read credentials from
+        # if not handed down explicitly, try to read credentials from
         # environment variables.
         for csavar, envvar in [
             ("account_url", "AZ_BLOB_ACCOUNT_URL"),

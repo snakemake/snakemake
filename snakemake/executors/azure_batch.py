@@ -31,6 +31,11 @@ class AzBatchConfig:
         # configure defaults
         self.batch_account_url = batch_account_url
 
+        # validate AZ_BLOB_CREDENTIAL we need to do this here
+        # rather than in AzBlob.py because this requirement is specific
+        # to the azure batch executor
+        self.validate_az_blob_credential_is_sas()
+
         # parse batch account name
         result = urlparse(self.batch_account_url)
         self.batch_account_name = str.split(result.hostname, ".")[0]
@@ -131,6 +136,17 @@ class AzBatchConfig:
         self.container_registry_pass = self.set_or_default(
             "BATCH_CONTAINER_REGISTRY_PASS", None
         )
+
+    @staticmethod
+    def validate_az_blob_credential_is_sas():
+        cred = os.environ.get("AZ_BLOB_CREDENTIAL")
+        if cred is not None:
+            # regex pattern for Storage Account SAS Token
+            rgx = r"\?sv=.*&ss=.*&srt=.*&sp=.*&se=.*&st=.*&spr=.*&sig=.*"
+            if re.compile(rgx).match(cred) is None:
+                raise WorkflowError(
+                    "AZ_BLOB_CREDENTIAL is not a valid storage account SAS."
+                )
 
     @staticmethod
     def set_or_default(evar: str, default: str | None):
@@ -344,7 +360,8 @@ class AzBatchExecutor(ClusterExecutor):
             self.shutdown()
 
     def shutdown(self):
-        # perform additional steps on shutdown if necessary (jobs were cancelled already)
+        # perform additional steps on shutdown
+        # if necessary (jobs were cancelled already)
 
         logger.debug("Deleting AzBatch job")
         self.batch_client.job.delete(self.job_id)
@@ -366,8 +383,8 @@ class AzBatchExecutor(ClusterExecutor):
             self.batch_client.task.terminate(self.job_id, task.id)
         self.shutdown()
 
-    # mask_dict_vals masks sensitive keys from a dictionary of values for logging
-    # used to mask dicts with sensitive information from logging
+    # mask_dict_vals masks sensitive keys from a dictionary of values for
+    # logging used to mask dicts with sensitive information from logging
     @staticmethod
     def mask_dict_vals(mdict: dict, keys: list):
         ret_dict = mdict.copy()
