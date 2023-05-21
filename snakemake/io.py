@@ -1699,6 +1699,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
                 f.seek(0)  # try again
             try:
                 import yte
+
                 return yte.process_yaml(f, require_use_yte=True)
             except yaml.YAMLError:
                 raise WorkflowError(
