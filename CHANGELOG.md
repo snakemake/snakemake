@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.26.0](https://github.com/snakemake/snakemake/compare/v7.25.4...v7.26.0) (2023-05-22)
+
+
+### Features
+
+* allow config files to be processed with YTE ([#2269](https://github.com/snakemake/snakemake/issues/2269)) ([8e1c22f](https://github.com/snakemake/snakemake/commit/8e1c22ff54e85ee941c6e0ac74dd594fce80efbb))
+
 ## [7.25.4](https://github.com/snakemake/snakemake/compare/v7.25.3...v7.25.4) (2023-05-12)
 
 
