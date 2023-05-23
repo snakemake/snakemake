@@ -122,7 +122,7 @@ def snakemake(
     cleanup_containers=False,
     force_incomplete=False,
     ignore_incomplete=False,
-    list_version_changes=False,
+    list_conda_env_changes=False,
     list_code_changes=False,
     list_input_changes=False,
     list_params_changes=False,
@@ -266,7 +266,7 @@ def snakemake(
         cleanup_containers (bool):  delete unused (singularity) containers (default False)
         force_incomplete (bool):    force the re-creation of incomplete files (default False)
         ignore_incomplete (bool):   ignore incomplete files (default False)
-        list_version_changes (bool): list output files with changed rule version (default False)
+        list_conda_env_changes (bool): list output files with changed rule version (default False)
         list_code_changes (bool):   list output files with changed rule code (default False)
         list_input_changes (bool):  list output files with changed input files (default False)
         list_params_changes (bool): list output files with changed params (default False)
@@ -806,7 +806,7 @@ def snakemake(
                     stats=stats,
                     force_incomplete=force_incomplete,
                     ignore_incomplete=ignore_incomplete,
-                    list_version_changes=list_version_changes,
+                    list_conda_env_changes=list_conda_env_changes,
                     list_code_changes=list_code_changes,
                     list_input_changes=list_input_changes,
                     list_params_changes=list_params_changes,
@@ -1827,11 +1827,10 @@ def get_argument_parser(profile=None):
         "--unlock", action="store_true", help="Remove a lock on the working directory."
     )
     group_utils.add_argument(
-        "--list-version-changes",
-        "--lv",
+        "--list-conda-env-changes",
+        "--lce",
         action="store_true",
-        help="List all output files that have been created with "
-        "a different version (as determined by the version keyword).",
+        help="List all output files for which the conda environment have changed.",
     )
     group_utils.add_argument(
         "--list-code-changes",
@@ -2718,7 +2717,7 @@ def main(argv=None):
         or args.list
         or args.list_target_rules
         or args.list_untracked
-        or args.list_version_changes
+        or args.list_conda_env_changes
         or args.export_cwl
         or args.generate_unit_tests
         or args.dag
@@ -3034,7 +3033,7 @@ def main(argv=None):
             cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
-            list_version_changes=args.list_version_changes,
+            list_conda_env_changes=args.list_conda_env_changes,
             list_code_changes=args.list_code_changes,
             list_input_changes=args.list_input_changes,
             list_params_changes=args.list_params_changes,
