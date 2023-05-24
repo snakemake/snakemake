@@ -40,13 +40,14 @@ and then install full Snakemake with:
 
     conda create -c bioconda -c conda-forge -n snakemake snakemake
 
-Make sure that the ``azure-batch`` and ``azure-storage-blob`` modules are installed
-in this environment. Should they be missing, they can be installed with:
+Ensure the following python packages are installed ``azure-batch``, ``azure-storage-blob``, ``azure-mgmt-batch``, ``azure-identity``. Should they be missing, they can be installed with:
 
 .. code:: console
 
    pip install azure-batch
    pip install azure-storage-blob
+   pip install azure-mgmt-batch
+   pip install azure-identity
 
 Create an Azure storage account and upload example data
 :::::::::::::::::::::::::::::::::::::::::::::::
@@ -120,7 +121,13 @@ Create a new azure batch account and capture the batch account url and batch acc
     az batch account create --resource-group $resgroup --name $accountname --location $region
 
 
-The format of the batch account url is :code:`https://${accountname}.${region}.batch.azure.com`, which can be constructed manually from the output of the command :code:`az batch account list` or copied from the azure portal overview page of your batch account.
+The format of the batch account url is :code:`https://${accountname}.${region}.batch.azure.com`, which can be constructed from the output of the command :code:`az batch account list` or copied from the azure portal overview page of your batch account.
+
+.. code:: console
+
+    # get batch account url from command line
+    export batch_endpoint=$(az batch account show --name $accountname --resource-group $resgroup --query "accountEndpoint" --output tsv)
+    export batch_account_url=="https://${batch_endpoint}"
 
 
 .. code:: console
@@ -135,8 +142,8 @@ are described in the section below.
 
 .. code:: console
 
-     export AZ_BLOB_ACCOUNT_URL='${storage_account_url_with_sas}'
-     export AZ_BATCH_ACCOUNT_KEY='${az_batch_account_key}'
+     export AZ_BLOB_ACCOUNT_URL="${storage_account_url_with_sas}"
+     export AZ_BATCH_ACCOUNT_KEY="${az_batch_account_key}"
 
 
 Running the workflow
@@ -254,9 +261,9 @@ Now you are ready to run the analysis:
 
     # required env variables
     export AZ_BLOB_PREFIX=snakemake-tutorial
-    export AZ_BATCH_ACCOUNT_URL='${batch_account_url}'
-    export AZ_BATCH_ACCOUNT_KEY='${az_batch_account_key}'
-    export AZ_BLOB_ACCOUNT_URL='${account_url_with_sas}'
+    export AZ_BATCH_ACCOUNT_URL="${batch_account_url}"
+    export AZ_BATCH_ACCOUNT_KEY="${az_batch_account_key}"
+    export AZ_BLOB_ACCOUNT_URL="${account_url_with_sas}"
 
     # optional environment variables with defaults listed
 
