@@ -2058,3 +2058,8 @@ def test_localrule():
 @skip_on_windows
 def test_module_wildcard_constraints():
     run(dpath("test_module_wildcard_constraints"))
+
+
+@skip_on_windows
+def test_config_yte():
+    run(dpath("test_config_yte"))
