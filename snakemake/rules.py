@@ -201,7 +201,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
             for key in wildcards.keys():
-                s = s.replace("{{{{{}}}}}".format(key), "{{{}}}".format(key))
+                s = s.replace(f"{{{{{key}}}}}", f"{{{key}}}")
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -509,11 +509,11 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
-        if not (self.wildcard_constraints or self.workflow._wildcard_constraints):
+        if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
         try:
             return update_wildcard_constraints(
-                item, self.wildcard_constraints, self.workflow._wildcard_constraints
+                item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
             raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
@@ -1209,14 +1209,12 @@ class Rule:
             return False
         except sre_constants.error as ex:
             raise IOFileException(
-                "{} in wildcard statement".format(ex),
+                f"{ex} in wildcard statement",
                 snakefile=self.snakefile,
                 lineno=self.lineno,
             )
         except ValueError as ex:
-            raise IOFileException(
-                "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
-            )
+            raise IOFileException(f"{ex}", snakefile=self.snakefile, lineno=self.lineno)
 
     def get_wildcards(self, requested_output, wildcards_dict=None):
         """

@@ -1178,9 +1178,7 @@ def test_group_job_resources_with_pipe(mocker):
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 60000,
-        },
+        resources={"mem_mb": 60000},
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
@@ -1204,9 +1202,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 20000,
-        },
+        resources={"mem_mb": 20000},
         group_components={0: 5},
         shouldfail=True,
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1984,6 +1980,10 @@ def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
 
 
+def test_github_issue2142():
+    run(dpath("test_github_issue2142"))
+
+
 def test_ensure_nonempty_fail():
     run(dpath("test_ensure"), targets=["a"], shouldfail=True)
 
@@ -2066,3 +2066,18 @@ def test_github_issue1882():
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
+
+
+@skip_on_windows
+def test_localrule():
+    run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
+
+
+@skip_on_windows
+def test_module_wildcard_constraints():
+    run(dpath("test_module_wildcard_constraints"))
+
+
+@skip_on_windows
+def test_config_yte():
+    run(dpath("test_config_yte"))

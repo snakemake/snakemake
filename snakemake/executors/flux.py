@@ -169,9 +169,7 @@ class FluxExecutor(ClusterExecutor):
                         # the job finished (but possibly with nonzero exit code)
                         if exit_code != 0:
                             self.print_job_error(
-                                j.job,
-                                jobid=j.jobid,
-                                aux_logs=[j.flux_logfile],
+                                j.job, jobid=j.jobid, aux_logs=[j.flux_logfile]
                             )
                             j.error_callback(j.job)
                             continue

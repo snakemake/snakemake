@@ -32,10 +32,7 @@ from snakemake.exceptions import (
 from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
-from snakemake.utils import (
-    update_config,
-    available_cpu_count,
-)
+from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     Mode,
     __version__,
@@ -526,7 +523,7 @@ def snakemake(
             return False
 
     if not os.path.exists(snakefile):
-        logger.error('Error: Snakefile "{}" not found.'.format(snakefile))
+        logger.error(f'Error: Snakefile "{snakefile}" not found.')
         return False
     snakefile = os.path.abspath(snakefile)
 
@@ -561,7 +558,7 @@ def snakemake(
     if workdir:
         olddir = os.getcwd()
         if not os.path.exists(workdir):
-            logger.info("Creating specified working directory {}.".format(workdir))
+            logger.info(f"Creating specified working directory {workdir}.")
             os.makedirs(workdir)
         workdir = os.path.abspath(workdir)
         os.chdir(workdir)
@@ -1075,7 +1072,7 @@ def parse_jobs(jobs, allow_none=False):
             return jobs
         raise CliException(
             "Error: you need to specify the maximum number of jobs to "
-            "be queued or executed at the same time with --jobs or -j.",
+            "be queued or executed at the same time with --jobs or -j."
         )
     if jobs == "unlimited":
         return sys.maxsize
@@ -1083,7 +1080,7 @@ def parse_jobs(jobs, allow_none=False):
         return int(jobs)
     except ValueError:
         raise CliException(
-            "Error parsing number of jobs (--jobs, -j): must be integer.",
+            "Error parsing number of jobs (--jobs, -j): must be integer."
         )
 
 
@@ -1378,7 +1375,7 @@ def get_argument_parser(profile=None):
             "each integer indicates the number of restarts to use for the rule's instance in the case that the instance is "
             "terminated unexpectedly. --preemptible-rules can be used in combination with --preemption-default, and will take "
             "priority. Note that preemptible instances have a maximum running time of 24. If you want to apply a consistent "
-            "number of retries across all your rules, use --premption-default instead. "
+            "number of retries across all your rules, use --preemption-default instead. "
             "Example: snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0"
         ),
     )
@@ -1437,9 +1434,9 @@ def get_argument_parser(profile=None):
             "not yet exist. Note that this will only touch files that would "
             "otherwise be recreated by Snakemake (e.g. because their input "
             "files are newer). For enforcing a touch, combine this with "
-            "--force, --forceall, or --forcerun. Note however that you loose "
+            "--force, --forceall, or --forcerun. Note however that you lose "
             "the provenance information when the files have been created in "
-            "realitiy. Hence, this should be used only as a last resort."
+            "reality. Hence, this should be used only as a last resort."
         ),
     )
     group_exec.add_argument(
@@ -1563,7 +1560,7 @@ def get_argument_parser(profile=None):
         lp_solvers = pulp.list_solvers(onlyAvailable=True)
     except ImportError:
         # Dummy list for the case that pulp is not available
-        # This only happend when building docs.
+        # This only happened when building docs.
         lp_solvers = ["COIN_CMD"]
     recommended_lp_solver = "COIN_CMD"
 
@@ -1674,7 +1671,7 @@ def get_argument_parser(profile=None):
         "--draft-notebook",
         metavar="TARGET",
         help="Draft a skeleton notebook for the rule used to generate the given target file. This notebook "
-        "can then be opened in a jupyter server, exeucted and implemented until ready. After saving, it "
+        "can then be opened in a jupyter server, executed and implemented until ready. After saving, it "
         "will automatically be reused in non-interactive mode by Snakemake for subsequent jobs.",
     )
     group_notebooks.add_argument(
@@ -1714,7 +1711,7 @@ def get_argument_parser(profile=None):
         "Rules without a job with present input files will be skipped (a warning will be issued). "
         "For each rule, one test case will be "
         "created in the specified test folder (.tests/unit by default). After "
-        "successfull execution, tests can be run with "
+        "successful execution, tests can be run with "
         "'pytest TESTPATH'.",
     )
     group_utils.add_argument(
@@ -1746,7 +1743,7 @@ def get_argument_parser(profile=None):
         action="store_true",
         help="Do not execute anything and print the directed "
         "acyclic graph of jobs in the dot language. Recommended "
-        "use on Unix systems: snakemake --dag | dot | display"
+        "use on Unix systems: snakemake --dag | dot | display. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1759,7 +1756,7 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --rulegraph | dot | display"
+        "Recommended use on Unix systems: snakemake --rulegraph | dot | display. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -1772,7 +1769,7 @@ def get_argument_parser(profile=None):
         "Note that each rule is displayed once, hence the displayed graph will be "
         "cyclic if a rule appears in several steps of the workflow. "
         "Use this if above option leads to a DAG that is too large. "
-        "Recommended use on Unix systems: snakemake --filegraph | dot | display"
+        "Recommended use on Unix systems: snakemake --filegraph | dot | display. "
         "Note print statements in your Snakefile may interfere "
         "with visualization.",
     )
@@ -2245,7 +2242,7 @@ def get_argument_parser(profile=None):
             " 'partition', 'ntasks', 'cpus', etc. need to be defined"
             " per rule within the 'resources' definition. Note, that"
             " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
-            " as analoguous to the SLURM 'mem' and 'mem-per-cpu' flags"
+            " as analogous to the SLURM 'mem' and 'mem-per-cpu' flags"
             " to sbatch, respectively. Here, the unit is always 'MiB'."
             " In addition '--default_resources' should contain the"
             " SLURM account."
@@ -2356,7 +2353,7 @@ def get_argument_parser(profile=None):
         "or failed. For this it is necessary that the submit command provided "
         "to --cluster returns the cluster job id. Then, the status command "
         "will be invoked with the job id. Snakemake expects it to return "
-        "'success' if the job was successfull, 'failed' if the job failed and "
+        "'success' if the job was successful, 'failed' if the job failed and "
         "'running' if the job still runs.",
     )
     group_cluster.add_argument(
@@ -2646,7 +2643,7 @@ def main(argv=None):
 
     if sys.version_info < MIN_PY_VERSION:
         print(
-            "Snakemake requires at least Python {}.".format(MIN_PY_VERSION),
+            f"Snakemake requires at least Python {MIN_PY_VERSION}.",
             file=sys.stderr,
         )
         exit(1)
@@ -2752,6 +2749,7 @@ def main(argv=None):
         or args.filegraph
         or args.rulegraph
         or args.summary
+        or args.detailed_summary
         or args.lint
         or args.containerize
         or args.report
@@ -2899,8 +2897,8 @@ def main(argv=None):
             port = args.gui
             host = "127.0.0.1"
 
-        url = "http://{}:{}".format(host, port)
-        print("Listening on {}.".format(url), file=sys.stderr)
+        url = f"http://{host}:{port}"
+        print(f"Listening on {url}.", file=sys.stderr)
 
         def open_browser():
             try:
@@ -3171,7 +3169,7 @@ def bash_completion(snakefile="Snakefile"):
         )
     else:
         candidates = []
-        files = glob.glob("{}*".format(prefix))
+        files = glob.glob(f"{prefix}*")
         if files:
             candidates.extend(files)
         if os.path.exists(snakefile):

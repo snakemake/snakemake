@@ -165,11 +165,15 @@ class WorkflowModifier:
             self.path_modifier = parent_modifier.path_modifier
             self.replace_wrapper_tag = parent_modifier.replace_wrapper_tag
             self.namespace = parent_modifier.namespace
+            self.wildcard_constraints = parent_modifier.wildcard_constraints
+            self.rules = parent_modifier.rules
         else:
             # default settings for globals if not inheriting from parent
             self.globals = (
                 globals if globals is not None else dict(workflow.vanilla_globals)
             )
+            self.wildcard_constraints = dict()
+            self.rules = set()
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile

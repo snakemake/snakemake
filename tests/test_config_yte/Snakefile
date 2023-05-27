@@ -1,0 +1,7 @@
+configfile: "config.yaml"
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo {config[test]} > {output}"

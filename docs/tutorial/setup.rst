@@ -167,7 +167,7 @@ First, we download some example data on which the workflow shall be executed:
 
 .. code:: console
 
-    $ curl -L https://github.com/snakemake/snakemake-tutorial-data/archive/v5.24.1.tar.gz -o snakemake-tutorial-data.tar.gz
+    $ curl -L https://api.github.com/repos/snakemake/snakemake-tutorial-data/tarball -o snakemake-tutorial-data.tar.gz
 
 Next we extract the data. On Linux, run
 

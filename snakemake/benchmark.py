@@ -92,7 +92,7 @@ class BenchmarkRecord:
             if x is None:
                 return "-"
             elif isinstance(x, float):
-                return "{:.2f}".format(x)
+                return f"{x:.2f}"
             else:
                 return str(x)
 
@@ -114,7 +114,7 @@ class BenchmarkRecord:
                 "Benchmark: not collected for "
                 "; ".join(
                     [
-                        "{{'pid': {}, 'name': '{}''}}".format(record[0], record[1])
+                        f"{{'pid': {record[0]}, 'name': '{record[1]}''}}"
                         for record in self.skipped_procs
                     ]
                 )
@@ -123,7 +123,7 @@ class BenchmarkRecord:
                 "Benchmark: collected for "
                 "; ".join(
                     [
-                        "{{'pid': {}, 'name': '{}'}}".format(record[0], record[1])
+                        f"{{'pid': {record[0]}, 'name': '{record[1]}'}}"
                         for record in self.processed_procs
                     ]
                 )
@@ -133,7 +133,7 @@ class BenchmarkRecord:
                 map(
                     to_tsv_str,
                     (
-                        "{:.4f}".format(self.running_time),
+                        f"{self.running_time:.4f}",
                         timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
                         self.max_rss,
                         self.max_vms,
@@ -154,7 +154,7 @@ class BenchmarkRecord:
             )
             return "\t".join(
                 [
-                    "{:.4f}".format(self.running_time),
+                    f"{self.running_time:.4f}",
                     timedelta_to_str(datetime.timedelta(seconds=self.running_time)),
                     "NA",
                     "NA",

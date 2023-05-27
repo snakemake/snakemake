@@ -159,11 +159,7 @@ class LocalGitFile(SourceFile):
             # (win specific separators are introduced by normpath above)
             path = path.replace("\\", "/")
         return LocalGitFile(
-            self.repo_path,
-            path,
-            tag=self.tag,
-            ref=self._ref,
-            commit=self.commit,
+            self.repo_path, path, tag=self.tag, ref=self._ref, commit=self.commit
         )
 
     def get_basedir(self):
@@ -249,7 +245,7 @@ class HostingProviderFile(SourceFile):
         )
 
     def join(self, path):
-        path = os.path.normpath("{}/{}".format(self.path, path))
+        path = os.path.normpath(f"{self.path}/{path}")
         if ON_WINDOWS:
             # convert back to URL separators
             # (win specific separators are introduced by normpath above)
@@ -280,7 +276,7 @@ class GithubFile(HostingProviderFile):
         self.token = os.environ.get("GITHUB_TOKEN", None)
 
     def get_path_or_uri(self):
-        auth = ":{}@".format(self.token) if self.token else ""
+        auth = f":{self.token}@" if self.token else ""
         return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
             auth, self.repo, self.ref, self.path
         )
@@ -303,7 +299,7 @@ class GitlabFile(HostingProviderFile):
     def get_path_or_uri(self):
         from urllib.parse import quote
 
-        auth = "&private_token={}".format(self.token) if self.token else ""
+        auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host or "gitlab.com",
             quote(self.repo, safe=""),
@@ -359,9 +355,7 @@ class SourceCache:
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
-            self.runtime_cache = tempfile.TemporaryDirectory(
-                dir=runtime_cache_parent,
-            )
+            self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
             self._runtime_cache_path = None
         else:
             self._runtime_cache_path = runtime_cache_path
@@ -441,11 +435,7 @@ class SourceCache:
             return self._open(source_file, mode, encoding=encoding)
         else:
             return retry_call(
-                self._open,
-                [source_file, mode, encoding],
-                tries=3,
-                delay=3,
-                backoff=2,
+                self._open, [source_file, mode, encoding], tries=3, delay=3, backoff=2
             )
 
     def _open(self, source_file, mode, encoding=None):
@@ -456,7 +446,7 @@ class SourceCache:
 
             return io.BytesIO(
                 git.Repo(source_file.repo_path)
-                .git.show("{}:{}".format(source_file.ref, source_file.path))
+                .git.show(f"{source_file.ref}:{source_file.path}")
                 .encode()
             )
 
@@ -465,4 +455,4 @@ class SourceCache:
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError("Failed to open source file {}".format(path_or_uri), e)
+            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)
