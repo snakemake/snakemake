@@ -197,7 +197,8 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     keep_metadata=True,
-    workflow_benchmark=None,
+    benchmark_all=None,
+    print_benchmark_all=False,
     nobenchmark=False,
     messaging=None,
     edit_notebook=None,
@@ -337,7 +338,8 @@ def snakemake(
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         nobenchmark (bool):   Disable benchmarking for all rules
-        workflow_benchmark (str):   Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
+        benchmark_all (str):   Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
+        print_benchmark_all (bool): Print all benchamrk metrics, including sizes of all input files from last run to STDOUT (default False)
         edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
@@ -637,7 +639,8 @@ def snakemake(
             scheduler_solver_path=scheduler_solver_path,
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
-            workflow_benchmark=workflow_benchmark,
+            benchmark_all=benchmark_all,
+            print_benchmark_all=print_benchmark_all,
             all_temp=all_temp,
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
@@ -650,7 +653,7 @@ def snakemake(
             overwrite_default_target=True,
             print_compilation=print_compilation,
         )
-        if workflow_benchmark is not None:
+        if benchmark_all is not None:
             if not forceall:
                 logger.warning(
                     "Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!"
@@ -859,6 +862,7 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     containerize=containerize,
+                    print_benchmark_all=print_benchmark_all,
                 )
 
     except BrokenPipeError:
@@ -1497,7 +1501,7 @@ def get_argument_parser(profile=None):
         ),
     )
     group_exec.add_argument(
-        "--workflow-benchmark",
+        "--benchmark-all",
         metavar="FILE",
         help="File to write global benchmark of all jobs to.",
     )
@@ -1916,6 +1920,11 @@ def get_argument_parser(profile=None):
         help="Drop metadata file tracking information after job finishes. "
         "Provenance-information based reports (e.g. --report and the "
         "--list_x_changes functions) will be empty or incomplete.",
+    )
+    group_utils.add_argument(
+        "--print-benchmark-all",
+        action="store_true",
+        help="Print all benchamrk metrics, including sizes of all input files from last run to STDOUT (default False)",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -2757,6 +2766,7 @@ def main(argv=None):
         or args.archive
         or args.unlock
         or args.cleanup_metadata
+        or args.print_benchmark_all
     )
 
     try:
@@ -3112,7 +3122,8 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
-            workflow_benchmark=args.workflow_benchmark,
+            benchmark_all=args.benchmark_all,
+            print_benchmark_all=args.print_benchmark_all,
             nobenchmark=args.nobenchmark,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,

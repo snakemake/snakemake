@@ -360,7 +360,7 @@ def test_benchmark_global():
     tmpdir = run(
         dpath("test_benchmark_global"),
         check_md5=False,
-        workflow_benchmark="workflow.benchmark",
+        benchmark_all="workflow.benchmark",
         cleanup=False,
     )
     with open(os.path.join(tmpdir, "workflow.benchmark"), "r") as f:
@@ -370,6 +370,14 @@ def test_benchmark_global():
                 assert wildcards in ["num=1", "num=2", "num=3"]
             else:
                 assert wildcards == "NA"
+    from subprocess import run as srun
+    result = srun(
+        ['snakemake', '--print-benchmark-all', '-d', tmpdir, '-s', tmpdir + '/Snakefile'],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 

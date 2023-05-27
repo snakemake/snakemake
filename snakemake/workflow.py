@@ -153,7 +153,8 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
-        workflow_benchmark=None,
+        benchmark_all=None,
+        print_benchmark_all=False,
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
@@ -245,7 +246,8 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
-        self.workflow_benchmark = workflow_benchmark
+        self.benchmark_all = benchmark_all
+        self.print_benchmark_all = print_benchmark_all
         self.scheduler = None
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
@@ -546,6 +548,7 @@ class Workflow:
         printrulegraph=False,
         printfilegraph=False,
         printd3dag=False,
+        print_benchmark_all=False,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -942,6 +945,18 @@ class Workflow:
         elif list_untracked:
             dag.list_untracked()
             return True
+        elif print_benchmark_all:
+            from snakemake.benchmark import gather_benchmark_records
+
+            print(
+                gather_benchmark_records(
+                    benchmark_jobs=[
+                        job for job in dag.jobs if job._benchmark is not None
+                    ],
+                    list_input=True,
+                )
+            )
+            return True
 
         if self.use_singularity and self.assume_shared_fs:
             dag.pull_container_imgs(
@@ -1136,7 +1151,7 @@ class Workflow:
                 if stats:
                     self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
-                if self.workflow_benchmark is not None:
+                if self.benchmark_all is not None:
                     from snakemake.benchmark import gather_benchmark_records
 
                     benchmark_jobs = [
@@ -1144,8 +1159,8 @@ class Workflow:
                         for job in dag._finished
                         if job.rule.name is not self.default_target
                     ]
-                    records = gather_benchmark_records(benchmark_jobs)
-                    records.to_csv(self.workflow_benchmark, sep="\t", index=False)
+                    records = gather_benchmark_records(benchmark_jobs, list_input=False)
+                    records.to_csv(self.benchmark_all, sep="\t", index=False)
 
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())

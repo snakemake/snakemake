@@ -12,7 +12,7 @@ import time
 import threading
 import pandas as pd
 
-from snakemake.exceptions import WorkflowError
+from snakemake.exceptions import WorkflowError, IOFileException
 from snakemake.logging import logger
 
 #: Interval (in seconds) between measuring resource usage
@@ -389,7 +389,7 @@ def write_benchmark_records(records, path):
         print_benchmark_records(records, f)
 
 
-def gather_benchmark_records(benchmark_jobs):
+def gather_benchmark_records(benchmark_jobs, list_input=False):
     """
     Gather benchmark from given files.
 
@@ -401,7 +401,13 @@ def gather_benchmark_records(benchmark_jobs):
     """
     benchmarks = pd.DataFrame()
     for job in benchmark_jobs:
-        assert job._benchmark.exists
+        if not job._benchmark.exists:
+            raise IOFileException(
+                "Error: \n"
+                + f"Benchmark file {job._benchmark} does not "
+                + f"exist for rule {job.rule.name} \n"
+                + "A complete run is required to print all benchmark metrics."
+            )
         wildcard_str = ";".join(
             ["NA"]
             if len(job.wildcards_dict) == 0
@@ -426,7 +432,9 @@ def gather_benchmark_records(benchmark_jobs):
         )
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
         _benchmark.insert(0, "threads", job.threads)
-        _benchmark.insert(0, "input_size_mb", input_file_size)
+        _benchmark.insert(0, "input_size_mb", job.input.size_mb)
+        if list_input:
+            _benchmark.insert(0, "input_file_size_mb", input_file_size)
         _benchmark.insert(0, "resources", resources_str)
         _benchmark.insert(0, "wildcards", wildcard_str)
         _benchmark.insert(0, "rule", job.rule.name)
