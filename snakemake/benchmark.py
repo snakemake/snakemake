@@ -389,7 +389,7 @@ def write_benchmark_records(records, path):
         print_benchmark_records(records, f)
 
 
-def gather_benchmark_records(benchmark_jobs, list_input=False):
+def gather_benchmark_records(benchmark_jobs, persistence=None, list_input=False):
     """
     Gather benchmark from given files.
 
@@ -419,21 +419,19 @@ def gather_benchmark_records(benchmark_jobs, list_input=False):
             if len(resources) == 0
             else [f"{name}={value}" for name, value in resources.items()]
         )
-        input_file_size = ";".join(
-            ["NA"]
-            if len(job.input) == 0
-            else [
-                "{name}={size:0.2f}".format(
-                    name=name if name is not None else file,
-                    size=file.size / 1024 / 1024,
-                )
-                for name, file in job.input._allitems()
-            ]
-        )
+        
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
         _benchmark.insert(0, "threads", job.threads)
         _benchmark.insert(0, "input_size_mb", job.input.size_mb)
         if list_input:
+            infile_sizes = persistence.input_sizes_mb(job.output)
+            input_file_size = ";".join(
+                "{name}={size:0.2f}".format(
+                    name=name,
+                    size=size,
+                )
+                for name, size in infile_sizes.items()
+            ) if len(infile_sizes) > 0 else "NA"
             _benchmark.insert(0, "input_file_size_mb", input_file_size)
         _benchmark.insert(0, "resources", resources_str)
         _benchmark.insert(0, "wildcards", wildcard_str)

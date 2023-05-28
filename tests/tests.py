@@ -370,14 +370,23 @@ def test_benchmark_global():
                 assert wildcards in ["num=1", "num=2", "num=3"]
             else:
                 assert wildcards == "NA"
+
     from subprocess import run as srun
+    result = srun(
+        ['snakemake', '--print-benchmark', '-d', tmpdir, '-s', tmpdir + '/Snakefile'],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert len(result.stdout.split('\n')) == 8
     result = srun(
         ['snakemake', '--print-benchmark-all', '-d', tmpdir, '-s', tmpdir + '/Snakefile'],
         capture_output=True,
         text=True,
     )
     assert result.returncode == 0
-    
+    assert len(result.stdout.split('\n')) == 13
+    print(result.stdout)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 

@@ -263,6 +263,7 @@ class Persistence:
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
         fallback_time = time.time()
+        file_sizes = {infile: infile.size / 1024 / 1024 for infile in job.input}
         for f in job.expanded_output:
             rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
@@ -296,6 +297,7 @@ class Persistence:
                         for infile, checksum in checksums
                         if checksum is not None
                     },
+                    "input_sizes_mb": file_sizes,
                 },
                 f,
             )
@@ -376,6 +378,9 @@ class Persistence:
             self.metadata(output_path).get("input_checksums", {}).get(input_path)
             for output_path in job.output
         )
+    
+    def input_sizes_mb(self, path):
+        return self.metadata(path).get("input_sizes_mb")
 
     def version_changed(self, job, file=None):
         """Yields output files with changed versions or bool if file given."""

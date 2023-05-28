@@ -155,6 +155,7 @@ class Workflow:
         all_temp=False,
         benchmark_all=None,
         print_benchmark_all=False,
+        print_benchmark=False,
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
@@ -247,6 +248,7 @@ class Workflow:
         self.max_threads = max_threads
         self.all_temp = all_temp
         self.benchmark_all = benchmark_all
+        self.print_benchmark = print_benchmark
         self.print_benchmark_all = print_benchmark_all
         self.scheduler = None
         self.local_groupid = local_groupid
@@ -549,6 +551,7 @@ class Workflow:
         printfilegraph=False,
         printd3dag=False,
         print_benchmark_all=False,
+        print_benchmark=False,
         drmaa=None,
         drmaa_log_dir=None,
         kubernetes=None,
@@ -945,15 +948,18 @@ class Workflow:
         elif list_untracked:
             dag.list_untracked()
             return True
-        elif print_benchmark_all:
+        elif print_benchmark_all or print_benchmark:
             from snakemake.benchmark import gather_benchmark_records
 
+            benchmarked_jobs = [
+                job
+                for job in dag.jobs
+                if job._benchmark is not None
+                and job.rule.name is not self.default_target
+            ]
             print(
                 gather_benchmark_records(
-                    benchmark_jobs=[
-                        job for job in dag.jobs if job._benchmark is not None
-                    ],
-                    list_input=True,
+                    benchmark_jobs=benchmarked_jobs, persistence=self.persistence, list_input=True
                 )
             )
             return True
@@ -1159,7 +1165,7 @@ class Workflow:
                         for job in dag._finished
                         if job.rule.name is not self.default_target
                     ]
-                    records = gather_benchmark_records(benchmark_jobs, list_input=False)
+                    records = gather_benchmark_records(benchmark_jobs=benchmark_jobs, list_input=False)
                     records.to_csv(self.benchmark_all, sep="\t", index=False)
 
             if not dryrun and not no_hooks:

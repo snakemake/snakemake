@@ -198,6 +198,7 @@ def snakemake(
     keep_incomplete=False,
     keep_metadata=True,
     benchmark_all=None,
+    print_benchmark=False,
     print_benchmark_all=False,
     nobenchmark=False,
     messaging=None,
@@ -339,7 +340,8 @@ def snakemake(
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         nobenchmark (bool):   Disable benchmarking for all rules
         benchmark_all (str):   Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
-        print_benchmark_all (bool): Print all benchamrk metrics, including sizes of all input files from last run to STDOUT (default False)
+        print_benchmark (bool): Print benchmarks of all benchmarked rules, including sizes of all input files, from last run to STDOUT (default False)
+        print_benchmark_all (bool): Print benchamrk metrics of all rules, including sizes of all input files, from last run to STDOUT (default False)
         edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
@@ -640,6 +642,7 @@ def snakemake(
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
             benchmark_all=benchmark_all,
+            print_benchmark=print_benchmark,
             print_benchmark_all=print_benchmark_all,
             all_temp=all_temp,
             local_groupid=local_groupid,
@@ -653,7 +656,7 @@ def snakemake(
             overwrite_default_target=True,
             print_compilation=print_compilation,
         )
-        if benchmark_all is not None:
+        if benchmark_all is not None or print_benchmark_all:
             if not forceall:
                 logger.warning(
                     "Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!"
@@ -862,6 +865,7 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     containerize=containerize,
+                    print_benchmark=print_benchmark,
                     print_benchmark_all=print_benchmark_all,
                 )
 
@@ -1922,9 +1926,14 @@ def get_argument_parser(profile=None):
         "--list_x_changes functions) will be empty or incomplete.",
     )
     group_utils.add_argument(
+        "--print-benchmark",
+        action="store_true",
+        help="Print benchamrk metrics of benchmarked rules, including sizes of all input files, from last run to STDOUT",
+    )
+    group_utils.add_argument(
         "--print-benchmark-all",
         action="store_true",
-        help="Print all benchamrk metrics, including sizes of all input files from last run to STDOUT (default False)",
+        help="Print benchamrk metrics of all rules, including sizes of all input files, from last run to STDOUT",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -2767,6 +2776,7 @@ def main(argv=None):
         or args.unlock
         or args.cleanup_metadata
         or args.print_benchmark_all
+        or args.print_benchmark
     )
 
     try:
@@ -3123,6 +3133,7 @@ def main(argv=None):
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
             benchmark_all=args.benchmark_all,
+            print_benchmark=args.print_benchmark,
             print_benchmark_all=args.print_benchmark_all,
             nobenchmark=args.nobenchmark,
             edit_notebook=args.edit_notebook,
