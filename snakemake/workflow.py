@@ -959,7 +959,9 @@ class Workflow:
             ]
             print(
                 gather_benchmark_records(
-                    benchmark_jobs=benchmarked_jobs, persistence=self.persistence, list_input=True
+                    benchmark_jobs=benchmarked_jobs,
+                    persistence=self.persistence,
+                    list_input=True,
                 )
             )
             return True
@@ -1165,7 +1167,9 @@ class Workflow:
                         for job in dag._finished
                         if job.rule.name is not self.default_target
                     ]
-                    records = gather_benchmark_records(benchmark_jobs=benchmark_jobs, list_input=False)
+                    records = gather_benchmark_records(
+                        benchmark_jobs=benchmark_jobs, list_input=False
+                    )
                     records.to_csv(self.benchmark_all, sep="\t", index=False)
 
             if not dryrun and not no_hooks:

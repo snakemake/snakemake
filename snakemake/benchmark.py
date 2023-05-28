@@ -419,19 +419,23 @@ def gather_benchmark_records(benchmark_jobs, persistence=None, list_input=False)
             if len(resources) == 0
             else [f"{name}={value}" for name, value in resources.items()]
         )
-        
+
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
         _benchmark.insert(0, "threads", job.threads)
         _benchmark.insert(0, "input_size_mb", job.input.size_mb)
         if list_input:
             infile_sizes = persistence.input_sizes_mb(job.output)
-            input_file_size = ";".join(
-                "{name}={size:0.2f}".format(
-                    name=name,
-                    size=size,
+            input_file_size = (
+                ";".join(
+                    "{name}={size:0.2f}".format(
+                        name=name,
+                        size=size,
+                    )
+                    for name, size in infile_sizes.items()
                 )
-                for name, size in infile_sizes.items()
-            ) if len(infile_sizes) > 0 else "NA"
+                if len(infile_sizes) > 0
+                else "NA"
+            )
             _benchmark.insert(0, "input_file_size_mb", input_file_size)
         _benchmark.insert(0, "resources", resources_str)
         _benchmark.insert(0, "wildcards", wildcard_str)

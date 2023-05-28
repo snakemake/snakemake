@@ -378,7 +378,7 @@ class Persistence:
             self.metadata(output_path).get("input_checksums", {}).get(input_path)
             for output_path in job.output
         )
-    
+
     def input_sizes_mb(self, path):
         return self.metadata(path).get("input_sizes_mb")
 

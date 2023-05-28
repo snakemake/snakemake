@@ -1691,7 +1691,7 @@ If a a benchmark file is annotated with ``repeat()`` in ``benchmark`` directive,
 It is also now possible to have snakemake gather benchmark metrics from all benchmarked rules:
 With `--print-benchmark`, Snakemake will gather benchmark metrics from rules with `benchmark` directive in their rule definitions.
 With `--print-benchmark-all`, Snakemake will gather benchmark metrics from all rules. Note that all rules must have been benchmarked through either `benchmark` directive in Snakefile or `--benchmark-all`.
-When printing benchmarks with `--print-benchmark` or `--print-benchmark-all`, Snakemake will additionally list input file sizes (MB), separated by `;` in input_file_size_mb
+When printing benchmarks with `--print-benchmark` or `--print-benchmark-all`, Snakemake will additionally list input file sizes (MB), separated by `;` in `input_file_size_mb` column.
 
 .. sidebar:: Note
 
