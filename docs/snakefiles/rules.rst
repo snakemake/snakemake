@@ -1673,7 +1673,7 @@ The output ``benchmark_file.tsv`` is a tab-separated text file with following co
 * rule: Name of the rule,  
 * wildcards: A list of wildcard values from this job,  
 * resources: Default and additional resources used for this job,  
-* input_size: Total size (MB) of input files,  
+* input_size_mb: Total size (MB) of input files,  
 * threads: Number of threads requested for this job,  
 * s: CPU time (in seconds),  
 * h:m:s: Wall clock time,  
