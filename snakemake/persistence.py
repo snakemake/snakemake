@@ -280,7 +280,9 @@ class Persistence:
 
             checksums = ((infile, infile.checksum()) for infile in job.input)
 
-            infile_sizes = self._read_record(self._incomplete_path, f).get("input_sizes_mb")
+            infile_sizes = self._read_record(self._incomplete_path, f).get(
+                "input_sizes_mb"
+            )
 
             self._record(
                 self._metadata_path,
