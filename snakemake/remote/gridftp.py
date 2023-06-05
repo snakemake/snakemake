@@ -6,7 +6,6 @@ __license__ = "MIT"
 
 import os
 import subprocess as sp
-import time
 import shutil
 
 from snakemake.exceptions import WorkflowError

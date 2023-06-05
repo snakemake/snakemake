@@ -3,15 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import TemporaryFile
 import tokenize
 import textwrap
-import os
-from urllib.error import HTTPError, URLError, ContentTooShortError
-import urllib.request
-from io import TextIOWrapper
 
-from snakemake.exceptions import WorkflowError
 from snakemake import common
 
 dd = textwrap.dedent

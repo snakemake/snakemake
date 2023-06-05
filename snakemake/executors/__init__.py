@@ -9,21 +9,16 @@ import os
 import sys
 import contextlib
 import time
-import datetime
 import json
-import textwrap
 import stat
 import shutil
 import shlex
 import threading
 import concurrent.futures
 import subprocess
-import signal
 import tempfile
 from functools import partial
-from itertools import chain
 from collections import namedtuple
-import random
 import base64
 import uuid
 import re
@@ -31,32 +26,26 @@ import math
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
 
-from snakemake.jobs import Job
 from snakemake.shell import shell
 from snakemake.logging import logger
 from snakemake.stats import Stats
-from snakemake.utils import format, Unformattable, makedirs
+from snakemake.utils import makedirs
 from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import (
-    ProtectedOutputException,
     WorkflowError,
-    ImproperShadowException,
     SpawnedJobError,
     CacheMissException,
 )
 from snakemake.common import (
     Mode,
-    __version__,
     get_container_image,
     get_uuid,
     lazy_property,
-    dict_to_key_value_args,
     async_lock,
 )
-from snakemake.executors.common import format_cli_arg, format_cli_pos_arg, join_cli_args
-from snakemake.io import _IOFile
+from snakemake.executors.common import format_cli_arg, join_cli_args
 
 
 # TODO move each executor into a separate submodule
