@@ -232,7 +232,7 @@ def test_ancient_cli_true():
     run(
         dpath("test_ancient_cli"),
         targets=["D", "C", "old_file"],
-        ancient=True,
+        all_ancient=True,
         results_dir="expected-results-true",
     )
 
@@ -241,7 +241,7 @@ def test_ancient_cli_false():
     run(
         dpath("test_ancient_cli"),
         targets=["D", "C", "old_file"],
-        ancient=False,
+        all_ancient=False,
         results_dir="expected-results-false",
     )
 

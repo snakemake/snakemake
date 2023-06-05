@@ -139,6 +139,7 @@ def snakemake(
     debug=False,
     notemp=False,
     all_temp=False,
+    all_ancient=False,
     keep_remote_local=False,
     nodeps=False,
     keep_target_files=False,
@@ -208,7 +209,6 @@ def snakemake(
     scheduler_solver_path=None,
     conda_base_path=None,
     local_groupid="local",
-    ancient=False,
 ):
     """Run snakemake on a given snakefile.
 
@@ -333,7 +333,7 @@ def snakemake(
         cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
         cluster_sidecar (str):      command that starts a sidecar process, see cluster documentation (default None)
         export_cwl (str):           Compile workflow to CWL and save to given file
-        ancient (bool):             Mark all input files as ancient.
+        all_ancient (bool):             Mark all input files as ancient.
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
         edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
@@ -848,7 +848,7 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     containerize=containerize,
-                    mark_all_ancient=ancient,
+                    mark_all_ancient=all_ancient,
                 )
 
     except BrokenPipeError:
@@ -2046,6 +2046,11 @@ def get_argument_parser(profile=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
+        "--all-ancient",
+        action="store_true",
+        help="Automatically mark all input files as ancient.",
+    )
+    group_behavior.add_argument(
         "--keep-remote",
         action="store_true",
         help="Keep local copies of remote input files.",
@@ -2208,11 +2213,6 @@ def get_argument_parser(profile=None):
         help="Set a specific messaging service for logging output."
         "Snakemake will notify the service on errors and completed execution."
         "Currently slack and workflow management system (wms) are supported.",
-    )
-    group_behavior.add_argument(
-        "--ancient",
-        action="store_true",
-        help="Automatically mark all input files as ancient.",
     )
 
     group_slurm = parser.add_argument_group("SLURM")
@@ -3058,6 +3058,7 @@ def main(argv=None):
             jobscript=args.jobscript,
             notemp=args.notemp,
             all_temp=args.all_temp,
+            all_ancient=args.all_ancient,
             keep_remote_local=args.keep_remote,
             greediness=args.greediness,
             no_hooks=args.no_hooks,
@@ -3108,7 +3109,6 @@ def main(argv=None):
             scheduler_solver_path=args.scheduler_solver_path,
             conda_base_path=args.conda_base_path,
             local_groupid=args.local_groupid,
-            ancient=args.ancient,
         )
 
     if args.runtime_profile:
