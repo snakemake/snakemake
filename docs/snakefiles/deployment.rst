@@ -281,8 +281,12 @@ At the moment, only a single, random conda environment is shown.
 
 .. sidebar:: Note
 
-   Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
-   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
+   Note that conda environments can be used with the ``shell``, ``script``, ``notebook``, ``wrapper`` and ``run`` directives.
+   
+   However, the ``run`` directive is a special case, as it has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. 
+   The ``conda`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from the within ``run`` script.
+   
+   If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
 
    Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments.
    Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
@@ -428,8 +432,11 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 
 .. sidebar:: Note
 
-   Note that singularity integration is only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
-   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+   Note that singularity integration can be used with the ``shell``, ``script``, ``wrapper`` and ``run`` directives.
+   
+   However, the ``run`` directive is a special case, as it has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. 
+   The ``singularity`` directive for rules with a ``run`` directive therefore only affects ``shell`` function calls that are executed from within the ``run`` script.
+  
 
 
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.

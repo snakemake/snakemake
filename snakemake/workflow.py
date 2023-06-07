@@ -1524,16 +1524,11 @@ class Workflow:
                 rule.env_modules = EnvModules(*ruleinfo.env_modules)
 
             if ruleinfo.conda_env:
-                if not (
-                    ruleinfo.script
-                    or ruleinfo.wrapper
-                    or ruleinfo.shellcmd
-                    or ruleinfo.notebook
-                ):
+                if ruleinfo.template_engine:
                     raise RuleException(
                         "Conda environments are only allowed "
-                        "with shell, script, notebook, or wrapper directives "
-                        "(not with run or template_engine).",
+                        "with run, shell, script, notebook, or wrapper directives "
+                        "(not with template_engine).",
                         rule=rule,
                     )
 
@@ -1542,24 +1537,18 @@ class Workflow:
 
                 rule.conda_env = ruleinfo.conda_env
 
-            invalid_rule = not (
-                ruleinfo.script
-                or ruleinfo.wrapper
-                or ruleinfo.shellcmd
-                or ruleinfo.notebook
-            )
             if ruleinfo.container_img:
-                if invalid_rule:
+                if ruleinfo.template_engine:
                     raise RuleException(
                         "Singularity directive is only allowed "
-                        "with shell, script, notebook or wrapper directives "
-                        "(not with run or template_engine).",
+                        "with run, shell, script, notebook or wrapper directives "
+                        "(not template_engine).",
                         rule=rule,
                     )
                 rule.container_img = ruleinfo.container_img
                 rule.is_containerized = ruleinfo.is_containerized
             elif self.global_container_img:
-                if not invalid_rule and ruleinfo.container_img != False:
+                if not ruleinfo.template_engine and ruleinfo.container_img != False:
                     # skip rules with run directive or empty image
                     rule.container_img = self.global_container_img
                     rule.is_containerized = self.global_is_containerized
