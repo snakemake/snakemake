@@ -1,0 +1,9 @@
+rule random_python_conda_script:
+    output:
+        "version.txt"
+    conda:
+        "test_python_env.yaml"
+    params: 
+        script=srcdir('test_script.py')
+    run:
+        shell("python {params.script}")
