@@ -2853,8 +2853,9 @@ def main(argv=None):
         if args.snakefile is None:
             print(
                 "Error: no Snakefile found, tried {}.".format(
-                    ", ".join(SNAKEFILE_CHOICES), file=sys.stderr
-                )
+                    ", ".join(SNAKEFILE_CHOICES)
+                ),
+                file=sys.stderr,
             )
             sys.exit(1)
 
