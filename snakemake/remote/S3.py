@@ -6,13 +6,9 @@ __license__ = "MIT"
 # built-ins
 import os
 import re
-import math
-import functools
-import concurrent.futures
 
 # module-specific
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )

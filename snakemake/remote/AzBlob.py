@@ -16,7 +16,6 @@ import re
 # module specific
 from snakemake.exceptions import WorkflowError, AzureFileException
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )
