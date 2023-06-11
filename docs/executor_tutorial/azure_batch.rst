@@ -38,7 +38,7 @@ and then install the full Snakemake with some additional Azure related optional 
 
 .. code:: console
 
-    conda create -c bioconda -c conda-forge -n snakemake snakemake azure-batch azure-storage-blob azure-mgmt-batch azure-identity
+    conda create -c bioconda -c conda-forge -n snakemake snakemake msrest azure-batch azure-storage-blob azure-mgmt-batch azure-identity
 
 Naturally, you can omit the deployment of such an environment in case you already have it, or you can update an existing Snakemake environment with the additional dependencies.
 
