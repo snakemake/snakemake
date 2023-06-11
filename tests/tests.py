@@ -1380,6 +1380,7 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
+@skip_own_windows # TODO on windows, dot command is suddenly not found anymore although it is installed
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
