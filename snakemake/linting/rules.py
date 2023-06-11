@@ -1,7 +1,8 @@
 from itertools import chain
 import re
+import sys
 
-from snakemake.io import get_wildcard_names, is_flagged
+from snakemake.io import is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 
@@ -99,8 +100,8 @@ class RuleLinter(Linter):
 
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__.co_code
-
-        if rule.is_run and len(func_code) > 70:
+        max_len = 70 if sys.version_info < (3, 11) else 210
+        if rule.is_run and len(func_code) > max_len:
             yield Lint(
                 title="Migrate long run directives into scripts or notebooks",
                 body="Long run directives hamper workflow readability. Use the script or notebook directive instead. "

@@ -5,14 +5,12 @@ __license__ = "MIT"
 
 import asyncio
 import os
-import stat
-import time
 from collections import namedtuple
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.common import Mode, get_container_image, async_lock
+from snakemake.common import get_container_image, async_lock
 
 TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"

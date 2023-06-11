@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 import os
 
 from snakemake.jobs import Job
-from snakemake.io import is_flagged, get_flag_value, apply_wildcards
+from snakemake.io import apply_wildcards
 from snakemake.exceptions import WorkflowError, CacheMissException
 from snakemake.caching.hash import ProvenanceHashMap
 

@@ -8,7 +8,7 @@ dependencies:
   - datrie
   - boto3
   - moto
-  - junit-xml  # needed for S3Mocked
+  - junit-xml # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
@@ -66,3 +66,7 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
+  - msrest
+  - azure-batch
+  - azure-mgmt-batch
+  - azure-identity

@@ -9,12 +9,10 @@ from collections import namedtuple
 import requests
 from requests.exceptions import HTTPError
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )
 from snakemake.exceptions import ZenodoFileException, WorkflowError
-from snakemake.common import lazy_property
 
 
 ZenFileInfo = namedtuple(
