@@ -34,20 +34,13 @@ To go through this tutorial, you need the following software installed:
 
 
 First install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
-and then install full Snakemake with:
+and then install the full Snakemake with some additional Azure related optional dependencies:
 
 .. code:: console
 
-    conda create -c bioconda -c conda-forge -n snakemake snakemake
+    conda create -c bioconda -c conda-forge -n snakemake snakemake azure-batch azure-storage-blob azure-mgmt-batch azure-identity
 
-Ensure the following python packages are installed ``azure-batch``, ``azure-storage-blob``, ``azure-mgmt-batch``, ``azure-identity``. Should they be missing, they can be installed with:
-
-.. code:: console
-
-   pip install azure-batch
-   pip install azure-storage-blob
-   pip install azure-mgmt-batch
-   pip install azure-identity
+Naturally, you can omit the deployment of such an environment in case you already have it, or you can update an existing Snakemake environment with the additional dependencies.
 
 Create an Azure storage account and upload example data
 :::::::::::::::::::::::::::::::::::::::::::::::
