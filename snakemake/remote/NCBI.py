@@ -8,7 +8,6 @@ import time
 import os
 import re
 import json
-import logging
 import xml.etree.ElementTree as ET
 
 # module-specific

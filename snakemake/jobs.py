@@ -3,15 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import abstractmethod
-import enum
 import os
 import sys
 import base64
 import tempfile
 import json
 import shutil
-import copy
 
 from collections import defaultdict
 from itertools import chain, filterfalse
@@ -22,7 +19,6 @@ from snakemake.io import (
     IOFile,
     Wildcards,
     Resources,
-    _IOFile,
     is_flagged,
     get_flag_value,
     wait_for_files,
@@ -36,7 +32,6 @@ from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
     is_local_file,
-    parse_uri,
     lazy_property,
     get_uuid,
     TBDString,
@@ -844,8 +839,13 @@ class Job(AbstractJob):
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files
-        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
+        # wait for input files, respecting keep_remote_local
+        force_stay_on_remote = not self.dag.keep_remote_local
+        wait_for_files(
+            self.input,
+            force_stay_on_remote=force_stay_on_remote,
+            latency_wait=self.dag.workflow.latency_wait,
+        )
 
         if not self.is_shadow:
             return

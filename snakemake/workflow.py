@@ -6,22 +6,14 @@ __license__ = "MIT"
 import re
 import os
 import sys
-import signal
-import json
-from tokenize import maybe
-from typing import DefaultDict
-import urllib
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
-from operator import attrgetter
 import copy
-import subprocess
-from pathlib import Path, PosixPath
-from urllib.request import pathname2url, url2pathname
+from pathlib import Path
 
 
-from snakemake.logging import logger, format_resources, format_resource_names
+from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -29,7 +21,6 @@ from snakemake.exceptions import (
     CreateRuleException,
     UnknownRuleException,
     NoRulesException,
-    print_exception,
     WorkflowError,
 )
 from snakemake.shell import shell
@@ -60,6 +51,7 @@ from snakemake.io import (
     IOFile,
     sourcecache_entry,
 )
+
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -67,13 +59,14 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
+
+
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
     bytesto,
     ON_WINDOWS,
     is_local_file,
-    parse_uri,
     Rules,
     Scatter,
     Gather,
@@ -81,20 +74,18 @@ from snakemake.common import (
     NOTHING_TO_BE_DONE_MSG,
 )
 from snakemake.utils import simplify_path
-from snakemake.checkpoints import Checkpoint, Checkpoints
+from snakemake.checkpoints import Checkpoints
 from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
-    GenericSourceFile,
     LocalSourceFile,
     SourceCache,
-    SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda, is_conda_env_file
+from snakemake.deployment.conda import Conda
 from snakemake import sourcecache
 
 
@@ -530,6 +521,9 @@ class Workflow:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -981,6 +975,9 @@ class Workflow:
             flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            az_batch=az_batch,
+            az_batch_enable_autoscale=az_batch_enable_autoscale,
+            az_batch_account_url=az_batch_account_url,
             google_lifesciences=google_lifesciences,
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,

@@ -9,8 +9,6 @@ import os
 import hashlib
 from distutils.version import LooseVersion
 
-import snakemake
-from snakemake.deployment.conda import Conda
 from snakemake.common import (
     is_local_file,
     parse_uri,

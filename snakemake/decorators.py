@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import functools
 import inspect
 
 

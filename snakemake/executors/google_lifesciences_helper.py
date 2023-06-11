@@ -9,7 +9,6 @@
 #    gls.py save <bucket> /google/logs/output source/logs
 
 import argparse
-import datetime
 
 from google.cloud import storage
 from glob import glob
