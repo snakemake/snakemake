@@ -839,8 +839,13 @@ class Job(AbstractJob):
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files
-        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
+        # wait for input files, respecting keep_remote_local
+        force_stay_on_remote = not self.dag.keep_remote_local
+        wait_for_files(
+            self.input,
+            force_stay_on_remote=force_stay_on_remote,
+            latency_wait=self.dag.workflow.latency_wait,
+        )
 
         if not self.is_shadow:
             return
