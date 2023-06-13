@@ -8,9 +8,9 @@ Azure Batch Tutorial
 .. _AZCLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
 
 In this tutorial we will show how to execute a Snakemake workflow
-on Azure batch nodes without a shared file-system. One could use attached storage 
+on Azure Batch nodes using Azure Blob Storage. One could use attached storage 
 solutions as a shared file system, but this adds an unnecessary level of complexity
-and most importantly costs. Instead we use cheap Azure Blob storage,
+and most importantly costs. Instead we use cheap Azure Blob Storage,
 which is used by Snakemake to automatically stage data in and out for
 every job. Please visit the `Azure Batch Documentation 
 <https://learn.microsoft.com/en-us/azure/batch/batch-technical-overview#how-it-works>`__
@@ -18,8 +18,9 @@ for an overview of the various components of Azure Batch.
 
 Following the steps below you will
 
-#. Set up Azure Blob storage, and sync the Snakemake tutorial data to a storage container.
+#. Set up Azure Blob Storage, and sync the Snakemake tutorial data to the storage container
 #. Create an Azure Batch account  
+#. Configure credentials
 #. Run the example Sankemake workflow on the batch account
 
 
@@ -29,7 +30,7 @@ Setup
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.6
-* Snakemake_ ≥7.25.4
+* Snakemake_ ≥7.28.0
 * AZCLI_
 
 
@@ -67,11 +68,24 @@ existing resources instead.
    # create a general purpose storage account with cheapest SKU
    az storage account create -n $stgacct -g $resgroup --sku Standard_LRS -l $region
 
-Get a key for that account and save it as ``stgkey`` for later use:
+Get a key for that account and save it as ``stgkey``, then generate the storage account SAS token that expires one day later, you will use the SAS to authenticate to BLOB storage:
 
 .. code:: console
 
+   # get the storage account key
    export stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
+
+   # get a storage account SAS token to use for blob authentication
+   export SAS=$(az storage account generate-sas --account-name $stgacct \
+      --account-key $stgkey \
+      --expiry $(date -u -d "1 day" '+%Y-%m-%dT%H:%MZ') \
+      --https-only \
+      --permissions acdlrw \
+      --resource-types co \
+      --services b)
+   
+   # construct a blob account url with SAS token
+   export AZ_BLOB_ACCOUNT_URL="https://${stgacct}.blob.core.windows.net/?${SAS}"
 
 Next, you will create a storage container (think: bucket) to upload the Snakemake tutorial data to:
 
@@ -142,7 +156,7 @@ are described in the section below.
 Running the workflow
 ::::::::::::::::::::
 
-Below we will run an example Snakemake workflow, using conda to install software on the fly.
+Below we will run an example Snakemake workflow, using conda envrionments to install dependencies at runtime.
 Clone the example workflow and cd into the directory:
 
 .. code:: console
@@ -162,20 +176,14 @@ Clone the example workflow and cd into the directory:
     └── src
         └── plot-quals.py
 
-Now we will need to setup the credentials that allow the batch nodes to
-read and write from blob storage. For the AzBlob storage provider in
-Snakemake this is done through the environment variables
-``AZ_BLOB_ACCOUNT_URL`` and optionally ``AZ_BLOB_CREDENTIAL``. See the
-`documentation <snakefiles/remote_files.html#microsoft-azure-storage>`__ for more info.
-``AZ_BLOB_ACCOUNT_URL`` takes the form ``https://<accountname>.blob.core.windows.net/``
-or may also contain a storage account shared access signature (SAS) token with the form ``https://<accountname>.blob.core.windows.net/<sas_token>``, 
-which is a powerful way to define fine grained and even time controlled access to storage blobs on Azure. 
-If the SAS token is not specified as part of the ``AZ_BLOB_ACCOUNT_URL`` it must be specified using ``AZ_BLOB_CREDENTIAL``.
-``AZ_BLOB_CREDENTIAL`` must be a storage account SAS token, and usually needs to be enclosed in quotes when set from the 
-command line as it contains special characters that need to be escaped.
+To authenticate Azure Blob Storage, we set ``AZ_BLOB_ACCOUNT_URL`` 
+which takes the form: ``https://<accountname>.blob.core.windows.net/?<sas_token>``. 
+The SAS url can be constructed manually from the Azure portal, or on the command line using the commands shown above in the above 
+section on storage account configuration. The value for ``AZ_BLOB_ACCOUNT_URL`` must be enclosed in double quotes, as the SAS token 
+contains special characters that need to be escaped.
 
-When using azure storage and snakemake without the azure batch executor, it is valid to use storage account key credentials for ``AZ_BLOB_CREDENTIAL``, 
-but this type of authentication is not supported with Azure batch so we must use a storage account SAS token credential when using the azure batch executor.
+When using azure storage and snakemake without the Azure Batch executor, it is valid to use storage account key credentials and the variable ``AZ_BLOB_CREDENTIAL``, 
+but this type of authentication is not supported with Azure Batch so we must use ``AZ_BLOB_ACCOUNT_URL`` with an SAS token credential when using the Azure Batch executor.
 
 The blob account url combined with SAS token is generally the simplest solution because it results in only needing to specify the ``AZ_BLOB_ACCOUNT_URL``. We’ll pass the ``AZ_BLOB_ACCOUNT_URL`` on to the batch nodes  
 with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, you will pass both variables to the --envvars command line argument.
@@ -304,7 +312,7 @@ Now you are ready to run the analysis:
 
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
-and also supports Azure Blob storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
+and also supports Azure Blob Storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
 to fetch from your own container registry. If that registry is an azure container registry 
 that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
 
@@ -341,7 +349,7 @@ logs can be found in the blob container prefix specified by `--default-remote-pr
   results/sorted_reads/C.bam                                                                                     BlockBlob    Hot          2248758   application/octet-stream  2022-12-28T18:18:58+00:00
   results/sorted_reads/C.bam.bai                                                                                 BlockBlob    Hot          344       application/octet-stream  2022-12-28T18:21:23+00:00
 
-Once the execution is complete, the Batch nodes will scale down
+Once the execution is complete, the batch nodes will scale down
 automatically. If you are not planning to run anything else, it makes
 sense to shut down it down entirely:
 
@@ -372,9 +380,9 @@ You can generate an SAS URL to the blob using the azure portal or the command li
 Autoscaling and Task Distribution
 :::::
 
-The azure batch executor supports autoscaling of the batch nodes by including the flag --az-batch-enable-autoscale. 
+The Azure Batch executor supports autoscaling of the batch nodes by including the flag --az-batch-enable-autoscale. 
 This flag sets the initial dedicated node count of the pool to zero, and re-evaluates the number of nodes to be spun up or down based on the number of remaining tasks to run over a five minute interval. 
-Since five minutes is the smallest allowed interval for azure batch autoscaling, this feature becomes more useful for long running jobs. For more information on azure batch autoscaling configuration, see: https://learn.microsoft.com/en-us/azure/batch/batch-automatic-scaling.
+Since five minutes is the smallest allowed interval for azure batch autoscaling, this feature becomes more useful for long running jobs. For more information on Azure Batch autoscaling configuration, see: https://learn.microsoft.com/en-us/azure/batch/batch-automatic-scaling.
 
 For shorter running jobs it might be more cost/time effective to set VM size with more cores `BATCH_POOL_VM_SIZE` and increase the number of `BATCH_TASKS_PER_NODE`. Or, if you want to keep tasks running on separate nodes, you can set a larger number for `BATCH_POOL_NODE_COUNT`. 
 It may require experimentation to find the most efficient/cost effective task distribution model for your use case depending on what you are optimizing for. For more details on limitations of azure batch node / task distribution see: https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks.
