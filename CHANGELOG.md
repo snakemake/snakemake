@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.28.2](https://github.com/snakemake/snakemake/compare/v7.28.1...v7.28.2) (2023-06-13)
+
+
+### Bug Fixes
+
+* fix pandas import handling in metadata persistence ([27f7b40](https://github.com/snakemake/snakemake/commit/27f7b4014eaea66aa4e599aa854dda75822d30a0))
+
 ## [7.28.1](https://github.com/snakemake/snakemake/compare/v7.28.0...v7.28.1) (2023-06-11)
 
 
