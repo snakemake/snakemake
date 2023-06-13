@@ -454,3 +454,8 @@ the `FUNNEL_SERVER_USER` and  `FUNNEL_SERVER_PASSWORD` AS environmental variable
     $ export FUNNEL_SERVER_USER=funnel
     $ export FUNNEL_SERVER_PASSWORD=abc123
 
+---------------------------------------------
+Executing a Snakemake workflow on Azure Batch
+---------------------------------------------
+
+To run snakemake using the Azure Batch Executor, see `Running on Azure Batch. <https://snakemake.readthedocs.io/en/stable/executor_tutorial/azure_batch.html#running-the-workflow>`_

@@ -16,7 +16,7 @@ every job. Please visit the `Azure Batch Documentation
 <https://learn.microsoft.com/en-us/azure/batch/batch-technical-overview#how-it-works>`__
 for an overview of the various components of Azure Batch.
 
-Following the steps below you will
+Following the steps below you will:
 
 #. Set up Azure Blob Storage, and sync the Snakemake tutorial data to the storage container
 #. Create an Azure Batch account  
@@ -68,7 +68,7 @@ existing resources instead.
    # create a general purpose storage account with cheapest SKU
    az storage account create -n $stgacct -g $resgroup --sku Standard_LRS -l $region
 
-Get a key for that account and save it as ``stgkey``, then generate the storage account SAS token that expires one day later, you will use the SAS to authenticate to BLOB storage:
+Get a key for that account and save it as ``stgkey``, then generate the storage account SAS token that expires one day later, you will use the SAS to authenticate to Blob storage:
 
 .. code:: console
 
