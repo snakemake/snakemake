@@ -29,12 +29,12 @@ Setup
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.6
-* Snakemake_ ≥7.25.4
+* Snakemake_ ≥7.29
 * AZCLI_
 
 
 First install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
-and then install the full Snakemake with some additional Azure related optional dependencies:
+and then install the full Snakemake with some additional Azure related dependencies and AZCLI_:
 
 .. code:: console
 
@@ -50,6 +50,9 @@ create a new resource group and storage account. You can obviously reuse
 existing resources instead.
 
 .. code:: console
+
+   # Login into Azure cli
+   az login
 
    # change the following names as required
    # azure region where to run:
@@ -120,7 +123,7 @@ The format of the batch account url is :code:`https://${accountname}.${region}.b
 
     # get batch account url from command line
     export batch_endpoint=$(az batch account show --name $accountname --resource-group $resgroup --query "accountEndpoint" --output tsv)
-    export batch_account_url=="https://${batch_endpoint}"
+    export batch_account_url="https://${batch_endpoint}"
 
 
 .. code:: console
@@ -132,6 +135,23 @@ The format of the batch account url is :code:`https://${accountname}.${region}.b
 To run the test workflow, two primary environment variables need to be set local to the snakemake invocation.
 The azure batch account key, and the azure storage account url with an SAS key. More details about the AZ_BLOB_ACCOUNT_URL 
 are described in the section below. 
+
+.. code:: console
+
+    # get blob account with SAS from command line
+    
+    # Get date 5 days from today
+    export expiry_date=`date -u -d "+5 days" '+%Y-%m-%dT%H:%MZ'`
+
+    ## Mac OS use
+    export expiry_date=`date -v +5d '+%Y-%m-%dT%H:%MZ'`
+
+    export sastoken=$(az storage account generate-sas --account-name $stgacct --permissions acdlrw --services bf --resource-types sco --expiry $expiry_date)
+
+  export sas_url=$(az storage account show-connection-string -g $resgroup -n $stgacct --protocol https -o tsv | cut -f5,9 -d ';' | cut -f 2 -d '=')
+
+  export storage_account_url_with_sas='${sas_url}${sastoken}'
+
 
 .. code:: console
 
@@ -174,8 +194,8 @@ If the SAS token is not specified as part of the ``AZ_BLOB_ACCOUNT_URL`` it must
 ``AZ_BLOB_CREDENTIAL`` must be a storage account SAS token, and usually needs to be enclosed in quotes when set from the 
 command line as it contains special characters that need to be escaped.
 
-When using azure storage and snakemake without the azure batch executor, it is valid to use storage account key credentials for ``AZ_BLOB_CREDENTIAL``, 
-but this type of authentication is not supported with Azure batch so we must use a storage account SAS token credential when using the azure batch executor.
+When using azure storage and snakemake without the Azure Batch executor, it is valid to use storage account key credentials for ``AZ_BLOB_CREDENTIAL``, 
+but this type of authentication is not supported with Azure Batch so we must use a storage account SAS token credential when using the Azure Batch executor.
 
 The blob account url combined with SAS token is generally the simplest solution because it results in only needing to specify the ``AZ_BLOB_ACCOUNT_URL``. We’ll pass the ``AZ_BLOB_ACCOUNT_URL`` on to the batch nodes  
 with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, you will pass both variables to the --envvars command line argument.
@@ -256,7 +276,7 @@ Now you are ready to run the analysis:
     export AZ_BLOB_PREFIX=snakemake-tutorial
     export AZ_BATCH_ACCOUNT_URL="${batch_account_url}"
     export AZ_BATCH_ACCOUNT_KEY="${az_batch_account_key}"
-    export AZ_BLOB_ACCOUNT_URL="${account_url_with_sas}"
+    export AZ_BLOB_ACCOUNT_URL="${storage_account_url_with_sas}"
 
     # optional environment variables with defaults listed
 
