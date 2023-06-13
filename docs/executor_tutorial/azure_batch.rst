@@ -8,7 +8,7 @@ Azure Batch Tutorial
 .. _AZCLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
 
 In this tutorial we will show how to execute a Snakemake workflow
-on Azure batch nodes without a shared file-system. One could use attached storage 
+on Azure Batch nodes without a shared file-system. One could use attached storage 
 solutions as a shared file system, but this adds an unnecessary level of complexity
 and most importantly costs. Instead we use cheap Azure Blob storage,
 which is used by Snakemake to automatically stage data in and out for
@@ -29,7 +29,7 @@ Setup
 To go through this tutorial, you need the following software installed:
 
 * Python_ ≥3.6
-* Snakemake_ ≥7.29
+* Snakemake_ ≥7.25.4
 * AZCLI_
 
 
@@ -74,7 +74,7 @@ Get a key for that account and save it as ``stgkey`` for later use:
 
 .. code:: console
 
-   export stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
+   export stgkey=$(az storage account keys list -g $resgroup -n $stgacct -o tsv | head -n1 | cut -f 4)
 
 Next, you will create a storage container (think: bucket) to upload the Snakemake tutorial data to:
 
@@ -128,7 +128,7 @@ The format of the batch account url is :code:`https://${accountname}.${region}.b
 
 .. code:: console
 
-    az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
+    export az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
 
 
 
@@ -147,11 +147,12 @@ are described in the section below.
     export expiry_date=`date -v +5d '+%Y-%m-%dT%H:%MZ'`
 
     export sastoken=$(az storage account generate-sas --account-name $stgacct --permissions acdlrw --services bf --resource-types sco --expiry $expiry_date)
+    export sastoken=$(az storage account generate-sas --account-key $stgkey --account-name $stgacct --https-only --permissions acdlrw --resource-types co --services bfqt --expiry $expiry_date | sed "s/[\"\"]//g" )
 
-  export sas_url=$(az storage account show-connection-string -g $resgroup -n $stgacct --protocol https -o tsv | cut -f5,9 -d ';' | cut -f 2 -d '=')
 
-  export storage_account_url_with_sas='${sas_url}${sastoken}'
+    export sas_url=$(az storage account show-connection-string -g $resgroup -n $stgacct --protocol https -o tsv | cut -f5,9 -d ';' | cut -f 2 -d '=')
 
+    export storage_account_url_with_sas="${sas_url}?${sastoken}"
 
 .. code:: console
 
@@ -325,7 +326,7 @@ Now you are ready to run the analysis:
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
 and also supports Azure Blob storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
-to fetch from your own container registry. If that registry is an azure container registry 
+to fetch from your own container registry. If that registry is an Azure Container Registry 
 that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
 
 After completion all results including
