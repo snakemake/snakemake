@@ -464,6 +464,7 @@ Then install Azure related dependencies:
 .. code:: console
 
     conda create -c bioconda -c conda-forge -n snakemake snakemake msrest azure-batch azure-storage-blob azure-mgmt-batch azure-identity
+    conda activate snakemake
 
 
 Data in Azure Storage
@@ -517,7 +518,7 @@ Now we can run Snakemake using:
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
 and also supports Azure Blob storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
-to fetch from your own container registry. If that registry is an Azure c=Container Registry 
+to fetch from your own container registry. If that registry is an Azure Container Registry 
 that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
 
 After completion all results including logs can be found in the blob container prefix specified by `--default-remote-prefix`.
@@ -546,10 +547,10 @@ You can generate an SAS URL to the blob using the azure portal or the command li
 
 **Autoscaling and Task Distribution**
 
-The azure batch executor supports autoscaling of the batch nodes by including the flag --az-batch-enable-autoscale. 
+The azure batch executor supports autoscaling of the batch nodes by including the flag ``--az-batch-enable-autoscale``. 
 This flag sets the initial dedicated node count of the pool to zero, and re-evaluates the number of nodes to be spun up or down based on the number of remaining tasks to run over a five minute interval. 
 Since five minutes is the smallest allowed interval for azure batch autoscaling, this feature becomes more useful for long running jobs. For more information on azure batch autoscaling configuration, see: https://learn.microsoft.com/en-us/azure/batch/batch-automatic-scaling.
 
-For shorter running jobs it might be more cost/time effective to set VM size with more cores `BATCH_POOL_VM_SIZE` and increase the number of `BATCH_TASKS_PER_NODE`. Or, if you want to keep tasks running on separate nodes, you can set a larger number for `BATCH_POOL_NODE_COUNT`. 
+For shorter running jobs it might be more cost/time effective to set VM size with more cores (`BATCH_POOL_VM_SIZE`) and increase the number of `BATCH_TASKS_PER_NODE`. Or, if you want to keep tasks running on separate nodes, you can set a larger number for `BATCH_POOL_NODE_COUNT`. 
 It may require experimentation to find the most efficient/cost effective task distribution model for your use case depending on what you are optimizing for. For more details on limitations of azure batch node / task distribution see: https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks.
 
