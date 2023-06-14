@@ -144,9 +144,7 @@ The format of the batch account url is :code:`https://${accountname}.${region}.b
     export batch_endpoint=$(az batch account show --name $accountname --resource-group $resgroup --query "accountEndpoint" --output tsv)
     export batch_account_url="https://${batch_endpoint}"
 
-
-.. code:: console
-
+    # set the batch account key
     export az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
 
 
@@ -186,15 +184,14 @@ Clone the example workflow and cd into the directory:
 
 To authenticate Azure Blob Storage, we set ``AZ_BLOB_ACCOUNT_URL`` 
 which takes the form: ``https://<accountname>.blob.core.windows.net/?<sas_token>``. 
-The SAS url can be constructed manually from the Azure portal, or on the command line using the commands shown above in the above 
+The SAS url can be constructed manually from the Azure portal, or on the command line using the commands shown in the above 
 section on storage account configuration. The value for ``AZ_BLOB_ACCOUNT_URL`` must be enclosed in double quotes, as the SAS token 
 contains special characters that need to be escaped.
 
 When using azure storage and snakemake without the Azure Batch executor, it is valid to use storage account key credentials and the variable ``AZ_BLOB_CREDENTIAL``, 
 but this type of authentication is not supported with Azure Batch so we must use ``AZ_BLOB_ACCOUNT_URL`` with an SAS token credential when using the Azure Batch executor.
 
-The blob account url combined with SAS token is generally the simplest solution because it results in only needing to specify the ``AZ_BLOB_ACCOUNT_URL``. We’ll pass the ``AZ_BLOB_ACCOUNT_URL`` on to the batch nodes  
-with ``--envvars`` (see below). If using both AZ_BLOB_ACCOUNT_URL, and AZ_BLOB_CREDENTIAL, you will pass both variables to the --envvars command line argument.
+We’ll pass the ``AZ_BLOB_ACCOUNT_URL`` on to the batch nodes with ``--envvars`` flag (see below). 
 
 The following optional environment variables can be set to override their associated default values, 
 and are used to change the runtime configuration of the batch nodes themselves:
