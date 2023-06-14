@@ -35,10 +35,12 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        try:
-            self._serialize_param = self._serialize_param_pandas
-        except ModuleNotFoundError:
-            self._serialize_param = self._serialize_param_builtin
+        import importlib.util
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
 
         self._max_len = None
 
