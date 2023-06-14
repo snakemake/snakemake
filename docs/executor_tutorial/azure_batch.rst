@@ -35,7 +35,7 @@ To go through this tutorial, you need the following software installed:
 
 
 First install conda as outlined in the :ref:`tutorial <tutorial-setup>`,
-and then install the full Snakemake with some additional Azure related optional dependencies:
+and then install the full Snakemake with some additional Azure related dependencies and AZCLI_:
 
 .. code:: console
 
@@ -43,7 +43,7 @@ and then install the full Snakemake with some additional Azure related optional 
 
 Naturally, you can omit the deployment of such an environment in case you already have it, or you can update an existing Snakemake environment with the additional dependencies.
 
-Create an Azure storage account and upload example data
+Create an Azure Storage Account and upload example data
 :::::::::::::::::::::::::::::::::::::::::::::::
 
 We will be starting from scratch, i.e. we will 
@@ -51,6 +51,9 @@ create a new resource group and storage account. You can obviously reuse
 existing resources instead.
 
 .. code:: console
+
+   # Login into Azure cli
+   az login
 
    # change the following names as required
    # azure region where to run:
@@ -72,20 +75,25 @@ Get a key for that account and save it as ``stgkey``, then generate the storage 
 
 .. code:: console
 
-   # get the storage account key
-   export stgkey=$(az storage account keys list -g $resgroup -n $stgacct | head -n1 | cut -f 3)
+   # Get date 5 days from today
+   export expiry_date=`date -u -d "+5 days" '+%Y-%m-%dT%H:%MZ'`
 
-   # get a storage account SAS token to use for blob authentication
-   export SAS=$(az storage account generate-sas --account-name $stgacct \
+   # get the storage account key and storage endpoint
+   export stgkey=$(az storage account keys list -g $resgroup -n $stgacct -o tsv | head -n1 | cut -f 4)
+   export stgurl=$(az storage account show-connection-string -g $resgroup -n $stgacct --protocol https -o tsv | cut -f5,9 -d ';' | cut -f 2 -d '=')
+
+   # get a storage account SAS token to use for AZ_BLOB_ACCOUNT_URL
+   export sas=$(az storage account generate-sas --account-name $stgacct \
       --account-key $stgkey \
-      --expiry $(date -u -d "1 day" '+%Y-%m-%dT%H:%MZ') \
+      --expiry $expiry_date \
       --https-only \
       --permissions acdlrw \
-      --resource-types co \
-      --services b)
-   
+      --resource-types sco \
+      --services bf
+      --out tsv)
+
    # construct a blob account url with SAS token
-   export AZ_BLOB_ACCOUNT_URL="https://${stgacct}.blob.core.windows.net/?${SAS}"
+   export storage_account_url_with_sas="${stgurl}?${sas}"
 
 Next, you will create a storage container (think: bucket) to upload the Snakemake tutorial data to:
 
@@ -134,17 +142,17 @@ The format of the batch account url is :code:`https://${accountname}.${region}.b
 
     # get batch account url from command line
     export batch_endpoint=$(az batch account show --name $accountname --resource-group $resgroup --query "accountEndpoint" --output tsv)
-    export batch_account_url=="https://${batch_endpoint}"
+    export batch_account_url="https://${batch_endpoint}"
 
 
 .. code:: console
 
-    az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
+    export az_batch_account_key=$(az batch account keys list --resource-group $resgroup --name $accountname -o tsv | head -n1 | cut -f2)
 
 
 
 To run the test workflow, two primary environment variables need to be set local to the snakemake invocation.
-The azure batch account key, and the azure storage account url with an SAS key. More details about the AZ_BLOB_ACCOUNT_URL 
+The azure batch account key, and the azure storage account url with an SAS credential. More details about the AZ_BLOB_ACCOUNT_URL 
 are described in the section below. 
 
 .. code:: console
@@ -264,7 +272,7 @@ Now you are ready to run the analysis:
     export AZ_BLOB_PREFIX=snakemake-tutorial
     export AZ_BATCH_ACCOUNT_URL="${batch_account_url}"
     export AZ_BATCH_ACCOUNT_KEY="${az_batch_account_key}"
-    export AZ_BLOB_ACCOUNT_URL="${account_url_with_sas}"
+    export AZ_BLOB_ACCOUNT_URL="${storage_account_url_with_sas}"
 
     # optional environment variables with defaults listed
 
@@ -313,7 +321,7 @@ Now you are ready to run the analysis:
 This will use the default Snakemake image from Dockerhub. If you would like to use your
 own, make sure that the image contains the same Snakemake version as installed locally
 and also supports Azure Blob Storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
-to fetch from your own container registry. If that registry is an azure container registry 
+to fetch from your own container registry. If that registry is an Azure Container Registry 
 that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
 
 After completion all results including
