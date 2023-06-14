@@ -6,6 +6,7 @@ Azure Batch Tutorial
 .. _Snakemake: http://snakemake.readthedocs.io
 .. _Python: https://www.python.org/
 .. _AZCLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest
+.. _AZCopy: https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10
 
 In this tutorial we will show how to execute a Snakemake workflow
 on Azure Batch nodes using Azure Blob Storage. One could use attached storage 
@@ -107,7 +108,7 @@ Next, you will create a storage container (think: bucket) to upload the Snakemak
 
 Here we are using `az storage blob` for uploading the tutorial data, because the AZCLI_ is already installed.
 Another cli tool for uploading to azure storage is 
-`azcopy <https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10>`__.
+AZCopy_.
 
 Azure Blob Storage Warning: 
 :::::::::::::::::::
