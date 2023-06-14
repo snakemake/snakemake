@@ -71,7 +71,7 @@ existing resources instead.
    # create a general purpose storage account with cheapest SKU
    az storage account create -n $stgacct -g $resgroup --sku Standard_LRS -l $region
 
-Get a key for that account and save it as ``stgkey`` then generate the storage account SAS token, then you will use the SAS to authenticate to Blob storage
+Get a key for that account and save it as ``stgkey`` then generate the storage account SAS token, then you will use the SAS to authenticate to Blob storage:
 
 .. code:: console
 
