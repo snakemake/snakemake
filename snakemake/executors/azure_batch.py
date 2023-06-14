@@ -25,7 +25,6 @@ from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
-
 class AzBatchConfig:
     def __init__(self, batch_account_url: str):
         # configure defaults
@@ -660,6 +659,7 @@ class AzBatchExecutor(ClusterExecutor):
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = batchmodels.ContainerConfiguration(
+            type="dockerCompatible",
             container_image_names=[self.container_image]
         )
 
@@ -696,6 +696,7 @@ class AzBatchExecutor(ClusterExecutor):
             # Specify container configuration, fetching an image
             #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
             container_config = batchmodels.ContainerConfiguration(
+                type="dockerCompatible",
                 container_image_names=[self.container_image],
                 container_registries=registry_conf,
             )
