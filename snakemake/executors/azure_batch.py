@@ -660,7 +660,7 @@ class AzBatchExecutor(ClusterExecutor):
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = batchmodels.ContainerConfiguration(
-            container_image_names=[self.container_image]
+            type="dockerCompatible", container_image_names=[self.container_image]
         )
 
         user = None
@@ -696,6 +696,7 @@ class AzBatchExecutor(ClusterExecutor):
             # Specify container configuration, fetching an image
             #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
             container_config = batchmodels.ContainerConfiguration(
+                type="dockerCompatible",
                 container_image_names=[self.container_image],
                 container_registries=registry_conf,
             )

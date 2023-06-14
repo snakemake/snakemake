@@ -454,3 +454,103 @@ the `FUNNEL_SERVER_USER` and  `FUNNEL_SERVER_PASSWORD` AS environmental variable
     $ export FUNNEL_SERVER_USER=funnel
     $ export FUNNEL_SERVER_PASSWORD=abc123
 
+-----------------------------------------------------------------
+Executing a Snakemake workflow via Azure Batch
+-----------------------------------------------------------------
+
+First, install the `Azure CLI <https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest>`_.
+Then install Azure related dependencies:
+
+.. code:: console
+
+    conda create -c bioconda -c conda-forge -n snakemake snakemake msrest azure-batch azure-storage-blob azure-mgmt-batch azure-identity
+    conda activate snakemake
+
+
+Data in Azure Storage
+~~~~~~~~~~~~~~~~~~~~~~
+
+Using this executor typically requires you to start with large data files
+already in Azure Storage, and then interact with them via Azure Batch. An easy way to do this is to use the
+`azcopy <https://docs.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10>`__.
+command line client. For example, here is how we might upload a file
+to storage using it:
+
+.. code-block:: console
+
+    $ azcopy copy mydata.txt "https://$account.blob.core.windows.net/snakemake-bucket/1/mydata.txt"
+
+The snakemake azbatch executor will not work with data in a storage account that has "hierarchical namespace" enabled. 
+Azure hierarchical namespace is a new api on azure storage that is also called "ADLS Gen2". 
+Snakemake does not currently support this storage format because the Python API is distinct from traditional blob storage.
+For more details see: https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace.
+
+
+Execution
+~~~~~~~~~
+
+Before you an exexute you will need to setup the credentials that allow the batch nodes to
+read and write from blob storage. For the AzBlob storage provider in
+Snakemake this is done through the environment variables.
+
+Set required env variables:
+
+.. code-block:: console
+
+    $ export AZ_BLOB_PREFIX=<Azure_Blob_name>
+    $ export AZ_BATCH_ACCOUNT_URL="<AZ_BATCH_ACCOUNT_URL>"
+    $ export AZ_BATCH_ACCOUNT_KEY="<AZ_BATCH_ACCOUNT_KEY>"
+    $ export AZ_BLOB_ACCOUNT_URL="<AZ_BLOB_ACCOUNT_URL_with_SAS>"
+
+Now we can run Snakemake using:
+
+.. code-block:: console
+
+    $  snakemake \
+        --default-remote-prefix $AZ_BLOB_PREFIX \
+        --use-conda \
+        --default-remote-provider AzBlob \
+        --envvars AZ_BLOB_ACCOUNT_URL \
+        --az-batch \
+        --container-image snakemake/snakemake \
+        --az-batch-account-url $AZ_BATCH_ACCOUNT_URL
+
+This will use the default Snakemake image from Dockerhub. If you would like to use your
+own, make sure that the image contains the same Snakemake version as installed locally
+and also supports Azure Blob storage. The optional BATCH_CONTAINER_REGISTRY can be configured 
+to fetch from your own container registry. If that registry is an Azure Container Registry 
+that the managed identity has access to, then the BATCH_CONTAINER_REGISTRY_USER and BATCH_CONTAINER_REGISTRY_PASS is not needed. 
+
+After completion all results including logs can be found in the blob container prefix specified by `--default-remote-prefix`.
+
+Additional configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Defining a Start Task**
+
+A start task can be optionally specified as a shell scirpt that runs during each node's startup as it's added to the batch pool.
+To specify a start task, set the environment variable BATCH_NODE_START_TASK_SAS_URL to the SAS url of a start task shell script.
+Store your shell script in a blob storage account and generate an SAS url to a shell script blob object. 
+You can generate an SAS URL to the blob using the azure portal or the command line using the following command structure: 
+
+.. code-block::
+
+  $  container="container-name"
+  $  expiry="2024-01-01"
+  $  blob_name="starttask.sh"
+  $  SAS_TOKEN=$(az storage blob generate-sas --account-name $stgacct --container-name $container --name $blob_name --permissions r --auth-mode login --as-user --expiry $expiry -o tsv)
+  $  BLOB_URL=$(az storage blob url --account-name cromwellstorage --container-name snaketest --name starttask.sh --auth-mode login -o tsv)
+
+  # then export the full SAS URL
+  $  export BATCH_NODE_START_TASK_SAS_URL="${BLOB_URL}?${SAS_TOKEN}"
+
+
+**Autoscaling and Task Distribution**
+
+The azure batch executor supports autoscaling of the batch nodes by including the flag ``--az-batch-enable-autoscale``. 
+This flag sets the initial dedicated node count of the pool to zero, and re-evaluates the number of nodes to be spun up or down based on the number of remaining tasks to run over a five minute interval. 
+Since five minutes is the smallest allowed interval for azure batch autoscaling, this feature becomes more useful for long running jobs. For more information on azure batch autoscaling configuration, see: https://learn.microsoft.com/en-us/azure/batch/batch-automatic-scaling.
+
+For shorter running jobs it might be more cost/time effective to set VM size with more cores (`BATCH_POOL_VM_SIZE`) and increase the number of `BATCH_TASKS_PER_NODE`. Or, if you want to keep tasks running on separate nodes, you can set a larger number for `BATCH_POOL_NODE_COUNT`. 
+It may require experimentation to find the most efficient/cost effective task distribution model for your use case depending on what you are optimizing for. For more details on limitations of azure batch node / task distribution see: https://learn.microsoft.com/en-us/azure/batch/batch-parallel-node-tasks.
+

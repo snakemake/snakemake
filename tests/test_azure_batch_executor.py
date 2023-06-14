@@ -18,7 +18,7 @@ def test_az_batch_executor():
     run(
         path=wdir,
         default_remote_prefix=prefix,
-        container_image="jakevc/snakemake",
+        container_image="snakemake/snakemake",
         envvars=["AZ_BLOB_ACCOUNT_URL", "AZ_BLOB_CREDENTIAL"],
         az_batch=True,
         az_batch_account_url=bau,
