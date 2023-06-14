@@ -478,7 +478,7 @@ to storage using it:
 
 .. code-block:: console
 
-    $ azcopy copy mydata.txt "az://snakemake-bucket/1/mydata.txt"
+    $ azcopy copy mydata.txt "https://$account.blob.core.windows.net/snakemake-bucket/1/mydata.txt"
 
 The snakemake azbatch executor will not work with data in a storage account that has "hierarchical namespace" enabled. 
 Azure hierarchical namespace is a new api on azure storage that is also called "ADLS Gen2". 
