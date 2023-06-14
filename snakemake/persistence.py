@@ -36,6 +36,7 @@ class Persistence:
         warn_only=False,
     ):
         import importlib.util
+
         self._serialize_param = (
             self._serialize_param_pandas
             if importlib.util.find_spec("pandas") is not None
