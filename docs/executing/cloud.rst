@@ -463,7 +463,7 @@ Then install Azure related dependencies:
 
 .. code:: console
 
-    conda create -c bioconda -c conda-forge msrest azure-batch azure-storage-blob azure-mgmt-batch azure-identity
+    conda create -c bioconda -c conda-forge -n snakemake snakemake msrest azure-batch azure-storage-blob azure-mgmt-batch azure-identity
 
 
 Data in Azure Storage
