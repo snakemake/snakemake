@@ -4,7 +4,6 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import time
-import csv
 import json
 from collections import defaultdict
 

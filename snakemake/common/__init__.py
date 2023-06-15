@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import concurrent.futures
 import contextlib
-from functools import update_wrapper
 import itertools
 import math
 import platform
@@ -15,7 +14,6 @@ import threading
 import uuid
 import os
 import asyncio
-import sys
 import collections
 from pathlib import Path
 

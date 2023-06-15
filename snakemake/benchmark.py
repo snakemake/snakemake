@@ -7,11 +7,9 @@ import contextlib
 import datetime
 from itertools import chain
 import os
-import sys
 import time
 import threading
 
-from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 
 #: Interval (in seconds) between measuring resource usage

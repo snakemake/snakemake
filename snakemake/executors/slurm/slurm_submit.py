@@ -1,28 +1,16 @@
 from collections import namedtuple
-from functools import partial
 from io import StringIO
 from fractions import Fraction
 import csv
 import os
-import re
-import stat
-import sys
 import time
 import shlex
-import shutil
 import subprocess
-import tarfile
-import tempfile
 import uuid
 
-from snakemake.jobs import Job
 from snakemake.logging import logger
-from snakemake.exceptions import print_exception
-from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
