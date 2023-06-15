@@ -57,7 +57,7 @@ def has_gcloud_service_key():
 
 
 def has_azbatch_account_url():
-    return "AZ_BATCH_ACCOUNT_URL" in os.environ
+    return os.environ.get("AZ_BATCH_ACCOUNT_URL")
 
 
 def has_zenodo_token():
