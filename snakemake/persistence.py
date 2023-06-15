@@ -37,7 +37,7 @@ class Persistence:
     ):
         try:
             self._serialize_param = self._serialize_param_pandas
-        except ImportError:
+        except ModuleNotFoundError:
             self._serialize_param = self._serialize_param_builtin
 
         self._max_len = None

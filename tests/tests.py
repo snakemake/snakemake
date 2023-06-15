@@ -1495,6 +1495,7 @@ def test_output_file_cache_remote():
 
 @connected
 @zenodo
+@pytest.mark.xfail(reason="zenodo currently returns an internal server error")
 def test_remote_zenodo():
     run(dpath("test_remote_zenodo"))
 
