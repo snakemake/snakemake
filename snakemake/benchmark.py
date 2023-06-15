@@ -309,7 +309,9 @@ class BenchmarkTimer(ScheduledPeriodicTimer):
                             check_io = False
 
                     cpu_times = proc.cpu_times()
-                    self.bench_record.processed_procs[(proc.pid, proc.name())] = cpu_times.user + cpu_times.system
+                    self.bench_record.processed_procs[(proc.pid, proc.name())] = (
+                        cpu_times.user + cpu_times.system
+                    )
 
             cpu_time = sum(self.bench_record.processed_procs.values())
 
