@@ -23,6 +23,9 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+
+from snakemake.plugins import executor_plugins
+
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
@@ -102,12 +105,14 @@ class JobScheduler:
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
+        # Note this argument doesn't seem to be used (greediness)
         greediness=1.0,
         force_use_threads=False,
         assume_shared_fs=True,
         keepincomplete=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
+        args=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
 
@@ -176,6 +181,29 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
             )
+
+        # We have chosen an executor custom plugin
+        elif args.executor and args.executor in executor_plugins:
+            executor = executor_plugins[args.executor]
+            self._local_executor = executor.local_executor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = executor.executor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                args=args,
+            )
+
         elif slurm:
             if ON_WINDOWS:
                 raise WorkflowError("SLURM execution is not supported on Windows.")

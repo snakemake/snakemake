@@ -147,6 +147,7 @@ class Workflow:
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
+        args=None,
     ):
         """
         Create the controller.
@@ -239,6 +240,7 @@ class Workflow:
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
         self.latency_wait = latency_wait
+        self.args = args
 
         _globals = globals()
         _globals["workflow"] = self
@@ -561,6 +563,7 @@ class Workflow:
         subsnakemake=None,
         updated_files=None,
         keep_target_files=False,
+        # Note that keep_shadow doesn't seem to be used?
         keep_shadow=False,
         keep_remote_local=False,
         allowed_rules=None,
@@ -996,6 +999,7 @@ class Workflow:
             keepincomplete=keepincomplete,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
+            args=self.args,
         )
 
         if not dryrun:

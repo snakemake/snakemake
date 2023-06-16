@@ -41,7 +41,7 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-
+from snakemake.plugins import executor_plugins, validate_executor_plugin
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
@@ -210,6 +210,7 @@ def snakemake(
     scheduler_solver_path=None,
     conda_base_path=None,
     local_groupid="local",
+    args=None,
 ):
     """Run snakemake on a given snakefile.
 
@@ -349,7 +350,7 @@ def snakemake(
         conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
         local_groupid (str):        Local groupid to use as a placeholder for groupid-referrring input functions of local jobs (internal use only, default: local).
         log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
-
+        args (argparse.Namespace):  argument parser args to pass to custom executors for more flexibility
             :level:
                 the log level ("info", "error", "debug", "progress", "job_info")
 
@@ -648,6 +649,7 @@ def snakemake(
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
             latency_wait=latency_wait,
+            args=args,
         )
         success = True
 
@@ -1496,6 +1498,11 @@ def get_argument_parser(profiles=None):
         ),
     )
     group_exec.add_argument(
+        "--executor",
+        "-e",
+        help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
+    )
+    group_exec.add_argument(
         "--forceall",
         "-F",
         action="store_true",
@@ -1669,7 +1676,6 @@ def get_argument_parser(profiles=None):
         "are not connected. It can be helpful for putting together "
         "many small jobs or benefitting of shared memory setups.",
     )
-
     group_report = parser.add_argument_group("REPORTS")
 
     group_report.add_argument(
@@ -2663,6 +2669,9 @@ def get_argument_parser(profiles=None):
         "fallback for rules which don't define environment modules.",
     )
 
+    # Allow custom executors to add parser arguments or groups
+    for _, executor_plugin in executor_plugins.items():
+        executor_plugin.add_args(parser)
     return parser
 
 
@@ -2692,6 +2701,7 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+<<<<<<< HEAD
     snakefile = args.snakefile
     if snakefile is None:
         for p in SNAKEFILE_CHOICES:
@@ -2706,6 +2716,19 @@ def main(argv=None):
                 file=sys.stderr,
             )
             sys.exit(1)
+
+    # If a custom executor is provided, it must be known
+    if args.executor and args.executor not in executor_plugins:
+        logger.exit(
+            f"Executor {args.executor} not found. Did you install snakemake-executor-{args.executor}?"
+        )
+
+    # Custom argument parsing based on chosen executor
+    # We also only validate an executor plugin when it's selected
+    if args.executor:
+        if not validate_executor_plugin(executor_plugins[args.executor]):
+            logger.exit("Executor {args.executor} is not valid.")
+        executor_plugins[args.executor].parse(args)
 
     workflow_profile = None
     if args.workflow_profile != "none":
@@ -3237,6 +3260,8 @@ def main(argv=None):
             scheduler_solver_path=args.scheduler_solver_path,
             conda_base_path=args.conda_base_path,
             local_groupid=args.local_groupid,
+            # We can more easily allow custom executors just by passing all args
+            args=args,
         )
 
     if args.runtime_profile:
