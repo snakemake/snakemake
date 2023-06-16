@@ -145,12 +145,15 @@ class IOCache:
                 if item is stop_item:
                     queue.task_done()
                     return
-                try:
-                    self.mtime[item] = await self.collect_mtime(item)
-                except Exception as e:
-                    queue.task_done()
+                # Avoid superfluously checking mtime as the same file might be
+                # added multiple times to the queue.
+                if item not in self.mtime:
+                    try:
+                        self.mtime[item] = await self.collect_mtime(item)
+                    except Exception as e:
+                        queue.task_done()
 
-                    raise e
+                        raise e
                 queue.task_done()
 
         tasks = [
