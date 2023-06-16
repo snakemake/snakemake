@@ -3,23 +3,21 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import defaultdict
 import os
-import subprocess
 import glob
-from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
 import re
 import sys
-import inspect
 import threading
 import webbrowser
 from functools import partial
 import importlib
-import shutil
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.executors.common import url_can_parse
 from snakemake.target_jobs import parse_target_jobs_cli_args
+from snakemake.executors.common import url_can_parse
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -177,6 +175,9 @@ def snakemake(
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
+    az_batch=False,
+    az_batch_enable_autoscale=False,
+    az_batch_account_url=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
@@ -317,6 +318,9 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        az_batch (bool):            Submit jobs to azure batch.
+        az_batch_enable_autoscale (bool): Enable autoscaling of the azure batch pool nodes. This sets the initial dedicated node pool count to zero and resizes the pool only after 5 minutes. So this flag is only recommended for relatively long running jobs.,
+        az_batch_account_url (str): Azure batch account url.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
@@ -418,6 +422,11 @@ def snakemake(
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
+    # Azure batch uses compute engine and storage
+    if az_batch:
+        assume_shared_fs = False
+        default_remote_provider = "AzBlob"
+
     # Google Cloud Life Sciences API uses compute engine and storage
     if google_lifesciences:
         assume_shared_fs = False
@@ -456,6 +465,7 @@ def snakemake(
         or drmaa
         or kubernetes
         or tibanna
+        or az_batch
         or google_lifesciences
         or tes
         or slurm
@@ -573,7 +583,7 @@ def snakemake(
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True
+                    keep_local=keep_remote_local, is_default=True
                 )
             else:
                 raise WorkflowError(
@@ -731,6 +741,9 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -788,6 +801,9 @@ def snakemake(
                     k8s_cpu_scalar=k8s_cpu_scalar,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -2366,9 +2382,10 @@ def get_argument_parser(profile=None):
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
-    group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
+    group_tibanna = parser.add_argument_group("TIBANNA")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2476,6 +2493,26 @@ def get_argument_parser(profile=None):
         "directory is compressed to a .tar.gz, named by the hash of the "
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
+    )
+
+    group_azure_batch = parser.add_argument_group("AZURE_BATCH")
+
+    group_azure_batch.add_argument(
+        "--az-batch",
+        action="store_true",
+        help="Execute workflow on azure batch",
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-enable-autoscale",
+        action="store_true",
+        help="Enable autoscaling of the azure batch pool nodes, this option will set the initial dedicated node count to zero, and requires five minutes to resize the cluster, so is only recommended for longer running jobs.",
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-account-url",
+        nargs="?",
+        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set.",
     )
 
     group_flux.add_argument(
@@ -2705,6 +2742,7 @@ def main(argv=None):
         or args.tibanna
         or args.kubernetes
         or args.tes
+        or args.az_batch
         or args.google_lifesciences
         or args.drmaa
         or args.flux
@@ -2764,12 +2802,22 @@ def main(argv=None):
         sys.exit(1)
 
     if (args.conda_prefix or args.conda_create_envs_only) and not args.use_conda:
-        print(
-            "Error: --use-conda must be set if --conda-prefix or "
-            "--create-envs-only is set.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        if args.conda_prefix and os.environ.get("SNAKEMAKE_CONDA_PREFIX", False):
+            print(
+                "Warning: The enviorment variable SNAKEMAKE_CONDA_PREFIX is set"
+                "but --use-conda is not."
+                "Snakemake will ignore SNAKEMAKE_CONDA_PREFIX"
+                "and conda enviorments will not be used or created.",
+                file=sys.stderr,
+            )
+            args.conda_prefix = None
+        else:
+            print(
+                "Error: --use-conda must be set if --conda-prefix or "
+                "--create-envs-only is set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.singularity_prefix and not args.use_singularity:
         print(
@@ -2813,6 +2861,33 @@ def main(argv=None):
                     file=sys.stderr,
                 )
                 sys.exit(1)
+
+    if args.az_batch:
+        if not args.default_remote_provider or not args.default_remote_prefix:
+            print(
+                "Error: --az-batch must be combined with "
+                "--default-remote-provider AzBlob and --default-remote-prefix to "
+                "provide a blob container name\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        elif args.az_batch_account_url is None:
+            print(
+                "Error: --az-batch-account-url must be set when --az-batch is used\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        elif not url_can_parse(args.az_batch_account_url):
+            print(
+                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
+            )
+            sys.exit(1)
+        elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
+            print(
+                "Error: environment variable AZ_BATCH_ACCOUNT_KEY must be set when --az-batch is used\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     if args.google_lifesciences:
         if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
@@ -3012,6 +3087,9 @@ def main(argv=None):
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            az_batch=args.az_batch,
+            az_batch_enable_autoscale=args.az_batch_enable_autoscale,
+            az_batch_account_url=args.az_batch_account_url,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,

@@ -21,6 +21,9 @@ A configuration is provided as a JSON or YAML file and can be loaded with:
     configfile: "path/to/config.yaml"
 
 The config file can be used to define a dictionary of configuration parameters and their values.
+In case of YAML, the file can optionally be processed with `YTE <https://yte-template-engine.github.io>`_.
+To activate this, you have to add the top-level key ``__use_yte__ = true`` to the YAML file.
+
 In the workflow, the configuration is accessible via the global variable `config`, e.g.
 
 .. code-block:: python

@@ -7,10 +7,8 @@ import os
 import json
 import re
 import inspect
-from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
-import platform
 from itertools import chain
 import collections
 import multiprocessing
@@ -18,11 +16,10 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
-from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS, is_local_file, smart_join
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 

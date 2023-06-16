@@ -5,16 +5,14 @@ __license__ = "MIT"
 
 import os
 import shutil
-import signal
-import marshal
 import pickle
 import json
 import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
 
 import snakemake.exceptions
@@ -37,12 +35,13 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        try:
-            import pandas as pd
+        import importlib.util
 
-            self._serialize_param = self._serialize_param_pandas
-        except ImportError:
-            self._serialize_param = self._serialize_param_builtin
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
 
         self._max_len = None
 

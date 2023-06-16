@@ -4,15 +4,9 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
-import os
-import posixpath
-
-from urllib.error import URLError
-from urllib.request import urlopen
-
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
-from snakemake.sourcecache import LocalGitFile, SourceCache, infer_source_file
+from snakemake.sourcecache import SourceCache, infer_source_file
 
 
 PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
