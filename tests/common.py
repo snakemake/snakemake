@@ -56,6 +56,10 @@ def has_gcloud_service_key():
     return "GCP_AVAILABLE" in os.environ
 
 
+def has_azbatch_account_url():
+    return os.environ.get("AZ_BATCH_ACCOUNT_URL")
+
+
 def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
@@ -65,6 +69,12 @@ gcloud = pytest.mark.skipif(
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
+)
+
+azbatch = pytest.mark.skipif(
+    not is_connected() or not has_azbatch_account_url(),
+    reason="Skipping AZBATCH tests because "
+    "no inet connection or no AZ_BATCH_ACCOUNT_URL.",
 )
 
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
