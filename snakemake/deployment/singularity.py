@@ -7,10 +7,6 @@ import subprocess
 import shutil
 import os
 import hashlib
-<<<<<<< HEAD
-from distutils.version import LooseVersion
-=======
->>>>>>> cb468347 (replaced packaging by home brew version to compare string to fix singularity issues with earlier solution)
 
 from snakemake.common import (
     is_local_file,

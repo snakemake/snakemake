@@ -16,10 +16,6 @@ import subprocess
 import tempfile
 import hashlib
 import shutil
-<<<<<<< HEAD
-from distutils.version import StrictVersion
-=======
->>>>>>> cb468347 (replaced packaging by home brew version to compare string to fix singularity issues with earlier solution)
 import json
 from glob import glob
 import tarfile
