@@ -173,13 +173,17 @@ class Singularity:
                 )
             if v.startswith("apptainer"):
                 v = v.rsplit(" ", 1)[-1]
-                if not version_compare.compare_version_geq(v,"1.0.0"):
-                    raise WorkflowError(f"Minimum apptainer version is 1.0.0. Found version {v}")
+                if not version_compare.compare_version_geq(v, "1.0.0"):
+                    raise WorkflowError(
+                        f"Minimum apptainer version is 1.0.0. Found version {v}"
+                    )
             else:
                 v = v.rsplit(" ", 1)[-1]
                 if v.startswith("v"):
                     v = v[1:]
 
-                if not version_compare.compare_version_geq(v,"2.4.1"):
-                    raise WorkflowError(f"Minimum singularity version is 2.4.1. Found version {v}")
+                if not version_compare.compare_version_geq(v, "2.4.1"):
+                    raise WorkflowError(
+                        f"Minimum singularity version is 2.4.1. Found version {v}"
+                    )
             self._version = v

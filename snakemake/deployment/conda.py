@@ -35,7 +35,7 @@ from snakemake.common import (
     parse_uri,
     ON_WINDOWS,
 )
-from snakemake.deployment import singularity, containerize,version_compare
+from snakemake.deployment import singularity, containerize, version_compare
 
 from snakemake.io import (
     IOFile,
@@ -757,7 +757,7 @@ class Conda:
         else:
             version = version_matches[0]
 
-        if not version_compare.compare_version_geq(version,"4.2"):
+        if not version_compare.compare_version_geq(version, "4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later, found version {}.".format(version)
             )
