@@ -16,7 +16,10 @@ import subprocess
 import tempfile
 import hashlib
 import shutil
+<<<<<<< HEAD
 from distutils.version import StrictVersion
+=======
+>>>>>>> cb468347 (replaced packaging by home brew version to compare string to fix singularity issues with earlier solution)
 import json
 from glob import glob
 import tarfile
@@ -36,7 +39,8 @@ from snakemake.common import (
     parse_uri,
     ON_WINDOWS,
 )
-from snakemake.deployment import singularity, containerize
+from snakemake.deployment import singularity, containerize,version_compare
+
 from snakemake.io import (
     IOFile,
     apply_wildcards,
@@ -756,7 +760,8 @@ class Conda:
             )
         else:
             version = version_matches[0]
-        if StrictVersion(version) < StrictVersion("4.2"):
+
+        if not version_compare.compare_version_geq(version,"4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later, found version {}.".format(version)
             )
