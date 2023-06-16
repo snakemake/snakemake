@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 import hashlib
 import shutil
-from distutils.version import StrictVersion
+from packaging.version import Version
 import json
 from glob import glob
 import tarfile
@@ -756,7 +756,7 @@ class Conda:
             )
         else:
             version = version_matches[0]
-        if StrictVersion(version) < StrictVersion("4.2"):
+        if Version(version) < Version("4.2"):
             raise CreateCondaEnvironmentException(
                 "Conda must be version 4.2 or later, found version {}.".format(version)
             )
