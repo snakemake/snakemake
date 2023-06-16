@@ -21,7 +21,7 @@ def get_account():
     tries to deduce the acccount from recent jobs,
     returns None, if none is found
     """
-    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
+    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%256 | head -n1'
     try:
         sacct_out = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
@@ -38,7 +38,7 @@ def test_account(account):
     """
     tests whether the given account is registered, raises an error, if not
     """
-    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'
+    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%256'
     try:
         accounts = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
