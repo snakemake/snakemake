@@ -1,9 +1,9 @@
-from snakemake/deployment/version_compare import compare_version_geq
+from snakemake.deployment.version_compare import compare_version_geq
 import pytest
 
 
 def test_versiongt():
-    # test cases are based upon releases found in apptainer and singularity
+    # Test cases are based upon releases found in apptainer and singularity
     assert compare_version_geq("1.0.0", "1.0.0") == True
     assert compare_version_geq("1.0.1", "1.0.0") == True
     assert compare_version_geq("1.1", "1.0.0") == True
