@@ -1,4 +1,4 @@
-from snakemake.deployment.singularity import compare_version_geq
+from snakemake/deployment/version_compare import compare_version_geq
 import pytest
 
 
