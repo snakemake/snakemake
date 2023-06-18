@@ -286,7 +286,7 @@ class RuleRecord:
             sources = [self._rule.shellcmd]
             language = "bash"
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
-            logger.info("Loading script code for rule {}".format(self.name))
+            logger.info(f"Loading script code for rule {self.name}")
             _, source, language, _, _ = script.get_source(
                 self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
@@ -294,7 +294,7 @@ class RuleRecord:
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
-            logger.info("Loading wrapper code for rule {}".format(self.name))
+            logger.info(f"Loading wrapper code for rule {self.name}")
             _, source, language, _, _ = script.get_source(
                 wrapper.get_script(
                     self._rule.wrapper,
@@ -330,7 +330,7 @@ class RuleRecord:
             return highlighted
         except pygments.util.ClassNotFound:
             return [
-                '<pre class="source"><code>{}</code></pre>'.format(source)
+                f'<pre class="source"><code>{source}</code></pre>'
                 for source in sources
             ]
 
@@ -661,7 +661,7 @@ def auto_report(dag, path, stylesheet=None):
                         register_file(
                             os.path.join(f, report_obj.htmlindex),
                             aux_files=aux_files,
-                            name_overwrite="{}.html".format(os.path.basename(f)),
+                            name_overwrite=f"{os.path.basename(f)}.html",
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
@@ -826,7 +826,7 @@ def auto_report(dag, path, stylesheet=None):
                 )
 
     # record time
-    now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
+    now = f"{datetime.datetime.now().ctime()} {time.tzname[0]}"
     results_size = sum(
         res.size
         for cat in results.values()
@@ -902,4 +902,4 @@ def auto_report(dag, path, stylesheet=None):
         with open(path, "w", encoding="utf-8") as htmlout:
             htmlout.write(rendered)
 
-    logger.info("Report created: {}.".format(path))
+    logger.info(f"Report created: {path}.")

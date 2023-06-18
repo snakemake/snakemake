@@ -50,18 +50,18 @@ class Image:
         if self.is_local:
             return
         if dryrun:
-            logger.info("Singularity image {} will be pulled.".format(self.url))
+            logger.info(f"Singularity image {self.url} will be pulled.")
             return
-        logger.debug("Singularity image location: {}".format(self.path))
+        logger.debug(f"Singularity image location: {self.path}")
         if not os.path.exists(self.path):
-            logger.info("Pulling singularity image {}.".format(self.url))
+            logger.info(f"Pulling singularity image {self.url}.")
             try:
                 p = subprocess.check_output(
                     [
                         "singularity",
                         "pull",
                         "--name",
-                        "{}.simg".format(self.hash),
+                        f"{self.hash}.simg",
                         self.url,
                     ],
                     cwd=self._img_dir,
@@ -101,7 +101,7 @@ def shellcmd(
 
     if envvars:
         envvars = " ".join(
-            "SINGULARITYENV_{}={}".format(k, v) for k, v in envvars.items()
+            f"SINGULARITYENV_{k}={v}" for k, v in envvars.items()
         )
     else:
         envvars = ""
@@ -169,7 +169,7 @@ class Singularity:
                 ).decode()
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
-                    "Failed to get singularity version:\n{}".format(e.stderr.decode())
+                    f"Failed to get singularity version:\n{e.stderr.decode()}"
                 )
             if v.startswith("apptainer"):
                 v = v.rsplit(" ", 1)[-1]

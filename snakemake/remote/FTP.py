@@ -58,7 +58,7 @@ class RemoteProvider(AbstractRemoteProvider):
             values = value
         else:
             raise TypeError(
-                "Invalid type ({}) passed to remote: {}".format(type(value), value)
+                f"Invalid type ({type(value)}) passed to remote: {value}"
             )
 
         for i, file in enumerate(values):

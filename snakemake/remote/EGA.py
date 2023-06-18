@@ -75,13 +75,13 @@ class RemoteProvider(AbstractRemoteProvider):
                     raise WorkflowError("Error contacting EGA.", e)
 
         if r.status_code != 200:
-            raise WorkflowError("Login to EGA failed with:\n{}".format(r.text))
+            raise WorkflowError(f"Login to EGA failed with:\n{r.text}")
         r = r.json()
         # store session token
         try:
             self._token = r["access_token"]
         except KeyError:
-            raise WorkflowError("Login to EGA failed:\n{}".format(r))
+            raise WorkflowError(f"Login to EGA failed:\n{r}")
 
     def _expire_token(self):
         self._expires = None
@@ -112,7 +112,7 @@ class RemoteProvider(AbstractRemoteProvider):
             if json
             else {"Accept": "application/octet-stream"}
         )
-        headers["Authorization"] = "Bearer {}".format(self.token)
+        headers["Authorization"] = f"Bearer {self.token}"
 
         for i in range(3):
             try:
@@ -147,7 +147,7 @@ class RemoteProvider(AbstractRemoteProvider):
     def get_files(self, dataset):
         if dataset not in self._file_cache:
             files = self.api_request(
-                "data/metadata/datasets/{dataset}/files".format(dataset=dataset)
+                f"data/metadata/datasets/{dataset}/files"
             )
             self._file_cache[dataset] = {
                 os.path.basename(f["fileName"])[:-4]: EGAFileInfo(
@@ -213,7 +213,7 @@ class RemoteObject(AbstractRemoteRetryObject):
         stats = self._stats()
 
         r = self.provider.api_request(
-            "data/files/{}?destinationFormat=plain".format(stats.id), json=False
+            f"data/files/{stats.id}?destinationFormat=plain", json=False
         )
 
         local_md5 = hashlib.md5()
@@ -229,7 +229,7 @@ class RemoteObject(AbstractRemoteRetryObject):
 
         if local_md5 != stats.checksum:
             raise WorkflowError(
-                "File checksums do not match for: {}".format(self.remote_file())
+                f"File checksums do not match for: {self.remote_file()}"
             )
 
     @lazy_property

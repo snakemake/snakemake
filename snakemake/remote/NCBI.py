@@ -593,7 +593,7 @@ class NCBIHelper(object):
                 )
             else:
                 output_file_path = os.path.join(
-                    output_directory, "chunk-{}".format(chunk_num) + output_extension
+                    output_directory, f"chunk-{chunk_num}" + output_extension
                 )
 
             if not force_overwrite:

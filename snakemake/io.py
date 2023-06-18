@@ -1704,7 +1704,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
                 raise WorkflowError(
                     "Config file is not valid JSON or YAML. "
                     "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
+                    "whitespace and tab indentation."
                 )
     except FileNotFoundError:
         raise WorkflowError(f"{filetype} file {configpath} not found.")

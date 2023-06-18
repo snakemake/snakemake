@@ -56,7 +56,7 @@ class RemoteProvider(AbstractRemoteProvider):
             values = value
         else:
             raise TypeError(
-                "Invalid type ({}) passed to remote: {}".format(type(value), value)
+                f"Invalid type ({type(value)}) passed to remote: {value}"
             )
 
         for i, file in enumerate(values):
@@ -160,8 +160,7 @@ class RemoteObject(DomainObject):
                 # if a file redirect was found
                 if httpr.status_code in range(300, 308):
                     raise HTTPFileException(
-                        "The file specified appears to have been moved (HTTP %s), check the URL or try adding 'allow_redirects=True' to the remote() file object: %s"
-                        % (httpr.status_code, httpr.url)
+                        f"The file specified appears to have been moved (HTTP {httpr.status_code}), check the URL or try adding 'allow_redirects=True' to the remote() file object: {httpr.url}"
                     )
                 return httpr.status_code == requests.codes.ok
             return False
@@ -175,7 +174,7 @@ class RemoteObject(DomainObject):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
                 file_mtime = self.get_header_item(httpr, "last-modified", default=None)
-                logger.debug("HTTP last-modified: {}".format(file_mtime))
+                logger.debug(f"HTTP last-modified: {file_mtime}")
 
                 epochTime = 0
 

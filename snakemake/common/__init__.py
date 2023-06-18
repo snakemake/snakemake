@@ -54,9 +54,9 @@ def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
     items = []
     for key, value in some_dict.items():
         encoded = (
-            "'{}'".format(value) if quote_str and isinstance(value, str) else value
+            f"'{value}'" if quote_str and isinstance(value, str) else value
         )
-        items.append("{}={}".format(key, encoded))
+        items.append(f"{key}={encoded}")
     return items
 
 
@@ -121,7 +121,7 @@ def smart_join(base, path, abspath=False):
     else:
         from smart_open import parse_uri
 
-        uri = parse_uri("{}/{}".format(base, path))
+        uri = parse_uri(f"{base}/{path}")
         if not ON_WINDOWS:
             # Norm the path such that it does not contain any ../,
             # which is invalid in an URL.
@@ -129,7 +129,7 @@ def smart_join(base, path, abspath=False):
             uri_path = os.path.normpath(uri.uri_path)
         else:
             uri_path = uri.uri_path
-        return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
+        return f"{uri.scheme}:/{uri_path}"
 
 
 def num_if_possible(s):
@@ -148,7 +148,7 @@ def get_last_stable_version():
 
 
 def get_container_image():
-    return "snakemake/snakemake:v{}".format(get_last_stable_version())
+    return f"snakemake/snakemake:v{get_last_stable_version()}"
 
 
 def get_uuid(name):
@@ -207,7 +207,7 @@ class lazy_property(property):
 
     def __init__(self, method):
         self.method = method
-        self.cached = "_{}".format(method.__name__)
+        self.cached = f"_{method.__name__}"
         super().__init__(method, doc=method.__doc__)
 
     def __get__(self, instance, owner):

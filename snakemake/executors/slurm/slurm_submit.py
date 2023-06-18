@@ -143,7 +143,7 @@ class SlurmExecutor(ClusterExecutor):
                     stderr=subprocess.PIPE,
                 )
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel jobs within a minute.")
+                logger.warning("Unable to cancel jobs within a minute.")
         self.shutdown()
 
     def get_account_arg(self, job):
@@ -239,7 +239,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("cpus_per_task"):
             if not isinstance(cpus_per_task, int):
                 raise WorkflowError(
-                    "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
+                    f"cpus_per_task must be an integer, but is {cpus_per_task}"
                 )
             cpus_per_task = job.resources.cpus_per_task
         # ensure that at least 1 cpu is requested
