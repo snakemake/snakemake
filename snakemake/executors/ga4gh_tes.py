@@ -1,18 +1,16 @@
-__author__ = "Sven Twardziok, Alex Kanitz, Johannes Köster"
+__author__ = "Sven Twardziok, Alex Kanitz, Valentin Schneider-Lunitz, Johannes Köster"
 __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
 import os
-import stat
-import time
 from collections import namedtuple
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.common import Mode, get_container_image, async_lock
+from snakemake.common import get_container_image, async_lock
 
 TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"
@@ -50,7 +48,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         self.max_status_checks_per_second = max_status_checks_per_second
         self.tes_url = tes_url
         self.tes_client = tes.HTTPClient(
-            url=self.tes_url, token=os.environ.get("TES_TOKEN")
+            url=self.tes_url,
+            token=os.environ.get("TES_TOKEN"),
+            user=os.environ.get("FUNNEL_SERVER_USER"),
+            password=os.environ.get("FUNNEL_SERVER_PASSWORD"),
         )
 
         logger.info("[TES] Job execution on TES: {url}".format(url=self.tes_url))
@@ -108,13 +109,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         )
 
     async def _wait_for_jobs(self):
-        UNFINISHED_STATES = [
-            "UNKNOWN",
-            "INITIALIZING",
-            "QUEUED",
-            "RUNNING",
-            "PAUSED",
-        ]
+        UNFINISHED_STATES = ["UNKNOWN", "INITIALIZING", "QUEUED", "RUNNING", "PAUSED"]
         ERROR_STATES = [
             "EXECUTOR_ERROR",
             "SYSTEM_ERROR",
@@ -134,8 +129,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                     res = self.tes_client.get_task(j.jobid, view="MINIMAL")
                     logger.debug(
                         "[TES] State of task '{id}': {state}".format(
-                            id=j.jobid,
-                            state=res.state,
+                            id=j.jobid, state=res.state
                         )
                     )
                     if res.state in UNFINISHED_STATES:
@@ -166,10 +160,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         if overwrite_path:
             members_path = overwrite_path
         else:
-            members_path = os.path.join(
-                self.container_workdir,
-                str(os.path.relpath(f)),
-            )
+            members_path = os.path.join(self.container_workdir, str(os.path.relpath(f)))
         return members_path
 
     def _prepare_file(
@@ -246,11 +237,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             ):
                 continue
             inputs.append(
-                self._prepare_file(
-                    filename=src,
-                    checkdir=checkdir,
-                    pass_content=True,
-                )
+                self._prepare_file(filename=src, checkdir=checkdir, pass_content=True)
             )
 
         # add input files to inputs
@@ -263,10 +250,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         inputs.append(
             self._prepare_file(
                 filename=jobscript,
-                overwrite_path=os.path.join(
-                    self.container_workdir,
-                    "run_snakemake.sh",
-                ),
+                overwrite_path=os.path.join(self.container_workdir, "run_snakemake.sh"),
                 checkdir=checkdir,
                 pass_content=True,
             )
@@ -276,11 +260,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def _append_task_outputs(self, outputs, files, checkdir):
         for file in files:
-            obj = self._prepare_file(
-                filename=file,
-                checkdir=checkdir,
-                type="Output",
-            )
+            obj = self._prepare_file(filename=file, checkdir=checkdir, type="Output")
             if obj:
                 outputs.append(obj)
         return outputs

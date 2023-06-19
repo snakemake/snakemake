@@ -4,24 +4,19 @@ __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
-import json
 import time
-import uuid
 from collections import namedtuple
 import hashlib
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     check_deprecated_retry,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.common import lazy_property
-from snakemake.logging import logger
 
 
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])

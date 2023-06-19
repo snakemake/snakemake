@@ -5,15 +5,14 @@ __license__ = "MIT"
 
 import os
 import shutil
-import signal
-import marshal
 import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
 
 import snakemake.exceptions
@@ -36,20 +35,21 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        try:
-            import pandas as pd
+        import importlib.util
 
-            self._serialize_param = self._serialize_param_pandas
-        except ImportError:
-            self._serialize_param = self._serialize_param_builtin
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
 
         self._max_len = None
+
         self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
@@ -135,14 +135,11 @@ class Persistence:
                             self._metadata_path
                         )
                         os.makedirs(target_path, exist_ok=True)
-                        shutil.copyfile(
-                            path / filename,
-                            target_path / filename,
-                        )
+                        shutil.copyfile(path / filename, target_path / filename)
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
-                    logger.info("{} files migrated".format(i))
+                    logger.info(f"{i} files migrated")
 
         logger.info("Migration complete")
 
@@ -249,11 +246,7 @@ class Persistence:
 
     def started(self, job, external_jobid=None):
         for f in job.output:
-            self._record(
-                self._incomplete_path,
-                {"external_jobid": external_jobid},
-                f,
-            )
+            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
     def finished(self, job, keep_metadata=True):
         if not keep_metadata:
@@ -456,7 +449,7 @@ class Persistence:
     @lru_cache()
     def _input(self, job):
         get_path = (
-            lambda f: get_flag_value(f, "sourcecache_entry").get_path_or_uri()
+            lambda f: get_flag_value(f, "sourcecache_entry")
             if is_flagged(f, "sourcecache_entry")
             else f
         )
@@ -528,6 +521,10 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
         os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
@@ -559,7 +556,7 @@ class Persistence:
             except json.JSONDecodeError as e:
                 pass
         # case: file is corrupted, delete it
-        logger.warning(f"Deleting corrupted metadata record.")
+        logger.warning("Deleting corrupted metadata record.")
         self._delete_record(subject, id)
         return dict()
 
@@ -570,14 +567,14 @@ class Persistence:
         return (
             f
             for f, _ in listfiles(
-                os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type))
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
             )
             if not os.path.isdir(f)
         )
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:

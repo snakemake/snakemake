@@ -1,4 +1,3 @@
-import textwrap
 from itertools import groupby
 from pathlib import Path
 import shutil
@@ -32,7 +31,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
     logger.info("Generating unit tests for each rule...")
 
     try:
-        from jinja2 import Template, Environment, PackageLoader
+        from jinja2 import Environment, PackageLoader
     except ImportError:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."

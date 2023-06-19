@@ -150,15 +150,15 @@ variables are not passed directly to AzureRemoteProvider (see
 [BlobServiceClient
 class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
 for naming), they will be read from environment variables, named
-`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
-`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
-a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+``AZ_BLOB_ACCOUNT_URL`` and ``AZ_BLOB_CREDENTIAL``. ``AZ_BLOB_ACCOUNT_URL`` takes the form
+``https://<accountname>.blob.core.windows.net`` and may also contain a SAS. If
+a SAS is not part of the URL, ``AZ_BLOB_CREDENTIAL`` has to be set to the SAS or alternatively to
 the storage account key.
 
 When using AzBlob as default remote provider you will almost always want to
 pass these environment variables on to the remote execution environment (e.g.
-Kubernetes) with `--envvars`, e.g
-`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
+Kubernetes) with ```--envvars``, e.g
+``--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL``.
 
 .. code-block:: python
 
@@ -602,9 +602,10 @@ GFAL
 
 GFAL support is available in Snakemake 4.1 and later.
 
-Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+Snakemake supports reading and writing remote files via the `GFAL2 Python bindings <https://dmc-docs.web.cern.ch/dmc-docs/gfal2-python.html>`_ . This package is not installed by default with a Snakemake installation. The easiest installation method is with mamba or conda. e.g.: ``mamba install -c conda-forge python-gfal2``.
+
 By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
-In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
+
 
 .. code-block:: python
 

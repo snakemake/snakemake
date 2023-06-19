@@ -12,8 +12,7 @@ import stat
 from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.exceptions import WorkflowError
-from snakemake.caching.hash import ProvenanceHashMap
-from snakemake.caching import LOCATION_ENVVAR, AbstractOutputFileCache
+from snakemake.caching import AbstractOutputFileCache
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -66,11 +65,11 @@ class OutputFileCache(AbstractOutputFileCache):
             ):
                 if not os.path.exists(outputfile):
                     raise WorkflowError(
-                        "Cannot move output file {} to cache. It does not exist "
+                        f"Cannot move output file {outputfile} to cache. It does not exist "
                         "(maybe it was not created by the job?)."
                     )
                 self.check_writeable(cachefile)
-                logger.info("Moving output file {} to cache.".format(outputfile))
+                logger.info(f"Moving output file {outputfile} to cache.")
 
                 tmp = tmpdir / cachefile.name
                 # First move is performed into a tempdir (it might involve a copy if not on the same FS).

@@ -5,11 +5,10 @@ __license__ = "MIT"
 
 import os
 
-from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
-from snakemake.io import get_flag_value, IOFile
+from snakemake.io import get_flag_value
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -32,10 +31,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 self.raise_write_error(entry, exception=e)
 
     def fetch(self, job: Job, cache_mode: str):
-        for entry in self._get_remotes(
-            job,
-            cache_mode,
-        ):
+        for entry in self._get_remotes(job, cache_mode):
             if not entry.exists():
                 self.raise_cache_miss_exception(job)
 

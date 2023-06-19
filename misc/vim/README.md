@@ -8,6 +8,10 @@ To install via [vim-plug]( https://github.com/junegunn/vim-plug):
 
     Plug 'snakemake/snakemake', {'rtp': 'misc/vim'}
 
+To install via [packer.nvim](https://github.com/wbthomason/packer.nvim):
+
+    use {'snakemake/snakemake', rtp='misc/vim', ft='snakemake'}
+
 To manually install, copy `syntax/snakemake.vim` file to `$HOME/.vim/syntax`
 directory and `ftdetect/snakemake.vim` file to `$HOME/.vim/ftdetect`.
 

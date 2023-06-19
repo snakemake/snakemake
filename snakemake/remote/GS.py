@@ -6,15 +6,12 @@ __license__ = "MIT"
 import base64
 import os
 import re
-import struct
 import time
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, CheckSumMismatchException
 from snakemake.common import lazy_property
 import snakemake.io
-from snakemake.utils import os_sync
-from snakemake.logging import logger
 
 try:
     import google.cloud

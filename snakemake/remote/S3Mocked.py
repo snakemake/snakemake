@@ -4,11 +4,10 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
-import os, sys
+import os
 from contextlib import contextmanager
 import pickle
 import time
-import threading
 import functools
 
 # intra-module

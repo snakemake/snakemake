@@ -3,15 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import abstractmethod
-import enum
 import os
 import sys
 import base64
 import tempfile
 import json
 import shutil
-import copy
 
 from collections import defaultdict
 from itertools import chain, filterfalse
@@ -22,7 +19,6 @@ from snakemake.io import (
     IOFile,
     Wildcards,
     Resources,
-    _IOFile,
     is_flagged,
     get_flag_value,
     wait_for_files,
@@ -36,10 +32,10 @@ from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
     is_local_file,
-    parse_uri,
     lazy_property,
     get_uuid,
     TBDString,
+    IO_PROP_LIMIT,
 )
 
 
@@ -92,11 +88,11 @@ class AbstractJob:
     def get_target_spec(self):
         raise NotImplementedError()
 
-    def products(self):
+    def products(self, include_logfiles=True):
         raise NotImplementedError()
 
-    def has_products(self):
-        for o in self.products():
+    def has_products(self, include_logfiles=True):
+        for o in self.products(include_logfiles=include_logfiles):
             return True
         return False
 
@@ -223,10 +219,7 @@ class Job(AbstractJob):
             input_mapping,
             self.dependencies,
             self.incomplete_input_expand,
-        ) = self.rule.expand_input(
-            self.wildcards_dict,
-            groupid=groupid,
-        )
+        ) = self.rule.expand_input(self.wildcards_dict, groupid=groupid)
 
         self.output, output_mapping = self.rule.expand_output(self.wildcards_dict)
         # other properties are lazy to be able to use additional parameters and check already existing files
@@ -681,7 +674,7 @@ class Job(AbstractJob):
                 if f in requested:
                     if f in self.dynamic_output:
                         if not self.expand_dynamic(f_):
-                            yield "{} (dynamic)".format(f_)
+                            yield f"{f_} (dynamic)"
                     else:
                         yield from handle_file(f)
         else:
@@ -846,8 +839,13 @@ class Job(AbstractJob):
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files
-        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
+        # wait for input files, respecting keep_remote_local
+        force_stay_on_remote = not self.dag.keep_remote_local
+        wait_for_files(
+            self.input,
+            force_stay_on_remote=force_stay_on_remote,
+            latency_wait=self.dag.workflow.latency_wait,
+        )
 
         if not self.is_shadow:
             return
@@ -999,8 +997,8 @@ class Job(AbstractJob):
             "type": "single",
             "rule": self.rule.name,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "wildcards": self.wildcards_dict,
             "params": params,
             "log": self.log,
@@ -1284,7 +1282,7 @@ class GroupJob(AbstractJob):
             yield from layer
 
     def __repr__(self):
-        return "JobGroup({},{})".format(self.groupid, repr(self.jobs))
+        return f"JobGroup({self.groupid},{repr(self.jobs)})"
 
     def __contains__(self, job):
         return job in self.jobs
@@ -1432,8 +1430,8 @@ class GroupJob(AbstractJob):
             "type": "group",
             "groupid": self.groupid,
             "local": self.is_local,
-            "input": self.input,
-            "output": self.output,
+            "input": None if len(self.input) > IO_PROP_LIMIT else self.input,
+            "output": None if len(self.output) > IO_PROP_LIMIT else self.output,
             "threads": self.threads,
             "resources": resources,
             "jobid": self.jobid,
@@ -1537,13 +1535,9 @@ class GroupJob(AbstractJob):
         try:
             return format(string, **_variables)
         except NameError as ex:
-            raise WorkflowError(
-                "NameError with group job {}: {}".format(self.jobid, str(ex))
-            )
+            raise WorkflowError(f"NameError with group job {self.jobid}: {str(ex)}")
         except IndexError as ex:
-            raise WorkflowError(
-                "IndexError with group job {}: {}".format(self.jobid, str(ex))
-            )
+            raise WorkflowError(f"IndexError with group job {self.jobid}: {str(ex)}")
         except Exception as ex:
             raise WorkflowError(
                 f"Error when formatting {string} for group job {self.jobid}: {ex}"

@@ -36,7 +36,7 @@ jobs:
           tests/test_io.py tests/common.py tests/test_google_lifesciences.py
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.5.0
+        uses: marocchino/sticky-pull-request-comment@v2.6.2
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +65,7 @@ jobs:
       # see https://github.com/containers/podman/issues/13338
       - name: Download slurm ansible roles
         run: |
-          ansible-galaxy install galaxyproject.slurm
+          ansible-galaxy install galaxyproject.slurm,1.0.1
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
@@ -141,6 +141,11 @@ jobs:
           sleep 5
           sudo sacctmgr -i create account "Name=runner"
           sudo sacctmgr -i create user "Name=runner" "Account=runner"
+      - name: Configure proxy for sacct
+        run: |
+          # By using this script instead of the real sacct, we avoid the need to install
+          # a full slurmdbd in the CI.
+          echo 'alias sacct=.github/workflows/scripts/sacct-proxy.py' >> ~/.bashrc
       - name: Test slurm submission
         run: |
           srun -vvvv echo "hello world"
@@ -169,6 +174,9 @@ jobs:
           mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
+          sudo gem install apt-spy2
+          sudo apt-spy2 fix --commit --launchpad --country=US
+          sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
       - name: Setup iRODS
         run: |
@@ -198,7 +206,7 @@ jobs:
           CI: true
         shell: bash -el {0}
         run: |
-          pytest -v tests/test_slurm.py
+          pytest --show-capture=stderr -v tests/test_slurm.py
 
       - name: Test local
         env:
@@ -206,7 +214,7 @@ jobs:
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         shell: bash -el {0}
         run: |
-          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
+          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
       - name: Build and publish docker image
         if: >-
           contains(github.event.pull_request.labels.*.name,
@@ -236,10 +244,22 @@ jobs:
       #  shell: bash -el {0}
       #  run: |
       #    pytest -s -v -x tests/test_kubernetes.py
+
+      - name: Test Azure Batch Executor
+        shell: bash -el {0}
+        env:
+          AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
+          AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
+          AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"
+          AZ_BATCH_ACCOUNT_URL: "${{ secrets.AZ_BATCH_ACCOUNT_URL }}"
+          AZ_BATCH_ACCOUNT_KEY: "${{ secrets.AZ_BATCH_KEY }}"
+        run: |
+          pytest -s -v -x tests/test_azure_batch_executor.py
+
       - name: Test GA4GH TES executor
         shell: bash -el {0}
         run: |
-          pytest -s -v -x tests/test_tes.py
+          pytest --show-capture=stderr -s -v -x tests/test_tes.py
 
       - name: Delete container image
         if: >-
@@ -287,4 +307,4 @@ jobs:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest -v -x tests/tests.py
+          python -m pytest --show-capture=stderr -v -x tests/tests.py

@@ -1,5 +1,6 @@
 from collections import UserDict
 from snakemake.io import not_iterable
+from urllib.parse import urlparse
 
 
 def format_cli_arg(flag, value, quote=True, skip=False):
@@ -23,3 +24,11 @@ def format_cli_pos_arg(value, quote=True):
 
 def join_cli_args(args):
     return " ".join(arg for arg in args if arg)
+
+
+def url_can_parse(url: str) -> bool:
+    """
+    returns true if urllib.parse.urlparse can parse
+    scheme and netloc
+    """
+    return all(list(urlparse(url))[:2])
