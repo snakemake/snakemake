@@ -100,6 +100,7 @@ def snakemake(
     nocolor=False,
     quiet=False,
     keepgoing=False,
+    force_local=False,
     slurm=None,
     slurm_jobstep=None,
     rerun_triggers=RERUN_TRIGGERS,
@@ -246,6 +247,7 @@ def snakemake(
         nocolor (bool):             do not print colored output (default False)
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep going upon errors (default False)
+        force_local (bool):         force snakemake to run rules locally, overrides the use of a cluster config (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
         cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
@@ -450,16 +452,19 @@ def snakemake(
     else:
         cluster_config_content = dict()
 
-    run_local = not (
-        cluster
-        or cluster_sync
-        or drmaa
-        or kubernetes
-        or tibanna
-        or google_lifesciences
-        or tes
-        or slurm
-        or slurm_jobstep
+    run_local = (
+        not (
+            cluster
+            or cluster_sync
+            or drmaa
+            or kubernetes
+            or tibanna
+            or google_lifesciences
+            or tes
+            or slurm
+            or slurm_jobstep
+        )
+        or force_local
     )
     if run_local:
         if not dryrun:
@@ -2702,18 +2707,6 @@ def main(argv=None):
         print("", file=sys.stderr)
         sys.exit(1)
 
-    if args.force_local:
-        args.cluster = None
-        args.slurm = False
-        args.slurm_jobstep = False
-        args.cluster_sync = None
-        args.tibanna = False
-        args.kubernetes = None
-        args.tes = None
-        args.google_lifesciences = False
-        args.drmaa = None
-        args.flux = False
-
     non_local_exec = (
         args.cluster
         or args.slurm
@@ -3015,6 +3008,7 @@ def main(argv=None):
             nocolor=args.nocolor,
             quiet=args.quiet,
             keepgoing=args.keep_going,
+            force_local=args.force_local,
             slurm=args.slurm,
             slurm_jobstep=args.slurm_jobstep,
             rerun_triggers=args.rerun_triggers,
