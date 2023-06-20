@@ -16,7 +16,6 @@ import subprocess
 import tempfile
 import hashlib
 import shutil
-from packaging.version import Version
 import json
 from glob import glob
 import tarfile
@@ -745,6 +744,7 @@ class Conda:
 
     def _check_version(self):
         from snakemake.shell import shell
+        from packaging.version import Version
 
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True

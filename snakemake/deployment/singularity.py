@@ -7,7 +7,6 @@ import subprocess
 import shutil
 import os
 import hashlib
-from packaging.version import parse
 
 from snakemake.common import (
     is_local_file,
@@ -156,6 +155,8 @@ class Singularity:
         return self._version
 
     def check(self):
+        from packaging.version import parse
+
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
