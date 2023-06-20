@@ -1208,7 +1208,7 @@ def get_argument_parser(profiles=None):
             If this flag is not used, Snakemake will by default use 
             'profiles/default' if present (searched both relative to current directory
             and relative to Snakefile, in this order).
-            For skipping any workflow specific profile use --no-workflow-profile.
+            For skipping any workflow specific profile provide the special value 'none'.
             Settings made in the workflow profile will override settings made in the
             general profile (see --profile).
             The profile folder has to contain a file 'config.yaml'.
@@ -2711,7 +2711,7 @@ def main(argv=None):
             sys.exit(1)
 
     workflow_profile = None
-    if not args.no_workflow_profile:
+    if not args.workflow_profile == "none":
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
         else:
