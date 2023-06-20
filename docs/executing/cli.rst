@@ -131,6 +131,7 @@ would expect a folder ``myprofile`` in per-user and global configuration directo
 Alternatively, an absolute or relative path to the profile folder can be given.
 The default profile to use when no ``--profile`` argument is specified can also be set via the environment variable ``SNAKEMAKE_PROFILE``,
 e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults means that the ``--profile`` flag can be omitted.
+In order unset the profile defined by this environment variable for individual runs without specifying and alternative profile you can provide the special value ``none``, i.e. ``--profile none``.
 
 The profile folder is expected to contain a file ``config.yaml`` that defines default values for the Snakemake command line arguments.
 For example, the file
