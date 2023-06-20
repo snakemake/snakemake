@@ -1195,6 +1195,8 @@ def get_argument_parser(profiles=None):
             file. Profiles can be obtained from
             https://github.com/snakemake-profiles.
             The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
+            To override this variable and use no profile at all, provide the value 'none'
+            to this argument.
             """,
         env_var="SNAKEMAKE_PROFILE",
     )
@@ -2711,7 +2713,7 @@ def main(argv=None):
             sys.exit(1)
 
     workflow_profile = None
-    if not args.workflow_profile == "none":
+    if args.workflow_profile != "none":
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
         else:
@@ -2724,6 +2726,9 @@ def main(argv=None):
                 if profile.exists():
                     workflow_profile = profile
                     break
+
+    if args.profile == "none":
+        args.profile = None
 
     if (args.profile or workflow_profile) and args.mode == Mode.default:
         # Reparse args while inferring config file from profile.
