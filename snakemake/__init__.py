@@ -1125,38 +1125,39 @@ def get_profile_file(profile, file, return_default=False):
     return None
 
 
-def get_argument_parser(profile=None):
+def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     import configargparse
-    from configargparse import YAMLConfigFileParser
+    from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
     config_files = []
-    if profile:
-        if profile == "":
-            print("Error: invalid profile name.", file=sys.stderr)
-            exit(1)
+    if profiles:
+        for profile in profiles:
+            if profile == "":
+                print("Error: invalid profile name.", file=sys.stderr)
+                exit(1)
 
-        config_file = get_profile_file(profile, "config.yaml")
-        if config_file is None:
-            print(
-                "Error: profile given but no config.yaml found. "
-                "Profile has to be given as either absolute path, relative "
-                "path or name of a directory available in either "
-                "{site} or {user}.".format(
-                    site=dirs.site_config_dir, user=dirs.user_config_dir
-                ),
-                file=sys.stderr,
-            )
-            exit(1)
-        config_files = [config_file]
+            config_file = get_profile_file(profile, "config.yaml")
+            if config_file is None:
+                print(
+                    "Error: profile given but no config.yaml found. "
+                    "Profile has to be given as either absolute path, relative "
+                    "path or name of a directory available in either "
+                    "{site} or {user}.".format(
+                        site=dirs.site_config_dir, user=dirs.user_config_dir
+                    ),
+                    file=sys.stderr,
+                )
+                exit(1)
+            config_files.append(config_file)
 
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
         formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
-        config_file_parser_class=YAMLConfigFileParser,
+        config_file_parser_class=ProfileConfigFileParser,
     )
 
     group_exec = parser.add_argument_group("EXECUTION")
@@ -1181,22 +1182,49 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--profile",
-        help="""
-                        Name of profile to use for configuring
-                        Snakemake. Snakemake will search for a corresponding
-                        folder in {} and {}. Alternatively, this can be an
-                        absolute or relative path.
-                        The profile folder has to contain a file 'config.yaml'.
-                        This file can be used to set default values for command
-                        line options in YAML format. For example,
-                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
-                        file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles.
-                        The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
-                        """.format(
-            dirs.site_config_dir, dirs.user_config_dir
-        ),
+        help=f"""
+            Name of profile to use for configuring
+            Snakemake. Snakemake will search for a corresponding
+            folder in {dirs.site_config_dir} and {dirs.user_config_dir}. Alternatively, this can be an
+            absolute or relative path.
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. Profiles can be obtained from
+            https://github.com/snakemake-profiles.
+            The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
+            """,
         env_var="SNAKEMAKE_PROFILE",
+    )
+
+    group_exec.add_argument(
+        "--workflow-profile",
+        help=f"""
+            Path to workflow specific profile folder to use for configuring
+            Snakemake with parameters specific for this workflow (like resources).
+            If this flag is not used, Snakemake will by default use 
+            'workflow/profiles/default' if present.
+            For skipping any workflow specific profile use --no-workflow-profile.
+            Settings made in the workflow profile will override settings made in the
+            general profile (see --profile).
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. It is advisable to use the workflow profile to set
+            or overwrite e.g. workflow specific resources like the amount of threads
+            of a particular rule or the amount of memory needed.
+            Note that in such cases, the arguments may be given as nested YAML mappings 
+            in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
+            """,
+        env_var="SNAKEMAKE_PROFILE",
+    )
+
+    group_exec.add_argument(
+        "--no-workflow-profile",
+        action="store_true",
+        help="Do not use any workflow specific profile (see --workflow-profile).",
     )
 
     group_exec.add_argument(
@@ -2665,10 +2693,24 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile and args.mode == Mode.default:
+    workflow_profile = None
+    if not args.no_workflow_profile:
+        if args.workflow_profile:
+            workflow_profile = args.workflow_profile
+        else:
+            workflow_profile = "workflow/profiles/default"
+            if not os.path.exists(workflow_profile):
+                workflow_profile = None
+
+    if (args.profile or workflow_profile) and args.mode == Mode.default:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (Mode.default)
-        parser = get_argument_parser(args.profile)
+        profiles = []
+        if args.profile:
+            profiles.append(args.profile)
+        if workflow_profile:
+            profiles.append(workflow_profile)
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
         def adjust_path(f):
