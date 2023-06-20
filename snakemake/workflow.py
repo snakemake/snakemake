@@ -147,7 +147,7 @@ class Workflow:
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
-        args=None,
+        executor_args=None,
     ):
         """
         Create the controller.
@@ -240,7 +240,7 @@ class Workflow:
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
         self.latency_wait = latency_wait
-        self.args = args
+        self.executor_args = executor_args
 
         _globals = globals()
         _globals["workflow"] = self
@@ -999,7 +999,7 @@ class Workflow:
             keepincomplete=keepincomplete,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
-            args=self.args,
+            executor_args=self.executor_args,
         )
 
         if not dryrun:

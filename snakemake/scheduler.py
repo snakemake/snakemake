@@ -112,7 +112,7 @@ class JobScheduler:
         keepincomplete=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
-        args=None,
+        executor_args=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
 
@@ -183,8 +183,11 @@ class JobScheduler:
             )
 
         # We have chosen an executor custom plugin
-        elif args.executor and args.executor in executor_plugins:
-            executor = executor_plugins[args.executor]
+        elif (
+            executor_args is not None
+            and executor_args._executor_name in executor_plugins
+        ):
+            executor = executor_plugins[executor_args._executor_name]
             self._local_executor = executor.local_executor(
                 workflow,
                 dag,
@@ -201,7 +204,7 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                args=args,
+                executor_args=executor_args,
             )
 
         elif slurm:
