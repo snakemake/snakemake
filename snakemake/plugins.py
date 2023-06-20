@@ -3,10 +3,13 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+
 import importlib
 import os
 import pkgutil
+import packaging.version
 from snakemake.logging import logger
+from snakemake import __version__
 
 executor_plugin_prefix = "snakemake_executor_"
 
@@ -20,6 +23,15 @@ executor_plugins = {
 
 # Valid Argument types (to distinguish from empty dataclasses)
 ArgTypes = (str, int, float, bool)
+
+# Required executor plugin attributes
+executor_plugin_attributes = [
+    "add_args",
+    "local_executor",
+    "executor",
+    "parse",
+    "snakemake_minimum_version",
+]
 
 
 def args_to_dataclass(args, dc):
@@ -53,13 +65,34 @@ def validate_executor_plugin(module):
     """
     Plugins must expose a common set of interfaces to be valid.
     """
-    for name in ["add_args", "local_executor", "executor", "parse"]:
+    for name in executor_plugin_attributes:
         if not hasattr(module, name):
             logger.warning(
                 f"Executor plugin {module} is missing expected attribute {name}"
             )
             return False
-    return True
+
+    # If we get here, the version is the final check
+    return validate_snakemake_version(module.minimum_snakemake_version)
+
+
+def validate_snakemake_version(minimum_version):
+    """
+    Ensure that minimum snakemake version is satisfied.
+
+    If an unknown or unparseable version is provided, we cannot
+    determine and are more leniant and allow it.
+    """
+    # If it's unknown, give a warning and allow it
+    if "unknown" in __version__:
+        logger.warning(
+            f"Snakemake version {__version__} cannot be determined for plugin compatibility."
+        )
+        return True
+
+    snakemake_version = packaging.version.parse(__version__)
+    minimum_version = packaging.version.parse(minimum_version)
+    return snakemake_version >= minimum_version
 
 
 def get_plugin_name_from_dataclass(dc):
