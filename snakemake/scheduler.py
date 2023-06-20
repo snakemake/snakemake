@@ -73,6 +73,7 @@ class JobScheduler:
         local_cores=1,
         dryrun=False,
         touch=False,
+        force_local=False,
         slurm=None,
         slurm_jobstep=None,
         cluster=None,
@@ -180,6 +181,18 @@ class JobScheduler:
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
+            )
+        elif force_local:
+            self._executor = CPUExecutor(
+                workflow,
+                dag,
+                cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                use_threads=use_threads,
+                cores=cores,
+                keepincomplete=keepincomplete,
             )
         elif slurm:
             if ON_WINDOWS:

@@ -781,6 +781,7 @@ def snakemake(
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
+                    force_local=force_local,
                     slurm=slurm,
                     slurm_jobstep=slurm_jobstep,
                     cluster=cluster,
