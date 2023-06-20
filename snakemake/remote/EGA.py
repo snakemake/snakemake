@@ -31,14 +31,14 @@ class RemoteProvider(AbstractRemoteProvider):
         stay_on_remote=False,
         is_default=False,
         retry=None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
         check_deprecated_retry(retry)
         self._token = None
@@ -97,7 +97,7 @@ class RemoteProvider(AbstractRemoteProvider):
         url_prefix="https://ega.ebi.ac.uk:8051/elixir/",
         json=True,
         post=False,
-        **params
+        **params,
     ):
         """Make an API request.
 
@@ -146,9 +146,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
     def get_files(self, dataset):
         if dataset not in self._file_cache:
-            files = self.api_request(
-                f"data/metadata/datasets/{dataset}/files"
-            )
+            files = self.api_request(f"data/metadata/datasets/{dataset}/files")
             self._file_cache[dataset] = {
                 os.path.basename(f["fileName"])[:-4]: EGAFileInfo(
                     int(f["fileSize"]), f["fileStatus"], f["fileId"], f["checksum"]

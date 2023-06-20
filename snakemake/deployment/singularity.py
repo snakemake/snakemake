@@ -100,9 +100,7 @@ def shellcmd(
     and environment variables to be passed."""
 
     if envvars:
-        envvars = " ".join(
-            f"SINGULARITYENV_{k}={v}" for k, v in envvars.items()
-        )
+        envvars = " ".join(f"SINGULARITYENV_{k}={v}" for k, v in envvars.items())
     else:
         envvars = ""
 

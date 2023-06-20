@@ -48,12 +48,8 @@ class SnakefileLinter(Linter):
     def lint_path_add(
         self,
         snakefile,
-        regex1=re.compile(
-            f"{NAME_PATTERN} *\\+ *{PATH_PATTERN}"
-        ),
-        regex2=re.compile(
-            f"{PATH_PATTERN} *\\+ *{NAME_PATTERN}"
-        ),
+        regex1=re.compile(f"{NAME_PATTERN} *\\+ *{PATH_PATTERN}"),
+        regex2=re.compile(f"{PATH_PATTERN} *\\+ *{NAME_PATTERN}"),
     ):
         for match in chain(regex1.finditer(snakefile), regex2.finditer(snakefile)):
             line = get_line(match, snakefile)

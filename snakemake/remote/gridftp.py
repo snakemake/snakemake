@@ -40,9 +40,7 @@ class RemoteObject(gfal.RemoteObject):
                 cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
             ).stdout.decode()
         except sp.CalledProcessError as e:
-            raise WorkflowError(
-                f"Error calling globus-url-copy:\n{cmd}"
-            )
+            raise WorkflowError(f"Error calling globus-url-copy:\n{cmd}")
 
     def _download(self):
         if self.exists():

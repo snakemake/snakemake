@@ -449,9 +449,7 @@ class Env:
                     )
                 )
                 return env_path
-            logger.info(
-                f"Creating conda environment {self.file.simplify_path()}..."
-            )
+            logger.info(f"Creating conda environment {self.file.simplify_path()}...")
             env_archive = self.archive_file
             try:
                 # Touch "start" flag file

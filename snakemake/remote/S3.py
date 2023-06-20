@@ -39,7 +39,7 @@ class RemoteProvider(
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )  # in addition to methods provided by AbstractRemoteProvider, we add these in
 
         self._s3c = S3Helper(*args, **kwargs)  # _private variable by convention

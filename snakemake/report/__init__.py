@@ -330,8 +330,7 @@ class RuleRecord:
             return highlighted
         except pygments.util.ClassNotFound:
             return [
-                f'<pre class="source"><code>{source}</code></pre>'
-                for source in sources
+                f'<pre class="source"><code>{source}</code></pre>' for source in sources
             ]
 
     def add(self, job_rec):

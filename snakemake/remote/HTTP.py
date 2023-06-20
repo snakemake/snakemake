@@ -36,7 +36,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
     @property
@@ -55,9 +55,7 @@ class RemoteProvider(AbstractRemoteProvider):
         elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
-            raise TypeError(
-                f"Invalid type ({type(value)}) passed to remote: {value}"
-            )
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
 
         for i, file in enumerate(values):
             match = re.match("^(https?)://.+", file)
@@ -90,14 +88,14 @@ class RemoteObject(DomainObject):
         provider=None,
         additional_request_string="",
         allow_redirects=True,
-        **kwargs
+        **kwargs,
     ):
         super(RemoteObject, self).__init__(
             *args,
             keep_local=keep_local,
             provider=provider,
             allow_redirects=allow_redirects,
-            **kwargs
+            **kwargs,
         )
         self.additional_request_string = additional_request_string
 

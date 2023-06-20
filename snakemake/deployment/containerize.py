@@ -64,9 +64,7 @@ def containerize(workflow, dag):
         if isinstance(env.file, LocalSourceFile):
             get_env_cmds.append(f"COPY {env_source_path} {env_target_path}")
         else:
-            get_env_cmds.append(
-                f"ADD {env.file.get_path_or_uri()} {env_target_path}"
-            )
+            get_env_cmds.append(f"ADD {env.file.get_path_or_uri()} {env_target_path}")
 
         generate_env_cmds.append(
             f"mamba env create --prefix {prefix} --file {env_target_path} &&"

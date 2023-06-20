@@ -1552,14 +1552,10 @@ class DRMAAExecutor(ClusterExecutor):
             drmaa.InternalException,
             drmaa.InvalidAttributeValueException,
         ) as e:
-            print_exception(
-                WorkflowError(f"DRMAA Error: {e}"), self.workflow.linemaps
-            )
+            print_exception(WorkflowError(f"DRMAA Error: {e}"), self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info(
-            f"Submitted DRMAA job {job.jobid} with external jobid {jobid}."
-        )
+        logger.info(f"Submitted DRMAA job {job.jobid} with external jobid {jobid}.")
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 

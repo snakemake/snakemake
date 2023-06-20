@@ -75,9 +75,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         written = False
         for job in jobs:
             if all(f.exists for f in job.input):
-                logger.info(
-                    f"Generating unit test for rule {rulename}: {testpath}."
-                )
+                logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
                 def copy_files(files, content_type):

@@ -50,9 +50,7 @@ def save_files(bucket_name, source_path, destination_path):
         # The path in storage includes relative path from destination_path
         storage_path = os.path.join(destination_path, relative_path)
         full_path = os.path.join(bucket_name, storage_path)
-        print(
-            f"{filename} -> {full_path}"
-        )
+        print(f"{filename} -> {full_path}")
         blob = bucket.blob(storage_path)
         print(f"Uploading {filename} to {full_path}")
         blob.upload_from_filename(filename, content_type=".txt")

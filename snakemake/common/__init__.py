@@ -53,9 +53,7 @@ def parse_key_value_arg(arg, errmsg):
 def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
     items = []
     for key, value in some_dict.items():
-        encoded = (
-            f"'{value}'" if quote_str and isinstance(value, str) else value
-        )
+        encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
         items.append(f"{key}={encoded}")
     return items
 
