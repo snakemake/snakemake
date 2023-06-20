@@ -2698,12 +2698,13 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.snakefile is None:
+    snakefile = args.snakefile
+    if snakefile is None:
         for p in SNAKEFILE_CHOICES:
             if os.path.exists(p):
-                args.snakefile = p
+                snakefile = p
                 break
-        if args.snakefile is None:
+        if snakefile is None:
             print(
                 "Error: no Snakefile found, tried {}.".format(
                     ", ".join(SNAKEFILE_CHOICES)
@@ -2720,7 +2721,7 @@ def main(argv=None):
             default_path = Path("profiles/default")
             workflow_profile_candidates = [
                 default_path,
-                Path(args.snakefile).parent.joinpath(default_path),
+                Path(snakefile).parent.joinpath(default_path),
             ]
             for profile in workflow_profile_candidates:
                 if profile.exists():
@@ -2997,7 +2998,7 @@ def main(argv=None):
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
 
-        _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
+        _snakemake = partial(snakemake, os.path.abspath(snakefile))
         gui.register(_snakemake, args)
 
         if ":" in args.gui:
@@ -3085,7 +3086,7 @@ def main(argv=None):
                 aggregated_wait_for_files.extend(extra_wait_files)
 
         success = snakemake(
-            args.snakefile,
+            snakefile,
             batch=batch,
             cache=args.cache,
             report=args.report,
