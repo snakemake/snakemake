@@ -2715,7 +2715,10 @@ def main(argv=None):
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
         else:
-            workflow_profile_candidates = [Path("profiles/default"), Path(args.snakefile).parent.joinpath(workflow_profile)]
+            workflow_profile_candidates = [
+                Path("profiles/default"),
+                Path(args.snakefile).parent.joinpath(workflow_profile),
+            ]
             for profile in workflow_profile_candidates:
                 if profile.exists():
                     workflow_profile = profile
