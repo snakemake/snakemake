@@ -7,6 +7,7 @@ import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
+from pathlib import Path
 import re
 import sys
 import threading
@@ -1201,10 +1202,12 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--workflow-profile",
         help=f"""
-            Path to workflow specific profile folder to use for configuring
-            Snakemake with parameters specific for this workflow (like resources).
+            Path (relative to current directory) to workflow specific profile 
+            folder to use for configuring Snakemake with parameters specific for this
+            workflow (like resources).
             If this flag is not used, Snakemake will by default use 
-            'workflow/profiles/default' if present.
+            'profiles/default' if present (searched both relative to current directory
+            and relative to Snakefile, in this order).
             For skipping any workflow specific profile use --no-workflow-profile.
             Settings made in the workflow profile will override settings made in the
             general profile (see --profile).
@@ -2693,14 +2696,30 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
+    if args.snakefile is None:
+        for p in SNAKEFILE_CHOICES:
+            if os.path.exists(p):
+                args.snakefile = p
+                break
+        if args.snakefile is None:
+            print(
+                "Error: no Snakefile found, tried {}.".format(
+                    ", ".join(SNAKEFILE_CHOICES)
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     workflow_profile = None
     if not args.no_workflow_profile:
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
         else:
-            workflow_profile = "workflow/profiles/default"
-            if not os.path.exists(workflow_profile):
-                workflow_profile = None
+            workflow_profile_candidates = [Path("profiles/default"), Path(args.snakefile).parent.joinpath(workflow_profile)]
+            for profile in workflow_profile_candidates:
+                if profile.exists():
+                    workflow_profile = profile
+                    break
 
     if (args.profile or workflow_profile) and args.mode == Mode.default:
         # Reparse args while inferring config file from profile.
@@ -2955,20 +2974,6 @@ def main(argv=None):
             file=sys.stderr,
         )
         sys.exit(1)
-
-    if args.snakefile is None:
-        for p in SNAKEFILE_CHOICES:
-            if os.path.exists(p):
-                args.snakefile = p
-                break
-        if args.snakefile is None:
-            print(
-                "Error: no Snakefile found, tried {}.".format(
-                    ", ".join(SNAKEFILE_CHOICES)
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
 
     if args.gui is not None:
         try:
