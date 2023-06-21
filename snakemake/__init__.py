@@ -1227,12 +1227,6 @@ def get_argument_parser(profiles=None):
     )
 
     group_exec.add_argument(
-        "--no-workflow-profile",
-        action="store_true",
-        help="Do not use any workflow specific profile (see --workflow-profile).",
-    )
-
-    group_exec.add_argument(
         "--cache",
         nargs="*",
         metavar="RULE",

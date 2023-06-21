@@ -2068,7 +2068,7 @@ def test_no_workflow_profile():
     run(
         test_path,
         snakefile="workflow/Snakefile",
-        shellcmd=f"snakemake --profile {general_profile} --no-workflow-profile -c1",
+        shellcmd=f"snakemake --profile {general_profile} --workflow-profile none -c1",
     )
 
 
