@@ -2719,16 +2719,18 @@ def main(argv=None):
 
     # If a custom executor is provided, it must be known
     if args.executor and args.executor not in executor_plugins:
-        logger.exit(
+        logger.error(
             f"Executor {args.executor} not found. Did you install snakemake-executor-{args.executor}?"
         )
+        exit(1)
 
     # Custom argument parsing based on chosen executor
     # We also only validate an executor plugin when it's selected
     executor_args = None
     if args.executor:
         if not validate_executor_plugin(executor_plugins[args.executor]):
-            logger.exit("Executor {args.executor} is not valid.")
+            logger.error(f"Executor {args.executor} is not valid.")
+            exit(1)
 
         # This is the dataclass prepared by the executor
         executor_args = executor_plugins[args.executor].parse(args)

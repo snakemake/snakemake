@@ -9,7 +9,6 @@ import os
 import pkgutil
 import packaging.version
 from snakemake.logging import logger
-from snakemake import __version__
 
 executor_plugin_prefix = "snakemake_executor_"
 
@@ -67,13 +66,13 @@ def validate_executor_plugin(module):
     """
     for name in executor_plugin_attributes:
         if not hasattr(module, name):
-            logger.warning(
+            logger.error(
                 f"Executor plugin {module} is missing expected attribute {name}"
             )
             return False
 
     # If we get here, the version is the final check
-    return validate_snakemake_version(module.minimum_snakemake_version)
+    return validate_snakemake_version(module.snakemake_minimum_version)
 
 
 def validate_snakemake_version(minimum_version):
@@ -83,16 +82,31 @@ def validate_snakemake_version(minimum_version):
     If an unknown or unparseable version is provided, we cannot
     determine and are more leniant and allow it.
     """
+    from snakemake import __version__
+
     # If it's unknown, give a warning and allow it
     if "unknown" in __version__:
-        logger.warning(
+        logger.error(
             f"Snakemake version {__version__} cannot be determined for plugin compatibility."
         )
         return True
 
-    snakemake_version = packaging.version.parse(__version__)
+    # Living dangerously
+    if "any" in __version__:
+        return True
+
+    # Get rid of any commit or dirty tag
+    version = __version__.split("+", 1)[0]
+    snakemake_version = packaging.version.parse(version)
     minimum_version = packaging.version.parse(minimum_version)
-    return snakemake_version >= minimum_version
+
+    # This is entirely done for usability and showing the user why it isn't valid
+    is_valid = snakemake_version >= minimum_version
+    if not is_valid:
+        logger.error(
+            f"Plugin expects Snakemake version {minimum_version} but found {version}"
+        )
+    return is_valid
 
 
 def get_plugin_name_from_dataclass(dc):
