@@ -87,10 +87,7 @@ directives.register_directive("embeddedfigure", EmbeddedFigure)
 def data_uri(data, filename, encoding="utf8", mime="text/plain"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
     data = base64.b64encode(data)
-    uri = "data:{mime};charset={charset};filename={filename};base64,{data}" "".format(
-        filename=filename, mime=mime, charset=encoding, data=data.decode("utf-8")
-    )
-    return uri
+    return f'data:{mime};charset={encoding};filename={filename};base64,{data.decode("utf-8")}'
 
 
 def mime_from_file(file):
@@ -98,7 +95,7 @@ def mime_from_file(file):
     if mime is None:
         mime = "text/plain"
         logger.info(
-            "Could not detect mimetype for {}, assuming " "text/plain.".format(file)
+            "Could not detect mimetype for {}, assuming text/plain.".format(file)
         )
     return mime, encoding
 
@@ -596,7 +593,7 @@ def auto_report(dag, path, stylesheet=None):
             if is_flagged(f, "report") and f not in recorded_files:
                 if not f.exists:
                     raise WorkflowError(
-                        "File {} marked for report but does " "not exist.".format(f)
+                        "File {} marked for report but does not exist.".format(f)
                     )
                 report_obj = get_flag_value(f, "report")
 

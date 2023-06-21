@@ -83,7 +83,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(
-                "All output files have to be relative to the " "working directory."
+                "All output files have to be relative to the working directory."
             )
 
     get_output_id = lambda job, i: f"#main/job-{job.jobid}/{i}"

@@ -15,12 +15,12 @@ from snakemake.utils import os_sync
 
 if not shutil.which("globus-url-copy"):
     raise WorkflowError(
-        "The globus-url-copy command has to be available for " "gridftp remote support."
+        "The globus-url-copy command has to be available for gridftp remote support."
     )
 
 if not shutil.which("gfal-ls"):
     raise WorkflowError(
-        "The gfal-* commands need to be available for " "gridftp remote support."
+        "The gfal-* commands need to be available for gridftp remote support."
     )
 
 

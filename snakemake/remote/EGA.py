@@ -136,7 +136,7 @@ class RemoteProvider(AbstractRemoteProvider):
                     raise WorkflowError("Error contacting EGA.", e)
         if r.status_code != 200:
             raise WorkflowError(
-                "Access to EGA API endpoint {} failed " "with:\n{}".format(url, r.text)
+                "Access to EGA API endpoint {} failed with:\n{}".format(url, r.text)
             )
         if json:
             msg = r.json()

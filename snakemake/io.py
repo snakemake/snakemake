@@ -1287,7 +1287,7 @@ def multiext(prefix, *extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
+            r"Extensions for multiext may not contain path delimiters (/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1715,7 +1715,7 @@ def load_configfile(configpath):
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
         raise WorkflowError(
-            "Config file must be given as JSON or YAML " "with keys at top level."
+            "Config file must be given as JSON or YAML with keys at top level."
         )
     return config
 

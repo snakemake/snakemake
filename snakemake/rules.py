@@ -912,7 +912,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in input files cannot be " "determined from output files:",
+                "Wildcards in input files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1026,7 +1026,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in log files cannot be " "determined from output files:",
+                "Wildcards in log files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )

@@ -25,9 +25,7 @@ SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 class Image:
     def __init__(self, url, dag, is_containerized):
         if " " in url:
-            raise WorkflowError(
-                "Invalid singularity image URL containing " "whitespace."
-            )
+            raise WorkflowError("Invalid singularity image URL containing whitespace.")
 
         self.singularity = Singularity()
 
