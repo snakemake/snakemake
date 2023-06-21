@@ -2733,6 +2733,13 @@ def main(argv=None):
             profiles.append(args.profile)
         if workflow_profile:
             profiles.append(workflow_profile)
+
+        print(
+            f"Using profile{'s' if len(profiles) > 1 else ''} "
+            f"{' and '.join(map(str, profiles))} for setting default command line arguments.",
+            file=sys.stderr,
+        )
+
         parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
