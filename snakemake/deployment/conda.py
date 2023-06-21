@@ -738,7 +738,7 @@ class Conda:
             self._check_condarc()
         except subprocess.CalledProcessError as e:
             raise CreateCondaEnvironmentException(
-                "Unable to check conda installation:" "\n" + e.stderr.decode()
+                "Unable to check conda installation:\n" + e.stderr.decode()
             )
 
     def _check_version(self):
