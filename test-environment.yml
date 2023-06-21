@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python
   - yte
+  - packaging
   - stopit
   - datrie
   - boto3

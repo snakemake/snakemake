@@ -7,7 +7,6 @@ import subprocess
 import shutil
 import os
 import hashlib
-from distutils.version import LooseVersion
 
 from snakemake.common import (
     is_local_file,
@@ -152,6 +151,8 @@ class Singularity:
         return self._version
 
     def check(self):
+        from packaging.version import parse
+
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
@@ -169,12 +170,12 @@ class Singularity:
                 )
             if v.startswith("apptainer"):
                 v = v.rsplit(" ", 1)[-1]
-                if not LooseVersion(v) >= LooseVersion("1.0.0"):
+                if parse(v) < parse("1.0.0"):
                     raise WorkflowError("Minimum apptainer version is 1.0.0.")
             else:
                 v = v.rsplit(" ", 1)[-1]
                 if v.startswith("v"):
                     v = v[1:]
-                if not LooseVersion(v) >= LooseVersion("2.4.1"):
+                if parse(v) < parse("2.4.1"):
                     raise WorkflowError("Minimum singularity version is 2.4.1.")
             self._version = v

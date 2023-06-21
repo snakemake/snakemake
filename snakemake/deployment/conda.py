@@ -16,7 +16,6 @@ import subprocess
 import tempfile
 import hashlib
 import shutil
-from distutils.version import StrictVersion
 import json
 from glob import glob
 import tarfile
@@ -743,6 +742,7 @@ class Conda:
 
     def _check_version(self):
         from snakemake.shell import shell
+        from packaging.version import Version
 
         version = shell.check_output(
             self._get_cmd("conda --version"), stderr=subprocess.PIPE, text=True
@@ -754,7 +754,7 @@ class Conda:
             )
         else:
             version = version_matches[0]
-        if StrictVersion(version) < StrictVersion("4.2"):
+        if Version(version) < Version("4.2"):
             raise CreateCondaEnvironmentException(
                 f"Conda must be version 4.2 or later, found version {version}."
             )
