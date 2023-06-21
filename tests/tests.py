@@ -2050,6 +2050,7 @@ def test_inferred_resources():
     run(dpath("test_inferred_resources"))
 
 
+@skip_on_windows  # not platform dependent
 def test_workflow_profile():
     test_path = dpath("test_workflow_profile")
     general_profile = os.path.join(test_path, "dummy-general-profile")
@@ -2061,6 +2062,7 @@ def test_workflow_profile():
     )
 
 
+@skip_on_windows  # not platform dependent
 def test_no_workflow_profile():
     test_path = dpath("test_no_workflow_profile")
     general_profile = os.path.join(test_path, "dummy-general-profile")
