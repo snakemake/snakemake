@@ -248,9 +248,9 @@ class Env:
     @property
     def address_argument(self):
         if self.is_named:
-            return "--name '{}'".format(self.address)
-        else:
             return "--prefix '{}'".format(self.address)
+        else:
+            return "--name '{}'".format(self.address)
 
     @property
     def archive_file(self):
