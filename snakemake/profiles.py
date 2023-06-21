@@ -35,7 +35,7 @@ class ProfileConfigFileParser(YAMLConfigFileParser):
             if isinstance(value, list):
                 result[key] = value
             elif value is None:
-                pass
+                continue
             else:
                 # special handling for simplified pure YAML syntax for key-value CLI arguments like --resources
                 if isinstance(value, (dict, OrderedDict)):

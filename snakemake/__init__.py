@@ -1203,7 +1203,7 @@ def get_argument_parser(profiles=None):
 
     group_exec.add_argument(
         "--workflow-profile",
-        help=f"""
+        help="""
             Path (relative to current directory) to workflow specific profile 
             folder to use for configuring Snakemake with parameters specific for this
             workflow (like resources).
