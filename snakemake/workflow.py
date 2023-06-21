@@ -1016,7 +1016,7 @@ class Workflow:
                         )
                         logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
-                            "Rules claiming more threads " "will be scaled down."
+                            "Rules claiming more threads will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)

@@ -1540,7 +1540,7 @@ def get_argument_parser(profile=None):
         "--rerun-incomplete",
         "--ri",
         action="store_true",
-        help=("Re-run all " "jobs the output of which is recognized as incomplete."),
+        help=("Re-run all jobs the output of which is recognized as incomplete."),
     )
     group_exec.add_argument(
         "--shadow-prefix",
@@ -2144,7 +2144,7 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--default-remote-prefix",
         default="",
-        help="Specify prefix for default remote provider. E.g. " "a bucket name.",
+        help="Specify prefix for default remote provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",
@@ -2546,7 +2546,7 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--list-conda-envs",
         action="store_true",
-        help="List all conda environments and their location on " "disk.",
+        help="List all conda environments and their location on disk.",
     )
     group_conda.add_argument(
         "--conda-prefix",
@@ -2821,7 +2821,7 @@ def main(argv=None):
 
     if args.singularity_prefix and not args.use_singularity:
         print(
-            "Error: --use_singularity must be set if --singularity-prefix " "is set.",
+            "Error: --use_singularity must be set if --singularity-prefix is set.",
             file=sys.stderr,
         )
         sys.exit(1)

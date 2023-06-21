@@ -69,4 +69,4 @@ class AbstractOutputFileCache:
         )
 
     def raise_cache_miss_exception(self, job):
-        raise CacheMissException("Job {} not yet cached.".format(job))
+        raise CacheMissException(f"Job {job} not yet cached.")

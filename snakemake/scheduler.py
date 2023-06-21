@@ -40,7 +40,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
