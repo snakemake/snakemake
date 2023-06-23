@@ -101,21 +101,19 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.project = (
             os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
         )
-        
         # Determine API location based on user preference, and then regions
         self._set_location(location)
-        
         # Tell the user right away the regions, location, and container
         logger.debug("regions=%s" % self.regions)
         logger.debug("location=%s" % self.location)
         logger.debug("container=%s" % self.container_image)
         
-        # If specified, capture custom GCE VM configuration
+        # If specified, capture service account and GCE VM network configuration
         self.service_account_email = service_account_email
         self.network = network
         self.subnetwork = subnetwork
         
-        # Log custom GCE VM configuration
+        # Log service account and VM network configuration
         logger.debug("service_account_email=%s" % self.service_account_email)
         logger.debug("network=%s" % self.network)
         logger.debug("subnetwork=%s" % self.subnetwork)
@@ -156,7 +154,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             creds, _ = google.auth.default(
                 scopes=["https://www.googleapis.com/auth/cloud-platform"]
             )
-            creds = google.auth.compute_engine.Credentials()
         except google.auth.DefaultCredentialsError as ex:
             log_verbose_traceback(ex)
             raise ex
