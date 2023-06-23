@@ -2849,7 +2849,7 @@ def main(argv=None):
             and not args.google_lifesciences_service_account_email):
             print(
                 "Error: Either the GOOGLE_APPLICATION_CREDENTIALS environment variable "
-                "or --google-life-sciences-service-account-email must be available "
+                "or --google-lifesciences-service-account-email must be available "
                 "for --google-lifesciences",
                 file=sys.stderr,
             )
@@ -2857,7 +2857,7 @@ def main(argv=None):
 
         if not args.default_remote_prefix:
             print(
-                "Error: --google-life-sciences must be combined with "
+                "Error: --google-lifesciences must be combined with "
                 " --default-remote-prefix to provide bucket name and "
                 "subdirectory (prefix) (e.g. 'bucketname/projectname'",
                 file=sys.stderr,
