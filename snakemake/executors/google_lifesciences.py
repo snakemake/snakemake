@@ -594,8 +594,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 {"type": accelerator["name"], "count": gpu_count}
             ]
 
-        resources = {# "networkInterfaces": [{"network": "default"}],
-                     "regions": self.regions,
+        resources = {"regions": self.regions,
                      "virtualMachine": virtual_machine}
         return resources
 

@@ -321,8 +321,8 @@ def snakemake(
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
         google_lifesciences_service_account_email (str): Service account to install on Google pipelines API VM instance.
-        google_lifesciences_network (str): Network name for Google pipelines API VM instance.
-        google_lifesciences_subnetwork (str): Subnetwork name for Google piplines API VM instance.
+        google_lifesciences_network (str): Network name for Google VM instances.
+        google_lifesciences_subnetwork (str): Subnetwork name for Google VM instances.
         tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
