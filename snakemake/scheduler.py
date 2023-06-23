@@ -40,7 +40,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -83,6 +83,9 @@ class JobScheduler:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -360,6 +363,36 @@ class JobScheduler:
                 workflow,
                 dag,
                 cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
+        elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+                    e,
+                )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,

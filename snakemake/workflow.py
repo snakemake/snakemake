@@ -521,6 +521,9 @@ class Workflow:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -975,6 +978,9 @@ class Workflow:
             flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            az_batch=az_batch,
+            az_batch_enable_autoscale=az_batch_enable_autoscale,
+            az_batch_account_url=az_batch_account_url,
             google_lifesciences=google_lifesciences,
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
@@ -1016,7 +1022,7 @@ class Workflow:
                         )
                         logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
-                            "Rules claiming more threads " "will be scaled down."
+                            "Rules claiming more threads will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)

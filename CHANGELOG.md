@@ -1,5 +1,70 @@
 # Changelog
 
+## [7.29.0](https://github.com/snakemake/snakemake/compare/v7.28.3...v7.29.0) (2023-06-21)
+
+
+### Features
+
+* introduce --workflow-profile for additional workflow specific profiles that overwrite global profiles; add ability to define key-value CLI flags like --set-threads or --set-resources as multi-level dictionaries in profile config yaml files ([#2310](https://github.com/snakemake/snakemake/issues/2310)) ([9675c17](https://github.com/snakemake/snakemake/commit/9675c17d4d7cbb95e589767974faa9219dd4154d))
+
+
+### Bug Fixes
+
+* addressing [#2197](https://github.com/snakemake/snakemake/issues/2197) by allowing 256 character account names in slurm ([#2198](https://github.com/snakemake/snakemake/issues/2198)) ([ab58c65](https://github.com/snakemake/snakemake/commit/ab58c652847c03a9f1529d2d7632f2788a5fadc4))
+* removed distutils from snakemake ([#2312](https://github.com/snakemake/snakemake/issues/2312)) ([9b8c362](https://github.com/snakemake/snakemake/commit/9b8c3620e8c14e322ba15b7d044b9deab1854b2a))
+* Update __init__.py to move "file" param to "print" ([#2291](https://github.com/snakemake/snakemake/issues/2291)) ([92352b6](https://github.com/snakemake/snakemake/commit/92352b69d14ef196b0253561c78fa04ffa25d73e))
+
+## [7.28.3](https://github.com/snakemake/snakemake/compare/v7.28.2...v7.28.3) (2023-06-16)
+
+
+### Bug Fixes
+
+* Detect pandas availability to select serializer ([#2300](https://github.com/snakemake/snakemake/issues/2300)) ([e08a771](https://github.com/snakemake/snakemake/commit/e08a771f90aef84f3075e07c8d4e4c0f7881047c))
+
+
+### Performance Improvements
+
+* avoid superflous mtime checks when the same file is referred to by multiple jobs ([#2284](https://github.com/snakemake/snakemake/issues/2284)) ([eb6e2e1](https://github.com/snakemake/snakemake/commit/eb6e2e161f01c61b139d95bcf1ddfa862f8029ba))
+
+
+### Documentation
+
+* update docs for azbatch and dockerhub ref ([#2298](https://github.com/snakemake/snakemake/issues/2298)) ([908dbf1](https://github.com/snakemake/snakemake/commit/908dbf143d4b1625fa6ee80f2b4eb713a6411a3f))
+
+## [7.28.2](https://github.com/snakemake/snakemake/compare/v7.28.1...v7.28.2) (2023-06-13)
+
+
+### Bug Fixes
+
+* fix pandas import handling in metadata persistence ([27f7b40](https://github.com/snakemake/snakemake/commit/27f7b4014eaea66aa4e599aa854dda75822d30a0))
+
+## [7.28.1](https://github.com/snakemake/snakemake/compare/v7.28.0...v7.28.1) (2023-06-11)
+
+
+### Bug Fixes
+
+* Bump yte from &gt;=1.0,&lt;2.0 to >=1.5.1,<2.0 ([#2275](https://github.com/snakemake/snakemake/issues/2275)) ([8c0b34f](https://github.com/snakemake/snakemake/commit/8c0b34f869e4f65ff2e47cf5f1e2863bd104f8e7))
+* remove superfluous dependency ([aad61a0](https://github.com/snakemake/snakemake/commit/aad61a0131d7ca0f7393af23b98b1db702cd976d))
+
+## [7.28.0](https://github.com/snakemake/snakemake/compare/v7.27.0...v7.28.0) (2023-06-11)
+
+
+### Features
+
+* Added native support for execution via Azure Batch ([#1953](https://github.com/snakemake/snakemake/issues/1953)) ([#2246](https://github.com/snakemake/snakemake/issues/2246)) ([0f9c49f](https://github.com/snakemake/snakemake/commit/0f9c49fe8643cca0e42e3b091cf9706a7feb877d))
+
+## [7.27.0](https://github.com/snakemake/snakemake/compare/v7.26.0...v7.27.0) (2023-06-07)
+
+
+### Features
+
+* Allow the environment variable SNAKEMAKE_CONDA_PREFIX to be present without --use-conda ([#2263](https://github.com/snakemake/snakemake/issues/2263)) ([e4eba8d](https://github.com/snakemake/snakemake/commit/e4eba8d72b84aaa460c7d1b1ac54b607e844d782))
+
+
+### Bug Fixes
+
+* adapt linting rule to Python 3.11 ([a3a5c58](https://github.com/snakemake/snakemake/commit/a3a5c58cbbbe9a84b7383ce046b5981271288979))
+
 ## [7.26.0](https://github.com/snakemake/snakemake/compare/v7.25.4...v7.26.0) (2023-05-22)
 
 

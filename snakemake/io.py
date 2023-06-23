@@ -145,12 +145,15 @@ class IOCache:
                 if item is stop_item:
                     queue.task_done()
                     return
-                try:
-                    self.mtime[item] = await self.collect_mtime(item)
-                except Exception as e:
-                    queue.task_done()
+                # Avoid superfluously checking mtime as the same file might be
+                # added multiple times to the queue.
+                if item not in self.mtime:
+                    try:
+                        self.mtime[item] = await self.collect_mtime(item)
+                    except Exception as e:
+                        queue.task_done()
 
-                    raise e
+                        raise e
                 queue.task_done()
 
         tasks = [
@@ -1284,7 +1287,7 @@ def multiext(prefix, *extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
+            r"Extensions for multiext may not contain path delimiters (/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1701,7 +1704,7 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
                 raise WorkflowError(
                     "Config file is not valid JSON or YAML. "
                     "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
+                    "whitespace and tab indentation."
                 )
     except FileNotFoundError:
         raise WorkflowError(f"{filetype} file {configpath} not found.")
@@ -1712,7 +1715,7 @@ def load_configfile(configpath):
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
         raise WorkflowError(
-            "Config file must be given as JSON or YAML " "with keys at top level."
+            "Config file must be given as JSON or YAML with keys at top level."
         )
     return config
 

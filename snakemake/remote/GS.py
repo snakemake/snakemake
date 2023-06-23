@@ -179,7 +179,7 @@ class RemoteObject(AbstractRemoteObject):
         subfolder = os.path.dirname(self.blob.name)
         for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):
             # By way of being listed, it exists. mtime is a datetime object
-            name = "{}/{}".format(blob.bucket.name, blob.name)
+            name = f"{blob.bucket.name}/{blob.name}"
             cache.exists_remote[name] = True
             cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
@@ -189,7 +189,7 @@ class RemoteObject(AbstractRemoteObject):
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.exists_remote.has_inventory.add("%s/%s" % (self.bucket_name, subfolder))
+        cache.exists_remote.has_inventory.add(f"{self.bucket_name}/{subfolder}")
 
     # === Implementations of abstract class members ===
 
@@ -262,7 +262,7 @@ class RemoteObject(AbstractRemoteObject):
         os.makedirs(self.local_file(), exist_ok=True)
 
         for blob in self.directory_entries():
-            local_name = "{}/{}".format(blob.bucket.name, blob.name)
+            local_name = f"{blob.bucket.name}/{blob.name}"
 
             # Don't try to create "directory blob"
             if os.path.exists(local_name) and os.path.isdir(local_name):

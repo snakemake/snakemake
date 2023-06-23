@@ -7,6 +7,7 @@ import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
+from pathlib import Path
 import re
 import sys
 import threading
@@ -15,7 +16,9 @@ from functools import partial
 import importlib
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.executors.common import url_can_parse
 from snakemake.target_jobs import parse_target_jobs_cli_args
+from snakemake.executors.common import url_can_parse
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -173,6 +176,9 @@ def snakemake(
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
+    az_batch=False,
+    az_batch_enable_autoscale=False,
+    az_batch_account_url=None,
     google_lifesciences=False,
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
@@ -316,6 +322,9 @@ def snakemake(
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
         tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
+        az_batch (bool):            Submit jobs to azure batch.
+        az_batch_enable_autoscale (bool): Enable autoscaling of the azure batch pool nodes. This sets the initial dedicated node pool count to zero and resizes the pool only after 5 minutes. So this flag is only recommended for relatively long running jobs.,
+        az_batch_account_url (str): Azure batch account url.
         google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
@@ -420,6 +429,11 @@ def snakemake(
                 tibanna_config_dict.update({k: v})
             tibanna_config = tibanna_config_dict
 
+    # Azure batch uses compute engine and storage
+    if az_batch:
+        assume_shared_fs = False
+        default_remote_provider = "AzBlob"
+
     # Google Cloud Life Sciences API uses compute engine and storage
     if google_lifesciences:
         assume_shared_fs = False
@@ -458,6 +472,7 @@ def snakemake(
         or drmaa
         or kubernetes
         or tibanna
+        or az_batch
         or google_lifesciences
         or tes
         or slurm
@@ -575,7 +590,7 @@ def snakemake(
                 raise WorkflowError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=True, is_default=True
+                    keep_local=keep_remote_local, is_default=True
                 )
             else:
                 raise WorkflowError(
@@ -733,6 +748,9 @@ def snakemake(
                     default_remote_prefix=default_remote_prefix,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -793,6 +811,9 @@ def snakemake(
                     k8s_cpu_scalar=k8s_cpu_scalar,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
+                    az_batch=az_batch,
+                    az_batch_enable_autoscale=az_batch_enable_autoscale,
+                    az_batch_account_url=az_batch_account_url,
                     google_lifesciences=google_lifesciences,
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
@@ -1117,38 +1138,39 @@ def get_profile_file(profile, file, return_default=False):
     return None
 
 
-def get_argument_parser(profile=None):
+def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     import configargparse
-    from configargparse import YAMLConfigFileParser
+    from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
     config_files = []
-    if profile:
-        if profile == "":
-            print("Error: invalid profile name.", file=sys.stderr)
-            exit(1)
+    if profiles:
+        for profile in profiles:
+            if profile == "":
+                print("Error: invalid profile name.", file=sys.stderr)
+                exit(1)
 
-        config_file = get_profile_file(profile, "config.yaml")
-        if config_file is None:
-            print(
-                "Error: profile given but no config.yaml found. "
-                "Profile has to be given as either absolute path, relative "
-                "path or name of a directory available in either "
-                "{site} or {user}.".format(
-                    site=dirs.site_config_dir, user=dirs.user_config_dir
-                ),
-                file=sys.stderr,
-            )
-            exit(1)
-        config_files = [config_file]
+            config_file = get_profile_file(profile, "config.yaml")
+            if config_file is None:
+                print(
+                    "Error: profile given but no config.yaml found. "
+                    "Profile has to be given as either absolute path, relative "
+                    "path or name of a directory available in either "
+                    "{site} or {user}.".format(
+                        site=dirs.site_config_dir, user=dirs.user_config_dir
+                    ),
+                    file=sys.stderr,
+                )
+                exit(1)
+            config_files.append(config_file)
 
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
         formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
-        config_file_parser_class=YAMLConfigFileParser,
+        config_file_parser_class=ProfileConfigFileParser,
     )
 
     group_exec = parser.add_argument_group("EXECUTION")
@@ -1173,21 +1195,46 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--profile",
+        help=f"""
+            Name of profile to use for configuring
+            Snakemake. Snakemake will search for a corresponding
+            folder in {dirs.site_config_dir} and {dirs.user_config_dir}. Alternatively, this can be an
+            absolute or relative path.
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. Profiles can be obtained from
+            https://github.com/snakemake-profiles.
+            The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
+            To override this variable and use no profile at all, provide the value 'none'
+            to this argument.
+            """,
+        env_var="SNAKEMAKE_PROFILE",
+    )
+
+    group_exec.add_argument(
+        "--workflow-profile",
         help="""
-                        Name of profile to use for configuring
-                        Snakemake. Snakemake will search for a corresponding
-                        folder in {} and {}. Alternatively, this can be an
-                        absolute or relative path.
-                        The profile folder has to contain a file 'config.yaml'.
-                        This file can be used to set default values for command
-                        line options in YAML format. For example,
-                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
-                        file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles.
-                        The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
-                        """.format(
-            dirs.site_config_dir, dirs.user_config_dir
-        ),
+            Path (relative to current directory) to workflow specific profile 
+            folder to use for configuring Snakemake with parameters specific for this
+            workflow (like resources).
+            If this flag is not used, Snakemake will by default use 
+            'profiles/default' if present (searched both relative to current directory
+            and relative to Snakefile, in this order).
+            For skipping any workflow specific profile provide the special value 'none'.
+            Settings made in the workflow profile will override settings made in the
+            general profile (see --profile).
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. It is advisable to use the workflow profile to set
+            or overwrite e.g. workflow specific resources like the amount of threads
+            of a particular rule or the amount of memory needed.
+            Note that in such cases, the arguments may be given as nested YAML mappings 
+            in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
+            """,
         env_var="SNAKEMAKE_PROFILE",
     )
 
@@ -1532,7 +1579,7 @@ def get_argument_parser(profile=None):
         "--rerun-incomplete",
         "--ri",
         action="store_true",
-        help=("Re-run all " "jobs the output of which is recognized as incomplete."),
+        help=("Re-run all jobs the output of which is recognized as incomplete."),
     )
     group_exec.add_argument(
         "--shadow-prefix",
@@ -2136,7 +2183,7 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--default-remote-prefix",
         default="",
-        help="Specify prefix for default remote provider. E.g. " "a bucket name.",
+        help="Specify prefix for default remote provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",
@@ -2374,9 +2421,10 @@ def get_argument_parser(profile=None):
     group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
-    group_tibanna = parser.add_argument_group("TIBANNA")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
+    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
+    group_tibanna = parser.add_argument_group("TIBANNA")
 
     group_kubernetes.add_argument(
         "--kubernetes",
@@ -2498,6 +2546,26 @@ def get_argument_parser(profile=None):
         help="Specify a subnetwork for a Google Compute Engine VM instance",
     )
 
+    group_azure_batch = parser.add_argument_group("AZURE_BATCH")
+
+    group_azure_batch.add_argument(
+        "--az-batch",
+        action="store_true",
+        help="Execute workflow on azure batch",
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-enable-autoscale",
+        action="store_true",
+        help="Enable autoscaling of the azure batch pool nodes, this option will set the initial dedicated node count to zero, and requires five minutes to resize the cluster, so is only recommended for longer running jobs.",
+    )
+
+    group_azure_batch.add_argument(
+        "--az-batch-account-url",
+        nargs="?",
+        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set.",
+    )
+
     group_flux.add_argument(
         "--flux",
         action="store_true",
@@ -2529,7 +2597,7 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--list-conda-envs",
         action="store_true",
-        help="List all conda environments and their location on " "disk.",
+        help="List all conda environments and their location on disk.",
     )
     group_conda.add_argument(
         "--conda-prefix",
@@ -2648,10 +2716,55 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile and args.mode == Mode.default:
+    snakefile = args.snakefile
+    if snakefile is None:
+        for p in SNAKEFILE_CHOICES:
+            if os.path.exists(p):
+                snakefile = p
+                break
+        if snakefile is None:
+            print(
+                "Error: no Snakefile found, tried {}.".format(
+                    ", ".join(SNAKEFILE_CHOICES)
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    workflow_profile = None
+    if args.workflow_profile != "none":
+        if args.workflow_profile:
+            workflow_profile = args.workflow_profile
+        else:
+            default_path = Path("profiles/default")
+            workflow_profile_candidates = [
+                default_path,
+                Path(snakefile).parent.joinpath(default_path),
+            ]
+            for profile in workflow_profile_candidates:
+                if profile.exists():
+                    workflow_profile = profile
+                    break
+
+    if args.profile == "none":
+        args.profile = None
+
+    if (args.profile or workflow_profile) and args.mode == Mode.default:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (Mode.default)
-        parser = get_argument_parser(args.profile)
+        profiles = []
+        if args.profile:
+            profiles.append(args.profile)
+        if workflow_profile:
+            profiles.append(workflow_profile)
+
+        print(
+            f"Using profile{'s' if len(profiles) > 1 else ''} "
+            f"{' and '.join(map(str, profiles))} for setting default command line arguments.",
+            file=sys.stderr,
+        )
+
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
         def adjust_path(f):
@@ -2725,6 +2838,7 @@ def main(argv=None):
         or args.tibanna
         or args.kubernetes
         or args.tes
+        or args.az_batch
         or args.google_lifesciences
         or args.drmaa
         or args.flux
@@ -2803,7 +2917,7 @@ def main(argv=None):
 
     if args.singularity_prefix and not args.use_singularity:
         print(
-            "Error: --use_singularity must be set if --singularity-prefix " "is set.",
+            "Error: --use_singularity must be set if --singularity-prefix is set.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -2844,6 +2958,33 @@ def main(argv=None):
                 )
                 sys.exit(1)
 
+    if args.az_batch:
+        if not args.default_remote_provider or not args.default_remote_prefix:
+            print(
+                "Error: --az-batch must be combined with "
+                "--default-remote-provider AzBlob and --default-remote-prefix to "
+                "provide a blob container name\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        elif args.az_batch_account_url is None:
+            print(
+                "Error: --az-batch-account-url must be set when --az-batch is used\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        elif not url_can_parse(args.az_batch_account_url):
+            print(
+                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
+            )
+            sys.exit(1)
+        elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
+            print(
+                "Error: environment variable AZ_BATCH_ACCOUNT_KEY must be set when --az-batch is used\n",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     if args.google_lifesciences:
         if (not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") 
             and not args.google_lifesciences_service_account_email):
@@ -2871,19 +3012,6 @@ def main(argv=None):
         )
         sys.exit(1)
 
-    if args.snakefile is None:
-        for p in SNAKEFILE_CHOICES:
-            if os.path.exists(p):
-                args.snakefile = p
-                break
-        if args.snakefile is None:
-            print(
-                "Error: no Snakefile found, tried {}.".format(
-                    ", ".join(SNAKEFILE_CHOICES), file=sys.stderr
-                )
-            )
-            sys.exit(1)
-
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -2897,7 +3025,7 @@ def main(argv=None):
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
 
-        _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
+        _snakemake = partial(snakemake, os.path.abspath(snakefile))
         gui.register(_snakemake, args)
 
         if ":" in args.gui:
@@ -2985,7 +3113,7 @@ def main(argv=None):
                 aggregated_wait_for_files.extend(extra_wait_files)
 
         success = snakemake(
-            args.snakefile,
+            snakefile,
             batch=batch,
             cache=args.cache,
             report=args.report,
@@ -3044,6 +3172,9 @@ def main(argv=None):
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
+            az_batch=args.az_batch,
+            az_batch_enable_autoscale=args.az_batch_enable_autoscale,
+            az_batch_account_url=args.az_batch_account_url,
             google_lifesciences=args.google_lifesciences,
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
