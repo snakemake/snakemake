@@ -7,7 +7,6 @@ __license__ = "MIT"
 import importlib
 import os
 import pkgutil
-import packaging.version
 from snakemake.logging import logger
 
 executor_plugin_prefix = "snakemake_executor_"
@@ -83,6 +82,7 @@ def validate_snakemake_version(minimum_version):
     determine and are more leniant and allow it.
     """
     from snakemake import __version__
+    import packaging.version
 
     # If it's unknown, give a warning and allow it
     if "unknown" in __version__:
