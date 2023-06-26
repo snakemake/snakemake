@@ -2701,7 +2701,6 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-<<<<<<< HEAD
     snakefile = args.snakefile
     if snakefile is None:
         for p in SNAKEFILE_CHOICES:
