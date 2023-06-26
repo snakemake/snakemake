@@ -33,10 +33,7 @@ def test_workflow_calling():
                 ),
                 file=f,
             )
-        workflow = Workflow(
-            snakefile=snakefile,
-            overwrite_workdir=tmpdir,
-        )
+        workflow = Workflow(snakefile=snakefile, overwrite_workdir=tmpdir)
 
 
 def test_run_script_directive():

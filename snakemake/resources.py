@@ -15,9 +15,7 @@ class DefaultResources:
         "tmpdir": "system_tmpdir",
     }
 
-    bare_defaults = {
-        "tmpdir": "system_tmpdir",
-    }
+    bare_defaults = {"tmpdir": "system_tmpdir"}
 
     @classmethod
     def decode_arg(cls, arg):
@@ -28,7 +26,7 @@ class DefaultResources:
 
     @classmethod
     def encode_arg(cls, name, value):
-        return "{}={}".format(name, value)
+        return f"{name}={value}"
 
     def __init__(self, args=None, from_other=None, mode="full"):
         if mode == "full":
@@ -36,7 +34,7 @@ class DefaultResources:
         elif mode == "bare":
             self._args = dict(DefaultResources.bare_defaults)
         else:
-            raise ValueError("Unexpected mode for DefaultResources: {}".format(mode))
+            raise ValueError(f"Unexpected mode for DefaultResources: {mode}")
 
         if from_other is not None:
             self._args = dict(from_other._args)
@@ -86,7 +84,7 @@ class DefaultResources:
             self.parsed.update(parse_resources(self._args, fallback=fallback))
 
     def set_resource(self, name, value):
-        self._args[name] = "{}".format(value)
+        self._args[name] = f"{value}"
         self.parsed[name] = value
 
     @property

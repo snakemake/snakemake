@@ -5,11 +5,9 @@ __license__ = "MIT"
 
 import os
 import shlex
-import sys
 from collections import namedtuple
 
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.executors.common import format_cli_arg, join_cli_args
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -22,7 +20,9 @@ try:
 except ImportError:
     flux = None
 
-FluxJob = namedtuple("FluxJob", "job jobname jobid callback error_callback flux_future")
+FluxJob = namedtuple(
+    "FluxJob", "job jobname jobid callback error_callback flux_future flux_logfile"
+)
 
 
 class FluxExecutor(ClusterExecutor):
@@ -88,13 +88,16 @@ class FluxExecutor(ClusterExecutor):
 
     def _get_jobname(self, job):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
+        return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         """
         Submit a job to flux.
         """
         super()._run(job)
+
+        flux_logfile = job.logfile_suggestion(".snakemake/flux_logs")
+        os.makedirs(os.path.dirname(flux_logfile), exist_ok=True)
 
         # Prepare job resourcces
         self._set_job_resources(job)
@@ -109,11 +112,16 @@ class FluxExecutor(ClusterExecutor):
 
         # A duration of zero (the default) means unlimited
         fluxjob.duration = job.resources.get("runtime", 0)
+        fluxjob.stderr = flux_logfile
 
         # Ensure the cwd is the snakemake working directory
         fluxjob.cwd = self.workdir
         fluxjob.environment = dict(os.environ)
         flux_future = self._fexecutor.submit(fluxjob)
+
+        logger.info(
+            f"Job {job.jobid} has been submitted with flux jobid {flux_future.jobid()} (log: {flux_logfile})."
+        )
 
         # Waiting for the jobid is a small performance penalty, same as calling flux.job.submit
         self.active_jobs.append(
@@ -124,6 +132,7 @@ class FluxExecutor(ClusterExecutor):
                 callback,
                 error_callback,
                 flux_future,
+                flux_logfile,
             )
         )
 
@@ -144,14 +153,12 @@ class FluxExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-                logger.debug("Checking status for job {}".format(j.jobid))
+                logger.debug(f"Checking status for job {j.jobid}")
                 if j.flux_future.done():
-
                     # The exit code can help us determine if the job was successful
                     try:
                         exit_code = j.flux_future.result(0)
                     except RuntimeError:
-
                         # job did not complete
                         self.print_job_error(j.job, jobid=j.jobid)
                         j.error_callback(j.job)
@@ -159,7 +166,9 @@ class FluxExecutor(ClusterExecutor):
                     else:
                         # the job finished (but possibly with nonzero exit code)
                         if exit_code != 0:
-                            self.print_job_error(j.job, jobid=j.jobid)
+                            self.print_job_error(
+                                j.job, jobid=j.jobid, aux_logs=[j.flux_logfile]
+                            )
                             j.error_callback(j.job)
                             continue
 

@@ -15,7 +15,7 @@ Thereby wildcards can be used to write general rules.
 Grammar
 -------
 
-The Snakefile syntax obeys the following grammar, given in extended Backus-Naur form (EBNF)
+The Snakefile syntax obeys the following grammar, given in `extended Backus-Naur form (EBNF) <https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form>`_.
 
 .. code-block:: text
 
@@ -27,7 +27,7 @@ The Snakefile syntax obeys the following grammar, given in extended Backus-Naur 
     configfile   = "configfile" ":" stringliteral
     userule      = "use" "rule" (identifier | "*") "from" identifier ["as" identifier] ["with" ":" norunparams]
     ni           = NEWLINE INDENT
-    norunparams  = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni resources] [ni log] [ni conda] [ni container] [ni benchmark] [ni cache]
+    norunparams  = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni resources] [ni log] [ni conda] [ni container] [ni benchmark] [ni cache] [ni priority]
     ruleparams   = norunparams [ni (run | shell | script | notebook)] NEWLINE snakemake
     input        = "input" ":" parameter_list
     output       = "output" ":" parameter_list
@@ -37,6 +37,7 @@ The Snakefile syntax obeys the following grammar, given in extended Backus-Naur 
     cache        = "cache" ":" bool
     message      = "message" ":" stringliteral
     threads      = "threads" ":" integer
+    priority     = "priority" ":" integer
     resources    = "resources" ":" parameter_list
     version      = "version" ":" statement
     conda        = "conda" ":" stringliteral

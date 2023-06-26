@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import logging
 import os
-import sys
 import time
 import shutil
 import tarfile
@@ -197,7 +196,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Hold path to requested subdirectory and main bucket
         bucket_name = self.workflow.default_remote_prefix.split("/")[0]
         self.gs_subdir = re.sub(
-            "^{}/".format(bucket_name), "", self.workflow.default_remote_prefix
+            f"^{bucket_name}/", "", self.workflow.default_remote_prefix
         )
         self.gs_logs = os.path.join(self.gs_subdir, "google-lifesciences-logs")
 
@@ -240,7 +239,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         locations = (
             self._api.projects()
             .locations()
-            .list(name="projects/{}".format(self.project))
+            .list(name=f"projects/{self.project}")
             .execute()
         )
 
@@ -328,7 +327,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         for job in self.active_jobs:
             request = operations.cancel(name=job.jobname)
-            logger.debug("Cancelling operation {}".format(job.jobid))
+            logger.debug(f"Cancelling operation {job.jobid}")
             try:
                 self._retry_request(request)
             except (Exception, BaseException, googleapiclient.errors.HttpError):
@@ -587,7 +586,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Filter down to those with greater than or equal to needed gpus
         keepers = {}
         for accelerator in accelerators.get("items", []):
-
             # Eliminate virtual workstations (vws) and models that don't match user preference
             if (gpu_model and accelerator["name"] != gpu_model) or accelerator[
                 "name"
@@ -636,7 +634,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         for wfs in self.dag.get_sources():
             if os.path.isdir(wfs):
-                for (dirpath, dirnames, filenames) in os.walk(wfs):
+                for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [
                             self.workflow.check_source_sizes(os.path.join(dirpath, f))
@@ -682,7 +680,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Rename based on hash, in case user wants to save cache
         sha256 = get_file_hash(targz)
         hash_tar = os.path.join(
-            self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256)
+            self.workflow.persistence.aux_path, f"workdir-{sha256}.tar.gz"
         )
 
         # Only copy if we don't have it yet, clean up if we do
@@ -723,13 +721,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/jobid_%s"
-            % (self.bucket.name, self.gs_logs, job.name, job.jobid),
+            f"wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save {self.bucket.name} /google/logs {self.gs_logs}/{job.name}/jobid_{job.jobid}",
         ]
 
         # Always run the action to generate log output
         action = {
-            "containerName": "snakelog-{}-{}".format(job.name, job.jobid),
+            "containerName": f"snakelog-{job.name}-{job.jobid}",
             "imageUri": self.container_image,
             "commands": commands,
             "labels": self._generate_pipeline_labels(job),
@@ -764,7 +761,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # We are only generating one action, one job per run
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run#Action
         action = {
-            "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
+            "containerName": f"snakejob-{job.name}-{job.jobid}",
             "imageUri": self.container_image,
             "commands": commands,
             "environment": self._generate_environment(),
@@ -774,7 +771,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def _get_jobname(self, job):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
+        return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
     def _generate_pipeline_labels(self, job):
         """
@@ -826,7 +823,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         return pipeline
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
-
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
@@ -889,7 +885,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/Event
         for event in status["metadata"]["events"]:
-
             logger.debug(event["description"])
 
             # Does it always result in fail for other failure reasons?
@@ -971,20 +966,17 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-
                 # use self.status_rate_limiter to avoid too many API calls.
                 async with self.status_rate_limiter:
-
                     # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.operations/get
                     # Get status from projects.locations.operations/get
                     operations = self._api.projects().locations().operations()
                     request = operations.get(name=j.jobname)
-                    logger.debug("Checking status for operation {}".format(j.jobid))
+                    logger.debug(f"Checking status for operation {j.jobid}")
 
                     try:
                         status = self._retry_request(request)
                     except googleapiclient.errors.HttpError as ex:
-
                         # Operation name not found, even finished should be found
                         if ex.status == 404:
                             j.error_callback(j.job)
@@ -1002,7 +994,6 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
                     # The operation is done
                     if status.get("done", False) == True:
-
                         # Derive success/failure from status codes (prints too)
                         if self._job_was_successful(status):
                             j.callback(j.job)

@@ -7,10 +7,8 @@ import os
 import json
 import re
 import inspect
-from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
-import platform
 from itertools import chain
 import collections
 import multiprocessing
@@ -18,11 +16,10 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
-from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS, is_local_file, smart_join
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -78,10 +75,7 @@ def validate(data, schema, set_default=True):
             },
         )
     else:
-        resolver = RefResolver(
-            schemafile.get_path_or_uri(),
-            schema,
-        )
+        resolver = RefResolver(schemafile.get_path_or_uri(), schema)
 
     # Taken from https://python-jsonschema.readthedocs.io/en/latest/faq/
     def extend_with_default(validator_class):
@@ -128,7 +122,7 @@ def validate(data, schema, set_default=True):
                             jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
-                            "Error validating row {} of data frame.".format(i), e
+                            f"Error validating row {i} of data frame.", e
                         )
                 if set_default:
                     newdata = pd.DataFrame(recordlist, data.index)
@@ -340,7 +334,7 @@ class SequenceFormatter(string.Formatter):
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
             return ",".join(
-                "{}={}".format(name, value)
+                f"{name}={value}"
                 for name, value in sorted(value.items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):
@@ -498,7 +492,7 @@ def update_config(config, overwrite_config):
     """
 
     def _update(d, u):
-        for (key, value) in u.items():
+        for key, value in u.items():
             if isinstance(value, collections.abc.Mapping):
                 d[key] = _update(d.get(key, {}), value)
             else:
@@ -713,10 +707,13 @@ class Paramspace:
         formatted as file patterns of the form column1~{value1}/column2~{value2}/...
         or of the provided custom pattern.
         """
+        import pandas as pd
+
+        fmt_value = lambda value: "NA" if pd.isna(value) else value
         return (
             self.pattern.format(
                 *(
-                    self.param_sep.join(("{}", "{}")).format(name, value)
+                    self.param_sep.join(("{}", "{}")).format(name, fmt_value(value))
                     for name, value in row._asdict().items()
                 )
             )
@@ -733,6 +730,8 @@ class Paramspace:
                 # handle problematic case when boolean False is returned as
                 # boolean True because the string "False" is misinterpreted
                 return False
+            if value == "NA":
+                return pd.NA
             else:
                 return pd.Series([value]).astype(self.dataframe.dtypes[name])[0]
 

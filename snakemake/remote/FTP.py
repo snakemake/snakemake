@@ -27,7 +27,6 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
     allows_directories = True
 
@@ -39,7 +38,7 @@ class RemoteProvider(AbstractRemoteProvider):
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
 
     @property
@@ -58,9 +57,7 @@ class RemoteProvider(AbstractRemoteProvider):
         elif isinstance(value, collections.abc.Iterable):
             values = value
         else:
-            raise TypeError(
-                "Invalid type ({}) passed to remote: {}".format(type(value), value)
-            )
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
 
         for i, file in enumerate(values):
             match = re.match("^(ftps?)://.+", file)
@@ -101,7 +98,7 @@ class RemoteObject(PooledDomainObject):
         keep_local=False,
         provider=None,
         encrypt_data_channel=False,
-        **kwargs
+        **kwargs,
     ):
         # just save to kwargs, but leave in function def so it's explicit
         kwargs["encrypt_data_channel"] = encrypt_data_channel

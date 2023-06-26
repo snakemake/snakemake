@@ -1,4 +1,3 @@
-import textwrap
 from itertools import groupby
 from pathlib import Path
 import shutil
@@ -32,7 +31,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
     logger.info("Generating unit tests for each rule...")
 
     try:
-        from jinja2 import Template, Environment, PackageLoader
+        from jinja2 import Environment, PackageLoader
     except ImportError:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
@@ -63,7 +62,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
             )
             continue
 
-        testpath = path / "test_{}.py".format(rulename)
+        testpath = path / f"test_{rulename}.py"
 
         if testpath.exists():
             logger.info(
@@ -76,9 +75,7 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         written = False
         for job in jobs:
             if all(f.exists for f in job.input):
-                logger.info(
-                    "Generating unit test for rule {}: {}.".format(rulename, testpath)
-                )
+                logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 
                 def copy_files(files, content_type):
