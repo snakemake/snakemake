@@ -529,6 +529,14 @@ class Workflow:
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
         tes=None,
+        aws_batch=False,
+        aws_batch_fsap_id=None,
+        aws_batch_efs_project_path=None,
+        aws_batch_task_timeout=None,
+        aws_batch_tags=dict(),
+        aws_batch_task_queue=None,
+        aws_batch_data_already_uploaded=False,
+        aws_batch_workflow_role=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -540,6 +548,7 @@ class Workflow:
         list_version_changes=False,
         list_code_changes=False,
         list_input_changes=False,
+        list_output=False,
         list_params_changes=False,
         list_untracked=False,
         list_conda_envs=False,
@@ -701,6 +710,7 @@ class Workflow:
             or list_version_changes
             or list_code_changes
             or list_input_changes
+            or list_output
             or list_params_changes
             or list_untracked
             or delete_all_output
@@ -911,6 +921,11 @@ class Workflow:
             if items:
                 print(*items, sep="\n")
             return True
+        elif list_output:
+            items = list(self.persistence.all_finishedoutputfiles())
+            if items:
+                print(*items, sep="\n")
+            return True
         elif list_untracked:
             dag.list_untracked()
             return True
@@ -983,6 +998,14 @@ class Workflow:
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
             tes=tes,
+            aws_batch=aws_batch,
+            aws_batch_fsap_id=aws_batch_fsap_id,
+            aws_batch_efs_project_path=aws_batch_efs_project_path,
+            aws_batch_task_timeout=aws_batch_task_timeout,
+            aws_batch_tags=aws_batch_tags,
+            aws_batch_task_queue=aws_batch_task_queue,
+            aws_batch_data_already_uploaded=aws_batch_data_already_uploaded,
+            aws_batch_workflow_role=aws_batch_workflow_role,
             preemption_default=preemption_default,
             preemptible_rules=preemptible_rules,
             precommand=precommand,
