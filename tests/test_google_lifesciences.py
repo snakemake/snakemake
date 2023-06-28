@@ -25,8 +25,10 @@ google_credentials = pytest.mark.skipif(
 
 def get_default_service_account_email():
     """Returns the default service account if running on a GCE VM, otherwise None."""
-    response = requests.get("http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email",
-                            headers={"Metadata-Flavor": "Google"})
+    response = requests.get(
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email",
+        headers={"Metadata-Flavor": "Google"},
+    )
     if response.status_code == requests.codes.ok:
         return response.text
     else:
@@ -87,7 +89,7 @@ def test_google_lifesciences():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
-            google_lifesciences_service_account_email = get_default_service_account_email(),
+            google_lifesciences_service_account_email=get_default_service_account_email(),
             preemption_default=None,
             preemptible_rules=["pack=1"],
         )
@@ -111,7 +113,7 @@ def test_touch_remote_prefix():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
-            google_lifesciences_service_account_email = get_default_service_account_email(),
+            google_lifesciences_service_account_email=get_default_service_account_email(),
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
@@ -131,7 +133,7 @@ def test_cloud_checkpoints_issue574():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
-            google_lifesciences_service_account_email = get_default_service_account_email(),
+            google_lifesciences_service_account_email=get_default_service_account_email(),
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
