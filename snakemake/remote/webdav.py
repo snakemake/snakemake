@@ -63,7 +63,7 @@ class RemoteObject(DomainObject):
                 self.loop = asyncio.get_event_loop()
                 if self.loop.is_running():
                     raise NotImplementedError(
-                        "Cannot use aioutils in " "asynchroneous environment"
+                        "Cannot use aioutils in asynchroneous environment"
                     )
             except:
                 newloop = True

@@ -1016,7 +1016,7 @@ class Workflow:
                         )
                         logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
-                            "Rules claiming more threads " "will be scaled down."
+                            "Rules claiming more threads will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)
@@ -1328,9 +1328,7 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(
-            project=self.globals["pep"], schema=schema, exclude_case=True
-        )
+        eido.validate_project(project=self.globals["pep"], schema=schema)
 
     def report(self, path):
         """Define a global report description in .rst format."""

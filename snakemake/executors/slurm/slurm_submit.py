@@ -21,7 +21,7 @@ def get_account():
     tries to deduce the acccount from recent jobs,
     returns None, if none is found
     """
-    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
+    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%256 | head -n1'
     try:
         sacct_out = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
@@ -38,7 +38,7 @@ def test_account(account):
     """
     tests whether the given account is registered, raises an error, if not
     """
-    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'
+    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%256'
     try:
         accounts = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
@@ -143,7 +143,7 @@ class SlurmExecutor(ClusterExecutor):
                     stderr=subprocess.PIPE,
                 )
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel jobs within a minute.")
+                logger.warning("Unable to cancel jobs within a minute.")
         self.shutdown()
 
     def get_account_arg(self, job):
@@ -239,7 +239,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("cpus_per_task"):
             if not isinstance(cpus_per_task, int):
                 raise WorkflowError(
-                    "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
+                    f"cpus_per_task must be an integer, but is {cpus_per_task}"
                 )
             cpus_per_task = job.resources.cpus_per_task
         # ensure that at least 1 cpu is requested
