@@ -171,6 +171,22 @@ Workflow specific profiles are either not shared at all, or can be distributed a
 For example, when the workflow has its Snakefile at ``workflow/Snakefile``, the profile config should be placed at ``workflow/profiles/default/config.yaml``.
 
 
+Use templating in profiles
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When the profile starts with
+
+.. code-block:: yaml
+
+    __use_yte__: true
+
+It will be treated as a `YTE template <https://yte-template-engine.github.io>`_ and parsed accordingly.
+This can be handy to e.g. define values inside of the profile that are based on environment variables.
+For example, admins could use this to define user-specific settings.
+Another application would be the uniform redefinition of resource requirements for a larger set of rules in a workflow profile (see above).
+However, it should be noted that templated profiles are harder to keep free of errors and the profile author has to make sure that they always work correctly for the user.
+
+
 .. _getting_started-visualization:
 
 -------------
