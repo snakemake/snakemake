@@ -5,10 +5,10 @@ from configargparse import YAMLConfigFileParser, ConfigFileParserException
 class ProfileConfigFileParser(YAMLConfigFileParser):
     def parse(self, stream):
         # taken from configargparse and modified to add special handling for key-value pairs
-        yaml = self._load_yaml()
+        import yte
 
         try:
-            parsed_obj = yaml.safe_load(stream)
+            parsed_obj = yte.process_yaml(stream, require_use_yte=True)
         except Exception as e:
             raise ConfigFileParserException("Couldn't parse config file: %s" % e)
 

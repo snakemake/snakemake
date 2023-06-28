@@ -1351,9 +1351,7 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(
-            project=self.globals["pep"], schema=schema, exclude_case=True
-        )
+        eido.validate_project(project=self.globals["pep"], schema=schema)
 
     def report(self, path):
         """Define a global report description in .rst format."""
