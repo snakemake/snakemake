@@ -2986,8 +2986,10 @@ def main(argv=None):
             sys.exit(1)
 
     if args.google_lifesciences:
-        if (not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") 
-            and not args.google_lifesciences_service_account_email):
+        if (
+            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") 
+            and not args.google_lifesciences_service_account_email
+        ):
             print(
                 "Error: Either the GOOGLE_APPLICATION_CREDENTIALS environment variable "
                 "or --google-lifesciences-service-account-email must be available "
