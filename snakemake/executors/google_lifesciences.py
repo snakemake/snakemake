@@ -107,12 +107,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         logger.debug("regions=%s" % self.regions)
         logger.debug("location=%s" % self.location)
         logger.debug("container=%s" % self.container_image)
-        
+
         # If specified, capture service account and GCE VM network configuration
         self.service_account_email = service_account_email
         self.network = network
         self.subnetwork = subnetwork
-        
+
         # Log service account and VM network configuration
         logger.debug("service_account_email=%s" % self.service_account_email)
         logger.debug("network=%s" % self.network)
@@ -559,7 +559,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 )
         else:
             preemptible = job.rule.name in self.preemptible_rules
-            
+
         # We add the size for the image itself (10 GB) to bootDiskSizeGb
         virtual_machine = {
             "machineType": smallest,
@@ -567,7 +567,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "bootDiskSizeGb": disk_gb + 10,
             "preemptible": preemptible,
         }
-        
+
         # Add custom GCE VM configuration
         if self.network and self.subnetwork:
             virtual_machine["network"] = {
@@ -575,7 +575,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 "usePrivateAddress": False,
                 "subnetwork": self.subnetwork,
             }
-            
+
         if self.service_account_email:
             virtual_machine["service_account"] = {
                 "email": self.service_account_email,
@@ -591,8 +591,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 {"type": accelerator["name"], "count": gpu_count}
             ]
 
-        resources = {"regions": self.regions,
-                     "virtualMachine": virtual_machine}
+        resources = {"regions": self.regions, "virtualMachine": virtual_machine}
         return resources
 
     def _get_accelerator(self, gpu_count, zone, gpu_model=None):
