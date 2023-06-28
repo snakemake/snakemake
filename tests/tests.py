@@ -2019,6 +2019,11 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
 
 
+def test_prebuilt_conda_script():
+    sp.run("conda env create -f tests/test_prebuilt_conda_script/env.yaml", shell=True)
+    run(dpath("test_prebuilt_conda_script"), use_conda=True)
+
+
 @skip_on_windows
 def test_github_issue1818():
     run(dpath("test_github_issue1818"), rerun_triggers="input")
