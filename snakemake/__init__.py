@@ -41,7 +41,7 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-from snakemake.plugins import executor_plugins, validate_executor_plugin
+import snakemake.plugins as plugins
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
@@ -2669,9 +2669,8 @@ def get_argument_parser(profiles=None):
         "fallback for rules which don't define environment modules.",
     )
 
-    # Allow custom executors to add parser arguments or groups
-    for _, executor_plugin in executor_plugins.items():
-        executor_plugin.add_args(parser)
+    # Add namespaced arguments to parser for each plugin
+    plugins.add_args(parser)
     return parser
 
 
@@ -2717,7 +2716,7 @@ def main(argv=None):
             sys.exit(1)
 
     # If a custom executor is provided, it must be known
-    if args.executor and args.executor not in executor_plugins:
+    if args.executor and args.executor not in plugins.executor_plugins:
         logger.error(
             f"Executor {args.executor} not found. Did you install snakemake-executor-{args.executor}?"
         )
@@ -2727,12 +2726,16 @@ def main(argv=None):
     # We also only validate an executor plugin when it's selected
     executor_args = None
     if args.executor:
-        if not validate_executor_plugin(executor_plugins[args.executor]):
+        executor = plugins.get_executor(args.executor)
+        if not executor:
+            logger.error(f"Executor {args.executor} is not known.")
+            exit(1)
+        if not plugins.validate_executor_plugin(executor):
             logger.error(f"Executor {args.executor} is not valid.")
             exit(1)
 
         # This is the dataclass prepared by the executor
-        executor_args = executor_plugins[args.executor].parse(args)
+        executor_args = plugins.args_to_dataclass(args, executor)
 
         # We add onto it the name of the executor
         executor_args._executor_name = args.executor

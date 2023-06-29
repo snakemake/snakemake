@@ -3,9 +3,10 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-
-import importlib
 import os
+import copy
+from dataclasses import dataclass, fields
+import importlib
 import pkgutil
 from snakemake.logging import logger
 
@@ -24,15 +25,61 @@ ArgTypes = (str, int, float, bool)
 
 # Required executor plugin attributes
 executor_plugin_attributes = [
-    "add_args",
     "local_executor",
     "executor",
-    "parse",
+    "ExecutorParameters",
     "snakemake_minimum_version",
 ]
 
 
-def args_to_dataclass(args, dc):
+@dataclass
+class EmptyParameters:
+    """
+    Plugins that don't define / expose ExecutorParameters are given an empty set.
+    """
+
+    pass
+
+
+def get_executor(name):
+    """
+    Courtesy function to get an executor plugin by name.
+    """
+    return executor_plugins.get(name)
+
+
+def add_args(parser):
+    """
+    Add custom arguments (dc attributes) from executor plugins to the parser
+    """
+    from argparse_dataclass import _add_dataclass_options
+
+    for name, executor in executor_plugins.items():
+        params = getattr(executor, "ExecutorParameters", None)
+        if not params:
+            continue
+
+        # Assemble a new dataclass with the same fields, but with prefix
+        # fields are stored at dc.__dataclass_fields__
+        dc = copy.deepcopy(params)
+        for field in fields(params):
+
+            # Executor plugin dataclass members get prefixed with their
+            # name when passed into snakemake args.
+            prefixed_name = f"{name}_{field.name}"
+
+            # Since we use the helper function below, we
+            # need a new dataclass that has these prefixes
+            del dc.__dataclass_fields__[field.name]
+            field.name = prefixed_name
+            dc.__dataclass_fields__[field.name] = field
+
+        # When we get here, we have a namespaced dataclass.
+        # If there is overlap in snakemake args, it should error
+        _add_dataclass_options(dc, parser)
+
+
+def args_to_dataclass(args, executor):
     """
     Given snakemake args and a dataclass (dc) parse back into the Dataclass
 
@@ -40,22 +87,30 @@ def args_to_dataclass(args, dc):
     for a dataclass. It allows us to pass them from the custom executor ->
     custom argument parser -> back into dataclass -> snakemake.
     """
+    # Cut out early if we don't have parameters
+    if not hasattr(executor, "ExecutorParameters"):
+        return EmptyParameters()
+
+    # We will parse the args from snakemake back into the dataclass
+    dc = getattr(executor, "ExecutorParameters")
+
     # Iterate through the args, and parse those in the namespace
     prefix = get_plugin_name_from_dataclass(dc)
     kwargs = {}
 
-    # Only derive those provided by the dataclass
-    for arg in dir(dc):
-        # Stick to those namespaced for the executor
-        if not arg.startswith(prefix):
-            continue
-        value = getattr(args, arg)
+    # These fields will have the executor prefix
+    for field in fields(dc):
 
-        # And those that are in acceptable types
+        # This is the actual field name without the prefix
+        name = field.name.replace(f"{prefix}_", "", 1)
+        value = getattr(args, field.name, None)
+
+        # This will only add instantiated values, and
+        # skip over dataclasses._MISSING_TYPE and similar
         if isinstance(value, ArgTypes):
-            kwargs[arg] = value
+            kwargs[name] = value
 
-    # At this point we want to convert the args <dataclasses> back into dataclass
+    # At this point we want to convert back to the original dataclass
     return dc(**kwargs)
 
 
