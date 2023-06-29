@@ -157,16 +157,16 @@ class Singularity:
         if raw_version.startswith("v"):
             raw_version = raw_version[1:]
 
-        parsedVersion = None
+        parsed_version = None
         trimend = len(raw_version)
-        while parsedVersion is None:
+        while parsed_version is None:
             try:
-                parsedVersion = packaging.version.Version(raw_version[:trimend])
+                parsed_version = packaging.version.Version(raw_version[:trimend])
             except packaging.version.InvalidVersion:
                 trimend = trimend - 1
                 if trimend == 0:
                     raise packaging.version.InvalidVersion(raw_version)
-        return parsedVersion
+        return parsed_version
 
     def check(self):
         from packaging.version import parse
