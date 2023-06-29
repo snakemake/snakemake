@@ -170,6 +170,7 @@ class Singularity:
                 )
             if v.startswith("apptainer"):
                 v = v.rsplit(" ", 1)[-1]
+                v = v.split("-")[0]
                 if parse(v) < parse("1.0.0"):
                     raise WorkflowError("Minimum apptainer version is 1.0.0.")
             else:
