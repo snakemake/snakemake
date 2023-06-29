@@ -133,8 +133,8 @@ def validate_snakemake_version(minimum_version):
     """
     Ensure that minimum snakemake version is satisfied.
 
-    If an unknown or unparseable version is provided, we cannot
-    determine and are more leniant and allow it.
+    If an unknown or unparsable version is provided, we cannot
+    determine and are more lenient and allow it.
     """
     from snakemake import __version__
     import packaging.version
