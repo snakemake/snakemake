@@ -165,7 +165,7 @@ class Singularity:
             except packaging.version.InvalidVersion:
                 trimend = trimend - 1
                 if trimend == 0:
-                    raise packaging.version.InvalidVersion(raw_version)
+                    raise WorkflowError(f"Apptainer/Singularity version cannot be parsed: {raw_version}")
         return parsed_version
 
     def check(self):
