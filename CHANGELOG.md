@@ -1,5 +1,33 @@
 # Changelog
 
+## [7.30.1](https://github.com/snakemake/snakemake/compare/v7.30.0...v7.30.1) (2023-06-28)
+
+
+### Bug Fixes
+
+* conda env inside script ([#1812](https://github.com/snakemake/snakemake/issues/1812)) ([49cac6a](https://github.com/snakemake/snakemake/commit/49cac6ac67fba360f2f35be7ab1972b2d8cc1f8b))
+
+## [7.30.0](https://github.com/snakemake/snakemake/compare/v7.29.0...v7.30.0) (2023-06-28)
+
+
+### Features
+
+* allow profiles to be YTE templates; adapt to eido 2.0 ([#2325](https://github.com/snakemake/snakemake/issues/2325)) ([67d9ff2](https://github.com/snakemake/snakemake/commit/67d9ff20ea61186d3818e7bc1d33e4414058fc1f))
+
+## [7.29.0](https://github.com/snakemake/snakemake/compare/v7.28.3...v7.29.0) (2023-06-21)
+
+
+### Features
+
+* introduce --workflow-profile for additional workflow specific profiles that overwrite global profiles; add ability to define key-value CLI flags like --set-threads or --set-resources as multi-level dictionaries in profile config yaml files ([#2310](https://github.com/snakemake/snakemake/issues/2310)) ([9675c17](https://github.com/snakemake/snakemake/commit/9675c17d4d7cbb95e589767974faa9219dd4154d))
+
+
+### Bug Fixes
+
+* addressing [#2197](https://github.com/snakemake/snakemake/issues/2197) by allowing 256 character account names in slurm ([#2198](https://github.com/snakemake/snakemake/issues/2198)) ([ab58c65](https://github.com/snakemake/snakemake/commit/ab58c652847c03a9f1529d2d7632f2788a5fadc4))
+* removed distutils from snakemake ([#2312](https://github.com/snakemake/snakemake/issues/2312)) ([9b8c362](https://github.com/snakemake/snakemake/commit/9b8c3620e8c14e322ba15b7d044b9deab1854b2a))
+* Update __init__.py to move "file" param to "print" ([#2291](https://github.com/snakemake/snakemake/issues/2291)) ([92352b6](https://github.com/snakemake/snakemake/commit/92352b69d14ef196b0253561c78fa04ffa25d73e))
+
 ## [7.28.3](https://github.com/snakemake/snakemake/compare/v7.28.2...v7.28.3) (2023-06-16)
 
 

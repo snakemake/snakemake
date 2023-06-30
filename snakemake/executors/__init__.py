@@ -886,7 +886,7 @@ class ClusterExecutor(RealExecutor):
                     "Make sure that your custom jobscript is defined as expected."
                 )
 
-        logger.debug("Jobscript:\n{}".format(content))
+        logger.debug(f"Jobscript:\n{content}")
         with open(jobscript, "w") as f:
             print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
@@ -944,9 +944,9 @@ class ClusterExecutor(RealExecutor):
     def print_cluster_job_error(self, job_info, jobid):
         job = job_info.job
         kind = (
-            "rule {}".format(job.rule.name)
+            f"rule {job.rule.name}"
             if not job.is_group()
-            else "group job {}".format(job.groupid)
+            else f"group job {job.groupid}"
         )
         logger.error(
             "Error executing {} on cluster (jobid: {}, external: "
@@ -1046,10 +1046,10 @@ class GenericClusterExecutor(ClusterExecutor):
         assert False, "bug: neither statuscmd defined nor shared FS"
 
     def get_jobfinished_marker(self, job):
-        return os.path.join(self.tmpdir, "{}.jobfinished".format(job.jobid))
+        return os.path.join(self.tmpdir, f"{job.jobid}.jobfinished")
 
     def get_jobfailed_marker(self, job):
-        return os.path.join(self.tmpdir, "{}.jobfailed".format(job.jobid))
+        return os.path.join(self.tmpdir, f"{job.jobid}.jobfailed")
 
     def _launch_sidecar(self):
         def copy_stdout(executor, process):
@@ -1495,7 +1495,7 @@ class DRMAAExecutor(ClusterExecutor):
                 "Please install it, e.g. with easy_install3 --user drmaa"
             )
         except RuntimeError as e:
-            raise WorkflowError("Error loading drmaa support:\n{}".format(e))
+            raise WorkflowError(f"Error loading drmaa support:\n{e}")
         self.session = drmaa.Session()
         self.drmaa_args = drmaa_args
         self.drmaa_log_dir = drmaa_log_dir
@@ -1552,14 +1552,10 @@ class DRMAAExecutor(ClusterExecutor):
             drmaa.InternalException,
             drmaa.InvalidAttributeValueException,
         ) as e:
-            print_exception(
-                WorkflowError("DRMAA Error: {}".format(e)), self.workflow.linemaps
-            )
+            print_exception(WorkflowError(f"DRMAA Error: {e}"), self.workflow.linemaps)
             error_callback(job)
             return
-        logger.info(
-            "Submitted DRMAA job {} with external jobid {}.".format(job.jobid, jobid)
-        )
+        logger.info(f"Submitted DRMAA job {job.jobid} with external jobid {jobid}.")
         self.submitted.append(jobid)
         self.session.deleteJobTemplate(jt)
 
@@ -1596,7 +1592,7 @@ class DRMAAExecutor(ClusterExecutor):
                         continue
                     except (drmaa.InternalException, Exception) as e:
                         print_exception(
-                            WorkflowError("DRMAA Error: {}".format(e)),
+                            WorkflowError(f"DRMAA Error: {e}"),
                             self.workflow.linemaps,
                         )
                         os.remove(active_job.jobscript)
@@ -1647,7 +1643,7 @@ def change_working_directory(directory=None):
     if directory:
         try:
             saved_directory = os.getcwd()
-            logger.info("Changing to shadow directory: {}".format(directory))
+            logger.info(f"Changing to shadow directory: {directory}")
             os.chdir(directory)
             yield
         finally:
@@ -1757,7 +1753,7 @@ class KubernetesExecutor(ClusterExecutor):
                 continue
 
             with open(f, "br") as content:
-                key = "f{}".format(i)
+                key = f"f{i}"
 
                 # Some files are smaller than 1MB, but grows larger after being base64 encoded
                 # We should exclude them as well, otherwise Kubernetes APIs will complain
@@ -1770,7 +1766,6 @@ class KubernetesExecutor(ClusterExecutor):
                         "the maximum file size (1MB) that can be passed "
                         "from host to kubernetes.".format(
                             f=f,
-                            source_file_size=source_file_size,
                             key=key,
                             encoded_size=encoded_size,
                         )
@@ -1808,7 +1803,7 @@ class KubernetesExecutor(ClusterExecutor):
                 if k in self.secret_files
             }
             for k, v in sorted(entry_sizes.items(), key=lambda item: item[1])[:-6:-1]:
-                logger.warning("  * File: {k}, original size: {v}".format(k=k, v=v))
+                logger.warning(f"  * File: {k}, original size: {v}")
 
             raise WorkflowError("ConfigMap too large")
 
@@ -1864,7 +1859,7 @@ class KubernetesExecutor(ClusterExecutor):
         # Kubernetes silently does not submit a job if the name is too long
         # therefore, we ensure that it is not longer than snakejob+uuid.
         jobid = "snakejob-{}".format(
-            get_uuid("{}-{}-{}".format(self.run_namespace, job.jobid, job.attempt))
+            get_uuid(f"{self.run_namespace}-{job.jobid}-{job.attempt}")
         )
 
         body = kubernetes.client.V1Pod()
@@ -2075,7 +2070,7 @@ class KubernetesExecutor(ClusterExecutor):
                 still_running = list()
             for j in active_jobs:
                 async with self.status_rate_limiter:
-                    logger.debug("Checking status for pod {}".format(j.jobid))
+                    logger.debug(f"Checking status for pod {j.jobid}")
                     job_not_found = False
                     try:
                         res = self._kubernetes_retry(
@@ -2177,7 +2172,7 @@ class TibannaExecutor(ClusterExecutor):
             self.precommand = ""
         self.s3_bucket = workflow.default_remote_prefix.split("/")[0]
         self.s3_subdir = re.sub(
-            "^{}/".format(self.s3_bucket), "", workflow.default_remote_prefix
+            f"^{self.s3_bucket}/", "", workflow.default_remote_prefix
         )
         logger.debug("precommand= " + self.precommand)
         logger.debug("bucket=" + self.s3_bucket)
@@ -2212,7 +2207,7 @@ class TibannaExecutor(ClusterExecutor):
         from tibanna.core import API
 
         for j in self.active_jobs:
-            logger.info("killing job {}".format(j.jobname))
+            logger.info(f"killing job {j.jobname}")
             while True:
                 try:
                     res = API().kill(j.exec_arn)
@@ -2228,7 +2223,7 @@ class TibannaExecutor(ClusterExecutor):
         if checkdir:
             checkdir = checkdir.rstrip("/")
             if f.startswith(checkdir):
-                fname = re.sub("^{}/".format(checkdir), "", f)
+                fname = re.sub(f"^{checkdir}/", "", f)
                 fdir = checkdir
             else:
                 direrrmsg = (
@@ -2242,7 +2237,7 @@ class TibannaExecutor(ClusterExecutor):
         return fname, fdir
 
     def remove_prefix(self, s):
-        return re.sub("^{}/{}/".format(self.s3_bucket, self.s3_subdir), "", s)
+        return re.sub(f"^{self.s3_bucket}/{self.s3_subdir}/", "", s)
 
     def get_snakefile(self):
         return os.path.basename(self.snakefile)
@@ -2342,9 +2337,9 @@ class TibannaExecutor(ClusterExecutor):
         # jobid, grouping, run_name
         jobid = tibanna_core.create_jobid()
         if job.is_group():
-            run_name = "snakemake-job-%s-group-%s" % (str(jobid), str(job.groupid))
+            run_name = f"snakemake-job-{str(jobid)}-group-{str(job.groupid)}"
         else:
-            run_name = "snakemake-job-%s-rule-%s" % (str(jobid), str(job.rule))
+            run_name = f"snakemake-job-{str(jobid)}-rule-{str(job.rule)}"
 
         # tibanna input
         tibanna_config = {
@@ -2425,7 +2420,7 @@ class TibannaExecutor(ClusterExecutor):
                     else:
                         status = "FAILED_AT_SUBMISSION"
                     if not self.quiet or status != "RUNNING":
-                        logger.debug("job %s: %s" % (j.jobname, status))
+                        logger.debug(f"job {j.jobname}: {status}")
                     if status == "RUNNING":
                         still_running.append(j)
                     elif status == "SUCCEEDED":

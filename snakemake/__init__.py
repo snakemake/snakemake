@@ -7,6 +7,7 @@ import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
+from pathlib import Path
 import re
 import sys
 import threading
@@ -1129,38 +1130,39 @@ def get_profile_file(profile, file, return_default=False):
     return None
 
 
-def get_argument_parser(profile=None):
+def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
     import configargparse
-    from configargparse import YAMLConfigFileParser
+    from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
     config_files = []
-    if profile:
-        if profile == "":
-            print("Error: invalid profile name.", file=sys.stderr)
-            exit(1)
+    if profiles:
+        for profile in profiles:
+            if profile == "":
+                print("Error: invalid profile name.", file=sys.stderr)
+                exit(1)
 
-        config_file = get_profile_file(profile, "config.yaml")
-        if config_file is None:
-            print(
-                "Error: profile given but no config.yaml found. "
-                "Profile has to be given as either absolute path, relative "
-                "path or name of a directory available in either "
-                "{site} or {user}.".format(
-                    site=dirs.site_config_dir, user=dirs.user_config_dir
-                ),
-                file=sys.stderr,
-            )
-            exit(1)
-        config_files = [config_file]
+            config_file = get_profile_file(profile, "config.yaml")
+            if config_file is None:
+                print(
+                    "Error: profile given but no config.yaml found. "
+                    "Profile has to be given as either absolute path, relative "
+                    "path or name of a directory available in either "
+                    "{site} or {user}.".format(
+                        site=dirs.site_config_dir, user=dirs.user_config_dir
+                    ),
+                    file=sys.stderr,
+                )
+                exit(1)
+            config_files.append(config_file)
 
     parser = configargparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
         formatter_class=ArgumentDefaultsHelpFormatter,
         default_config_files=config_files,
-        config_file_parser_class=YAMLConfigFileParser,
+        config_file_parser_class=ProfileConfigFileParser,
     )
 
     group_exec = parser.add_argument_group("EXECUTION")
@@ -1185,21 +1187,46 @@ def get_argument_parser(profile=None):
 
     group_exec.add_argument(
         "--profile",
+        help=f"""
+            Name of profile to use for configuring
+            Snakemake. Snakemake will search for a corresponding
+            folder in {dirs.site_config_dir} and {dirs.user_config_dir}. Alternatively, this can be an
+            absolute or relative path.
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. Profiles can be obtained from
+            https://github.com/snakemake-profiles.
+            The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
+            To override this variable and use no profile at all, provide the value 'none'
+            to this argument.
+            """,
+        env_var="SNAKEMAKE_PROFILE",
+    )
+
+    group_exec.add_argument(
+        "--workflow-profile",
         help="""
-                        Name of profile to use for configuring
-                        Snakemake. Snakemake will search for a corresponding
-                        folder in {} and {}. Alternatively, this can be an
-                        absolute or relative path.
-                        The profile folder has to contain a file 'config.yaml'.
-                        This file can be used to set default values for command
-                        line options in YAML format. For example,
-                        '--cluster qsub' becomes 'cluster: qsub' in the YAML
-                        file. Profiles can be obtained from
-                        https://github.com/snakemake-profiles.
-                        The profile can also be set via the environment variable $SNAKEMAKE_PROFILE.
-                        """.format(
-            dirs.site_config_dir, dirs.user_config_dir
-        ),
+            Path (relative to current directory) to workflow specific profile 
+            folder to use for configuring Snakemake with parameters specific for this
+            workflow (like resources).
+            If this flag is not used, Snakemake will by default use 
+            'profiles/default' if present (searched both relative to current directory
+            and relative to Snakefile, in this order).
+            For skipping any workflow specific profile provide the special value 'none'.
+            Settings made in the workflow profile will override settings made in the
+            general profile (see --profile).
+            The profile folder has to contain a file 'config.yaml'.
+            This file can be used to set default values for command
+            line options in YAML format. For example,
+            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            file. It is advisable to use the workflow profile to set
+            or overwrite e.g. workflow specific resources like the amount of threads
+            of a particular rule or the amount of memory needed.
+            Note that in such cases, the arguments may be given as nested YAML mappings 
+            in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
+            """,
         env_var="SNAKEMAKE_PROFILE",
     )
 
@@ -1544,7 +1571,7 @@ def get_argument_parser(profile=None):
         "--rerun-incomplete",
         "--ri",
         action="store_true",
-        help=("Re-run all " "jobs the output of which is recognized as incomplete."),
+        help=("Re-run all jobs the output of which is recognized as incomplete."),
     )
     group_exec.add_argument(
         "--shadow-prefix",
@@ -2149,7 +2176,7 @@ def get_argument_parser(profile=None):
     group_behavior.add_argument(
         "--default-remote-prefix",
         default="",
-        help="Specify prefix for default remote provider. E.g. " "a bucket name.",
+        help="Specify prefix for default remote provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",
@@ -2557,7 +2584,7 @@ def get_argument_parser(profile=None):
     group_conda.add_argument(
         "--list-conda-envs",
         action="store_true",
-        help="List all conda environments and their location on " "disk.",
+        help="List all conda environments and their location on disk.",
     )
     group_conda.add_argument(
         "--conda-prefix",
@@ -2676,10 +2703,55 @@ def main(argv=None):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    if args.profile and args.mode == Mode.default:
+    snakefile = args.snakefile
+    if snakefile is None:
+        for p in SNAKEFILE_CHOICES:
+            if os.path.exists(p):
+                snakefile = p
+                break
+        if snakefile is None:
+            print(
+                "Error: no Snakefile found, tried {}.".format(
+                    ", ".join(SNAKEFILE_CHOICES)
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    workflow_profile = None
+    if args.workflow_profile != "none":
+        if args.workflow_profile:
+            workflow_profile = args.workflow_profile
+        else:
+            default_path = Path("profiles/default")
+            workflow_profile_candidates = [
+                default_path,
+                Path(snakefile).parent.joinpath(default_path),
+            ]
+            for profile in workflow_profile_candidates:
+                if profile.exists():
+                    workflow_profile = profile
+                    break
+
+    if args.profile == "none":
+        args.profile = None
+
+    if (args.profile or workflow_profile) and args.mode == Mode.default:
         # Reparse args while inferring config file from profile.
         # But only do this if the user has invoked Snakemake (Mode.default)
-        parser = get_argument_parser(args.profile)
+        profiles = []
+        if args.profile:
+            profiles.append(args.profile)
+        if workflow_profile:
+            profiles.append(workflow_profile)
+
+        print(
+            f"Using profile{'s' if len(profiles) > 1 else ''} "
+            f"{' and '.join(map(str, profiles))} for setting default command line arguments.",
+            file=sys.stderr,
+        )
+
+        parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
         def adjust_path(f):
@@ -2832,7 +2904,7 @@ def main(argv=None):
 
     if args.singularity_prefix and not args.use_singularity:
         print(
-            "Error: --use_singularity must be set if --singularity-prefix " "is set.",
+            "Error: --use_singularity must be set if --singularity-prefix is set.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -2929,20 +3001,6 @@ def main(argv=None):
         )
         sys.exit(1)
 
-    if args.snakefile is None:
-        for p in SNAKEFILE_CHOICES:
-            if os.path.exists(p):
-                args.snakefile = p
-                break
-        if args.snakefile is None:
-            print(
-                "Error: no Snakefile found, tried {}.".format(
-                    ", ".join(SNAKEFILE_CHOICES)
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
     if args.gui is not None:
         try:
             import snakemake.gui as gui
@@ -2956,7 +3014,7 @@ def main(argv=None):
 
         _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
 
-        _snakemake = partial(snakemake, os.path.abspath(args.snakefile))
+        _snakemake = partial(snakemake, os.path.abspath(snakefile))
         gui.register(_snakemake, args)
 
         if ":" in args.gui:
@@ -3044,7 +3102,7 @@ def main(argv=None):
                 aggregated_wait_for_files.extend(extra_wait_files)
 
         success = snakemake(
-            args.snakefile,
+            snakefile,
             batch=batch,
             cache=args.cache,
             report=args.report,

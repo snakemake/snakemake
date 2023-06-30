@@ -1018,7 +1018,7 @@ class Workflow:
                         )
                         logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
-                            "Rules claiming more threads " "will be scaled down."
+                            "Rules claiming more threads will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)
@@ -1330,9 +1330,7 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(
-            project=self.globals["pep"], schema=schema, exclude_case=True
-        )
+        eido.validate_project(project=self.globals["pep"], schema=schema)
 
     def report(self, path):
         """Define a global report description in .rst format."""
@@ -1624,6 +1622,15 @@ class Workflow:
                             "Invalid value for cache directive. Use True or 'omit-software'.",
                             rule=rule,
                         )
+            if ruleinfo.benchmark and self.get_cache_mode(rule):
+                raise WorkflowError(
+                    "Rules with a benchmark directive may not be marked as eligible "
+                    "for between-workflow caching at the same time. The reason is that "
+                    "when the result is taken from cache, there is no way to fill the benchmark file with "
+                    "any reasonable values. Either remove the benchmark directive or disable "
+                    "between-workflow caching for this rule.",
+                    rule=rule,
+                )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
