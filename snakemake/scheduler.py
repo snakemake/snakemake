@@ -24,8 +24,6 @@ from snakemake.executors import (
     TibannaExecutor,
 )
 
-from snakemake.plugins import executor_plugins
-
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
@@ -36,6 +34,10 @@ from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
+
+from snakemake_executor_plugin_interface import ExecutorPluginRegistry, Plugin
+
+registry = ExecutorPluginRegistry(Plugin)
 
 
 def cumsum(iterable, zero=[0]):
@@ -183,12 +185,9 @@ class JobScheduler:
             )
 
         # We have chosen an executor custom plugin
-        elif (
-            executor_args is not None
-            and executor_args._executor_name in executor_plugins
-        ):
-            executor = executor_plugins[executor_args._executor_name]
-            self._local_executor = executor.local_executor(
+        elif executor_args is not None:
+            plugin = registry.plugins[executor_args._executor.name]
+            self._local_executor = CPUExecutor(
                 workflow,
                 dag,
                 local_cores,
@@ -197,7 +196,7 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
                 cores=local_cores,
             )
-            self._executor = executor.executor(
+            self._executor = plugin.executor(
                 workflow,
                 dag,
                 cores,

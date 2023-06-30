@@ -41,7 +41,7 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-import snakemake.plugins as plugins
+from snakemake_executor_plugin_interface import ExecutorPluginRegistry, Plugin
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
@@ -51,6 +51,10 @@ SNAKEFILE_CHOICES = [
 ]
 
 RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
+
+# We have to instantiate this here if we expect to interact with it
+# in argument parsing
+registry = ExecutorPluginRegistry(Plugin)
 
 
 def snakemake(
@@ -1501,6 +1505,7 @@ def get_argument_parser(profiles=None):
         "--executor",
         "-e",
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
+        choices=registry.plugins,
     )
     group_exec.add_argument(
         "--forceall",
@@ -2670,7 +2675,7 @@ def get_argument_parser(profiles=None):
     )
 
     # Add namespaced arguments to parser for each plugin
-    plugins.add_args(parser)
+    registry.register_cli_args(parser)
     return parser
 
 
@@ -2715,30 +2720,17 @@ def main(argv=None):
             )
             sys.exit(1)
 
-    # If a custom executor is provided, it must be known
-    if args.executor and args.executor not in plugins.executor_plugins:
-        logger.error(
-            f"Executor {args.executor} not found. Did you install snakemake-executor-{args.executor}?"
-        )
-        exit(1)
-
     # Custom argument parsing based on chosen executor
     # We also only validate an executor plugin when it's selected
     executor_args = None
     if args.executor:
-        executor = plugins.get_executor(args.executor)
-        if not executor:
-            logger.error(f"Executor {args.executor} is not known.")
-            exit(1)
-        if not plugins.validate_executor_plugin(executor):
-            logger.error(f"Executor {args.executor} is not valid.")
-            exit(1)
+        plugin = registry.plugins[args.executor]
 
         # This is the dataclass prepared by the executor
-        executor_args = plugins.args_to_dataclass(args, executor)
+        executor_args = plugin.get_executor_settings(args)
 
-        # We add onto it the name of the executor
-        executor_args._executor_name = args.executor
+        # Hold a handle to the plugin class
+        executor_args._executor = plugin
 
     workflow_profile = None
     if args.workflow_profile != "none":
