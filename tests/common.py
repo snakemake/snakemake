@@ -206,13 +206,21 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.check_output(
-                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                subprocess.run(
+                    shellcmd,
+                    cwd=path if no_tmpdir else tmpdir,
+                    check=True,
+                    shell=True,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 )
                 success = True
             else:
                 with subprocess.Popen(
-                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                    shlex.split(shellcmd),
+                    cwd=path if no_tmpdir else tmpdir,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 ) as process:
                     time.sleep(sigint_after)
                     process.send_signal(signal.SIGINT)
@@ -220,7 +228,7 @@ def run(
                     success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
-            print(e.stderr, file=sys.stderr)
+            print(e.stdout.decode(), file=sys.stderr)
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
         success = snakemake(
