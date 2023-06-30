@@ -150,6 +150,26 @@ class Singularity:
         ), "bug: singularity version accessed before check() has been called"
         return self._version
 
+    def parseversion(self, raw_version):
+        import packaging
+
+        raw_version = raw_version.rsplit(" ", 1)[-1]
+        if raw_version.startswith("v"):
+            raw_version = raw_version[1:]
+
+        parsed_version = None
+        trimend = len(raw_version)
+        while parsed_version is None:
+            try:
+                parsed_version = packaging.version.Version(raw_version[:trimend])
+            except packaging.version.InvalidVersion:
+                trimend = trimend - 1
+                if trimend == 0:
+                    raise WorkflowError(
+                        f"Apptainer/Singularity version cannot be parsed: {raw_version}"
+                    )
+        return parsed_version
+
     def check(self):
         from packaging.version import parse
 
@@ -169,14 +189,8 @@ class Singularity:
                     f"Failed to get singularity version:\n{e.stderr.decode()}"
                 )
             if v.startswith("apptainer"):
-                v = v.rsplit(" ", 1)[-1]
-                v = v.split("-")[0]
-                if parse(v) < parse("1.0.0"):
+                if self.parseversion(v) < parse("1.0.0"):
                     raise WorkflowError("Minimum apptainer version is 1.0.0.")
-            else:
-                v = v.rsplit(" ", 1)[-1]
-                if v.startswith("v"):
-                    v = v[1:]
-                if parse(v) < parse("2.4.1"):
-                    raise WorkflowError("Minimum singularity version is 2.4.1.")
+            elif self.parseversion(v) < parse("2.4.1"):
+                raise WorkflowError("Minimum singularity version is 2.4.1.")
             self._version = v
