@@ -1620,6 +1620,15 @@ class Workflow:
                             "Invalid value for cache directive. Use True or 'omit-software'.",
                             rule=rule,
                         )
+            if ruleinfo.benchmark and self.get_cache_mode(rule):
+                raise WorkflowError(
+                    "Rules with a benchmark directive may not be marked as eligible "
+                    "for between-workflow caching at the same time. The reason is that "
+                    "when the result is taken from cache, there is no way to fill the benchmark file with "
+                    "any reasonable values. Either remove the benchmark directive or disable "
+                    "between-workflow caching for this rule.",
+                    rule=rule,
+                )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
