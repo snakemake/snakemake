@@ -16,7 +16,6 @@ from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
 import uuid
-import math
 import subprocess
 
 from snakemake.io import (
@@ -25,7 +24,6 @@ from snakemake.io import (
     is_callable,
     wait_for_files,
     is_flagged,
-    IOFile,
 )
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException, WildcardError
@@ -37,13 +35,10 @@ from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOExce
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
-from snakemake.deployment import conda, singularity
+from snakemake.deployment import singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
-from snakemake.sourcecache import (
-    LocalSourceFile,
-    SourceFile,
-)
+from snakemake.sourcecache import LocalSourceFile, SourceFile
 
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
@@ -97,7 +92,7 @@ class Batch:
         return self.idx == self.batches
 
     def __str__(self):
-        return "{}/{} (rule {})".format(self.idx, self.batches, self.rulename)
+        return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
 class DAG:
@@ -605,9 +600,7 @@ class DAG:
                 )
             except IOError as e:
                 raise MissingOutputException(
-                    str(e),
-                    rule=job.rule,
-                    jobid=self.jobid(job),
+                    str(e), rule=job.rule, jobid=self.jobid(job)
                 )
 
         def correctly_flagged_with_dir(f):
@@ -688,7 +681,7 @@ class DAG:
         """Write-protect output files that are marked with protected()."""
         for f in job.expanded_output:
             if f in job.protected_output:
-                logger.info("Write-protecting output file {}.".format(f))
+                logger.info(f"Write-protecting output file {f}.")
                 f.protect()
 
     def handle_touch(self, job):
@@ -696,7 +689,7 @@ class DAG:
         for f in job.expanded_output:
             if f in job.touch_output:
                 f = job.shadowed_path(f)
-                logger.info("Touching output file {}.".format(f))
+                logger.info(f"Touching output file {f}.")
                 f.touch_or_create()
                 assert os.path.exists(f)
 
@@ -756,7 +749,7 @@ class DAG:
             if self.dryrun:
                 logger.info(f"Would remove temporary output {f}")
             else:
-                logger.info("Removing temporary output {}.".format(f))
+                logger.info(f"Removing temporary output {f}.")
                 f.remove(remove_non_empty_dir=True)
 
     def handle_log(self, job, upload_remote=True):
@@ -829,7 +822,7 @@ class DAG:
 
             for f in unneeded_files():
                 if f.exists_local:
-                    logger.info("Removing local copy of remote file: {}".format(f))
+                    logger.info(f"Removing local copy of remote file: {f}")
                     f.remove()
 
     def jobid(self, job):
@@ -910,7 +903,7 @@ class DAG:
                     "the output files more specific. "
                     "A common pattern is to have different prefixes "
                     "in the output files of different rules."
-                    + "\nProblematic file pattern: {}".format(file)
+                    + f"\nProblematic file pattern: {file}"
                     if file
                     else "",
                 )
@@ -925,7 +918,7 @@ class DAG:
 
         n = len(self.dependencies)
         if progress and n % 1000 == 0 and n and self._progress != n:
-            logger.info("Processed {} potential jobs.".format(n))
+            logger.info(f"Processed {n} potential jobs.")
             self._progress = n
 
         producers.sort(reverse=True)
@@ -1109,7 +1102,7 @@ class DAG:
                 reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
-                if not job.has_products():
+                if not job.has_products(include_logfiles=False):
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
@@ -1444,8 +1437,7 @@ class DAG:
                 # with potentially new input files that have depended
                 # on group ids.
                 self.postprocess(
-                    update_needrun=True,
-                    update_incomplete_input_expand_jobs=False,
+                    update_needrun=True, update_incomplete_input_expand_jobs=False
                 )
 
                 return
@@ -1590,7 +1582,7 @@ class DAG:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
                 for j in depending:
-                    logger.debug("Updating job {}.".format(j))
+                    logger.debug(f"Updating job {j}.")
                     newjob = j.updated()
                     self.replace_job(j, newjob, recursive=False)
                     updated = True
@@ -1747,7 +1739,7 @@ class DAG:
                 if newrule_ is not None:
                     self.specialize_rule(job_.rule, newrule_)
                     if not self.dynamic(job_):
-                        logger.debug("Updating job {}.".format(job_))
+                        logger.debug(f"Updating job {job_}.")
                         newjob_ = self.new_job(
                             newrule_, targetfile=job_.output[0] if job_.output else None
                         )
@@ -1827,10 +1819,10 @@ class DAG:
 
         self.update([newjob])
 
-        logger.debug("Replace {} with dynamic branch {}".format(job, newjob))
+        logger.debug(f"Replace {job} with dynamic branch {newjob}")
         for job_, files in depending:
             # if not job_.dynamic_input:
-            logger.debug("updating depending job {}".format(job_))
+            logger.debug(f"updating depending job {job_}")
             self.dependencies[job_][newjob].update(files)
             self.depending[newjob][job_].update(files)
 
@@ -2045,7 +2037,7 @@ class DAG:
             name, value = wildcard
             if DYNAMIC_FILL in value:
                 value = "..."
-            return "{}: {}".format(name, value)
+            return f"{name}: {value}"
 
         node2rule = lambda job: job.rule
         node2label = lambda job: "\\n".join(
@@ -2180,7 +2172,7 @@ class DAG:
                     node_id=node_id, color=color
                 ),
                 "<tr><td>",
-                '<b><font point-size="18">{node.name}</font></b>'.format(node=node),
+                f'<b><font point-size="18">{node.name}</font></b>',
                 "</td></tr>",
                 "<hr/>",
                 '<tr><td align="left"> {input_header} </td></tr>'.format(
@@ -2256,8 +2248,7 @@ class DAG:
         for job in self.jobs:
             output = job.rule.output if self.dynamic(job) else job.expanded_output
             for f in output:
-                rule = self.workflow.persistence.rule(f)
-                rule = "-" if rule is None else rule
+                rule = job.rule.name
 
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
@@ -2290,7 +2281,7 @@ class DAG:
                 elif self.reason(job).updated_input:
                     status = "updated input files"
                 elif self.workflow.persistence.version_changed(job, file=f):
-                    status = "version changed to {}".format(job.rule.version)
+                    status = f"version changed to {job.rule.version}"
                 elif self.workflow.persistence.code_changed(job, file=f):
                     status = "rule implementation changed"
                 elif self.workflow.persistence.input_changed(job, file=f):
@@ -2385,7 +2376,7 @@ class DAG:
                     # symlinks fail f.exists.
                     if f.exists or os.path.islink(f):
                         if f.protected:
-                            logger.error("Skipping write-protected file {}.".format(f))
+                            logger.error(f"Skipping write-protected file {f}.")
                         else:
                             msg = "Deleting {}" if not dryrun else "Would delete {}"
                             logger.info(msg.format(f))
@@ -2433,9 +2424,7 @@ class DAG:
         jobs = list(self.jobs)
 
         if len(jobs) > max_jobs:
-            logger.info(
-                "Job-DAG is too large for visualization (>{} jobs).".format(max_jobs)
-            )
+            logger.info(f"Job-DAG is too large for visualization (>{max_jobs} jobs).")
         else:
             logger.d3dag(
                 nodes=[node(job) for job in jobs],

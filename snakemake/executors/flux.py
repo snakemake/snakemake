@@ -5,11 +5,9 @@ __license__ = "MIT"
 
 import os
 import shlex
-import sys
 from collections import namedtuple
 
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.executors.common import format_cli_arg, join_cli_args
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -90,7 +88,7 @@ class FluxExecutor(ClusterExecutor):
 
     def _get_jobname(self, job):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
+        return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
     def run(self, job, callback=None, submit_callback=None, error_callback=None):
         """
@@ -155,7 +153,7 @@ class FluxExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-                logger.debug("Checking status for job {}".format(j.jobid))
+                logger.debug(f"Checking status for job {j.jobid}")
                 if j.flux_future.done():
                     # The exit code can help us determine if the job was successful
                     try:
@@ -169,9 +167,7 @@ class FluxExecutor(ClusterExecutor):
                         # the job finished (but possibly with nonzero exit code)
                         if exit_code != 0:
                             self.print_job_error(
-                                j.job,
-                                jobid=j.jobid,
-                                aux_logs=[j.flux_logfile],
+                                j.job, jobid=j.jobid, aux_logs=[j.flux_logfile]
                             )
                             j.error_callback(j.job)
                             continue

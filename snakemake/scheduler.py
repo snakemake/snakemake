@@ -4,21 +4,14 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
-import datetime
 import threading
-import operator
-import time
-import math
-import asyncio
 
 from functools import partial
-from collections import defaultdict
-from itertools import chain, accumulate, product
+from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
 from snakemake.executors import (
     AbstractExecutor,
-    ClusterExecutor,
     DryrunExecutor,
     TouchExecutor,
     CPUExecutor,
@@ -36,8 +29,7 @@ from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -48,7 +40,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -91,6 +83,9 @@ class JobScheduler:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -370,6 +365,36 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
             )
 
+        elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+                    e,
+                )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
@@ -572,11 +597,9 @@ class JobScheduler:
                     for job in needrun:
                         job.reset_params_and_resources()
 
+                    logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        "Resources before job selection: {}".format(self.resources)
-                    )
-                    logger.debug(
-                        "Ready jobs ({})".format(len(needrun))
+                        f"Ready jobs ({len(needrun)})"
                         # + "\n\t".join(map(str, needrun))
                     )
 
@@ -586,12 +609,10 @@ class JobScheduler:
                     self._last_job_selection_empty = not run
 
                     logger.debug(
-                        "Selected jobs ({})".format(len(run))
+                        f"Selected jobs ({len(run)})"
                         # + "\n\t".join(map(str, run))
                     )
-                    logger.debug(
-                        "Resources after job selection: {}".format(self.resources)
-                    )
+                    logger.debug(f"Resources after job selection: {self.resources}")
 
                 # update running jobs
                 with self._lock:
@@ -740,7 +761,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
+                    f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }
@@ -760,14 +781,14 @@ class JobScheduler:
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
-                    "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
+                    f"temp_file_{idx}", lowBound=0, upBound=1, cat="Continuous"
                 )
                 for idx, temp_file in enumerate(temp_files)
             }
 
             temp_file_deletable = {
                 temp_file: pulp.LpVariable(
-                    "deletable_{}".format(idx),
+                    f"deletable_{idx}",
                     lowBound=0,
                     upBound=1,
                     cat=pulp.LpInteger,

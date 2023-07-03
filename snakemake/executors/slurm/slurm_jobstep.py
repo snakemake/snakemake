@@ -1,16 +1,7 @@
 import os
 import subprocess
 from snakemake.common.tbdstring import TBDString
-
-from snakemake.jobs import Job
-from snakemake.logging import logger
-from snakemake.deployment.conda import Conda
-from snakemake.exceptions import print_exception
-from snakemake.exceptions import log_verbose_traceback
-from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
 
 
 class SlurmJobstepExecutor(ClusterExecutor):
@@ -28,7 +19,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
         printshellcmds=False,
         cluster_config=None,
         restart_times=0,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=0.5,
         **kwargs,
     ):
         # overwrite the command to execute a single snakemake job if necessary

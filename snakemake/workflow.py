@@ -6,22 +6,14 @@ __license__ = "MIT"
 import re
 import os
 import sys
-import signal
-import json
-from tokenize import maybe
-from typing import DefaultDict
-import urllib
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from itertools import filterfalse, chain
 from functools import partial
-from operator import attrgetter
 import copy
-import subprocess
-from pathlib import Path, PosixPath
-from urllib.request import pathname2url, url2pathname
+from pathlib import Path
 
 
-from snakemake.logging import logger, format_resources, format_resource_names
+from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
@@ -29,7 +21,6 @@ from snakemake.exceptions import (
     CreateRuleException,
     UnknownRuleException,
     NoRulesException,
-    print_exception,
     WorkflowError,
 )
 from snakemake.shell import shell
@@ -60,6 +51,7 @@ from snakemake.io import (
     IOFile,
     sourcecache_entry,
 )
+
 from snakemake.persistence import Persistence
 from snakemake.utils import update_config
 from snakemake.script import script
@@ -67,13 +59,14 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
+
+
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
     bytesto,
     ON_WINDOWS,
     is_local_file,
-    parse_uri,
     Rules,
     Scatter,
     Gather,
@@ -81,20 +74,18 @@ from snakemake.common import (
     NOTHING_TO_BE_DONE_MSG,
 )
 from snakemake.utils import simplify_path
-from snakemake.checkpoints import Checkpoint, Checkpoints
+from snakemake.checkpoints import Checkpoints
 from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
-    GenericSourceFile,
     LocalSourceFile,
     SourceCache,
-    SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda, is_conda_env_file
+from snakemake.deployment.conda import Conda
 from snakemake import sourcecache
 
 
@@ -195,7 +186,6 @@ class Workflow:
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
-        self._wildcard_constraints = dict()
         self.debug = debug
         self.verbose = verbose
         self._rulecount = 0
@@ -309,6 +299,10 @@ class Workflow:
         return self.modifier_stack[-1]
 
     @property
+    def wildcard_constraints(self):
+        return self.modifier.wildcard_constraints
+
+    @property
     def globals(self):
         return self.modifier.globals
 
@@ -348,10 +342,7 @@ class Workflow:
         gb = bytesto(os.stat(filename).st_size, "g")
         if gb > warning_size_gb:
             logger.warning(
-                "File {} (size {} GB) is greater than the {} GB suggested size "
-                "Consider uploading larger files to storage first.".format(
-                    filename, gb, warning_size_gb
-                )
+                f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB suggested size Consider uploading larger files to storage first."
             )
         return filename
 
@@ -415,12 +406,13 @@ class Workflow:
         is_overwrite = self.is_rule(name)
         if not allow_overwrite and is_overwrite:
             raise CreateRuleException(
-                "The name {} is already used by another rule".format(name),
+                f"The name {name} is already used by another rule",
                 lineno=lineno,
                 snakefile=snakefile,
             )
         rule = Rule(name, self, lineno=lineno, snakefile=snakefile)
         self._rules[rule.name] = rule
+        self.modifier.rules.add(rule)
         if not is_overwrite:
             self.rule_count += 1
         if not self.default_target:
@@ -529,6 +521,9 @@ class Workflow:
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
@@ -701,6 +696,7 @@ class Workflow:
             or printfilegraph
             or printdag
             or summary
+            or detailed_summary
             or archive
             or list_version_changes
             or list_code_changes
@@ -777,7 +773,7 @@ class Workflow:
                 )
                 updated = list()
                 if subworkflow_targets:
-                    logger.info("Executing subworkflow {}.".format(subworkflow.name))
+                    logger.info(f"Executing subworkflow {subworkflow.name}.")
                     if not subsnakemake(
                         subworkflow.snakefile,
                         workdir=subworkflow.workdir,
@@ -797,9 +793,7 @@ class Workflow:
                     )
                 else:
                     logger.info(
-                        "Subworkflow {}: {}".format(
-                            subworkflow.name, NOTHING_TO_BE_DONE_MSG
-                        )
+                        f"Subworkflow {subworkflow.name}: {NOTHING_TO_BE_DONE_MSG}"
                     )
             if self.subworkflows:
                 logger.info("Executing main workflow.")
@@ -981,6 +975,9 @@ class Workflow:
             flux=flux,
             tibanna=tibanna,
             tibanna_sfn=tibanna_sfn,
+            az_batch=az_batch,
+            az_batch_enable_autoscale=az_batch_enable_autoscale,
+            az_batch_account_url=az_batch_account_url,
             google_lifesciences=google_lifesciences,
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
@@ -1005,13 +1002,11 @@ class Workflow:
             if len(dag):
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
-                    logger.info("Using shell: {}".format(shell_exec))
+                    logger.info(f"Using shell: {shell_exec}")
                 if cluster or cluster_sync or drmaa:
-                    logger.resources_info(
-                        "Provided cluster nodes: {}".format(self.nodes)
-                    )
+                    logger.resources_info(f"Provided cluster nodes: {self.nodes}")
                 elif kubernetes or tibanna or google_lifesciences:
-                    logger.resources_info("Provided cloud nodes: {}".format(self.nodes))
+                    logger.resources_info(f"Provided cloud nodes: {self.nodes}")
                 else:
                     if self._cores is not None:
                         warning = (
@@ -1019,16 +1014,14 @@ class Workflow:
                             if self._cores > 1
                             else " (use --cores to define parallelism)"
                         )
+                        logger.resources_info(f"Provided cores: {self._cores}{warning}")
                         logger.resources_info(
-                            "Provided cores: {}{}".format(self._cores, warning)
-                        )
-                        logger.resources_info(
-                            "Rules claiming more threads " "will be scaled down."
+                            "Rules claiming more threads will be scaled down."
                         )
 
                 provided_resources = format_resources(self.global_resources)
                 if provided_resources:
-                    logger.resources_info("Provided resources: " + provided_resources)
+                    logger.resources_info(f"Provided resources: {provided_resources}")
 
                 if self.run_local and any(rule.group for rule in self.rules):
                     logger.info("Group jobs: inactive (local execution)")
@@ -1155,13 +1148,15 @@ class Workflow:
             # This will only work if the method is evaluated during parsing mode.
             # Otherwise, the stack can be empty already.
             path = self.current_basedir.join(rel_path)
+            orig_path = path.get_path_or_uri()
         else:
             # heuristically determine path
             calling_dir = os.path.dirname(calling_file)
             path = smart_join(calling_dir, rel_path)
+            orig_path = path
 
         return sourcecache_entry(
-            self.sourcecache.get_path(infer_source_file(path)), path
+            self.sourcecache.get_path(infer_source_file(path)), orig_path
         )
 
     @property
@@ -1209,7 +1204,7 @@ class Workflow:
         snakefile = infer_source_file(snakefile, basedir)
 
         if not self.modifier.allow_rule_overwrite and snakefile in self.included:
-            logger.info("Multiple includes of {} ignored".format(snakefile))
+            logger.info(f"Multiple includes of {snakefile} ignored")
             return
         self.included.append(snakefile)
         self.included_stack.append(snakefile)
@@ -1253,9 +1248,9 @@ class Workflow:
 
     def global_wildcard_constraints(self, **content):
         """Register global wildcard constraints."""
-        self._wildcard_constraints.update(content)
+        self.modifier.wildcard_constraints.update(content)
         # update all rules so far
-        for rule in self.rules:
+        for rule in self.modifier.rules:
             rule.update_wildcard_constraints()
 
     def scattergather(self, **content):
@@ -1270,7 +1265,7 @@ class Workflow:
             n = self._scatter[key]
             return expand(
                 *args,
-                scatteritem=map("{{}}-of-{}".format(n).format, range(1, n + 1)),
+                scatteritem=map(f"{{}}-of-{n}".format, range(1, n + 1)),
                 **wildcards,
             )
 
@@ -1333,9 +1328,7 @@ class Workflow:
             schema = self.current_basedir.join(schema).get_path_or_uri()
         if self.pepfile is None:
             raise WorkflowError("Please specify a PEP with the pepfile directive.")
-        eido.validate_project(
-            project=self.globals["pep"], schema=schema, exclude_case=True
-        )
+        eido.validate_project(project=self.globals["pep"], schema=schema)
 
     def report(self, path):
         """Define a global report description in .rst format."""
@@ -1627,6 +1620,15 @@ class Workflow:
                             "Invalid value for cache directive. Use True or 'omit-software'.",
                             rule=rule,
                         )
+            if ruleinfo.benchmark and self.get_cache_mode(rule):
+                raise WorkflowError(
+                    "Rules with a benchmark directive may not be marked as eligible "
+                    "for between-workflow caching at the same time. The reason is that "
+                    "when the result is taken from cache, there is no way to fill the benchmark file with "
+                    "any reasonable values. Either remove the benchmark directive or disable "
+                    "between-workflow caching for this rule.",
+                    rule=rule,
+                )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
@@ -1637,7 +1639,10 @@ class Workflow:
                     rule=rule,
                 )
 
-            ruleinfo.func.__name__ = "__{}".format(rule.name)
+            if ruleinfo.localrule is True:
+                self._localrules.add(rule.name)
+
+            ruleinfo.func.__name__ = f"__{rule.name}"
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
             rule_proxy = RuleProxy(rule)
@@ -1680,7 +1685,9 @@ class Workflow:
 
         return decorate
 
-    def wildcard_constraints(self, *wildcard_constraints, **kwwildcard_constraints):
+    def register_wildcard_constraints(
+        self, *wildcard_constraints, **kwwildcard_constraints
+    ):
         def decorate(ruleinfo):
             ruleinfo.wildcard_constraints = (
                 wildcard_constraints,
@@ -1700,6 +1707,13 @@ class Workflow:
     def default_target_rule(self, value):
         def decorate(ruleinfo):
             ruleinfo.default_target = value
+            return ruleinfo
+
+        return decorate
+
+    def localrule(self, value):
+        def decorate(ruleinfo):
+            ruleinfo.localrule = value
             return ruleinfo
 
         return decorate
