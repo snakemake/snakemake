@@ -14,6 +14,7 @@ from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
+from abc import ABC, abstractmethod
 
 from snakemake.io import (
     IOFile,
@@ -60,36 +61,174 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class AbstractJob:
+
+class ExecutorJobInterface(ABC):
+    @property
+    @abstractmethod
+    def jobid(self):
+        ...
+
+    @abstractmethod
     def logfile_suggestion(self, prefix: str) -> str:
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def is_group(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def log_info(self, skip_dynamic=False):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def log_error(self, msg=None, **kwargs):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def remove_existing_output(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def download_remote_input(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
-        raise NotImplementedError()
+        ...
 
-    def reset_params_and_resources(self):
-        raise NotImplementedError()
+    @property
+    @abstractmethod
+    def resources(self):
+        ...
 
+    @abstractmethod
+    def check_protected_output(self):
+        ...
+
+    @property
+    @abstractmethod
+    def is_local(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def is_branched(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def is_updated(self):
+        ...
+
+    @property
+    @abstractmethod
+    def output(self):
+        ...
+
+    @abstractmethod
+    def register(self):
+        ...
+
+    @abstractmethod
+    def postprocess(self):
+        ...
+    
+    @abstractmethod
     def get_target_spec(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
+    def rules(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def attempt(self):
+        ...
+
+    @property
+    @abstractmethod
+    def input(self):
+        ...
+
+    @property
+    @abstractmethod
+    def threads(self) -> int: 
+        ...
+
+    @property
+    @abstractmethod
+    def resources(self): 
+        ...
+
+    @property
+    @abstractmethod
+    def log(self): 
+        ...
+
+class SingleJobExecutorInterface(ABC):
+    @property
+    @abstractmethod
+    def rule(self):
+        ...
+
+    @abstractmethod
+    def prepare(self):
+        ...
+
+    @property
+    @abstractmethod
+    def conda_env(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def container_img_path(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def env_modules(self):
+        ...
+
+    @property
+    @abstractmethod
+    def benchmark_repeats(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def benchmark(self):
+        ...
+
+    @property
+    @abstractmethod
+    def params(self):
+        ...
+    
+    @property
+    @abstractmethod
+    def wildcards(self):
+        ...
+
+class GroupJobExecutorInterface(ABC):
+    @property
+    @abstractmethod
+    def jobs(self):
+        ...
+
+class AbstractJob(ExecutorJobInterface):
+    @abstractmethod
+    def reset_params_and_resources(self):
+        ...
+
+    @abstractmethod
+    def get_target_spec(self):
+        ...
+
+    @abstractmethod
     def products(self, include_logfiles=True):
-        raise NotImplementedError()
+        ...
 
     def has_products(self, include_logfiles=True):
         for o in self.products(include_logfiles=include_logfiles):
@@ -152,7 +291,7 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob):
+class Job(AbstractJob, SingleJobExecutorInterface):
     HIGHEST_PRIORITY = sys.maxsize
 
     obj_cache = dict()
@@ -161,11 +300,11 @@ class Job(AbstractJob):
         "rule",
         "dag",
         "wildcards_dict",
-        "wildcards",
+        "_wildcards",
         "_format_wildcards",
-        "input",
+        "_input",
         "dependencies",
-        "output",
+        "_output",
         "_params",
         "_log",
         "_benchmark",
@@ -275,6 +414,30 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
+
+    @property
+    def wildcards(self):
+        return self._wildcards
+
+    @wildcards.setter
+    def wildcards(self, value):
+        self._wildcards = value
+
+    @property
+    def input(self):
+        return self._input
+    
+    @input.setter
+    def input(self, value):
+        self._input = value
+
+    @property
+    def output(self):
+        return self._output
+    
+    @output.setter
+    def output(self, value):
+        self._output = value
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
@@ -1223,12 +1386,12 @@ class GroupJobFactory:
         return obj
 
 
-class GroupJob(AbstractJob):
+class GroupJob(AbstractJob, GroupJobExecutorInterface):
     obj_cache = dict()
 
     __slots__ = [
         "groupid",
-        "jobs",
+        "_jobs",
         "_resources",
         "_input",
         "_output",
@@ -1236,15 +1399,15 @@ class GroupJob(AbstractJob):
         "_inputsize",
         "_all_products",
         "_attempt",
-        "toposorted",
+        "_toposorted",
         "_jobid",
     ]
 
     def __init__(self, id, jobs, global_resources):
         self.groupid = id
-        self.jobs = jobs
+        self._jobs = jobs
         self.global_resources = global_resources
-        self.toposorted = None
+        self._toposorted = None
         self._resources = None
         self._scheduler_resources = None
         self._input = None
@@ -1254,6 +1417,22 @@ class GroupJob(AbstractJob):
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
+
+    @property
+    def jobs(self):
+        return self._jobs
+
+    @jobs.setter
+    def jobs(self, new_jobs):
+        self._jobs = new_jobs
+    
+    @property
+    def toposorted(self):
+        return self._toposorted
+    
+    @toposorted.setter
+    def toposorted(self, new_toposorted):
+        self._toposorted = new_toposorted
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
