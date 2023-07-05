@@ -35,15 +35,17 @@ jobs:
           miniforge-version: latest
 
       - name: Install Snakemake
+        shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
           mamba install python>=3.9 pip
           pip install .
 
       - name: Start Flux and Test Workflow
+        shell: bash -el {0}
         run: |
           # We must have python3->python accessible for this to work
-          ln -s /bin/python3 /usr/local/bin/python
+          #ln -s /bin/python3 /usr/local/bin/python
           su fluxuser
           cd examples/flux
           # This run does not use conda
@@ -51,9 +53,8 @@ jobs:
           flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --no-shared-fs
 
       - name: Test Flux with Conda
+        shell: bash -el {0}
         run: |
-          # conda python needs to be after system python
-          export PATH=$PATH:/opt/conda/bin
           which python
           which conda
           cp -R ./tests/test_conda /tmp/test_conda
