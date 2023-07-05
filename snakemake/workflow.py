@@ -11,6 +11,7 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
+from snakemake.interfaces import WorkflowExecutorInterface
 
 
 from snakemake.logging import logger, format_resources
@@ -64,7 +65,6 @@ from snakemake.template_rendering import render_template
 import snakemake.wrapper
 from snakemake.common import (
     Mode,
-    bytesto,
     ON_WINDOWS,
     is_local_file,
     Rules,
@@ -89,7 +89,7 @@ from snakemake.deployment.conda import Conda
 from snakemake import sourcecache
 
 
-class Workflow:
+class Workflow(WorkflowExecutorInterface):
     def __init__(
         self,
         snakefile=None,
@@ -147,6 +147,8 @@ class Workflow:
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
+        cleanup_scripts=True,
+        immediate_submit=False,
     ):
         """
         Create the controller.
@@ -156,58 +158,59 @@ class Workflow:
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self.rerun_triggers = (
+        self._rerun_triggers = (
             frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
         )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
         self.overwrite_workdir = overwrite_workdir
-        self.workdir_init = os.path.abspath(os.curdir)
+        self._workdir_init = os.path.abspath(os.curdir)
+        self._cleanup_scripts = cleanup_scripts
         self._ruleorder = Ruleorder()
         self._localrules = set()
-        self.linemaps = dict()
+        self._linemaps = dict()
         self.rule_count = 0
         self.basedir = os.path.dirname(snakefile)
-        self.main_snakefile = os.path.abspath(snakefile)
+        self._main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
-        self.jobscript = jobscript
-        self.persistence = None
+        self._jobscript = jobscript
+        self._persistence = None
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config or dict()
-        self.overwrite_configfiles = overwrite_configfiles
+        self._overwrite_configfiles = overwrite_configfiles
         self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
-        self.overwrite_threads = overwrite_threads or dict()
-        self.overwrite_resources = overwrite_resources or dict()
-        self.config_args = config_args
-        self.immediate_submit = None
+        self._overwrite_threads = overwrite_threads or dict()
+        self._overwrite_resources = overwrite_resources or dict()
+        self._config_args = config_args
+        self._immediate_submit = immediate_submit
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
-        self.debug = debug
-        self.verbose = verbose
+        self._debug = debug
+        self._verbose = verbose
         self._rulecount = 0
-        self.use_conda = use_conda
-        self.conda_frontend = conda_frontend
-        self.conda_prefix = conda_prefix
-        self.use_singularity = use_singularity
-        self.use_env_modules = use_env_modules
+        self._use_conda = use_conda
+        self._conda_frontend = conda_frontend
+        self._conda_prefix = conda_prefix
+        self._use_singularity = use_singularity
+        self._use_env_modules = use_env_modules
         self.singularity_prefix = singularity_prefix
-        self.singularity_args = singularity_args
-        self.shadow_prefix = shadow_prefix
-        self.scheduler_type = scheduler_type
+        self._singularity_args = singularity_args
+        self._shadow_prefix = shadow_prefix
+        self._scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.global_is_containerized = False
         self.mode = mode
-        self.wrapper_prefix = wrapper_prefix
-        self.printshellcmds = printshellcmds
+        self._wrapper_prefix = wrapper_prefix
+        self._printshellcmds = printshellcmds
         self.restart_times = restart_times
         self.attempt = attempt
         self.default_remote_provider = default_remote_provider
-        self.default_remote_prefix = default_remote_prefix
+        self._default_remote_prefix = default_remote_prefix
         self.configfiles = (
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
@@ -215,30 +218,30 @@ class Workflow:
         self.assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
-        self.edit_notebook = edit_notebook
+        self._edit_notebook = edit_notebook
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
-        self.envvars = set()
+        self._envvars = set()
         self.overwrite_groups = overwrite_groups or dict()
         self.group_components = group_components or dict()
         self._scatter = dict(overwrite_scatter or dict())
-        self.overwrite_scatter = overwrite_scatter or dict()
-        self.overwrite_resource_scopes = overwrite_resource_scopes or dict()
-        self.resource_scopes = ResourceScopes.defaults()
-        self.resource_scopes.update(self.overwrite_resource_scopes)
-        self.conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
-        self.execute_subworkflows = execute_subworkflows
+        self._overwrite_scatter = overwrite_scatter or dict()
+        self._overwrite_resource_scopes = overwrite_resource_scopes or dict()
+        self._resource_scopes = ResourceScopes.defaults()
+        self._resource_scopes.update(self.overwrite_resource_scopes)
+        self._conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
+        self._execute_subworkflows = execute_subworkflows
         self.modules = dict()
-        self.sourcecache = SourceCache()
+        self._sourcecache = SourceCache()
         self.scheduler_solver_path = scheduler_solver_path
         self._conda_base_path = conda_base_path
         self.check_envvars = check_envvars
-        self.max_threads = max_threads
+        self._max_threads = max_threads
         self.all_temp = all_temp
-        self.scheduler = None
-        self.local_groupid = local_groupid
-        self.keep_metadata = keep_metadata
-        self.latency_wait = latency_wait
+        self._scheduler = None
+        self._local_groupid = local_groupid
+        self._keep_metadata = keep_metadata
+        self._latency_wait = latency_wait
 
         _globals = globals()
         _globals["workflow"] = self
@@ -259,27 +262,191 @@ class Workflow:
             self.enable_cache = True
             self.cache_rules = {rulename: "all" for rulename in cache}
             if self.default_remote_provider is not None:
-                self.output_file_cache = RemoteOutputFileCache(
+                self._output_file_cache = RemoteOutputFileCache(
                     self.default_remote_provider
                 )
             else:
-                self.output_file_cache = LocalOutputFileCache()
+                self._output_file_cache = LocalOutputFileCache()
         else:
-            self.output_file_cache = None
+            self._output_file_cache = None
             self.cache_rules = dict()
 
         if default_resources is not None:
-            self.default_resources = default_resources
+            self._default_resources = default_resources
         else:
             # only _cores, _nodes, and _tmpdir
-            self.default_resources = DefaultResources(mode="bare")
+            self._default_resources = DefaultResources(mode="bare")
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
         self.globals["config"] = copy.deepcopy(self.overwrite_config)
 
         if envvars is not None:
-            self.register_envvars(*envvars)
+            self.register_envvars
+
+    @property
+    def default_remote_prefix(self):
+        return self._default_remote_prefix
+
+    @property
+    def immediate_submit(self):
+        return self._immediate_submit
+
+    @property
+    def scheduler(self):
+        return self._scheduler
+
+    @scheduler.setter
+    def scheduler(self, scheduler):
+        self._scheduler = scheduler
+
+    @property
+    def envvars(self):
+        return self._envvars
+
+    @property
+    def jobscript(self):
+        return self._jobscript
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @property
+    def sourcecache(self):
+        return self._sourcecache
+
+    @property
+    def edit_notebook(self):
+        return self._edit_notebook
+
+    @property
+    def cleanup_scripts(self):
+        return self._cleanup_scripts
+
+    @property
+    def debug(self):
+        return self._debug
+
+    @property
+    def use_env_modules(self):
+        return self._use_env_modules
+
+    @property
+    def use_singularity(self):
+        return self._use_singularity
+
+    @property
+    def use_conda(self):
+        return self._use_conda
+
+    @property
+    def workdir_init(self):
+        return self._workdir_init
+
+    @property
+    def linemaps(self):
+        return self._linemaps
+
+    @property
+    def persistence(self):
+        return self._persistence
+
+    @property
+    def main_snakefile(self):
+        return self._main_snakefile
+
+    @property
+    def output_file_cache(self):
+        return self._output_file_cache
+
+    @property
+    def resource_scopes(self):
+        return self._resource_scopes
+
+    @property
+    def overwrite_resource_scopes(self):
+        return self._overwrite_resource_scopes
+
+    @property
+    def default_resources(self):
+        return self._default_resources
+
+    @property
+    def scheduler_type(self):
+        return self._scheduler_type
+
+    @property
+    def printshellcmds(self):
+        return self._printshellcmds
+
+    @property
+    def config_args(self):
+        return self._config_args
+
+    @property
+    def overwrite_configfiles(self):
+        return self._overwrite_configfiles
+
+    @property
+    def conda_not_block_search_path_envvars(self):
+        return self._conda_not_block_search_path_envvars
+
+    @property
+    def local_groupid(self):
+        return self._local_groupid
+
+    @property
+    def overwrite_scatter(self):
+        return self._overwrite_scatter
+
+    @property
+    def overwrite_threads(self):
+        return self._overwrite_threads
+
+    @property
+    def wrapper_prefix(self):
+        return self._wrapper_prefix
+
+    @property
+    def keep_metadata(self):
+        return self._keep_metadata
+
+    @property
+    def max_threads(self):
+        return self._max_threads
+
+    @property
+    def execute_subworkflows(self):
+        return self._execute_subworkflows
+
+    @property
+    def singularity_args(self):
+        return self._singularity_args
+
+    @property
+    def conda_prefix(self):
+        return self._conda_prefix
+
+    @property
+    def conda_frontend(self):
+        return self._conda_frontend
+
+    @property
+    def shadow_prefix(self):
+        return self._shadow_prefix
+
+    @property
+    def rerun_triggers(self):
+        return self._rerun_triggers
+
+    @property
+    def latency_wait(self):
+        return self._latency_wait
+
+    @property
+    def overwrite_resources(self):
+        return self._overwrite_resources
 
     @property
     def conda_base_path(self):
@@ -333,18 +500,6 @@ class Workflow:
 
     def get_cache_mode(self, rule: Rule):
         return self.cache_rules.get(rule.name)
-
-    def check_source_sizes(self, filename, warning_size_gb=0.2):
-        """A helper function to check the filesize, and return the file
-        to the calling function Additionally, given that we encourage these
-        packages to be small, we set a warning at 200MB (0.2GB).
-        """
-        gb = bytesto(os.stat(filename).st_size, "g")
-        if gb > warning_size_gb:
-            logger.warning(
-                f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB suggested size Consider uploading larger files to storage first."
-            )
-        return filename
 
     @property
     def subworkflows(self):
@@ -509,7 +664,6 @@ class Workflow:
         cluster=None,
         cluster_sync=None,
         jobname=None,
-        immediate_submit=False,
         ignore_ambiguity=False,
         printrulegraph=False,
         printfilegraph=False,
@@ -557,7 +711,6 @@ class Workflow:
         conda_cleanup_envs=False,
         cleanup_containers=False,
         cleanup_shadow=False,
-        cleanup_scripts=True,
         subsnakemake=None,
         updated_files=None,
         keep_target_files=False,
@@ -582,8 +735,6 @@ class Workflow:
         containerize=False,
     ):
         self.check_localrules()
-        self.immediate_submit = immediate_submit
-        self.cleanup_scripts = cleanup_scripts
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
@@ -685,7 +836,7 @@ class Workflow:
             batch=batch,
         )
 
-        self.persistence = Persistence(
+        self._persistence = Persistence(
             nolock=nolock,
             dag=dag,
             conda_prefix=self.conda_prefix,
@@ -829,7 +980,7 @@ class Workflow:
                 )
                 return False
 
-        if immediate_submit and any(dag.checkpoint_jobs):
+        if self.immediate_submit and any(dag.checkpoint_jobs):
             logger.error(
                 "Immediate submit mode (--immediate-submit) may not be used for workflows "
                 "with checkpoint jobs, as the dependencies cannot be determined before "
@@ -1087,7 +1238,7 @@ class Workflow:
                 log_provenance_info()
             raise e
 
-        if not immediate_submit and not dryrun and self.mode == Mode.default:
+        if not self.immediate_submit and not dryrun and self.mode == Mode.default:
             dag.cleanup_workdir()
 
         if success:

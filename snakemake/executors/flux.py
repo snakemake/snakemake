@@ -8,6 +8,7 @@ import shlex
 from collections import namedtuple
 
 from snakemake.executors import ClusterExecutor, sleep
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -33,7 +34,7 @@ class FluxExecutor(ClusterExecutor):
     def __init__(
         self,
         workflow,
-        dag,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -73,7 +74,7 @@ class FluxExecutor(ClusterExecutor):
                 flux.job.cancel(self.f, job.jobid)
         self.shutdown()
 
-    def _set_job_resources(self, job):
+    def _set_job_resources(self, job: ExecutorJobInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -86,11 +87,11 @@ class FluxExecutor(ClusterExecutor):
         assert os.path.exists(self.workflow.main_snakefile)
         return self.workflow.main_snakefile
 
-    def _get_jobname(self, job):
+    def _get_jobname(self, job: ExecutorJobInterface):
         # Use a dummy job name (human readable and also namespaced)
         return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
         """
         Submit a job to flux.
         """

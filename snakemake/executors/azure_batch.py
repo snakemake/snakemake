@@ -19,11 +19,26 @@ from pprint import pformat
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
 from snakemake.logging import logger
-from snakemake.common import get_container_image, get_file_hash, async_lock
+from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
+
+
+def check_source_size(self, filename, warning_size_gb=0.2):
+    """A helper function to check the filesize, and return the file
+    to the calling function Additionally, given that we encourage these
+    packages to be small, we set a warning at 200MB (0.2GB).
+    """
+    gb = bytesto(os.stat(filename).st_size, "g")
+    if gb > warning_size_gb:
+        logger.warning(
+            f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB "
+            f"suggested size. Consider uploading larger files to storage first."
+        )
+    return filename
 
 
 class AzBatchConfig:
@@ -206,7 +221,7 @@ class AzBatchExecutor(ClusterExecutor):
     def __init__(
         self,
         workflow,
-        dag,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -403,7 +418,7 @@ class AzBatchExecutor(ClusterExecutor):
         masked_urls = self.mask_sas_urls(masked_keys)
         return pformat(masked_urls, indent=2)
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
         import azure.batch._batch_service_client as batch
         import azure.batch.models as batchmodels
 
@@ -848,13 +863,13 @@ class AzBatchExecutor(ClusterExecutor):
                 for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
                         [
-                            self.workflow.check_source_sizes(os.path.join(dirpath, f))
+                            check_source_size(os.path.join(dirpath, f))
                             for f in filenames
                         ]
                     )
             else:
                 self.workflow_sources.append(
-                    self.workflow.check_source_sizes(os.path.abspath(wfs))
+                    check_source_size(os.path.abspath(wfs))
                 )
 
     # from google_lifesciences.py

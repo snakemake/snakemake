@@ -15,6 +15,7 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
+from snakemake.interfaces import ExecutorJobInterface, GroupJobExecutorInterface, SingleJobExecutorInterface
 
 from snakemake.io import (
     IOFile,
@@ -60,162 +61,6 @@ def format_files(job, io, dynamicio):
 def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
-
-
-class ExecutorJobInterface(ABC):
-    @property
-    @abstractmethod
-    def jobid(self):
-        ...
-
-    @abstractmethod
-    def logfile_suggestion(self, prefix: str) -> str:
-        ...
-
-    @abstractmethod
-    def is_group(self):
-        ...
-
-    @abstractmethod
-    def log_info(self, skip_dynamic=False):
-        ...
-
-    @abstractmethod
-    def log_error(self, msg=None, **kwargs):
-        ...
-
-    @abstractmethod
-    def remove_existing_output(self):
-        ...
-
-    @abstractmethod
-    def download_remote_input(self):
-        ...
-
-    @abstractmethod
-    def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
-        ...
-
-    @property
-    @abstractmethod
-    def resources(self):
-        ...
-
-    @abstractmethod
-    def check_protected_output(self):
-        ...
-
-    @property
-    @abstractmethod
-    def is_local(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def is_branched(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def is_updated(self):
-        ...
-
-    @property
-    @abstractmethod
-    def output(self):
-        ...
-
-    @abstractmethod
-    def register(self):
-        ...
-
-    @abstractmethod
-    def postprocess(self):
-        ...
-    
-    @abstractmethod
-    def get_target_spec(self):
-        ...
-
-    @abstractmethod
-    def rules(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def attempt(self):
-        ...
-
-    @property
-    @abstractmethod
-    def input(self):
-        ...
-
-    @property
-    @abstractmethod
-    def threads(self) -> int: 
-        ...
-
-    @property
-    @abstractmethod
-    def resources(self): 
-        ...
-
-    @property
-    @abstractmethod
-    def log(self): 
-        ...
-
-class SingleJobExecutorInterface(ABC):
-    @property
-    @abstractmethod
-    def rule(self):
-        ...
-
-    @abstractmethod
-    def prepare(self):
-        ...
-
-    @property
-    @abstractmethod
-    def conda_env(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def container_img_path(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def env_modules(self):
-        ...
-
-    @property
-    @abstractmethod
-    def benchmark_repeats(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def benchmark(self):
-        ...
-
-    @property
-    @abstractmethod
-    def params(self):
-        ...
-    
-    @property
-    @abstractmethod
-    def wildcards(self):
-        ...
-
-class GroupJobExecutorInterface(ABC):
-    @property
-    @abstractmethod
-    def jobs(self):
-        ...
 
 class AbstractJob(ExecutorJobInterface):
     @abstractmethod
@@ -311,7 +156,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "_resources",
         "_conda_env_file",
         "_conda_env",
-        "shadow_dir",
+        "_shadow_dir",
         "_inputsize",
         "dynamic_output",
         "dynamic_input",
@@ -414,6 +259,14 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
+
+    @property
+    def shadow_dir(self):
+        return self._shadow_dir
+    
+    @shadow_dir.setter
+    def shadow_dir(self, value):
+        self._shadow_dir = value
 
     @property
     def wildcards(self):
@@ -1390,7 +1243,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     obj_cache = dict()
 
     __slots__ = [
-        "groupid",
+        "_groupid",
         "_jobs",
         "_resources",
         "_input",
@@ -1417,6 +1270,14 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
+
+    @property
+    def groupid(self):
+        return self._groupid
+    
+    @groupid.setter
+    def groupid(self, new_groupid):
+        self._groupid = new_groupid
 
     @property
     def jobs(self):

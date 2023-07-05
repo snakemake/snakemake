@@ -7,6 +7,7 @@ import time
 import shlex
 import subprocess
 import uuid
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
@@ -90,7 +91,7 @@ class SlurmExecutor(ClusterExecutor):
     def __init__(
         self,
         workflow,
-        dag,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob_{name}_{jobid}",
         printreason=False,
@@ -146,7 +147,7 @@ class SlurmExecutor(ClusterExecutor):
                 logger.warning("Unable to cancel jobs within a minute.")
         self.shutdown()
 
-    def get_account_arg(self, job):
+    def get_account_arg(self, job: ExecutorJobInterface):
         """
         checks whether the desired account is valid,
         returns a default account, if applicable
@@ -173,7 +174,7 @@ class SlurmExecutor(ClusterExecutor):
                     )
             return self._fallback_account_arg
 
-    def get_partition_arg(self, job):
+    def get_partition_arg(self, job: ExecutorJobInterface):
         """
         checks whether the desired partition is valid,
         returns a default partition, if applicable
@@ -190,7 +191,7 @@ class SlurmExecutor(ClusterExecutor):
         else:
             return ""
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
         super()._run(job)
         jobid = job.jobid
 
