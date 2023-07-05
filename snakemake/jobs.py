@@ -225,7 +225,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
         self.shadow_dir = None
         self._inputsize = None
-        self.is_updated = False
+        self._is_updated = False
         self._params_and_resources_resetted = False
 
         self._attempt = self.dag.workflow.attempt
@@ -263,6 +263,14 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
+
+    @property
+    def is_updated(self):
+        return self._is_updated
+
+    @is_updated.setter
+    def is_updated(self, value):
+        self._is_updated = value
 
     @property
     def shadow_dir(self):

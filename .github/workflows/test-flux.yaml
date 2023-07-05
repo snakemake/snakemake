@@ -36,6 +36,8 @@ jobs:
 
       - name: Install Snakemake
         run: |
+          conda config --set channel_priority strict
+          mamba install python>=3.9
           pip install .
 
       - name: Start Flux and Test Workflow
