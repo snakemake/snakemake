@@ -282,7 +282,7 @@ class Workflow(WorkflowExecutorInterface):
         self.globals["config"] = copy.deepcopy(self.overwrite_config)
 
         if envvars is not None:
-            self.register_envvars
+            self.register_envvars(*envvars)
 
     @property
     def default_remote_prefix(self):

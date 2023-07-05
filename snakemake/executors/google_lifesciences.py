@@ -33,7 +33,7 @@ GoogleLifeSciencesJob = namedtuple(
 )
 
 
-def check_source_size(self, filename, warning_size_gb=0.2):
+def check_source_size(filename, warning_size_gb=0.2):
     """A helper function to check the filesize, and return the file
     to the calling function Additionally, given that we encourage these
     packages to be small, we set a warning at 200MB (0.2GB).
