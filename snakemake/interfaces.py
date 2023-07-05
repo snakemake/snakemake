@@ -54,12 +54,12 @@ class ExecutorJobInterface(ABC):
     @abstractmethod
     def is_local(self):
         ...
-    
+
     @property
     @abstractmethod
     def is_branched(self):
         ...
-    
+
     @property
     @abstractmethod
     def is_updated(self):
@@ -77,7 +77,7 @@ class ExecutorJobInterface(ABC):
     @abstractmethod
     def postprocess(self):
         ...
-    
+
     @abstractmethod
     def get_target_spec(self):
         ...
@@ -85,7 +85,7 @@ class ExecutorJobInterface(ABC):
     @abstractmethod
     def rules(self):
         ...
-    
+
     @property
     @abstractmethod
     def attempt(self):
@@ -98,17 +98,17 @@ class ExecutorJobInterface(ABC):
 
     @property
     @abstractmethod
-    def threads(self) -> int: 
+    def threads(self) -> int:
         ...
 
     @property
     @abstractmethod
-    def resources(self): 
+    def resources(self):
         ...
 
     @property
     @abstractmethod
-    def log(self): 
+    def log(self):
         ...
 
     @abstractmethod
@@ -128,6 +128,7 @@ class ExecutorJobInterface(ABC):
     def needs_singularity(self):
         ...
 
+
 class SingleJobExecutorInterface(ABC):
     @property
     @abstractmethod
@@ -142,12 +143,12 @@ class SingleJobExecutorInterface(ABC):
     @abstractmethod
     def conda_env(self):
         ...
-    
+
     @property
     @abstractmethod
     def container_img_path(self):
         ...
-    
+
     @property
     @abstractmethod
     def env_modules(self):
@@ -157,7 +158,7 @@ class SingleJobExecutorInterface(ABC):
     @abstractmethod
     def benchmark_repeats(self):
         ...
-    
+
     @property
     @abstractmethod
     def benchmark(self):
@@ -167,7 +168,7 @@ class SingleJobExecutorInterface(ABC):
     @abstractmethod
     def params(self):
         ...
-    
+
     @property
     @abstractmethod
     def wildcards(self):
@@ -224,11 +225,11 @@ class DAGExecutorInterface(ABC):
     @abstractmethod
     def incomplete_external_jobid(self, job: ExecutorJobInterface):
         ...
-    
+
     @abstractmethod
     def jobid(self, job: ExecutorJobInterface):
         ...
-    
+
     @abstractmethod
     def get_sources(self):
         ...
@@ -366,7 +367,7 @@ class WorkflowExecutorInterface(ABC):
     @abstractmethod
     def overwrite_resource_scopes(self):
         ...
-    
+
     @property
     @abstractmethod
     def resource_scopes(self):
@@ -390,12 +391,12 @@ class WorkflowExecutorInterface(ABC):
     @abstractmethod
     def persistence(self) -> PersistenceExecutorInterface:
         ...
-    
+
     @property
     @abstractmethod
     def keep_metadata(self):
         ...
-    
+
     @property
     @abstractmethod
     def linemaps(self):
@@ -405,17 +406,17 @@ class WorkflowExecutorInterface(ABC):
     @abstractmethod
     def workdir_init(self):
         ...
-    
+
     @property
     @abstractmethod
     def use_conda(self):
         ...
-    
+
     @property
     @abstractmethod
     def use_singularity(self):
         ...
-    
+
     @property
     @abstractmethod
     def use_env_modules(self):
@@ -445,12 +446,12 @@ class WorkflowExecutorInterface(ABC):
     @abstractmethod
     def verbose(self):
         ...
-    
+
     @property
     @abstractmethod
     def jobscript(self):
         ...
-    
+
     @property
     @abstractmethod
     def envvars(self):
@@ -460,7 +461,7 @@ class WorkflowExecutorInterface(ABC):
     @abstractmethod
     def scheduler(self) -> JobSchedulerExecutorInterface:
         ...
-    
+
     @property
     @abstractmethod
     def immediate_submit(self):

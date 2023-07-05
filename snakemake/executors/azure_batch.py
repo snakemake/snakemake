@@ -418,7 +418,13 @@ class AzBatchExecutor(ClusterExecutor):
         masked_urls = self.mask_sas_urls(masked_keys)
         return pformat(masked_urls, indent=2)
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         import azure.batch._batch_service_client as batch
         import azure.batch.models as batchmodels
 
@@ -862,15 +868,10 @@ class AzBatchExecutor(ClusterExecutor):
             if os.path.isdir(wfs):
                 for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
-                        [
-                            check_source_size(os.path.join(dirpath, f))
-                            for f in filenames
-                        ]
+                        [check_source_size(os.path.join(dirpath, f)) for f in filenames]
                     )
             else:
-                self.workflow_sources.append(
-                    check_source_size(os.path.abspath(wfs))
-                )
+                self.workflow_sources.append(check_source_size(os.path.abspath(wfs)))
 
     # from google_lifesciences.py
     def _generate_build_source_package(self):

@@ -91,7 +91,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 )
         self.shutdown()
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)

@@ -91,7 +91,13 @@ class FluxExecutor(ClusterExecutor):
         # Use a dummy job name (human readable and also namespaced)
         return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """
         Submit a job to flux.
         """

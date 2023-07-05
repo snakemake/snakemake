@@ -15,7 +15,11 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
-from snakemake.interfaces import ExecutorJobInterface, GroupJobExecutorInterface, SingleJobExecutorInterface
+from snakemake.interfaces import (
+    ExecutorJobInterface,
+    GroupJobExecutorInterface,
+    SingleJobExecutorInterface,
+)
 
 from snakemake.io import (
     IOFile,
@@ -263,7 +267,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def shadow_dir(self):
         return self._shadow_dir
-    
+
     @shadow_dir.setter
     def shadow_dir(self, value):
         self._shadow_dir = value
@@ -279,7 +283,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def input(self):
         return self._input
-    
+
     @input.setter
     def input(self, value):
         self._input = value
@@ -287,7 +291,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def output(self):
         return self._output
-    
+
     @output.setter
     def output(self, value):
         self._output = value
@@ -1274,7 +1278,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     @property
     def groupid(self):
         return self._groupid
-    
+
     @groupid.setter
     def groupid(self, new_groupid):
         self._groupid = new_groupid
@@ -1286,11 +1290,11 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     @jobs.setter
     def jobs(self, new_jobs):
         self._jobs = new_jobs
-    
+
     @property
     def toposorted(self):
         return self._toposorted
-    
+
     @toposorted.setter
     def toposorted(self, new_toposorted):
         self._toposorted = new_toposorted

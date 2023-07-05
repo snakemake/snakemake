@@ -191,7 +191,13 @@ class SlurmExecutor(ClusterExecutor):
         else:
             return ""
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobid = job.jobid
 

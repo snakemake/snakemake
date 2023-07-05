@@ -53,7 +53,13 @@ class SlurmJobstepExecutor(ClusterExecutor):
     async def _wait_for_jobs(self):
         pass
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         jobsteps = dict()
 
         # TODO revisit special handling for group job levels via srun at a later stage

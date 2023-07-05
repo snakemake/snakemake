@@ -23,7 +23,12 @@ import base64
 import uuid
 import re
 import math
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, GroupJobExecutorInterface, SingleJobExecutorInterface
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    GroupJobExecutorInterface,
+    SingleJobExecutorInterface,
+)
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
 
@@ -134,7 +139,13 @@ class AbstractExecutor(ABC):
         ]
         return format_cli_arg("--resources", resources)
 
-    def run_jobs(self, jobs: list[ExecutorJobInterface], callback=None, submit_callback=None, error_callback=None):
+    def run_jobs(
+        self,
+        jobs: list[ExecutorJobInterface],
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """Run a list of jobs that is ready at a given point in time.
 
         By default, this method just runs each job individually.
@@ -149,7 +160,13 @@ class AbstractExecutor(ABC):
                 error_callback=error_callback,
             )
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """Run a specific job or group job."""
         self._run(job)
         callback(job)
@@ -437,7 +454,13 @@ class RealExecutor(AbstractExecutor):
 
 
 class TouchExecutor(RealExecutor):
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         try:
             # Touching of output files will be done by handle_job_success
@@ -510,7 +533,13 @@ class CPUExecutor(RealExecutor):
     def get_job_args(self, job: ExecutorJobInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet"
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         if job.is_group():
@@ -652,7 +681,9 @@ class CPUExecutor(RealExecutor):
     def cancel(self):
         self.pool.shutdown()
 
-    def _callback(self, job: SingleJobExecutorInterface, callback, error_callback, future):
+    def _callback(
+        self, job: SingleJobExecutorInterface, callback, error_callback, future
+    ):
         try:
             ex = future.exception()
             if ex is not None:
@@ -1139,7 +1170,13 @@ class GenericClusterExecutor(ClusterExecutor):
         # Instead do it manually once the jobid is known.
         pass
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobid = job.jobid
 
@@ -1391,7 +1428,13 @@ class SynchronousClusterExecutor(ClusterExecutor):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)
@@ -1523,7 +1566,13 @@ class DRMAAExecutor(ClusterExecutor):
                 pass
         self.shutdown()
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
@@ -1851,7 +1900,13 @@ class KubernetesExecutor(ClusterExecutor):
 
         self.shutdown()
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         import kubernetes.client
 
         super()._run(job)
@@ -2359,7 +2414,13 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug(json.dumps(tibanna_input, indent=4))
         return tibanna_input
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         logger.info("running job using Tibanna...")
         from tibanna.core import API
 

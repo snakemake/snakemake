@@ -655,15 +655,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             if os.path.isdir(wfs):
                 for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
-                        [
-                            check_source_size(os.path.join(dirpath, f))
-                            for f in filenames
-                        ]
+                        [check_source_size(os.path.join(dirpath, f)) for f in filenames]
                     )
             else:
-                self.workflow_sources.append(
-                    check_source_size(os.path.abspath(wfs))
-                )
+                self.workflow_sources.append(check_source_size(os.path.abspath(wfs)))
 
     def _generate_build_source_package(self):
         """
@@ -841,7 +836,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # "timeout": string in seconds (3.5s) is not included (defaults to 7 days)
         return pipeline
 
-    def run(self, job: ExecutorJobInterface, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
