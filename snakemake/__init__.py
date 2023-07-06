@@ -43,6 +43,10 @@ from snakemake.common import (
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 
+if sys.version < (3, 9):
+    raise ValueError("Snakemake requires at least Python 3.9.")
+
+
 SNAKEFILE_CHOICES = [
     "Snakefile",
     "snakefile",
