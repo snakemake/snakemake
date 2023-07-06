@@ -1,11 +1,18 @@
-from abc import ABC, abstractmethod
-import sys
-from typing import Optional
+__author__ = "Johannes Köster"
+__copyright__ = "Copyright 2023, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
+__license__ = "MIT"
 
+import sys
 
 # The typing API used here requires Python 3.9 or later and fails with unintuitive errors otherwise.
 if sys.version_info < (3, 9):
-    raise ValueError("Snakemake executor interface definition requires at least Python 3.9.")
+    raise ValueError(
+        "Snakemake executor interface definition requires at least Python 3.9."
+    )
+
+from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class ExecutorJobInterface(ABC):

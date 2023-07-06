@@ -3,13 +3,17 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import sys
+
+if sys.version_info < (3, 9):
+    raise ValueError("Snakemake requires at least Python 3.9.")
+
 import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
 from pathlib import Path
 import re
-import sys
 import threading
 import webbrowser
 from functools import partial
@@ -41,10 +45,6 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-
-
-if sys.version_info < (3, 9):
-    raise ValueError("Snakemake requires at least Python 3.9.")
 
 
 SNAKEFILE_CHOICES = [
