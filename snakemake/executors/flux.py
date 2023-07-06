@@ -6,6 +6,7 @@ __license__ = "MIT"
 import os
 import shlex
 from collections import namedtuple
+from snakemake.exceptions import WorkflowError
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface

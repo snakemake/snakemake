@@ -45,7 +45,7 @@ jobs:
         shell: bash -el {0}
         run: |
           # We must have python3->python accessible for this to work
-          #ln -s /bin/python3 /usr/local/bin/python
+          ln -s /bin/python3 /usr/local/bin/python
           su fluxuser
           cd examples/flux
           # This run does not use conda
