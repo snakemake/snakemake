@@ -87,6 +87,7 @@ from snakemake.sourcecache import (
 )
 from snakemake.deployment.conda import Conda
 from snakemake import sourcecache
+import snakemake.ioutils
 
 
 class Workflow:
@@ -250,6 +251,8 @@ class Workflow:
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
+        # add ioutils
+        snakemake.ioutils.register_in_globals(_globals)
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]

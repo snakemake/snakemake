@@ -301,6 +301,10 @@ def test_globwildcards():
     run(dpath("test_globwildcards"))
 
 
+def test_ioutils():
+    run(dpath("test_ioutils"))
+
+
 def test_local_import():
     run(dpath("test_local_import"))
 
