@@ -273,7 +273,9 @@ def get_function_params(func):
 
 def get_input_function_aux_params(func, candidate_params):
     func_params = get_function_params(func)
-    has_var_keyword = any(param.kind == param.VAR_KEYWORD for param in func_params.values())
+    has_var_keyword = any(
+        param.kind == param.VAR_KEYWORD for param in func_params.values()
+    )
     if has_var_keyword:
         # If the function has a **kwargs parameter, we assume that it can take any
         # parameter, so we return all candidate parameters.

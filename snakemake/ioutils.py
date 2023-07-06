@@ -28,11 +28,13 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
         raise ValueError(
             "Must provide a dataframe, series, or mapping to search within."
         )
-    
+
     def handle_wildcards(expression, func):
         if snakemake.io.contains_wildcard(expression):
+
             def inner(wildcards):
                 return func(snakemake.utils.format(expression, **wildcards))
+
             return inner
         else:
             return func(expression)
@@ -69,10 +71,12 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
 
 
 def evaluate(query: str):
-    """Evaluate a python expression while replacing any wildcards given as 
+    """Evaluate a python expression while replacing any wildcards given as
     {wildcardname} with the wildcard value represented as a string."""
+
     def inner(wildcards):
-        return eval(query, {w: repr(v) for w,v in wildcards.items()})
+        return eval(query, {w: repr(v) for w, v in wildcards.items()})
+
     return inner
 
 

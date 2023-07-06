@@ -31,7 +31,13 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run, get_function_params, get_input_function_aux_params
+from snakemake.common import (
+    DYNAMIC_FILL,
+    ON_WINDOWS,
+    async_run,
+    get_function_params,
+    get_input_function_aux_params,
+)
 
 
 class Mtime:
@@ -1245,7 +1251,11 @@ def expand(*args, **wildcard_values):
                 format_dict = dict
                 break
 
-    callables = {key: value for key, value in wildcard_values.items() if isinstance(value, Callable)}
+    callables = {
+        key: value
+        for key, value in wildcard_values.items()
+        if isinstance(value, Callable)
+    }
 
     # remove unused wildcards to avoid duplicate filepatterns
     wildcard_values = {
@@ -1271,7 +1281,9 @@ def expand(*args, **wildcard_values):
             return [
                 formatter.vformat(filepattern, (), comb)
                 for filepattern in filepatterns
-                for comb in map(format_dict, combinator(*flatten(wildcard_values[filepattern])))
+                for comb in map(
+                    format_dict, combinator(*flatten(wildcard_values[filepattern]))
+                )
             ]
         except KeyError as e:
             raise WildcardError(f"No values given for wildcard {e}.")
@@ -1287,6 +1299,7 @@ def expand(*args, **wildcard_values):
                 for pattern_values in wildcard_values.values():
                     pattern_values[wildcard] = ret
             return do_expand(wildcard_values)
+
         return inner
     else:
         return do_expand(wildcard_values)
