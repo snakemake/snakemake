@@ -8,7 +8,7 @@ from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 class RuleLinter(Linter):
     def item_desc_plain(self, rule):
-        return "rule {} (line {}, {})".format(rule.name, rule.lineno, rule.snakefile)
+        return f"rule {rule.name} (line {rule.lineno}, {rule.snakefile})"
 
     def item_desc_json(self, rule):
         return {"rule": rule.name, "line": rule.lineno, "snakefile": rule.snakefile}
@@ -58,7 +58,7 @@ class RuleLinter(Linter):
             "threads",
             "resources",
         },
-        regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN)),
+        regex=re.compile(f"{{(?P<name>{NAME_PATTERN}).*?}}"),
     ):
         if rule.shellcmd:
             for match in regex.finditer(rule.shellcmd):

@@ -313,6 +313,16 @@ Snakemake will always round the calculated value down (while enforcing a minimum
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
 
+Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+
+.. code-block:: yaml
+
+    set-threads:
+        b: 16
+
+to set the memory requirement of rule ``b`` to 1000 MB.
+
 
 .. _snakefiles-resources:
 
@@ -394,7 +404,16 @@ Another application of callables as resources is when memory usage depends on th
 Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
-Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+
+.. code-block:: yaml
+
+    set-resources:
+        b:
+            mem_mb: 1000
+
+to set the memory requirement of rule ``b`` to 1000 MB.
 
 .. _snakefiles-standard-resources:
 

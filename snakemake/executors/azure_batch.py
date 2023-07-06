@@ -282,8 +282,8 @@ class AzBatchExecutor(ClusterExecutor):
 
         # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
         ts = datetime.datetime.now().strftime("%Y-%m%dT%H-%M-%S")
-        self.pool_id = "snakepool-{:s}".format(ts)
-        self.job_id = "snakejob-{:s}".format(ts)
+        self.pool_id = f"snakepool-{ts:s}"
+        self.job_id = f"snakejob-{ts:s}"
 
         self.envvars = list(self.workflow.envvars) or []
 
@@ -660,7 +660,7 @@ class AzBatchExecutor(ClusterExecutor):
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = batchmodels.ContainerConfiguration(
-            container_image_names=[self.container_image]
+            type="dockerCompatible", container_image_names=[self.container_image]
         )
 
         user = None
@@ -696,6 +696,7 @@ class AzBatchExecutor(ClusterExecutor):
             # Specify container configuration, fetching an image
             #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
             container_config = batchmodels.ContainerConfiguration(
+                type="dockerCompatible",
                 container_image_names=[self.container_image],
                 container_registries=registry_conf,
             )
