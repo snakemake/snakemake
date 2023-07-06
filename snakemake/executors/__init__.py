@@ -226,6 +226,18 @@ class DryrunExecutor(AbstractExecutor):
                     )
                 )
 
+    def cancel(self):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def handle_job_success(self, job: ExecutorJobInterface):
+        pass
+
+    def handle_job_error(self, job: ExecutorJobInterface):
+        pass
+
 
 class RealExecutor(AbstractExecutor):
     def __init__(
@@ -422,9 +434,8 @@ class RealExecutor(AbstractExecutor):
     def get_exec_mode(self):
         ...
 
-    @abstractmethod
     def get_envvar_declarations(self):
-        ...
+        return ""
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return ""
@@ -472,6 +483,18 @@ class TouchExecutor(RealExecutor):
 
     def handle_job_success(self, job: ExecutorJobInterface):
         super().handle_job_success(job, ignore_missing_output=True)
+
+    def cancel(self):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def get_exec_mode(self):
+        raise NotImplementedError()
+
+    def get_python_executable(self):
+        raise NotImplementedError()
 
 
 _ProcessPoolExceptions = (KeyboardInterrupt,)
