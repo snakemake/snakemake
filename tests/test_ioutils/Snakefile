@@ -19,6 +19,8 @@ rule a:
 
 
 rule b:
+    input:
+        branch(evaluate("{sample} == '100'"), then="a/{sample}.txt"),
     output:
         "b/{sample}.txt",
     shell:

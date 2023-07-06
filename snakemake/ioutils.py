@@ -90,12 +90,12 @@ def lookup(query: Optional[str] = None, dpath: Optional[str] = None, within=None
         raise ValueError("Must provide either a query or dpath parameter.")
 
 
-def evaluate(query: str):
+def evaluate(expr: str):
     """Evaluate a python expression while replacing any wildcards given as
     {wildcardname} with the wildcard value represented as a string."""
 
     def inner(wildcards):
-        return eval(query, {w: repr(v) for w, v in wildcards.items()})
+        return eval(expr.format(**{w: repr(v) for w, v in wildcards.items()}), globals())
 
     return inner
 
@@ -124,11 +124,14 @@ def branch(
     input function that will be evaluated once the wildcards are known.
     """
 
+    def convert_none(value):
+        return value or []
+
     def handle_callable(value, wildcards):
         if isinstance(value, Callable):
-            return value(wildcards)
+            return convert_none(value(wildcards))
         else:
-            return value
+            return convert_none(value)
 
     def do_branch_then_otherwise(wildcards):
         if handle_callable(condition, wildcards):
