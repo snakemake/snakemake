@@ -4,7 +4,7 @@ from typing import Optional
 
 
 # The typing API used here requires Python 3.9 or later and fails with unintuitive errors otherwise.
-if sys.version < (3, 9):
+if sys.version_info < (3, 9):
     raise ValueError("Snakemake executor interface definition requires at least Python 3.9.")
 
 
