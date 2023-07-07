@@ -3,13 +3,17 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import sys
+
+if sys.version_info < (3, 9):
+    raise ValueError("Snakemake requires at least Python 3.9.")
+
 import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
 import logging as _logging
 from pathlib import Path
 import re
-import sys
 import threading
 import webbrowser
 from functools import partial
@@ -654,6 +658,8 @@ def snakemake(
             keep_metadata=keep_metadata,
             latency_wait=latency_wait,
             executor_args=executor_args,
+            cleanup_scripts=cleanup_scripts,
+            immediate_submit=immediate_submit,
         )
         success = True
 
@@ -824,7 +830,6 @@ def snakemake(
                     max_jobs_per_second=max_jobs_per_second,
                     max_status_checks_per_second=max_status_checks_per_second,
                     printd3dag=printd3dag,
-                    immediate_submit=immediate_submit,
                     ignore_ambiguity=ignore_ambiguity,
                     stats=stats,
                     force_incomplete=force_incomplete,
@@ -851,7 +856,6 @@ def snakemake(
                     conda_cleanup_envs=conda_cleanup_envs,
                     cleanup_containers=cleanup_containers,
                     cleanup_shadow=cleanup_shadow,
-                    cleanup_scripts=cleanup_scripts,
                     subsnakemake=subsnakemake,
                     updated_files=updated_files,
                     allowed_rules=allowed_rules,
@@ -3193,7 +3197,6 @@ def main(argv=None):
             conda_cleanup_envs=args.conda_cleanup_envs,
             cleanup_containers=args.cleanup_containers,
             cleanup_shadow=args.cleanup_shadow,
-            cleanup_scripts=not args.skip_script_cleanup,
             force_incomplete=args.rerun_incomplete,
             ignore_incomplete=args.ignore_incomplete,
             list_version_changes=args.list_version_changes,
@@ -3262,8 +3265,8 @@ def main(argv=None):
             scheduler_solver_path=args.scheduler_solver_path,
             conda_base_path=args.conda_base_path,
             local_groupid=args.local_groupid,
-            # We can more easily allow custom executors just by passing all args
             executor_args=executor_args,
+            cleanup_scripts=not args.skip_script_cleanup,
         )
 
     if args.runtime_profile:

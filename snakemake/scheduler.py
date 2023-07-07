@@ -31,6 +31,7 @@ from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.common import ON_WINDOWS
+from snakemake.interfaces import JobSchedulerExecutorInterface
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -62,7 +63,7 @@ class DummyRateLimiter(ContextDecorator):
         return False
 
 
-class JobScheduler:
+class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
         workflow,

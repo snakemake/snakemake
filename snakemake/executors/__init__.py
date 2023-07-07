@@ -3,7 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import asyncio
 import os
 import sys
@@ -23,6 +23,13 @@ import base64
 import uuid
 import re
 import math
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    GroupJobExecutorInterface,
+    SingleJobExecutorInterface,
+    WorkflowExecutorInterface,
+)
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
 
@@ -59,11 +66,11 @@ async def sleep():
         await asyncio.sleep(1)
 
 
-class AbstractExecutor:
+class AbstractExecutor(ABC):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -107,7 +114,7 @@ class AbstractExecutor:
             "--set-resource-scopes", self.workflow.overwrite_resource_scopes
         )
 
-    def get_resource_declarations_dict(self, job):
+    def get_resource_declarations_dict(self, job: ExecutorJobInterface):
         def isdigit(i):
             s = str(i)
             # Adapted from https://stackoverflow.com/a/1265696
@@ -126,14 +133,20 @@ class AbstractExecutor:
             and isdigit(value) and resource not in excluded_resources
         }
 
-    def get_resource_declarations(self, job):
+    def get_resource_declarations(self, job: ExecutorJobInterface):
         resources = [
             f"{resource}={value}"
             for resource, value in self.get_resource_declarations_dict(job).items()
         ]
         return format_cli_arg("--resources", resources)
 
-    def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
+    def run_jobs(
+        self,
+        jobs: list[ExecutorJobInterface],
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """Run a list of jobs that is ready at a given point in time.
 
         By default, this method just runs each job individually.
@@ -148,7 +161,13 @@ class AbstractExecutor:
                 error_callback=error_callback,
             )
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """Run a specific job or group job."""
         self._run(job)
         callback(job)
@@ -161,28 +180,30 @@ class AbstractExecutor:
     def cancel(self):
         ...
 
-    def _run(self, job):
+    def _run(self, job: ExecutorJobInterface):
         job.check_protected_output()
         self.printjob(job)
 
-    def rule_prefix(self, job):
+    def rule_prefix(self, job: ExecutorJobInterface):
         return "local " if job.is_local else ""
 
-    def printjob(self, job):
+    def printjob(self, job: ExecutorJobInterface):
         job.log_info(skip_dynamic=True)
 
-    def print_job_error(self, job, msg=None, **kwargs):
+    def print_job_error(self, job: ExecutorJobInterface, msg=None, **kwargs):
         job.log_error(msg, **kwargs)
 
-    def handle_job_success(self, job):
-        pass
+    @abstractmethod
+    def handle_job_success(self, job: ExecutorJobInterface):
+        ...
 
-    def handle_job_error(self, job):
-        pass
+    @abstractmethod
+    def handle_job_error(self, job: ExecutorJobInterface):
+        ...
 
 
 class DryrunExecutor(AbstractExecutor):
-    def printjob(self, job):
+    def printjob(self, job: ExecutorJobInterface):
         super().printjob(job)
         if job.is_group():
             for j in job.jobs:
@@ -190,7 +211,7 @@ class DryrunExecutor(AbstractExecutor):
         else:
             self.printcache(job)
 
-    def printcache(self, job):
+    def printcache(self, job: ExecutorJobInterface):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         if cache_mode:
             if self.workflow.output_file_cache.exists(job, cache_mode):
@@ -206,12 +227,24 @@ class DryrunExecutor(AbstractExecutor):
                     )
                 )
 
+    def cancel(self):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def handle_job_success(self, job: ExecutorJobInterface):
+        pass
+
+    def handle_job_error(self, job: ExecutorJobInterface):
+        pass
+
 
 class RealExecutor(AbstractExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -230,10 +263,10 @@ class RealExecutor(AbstractExecutor):
         self.stats = Stats()
         self.snakefile = workflow.main_snakefile
 
-    def register_job(self, job):
+    def register_job(self, job: ExecutorJobInterface):
         job.register()
 
-    def _run(self, job, callback=None, error_callback=None):
+    def _run(self, job: ExecutorJobInterface, callback=None, error_callback=None):
         super()._run(job)
         self.stats.report_job_start(job)
 
@@ -250,7 +283,7 @@ class RealExecutor(AbstractExecutor):
 
     def handle_job_success(
         self,
-        job,
+        job: ExecutorJobInterface,
         upload_remote=True,
         handle_log=True,
         handle_touch=True,
@@ -267,7 +300,7 @@ class RealExecutor(AbstractExecutor):
         )
         self.stats.report_job_end(job)
 
-    def handle_job_error(self, job, upload_remote=True):
+    def handle_job_error(self, job: ExecutorJobInterface, upload_remote=True):
         job.postprocess(
             error=True,
             assume_shared_fs=self.assume_shared_fs,
@@ -363,7 +396,7 @@ class RealExecutor(AbstractExecutor):
     def get_workdir_arg(self):
         return self.workflow_property_to_arg("overwrite_workdir", flag="--directory")
 
-    def get_job_args(self, job, **kwargs):
+    def get_job_args(self, job: ExecutorJobInterface, **kwargs):
         return join_cli_args(
             [
                 format_cli_arg(
@@ -402,17 +435,16 @@ class RealExecutor(AbstractExecutor):
     def get_exec_mode(self):
         ...
 
-    @abstractmethod
     def get_envvar_declarations(self):
-        ...
-
-    def get_job_exec_prefix(self, job):
         return ""
 
-    def get_job_exec_suffix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return ""
 
-    def format_job_exec(self, job):
+    def get_job_exec_suffix(self, job: ExecutorJobInterface):
+        return ""
+
+    def format_job_exec(self, job: ExecutorJobInterface):
         prefix = self.get_job_exec_prefix(job)
         if prefix:
             prefix += " &&"
@@ -434,7 +466,13 @@ class RealExecutor(AbstractExecutor):
 
 
 class TouchExecutor(RealExecutor):
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         try:
             # Touching of output files will be done by handle_job_success
@@ -444,8 +482,20 @@ class TouchExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    def handle_job_success(self, job):
+    def handle_job_success(self, job: ExecutorJobInterface):
         super().handle_job_success(job, ignore_missing_output=True)
+
+    def cancel(self):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def get_exec_mode(self):
+        raise NotImplementedError()
+
+    def get_python_executable(self):
+        raise NotImplementedError()
 
 
 _ProcessPoolExceptions = (KeyboardInterrupt,)
@@ -460,8 +510,8 @@ except ImportError:
 class CPUExecutor(RealExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         workers,
         printreason=False,
         quiet=False,
@@ -492,7 +542,7 @@ class CPUExecutor(RealExecutor):
     def job_specific_local_groupid(self):
         return False
 
-    def get_job_exec_prefix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return f"cd {self.workflow.workdir_init}"
 
     def get_exec_mode(self):
@@ -504,10 +554,16 @@ class CPUExecutor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
-    def get_job_args(self, job, **kwargs):
+    def get_job_args(self, job: ExecutorJobInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet"
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         if job.is_group():
@@ -526,7 +582,7 @@ class CPUExecutor(RealExecutor):
 
         future.add_done_callback(partial(self._callback, job, callback, error_callback))
 
-    def job_args_and_prepare(self, job):
+    def job_args_and_prepare(self, job: ExecutorJobInterface):
         job.prepare()
 
         conda_env = (
@@ -568,7 +624,7 @@ class CPUExecutor(RealExecutor):
             self.workflow.sourcecache.runtime_cache_path,
         )
 
-    def run_single_job(self, job):
+    def run_single_job(self, job: SingleJobExecutorInterface):
         if (
             self.use_threads
             or (not job.is_shadow and not job.is_run)
@@ -582,7 +638,7 @@ class CPUExecutor(RealExecutor):
             future = self.pool.submit(self.cached_or_run, job, self.spawn_job, job)
         return future
 
-    def run_group_job(self, job):
+    def run_group_job(self, job: GroupJobExecutorInterface):
         """Run a pipe or service group job.
 
         This lets all items run simultaneously."""
@@ -621,14 +677,14 @@ class CPUExecutor(RealExecutor):
                 return
             time.sleep(1)
 
-    def spawn_job(self, job):
+    def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             raise SpawnedJobError()
 
-    def cached_or_run(self, job, run_func, *args):
+    def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
         """
         Either retrieve result from cache, or run job with given function.
         """
@@ -649,7 +705,9 @@ class CPUExecutor(RealExecutor):
     def cancel(self):
         self.pool.shutdown()
 
-    def _callback(self, job, callback, error_callback, future):
+    def _callback(
+        self, job: SingleJobExecutorInterface, callback, error_callback, future
+    ):
         try:
             ex = future.exception()
             if ex is not None:
@@ -667,10 +725,10 @@ class CPUExecutor(RealExecutor):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    def handle_job_success(self, job):
+    def handle_job_success(self, job: ExecutorJobInterface):
         super().handle_job_success(job)
 
-    def handle_job_error(self, job):
+    def handle_job_error(self, job: ExecutorJobInterface):
         super().handle_job_error(job)
         if not self.keepincomplete:
             job.cleanup()
@@ -688,8 +746,8 @@ class ClusterExecutor(RealExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -796,7 +854,7 @@ class ClusterExecutor(RealExecutor):
     def get_exec_mode(self):
         return Mode.cluster
 
-    def get_job_args(self, job):
+    def get_job_args(self, job: ExecutorJobInterface):
         waitfiles_parameter = ""
         if self.assume_shared_fs:
             wait_for_files = []
@@ -843,7 +901,7 @@ class ClusterExecutor(RealExecutor):
     def cancel(self):
         self.shutdown()
 
-    def _run(self, job, callback=None, error_callback=None):
+    def _run(self, job: ExecutorJobInterface, callback=None, error_callback=None):
         if self.assume_shared_fs:
             job.remove_existing_output()
             job.download_remote_input()
@@ -855,10 +913,10 @@ class ClusterExecutor(RealExecutor):
             self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
-    def get_jobname(self, job):
+    def get_jobname(self, job: ExecutorJobInterface):
         return job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
 
-    def get_jobscript(self, job):
+    def get_jobscript(self, job: ExecutorJobInterface):
         f = self.get_jobname(job)
 
         if os.path.sep in f:
@@ -869,7 +927,7 @@ class ClusterExecutor(RealExecutor):
 
         return os.path.join(self.tmpdir, f)
 
-    def write_jobscript(self, job, jobscript):
+    def write_jobscript(self, job: ExecutorJobInterface, jobscript):
         exec_job = self.format_job_exec(job)
 
         try:
@@ -891,7 +949,7 @@ class ClusterExecutor(RealExecutor):
             print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
-    def cluster_params(self, job):
+    def cluster_params(self, job: ExecutorJobInterface):
         """Return wildcards object for job from cluster_config."""
         cluster = self.cluster_config.get("__default__", dict()).copy()
         cluster.update(self.cluster_config.get(job.name, dict()))
@@ -917,15 +975,15 @@ class ClusterExecutor(RealExecutor):
 
         return cluster
 
-    def cluster_wildcards(self, job):
+    def cluster_wildcards(self, job: ExecutorJobInterface):
         return Wildcards(fromdict=self.cluster_params(job))
 
-    def handle_job_success(self, job):
+    def handle_job_success(self, job: ExecutorJobInterface):
         super().handle_job_success(
             job, upload_remote=False, handle_log=False, handle_touch=False
         )
 
-    def handle_job_error(self, job):
+    def handle_job_error(self, job: ExecutorJobInterface):
         # TODO what about removing empty remote dirs?? This cannot be decided
         # on the cluster node.
         super().handle_job_error(job, upload_remote=False)
@@ -966,8 +1024,8 @@ GenericClusterJob = namedtuple(
 class GenericClusterExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         submitcmd="qsub",
         statuscmd=None,
@@ -1025,14 +1083,14 @@ class GenericClusterExecutor(ClusterExecutor):
                 "specify a cluster status command."
             )
 
-    def get_job_exec_prefix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         if self.assume_shared_fs:
             # quoting the workdir since it may contain spaces
             return f"cd {repr(self.workflow.workdir_init)}"
         else:
             return ""
 
-    def get_job_exec_suffix(self, job):
+    def get_job_exec_suffix(self, job: ExecutorJobInterface):
         if self.statuscmd:
             return "exit 0 || exit 1"
         elif self.assume_shared_fs:
@@ -1045,10 +1103,10 @@ class GenericClusterExecutor(ClusterExecutor):
             )
         assert False, "bug: neither statuscmd defined nor shared FS"
 
-    def get_jobfinished_marker(self, job):
+    def get_jobfinished_marker(self, job: ExecutorJobInterface):
         return os.path.join(self.tmpdir, f"{job.jobid}.jobfinished")
 
-    def get_jobfailed_marker(self, job):
+    def get_jobfailed_marker(self, job: ExecutorJobInterface):
         return os.path.join(self.tmpdir, f"{job.jobid}.jobfailed")
 
     def _launch_sidecar(self):
@@ -1131,12 +1189,18 @@ class GenericClusterExecutor(ClusterExecutor):
             )
             self.shutdown()
 
-    def register_job(self, job):
+    def register_job(self, job: ExecutorJobInterface):
         # Do not register job here.
         # Instead do it manually once the jobid is known.
         pass
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobid = job.jobid
 
@@ -1348,8 +1412,8 @@ class SynchronousClusterExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         submitcmd="qsub",
         cluster_config=None,
@@ -1388,7 +1452,13 @@ class SynchronousClusterExecutor(ClusterExecutor):
         logger.info("Will exit after finishing currently running jobs.")
         self.shutdown()
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)
@@ -1458,8 +1528,8 @@ DRMAAClusterJob = namedtuple(
 class DRMAAExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
@@ -1502,7 +1572,7 @@ class DRMAAExecutor(ClusterExecutor):
         self.session.initialize()
         self.submitted = list()
 
-    def get_job_exec_prefix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         if self.assume_shared_fs:
             return f"cd {self.workflow.workdir_init}"
         else:
@@ -1520,7 +1590,13 @@ class DRMAAExecutor(ClusterExecutor):
                 pass
         self.shutdown()
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobscript = self.get_jobscript(job)
         self.write_jobscript(job, jobscript)
@@ -1660,8 +1736,8 @@ KubernetesJob = namedtuple(
 class KubernetesExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
@@ -1717,7 +1793,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
-    def get_job_exec_prefix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return "cp -rf /source/. ."
 
     def register_secret(self):
@@ -1848,7 +1924,13 @@ class KubernetesExecutor(ClusterExecutor):
 
         self.shutdown()
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         import kubernetes.client
 
         super()._run(job)
@@ -2116,8 +2198,8 @@ TibannaJob = namedtuple(
 class TibannaExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         tibanna_sfn,
         precommand="",
@@ -2227,7 +2309,7 @@ class TibannaExecutor(ClusterExecutor):
     def get_snakefile(self):
         return os.path.basename(self.snakefile)
 
-    def add_command(self, job, tibanna_args, tibanna_config):
+    def add_command(self, job: ExecutorJobInterface, tibanna_args, tibanna_config):
         # format command
         command = self.format_job_exec(job)
 
@@ -2236,7 +2318,7 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug("command = " + str(command))
         tibanna_args.command = command
 
-    def add_workflow_files(self, job, tibanna_args):
+    def add_workflow_files(self, job: ExecutorJobInterface, tibanna_args):
         snakefile_fname, snakemake_dir = self.split_filename(self.snakefile)
         snakemake_child_fnames = []
         for src in self.workflow_sources:
@@ -2244,6 +2326,7 @@ class TibannaExecutor(ClusterExecutor):
             if src_fname != snakefile_fname:  # redundant
                 snakemake_child_fnames.append(src_fname)
         # change path for config files
+        # TODO - this is a hacky way to do this
         self.workflow.overwrite_configfiles = [
             self.split_filename(cf, snakemake_dir)[0]
             for cf in self.workflow.overwrite_configfiles
@@ -2263,7 +2346,7 @@ class TibannaExecutor(ClusterExecutor):
             rel = f
         return rel
 
-    def make_tibanna_input(self, job):
+    def make_tibanna_input(self, job: ExecutorJobInterface):
         from tibanna import ec2_utils, core as tibanna_core
 
         # input & output
@@ -2355,7 +2438,13 @@ class TibannaExecutor(ClusterExecutor):
         logger.debug(json.dumps(tibanna_input, indent=4))
         return tibanna_input
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         logger.info("running job using Tibanna...")
         from tibanna.core import API
 
