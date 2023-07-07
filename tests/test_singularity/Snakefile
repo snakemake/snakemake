@@ -2,9 +2,9 @@
 
 rule a:
     input:
-        "test.txt"
+        "test.txt",
     output:
-        "test.out"
+        "test.out",
     singularity:
         "docker://bash"
     shell:
@@ -13,16 +13,16 @@ rule a:
 
 rule b:
     output:
-        "test.txt"
+        "test.txt",
     singularity:
-        "docker://python:3.8.3"
+        "docker://python:3.9"
     script:
         "script.py"
 
 
 rule c:
     output:
-        "invalid.txt"
+        "invalid.txt",
     singularity:
         "docker://invalid/image url even with whitespace"
     shell:
