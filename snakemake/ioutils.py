@@ -95,7 +95,9 @@ def evaluate(expr: str):
     {wildcardname} with the wildcard value represented as a string."""
 
     def inner(wildcards):
-        return eval(expr.format(**{w: repr(v) for w, v in wildcards.items()}), globals())
+        return eval(
+            expr.format(**{w: repr(v) for w, v in wildcards.items()}), globals()
+        )
 
     return inner
 
@@ -108,7 +110,7 @@ def branch(
 ):
     """Branch based on a condition that is provided as a function pointer (i.e. a Callable)
     or a value.
-    
+
     If then and optionally otherwise are specified, do the following:
     If the condition is (or evaluates to) True, return the value
     of the then parameter. Otherwise, return the value of the otherwise parameter.
@@ -120,7 +122,7 @@ def branch(
     The given condition function has to take wildcards as its only parameter.
     Similarly, then, otherwise and the values of the cases mapping can be such functions.
 
-    If any such function is given to any of those arguments, this function returns a derived 
+    If any such function is given to any of those arguments, this function returns a derived
     input function that will be evaluated once the wildcards are known.
     """
 
@@ -151,8 +153,10 @@ def branch(
         do_branch = do_branch_cases
 
     if any(isinstance(value, Callable) for value in (condition, then, otherwise)):
+
         def inner(wildcards):
             return do_branch(wildcards)
+
         return inner
     else:
         return do_branch(None)
