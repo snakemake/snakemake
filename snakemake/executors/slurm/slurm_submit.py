@@ -7,7 +7,11 @@ import time
 import shlex
 import subprocess
 import uuid
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    WorkflowExecutorInterface,
+)
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError

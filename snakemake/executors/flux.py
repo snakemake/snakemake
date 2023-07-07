@@ -9,7 +9,11 @@ from collections import namedtuple
 from snakemake.exceptions import WorkflowError
 
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    WorkflowExecutorInterface,
+)
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
