@@ -15,7 +15,7 @@ import uuid
 import re
 import math
 
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
@@ -56,7 +56,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",

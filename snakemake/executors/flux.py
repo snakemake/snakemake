@@ -9,7 +9,7 @@ from collections import namedtuple
 from snakemake.exceptions import WorkflowError
 
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -34,7 +34,7 @@ class FluxExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",

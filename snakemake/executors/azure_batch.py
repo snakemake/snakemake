@@ -19,7 +19,7 @@ from pprint import pformat
 
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.exceptions import WorkflowError
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 from snakemake.logging import logger
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
@@ -220,7 +220,7 @@ class AzBatchExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",

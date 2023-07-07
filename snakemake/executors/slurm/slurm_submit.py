@@ -7,7 +7,7 @@ import time
 import shlex
 import subprocess
 import uuid
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
@@ -90,7 +90,7 @@ class SlurmExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob_{name}_{jobid}",

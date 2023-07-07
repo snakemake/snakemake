@@ -28,6 +28,7 @@ from snakemake.interfaces import (
     ExecutorJobInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
+    WorkflowExecutorInterface,
 )
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
@@ -68,7 +69,7 @@ async def sleep():
 class AbstractExecutor(ABC):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
@@ -242,7 +243,7 @@ class DryrunExecutor(AbstractExecutor):
 class RealExecutor(AbstractExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
@@ -509,7 +510,7 @@ except ImportError:
 class CPUExecutor(RealExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         workers,
         printreason=False,
@@ -745,7 +746,7 @@ class ClusterExecutor(RealExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
@@ -1023,7 +1024,7 @@ GenericClusterJob = namedtuple(
 class GenericClusterExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         submitcmd="qsub",
@@ -1411,7 +1412,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         submitcmd="qsub",
@@ -1527,7 +1528,7 @@ DRMAAClusterJob = namedtuple(
 class DRMAAExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{rulename}.{jobid}.sh",
@@ -1735,7 +1736,7 @@ KubernetesJob = namedtuple(
 class KubernetesExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         namespace,
         container_image=None,
@@ -2197,7 +2198,7 @@ TibannaJob = namedtuple(
 class TibannaExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         tibanna_sfn,

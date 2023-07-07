@@ -7,7 +7,7 @@ import asyncio
 import os
 from collections import namedtuple
 
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
@@ -21,7 +21,7 @@ TaskExecutionServiceJob = namedtuple(
 class TaskExecutionServiceExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",

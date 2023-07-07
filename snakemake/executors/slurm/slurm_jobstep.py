@@ -2,7 +2,7 @@ import os
 import subprocess
 from snakemake.common.tbdstring import TBDString
 from snakemake.executors import ClusterExecutor
-from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface
+from snakemake.interfaces import DAGExecutorInterface, ExecutorJobInterface, WorkflowExecutorInterface
 
 
 class SlurmJobstepExecutor(ClusterExecutor):
@@ -13,7 +13,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
+        workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
