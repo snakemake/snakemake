@@ -17,6 +17,7 @@ from functools import partial
 from pathlib import Path
 import uuid
 import subprocess
+from snakemake.interfaces import DAGExecutorInterface
 
 from snakemake.io import (
     PeriodicityDetector,
@@ -95,7 +96,7 @@ class Batch:
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
-class DAG:
+class DAG(DAGExecutorInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(

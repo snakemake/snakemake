@@ -2,7 +2,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python
+  - python >=3.9
   - yte
   - packaging
   - stopit
