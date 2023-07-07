@@ -273,6 +273,11 @@ class PersistenceExecutorInterface(ABC):
 class WorkflowExecutorInterface(ABC):
     @property
     @abstractmethod
+    def executor_args(self):
+        ...
+
+    @property
+    @abstractmethod
     def latency_wait(self) -> int:
         ...
 
