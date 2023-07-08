@@ -184,7 +184,7 @@ class WMSLogger:
             f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=metadata,
+            data=json.dumps(metadata),
         )
 
         # Check the response, will exit on any error
@@ -275,7 +275,7 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(url, data=server_info, headers=self._headers)
+        response = requests.post(url, data=json.dumps(server_info), headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
 
