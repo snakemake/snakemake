@@ -45,7 +45,7 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-from snakemake_executor_plugin_interface import ExecutorPluginRegistry, Plugin
+from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
@@ -58,7 +58,7 @@ RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
 
 # We have to instantiate this here if we expect to interact with it
 # in argument parsing
-registry = ExecutorPluginRegistry(Plugin)
+registry = ExecutorPluginRegistry()
 
 
 def snakemake(

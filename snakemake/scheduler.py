@@ -36,9 +36,9 @@ from snakemake.logging import logger
 
 from fractions import Fraction
 
-from snakemake_executor_plugin_interface import ExecutorPluginRegistry, Plugin
+from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
 
-registry = ExecutorPluginRegistry(Plugin)
+registry = ExecutorPluginRegistry()
 
 
 def cumsum(iterable, zero=[0]):
