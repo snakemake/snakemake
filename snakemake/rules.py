@@ -3,16 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import math
 import os
-import re
 import types
 import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
-import sys
-import inspect
 import collections
-from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
 from functools import partial
@@ -25,9 +20,6 @@ except ImportError:  # python < 3.11
 from snakemake.io import (
     IOFile,
     _IOFile,
-    protected,
-    temp,
-    dynamic,
     Namedlist,
     AnnotatedString,
     contains_wildcard_constraints,
@@ -920,7 +912,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in input files cannot be " "determined from output files:",
+                "Wildcards in input files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1034,7 +1026,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in log files cannot be " "determined from output files:",
+                "Wildcards in log files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )

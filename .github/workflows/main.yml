@@ -244,6 +244,21 @@ jobs:
       #  shell: bash -el {0}
       #  run: |
       #    pytest -s -v -x tests/test_kubernetes.py
+
+      # TODO temporarily disable testing of the azure batch executor as our azure
+      # account is currently disabled for unknown reason.
+      # Reactivate once that is fixed.
+      # - name: Test Azure Batch Executor
+      #   shell: bash -el {0}
+      #   env:
+      #     AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
+      #     AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
+      #     AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"
+      #     AZ_BATCH_ACCOUNT_URL: "${{ secrets.AZ_BATCH_ACCOUNT_URL }}"
+      #     AZ_BATCH_ACCOUNT_KEY: "${{ secrets.AZ_BATCH_KEY }}"
+      #   run: |
+      #     pytest -s -v -x tests/test_azure_batch_executor.py
+
       - name: Test GA4GH TES executor
         shell: bash -el {0}
         run: |

@@ -8,7 +8,6 @@ import time
 import os
 import re
 import json
-import logging
 import xml.etree.ElementTree as ET
 
 # module-specific
@@ -34,7 +33,7 @@ class RemoteProvider(AbstractRemoteProvider):
         stay_on_remote=False,
         is_default=False,
         email=None,
-        **kwargs
+        **kwargs,
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -42,7 +41,7 @@ class RemoteProvider(AbstractRemoteProvider):
             stay_on_remote=stay_on_remote,
             is_default=is_default,
             email=email,
-            **kwargs
+            **kwargs,
         )
         self._ncbi = NCBIHelper(*args, email=email, **kwargs)
 
@@ -82,7 +81,7 @@ class RemoteObject(AbstractRemoteObject):
         db=None,
         rettype=None,
         retmode=None,
-        **kwargs
+        **kwargs,
     ):
         super(RemoteObject, self).__init__(
             *args,
@@ -93,7 +92,7 @@ class RemoteObject(AbstractRemoteObject):
             db=db,
             rettype=rettype,
             retmode=retmode,
-            **kwargs
+            **kwargs,
         )
         if provider:
             self._ncbi = provider.remote_interface()
@@ -148,7 +147,7 @@ class RemoteObject(AbstractRemoteObject):
                 retmode=self.retmode,
                 file_ext=self.file_ext,
                 db=self.db,
-                **self.kwargs
+                **self.kwargs,
             )
         else:
             raise NCBIFileException(
@@ -479,7 +478,7 @@ class NCBIHelper(object):
         return_type=int,
         raise_on_failure=True,
         retmode="xml",
-        **kwargs
+        **kwargs,
     ):
         result = self.entrez.esummary(db=db, id=accession, **kwargs)
 
@@ -542,7 +541,7 @@ class NCBIHelper(object):
         remove_separate_files=False,
         chunk_size=1,
         db="nuccore",
-        **kwargs
+        **kwargs,
     ):
         """
         This function downloads and saves files from NCBI.
@@ -594,7 +593,7 @@ class NCBIHelper(object):
                 )
             else:
                 output_file_path = os.path.join(
-                    output_directory, "chunk-{}".format(chunk_num) + output_extension
+                    output_directory, f"chunk-{chunk_num}" + output_extension
                 )
 
             if not force_overwrite:

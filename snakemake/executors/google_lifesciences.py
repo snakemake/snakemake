@@ -5,7 +5,6 @@ __license__ = "MIT"
 
 import logging
 import os
-import sys
 import time
 import shutil
 import tarfile
@@ -16,12 +15,17 @@ import uuid
 import re
 import math
 
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    WorkflowExecutorInterface,
+)
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
-from snakemake.common import get_container_image, get_file_hash, async_lock
+from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
 
@@ -33,6 +37,20 @@ GoogleLifeSciencesJob = namedtuple(
 )
 
 
+def check_source_size(filename, warning_size_gb=0.2):
+    """A helper function to check the filesize, and return the file
+    to the calling function Additionally, given that we encourage these
+    packages to be small, we set a warning at 200MB (0.2GB).
+    """
+    gb = bytesto(os.stat(filename).st_size, "g")
+    if gb > warning_size_gb:
+        logger.warning(
+            f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB "
+            f"suggested size. Consider uploading larger files to storage first."
+        )
+    return filename
+
+
 class GoogleLifeSciencesExecutor(ClusterExecutor):
     """
     The GoogleLifeSciences executor uses Google Cloud Storage, and
@@ -42,8 +60,8 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -197,7 +215,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Hold path to requested subdirectory and main bucket
         bucket_name = self.workflow.default_remote_prefix.split("/")[0]
         self.gs_subdir = re.sub(
-            "^{}/".format(bucket_name), "", self.workflow.default_remote_prefix
+            f"^{bucket_name}/", "", self.workflow.default_remote_prefix
         )
         self.gs_logs = os.path.join(self.gs_subdir, "google-lifesciences-logs")
 
@@ -240,7 +258,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         locations = (
             self._api.projects()
             .locations()
-            .list(name="projects/{}".format(self.project))
+            .list(name=f"projects/{self.project}")
             .execute()
         )
 
@@ -328,7 +346,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         for job in self.active_jobs:
             request = operations.cancel(name=job.jobname)
-            logger.debug("Cancelling operation {}".format(job.jobid))
+            logger.debug(f"Cancelling operation {job.jobid}")
             try:
                 self._retry_request(request)
             except (Exception, BaseException, googleapiclient.errors.HttpError):
@@ -397,6 +415,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         if not self._machine_type_prefix.startswith("n1"):
             self._machine_type_prefix = "n1"
 
+    # TODO: move this to workflow itself, as it can be used by other executors as well.
+    # Just provide a mechanism to set the restart times at the command line (and a default)
+    # Namely: --set-restart-times <rule>=<restart_times> --default-restart-times <restart_times>
+    # --preemptible-rules <ruleA> <ruleB> <ruleC> --default-preemptible-retries <restart_times>
     def _set_preemptible_rules(self, preemption_default=None, preemptible_rules=None):
         """
         Define a lookup dictionary for preemptible instance retries, which
@@ -423,7 +445,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             rule = self.workflow.get_rule(rule_name)
             rule.restart_times = restart_times
 
-    def _generate_job_resources(self, job):
+    def _generate_job_resources(self, job: ExecutorJobInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -624,7 +646,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def get_snakefile(self):
         assert os.path.exists(self.workflow.main_snakefile)
-        return self.workflow.main_snakefile.replace(self.workdir, "").strip(os.sep)
+        return self.workflow.main_snakefile.removeprefix(self.workdir).strip(os.sep)
 
     def _set_workflow_sources(self):
         """
@@ -637,15 +659,10 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             if os.path.isdir(wfs):
                 for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
-                        [
-                            self.workflow.check_source_sizes(os.path.join(dirpath, f))
-                            for f in filenames
-                        ]
+                        [check_source_size(os.path.join(dirpath, f)) for f in filenames]
                     )
             else:
-                self.workflow_sources.append(
-                    self.workflow.check_source_sizes(os.path.abspath(wfs))
-                )
+                self.workflow_sources.append(check_source_size(os.path.abspath(wfs)))
 
     def _generate_build_source_package(self):
         """
@@ -681,7 +698,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # Rename based on hash, in case user wants to save cache
         sha256 = get_file_hash(targz)
         hash_tar = os.path.join(
-            self.workflow.persistence.aux_path, "workdir-{}.tar.gz".format(sha256)
+            self.workflow.persistence.aux_path, f"workdir-{sha256}.tar.gz"
         )
 
         # Only copy if we don't have it yet, clean up if we do
@@ -714,7 +731,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         _upload()
 
-    def _generate_log_action(self, job):
+    def _generate_log_action(self, job: ExecutorJobInterface):
         """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
@@ -722,13 +739,12 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         commands = [
             "/bin/bash",
             "-c",
-            "wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save %s /google/logs %s/%s/jobid_%s"
-            % (self.bucket.name, self.gs_logs, job.name, job.jobid),
+            f"wget -O /gls.py https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py && chmod +x /gls.py && source activate snakemake || true && python /gls.py save {self.bucket.name} /google/logs {self.gs_logs}/{job.name}/jobid_{job.jobid}",
         ]
 
         # Always run the action to generate log output
         action = {
-            "containerName": "snakelog-{}-{}".format(job.name, job.jobid),
+            "containerName": f"snakelog-{job.name}-{job.jobid}",
             "imageUri": self.container_image,
             "commands": commands,
             "labels": self._generate_pipeline_labels(job),
@@ -737,7 +753,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         return action
 
-    def _generate_job_action(self, job):
+    def _generate_job_action(self, job: ExecutorJobInterface):
         """
         Generate a single action to execute the job.
         """
@@ -763,7 +779,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # We are only generating one action, one job per run
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines/run#Action
         action = {
-            "containerName": "snakejob-{}-{}".format(job.name, job.jobid),
+            "containerName": f"snakejob-{job.name}-{job.jobid}",
             "imageUri": self.container_image,
             "commands": commands,
             "environment": self._generate_environment(),
@@ -771,11 +787,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         }
         return action
 
-    def _get_jobname(self, job):
+    def _get_jobname(self, job: ExecutorJobInterface):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
+        return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
-    def _generate_pipeline_labels(self, job):
+    def _generate_pipeline_labels(self, job: ExecutorJobInterface):
         """
         Generate basic labels to identify the job, namespace, and that
         snakemake is running the show!
@@ -800,7 +816,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             logger.warning("This API does not support environment secrets.")
         return envvars
 
-    def _generate_pipeline(self, job):
+    def _generate_pipeline(self, job: ExecutorJobInterface):
         """
         Based on the job details, generate a google Pipeline object
         to pass to pipelines.run. This includes actions, resources,
@@ -824,7 +840,13 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         # "timeout": string in seconds (3.5s) is not included (defaults to 7 days)
         return pipeline
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         # https://cloud.google.com/life-sciences/docs/reference/rest/v2beta/projects.locations.pipelines
@@ -974,7 +996,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                     # Get status from projects.locations.operations/get
                     operations = self._api.projects().locations().operations()
                     request = operations.get(name=j.jobname)
-                    logger.debug("Checking status for operation {}".format(j.jobid))
+                    logger.debug(f"Checking status for operation {j.jobid}")
 
                     try:
                         status = self._retry_request(request)

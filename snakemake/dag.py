@@ -16,8 +16,8 @@ from itertools import chain, filterfalse, groupby
 from functools import partial
 from pathlib import Path
 import uuid
-import math
 import subprocess
+from snakemake.interfaces import DAGExecutorInterface
 
 from snakemake.io import (
     PeriodicityDetector,
@@ -25,7 +25,6 @@ from snakemake.io import (
     is_callable,
     wait_for_files,
     is_flagged,
-    IOFile,
 )
 from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
 from snakemake.exceptions import MissingInputException, WildcardError
@@ -37,7 +36,7 @@ from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOExce
 from snakemake.exceptions import InputFunctionException
 from snakemake.logging import logger
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
-from snakemake.deployment import conda, singularity
+from snakemake.deployment import singularity
 from snakemake.output_index import OutputIndex
 from snakemake import workflow
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -97,7 +96,7 @@ class Batch:
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
-class DAG:
+class DAG(DAGExecutorInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(

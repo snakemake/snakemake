@@ -1380,6 +1380,7 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
+@skip_on_windows  # TODO on windows, dot command is suddenly not found anymore although it is installed
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
@@ -1391,13 +1392,11 @@ def test_filegraph():
         dot_path = dot_path.replace("\\", "/")
 
     # make sure the calls work
-    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
-    with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
-        pdf_file.write(
-            subprocess.check_output(["dot", "-Tpdf"], stdin=dot_file, cwd=workdir)
-        )
+    shell("cd {workdir}; dot -Tpdf > {pdf_path} < {dot_path}")
+
     # make sure the generated pdf file is not empty
     assert os.stat(pdf_path).st_size > 0
 
@@ -1496,6 +1495,7 @@ def test_output_file_cache_remote():
 
 @connected
 @zenodo
+@pytest.mark.xfail(reason="zenodo currently returns an internal server error")
 def test_remote_zenodo():
     run(dpath("test_remote_zenodo"))
 
@@ -2019,6 +2019,11 @@ def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
 
 
+def test_prebuilt_conda_script():
+    sp.run("conda env create -f tests/test_prebuilt_conda_script/env.yaml", shell=True)
+    run(dpath("test_prebuilt_conda_script"), use_conda=True)
+
+
 @skip_on_windows
 def test_github_issue1818():
     run(dpath("test_github_issue1818"), rerun_triggers="input")
@@ -2048,6 +2053,30 @@ def test_github_issue1882():
 @skip_on_windows  # not platform dependent
 def test_inferred_resources():
     run(dpath("test_inferred_resources"))
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile():
+    test_path = dpath("test_workflow_profile")
+    general_profile = os.path.join(test_path, "dummy-general-profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --profile {general_profile} -c1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_no_workflow_profile():
+    test_path = dpath("test_no_workflow_profile")
+    general_profile = os.path.join(test_path, "dummy-general-profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --profile {general_profile} --workflow-profile none -c1",
+    )
 
 
 @skip_on_windows
