@@ -27,6 +27,7 @@ from snakemake.interfaces import (
 from snakemake.logging import logger
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
@@ -219,7 +220,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         return super(AzureIdentityCredentialAdapter, self).signed_session(session)
 
 
-class AzBatchExecutor(ClusterExecutor):
+class AzBatchExecutor(RemoteExecutor):
     "Azure Batch Executor"
 
     def __init__(

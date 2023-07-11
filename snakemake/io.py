@@ -31,7 +31,7 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
-
+from snakemake_executor_plugin_interface.utils import not_iterable
 
 class Mtime:
     __slots__ = ["_local", "_local_target", "_remote"]
@@ -981,14 +981,6 @@ def apply_wildcards(
                 raise WildcardError(str(ex))
 
     return _wildcard_regex.sub(format_match, pattern)
-
-
-def not_iterable(value):
-    return (
-        isinstance(value, str)
-        or isinstance(value, dict)
-        or not isinstance(value, collections.abc.Iterable)
-    )
 
 
 def is_callable(value):

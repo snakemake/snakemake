@@ -42,12 +42,12 @@ from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake.common import (
     get_input_function_aux_params,
-    lazy_property,
 )
 from snakemake import logging
 from snakemake.report import data
 from snakemake.report.rulegraph_spec import rulegraph_spec
 
+from snakemake_executor_plugin_interface.utils import lazy_property
 
 class EmbeddedMixin(object):
     """

@@ -196,29 +196,6 @@ class Mode:
     cluster = 2
 
 
-class lazy_property(property):
-    __slots__ = ["method", "cached", "__doc__"]
-
-    @staticmethod
-    def clean(instance, method):
-        delattr(instance, method)
-
-    def __init__(self, method):
-        self.method = method
-        self.cached = f"_{method.__name__}"
-        super().__init__(method, doc=method.__doc__)
-
-    def __get__(self, instance, owner):
-        cached = (
-            getattr(instance, self.cached) if hasattr(instance, self.cached) else None
-        )
-        if cached is not None:
-            return cached
-        value = self.method(instance)
-        setattr(instance, self.cached, value)
-        return value
-
-
 def strip_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix) :]

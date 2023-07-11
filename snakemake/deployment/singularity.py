@@ -11,11 +11,11 @@ import hashlib
 from snakemake.common import (
     is_local_file,
     parse_uri,
-    lazy_property,
     SNAKEMAKE_SEARCHPATH,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+from snakemake_executor_plugin_interface.utils import lazy_property
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"

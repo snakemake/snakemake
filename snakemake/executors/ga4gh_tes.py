@@ -16,13 +16,14 @@ from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
 from snakemake.common import get_container_image, async_lock
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"
 )
 
 
-class TaskExecutionServiceExecutor(ClusterExecutor):
+class TaskExecutionServiceExecutor(RemoteExecutor):
     def __init__(
         self,
         workflow: WorkflowExecutorInterface,

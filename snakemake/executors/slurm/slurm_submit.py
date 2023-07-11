@@ -18,6 +18,8 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
 from snakemake.common import async_lock
 
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
+
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
 
 
@@ -86,7 +88,7 @@ def get_default_partition(job):
     return ""
 
 
-class SlurmExecutor(ClusterExecutor):
+class SlurmExecutor(RemoteExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string

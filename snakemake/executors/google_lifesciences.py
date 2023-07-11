@@ -27,6 +27,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309
@@ -51,7 +52,7 @@ def check_source_size(filename, warning_size_gb=0.2):
     return filename
 
 
-class GoogleLifeSciencesExecutor(ClusterExecutor):
+class GoogleLifeSciencesExecutor(RemoteExecutor):
     """
     The GoogleLifeSciences executor uses Google Cloud Storage, and
     Compute Engine paired with the Google Life Sciences API.

@@ -10,8 +10,8 @@ import time
 
 from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
 from snakemake.exceptions import WorkflowError, CheckSumMismatchException
-from snakemake.common import lazy_property
 import snakemake.io
+from snakemake_executor_plugin_interface.utils import lazy_property
 
 try:
     import google.cloud

@@ -17,6 +17,7 @@ from snakemake.interfaces import (
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 # Just import flux once
 try:
@@ -31,7 +32,7 @@ FluxJob = namedtuple(
 )
 
 
-class FluxExecutor(ClusterExecutor):
+class FluxExecutor(RemoteExecutor):
     """
     The Flux executor deploys workflows to a flux cluster.
     """

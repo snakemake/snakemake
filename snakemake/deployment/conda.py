@@ -31,7 +31,6 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
     is_local_file,
-    lazy_property,
     parse_uri,
     ON_WINDOWS,
 )
@@ -42,6 +41,7 @@ from snakemake.io import (
     contains_wildcard,
     _IOFile,
 )
+from snakemake_executor_plugin_interface.utils import lazy_property
 
 
 class CondaCleanupMode(Enum):

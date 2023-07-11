@@ -1,13 +1,8 @@
-__author__ = "Johannes Köster"
-__copyright__ = "Copyright 2022, Johannes Köster"
-__email__ = "johannes.koester@uni-due.de"
-__license__ = "MIT"
-
-import time
-import json
 from collections import defaultdict
+import json
+import time
 
-import snakemake.jobs
+from snakemake_executor_plugin_interface import ExecutorJobInterface
 
 fmt_time = time.ctime
 
@@ -68,7 +63,7 @@ class Stats:
                 "stop-time": stop,
                 "duration": duration,
                 "priority": job.priority
-                if job.priority != snakemake.jobs.Job.HIGHEST_PRIORITY
+                if job.priority != ExecutorJobInterface.HIGHEST_PRIORITY
                 else "highest",
                 "resources": dict(job.resources.items()),
             }

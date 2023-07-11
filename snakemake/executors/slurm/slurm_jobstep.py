@@ -7,9 +7,10 @@ from snakemake.interfaces import (
     ExecutorJobInterface,
     WorkflowExecutorInterface,
 )
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 
-class SlurmJobstepExecutor(ClusterExecutor):
+class SlurmJobstepExecutor(RemoteExecutor):
     """
     executes SLURM jobsteps and is *only* instaniated in
     a SLURM job context

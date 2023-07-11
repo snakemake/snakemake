@@ -38,11 +38,11 @@ from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
     is_local_file,
-    lazy_property,
     get_uuid,
     TBDString,
     IO_PROP_LIMIT,
 )
+from snakemake_executor_plugin_interface.utils import lazy_property
 
 
 def format_files(job, io, dynamicio):
@@ -141,8 +141,6 @@ class JobFactory:
 
 
 class Job(AbstractJob, SingleJobExecutorInterface):
-    HIGHEST_PRIORITY = sys.maxsize
-
     obj_cache = dict()
 
     __slots__ = [
@@ -1082,7 +1080,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
-            priority="highest" if priority == Job.HIGHEST_PRIORITY else priority,
+            priority="highest" if priority == ExecutorJobInterface.HIGHEST_PRIORITY else priority,
             threads=self.threads,
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,
