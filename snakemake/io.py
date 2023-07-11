@@ -33,6 +33,7 @@ from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake_executor_plugin_interface.utils import not_iterable
 
+
 class Mtime:
     __slots__ = ["_local", "_local_target", "_remote"]
 

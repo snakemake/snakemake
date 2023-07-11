@@ -98,6 +98,8 @@ class SlurmExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob_{name}_{jobid}",
         printreason=False,
@@ -110,6 +112,8 @@ class SlurmExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             cores,
             jobname=jobname,
             printreason=printreason,

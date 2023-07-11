@@ -28,6 +28,8 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -41,6 +43,22 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
         tes_url=None,
         container_image=None,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            stats,
+            logger,
+            None,
+            jobname=jobname,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            cluster_config=cluster_config,
+            local_input=local_input,
+            restart_times=restart_times,
+            assume_shared_fs=assume_shared_fs,
+            max_status_checks_per_second=max_status_checks_per_second,
+        )
         try:
             import tes
         except ImportError:
@@ -59,23 +77,7 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
             user=os.environ.get("FUNNEL_SERVER_USER"),
             password=os.environ.get("FUNNEL_SERVER_PASSWORD"),
         )
-
         logger.info(f"[TES] Job execution on TES: {self.tes_url}")
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
-            local_input=local_input,
-            restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
-            max_status_checks_per_second=max_status_checks_per_second,
-        )
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return "mkdir /tmp/conda && cd /tmp"

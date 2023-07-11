@@ -35,6 +35,7 @@ from snakemake.interfaces import JobSchedulerExecutorInterface
 from snakemake.logging import logger
 
 from fractions import Fraction
+from snakemake.stats import Stats
 
 from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
 
@@ -167,6 +168,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._submit_callback = self._noop
         self._finish_callback = self._proceed
 
+        self._stats = Stats()
+
         self._local_executor = None
         if dryrun:
             self._executor: AbstractExecutor = DryrunExecutor(
@@ -191,6 +194,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -200,6 +205,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = plugin.executor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -213,6 +220,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -243,6 +252,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = SlurmExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores=None,
                 printreason=printreason,
                 quiet=quiet,
@@ -255,6 +266,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = SlurmJobstepExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -269,6 +282,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self._local_executor = CPUExecutor(
                     workflow,
                     dag,
+                    self.stats,
+                    logger,
                     local_cores,
                     printreason=printreason,
                     quiet=quiet,
@@ -293,6 +308,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self._executor = constructor(
                     workflow,
                     dag,
+                    self.stats,
+                    logger,
                     None,
                     submitcmd=(cluster or cluster_sync),
                     cluster_config=cluster_config,
@@ -313,6 +330,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self._executor = DRMAAExecutor(
                     workflow,
                     dag,
+                    self.stats,
+                    logger,
                     None,
                     drmaa_args=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
@@ -329,6 +348,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -340,6 +361,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = KubernetesExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 kubernetes,
                 container_image=container_image,
                 k8s_cpu_scalar=k8s_cpu_scalar,
@@ -353,6 +376,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -365,6 +390,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = TibannaExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 tibanna_sfn,
                 precommand=precommand,
@@ -380,6 +407,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -390,6 +419,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = FluxExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -408,6 +439,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -417,6 +450,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = AzBatchExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 container_image=container_image,
                 az_batch_account_url=az_batch_account_url,
@@ -430,6 +465,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -440,6 +477,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = GoogleLifeSciencesExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 container_image=container_image,
                 regions=google_lifesciences_regions,
@@ -455,6 +494,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -466,6 +507,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = TaskExecutionServiceExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores=local_cores,
                 printreason=printreason,
                 quiet=quiet,
@@ -478,6 +521,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 printreason=printreason,
                 quiet=quiet,

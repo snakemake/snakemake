@@ -1080,7 +1080,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             wildcards=self.wildcards_dict,
             reason=str(self.dag.reason(self)),
             resources=self.resources,
-            priority="highest" if priority == ExecutorJobInterface.HIGHEST_PRIORITY else priority,
+            priority="highest"
+            if priority == ExecutorJobInterface.HIGHEST_PRIORITY
+            else priority,
             threads=self.threads,
             indent=indent,
             is_checkpoint=self.rule.is_checkpoint,

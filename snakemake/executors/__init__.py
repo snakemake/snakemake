@@ -23,13 +23,6 @@ import base64
 import uuid
 import re
 import math
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    GroupJobExecutorInterface,
-    SingleJobExecutorInterface,
-    WorkflowExecutorInterface,
-)
 from snakemake.target_jobs import encode_target_jobs_cli_args
 from fractions import Fraction
 
@@ -51,7 +44,7 @@ from snakemake.common import (
     get_uuid,
     async_lock,
 )
-from snakemake_executor_plugin_interface.executors import AbstractExecutor, RealExecutor, RemoteExecutor
+from snakemake_executor_plugin_interface.executors.base import AbstractExecutor
 from snakemake_executor_plugin_interface.utils import sleep
 
 
@@ -137,6 +130,8 @@ class CPUExecutor(RealExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         workers,
         printreason=False,
         quiet=False,
@@ -148,6 +143,8 @@ class CPUExecutor(RealExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
@@ -368,6 +365,8 @@ class GenericClusterExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         submitcmd="qsub",
         statuscmd=None,
@@ -403,6 +402,8 @@ class GenericClusterExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             cores,
             jobname=jobname,
             printreason=printreason,
@@ -756,6 +757,8 @@ class SynchronousClusterExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         submitcmd="qsub",
         cluster_config=None,
@@ -770,6 +773,8 @@ class SynchronousClusterExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             cores,
             jobname=jobname,
             printreason=printreason,
@@ -872,6 +877,8 @@ class DRMAAExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
@@ -888,6 +895,8 @@ class DRMAAExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             cores,
             jobname=jobname,
             printreason=printreason,
@@ -1080,6 +1089,8 @@ class KubernetesExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
@@ -1097,6 +1108,8 @@ class KubernetesExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
             printreason=printreason,
@@ -1542,6 +1555,8 @@ class TibannaExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         tibanna_sfn,
         precommand="",
@@ -1555,6 +1570,23 @@ class TibannaExecutor(RemoteExecutor):
         max_status_checks_per_second=1,
         keepincomplete=False,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            stats,
+            logger,
+            cores,
+            printreason=printreason,
+            quiet=quiet,
+            printshellcmds=printshellcmds,
+            local_input=local_input,
+            restart_times=restart_times,
+            assume_shared_fs=False,
+            max_status_checks_per_second=max_status_checks_per_second,
+            disable_default_remote_provider_args=True,
+            disable_default_resources_args=True,
+            disable_envvar_declarations=True,
+        )
         self.workflow = workflow
         self.workflow_sources = []
         for wfs in dag.get_sources():
@@ -1588,21 +1620,6 @@ class TibannaExecutor(RemoteExecutor):
         logger.debug("subdir=" + self.s3_subdir)
         self.quiet = quiet
 
-        super().__init__(
-            workflow,
-            dag,
-            cores,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            local_input=local_input,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=max_status_checks_per_second,
-            disable_default_remote_provider_args=True,
-            disable_default_resources_args=True,
-            disable_envvar_declarations=True,
-        )
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Tibanna jobs.")
         self.tibanna_config = tibanna_config

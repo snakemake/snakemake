@@ -49,6 +49,7 @@ from snakemake.report.rulegraph_spec import rulegraph_spec
 
 from snakemake_executor_plugin_interface.utils import lazy_property
 
+
 class EmbeddedMixin(object):
     """
     Replaces the URI of a directive with a base64-encoded version.

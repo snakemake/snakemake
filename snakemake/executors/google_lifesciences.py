@@ -63,6 +63,8 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -81,6 +83,8 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
             printreason=printreason,

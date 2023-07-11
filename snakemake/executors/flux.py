@@ -41,6 +41,8 @@ class FluxExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -50,6 +52,8 @@ class FluxExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
             printreason=printreason,

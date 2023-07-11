@@ -20,6 +20,8 @@ class SlurmJobstepExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -34,6 +36,8 @@ class SlurmJobstepExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             printreason=printreason,
             quiet=quiet,
