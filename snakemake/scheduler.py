@@ -76,7 +76,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         slurm_jobstep=None,
         cluster=None,
         cluster_status=None,
-        cluster_config=None,
         cluster_sync=None,
         cluster_cancel=None,
         cluster_cancel_nargs=None,
@@ -123,7 +122,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         cores = workflow.global_resources["_cores"]
 
         self.cluster = cluster
-        self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
         self.dag = dag
         self.workflow = workflow
@@ -258,7 +256,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                cluster_config=cluster_config,
                 max_status_checks_per_second=max_status_checks_per_second,
             )
 
@@ -312,7 +309,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger,
                     None,
                     submitcmd=(cluster or cluster_sync),
-                    cluster_config=cluster_config,
                     jobname=jobname,
                     printreason=printreason,
                     quiet=quiet,
@@ -339,7 +335,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     printreason=printreason,
                     quiet=quiet,
                     printshellcmds=printshellcmds,
-                    cluster_config=cluster_config,
                     assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
                     keepincomplete=keepincomplete,
@@ -369,7 +364,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
-                cluster_config=cluster_config,
                 keepincomplete=keepincomplete,
             )
         elif tibanna:
@@ -574,10 +568,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     @property
     def stats(self):
-        try:
-            return self._executor.stats
-        except AttributeError:
-            raise TypeError("Executor does not support stats")
+        return self._stats
 
     @property
     def open_jobs(self):

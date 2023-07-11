@@ -11,11 +11,12 @@ import uuid
 from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
 from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
 from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
+from snakemake_executor_plugin_interface.executors.remote import RemoteExecutor
+from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
+from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
 from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
@@ -105,7 +106,6 @@ class SlurmExecutor(RemoteExecutor):
         printshellcmds=False,
         restart_times=0,
         max_status_checks_per_second=0.5,
-        cluster_config=None,
     ):
         super().__init__(
             workflow,
@@ -117,7 +117,6 @@ class SlurmExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,

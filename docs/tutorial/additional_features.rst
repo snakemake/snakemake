@@ -235,7 +235,7 @@ The **DRMAA support** can be activated by invoking Snakemake as follows:
     $ snakemake --drmaa --jobs 100
 
 If available, **DRMAA is preferable over the generic cluster modes** because it provides better control and error handling.
-To support additional cluster specific parametrization, a Snakefile can be complemented by a :ref:`snakefiles-cluster_configuration` file.
+To support additional cluster specific parametrization, a Snakefile can be complemented by a workflow specific profile (see :ref:`profiles`).
 
 Using --cluster-status
 ::::::::::::::::::::::

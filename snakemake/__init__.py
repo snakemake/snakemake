@@ -21,7 +21,7 @@ import importlib
 import shlex
 from importlib.machinery import SourceFileLoader
 
-from snakemake_executor_plugin_interface.utils import url_can_parse
+from snakemake_executor_plugin_interface.utils import url_can_parse, ExecMode
 
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.workflow import Workflow
@@ -37,7 +37,6 @@ from snakemake.io import load_configfile, wait_for_files
 from snakemake.shell import shell
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
-    Mode,
     __version__,
     MIN_PY_VERSION,
     get_appdirs,
@@ -111,7 +110,6 @@ def snakemake(
     slurm_jobstep=None,
     rerun_triggers=RERUN_TRIGGERS,
     cluster=None,
-    cluster_config=None,
     cluster_sync=None,
     drmaa=None,
     drmaa_log_dir=None,
@@ -176,7 +174,7 @@ def snakemake(
     scheduler="ilp",
     scheduler_ilp_solver=None,
     conda_create_envs_only=False,
-    mode=Mode.default,
+    mode=ExecMode.default,
     wrapper_prefix=None,
     kubernetes=None,
     container_image=None,
@@ -258,7 +256,6 @@ def snakemake(
         quiet (bool):               do not print any default job information (default False)
         keepgoing (bool):           keep going upon errors (default False)
         cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
-        cluster_config (str,list):  configuration file for cluster options, or list thereof (default None)
         cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
         drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
         drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default None)
@@ -454,21 +451,6 @@ def snakemake(
     if updated_files is None:
         updated_files = list()
 
-    if isinstance(cluster_config, str):
-        # Loading configuration from one file is still supported for
-        # backward compatibility
-        cluster_config = [cluster_config]
-    if cluster_config:
-        # Load all configuration files
-        configs = [load_configfile(f) for f in cluster_config]
-        # Merge in the order as specified, overriding earlier values with
-        # later ones
-        cluster_config_content = configs[0]
-        for other in configs[1:]:
-            update_config(cluster_config_content, other)
-    else:
-        cluster_config_content = dict()
-
     run_local = not (
         cluster
         or cluster_sync
@@ -609,7 +591,6 @@ def snakemake(
             overwrite_config=overwrite_config,
             overwrite_workdir=workdir,
             overwrite_configfiles=configfiles,
-            overwrite_clusterconfig=cluster_config_content,
             overwrite_threads=overwrite_threads,
             max_threads=max_threads,
             overwrite_scatter=overwrite_scatter,
@@ -731,7 +712,6 @@ def snakemake(
                     overwrite_shellcmd=overwrite_shellcmd,
                     config=config,
                     config_args=config_args,
-                    cluster_config=cluster_config,
                     keep_logger=True,
                     force_use_threads=use_threads,
                     use_conda=use_conda,
@@ -2238,8 +2218,8 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--mode",
-        choices=[Mode.default, Mode.subprocess, Mode.cluster],
-        default=Mode.default,
+        choices=[ExecMode.default, ExecMode.subprocess, ExecMode.remote],
+        default=ExecMode.default,
         type=int,
         help="Set execution mode of Snakemake (internal use only).",
     )
@@ -2334,22 +2314,6 @@ def get_argument_parser(profiles=None):
         "with a leading whitespace.",
     )
 
-    group_cluster.add_argument(
-        "--cluster-config",
-        "-u",
-        metavar="FILE",
-        default=[],
-        action="append",
-        help=(
-            "A JSON or YAML file that defines the wildcards used in 'cluster'"
-            "for specific rules, instead of having them specified in the Snakefile. "
-            "For example, for rule 'job' you may define: "
-            "{ 'job' : { 'time' : '24:00:00' } } to specify the time for rule 'job'. "
-            "You can specify more than one file.  The configuration files are merged "
-            "with later values overriding earlier ones. This option is deprecated in favor "
-            "of using --profile, see docs."
-        ),
-    ),
     group_cluster.add_argument(
         "--immediate-submit",
         "--is",
@@ -2754,9 +2718,9 @@ def main(argv=None):
     if args.profile == "none":
         args.profile = None
 
-    if (args.profile or workflow_profile) and args.mode == Mode.default:
+    if (args.profile or workflow_profile) and args.mode == ExecMode.default:
         # Reparse args while inferring config file from profile.
-        # But only do this if the user has invoked Snakemake (Mode.default)
+        # But only do this if the user has invoked Snakemake (ExecMode.default)
         profiles = []
         if args.profile:
             profiles.append(args.profile)
@@ -2784,11 +2748,6 @@ def main(argv=None):
             args.jobscript = adjust_path(args.jobscript)
         if args.cluster:
             args.cluster = adjust_path(args.cluster)
-        if args.cluster_config:
-            if isinstance(args.cluster_config, list):
-                args.cluster_config = [adjust_path(cfg) for cfg in args.cluster_config]
-            else:
-                args.cluster_config = adjust_path(args.cluster_config)
         if args.cluster_sync:
             args.cluster_sync = adjust_path(args.cluster_sync)
         for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
@@ -3165,7 +3124,6 @@ def main(argv=None):
             slurm_jobstep=args.slurm_jobstep,
             rerun_triggers=args.rerun_triggers,
             cluster=args.cluster,
-            cluster_config=args.cluster_config,
             cluster_sync=args.cluster_sync,
             drmaa=args.drmaa,
             drmaa_log_dir=args.drmaa_log_dir,

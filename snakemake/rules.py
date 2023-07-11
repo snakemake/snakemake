@@ -17,6 +17,8 @@ try:
 except ImportError:  # python < 3.11
     import sre_constants
 
+from snakemake_executor_plugin_interface.utils import ExecMode
+
 from snakemake.io import (
     IOFile,
     _IOFile,
@@ -51,7 +53,6 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import (
-    Mode,
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
@@ -578,7 +579,7 @@ class Rule:
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.mode != Mode.subprocess
+                    and self.workflow.mode != ExecMode.subprocess
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(

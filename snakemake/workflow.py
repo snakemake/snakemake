@@ -13,6 +13,7 @@ import copy
 from pathlib import Path
 
 from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.utils import ExecMode
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -63,7 +64,6 @@ from snakemake_executor_plugin_interface.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
-    Mode,
     ON_WINDOWS,
     is_local_file,
     Rules,
@@ -118,7 +118,7 @@ class Workflow(WorkflowExecutorInterface):
         shadow_prefix=None,
         scheduler_type="ilp",
         scheduler_ilp_solver=None,
-        mode=Mode.default,
+        mode=ExecMode.default,
         wrapper_prefix=None,
         printshellcmds=False,
         restart_times=None,
@@ -246,7 +246,6 @@ class Workflow(WorkflowExecutorInterface):
 
         _globals = globals()
         _globals["workflow"] = self
-        _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
         _globals["rules"] = Rules()
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
@@ -864,7 +863,7 @@ class Workflow(WorkflowExecutorInterface):
             or delete_temp_output,
         )
 
-        if self.mode in [Mode.subprocess, Mode.cluster]:
+        if self.mode in [ExecMode.subprocess, ExecMode.remote]:
             self.persistence.deactivate_cache()
 
         if cleanup_metadata:
@@ -1118,7 +1117,6 @@ class Workflow(WorkflowExecutorInterface):
             cluster_cancel=cluster_cancel,
             cluster_cancel_nargs=cluster_cancel_nargs,
             cluster_sidecar=cluster_sidecar,
-            cluster_config=cluster_config,
             cluster_sync=cluster_sync,
             jobname=jobname,
             max_jobs_per_second=max_jobs_per_second,
@@ -1192,7 +1190,7 @@ class Workflow(WorkflowExecutorInterface):
                 ):
                     logger.info("Singularity containers: ignored")
 
-                if self.mode == Mode.default:
+                if self.mode == ExecMode.default:
                     logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1245,7 +1243,7 @@ class Workflow(WorkflowExecutorInterface):
                 log_provenance_info()
             raise e
 
-        if not self.immediate_submit and not dryrun and self.mode == Mode.default:
+        if not self.immediate_submit and not dryrun and self.mode == ExecMode.default:
             dag.cleanup_workdir()
 
         if success:

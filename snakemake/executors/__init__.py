@@ -23,8 +23,17 @@ import base64
 import uuid
 import re
 import math
-from snakemake.target_jobs import encode_target_jobs_cli_args
-from fractions import Fraction
+
+from snakemake_executor_plugin_interface.executors.base import AbstractExecutor
+from snakemake_executor_plugin_interface.executors.real import RealExecutor
+from snakemake_executor_plugin_interface.executors.remote import RemoteExecutor
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
+from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface, SingleJobExecutorInterface, GroupJobExecutorInterface
+from snakemake_executor_plugin_interface.utils import sleep
+from snakemake_executor_plugin_interface.utils import ExecMode
 
 from snakemake.shell import shell
 from snakemake.logging import logger
@@ -39,16 +48,16 @@ from snakemake.exceptions import (
     CacheMissException,
 )
 from snakemake.common import (
-    Mode,
     get_container_image,
     get_uuid,
     async_lock,
 )
-from snakemake_executor_plugin_interface.executors.base import AbstractExecutor
-from snakemake_executor_plugin_interface.utils import sleep
 
 
 class DryrunExecutor(AbstractExecutor):
+    def get_exec_mode(self):
+        raise NotImplementedError()
+
     def printjob(self, job: ExecutorJobInterface):
         super().printjob(job)
         if job.is_group():
@@ -102,6 +111,9 @@ class TouchExecutor(RealExecutor):
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
+
+    def get_exec_mode(self):
+        raise NotImplementedError()
 
     def handle_job_success(self, job: ExecutorJobInterface):
         super().handle_job_success(job, ignore_missing_output=True)
@@ -159,6 +171,9 @@ class CPUExecutor(RealExecutor):
         workers = workers + 5 if workers is not None else 5
         self.workers = workers
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
+
+    def get_exec_mode(self):
+        return ExecMode.subprocess
 
     @property
     def job_specific_local_groupid(self):
@@ -373,7 +388,6 @@ class GenericClusterExecutor(RemoteExecutor):
         cancelcmd=None,
         cancelnargs=None,
         sidecarcmd=None,
-        cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -409,7 +423,6 @@ class GenericClusterExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
@@ -761,7 +774,6 @@ class SynchronousClusterExecutor(RemoteExecutor):
         logger: LoggerExecutorInterface,
         cores,
         submitcmd="qsub",
-        cluster_config=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
         printreason=False,
         quiet=False,
@@ -780,7 +792,6 @@ class SynchronousClusterExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=10,
@@ -886,7 +897,6 @@ class DRMAAExecutor(RemoteExecutor):
         printshellcmds=False,
         drmaa_args="",
         drmaa_log_dir=None,
-        cluster_config=None,
         restart_times=0,
         assume_shared_fs=True,
         max_status_checks_per_second=1,
@@ -902,7 +912,6 @@ class DRMAAExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
@@ -1098,7 +1107,6 @@ class KubernetesExecutor(RemoteExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        cluster_config=None,
         local_input=None,
         restart_times=None,
         keepincomplete=False,
@@ -1115,7 +1123,6 @@ class KubernetesExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
             assume_shared_fs=False,

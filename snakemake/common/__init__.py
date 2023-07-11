@@ -185,17 +185,6 @@ def bytesto(bytes, to, bsize=1024):
     return answer
 
 
-class Mode:
-    """
-    Enum for execution mode of Snakemake.
-    This handles the behavior of e.g. the logger.
-    """
-
-    default = 0
-    subprocess = 1
-    cluster = 2
-
-
 def strip_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix) :]

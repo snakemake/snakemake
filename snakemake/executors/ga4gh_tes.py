@@ -11,7 +11,9 @@ from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
 from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
 from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
 from snakemake_executor_plugin_interface.utils import sleep
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
+from snakemake_executor_plugin_interface.executors.remote import RemoteExecutor
+from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
+from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
@@ -34,7 +36,6 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        cluster_config=None,
         local_input=None,
         restart_times=None,
         assume_shared_fs=False,
@@ -52,7 +53,6 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             local_input=local_input,
             restart_times=restart_times,
             assume_shared_fs=assume_shared_fs,

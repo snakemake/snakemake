@@ -13,7 +13,7 @@ from itertools import chain
 from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import get_container_image, Mode
+from snakemake.common import get_container_image
 
 
 def cwl(

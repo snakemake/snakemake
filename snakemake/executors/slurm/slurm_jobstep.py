@@ -4,7 +4,9 @@ import subprocess
 from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
 from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
 from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
+from snakemake_executor_plugin_interface.executors.remote import RemoteExecutor
+from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
+from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
 
 
 class SlurmJobstepExecutor(RemoteExecutor):
@@ -22,7 +24,6 @@ class SlurmJobstepExecutor(RemoteExecutor):
         printreason=False,
         quiet=False,
         printshellcmds=False,
-        cluster_config=None,
         restart_times=0,
         max_status_checks_per_second=0.5,
         **kwargs,
@@ -39,7 +40,6 @@ class SlurmJobstepExecutor(RemoteExecutor):
             printreason=printreason,
             quiet=quiet,
             printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
             restart_times=restart_times,
             assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
