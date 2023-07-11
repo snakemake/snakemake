@@ -18,7 +18,7 @@ from pathlib import Path
 import uuid
 import subprocess
 
-from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake.io import (
     PeriodicityDetector,

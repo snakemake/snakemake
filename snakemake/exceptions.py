@@ -8,7 +8,7 @@ import traceback
 import textwrap
 from tokenize import TokenError
 from snakemake.logging import logger
-from snakemake_executor_plugin_interface.exceptions import WorkflowError
+from snakemake_interface_executor_plugins.exceptions import WorkflowError
 
 
 def format_error(

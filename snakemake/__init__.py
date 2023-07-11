@@ -21,7 +21,7 @@ import importlib
 import shlex
 from importlib.machinery import SourceFileLoader
 
-from snakemake_executor_plugin_interface.utils import url_can_parse, ExecMode
+from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode
 
 from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.workflow import Workflow
@@ -44,7 +44,7 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 SNAKEFILE_CHOICES = [
     "Snakefile",

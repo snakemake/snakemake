@@ -17,11 +17,11 @@ import re
 import msrest.authentication as msa
 from pprint import pformat
 
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
-from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
-from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
-from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
-from snakemake_executor_plugin_interface.utils import sleep
+from snakemake_interface_executor_plugins.executors import RemoteExecutor
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import sleep
 
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger

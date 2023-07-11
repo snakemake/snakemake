@@ -24,20 +24,20 @@ import uuid
 import re
 import math
 
-from snakemake_executor_plugin_interface.executors.base import AbstractExecutor
-from snakemake_executor_plugin_interface.executors.real import RealExecutor
-from snakemake_executor_plugin_interface.executors.remote import RemoteExecutor
-from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
-from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
-from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
-from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
-from snakemake_executor_plugin_interface.jobs import (
+from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
+from snakemake_interface_executor_plugins.executors.real import RealExecutor
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
+from snakemake_interface_executor_plugins.jobs import (
     ExecutorJobInterface,
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
-from snakemake_executor_plugin_interface.utils import sleep
-from snakemake_executor_plugin_interface.utils import ExecMode
+from snakemake_interface_executor_plugins.utils import sleep
+from snakemake_interface_executor_plugins.utils import ExecMode
 
 from snakemake.shell import shell
 from snakemake.logging import logger

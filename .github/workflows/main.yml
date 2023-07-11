@@ -168,7 +168,7 @@ jobs:
           mamba env update -q -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
-          pip install git+https://github.com/snakemake/snakemake-executor-plugin-interface.git
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
 
           # additionally add singularity
 
@@ -311,7 +311,7 @@ jobs:
           mamba env update -q --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
-          pip install git+https://github.com/snakemake/snakemake-executor-plugin-interface.git
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
       - name: Run tests
         env:
           CI: true

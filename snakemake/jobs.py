@@ -16,8 +16,8 @@ from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
 
-from snakemake_executor_plugin_interface.utils import lazy_property
-from snakemake_executor_plugin_interface.jobs import (
+from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_executor_plugins.jobs import (
     ExecutorJobInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,

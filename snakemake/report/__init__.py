@@ -47,7 +47,7 @@ from snakemake import logging
 from snakemake.report import data
 from snakemake.report.rulegraph_spec import rulegraph_spec
 
-from snakemake_executor_plugin_interface.utils import lazy_property
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 class EmbeddedMixin(object):

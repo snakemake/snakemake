@@ -2,7 +2,7 @@ from collections import defaultdict
 import json
 import time
 
-from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
 
 fmt_time = time.ctime
 

@@ -12,8 +12,8 @@ from functools import partial
 import copy
 from pathlib import Path
 
-from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
-from snakemake_executor_plugin_interface.utils import ExecMode
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import ExecMode
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -60,7 +60,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
-from snakemake_executor_plugin_interface.utils import not_iterable
+from snakemake_interface_executor_plugins.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (

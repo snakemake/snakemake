@@ -10,8 +10,8 @@ from functools import partial
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
-from snakemake_executor_plugin_interface.scheduler import JobSchedulerExecutorInterface
-from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake.executors import (
     AbstractExecutor,

@@ -31,7 +31,7 @@ from snakemake.exceptions import (
 from snakemake.logging import logger
 from inspect import isfunction, ismethod
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
-from snakemake_executor_plugin_interface.utils import not_iterable
+from snakemake_interface_executor_plugins.utils import not_iterable
 
 
 class Mtime:

@@ -17,7 +17,7 @@ try:
 except ImportError:  # python < 3.11
     import sre_constants
 
-from snakemake_executor_plugin_interface.utils import ExecMode
+from snakemake_interface_executor_plugins.utils import ExecMode
 
 from snakemake.io import (
     IOFile,
@@ -60,7 +60,7 @@ from snakemake.common import (
     mb_to_mib,
 )
 from snakemake.resources import infer_resources
-from snakemake_executor_plugin_interface.utils import not_iterable, lazy_property
+from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
 
 
 class Rule:
