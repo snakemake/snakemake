@@ -51,6 +51,7 @@ class FluxExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
+            None,
             jobname=jobname,
             max_status_checks_per_second=10,
         )

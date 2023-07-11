@@ -107,6 +107,7 @@ class SlurmExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
+            None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
         )
