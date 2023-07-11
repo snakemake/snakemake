@@ -11,8 +11,8 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from snakemake.interfaces import WorkflowExecutorInterface
 
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy

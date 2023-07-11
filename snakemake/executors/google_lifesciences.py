@@ -15,19 +15,17 @@ import uuid
 import re
 import math
 
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
+
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 
 # https://github.com/googleapis/google-api-python-client/issues/299#issuecomment-343255309

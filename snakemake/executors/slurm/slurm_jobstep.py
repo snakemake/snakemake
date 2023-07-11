@@ -1,12 +1,9 @@
 import os
 import subprocess
-from snakemake.common.tbdstring import TBDString
-from snakemake.executors import ClusterExecutor
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
 from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 

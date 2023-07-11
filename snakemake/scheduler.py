@@ -10,6 +10,9 @@ from functools import partial
 from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
+from snakemake_executor_plugin_interface.scheduler import JobSchedulerExecutorInterface
+from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
+
 from snakemake.executors import (
     AbstractExecutor,
     DryrunExecutor,
@@ -31,13 +34,10 @@ from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.common import ON_WINDOWS
-from snakemake.interfaces import JobSchedulerExecutorInterface
 from snakemake.logging import logger
 
 from fractions import Fraction
 from snakemake.stats import Stats
-
-from snakemake_executor_plugin_interface.registry import ExecutorPluginRegistry
 
 registry = ExecutorPluginRegistry()
 

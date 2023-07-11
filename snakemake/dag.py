@@ -17,7 +17,8 @@ from functools import partial
 from pathlib import Path
 import uuid
 import subprocess
-from snakemake.interfaces import DAGExecutorInterface
+
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
 
 from snakemake.io import (
     PeriodicityDetector,

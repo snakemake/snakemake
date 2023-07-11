@@ -20,10 +20,10 @@ from functools import partial
 import importlib
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.executors.common import url_can_parse
-from snakemake.target_jobs import parse_target_jobs_cli_args
-from snakemake.executors.common import url_can_parse
 
+from snakemake_executor_plugin_interface.utils import url_can_parse
+
+from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import (

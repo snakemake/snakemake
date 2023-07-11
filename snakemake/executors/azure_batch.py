@@ -17,17 +17,16 @@ import re
 import msrest.authentication as msa
 from pprint import pformat
 
-from snakemake.executors import ClusterExecutor, sleep
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.utils import sleep
+
 from snakemake.exceptions import WorkflowError
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
 from snakemake.logging import logger
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 

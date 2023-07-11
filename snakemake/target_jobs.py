@@ -1,8 +1,9 @@
 from collections import namedtuple
 import typing
 
+from snakemake_executor_plugin_interface.utils import TargetSpec
+
 from snakemake.common import parse_key_value_arg
-from snakemake_executor_plugin_interface import TargetSpec
 
 
 def parse_target_jobs_cli_args(args):

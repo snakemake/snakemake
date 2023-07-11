@@ -7,18 +7,16 @@ import time
 import shlex
 import subprocess
 import uuid
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
 from snakemake.common import async_lock
-
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
 

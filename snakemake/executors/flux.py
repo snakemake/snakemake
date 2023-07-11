@@ -6,18 +6,17 @@ __license__ = "MIT"
 import os
 import shlex
 from collections import namedtuple
-from snakemake.exceptions import WorkflowError
 
-from snakemake.executors import ClusterExecutor, sleep
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
+from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface
+from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
+from snakemake_executor_plugin_interface.utils import sleep
+from snakemake_executor_plugin_interface.executors import RemoteExecutor
+
+from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
-from snakemake_executor_plugin_interface.executors import RemoteExecutor
 
 # Just import flux once
 try:

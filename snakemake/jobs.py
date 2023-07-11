@@ -15,7 +15,9 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
-from snakemake.interfaces import (
+
+from snakemake_executor_plugin_interface.utils import lazy_property
+from snakemake_executor_plugin_interface.jobs import (
     ExecutorJobInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
@@ -42,7 +44,6 @@ from snakemake.common import (
     TBDString,
     IO_PROP_LIMIT,
 )
-from snakemake_executor_plugin_interface.utils import lazy_property
 
 
 def format_files(job, io, dynamicio):
