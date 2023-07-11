@@ -99,12 +99,7 @@ class SlurmExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         jobname="snakejob_{name}_{jobid}",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
         max_status_checks_per_second=0.5,
     ):
         super().__init__(
@@ -112,13 +107,7 @@ class SlurmExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
-            cores,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
         self.run_uuid = str(uuid.uuid4())

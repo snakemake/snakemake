@@ -96,7 +96,6 @@ def snakemake(
     omit_from=[],
     prioritytargets=[],
     stats=None,
-    printreason=True,
     printshellcmds=False,
     debug_dag=False,
     printdag=False,
@@ -246,7 +245,6 @@ def snakemake(
         execute_subworkflows (bool):   execute subworkflows if present (default True)
         prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
         stats (str):                path to file that shall contain stats about the workflow execution (default None)
-        printreason (bool):         print the reason for the execution of each job (default false)
         printshellcmds (bool):      print the shell command of each job (default False)
         printdag (bool):            print the dag in the graphviz dot language (default False)
         printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
@@ -501,7 +499,6 @@ def snakemake(
         setup_logger(
             handler=log_handler,
             quiet=quiet,
-            printreason=printreason,
             printshellcmds=printshellcmds,
             debug_dag=debug_dag,
             nocolor=nocolor,
@@ -641,6 +638,7 @@ def snakemake(
             executor_args=executor_args,
             cleanup_scripts=cleanup_scripts,
             immediate_submit=immediate_submit,
+            quiet=quiet,
         )
         success = True
 
@@ -675,7 +673,6 @@ def snakemake(
                     default_resources=default_resources,
                     dryrun=dryrun,
                     touch=touch,
-                    printreason=printreason,
                     printshellcmds=printshellcmds,
                     debug_dag=debug_dag,
                     nocolor=nocolor,
@@ -775,10 +772,7 @@ def snakemake(
                     prioritytargets=prioritytargets,
                     until=until,
                     omit_from=omit_from,
-                    quiet=quiet,
                     keepgoing=keepgoing,
-                    printshellcmds=printshellcmds,
-                    printreason=printreason,
                     printrulegraph=printrulegraph,
                     printfilegraph=printfilegraph,
                     printdag=printdag,
@@ -1941,12 +1935,6 @@ def get_argument_parser(profiles=None):
 
     group_output = parser.add_argument_group("OUTPUT")
     group_output.add_argument(
-        "--reason",
-        "-r",
-        action="store_true",
-        help="Print the reason for each executed rule (deprecated, always true now).",
-    )
-    group_output.add_argument(
         "--gui",
         nargs="?",
         const="8000",
@@ -3103,7 +3091,6 @@ def main(argv=None):
             target_jobs=parse_target_jobs_cli_args(args),
             dryrun=args.dryrun,
             printshellcmds=args.printshellcmds,
-            printreason=True,  # always display reason
             debug_dag=args.debug_dag,
             printdag=args.dag,
             printrulegraph=args.rulegraph,

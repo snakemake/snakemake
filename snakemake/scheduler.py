@@ -102,17 +102,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
-        quiet=False,
-        printreason=False,
-        printshellcmds=False,
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
         # Note this argument doesn't seem to be used (greediness)
         greediness=1.0,
         force_use_threads=False,
-        assume_shared_fs=True,
-        keepincomplete=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
         executor_args=None,
@@ -127,14 +122,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.workflow = workflow
         self.dryrun = dryrun
         self.touch = touch
-        self.quiet = quiet
+        self.quiet = workflow.quiet
         self.keepgoing = keepgoing
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
-        self.keepincomplete = keepincomplete
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
@@ -173,17 +167,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
             )
         elif touch:
             self._executor = TouchExecutor(
                 workflow,
                 dag,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
             )
 
         # We have chosen an executor custom plugin
@@ -195,10 +183,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
             self._executor = plugin.executor(
                 workflow,
@@ -206,9 +190,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 executor_args=executor_args,
             )
 
@@ -221,11 +202,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
             # we need to adjust the maximum status checks per second
             # on a SLURM cluster, to not overstrain the scheduler;
@@ -252,10 +228,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 dag,
                 self.stats,
                 logger,
-                cores=None,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 max_status_checks_per_second=max_status_checks_per_second,
             )
 
@@ -265,10 +237,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 dag,
                 self.stats,
                 logger,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                env_modules=env_modules,
             )
             self._local_executor = self._executor
 
@@ -282,11 +250,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     self.stats,
                     logger,
                     local_cores,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    cores=local_cores,
-                    keepincomplete=keepincomplete,
                 )
 
             if cluster or cluster_sync:
@@ -307,14 +270,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     dag,
                     self.stats,
                     logger,
-                    None,
                     submitcmd=(cluster or cluster_sync),
                     jobname=jobname,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    assume_shared_fs=assume_shared_fs,
-                    keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
                     self._submit_callback = self._proceed
@@ -328,16 +285,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     dag,
                     self.stats,
                     logger,
-                    None,
                     drmaa_args=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     jobname=jobname,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
-                    keepincomplete=keepincomplete,
                 )
         elif kubernetes:
             self._local_executor = CPUExecutor(
@@ -346,11 +297,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = KubernetesExecutor(
@@ -361,10 +307,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 kubernetes,
                 container_image=container_image,
                 k8s_cpu_scalar=k8s_cpu_scalar,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                keepincomplete=keepincomplete,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
@@ -373,12 +315,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = TibannaExecutor(
@@ -391,10 +328,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 precommand=precommand,
                 tibanna_config=tibanna_config,
                 container_image=container_image,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                keepincomplete=keepincomplete,
             )
 
         elif flux:
@@ -404,10 +337,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
 
             self._executor = FluxExecutor(
@@ -415,10 +344,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 dag,
                 self.stats,
                 logger,
-                cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
             )
 
         elif az_batch:
@@ -436,23 +361,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
             self._executor = AzBatchExecutor(
                 workflow,
                 dag,
                 self.stats,
                 logger,
-                cores,
                 container_image=container_image,
                 az_batch_account_url=az_batch_account_url,
                 az_batch_enable_autoscale=az_batch_enable_autoscale,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
             )
 
         elif google_lifesciences:
@@ -462,10 +379,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
 
             self._executor = GoogleLifeSciencesExecutor(
@@ -473,14 +386,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 dag,
                 self.stats,
                 logger,
-                cores,
                 container_image=container_image,
                 regions=google_lifesciences_regions,
                 location=google_lifesciences_location,
                 cache=google_lifesciences_cache,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
             )
@@ -491,11 +400,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = TaskExecutionServiceExecutor(
@@ -503,10 +407,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 dag,
                 self.stats,
                 logger,
-                cores=local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 tes_url=tes,
                 container_image=container_image,
             )
@@ -518,12 +418,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.stats,
                 logger,
                 cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                cores=cores,
-                keepincomplete=keepincomplete,
             )
         from throttler import Throttler
 

@@ -65,18 +65,12 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
         container_image=None,
         regions=None,
         location=None,
         cache=False,
-        local_input=None,
-        restart_times=None,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=10,
         preemption_default=None,
         preemptible_rules=None,
     ):
@@ -85,20 +79,14 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
-            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
+            max_status_checks_per_second=max_status_checks_per_second,
         )
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
         # Attach variables for easy access
-        self.quiet = quiet
+        self.quiet = workflow.quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 

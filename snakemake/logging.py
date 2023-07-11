@@ -684,7 +684,7 @@ def setup_logger(
     handler=[],
     quiet=False,
     printshellcmds=False,
-    printreason=False,
+    printreason=True,
     debug_dag=False,
     nocolor=False,
     stdout=False,

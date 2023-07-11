@@ -44,23 +44,14 @@ class FluxExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
     ):
         super().__init__(
             workflow,
             dag,
             stats,
             logger,
-            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            assume_shared_fs=False,
             max_status_checks_per_second=10,
         )
 

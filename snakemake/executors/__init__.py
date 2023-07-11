@@ -148,31 +148,23 @@ class CPUExecutor(RealExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        workers,
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
+        cores: int,
         use_threads=False,
-        cores=1,
-        keepincomplete=False,
     ):
         super().__init__(
             workflow,
             dag,
             stats,
             logger,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            keepincomplete=keepincomplete,
+            executor_settings=None,
+            job_core_limit=cores,
         )
 
         self.use_threads = use_threads
-        self.cores = cores
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.
         # Hence we need to reserve additional workers for them.
-        workers = workers + 5 if workers is not None else 5
+        workers = cores + 5 if cores is not None else 5
         self.workers = workers
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
@@ -386,23 +378,16 @@ class GenericClusterExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         submitcmd="qsub",
         statuscmd=None,
         cancelcmd=None,
         cancelnargs=None,
         sidecarcmd=None,
         jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
-        assume_shared_fs=True,
         max_status_checks_per_second=1,
-        keepincomplete=False,
     ):
         self.submitcmd = submitcmd
-        if not assume_shared_fs and statuscmd is None:
+        if not workflow.assume_shared_fs and statuscmd is None:
             raise WorkflowError(
                 "When no shared filesystem can be assumed, a "
                 "status command must be given."
@@ -422,22 +407,16 @@ class GenericClusterExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
-            cores,
+            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
-            keepincomplete=keepincomplete,
         )
 
         self.sidecar_vars = None
         if self.sidecarcmd:
             self._launch_sidecar()
 
-        if not statuscmd and not assume_shared_fs:
+        if not statuscmd and not self.assume_shared_fs:
             raise WorkflowError(
                 "If no shared filesystem is used, you have to "
                 "specify a cluster status command."
@@ -774,30 +753,16 @@ class SynchronousClusterExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         submitcmd="qsub",
         jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
-        assume_shared_fs=True,
-        keepincomplete=False,
     ):
         super().__init__(
             workflow,
             dag,
             stats,
             logger,
-            cores,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=10,
-            keepincomplete=keepincomplete,
         )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
@@ -892,15 +857,9 @@ class DRMAAExecutor(RemoteExecutor):
         logger: LoggerExecutorInterface,
         cores,
         jobname="snakejob.{rulename}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
         drmaa_args="",
         drmaa_log_dir=None,
-        restart_times=0,
-        assume_shared_fs=True,
         max_status_checks_per_second=1,
-        keepincomplete=False,
     ):
         super().__init__(
             workflow,
@@ -909,13 +868,7 @@ class DRMAAExecutor(RemoteExecutor):
             logger,
             cores,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
             max_status_checks_per_second=max_status_checks_per_second,
-            keepincomplete=keepincomplete,
         )
         try:
             import drmaa
@@ -1102,12 +1055,6 @@ class KubernetesExecutor(RemoteExecutor):
         container_image=None,
         k8s_cpu_scalar=1.0,
         jobname="{rulename}.{jobid}",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        local_input=None,
-        restart_times=None,
-        keepincomplete=False,
     ):
         self.workflow = workflow
 
@@ -1116,14 +1063,7 @@ class KubernetesExecutor(RemoteExecutor):
             dag,
             stats,
             logger,
-            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            local_input=local_input,
-            restart_times=restart_times,
-            assume_shared_fs=False,
             max_status_checks_per_second=10,
             disable_envvar_declarations=True,
         )
@@ -1562,31 +1502,17 @@ class TibannaExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores,
         tibanna_sfn,
         precommand="",
         tibanna_config=False,
         container_image=None,
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        local_input=None,
-        restart_times=None,
         max_status_checks_per_second=1,
-        keepincomplete=False,
     ):
         super().__init__(
             workflow,
             dag,
             stats,
             logger,
-            cores,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            local_input=local_input,
-            restart_times=restart_times,
-            assume_shared_fs=False,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_default_remote_provider_args=True,
             disable_default_resources_args=True,
@@ -1623,7 +1549,7 @@ class TibannaExecutor(RemoteExecutor):
         logger.debug("precommand= " + self.precommand)
         logger.debug("bucket=" + self.s3_bucket)
         logger.debug("subdir=" + self.s3_subdir)
-        self.quiet = quiet
+        self.quiet = workflow.quiet
 
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Tibanna jobs.")

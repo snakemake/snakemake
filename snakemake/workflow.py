@@ -149,6 +149,8 @@ class Workflow(WorkflowExecutorInterface):
         executor_args=None,
         cleanup_scripts=True,
         immediate_submit=False,
+        keep_incomplete=False,
+        quiet=False,
     ):
         """
         Create the controller.
@@ -215,7 +217,7 @@ class Workflow(WorkflowExecutorInterface):
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
         self.run_local = run_local
-        self.assume_shared_fs = assume_shared_fs
+        self._assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self._edit_notebook = edit_notebook
@@ -243,6 +245,8 @@ class Workflow(WorkflowExecutorInterface):
         self._local_groupid = local_groupid
         self._keep_metadata = keep_metadata
         self._latency_wait = latency_wait
+        self._keep_incomplete = keep_incomplete
+        self._quiet = quiet
 
         _globals = globals()
         _globals["workflow"] = self
@@ -283,6 +287,18 @@ class Workflow(WorkflowExecutorInterface):
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def quiet(self):
+        return self._quiet
+
+    @property
+    def assume_shared_fs(self):
+        return self._assume_shared_fs
+
+    @property
+    def keep_incomplete(self):
+        return self._keep_incomplete
 
     @property
     def executor_args(self):
@@ -658,10 +674,7 @@ class Workflow(WorkflowExecutorInterface):
         until=[],
         omit_from=[],
         prioritytargets=None,
-        quiet=False,
         keepgoing=False,
-        printshellcmds=False,
-        printreason=False,
         printdag=False,
         slurm=None,
         slurm_jobstep=None,
@@ -1121,7 +1134,6 @@ class Workflow(WorkflowExecutorInterface):
             jobname=jobname,
             max_jobs_per_second=max_jobs_per_second,
             max_status_checks_per_second=max_status_checks_per_second,
-            quiet=quiet,
             keepgoing=keepgoing,
             drmaa=drmaa,
             drmaa_log_dir=drmaa_log_dir,
@@ -1143,12 +1155,8 @@ class Workflow(WorkflowExecutorInterface):
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
-            printreason=printreason,
-            printshellcmds=printshellcmds,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            assume_shared_fs=self.assume_shared_fs,
-            keepincomplete=keepincomplete,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
             executor_args=self.executor_args,
@@ -1201,7 +1209,7 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
-            if quiet:
+            if self.quiet:
                 # in case of dryrun and quiet, just print above info and exit
                 return True
 

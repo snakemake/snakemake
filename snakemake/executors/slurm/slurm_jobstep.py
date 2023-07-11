@@ -21,12 +21,7 @@ class SlurmJobstepExecutor(RemoteExecutor):
         dag: DAGExecutorInterface,
         stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
         max_status_checks_per_second=0.5,
-        **kwargs,
     ):
         # overwrite the command to execute a single snakemake job if necessary
         # exec_job = "..."
@@ -37,11 +32,6 @@ class SlurmJobstepExecutor(RemoteExecutor):
             stats,
             logger,
             None,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_envvar_declarations=True,
         )
@@ -50,11 +40,6 @@ class SlurmJobstepExecutor(RemoteExecutor):
         self.mem_per_node = os.getenv("SLURM_MEM_PER_NODE")
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
-
-        self.context = dict(kwargs)
-        self.env_modules = self.context.get("env_modules", None)
-
-        # if not self.mem_per_node
 
     async def _wait_for_jobs(self):
         pass
