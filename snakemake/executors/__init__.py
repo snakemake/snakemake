@@ -31,7 +31,11 @@ from snakemake_executor_plugin_interface.dag import DAGExecutorInterface
 from snakemake_executor_plugin_interface.workflow import WorkflowExecutorInterface
 from snakemake_executor_plugin_interface.persistence import StatsExecutorInterface
 from snakemake_executor_plugin_interface.logging import LoggerExecutorInterface
-from snakemake_executor_plugin_interface.jobs import ExecutorJobInterface, SingleJobExecutorInterface, GroupJobExecutorInterface
+from snakemake_executor_plugin_interface.jobs import (
+    ExecutorJobInterface,
+    SingleJobExecutorInterface,
+    GroupJobExecutorInterface,
+)
 from snakemake_executor_plugin_interface.utils import sleep
 from snakemake_executor_plugin_interface.utils import ExecMode
 
@@ -596,9 +600,7 @@ class GenericClusterExecutor(RemoteExecutor):
             self.external_jobid[f] for f in job.input if f in self.external_jobid
         )
         try:
-            submitcmd = job.format_wildcards(
-                self.submitcmd, dependencies=deps, cluster=self.cluster_wildcards(job)
-            )
+            submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)
 
@@ -826,9 +828,7 @@ class SynchronousClusterExecutor(RemoteExecutor):
             self.external_jobid[f] for f in job.input if f in self.external_jobid
         )
         try:
-            submitcmd = job.format_wildcards(
-                self.submitcmd, dependencies=deps, cluster=self.cluster_wildcards(job)
-            )
+            submitcmd = job.format_wildcards(self.submitcmd, dependencies=deps)
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)
 
@@ -962,9 +962,7 @@ class DRMAAExecutor(RemoteExecutor):
         self.write_jobscript(job, jobscript)
 
         try:
-            drmaa_args = job.format_wildcards(
-                self.drmaa_args, cluster=self.cluster_wildcards(job)
-            )
+            drmaa_args = job.format_wildcards(self.drmaa_args)
         except AttributeError as e:
             raise WorkflowError(str(e), rule=job.rule)
 
