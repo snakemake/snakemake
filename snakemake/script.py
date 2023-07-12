@@ -38,7 +38,11 @@ from snakemake.common import (
     ON_WINDOWS,
 )
 from snakemake.deployment import singularity
-from snakemake_object import SnakemakeObject, REncoder, JuliaEncoder, BashEncoder
+
+from snakemake_object.python import SnakemakeObject
+from snakemake_object.r import REncoder
+from snakemake_object.julia import JuliaEncoder
+from snakemake_object.bash import BashEncoder
 
 # TODO use this to find the right place for inserting the preamble
 PY_PREAMBLE_RE = re.compile(r"from( )+__future__( )+import.*?(?P<end>[;\n])")
