@@ -100,6 +100,21 @@ class DryrunExecutor(AbstractExecutor):
 
 
 class TouchExecutor(RealExecutor):
+    def __init__(
+        self,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
+    ):
+        super().__init__(
+            workflow,
+            dag,
+            stats,
+            logger,
+            executor_settings=None,
+        )
+
     def run(
         self,
         job: ExecutorJobInterface,

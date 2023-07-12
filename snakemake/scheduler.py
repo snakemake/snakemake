@@ -172,6 +172,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._executor = TouchExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
             )
 
         # We have chosen an executor custom plugin
