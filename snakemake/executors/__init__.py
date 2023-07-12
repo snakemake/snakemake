@@ -543,13 +543,13 @@ class CPUExecutor(RealExecutor):
             benchmark = str(job.benchmark)
         return (
             job.rule,
-            job.input._plainstrings(),
-            job.output._plainstrings(),
+            job.input.plainstrings(),
+            job.output.plainstrings(),
             job.params,
             job.wildcards,
             job.threads,
             job.resources,
-            job.log._plainstrings(),
+            job.log.plainstrings(),
             benchmark,
             benchmark_repeats,
             conda_env,

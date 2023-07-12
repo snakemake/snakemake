@@ -971,9 +971,9 @@ class Rule:
                 no_flattening=True,
                 property="params",
                 aux_params={
-                    "input": input._plainstrings(),
+                    "input": input.plainstrings(),
                     "resources": resources,
-                    "output": output._plainstrings(),
+                    "output": output.plainstrings(),
                     "threads": resources._cores,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,

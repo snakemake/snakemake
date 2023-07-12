@@ -1626,7 +1626,7 @@ class Namedlist(list):
     def keys(self):
         return self._names.keys()
 
-    def _plainstrings(self):
+    def plainstrings(self):
         return self.__class__.__call__(toclone=self, plainstr=True)
 
     def _stripped_constraints(self):
