@@ -1,0 +1,25 @@
+import os
+
+rule all:
+    input:
+        "results/bar.txt",
+
+rule foo:
+    output:
+        "results/foo.txt"
+    shell:
+        "touch {output}"
+
+def get_resources(wc):
+    assert(os.path.isfile("results/foo.txt"))
+    return 0
+
+rule bar:
+    input:
+        "results/foo.txt"
+    output:
+        "results/bar.txt"
+    resources:
+        test=get_resources
+    shell:
+        "touch {output}"
