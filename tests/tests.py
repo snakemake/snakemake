@@ -762,6 +762,10 @@ def test_remote_gs():
     run(dpath("test_remote_gs"))
 
 
+def test_remote_oras():
+    run(dpath("test_remote_oras"))
+
+
 @pytest.mark.skip(reason="Need to choose how to provide billable project")
 @connected
 @not_ci

@@ -1,0 +1,13 @@
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - snakemake-minimal >=7.3
+  - jinja2
+  - matplotlib
+  - graphviz
+  - bcftools =1.15
+  - samtools =1.15
+  - bwa =0.7.17
+  - pysam =0.19
+  - pygments

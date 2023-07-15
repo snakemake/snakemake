@@ -1,0 +1,73 @@
+from snakemake.remote import ORAS
+ORAS = ORAS.RemoteProvider()
+
+SAMPLES = ["A", "B"]
+EXTENSIONS = ["", ".amb", ".ann", ".bwt", ".fai", ".pac", ".sa"]
+
+rule all:
+    input:
+        "plots/quals.svg"
+
+rule download:
+    input:
+        ORAS.remote(expand("data/genome.fa{ext}", ext=EXTENSIONS), artifact="ghcr.io/researchapps/snakemake-tutorial-data:test")
+    output:
+        expand("data/genome.fa{ext}", ext=EXTENSIONS)
+    shell:
+        "touch {output}"
+
+rule bwa_map:
+    input:
+        "data/genome.fa",
+        ORAS.remote("data/samples/{sample}.fastq", artifact="ghcr.io/researchapps/snakemake-tutorial-data:test")
+    output:
+        "mapped_reads/{sample}.bam"
+    conda:
+        "environment.yaml"
+    shell:
+        "bwa mem {input} | samtools view -Sb - > {output}"
+
+rule samtools_sort:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam"
+    conda:
+        "environment.yaml"
+    shell:
+        "samtools sort -T sorted_reads/{wildcards.sample} "
+        "-O bam {input} > {output}"
+
+rule samtools_index:
+    input:
+        "sorted_reads/{sample}.bam"
+    output:
+        "sorted_reads/{sample}.bam.bai"
+    conda:
+        "environment.yaml"
+    shell:
+        "samtools index {input}"
+
+
+rule bcftools_call:
+    input:
+        "data/genome.fa",
+        bam=expand("sorted_reads/{sample}.bam", sample=SAMPLES),
+        bai=expand("sorted_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/all.vcf"
+    conda:
+        "environment.yaml"
+    shell:
+        "bcftools mpileup -f data/genome.fa {input.bam} | bcftools call -mv - > {output}"
+
+
+rule plot_quals:
+    input:
+        "calls/all.vcf"
+    output:
+        "plots/quals.svg"
+    conda:
+        "environment.yaml"
+    script:
+        "scripts/plot-quals.py"

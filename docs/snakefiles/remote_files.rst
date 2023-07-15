@@ -18,6 +18,7 @@ Snakemake includes the following remote providers, supported by the correspondin
 * File transfer over SSH (SFTP): ``snakemake.remote.SFTP``
 * Read-only web (HTTP[S]): ``snakemake.remote.HTTP``
 * File transfer protocol (FTP): ``snakemake.remote.FTP``
+* OCI Registry as Storage (ORAS) ``snakemake.remote.ORAS``
 * Dropbox: ``snakemake.remote.dropbox``
 * XRootD: ``snakemake.remote.XRootD``
 * GenBank / NCBI Entrez: ``snakemake.remote.NCBI``
@@ -321,7 +322,7 @@ By default, the HTTP provider always uses HTTPS (TLS). If you need to connect to
         input:
             HTTP.remote("www.example.com/path/to/document.pdf", insecure=True, keep_local=True)
 
-If the URI used includes characters not permitted in a local file path, you may include them as part of the ``additional_request_string`` in the ``kwargs`` for ``remote()``. This may also be useful for including additional parameters you don not want to be part of the local filename (since the URI string becomes the local file name).
+If the URI used includes characters not permitted in a local file path, you may include them as part of the ``additional_request_string`` in the ``kwargs`` for ``remote()``. This may also be useful for including additional parameters you do not want to be part of the local filename (since the URI string becomes the local file name).
 
 .. code-block:: python
 
@@ -456,6 +457,73 @@ Setting `immediate_close=True` allows the use of a large number of remote FTP in
     FTP = FTPRemoteProvider(username="myusername", password="mypassword")
 
     print(FTP.glob_wildcards("example.com/somedir/{file}.txt"))
+
+OCI Registry As Storage
+=======================
+
+`OCI Registry as Storage <https://oras.land>`_ is a suite of tools that allows for using an OCI registry (e.g., a container registry) to store arbitrary blobs of data.
+This means that we can both store and retrieve data for Snakemake from here! The suggested use case
+is that you use OCI registries to store data, but don't rely on them for storing anaysis outputs.
+While Snakemake interacts with ORAS via `oras-py <https://github.com/oras-project/oras-py>`_, ORAS also
+provides a `command line client <https://github.com/oras-project/oras>`_ that you might use to initially upload your data assets.
+As an example, let's start with the `Snakemake tutorial data <https://github.com/snakemake/snakemake-tutorial-data>`_ and 
+push to GitHub packages, which provides an OCI registry. Note that this is possible if you are an owner or member with
+write for the repository.
+
+.. code-block:: console
+
+    $ oras push ghcr.io/snakemake/snakemake-tutorial-data:test  $(find ./data/) 
+    Uploading 8aae08156a29 data
+    Uploading b53b87954a56 data/genome.fa.ann
+    Uploading a6158ec8ea9a data/genome.fa.fai
+    Uploading 32c47102de07 data/genome.fa.pac
+    Uploaded  32c47102de07 data/genome.fa.pac
+    Uploaded  b53b87954a56 data/genome.fa.ann
+    Uploaded  a6158ec8ea9a data/genome.fa.fai
+    Uploading bcabd580ea3f data/genome.fa.bwt
+    Uploading 71026772dbe1 data/samples/B.fastq
+    Uploading 5df05ceca5f7 data/samples
+    Uploading afbe896df0e4 data/genome.fa.sa
+    Uploaded  8aae08156a29 data
+    Uploaded  afbe896df0e4 data/genome.fa.sa
+    Uploading e108a9695584 data/samples/A.fastq
+    Uploading 25f7d0cbb04c data/genome.fa
+    Uploaded  bcabd580ea3f data/genome.fa.bwt
+    Uploading 8b17e892a820 data/genome.fa.amb
+    Uploaded  71026772dbe1 data/samples/B.fastq
+    Uploaded  5df05ceca5f7 data/samples
+    Uploaded  25f7d0cbb04c data/genome.fa
+    Uploaded  e108a9695584 data/samples/A.fastq
+    Uploaded  8b17e892a820 data/genome.fa.amb
+    Skipped   71026772dbe1 data/samples/C.fastq
+    Pushed [registry] ghcr.io/snakemake/snakemake-tutorial-data:test
+    Digest: sha256:ab816e2ea8a49e89599a1bd60c41c9440f3517c174a3c912606466ee1d0ca4c7
+
+
+Note that we are using ``find ./data`` as opposed to targeting the directory so all individual files are 
+uploaded. With ORAS, when you target a directory it will upload the compressed directory, and then we cannot
+easily see the files to index with Snakemake. As a next step, we can interact with ORAS. For the remote provider,
+you're Snakefile might look like the following:
+
+TODO pass artifact attribute to remote object class.
+
+
+.. code-block:: python
+
+    from snakemake.remote import ORAS
+    ORAS = ORAS.RemoteProvider()
+
+    rule bwa_map:
+        input:
+            ORAS.remote("data/genome.fa", artifact="ghcr.io/researchapps/snakemake-tutorial-data:test"),
+            ORAS.remote("data/samples/{sample}.fastq", artifact="ghcr.io/researchapps/snakemake-tutorial-data:test")
+
+
+For each of the above, the "artifact" is an OCI registry URI, which often looks like a container digest.
+This field is always required, and your workflow will error if it is not provided. An OCI artifact is also composed
+of layers, but instead of .tar.gz blobs with image contents, they each have some file contents, along with an 
+annotation that indicates the file name. If the annotation is missing (for most non-ORAS artifacts) the 
+artifact filename will not be considered.
 
 Dropbox
 =======
