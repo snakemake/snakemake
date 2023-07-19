@@ -479,7 +479,7 @@ def min_version(version):
 
 
 def update_config(config, overwrite_config):
-    """Recursively update dictionary config with overwrite_config.
+    """Recursively update dictionary config with overwrite_config in-place.
 
     See
     https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
@@ -488,18 +488,18 @@ def update_config(config, overwrite_config):
     Args:
       config (dict): dictionary to update
       overwrite_config (dict): dictionary whose items will overwrite those in config
-
     """
-
-    def _update(d, u):
-        for key, value in u.items():
-            if isinstance(value, collections.abc.Mapping):
-                d[key] = _update(d.get(key, {}), value)
-            else:
-                d[key] = value
-        return d
-
-    _update(config, overwrite_config)
+    for key, value in overwrite_config.items():
+        if not isinstance(config, collections.abc.Mapping):
+            # the config cannot be updated as it is no dict
+            # -> just overwrite it with the new value
+            config = {}
+        if isinstance(value, collections.abc.Mapping):
+            sub_config = config.get(key, {})
+            update_config(sub_config, value)
+            config[key] = sub_config
+        else:
+            config[key] = value
 
 
 def available_cpu_count():
