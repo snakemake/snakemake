@@ -359,9 +359,14 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 If no limits are given, the resources are ignored in local execution.
 
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
-They can also be callables that return ``int``, ``str`` or ``None`` values.
 In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
+
+Resources can also be callables (e.g. functions or lambda expressions) that return ``int``, ``str`` or ``None`` values.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+Such callables are evaluated immediately before the job is executed (or printed during a dry-run).
+
+Since the callables can take e.g. ``input`` as an argument, they can for example be used to obtain the size of an input file and infer the amount of memory needed for the job.
+In order to make this work with a dry-run, where the input files are not yet present, Snakemake automatically converts a ``FileNotFoundError`` that is raised by the callable into a placeholder called ``<TBD>`` that will be displayed during dry-run in such a case.
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
