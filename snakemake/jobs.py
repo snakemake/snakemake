@@ -372,7 +372,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def params(self):
         if self._params is None:
             self._params = self.rule.expand_params(
-                self.wildcards_dict, self.input, self.output, self.resources
+                self.wildcards_dict, self.input, self.output, self
             )
         return self._params
 

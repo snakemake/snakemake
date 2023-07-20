@@ -752,6 +752,13 @@ class Rule:
 
         _aux_params = get_input_function_aux_params(func, aux_params)
 
+        # call any callables in _aux_params
+        # This way, we enable to delay the evaluation of expensive
+        # aux params until they are actually needed.
+        for name, value in list(_aux_params.items()):
+            if callable(value):
+                _aux_params[name] = value()
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
             if isinstance(value, types.GeneratorType):
@@ -933,7 +940,7 @@ class Rule:
 
         return input, mapping, dependencies, incomplete
 
-    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
+    def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
                 if isinstance(p, str):
@@ -956,6 +963,13 @@ class Rule:
                     "Please add the output of the respective checkpoint to the rule inputs."
                 )
 
+        # We make sure that resources are only evaluated if a param function
+        # actually needs them by turning them into callables and delegating their
+        # evaluation to a later stage that only happens if the param function
+        # requests access to resources or threads.
+        resources = lambda: job.resources
+        threads = lambda: job.resources._cores
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -974,7 +988,7 @@ class Rule:
                     "input": input._plainstrings(),
                     "resources": resources,
                     "output": output._plainstrings(),
-                    "threads": resources._cores,
+                    "threads": threads,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
