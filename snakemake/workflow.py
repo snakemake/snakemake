@@ -1325,7 +1325,7 @@ class Workflow(WorkflowExecutorInterface):
         invalid_envvars = [
             envvar
             for envvar in envvars
-            if re.match("^\w+$", envvar, flags=re.ASCII) is None
+            if re.match(r"^\w+$", envvar, flags=re.ASCII) is None
         ]
         if invalid_envvars:
             raise WorkflowError(
@@ -1410,7 +1410,7 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter.update(self.overwrite_scatter)
 
         # add corresponding wildcard constraint
-        self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
+        self.global_wildcard_constraints(scatteritem=r"\d+-of-\d+")
 
         def func(key, *args, **wildcards):
             n = self._scatter[key]

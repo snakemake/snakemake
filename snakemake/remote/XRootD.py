@@ -151,7 +151,7 @@ class XRootDHelper(object):
 
     def _parse_url(self, url):
         match = re.search(
-            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
+            r"(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
         )
         if match is None:
             return None
