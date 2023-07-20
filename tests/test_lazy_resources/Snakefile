@@ -11,8 +11,7 @@ rule foo:
         "touch {output}"
 
 def get_resources(wc):
-    assert(os.path.isfile("results/foo.txt"))
-    return 0
+    return os.path.getsize("results/foo.txt")
 
 rule bar:
     input:
