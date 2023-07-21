@@ -17,6 +17,7 @@ from functools import partial
 from pathlib import Path
 import uuid
 import subprocess
+from snakemake.interfaces import DAGExecutorInterface
 
 from snakemake.io import (
     PeriodicityDetector,
@@ -95,7 +96,7 @@ class Batch:
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
-class DAG:
+class DAG(DAGExecutorInterface):
     """Directed acyclic graph of jobs."""
 
     def __init__(
@@ -2459,17 +2460,10 @@ class DAG:
         rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
-        max_threads = defaultdict(int)
-        min_threads = defaultdict(lambda: sys.maxsize)
-        for job in chain(self.needrun_jobs(), self.finished_jobs):
-            max_threads[job.rule] = max(max_threads[job.rule], job.threads)
-            min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
                 "job": rule.name,
                 "count": count,
-                "min threads": min_threads[rule],
-                "max threads": max_threads[rule],
             }
             for rule, count in sorted(
                 rules.most_common(), key=lambda item: item[0].name
@@ -2479,8 +2473,6 @@ class DAG:
             {
                 "job": "total",
                 "count": sum(rules.values()),
-                "min threads": min(min_threads.values()),
-                "max threads": max(max_threads.values()),
             }
         )
 
