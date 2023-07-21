@@ -1,5 +1,25 @@
 # Changelog
 
+## [7.30.2](https://github.com/snakemake/snakemake/compare/v7.30.1...v7.30.2) (2023-07-20)
+
+
+### Bug Fixes
+
+* do not allow setting benchmark and between-workflow caching for the same rule. The reason is that when the result is taken from cache, there is no way to fill the benchmark file with any reasonable values. ([#2335](https://github.com/snakemake/snakemake/issues/2335)) ([e2d64fa](https://github.com/snakemake/snakemake/commit/e2d64fad76b8ca1805eeaa48c0bf8d1fb7bf4736))
+* ensure lazy evaluation of resource functions/callables (this also entails, for now, a removal of the thread statistics in the yellow job stats table); further, added some clarifying sentences about resource function evaluation to the docs ([#2356](https://github.com/snakemake/snakemake/issues/2356)) ([4c591b7](https://github.com/snakemake/snakemake/commit/4c591b72b31d6c6c36b43f1d7773d8317352fbc9))
+* handle non-PEP440 versions of apptainer/singulariy ([#2337](https://github.com/snakemake/snakemake/issues/2337)) ([dea6ba8](https://github.com/snakemake/snakemake/commit/dea6ba8808793b88c7553880bde48711abb037f8))
+* remote GS builds too many inventories; io:collect_mtime always uses uncached mtime ([#2266](https://github.com/snakemake/snakemake/issues/2266)) ([bad9115](https://github.com/snakemake/snakemake/commit/bad91152eeb70693e1459324f738a8c481378801))
+* Solve apptainer version issue ([#2333](https://github.com/snakemake/snakemake/issues/2333)) ([a876e0f](https://github.com/snakemake/snakemake/commit/a876e0f5e187168eb269b504918c6aeff1496f16))
+* SyntaxWarnings due to non-raw regex pattern strings ([#2359](https://github.com/snakemake/snakemake/issues/2359)) ([a08c0b0](https://github.com/snakemake/snakemake/commit/a08c0b071b2f9a9212117bbcf560fa67f1a02178))
+
+
+### Documentation
+
+* clarify minimum Snakemake version for profiles ([86dc277](https://github.com/snakemake/snakemake/commit/86dc277d530a557c9bdd6784b863f63ab859a1c7))
+* clarify the channel priority in environment definition deployment.rst ([#2352](https://github.com/snakemake/snakemake/issues/2352)) ([76aa964](https://github.com/snakemake/snakemake/commit/76aa964c38b4aa069d9cce6f8f43c91c7d496cfb))
+* fix typo (stackoverflow issue) ([#2365](https://github.com/snakemake/snakemake/issues/2365)) ([f770984](https://github.com/snakemake/snakemake/commit/f7709844cd932465859a2095edafcf9baa8c2bf7))
+* note on using checkpoint mechanism only for input function, not for params or resources. ([#2353](https://github.com/snakemake/snakemake/issues/2353)) ([4be2f9d](https://github.com/snakemake/snakemake/commit/4be2f9dd9fb41dc169bae068753ceed9552248e7))
+
 ## [7.30.1](https://github.com/snakemake/snakemake/compare/v7.30.0...v7.30.1) (2023-06-28)
 
 
