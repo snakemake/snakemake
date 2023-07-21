@@ -14,6 +14,12 @@ from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
+from abc import ABC, abstractmethod
+from snakemake.interfaces import (
+    ExecutorJobInterface,
+    GroupJobExecutorInterface,
+    SingleJobExecutorInterface,
+)
 
 from snakemake.io import (
     IOFile,
@@ -60,36 +66,18 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class AbstractJob:
-    def logfile_suggestion(self, prefix: str) -> str:
-        raise NotImplementedError()
-
-    def is_group(self):
-        raise NotImplementedError()
-
-    def log_info(self, skip_dynamic=False):
-        raise NotImplementedError()
-
-    def log_error(self, msg=None, **kwargs):
-        raise NotImplementedError()
-
-    def remove_existing_output(self):
-        raise NotImplementedError()
-
-    def download_remote_input(self):
-        raise NotImplementedError()
-
-    def properties(self, omit_resources=["_cores", "_nodes"], **aux_properties):
-        raise NotImplementedError()
-
+class AbstractJob(ExecutorJobInterface):
+    @abstractmethod
     def reset_params_and_resources(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def get_target_spec(self):
-        raise NotImplementedError()
+        ...
 
+    @abstractmethod
     def products(self, include_logfiles=True):
-        raise NotImplementedError()
+        ...
 
     def has_products(self, include_logfiles=True):
         for o in self.products(include_logfiles=include_logfiles):
@@ -152,7 +140,7 @@ class JobFactory:
         return obj
 
 
-class Job(AbstractJob):
+class Job(AbstractJob, SingleJobExecutorInterface):
     HIGHEST_PRIORITY = sys.maxsize
 
     obj_cache = dict()
@@ -161,18 +149,18 @@ class Job(AbstractJob):
         "rule",
         "dag",
         "wildcards_dict",
-        "wildcards",
+        "_wildcards",
         "_format_wildcards",
-        "input",
+        "_input",
         "dependencies",
-        "output",
+        "_output",
         "_params",
         "_log",
         "_benchmark",
         "_resources",
         "_conda_env_file",
         "_conda_env",
-        "shadow_dir",
+        "_shadow_dir",
         "_inputsize",
         "dynamic_output",
         "dynamic_input",
@@ -237,7 +225,7 @@ class Job(AbstractJob):
 
         self.shadow_dir = None
         self._inputsize = None
-        self.is_updated = False
+        self._is_updated = False
         self._params_and_resources_resetted = False
 
         self._attempt = self.dag.workflow.attempt
@@ -275,6 +263,46 @@ class Job(AbstractJob):
                             rule=self.rule,
                         )
                 self.subworkflow_input[f] = sub
+
+    @property
+    def is_updated(self):
+        return self._is_updated
+
+    @is_updated.setter
+    def is_updated(self, value):
+        self._is_updated = value
+
+    @property
+    def shadow_dir(self):
+        return self._shadow_dir
+
+    @shadow_dir.setter
+    def shadow_dir(self, value):
+        self._shadow_dir = value
+
+    @property
+    def wildcards(self):
+        return self._wildcards
+
+    @wildcards.setter
+    def wildcards(self, value):
+        self._wildcards = value
+
+    @property
+    def input(self):
+        return self._input
+
+    @input.setter
+    def input(self, value):
+        self._input = value
+
+    @property
+    def output(self):
+        return self._output
+
+    @output.setter
+    def output(self, value):
+        self._output = value
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""
@@ -344,7 +372,7 @@ class Job(AbstractJob):
     def params(self):
         if self._params is None:
             self._params = self.rule.expand_params(
-                self.wildcards_dict, self.input, self.output, self.resources
+                self.wildcards_dict, self.input, self.output, self
             )
         return self._params
 
@@ -502,7 +530,7 @@ class Job(AbstractJob):
             raise RuleException(str(ex), rule=self.rule)
         except KeyError as ex:
             raise RuleException(
-                "Unknown variable in message " "of shell command: {}".format(str(ex)),
+                "Unknown variable in message of shell command: {}".format(str(ex)),
                 rule=self.rule,
             )
 
@@ -519,7 +547,7 @@ class Job(AbstractJob):
             raise RuleException(str(ex), rule=self.rule)
         except KeyError as ex:
             raise RuleException(
-                "Unknown variable when printing " "shell command: {}".format(str(ex)),
+                "Unknown variable when printing shell command: {}".format(str(ex)),
                 rule=self.rule,
             )
 
@@ -839,8 +867,13 @@ class Job(AbstractJob):
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files
-        wait_for_files(self.input, latency_wait=self.dag.workflow.latency_wait)
+        # wait for input files, respecting keep_remote_local
+        force_stay_on_remote = not self.dag.keep_remote_local
+        wait_for_files(
+            self.input,
+            force_stay_on_remote=force_stay_on_remote,
+            latency_wait=self.dag.workflow.latency_wait,
+        )
 
         if not self.is_shadow:
             return
@@ -1218,12 +1251,12 @@ class GroupJobFactory:
         return obj
 
 
-class GroupJob(AbstractJob):
+class GroupJob(AbstractJob, GroupJobExecutorInterface):
     obj_cache = dict()
 
     __slots__ = [
-        "groupid",
-        "jobs",
+        "_groupid",
+        "_jobs",
         "_resources",
         "_input",
         "_output",
@@ -1231,15 +1264,15 @@ class GroupJob(AbstractJob):
         "_inputsize",
         "_all_products",
         "_attempt",
-        "toposorted",
+        "_toposorted",
         "_jobid",
     ]
 
     def __init__(self, id, jobs, global_resources):
         self.groupid = id
-        self.jobs = jobs
+        self._jobs = jobs
         self.global_resources = global_resources
-        self.toposorted = None
+        self._toposorted = None
         self._resources = None
         self._scheduler_resources = None
         self._input = None
@@ -1249,6 +1282,30 @@ class GroupJob(AbstractJob):
         self._all_products = None
         self._attempt = self.dag.workflow.attempt
         self._jobid = None
+
+    @property
+    def groupid(self):
+        return self._groupid
+
+    @groupid.setter
+    def groupid(self, new_groupid):
+        self._groupid = new_groupid
+
+    @property
+    def jobs(self):
+        return self._jobs
+
+    @jobs.setter
+    def jobs(self, new_jobs):
+        self._jobs = new_jobs
+
+    @property
+    def toposorted(self):
+        return self._toposorted
+
+    @toposorted.setter
+    def toposorted(self, new_toposorted):
+        self._toposorted = new_toposorted
 
     def logfile_suggestion(self, prefix: str) -> str:
         """Return a suggestion for the log file name given a prefix."""

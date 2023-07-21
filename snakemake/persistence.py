@@ -16,6 +16,7 @@ from itertools import count
 from pathlib import Path
 
 import snakemake.exceptions
+from snakemake.interfaces import PersistenceExecutorInterface
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
@@ -25,7 +26,7 @@ from snakemake.io import is_flagged, get_flag_value
 UNREPRESENTABLE = object()
 
 
-class Persistence:
+class Persistence(PersistenceExecutorInterface):
     def __init__(
         self,
         nolock=False,
@@ -35,14 +36,17 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        try:
-            self._serialize_param = self._serialize_param_pandas
-        except ImportError:
-            self._serialize_param = self._serialize_param_builtin
+        import importlib.util
+
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
 
         self._max_len = None
 
-        self.path = os.path.abspath(".snakemake")
+        self._path = os.path.abspath(".snakemake")
         os.makedirs(self.path, exist_ok=True)
 
         self._lockdir = os.path.join(self.path, "locks")
@@ -75,7 +79,7 @@ class Persistence:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self.aux_path = os.path.join(self.path, "auxiliary")
+        self._aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
         migration_indicator = Path(
@@ -114,6 +118,14 @@ class Persistence:
             self.unlock = self.noop
 
         self._read_record = self._read_record_cached
+
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def aux_path(self):
+        return self._aux_path
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")

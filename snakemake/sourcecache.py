@@ -343,7 +343,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
 
 class SourceCache:
     cache_whitelist = [
-        "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
+        r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, runtime_cache_path=None):
