@@ -9,7 +9,7 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
-from snakemake import parse_cores_jobs
+from snakemake.cli import parse_cores_jobs
 from snakemake.exceptions import CliException
 from snakemake.utils import available_cpu_count
 

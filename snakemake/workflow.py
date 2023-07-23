@@ -25,7 +25,6 @@ from snakemake.exceptions import (
     NoRulesException,
     WorkflowError,
 )
-from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
@@ -249,6 +248,9 @@ class Workflow(WorkflowExecutorInterface):
         self._quiet = quiet
 
         _globals = globals()
+        from snakemake.shell import shell
+
+        _globals["shell"] = shell
         _globals["workflow"] = self
         _globals["rules"] = Rules()
         _globals["checkpoints"] = Checkpoints()
@@ -1164,6 +1166,8 @@ class Workflow(WorkflowExecutorInterface):
 
         if not dryrun:
             if len(dag):
+                from snakemake.shell import shell
+
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
                     logger.info(f"Using shell: {shell_exec}")

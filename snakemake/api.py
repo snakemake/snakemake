@@ -5,6 +5,8 @@ __license__ = "MIT"
 
 import sys
 
+from snakemake.common import MIN_PY_VERSION
+
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
@@ -12,9 +14,8 @@ import os
 from functools import partial
 import importlib
 
-from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode
+from snakemake_interface_executor_plugins.utils import ExecMode
 
-from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.workflow import Workflow
 from snakemake.exceptions import (
     print_exception,

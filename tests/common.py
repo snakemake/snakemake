@@ -18,7 +18,7 @@ import glob
 import subprocess
 import tarfile
 
-from snakemake import snakemake
+from snakemake.api import snakemake
 from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
 from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
