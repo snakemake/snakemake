@@ -58,7 +58,6 @@ SNAKEFILE_CHOICES = [
 ]
 
 
-
 def parse_set_threads(args):
     return parse_set_ints(
         args.set_threads,
