@@ -31,6 +31,7 @@ UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.i
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
 )
+RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
 
 ON_WINDOWS = platform.system() == "Windows"
 # limit the number of input/output files list in job properties
