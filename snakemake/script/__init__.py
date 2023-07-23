@@ -168,6 +168,82 @@ def _log_shell_redirect(
     return lookup[(stdout, stderr, append)].format(str(log))
 
 
+class PythonEncoder:
+    """Encoding Python data structures while avoiding pickling and version dependencies."""
+
+    def preamble(cls):
+        return textwrap.dedent("""
+        class Namedlist(list):
+            def __init__(self, positional, named):
+                super().__init__(positional)
+                self.__dict__.update(named)
+        """)
+
+    @classmethod
+    def encode_value(cls, value):
+        try:
+            import pandas as pd
+            pandas_containers = (pd.DataFrame, pd.Series)
+        except (ImportError, ModuleNotFoundError):
+            pandas_containers = ()
+        if value is None or isinstance(value, (str, int, float, bool):
+            return repr(value)
+        elif isinstance(value, Path):
+            return repr(str(value))
+        elif isinstance(value, dict):
+            return cls.encode_dict(value)
+        elif isinstance(value, pandas_containers):
+            return cls.encode_pandas(value)
+        elif isinstance(value, collections.abc.Iterable):
+            return cls.encode_list(value)
+        else:
+            # Try to convert from numpy if numpy is present
+            try:
+                import numpy as np
+
+                if isinstance(value, np.number, np.bool_):
+                    return repr(value)
+            except ImportError:
+                pass
+            raise ValueError(f"Unsupported value for encoding job properties for a Python script: {value}")
+
+    @classmethod
+    def encode_list(cls, l):
+        return f"[{', '.join(map(cls.encode_value, l))}]"
+
+    @classmethod
+    def encode_items(cls, items):
+        def encode_item(item):
+            name, value = item
+            return f'{repr(name)}: {cls.encode_value(value)}'
+
+        return ", ".join(map(encode_item, items))
+
+    @classmethod
+    def encode_dict(cls, d):
+        d = f"{{{cls.encode_items(d.items())}}}"
+        return d
+    
+    def encode_pandas(cls, d):
+        if isinstance(d, pd.DataFrame):
+            data = cls.encode_dict(d.to_dict(orient="tight"))
+            return f"pd.DataFrame.from_dict({data})"
+        elif isinstance(d, pd.Series):
+            data = cls.encode_list(d.to_list())
+            index = cls.encode_list(d.index.to_list())
+            return f"pd.Series(data={data}, index={index})"
+
+    @classmethod
+    def encode_namedlist(cls, namedlist):
+        positional = ", ".join(map(cls.encode_value, namedlist))
+        named = cls.encode_items(namedlist.items())
+        source = textwrap.dedent(f"""
+        Namedlist([{positional}], {{{named}}})
+        """)
+        return source
+
+
+
 class REncoder:
     """Encoding Python data structures into R."""
 
