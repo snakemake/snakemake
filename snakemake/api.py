@@ -5,8 +5,8 @@ __license__ = "MIT"
 
 import sys
 
-if sys.version_info < (3, 9):
-    raise ValueError("Snakemake requires at least Python 3.9.")
+if sys.version_info < MIN_PY_VERSION:
+    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 import os
 from functools import partial
@@ -25,6 +25,7 @@ from snakemake.io import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config
 from snakemake.common import (
+    MIN_PY_VERSION,
     RERUN_TRIGGERS,
     __version__,
     dict_to_key_value_args,
