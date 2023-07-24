@@ -178,6 +178,7 @@ def snakemake(
     container_image=None,
     k8s_cpu_scalar=1.0,
     flux=False,
+    persistent_volume_claim=None,
     tibanna=False,
     tibanna_sfn=None,
     az_batch=False,
@@ -319,6 +320,7 @@ def snakemake(
         container_image (str):      Docker image to use, e.g., for Kubernetes.
         k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
         flux (bool):                Launch workflow to flux cluster.
+        persistent_volume_claim (str):
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
         tibanna (bool):             submit jobs to AWS cloud using Tibanna.
@@ -743,6 +745,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    persistent_volume_claim=persistent_volume_claim,
                     conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
@@ -806,6 +809,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    persistent_volume_claim=persistent_volume_claim,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
@@ -2167,6 +2171,7 @@ def get_argument_parser(profiles=None):
             "iRODS",
             "AzBlob",
             "XRootD",
+            "LocalDirRemoteProvider"
         ],
         help="Specify default remote provider to be used for "
         "all input and output files that don't yet specify "
@@ -2455,6 +2460,12 @@ def get_argument_parser(profiles=None):
         "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
         "allowing it to utilise one entire node. N.B: the job itself would still "
         "see the original value, i.e. as the value substituted in {threads}.",
+    )
+
+    group_kubernetes.add_argument(
+        "--persistent-volume-claim",
+        metavar="CLAIMNAME",
+        help="help"
     )
 
     group_tibanna.add_argument(
@@ -2914,6 +2925,10 @@ def main(argv=None):
         )
         sys.exit(1)
 
+    if args.kubernetes and args.persistent_volume_claim and not args.default_remote_provider == "LocalDirRemoteProvider":
+        print("Error: --persistent-volume-claim should be combined with --default-remote-provider LocalDirRemoteProvider", file=sys.stderr)
+        sys.exit(1)
+
     if args.tibanna:
         if not args.default_remote_prefix:
             print(
@@ -3148,6 +3163,7 @@ def main(argv=None):
             container_image=args.container_image,
             k8s_cpu_scalar=args.k8s_cpu_scalar,
             flux=args.flux,
+            persistent_volume_claim=args.persistent_volume_claim,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
             az_batch=args.az_batch,

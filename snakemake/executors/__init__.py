@@ -1741,6 +1741,7 @@ class KubernetesExecutor(ClusterExecutor):
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
+        persistent_volume_claim=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1791,6 +1792,7 @@ class KubernetesExecutor(ClusterExecutor):
         self.secret_envvars = {}
         self.register_secret()
         self.container_image = container_image or get_container_image()
+        self.persistent_volume_claim = persistent_volume_claim
         logger.info(f"Using {self.container_image} for Kubernetes jobs.")
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
@@ -1953,11 +1955,17 @@ class KubernetesExecutor(ClusterExecutor):
         container.command = shlex.split("/bin/sh")
         container.args = ["-c", exec_job]
         container.working_dir = "/workdir"
-        container.volume_mounts = [
-            kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir"),
-            kubernetes.client.V1VolumeMount(name="source", mount_path="/source"),
-        ]
 
+        # mounts
+        workdir = kubernetes.client.V1VolumeMount(name="workdir", mount_path="/workdir")
+        source = kubernetes.client.V1VolumeMount(name="source", mount_path="/source")
+
+        if self.persistent_volume_claim:
+            pvc =kubernetes.client.V1VolumeMount(name= "pvc", mount_path = getattr(self.workflow, "default_remote_prefix"))
+            container.volume_mounts = [workdir, source, pvc]
+        else:
+            container.volume_mounts = [workdir,source]
+        
         node_selector = {}
         if "machine_type" in job.resources.keys():
             # Kubernetes labels a node by its instance type using this node_label.
@@ -1997,7 +2005,13 @@ class KubernetesExecutor(ClusterExecutor):
         # workdir as an emptyDir volume of undefined size
         workdir_volume = kubernetes.client.V1Volume(name="workdir")
         workdir_volume.empty_dir = kubernetes.client.V1EmptyDirVolumeSource()
-        body.spec.volumes = [secret_volume, workdir_volume]
+
+        if self.persistent_volume_claim:
+            pvc_volume = kubernetes.client.V1Volume(name="pvc")
+            pvc_volume.persistent_volume_claim = kubernetes.client.V1PersistentVolumeClaimVolumeSource(claim_name=self.persistent_volume_claim)
+            body.spec.volumes = [secret_volume, workdir_volume, pvc_volume]
+        else:
+              body.spec.volumes = [secret_volume, workdir_volume]
 
         # env vars
         container.env = []
@@ -2107,6 +2121,7 @@ class KubernetesExecutor(ClusterExecutor):
                     # Reload config in order to ensure token is
                     # refreshed. Then try again.
                     return self._reauthenticate_and_retry(func)
+                logger.error(e)
             # Handling timeout that may occur in case of GKE master upgrade
             except urllib3.exceptions.MaxRetryError as e:
                 logger.info(
