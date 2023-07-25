@@ -7,7 +7,6 @@ import os
 import json
 import re
 import inspect
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 from itertools import chain
 import collections
@@ -38,6 +37,8 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
+
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
