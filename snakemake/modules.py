@@ -187,7 +187,11 @@ class WorkflowModifier:
         self.rule_exclude_list = rule_exclude_list
         self.ruleinfo_overwrite = ruleinfo_overwrite
         self.allow_rule_overwrite = allow_rule_overwrite
+
+        self.replace_prefix = replace_prefix
+        self.prefix = prefix
         self.path_modifier = PathModifier(replace_prefix, prefix, workflow)
+
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
@@ -211,10 +215,34 @@ class WorkflowModifier:
             return pattern.sub(self.replace_wrapper_tag + "/", wrapper_uri)
 
     def __enter__(self):
+        # replace flat rule naming by deep rule naming
+        self._flat_rulename_modifier = self.rulename_modifier
+        if self.workflow.modifier_stack[-1].rulename_modifier is not None:
+            parent_modifier = self.workflow.modifier_stack[-1]
+            self.rulename_modifier = lambda n: parent_modifier.rulename_modifier(
+                    self._flat_rulename_modifier(n))
+
+        # replace flat prefix by deep prefix
+        self._flat_path_modifier = self.path_modifier
+        if self.workflow.modifier_stack[-1].path_modifier.prefix is not None:
+            parent_prefix = self.workflow.modifier_stack[-1].path_modifier.prefix
+            # replace flat path modifier by deep path modifier
+            if self._flat_path_modifier.prefix is not None:
+                full_prefix = parent_prefix + self._flat_path_modifier.prefix
+            else:
+                full_prefix = parent_prefix
+        else:
+            full_prefix = self._flat_path_modifier.prefix
+
+        self.path_modifier = PathModifier(self.replace_prefix,
+                                          full_prefix, self.workflow)
+
         # put this modifier on the stack, it becomes the currently valid modifier
         self.workflow.modifier_stack.append(self)
 
     def __exit__(self, type, value, traceback):
+        self.rulename_modifier = self._flat_rulename_modifier
+        self.path_modifier = self._flat_path_modifier
         # remove this modifier from the stack
         self.workflow.modifier_stack.pop()
         if self.namespace:

@@ -1749,6 +1749,8 @@ def test_module_complex():
 def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
 
+def test_module_nested():
+    run(dpath("test_module_nested"), check_results=True)
 
 @skip_on_windows
 def test_module_no_prefixing_modified_paths():
