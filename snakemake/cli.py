@@ -1677,6 +1677,18 @@ def get_argument_parser(profiles=None):
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
     )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-service-account-email",
+        help="Specify a service account email address",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-network",
+        help="Specify a network for a Google Compute Engine VM instance",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-subnetwork",
+        help="Specify a subnetwork for a Google Compute Engine VM instance",
+    )
 
     group_azure_batch = parser.add_argument_group("AZURE_BATCH")
 
@@ -2127,17 +2139,21 @@ def main(argv=None):
             sys.exit(1)
 
     if args.google_lifesciences:
-        if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        if (
+            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") 
+            and not args.google_lifesciences_service_account_email
+        ):
             print(
-                "Error: GOOGLE_APPLICATION_CREDENTIALS environment variable must "
-                "be available for --google-lifesciences",
+                "Error: Either the GOOGLE_APPLICATION_CREDENTIALS environment variable "
+                "or --google-lifesciences-service-account-email must be available "
+                "for --google-lifesciences",
                 file=sys.stderr,
             )
             sys.exit(1)
 
         if not args.default_remote_prefix:
             print(
-                "Error: --google-life-sciences must be combined with "
+                "Error: --google-lifesciences must be combined with "
                 " --default-remote-prefix to provide bucket name and "
                 "subdirectory (prefix) (e.g. 'bucketname/projectname'",
                 file=sys.stderr,
@@ -2316,6 +2332,9 @@ def main(argv=None):
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
+            google_lifesciences_service_account_email=args.google_lifesciences_service_account_email,
+            google_lifesciences_network=args.google_lifesciences_network,
+            google_lifesciences_subnetwork=args.google_lifesciences_subnetwork,
             tes=args.tes,
             precommand=args.precommand,
             preemption_default=args.preemption_default,
