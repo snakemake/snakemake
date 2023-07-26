@@ -2140,7 +2140,7 @@ def main(argv=None):
 
     if args.google_lifesciences:
         if (
-            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") 
+            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
             and not args.google_lifesciences_service_account_email
         ):
             print(
