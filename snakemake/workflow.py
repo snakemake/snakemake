@@ -701,6 +701,9 @@ class Workflow(WorkflowExecutorInterface):
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        google_lifesciences_service_account_email=None,
+        google_lifesciences_network=None,
+        google_lifesciences_subnetwork=None,
         tes=None,
         precommand="",
         preemption_default=None,
@@ -1151,6 +1154,9 @@ class Workflow(WorkflowExecutorInterface):
             google_lifesciences_regions=google_lifesciences_regions,
             google_lifesciences_location=google_lifesciences_location,
             google_lifesciences_cache=google_lifesciences_cache,
+            google_lifesciences_service_account_email=google_lifesciences_service_account_email,
+            google_lifesciences_network=google_lifesciences_network,
+            google_lifesciences_subnetwork=google_lifesciences_subnetwork,
             tes=tes,
             preemption_default=preemption_default,
             preemptible_rules=preemptible_rules,
@@ -1342,7 +1348,7 @@ class Workflow(WorkflowExecutorInterface):
         invalid_envvars = [
             envvar
             for envvar in envvars
-            if re.match("^\w+$", envvar, flags=re.ASCII) is None
+            if re.match(r"^\w+$", envvar, flags=re.ASCII) is None
         ]
         if invalid_envvars:
             raise WorkflowError(
@@ -1427,7 +1433,7 @@ class Workflow(WorkflowExecutorInterface):
         self._scatter.update(self.overwrite_scatter)
 
         # add corresponding wildcard constraint
-        self.global_wildcard_constraints(scatteritem="\d+-of-\d+")
+        self.global_wildcard_constraints(scatteritem=r"\d+-of-\d+")
 
         def func(key, *args, **wildcards):
             n = self._scatter[key]
