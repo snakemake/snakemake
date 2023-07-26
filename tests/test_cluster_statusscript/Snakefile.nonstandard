@@ -1,4 +1,4 @@
-from snakemake import shell
+
 
 chromosomes = [1,2,3,4,5]
 
