@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.31.0](https://github.com/snakemake/snakemake/compare/v7.30.2...v7.31.0) (2023-07-26)
+
+
+### Features
+
+* Add support for Google Service Accounts and GCE VM network configuration ([#2318](https://github.com/snakemake/snakemake/issues/2318)) ([2b754aa](https://github.com/snakemake/snakemake/commit/2b754aae535ef76bd2dd34bc31d5c9f5c69363de))
+
 ## [7.30.2](https://github.com/snakemake/snakemake/compare/v7.30.1...v7.30.2) (2023-07-20)
 
 
