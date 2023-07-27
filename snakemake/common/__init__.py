@@ -7,9 +7,11 @@ import concurrent.futures
 import contextlib
 import itertools
 import math
+import operator
 import platform
 import hashlib
 import inspect
+import sys
 import threading
 import uuid
 import os
@@ -26,7 +28,6 @@ del get_versions
 
 MIN_PY_VERSION = (3, 9)
 DYNAMIC_FILL = "__snakemake_dynamic__"
-SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -37,6 +38,13 @@ ON_WINDOWS = platform.system() == "Windows"
 # limit the number of input/output files list in job properties
 # see https://github.com/snakemake/snakemake/issues/2097
 IO_PROP_LIMIT = 100
+
+
+def get_snakemake_searchpaths():
+    paths = [str(Path(__file__).parent.parent.parent)] + [
+        path for path in sys.path if path.endswith("site-packages")
+    ]
+    return list(unique_justseen(paths))
 
 
 def mb_to_mib(mb):
@@ -261,3 +269,14 @@ async def async_lock(_lock: threading.Lock):
         yield  # the lock is held
     finally:
         _lock.release()
+
+
+def unique_justseen(iterable, key=None):
+    """
+    List unique elements, preserving order. Remember only the element just seen.
+
+    From https://docs.python.org/3/library/itertools.html#itertools-recipes
+    """
+    # unique_justseen('AAAABBBCCDAABBB') --> A B C D A B
+    # unique_justseen('ABBcCAD', str.lower) --> A B c A D
+    return map(next, map(operator.itemgetter(1), itertools.groupby(iterable, key)))
