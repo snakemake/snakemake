@@ -1347,7 +1347,9 @@ def glob_wildcards(pattern, files=None, followlinks=False):
 
 
 def update_wildcard_constraints(
-    pattern, wildcard_constraints, global_wildcard_constraints
+    pattern,
+    wildcard_constraints: dict[str, str],
+    global_wildcard_constraints: dict[str, str],
 ):
     """Update wildcard constraints
 
@@ -1357,7 +1359,7 @@ def update_wildcard_constraints(
       global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
     """
 
-    def replace_constraint(match):
+    def replace_constraint(match: re.Match):
         name = match.group("name")
         constraint = match.group("constraint")
         newconstraint = wildcard_constraints.get(
@@ -1375,7 +1377,7 @@ def update_wildcard_constraints(
         else:
             return match.group(0)
 
-    examined_names = set()
+    examined_names: set[str] = set()
     updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
@@ -1702,12 +1704,12 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
                 return yte.process_yaml(f, require_use_yte=True)
             except yaml.YAMLError:
                 raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
+                    f"{filetype} file is not valid JSON or YAML. "
                     "In case of YAML, make sure to not mix "
                     "whitespace and tab indentation."
                 )
     except FileNotFoundError:
-        raise WorkflowError(f"{filetype} file {configpath} not found.")
+        raise WorkflowError(f"{filetype} file {configpath_or_obj} not found.")
 
 
 def load_configfile(configpath):

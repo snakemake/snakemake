@@ -222,7 +222,7 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
-        self.token = None
+        self.token = ""
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -272,7 +272,7 @@ class GithubFile(HostingProviderFile):
         commit: str = None,
     ):
         super().__init__(repo, path, tag, branch, commit)
-        self.token = os.environ.get("GITHUB_TOKEN", None)
+        self.token = os.environ.get("GITHUB_TOKEN", "")
 
     def get_path_or_uri(self):
         auth = f":{self.token}@" if self.token else ""
@@ -293,7 +293,7 @@ class GitlabFile(HostingProviderFile):
     ):
         super().__init__(repo, path, tag, branch, commit)
         self.host = host
-        self.token = os.environ.get("GITLAB_TOKEN", None)
+        self.token = os.environ.get("GITLAB_TOKEN", "")
 
     def get_path_or_uri(self):
         from urllib.parse import quote
@@ -382,7 +382,7 @@ class SourceCache:
         cache_entry = self._cache(source_file)
         return str(cache_entry)
 
-    def _cache_entry(self, source_file):
+    def _cache_entry(self, source_file: SourceFile) -> Path:
         file_cache_path = source_file.get_cache_path()
         assert file_cache_path
 
@@ -394,13 +394,13 @@ class SourceCache:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
 
-    def _cache(self, source_file):
+    def _cache(self, source_file: SourceFile):
         cache_entry = self._cache_entry(source_file)
         if not cache_entry.exists():
             self._do_cache(source_file, cache_entry)
         return cache_entry
 
-    def _do_cache(self, source_file, cache_entry):
+    def _do_cache(self, source_file, cache_entry: Path):
         # open from origin
         with self._open_local_or_remote(source_file, "rb") as source:
             cache_entry.parent.mkdir(parents=True, exist_ok=True)
@@ -427,7 +427,7 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file, mode, encoding=None):
+    def _open_local_or_remote(self, source_file: SourceFile, mode, encoding=None):
         from reretry.api import retry_call
 
         if source_file.is_local:
@@ -437,7 +437,7 @@ class SourceCache:
                 self._open, [source_file, mode, encoding], tries=3, delay=3, backoff=2
             )
 
-    def _open(self, source_file, mode, encoding=None):
+    def _open(self, source_file: SourceFile, mode, encoding=None):
         from smart_open import open
 
         if isinstance(source_file, LocalGitFile):

@@ -176,7 +176,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included = []
         self.included_stack = []
         self._jobscript = jobscript
-        self._persistence = None
+        self._persistence: Persistence = None
         self._subworkflows = dict()
         self.overwrite_shellcmd = overwrite_shellcmd
         self.overwrite_config = overwrite_config or dict()
