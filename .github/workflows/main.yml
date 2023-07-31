@@ -80,6 +80,7 @@ jobs:
                 - role: galaxyproject.slurm
                   become: true
               vars:
+                  slurm_upgrade: true
                   slurm_roles: ['controller', 'exec', 'dbd']
                   slurm_config_dir: /etc/slurm
                   #slurm_cgroup_config:
