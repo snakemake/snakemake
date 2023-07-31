@@ -43,8 +43,7 @@ jobs:
 
   testing:
     runs-on: ubuntu-latest
-    # TODO comment in once slurm works again
-    # needs: formatting
+    needs: formatting
     services:
       mysql:
         image: mysql:8.0
