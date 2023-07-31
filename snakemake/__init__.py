@@ -5,8 +5,11 @@ __license__ = "MIT"
 
 import sys
 
-if sys.version_info < (3, 9):
-    raise ValueError("Snakemake requires at least Python 3.9.")
+if sys.version_info < MIN_PY_VERSION:
+    raise ValueError(
+        f"Snakemake requires at least Python {MIN_PY_VERSION}. Please ensure to execute it in a compatible Python environment.",
+        file=sys.stderr,
+    )
 
 import os
 import glob
