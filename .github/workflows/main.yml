@@ -43,7 +43,8 @@ jobs:
 
   testing:
     runs-on: ubuntu-latest
-    needs: formatting
+    # TODO comment in once slurm works again
+    # needs: formatting
     services:
       mysql:
         image: mysql:8.0
@@ -68,7 +69,7 @@ jobs:
           ansible-galaxy install galaxyproject.slurm,1.0.4
       - name: Update apt cache
         run: |
-          apt-get update
+          sudo apt-get update
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
