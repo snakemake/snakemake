@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import sys
+from snakemake.common import MIN_PY_VERSION
 
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(
