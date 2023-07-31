@@ -66,7 +66,7 @@ jobs:
       # see https://github.com/containers/podman/issues/13338
       - name: Download slurm ansible roles
         run: |
-          ansible-galaxy install galaxyproject.slurm,1.0.4
+          ansible-galaxy install galaxyproject.slurm,1.0.1
       - name: Update apt cache
         run: |
           sudo apt-get update
