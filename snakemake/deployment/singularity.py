@@ -25,7 +25,7 @@ SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 def get_snakemake_searchpath_mountpoints():
     paths = get_snakemake_searchpaths()
     base = Path("/mnt/snakemake_searchpaths")
-    return [base / f"item_{i}" for i in range(len(paths))]
+    return [str(base / f"item_{i}") for i in range(len(paths))]
 
 
 class Image:
