@@ -2661,12 +2661,14 @@ def get_argument_parser(profiles=None):
     group_singularity.add_argument(
         "--singularity-prefix",
         metavar="DIR",
+        default=os.environ.get("SNAKEMAKE_SINGULARITY_PREFIX", None),
         help="Specify a directory in which singularity images will be stored."
         "If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-singularity` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
-        "invocation directory, or as an absolute path.",
+        "invocation directory, or as an absolute path. The value can also be "
+        "provided via the environment variable $SNAKEMAKE_SINGULARITY_PREFIX.",
     )
     group_singularity.add_argument(
         "--singularity-args",
