@@ -9,6 +9,9 @@
 
 ## [7.30.2](https://github.com/snakemake/snakemake/compare/v7.30.1...v7.30.2) (2023-07-20)
 
+### Breaking changes
+
+* Bump minimum Python version from 3.7 to 3.9 ([#2369](https://github.com/snakemake/snakemake/issues/2369)) ([4608163](https://github.com/snakemake/snakemake/pull/2341/commits/4608163727bb32e216f1a26adc61d4c15d4b6a47))
 
 ### Bug Fixes
 

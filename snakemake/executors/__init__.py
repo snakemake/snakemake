@@ -20,6 +20,7 @@ import tempfile
 from functools import partial
 from collections import namedtuple
 import base64
+from typing import List
 import uuid
 import re
 import math
@@ -142,7 +143,7 @@ class AbstractExecutor(ABC):
 
     def run_jobs(
         self,
-        jobs: list[ExecutorJobInterface],
+        jobs: List[ExecutorJobInterface],
         callback=None,
         submit_callback=None,
         error_callback=None,
