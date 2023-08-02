@@ -3,34 +3,34 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import collections
-from hashlib import sha256
-import os
-import shutil
-from pathlib import Path
-import re
-import stat
-import time
-import datetime
-import json
-import copy
-import functools
-import subprocess as sp
-from itertools import product, chain
-from contextlib import contextmanager
-import string
-import collections
 import asyncio
+import collections
+import copy
+import datetime
+import functools
+import json
+import os
+import re
+import shutil
+import stat
+import string
+import subprocess as sp
+import time
+from contextlib import contextmanager
+from hashlib import sha256
+from inspect import isfunction, ismethod
+from itertools import chain, product
+from pathlib import Path
+from typing import Callable, Dict
 
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
-    WorkflowError,
-    WildcardError,
     RemoteFileException,
+    WildcardError,
+    WorkflowError,
 )
 from snakemake.logging import logger
-from inspect import isfunction, ismethod
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 
 
 class Mtime:
@@ -196,6 +196,39 @@ def IOFile(file, rule=None):
     return f
 
 
+def _refer_to_remote(func: Callable):
+    """
+    A decorator so that if the file is remote and has a version
+    of the same file-related function, call that version instead.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self: _IOFile, *args, **kwargs):
+        if self.is_remote:
+            if hasattr(self.remote_object, func.__name__):
+                return getattr(self.remote_object, func.__name__)(*args, **kwargs)
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def iocache(func: Callable):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # self: _IOFile
+        if self.rule.workflow.iocache.active:
+            cache = getattr(self.rule.workflow.iocache, func.__name__)
+            if self in cache:
+                return cache[self]
+            v = func(self, *args, **kwargs)
+            cache[self] = v
+            return v
+        else:
+            return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class _IOFile(str):
     """
     A file that is either input or output of a rule.
@@ -235,36 +268,6 @@ class _IOFile(str):
         if new.is_remote:
             new.remote_object._iofile = new
         return new
-
-    def iocache(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.rule.workflow.iocache.active:
-                cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
-                v = func(self, *args, **kwargs)
-                cache[self] = v
-                return v
-            else:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
-    def _refer_to_remote(func):
-        """
-        A decorator so that if the file is remote and has a version
-        of the same file-related function, call that version instead.
-        """
-
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.is_remote:
-                if hasattr(self.remote_object, func.__name__):
-                    return getattr(self.remote_object, func.__name__)(*args, **kwargs)
-            return func(self, *args, **kwargs)
-
-        return wrapper
 
     def inventory(self):
         async_run(self._inventory())
@@ -1348,8 +1351,8 @@ def glob_wildcards(pattern, files=None, followlinks=False):
 
 def update_wildcard_constraints(
     pattern,
-    wildcard_constraints: dict[str, str],
-    global_wildcard_constraints: dict[str, str],
+    wildcard_constraints: Dict[str, str],
+    global_wildcard_constraints: Dict[str, str],
 ):
     """Update wildcard constraints
 
