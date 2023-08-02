@@ -4,9 +4,13 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import sys
+from snakemake.common import MIN_PY_VERSION
 
-if sys.version_info < (3, 9):
-    raise ValueError("Snakemake requires at least Python 3.9.")
+if sys.version_info < MIN_PY_VERSION:
+    raise ValueError(
+        f"Snakemake requires at least Python {MIN_PY_VERSION}. Please ensure to execute it in a compatible Python environment.",
+        file=sys.stderr,
+    )
 
 import os
 import glob
@@ -187,6 +191,9 @@ def snakemake(
     google_lifesciences_regions=None,
     google_lifesciences_location=None,
     google_lifesciences_cache=False,
+    google_lifesciences_service_account_email=None,
+    google_lifesciences_network=None,
+    google_lifesciences_subnetwork=None,
     tes=None,
     preemption_default=None,
     preemptible_rules=None,
@@ -330,6 +337,9 @@ def snakemake(
         google_lifesciences_regions (list): a list of regions (e.g., us-east1)
         google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
         google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
+        google_lifesciences_service_account_email (str): Service account to install on Google pipelines API VM instance.
+        google_lifesciences_network (str): Network name for Google VM instances.
+        google_lifesciences_subnetwork (str): Subnetwork name for Google VM instances.
         tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
         precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
         preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
@@ -755,6 +765,9 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    google_lifesciences_service_account_email=google_lifesciences_service_account_email,
+                    google_lifesciences_network=google_lifesciences_network,
+                    google_lifesciences_subnetwork=google_lifesciences_subnetwork,
                     flux=flux,
                     tes=tes,
                     precommand=precommand,
@@ -815,6 +828,9 @@ def snakemake(
                     google_lifesciences_regions=google_lifesciences_regions,
                     google_lifesciences_location=google_lifesciences_location,
                     google_lifesciences_cache=google_lifesciences_cache,
+                    google_lifesciences_service_account_email=google_lifesciences_service_account_email,
+                    google_lifesciences_network=google_lifesciences_network,
+                    google_lifesciences_subnetwork=google_lifesciences_subnetwork,
                     tes=tes,
                     flux=flux,
                     precommand=precommand,
@@ -2525,6 +2541,18 @@ def get_argument_parser(profiles=None):
         "contents, and kept in Google Cloud Storage. By default, the caches "
         "are deleted at the shutdown step of the workflow.",
     )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-service-account-email",
+        help="Specify a service account email address",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-network",
+        help="Specify a network for a Google Compute Engine VM instance",
+    )
+    group_google_life_science.add_argument(
+        "--google-lifesciences-subnetwork",
+        help="Specify a subnetwork for a Google Compute Engine VM instance",
+    )
 
     group_azure_batch = parser.add_argument_group("AZURE_BATCH")
 
@@ -2966,17 +2994,21 @@ def main(argv=None):
             sys.exit(1)
 
     if args.google_lifesciences:
-        if not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        if (
+            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            and not args.google_lifesciences_service_account_email
+        ):
             print(
-                "Error: GOOGLE_APPLICATION_CREDENTIALS environment variable must "
-                "be available for --google-lifesciences",
+                "Error: Either the GOOGLE_APPLICATION_CREDENTIALS environment variable "
+                "or --google-lifesciences-service-account-email must be available "
+                "for --google-lifesciences",
                 file=sys.stderr,
             )
             sys.exit(1)
 
         if not args.default_remote_prefix:
             print(
-                "Error: --google-life-sciences must be combined with "
+                "Error: --google-lifesciences must be combined with "
                 " --default-remote-prefix to provide bucket name and "
                 "subdirectory (prefix) (e.g. 'bucketname/projectname'",
                 file=sys.stderr,
@@ -3157,6 +3189,9 @@ def main(argv=None):
             google_lifesciences_regions=args.google_lifesciences_regions,
             google_lifesciences_location=args.google_lifesciences_location,
             google_lifesciences_cache=args.google_lifesciences_keep_cache,
+            google_lifesciences_service_account_email=args.google_lifesciences_service_account_email,
+            google_lifesciences_network=args.google_lifesciences_network,
+            google_lifesciences_subnetwork=args.google_lifesciences_subnetwork,
             tes=args.tes,
             precommand=args.precommand,
             preemption_default=args.preemption_default,

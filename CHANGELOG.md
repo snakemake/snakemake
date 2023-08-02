@@ -1,7 +1,29 @@
 # Changelog
 
+## [7.31.1](https://github.com/snakemake/snakemake/compare/v7.31.0...v7.31.1) (2023-08-02)
+
+
+### Bug Fixes
+
+* require python &gt;=3.7 again (the python 3.9 dependency was unnecessary) ([#2372](https://github.com/snakemake/snakemake/issues/2372)) ([0d0e9c4](https://github.com/snakemake/snakemake/commit/0d0e9c4cf48a97952464e6da476ed7661d629ce3))
+
+
+### Documentation
+
+* update CHANGELOG.md: add minimum Python version bump ([#2370](https://github.com/snakemake/snakemake/issues/2370)) ([48e934d](https://github.com/snakemake/snakemake/commit/48e934dcf96e4e8fd30c81cab3674583bf049a45))
+
+## [7.31.0](https://github.com/snakemake/snakemake/compare/v7.30.2...v7.31.0) (2023-07-26)
+
+
+### Features
+
+* Add support for Google Service Accounts and GCE VM network configuration ([#2318](https://github.com/snakemake/snakemake/issues/2318)) ([2b754aa](https://github.com/snakemake/snakemake/commit/2b754aae535ef76bd2dd34bc31d5c9f5c69363de))
+
 ## [7.30.2](https://github.com/snakemake/snakemake/compare/v7.30.1...v7.30.2) (2023-07-20)
 
+### Breaking changes
+
+* Bump minimum Python version from 3.7 to 3.9 ([#2369](https://github.com/snakemake/snakemake/issues/2369)) ([4608163](https://github.com/snakemake/snakemake/pull/2341/commits/4608163727bb32e216f1a26adc61d4c15d4b6a47))
 
 ### Bug Fixes
 
