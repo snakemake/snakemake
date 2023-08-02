@@ -65,7 +65,6 @@ class AbstractRemoteProvider:
     __metaclass__ = ABCMeta
 
     supports_default = False
-    allows_directories = False
 
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
@@ -216,6 +215,12 @@ class AbstractRemoteObject:
 
     def remote_file(self):
         return self.protocol + self.local_file()
+
+    def to_plainstr(self):
+        if self.stay_on_remote:
+            return str(self.remote_file())
+        else:
+            return str(self.local_file())
 
     @abstractmethod
     def close(self):

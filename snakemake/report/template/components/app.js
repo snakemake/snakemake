@@ -18,8 +18,12 @@ class App extends React.Component {
 
     render() {
         return [
-            e(Navbar, { key: "navbar", app: this }),
-            e(ContentDisplay, { key: "content", app: this })
+            e(
+                "div",
+                { class: "flex flex-row w-screen h-screen" },
+                e(Navbar, { key: "navbar", app: this }),
+                e(ContentDisplay, { key: "content", app: this })
+            )
         ];
     }
 

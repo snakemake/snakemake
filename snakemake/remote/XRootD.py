@@ -7,9 +7,7 @@ import os
 from os.path import abspath, join, normpath
 import re
 
-from stat import S_ISREG
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )
@@ -29,7 +27,13 @@ class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        is_default=False,
+        url_decorator=lambda x: x,
+        **kwargs,
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -39,10 +43,17 @@ class RemoteProvider(AbstractRemoteProvider):
             **kwargs,
         )
 
-        self._xrd = XRootDHelper()
+        self._xrd = XRootDHelper(url_decorator)
+        self._url_decorator = url_decorator
 
     def remote_interface(self):
         return self._xrd
+
+    def remote(self, *args, **kwargs):
+        if "url_decorator" in kwargs:
+            return super().remote(*args, **kwargs)
+        else:
+            return super().remote(*args, url_decorator=self._url_decorator, **kwargs)
 
     @property
     def default_protocol(self):
@@ -59,7 +70,13 @@ class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with XRootD servers."""
 
     def __init__(
-        self, *args, keep_local=False, stay_on_remote=False, provider=None, **kwargs
+        self,
+        *args,
+        keep_local=False,
+        stay_on_remote=False,
+        provider=None,
+        url_decorator=lambda x: x,
+        **kwargs,
     ):
         super(RemoteObject, self).__init__(
             *args,
@@ -74,14 +91,19 @@ class RemoteObject(AbstractRemoteRetryObject):
         else:
             self._xrd = XRootDHelper()
 
+        self._url_decorator = url_decorator
+
+    def to_plainstr(self):
+        return self._url_decorator(super().to_plainstr())
+
     # === Implementations of abstract class members ===
 
     def exists(self):
-        return self._xrd.exists(self.remote_file())
+        return self._xrd.exists(self._url_decorator(self.remote_file()))
 
     def mtime(self):
         if self.exists():
-            return self._xrd.file_last_modified(self.remote_file())
+            return self._xrd.file_last_modified(self._url_decorator(self.remote_file()))
         else:
             raise XRootDFileException(
                 "The file does not seem to exist remotely: %s" % self.remote_file()
@@ -89,17 +111,17 @@ class RemoteObject(AbstractRemoteRetryObject):
 
     def size(self):
         if self.exists():
-            return self._xrd.file_size(self.remote_file())
+            return self._xrd.file_size(self._url_decorator(self.remote_file()))
         else:
             return self._iofile.size_local
 
     def _download(self):
         assert not self.stay_on_remote
-        self._xrd.copy(self.remote_file(), self.file())
+        self._xrd.copy(self._url_decorator(self.remote_file()), self.file())
 
     def _upload(self):
         assert not self.stay_on_remote
-        self._xrd.copy(self.file(), self.remote_file())
+        self._xrd.copy(self.file(), self._url_decorator(self.remote_file()))
 
     @property
     def name(self):
@@ -116,8 +138,9 @@ class RemoteObject(AbstractRemoteRetryObject):
 
 
 class XRootDHelper(object):
-    def __init__(self):
+    def __init__(self, url_decorator=lambda x: x):
         self._clients = {}
+        self._url_decorator = url_decorator
 
     def get_client(self, domain):
         try:
@@ -128,7 +151,7 @@ class XRootDHelper(object):
 
     def _parse_url(self, url):
         match = re.search(
-            "(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
+            r"(?P<domain>(?:[A-Za-z]+://)[A-Za-z0-9:@\_\-\.]+\:?/)(?P<path>.+)", url
         )
         if match is None:
             return None
@@ -146,8 +169,23 @@ class XRootDHelper(object):
 
         return domain, dirname, filename
 
-    def exists(self, url):
+    def _parse_url_with_token(self, url):
+        """Same as parse_url but also separates the token for the cases that need it"""
+        ret = self._parse_url(url)
+        if ret is None:
+            # In the case we have a local file, not a ROOT URL
+            dirname = os.path.dirname(url)
+            filename = os.path.basename(url)
+            return None, dirname, filename, None
+        domain, dirname, filename = ret
+        components = filename.rsplit("?", 1)
+        filename = components[0]
+        token = None
+        if len(components) > 1:
+            token = components[1]
+        return domain, dirname, filename, token
 
+    def exists(self, url):
         domain, dirname, filename = self._parse_url(url)
 
         status, statInfo = self.get_client(domain).stat(os.path.join(dirname, filename))
@@ -173,7 +211,7 @@ class XRootDHelper(object):
         # )
 
     def _get_statinfo(self, url):
-        domain, dirname, filename = self._parse_url(url)
+        domain, dirname, filename, token = self._parse_url_with_token(url)
         matches = [
             f for f in self.list_directory(domain, dirname) if f.name == filename
         ]
@@ -208,20 +246,37 @@ class XRootDHelper(object):
         # Prepare the source path for XRootD
         if not self._parse_url(source):
             source = abspath(source)
+            filename = os.path.basename(source)
         else:
-            domain, dirname, filename = self._parse_url(source)
-            source = f"{domain}/{dirname}/{filename}"
+            domain, dirname, filename, token = self._parse_url_with_token(source)
+            source = (
+                f"{domain}/{dirname}/{filename}?{token}"
+                if token
+                else f"{domain}/{dirname}/{filename}"
+            )
 
         # Prepare the destination path for XRootD
-        assert os.path.basename(source) == os.path.basename(destination)
         if self._parse_url(destination):
-            domain, dirname, filename = self._parse_url(destination)
-            destination = f"{domain}/{dirname}/{filename}"
-            self.makedirs(domain, dirname)
+            (
+                dest_domain,
+                dest_dirname,
+                dest_filename,
+                dest_token,
+            ) = self._parse_url_with_token(destination)
+            destination = (
+                f"{dest_domain}/{dest_dirname}/{dest_filename}?{dest_token}"
+                if dest_token
+                else f"{dest_domain}/{dest_dirname}/{dest_filename}"
+            )
+            self.makedirs(dest_domain, dest_dirname)
         else:
             destination = abspath(destination)
+            dest_filename = os.path.basename(destination)
             if not os.path.isdir(os.path.dirname(destination)):
                 os.makedirs(os.path.dirname(destination))
+
+        # Checking that we keep the same filename
+        assert filename == dest_filename
 
         # Perform the copy operation
         process = client.CopyProcess()
@@ -238,14 +293,18 @@ class XRootDHelper(object):
     def makedirs(self, domain, dirname):
         print("Making directories", domain, dirname)
         assert dirname.endswith("/")
-        status, _ = self.get_client(domain).mkdir(dirname, MkDirFlags.MAKEPATH)
+        status, _ = self.get_client(domain).mkdir(
+            self._url_decorator(dirname), MkDirFlags.MAKEPATH
+        )
         if not status.ok:
             raise XRootDFileException(
                 "Failed to create directory " + dirname, repr(status)
             )
 
     def list_directory(self, domain, dirname):
-        status, dirlist = self.get_client(domain).dirlist(dirname, DirListFlags.STAT)
+        status, dirlist = self.get_client(domain).dirlist(
+            self._url_decorator(dirname), DirListFlags.STAT
+        )
         if not status.ok:
             raise XRootDFileException(
                 "Error listing directory "
@@ -277,7 +336,7 @@ class XRootDHelper(object):
     def remove(self, url):
         domain, dirname, filename = self._parse_url(url)
         filename = join(dirname, filename)
-        status, _ = self.get_client(domain).rm(filename)
+        status, _ = self.get_client(domain).rm(self._url_decorator(filename))
         if not status.ok:
             raise XRootDFileException(
                 "Failed to remove file "

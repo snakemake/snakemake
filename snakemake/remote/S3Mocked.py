@@ -4,11 +4,10 @@ __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
-import os, sys
+import os
 from contextlib import contextmanager
 import pickle
 import time
-import threading
 import functools
 
 # intra-module
@@ -80,7 +79,6 @@ def pickled_moto_wrapper(func):
 
 @dec_all_methods(pickled_moto_wrapper, prefix=None)
 class RemoteProvider(S3RemoteProvider):
-
     supports_default = True
 
     def __init__(self, *args, **kwargs):
