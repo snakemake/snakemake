@@ -1,0 +1,9 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python =3.7.12
+  # add a dependency that is not used by Snakemake itself,
+  # to simulate the case where the Python script needs 3.7 and
+  # that dependency
+  - pillow =9.2

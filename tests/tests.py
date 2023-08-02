@@ -1953,6 +1953,10 @@ def test_github_issue1498():
     run(dpath("test_github_issue1498"))
 
 
+def test_lazy_resources():
+    run(dpath("test_lazy_resources"))
+
+
 def test_cleanup_metadata_fail():
     run(dpath("test09"), cleanup_metadata=["xyz"])
 
@@ -2017,6 +2021,10 @@ def test_github_issue1618():
 
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
+
+
+def test_conda_python_3_7_script():
+    run(dpath("test_conda_python_3_7_script"), use_conda=True)
 
 
 def test_prebuilt_conda_script():
