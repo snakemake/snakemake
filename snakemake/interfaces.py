@@ -5,14 +5,8 @@ __license__ = "MIT"
 
 import sys
 
-# The typing API used here requires Python 3.9 or later and fails with unintuitive errors otherwise.
-if sys.version_info < (3, 9):
-    raise ValueError(
-        "Snakemake executor interface definition requires at least Python 3.9."
-    )
-
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 class ExecutorJobInterface(ABC):
@@ -278,7 +272,7 @@ class WorkflowExecutorInterface(ABC):
 
     @property
     @abstractmethod
-    def rerun_triggers(self) -> Optional[list[str]]:
+    def rerun_triggers(self) -> Optional[List[str]]:
         ...
 
     @property
@@ -328,12 +322,12 @@ class WorkflowExecutorInterface(ABC):
 
     @property
     @abstractmethod
-    def overwrite_threads(self) -> dict[str, int]:
+    def overwrite_threads(self) -> Dict[str, int]:
         ...
 
     @property
     @abstractmethod
-    def overwrite_scatter(self) -> dict[str, int]:
+    def overwrite_scatter(self) -> Dict[str, int]:
         ...
 
     @property
