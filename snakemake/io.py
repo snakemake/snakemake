@@ -97,7 +97,6 @@ if os.chmod in os.supports_follow_symlinks:
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
 
-
 else:
 
     def lchmod(f, mode):
