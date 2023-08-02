@@ -21,7 +21,7 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, Dict, Set
 
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake.exceptions import (
@@ -1380,7 +1380,7 @@ def update_wildcard_constraints(
         else:
             return match.group(0)
 
-    examined_names: set[str] = set()
+    examined_names: Set[str] = set()
     updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
