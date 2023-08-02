@@ -1,5 +1,47 @@
 # Changelog
 
+## [7.31.1](https://github.com/snakemake/snakemake/compare/v7.31.0...v7.31.1) (2023-08-02)
+
+
+### Bug Fixes
+
+* require python &gt;=3.7 again (the python 3.9 dependency was unnecessary) ([#2372](https://github.com/snakemake/snakemake/issues/2372)) ([0d0e9c4](https://github.com/snakemake/snakemake/commit/0d0e9c4cf48a97952464e6da476ed7661d629ce3))
+
+
+### Documentation
+
+* update CHANGELOG.md: add minimum Python version bump ([#2370](https://github.com/snakemake/snakemake/issues/2370)) ([48e934d](https://github.com/snakemake/snakemake/commit/48e934dcf96e4e8fd30c81cab3674583bf049a45))
+
+## [7.31.0](https://github.com/snakemake/snakemake/compare/v7.30.2...v7.31.0) (2023-07-26)
+
+
+### Features
+
+* Add support for Google Service Accounts and GCE VM network configuration ([#2318](https://github.com/snakemake/snakemake/issues/2318)) ([2b754aa](https://github.com/snakemake/snakemake/commit/2b754aae535ef76bd2dd34bc31d5c9f5c69363de))
+
+## [7.30.2](https://github.com/snakemake/snakemake/compare/v7.30.1...v7.30.2) (2023-07-20)
+
+### Breaking changes
+
+* Bump minimum Python version from 3.7 to 3.9 ([#2369](https://github.com/snakemake/snakemake/issues/2369)) ([4608163](https://github.com/snakemake/snakemake/pull/2341/commits/4608163727bb32e216f1a26adc61d4c15d4b6a47))
+
+### Bug Fixes
+
+* do not allow setting benchmark and between-workflow caching for the same rule. The reason is that when the result is taken from cache, there is no way to fill the benchmark file with any reasonable values. ([#2335](https://github.com/snakemake/snakemake/issues/2335)) ([e2d64fa](https://github.com/snakemake/snakemake/commit/e2d64fad76b8ca1805eeaa48c0bf8d1fb7bf4736))
+* ensure lazy evaluation of resource functions/callables (this also entails, for now, a removal of the thread statistics in the yellow job stats table); further, added some clarifying sentences about resource function evaluation to the docs ([#2356](https://github.com/snakemake/snakemake/issues/2356)) ([4c591b7](https://github.com/snakemake/snakemake/commit/4c591b72b31d6c6c36b43f1d7773d8317352fbc9))
+* handle non-PEP440 versions of apptainer/singulariy ([#2337](https://github.com/snakemake/snakemake/issues/2337)) ([dea6ba8](https://github.com/snakemake/snakemake/commit/dea6ba8808793b88c7553880bde48711abb037f8))
+* remote GS builds too many inventories; io:collect_mtime always uses uncached mtime ([#2266](https://github.com/snakemake/snakemake/issues/2266)) ([bad9115](https://github.com/snakemake/snakemake/commit/bad91152eeb70693e1459324f738a8c481378801))
+* Solve apptainer version issue ([#2333](https://github.com/snakemake/snakemake/issues/2333)) ([a876e0f](https://github.com/snakemake/snakemake/commit/a876e0f5e187168eb269b504918c6aeff1496f16))
+* SyntaxWarnings due to non-raw regex pattern strings ([#2359](https://github.com/snakemake/snakemake/issues/2359)) ([a08c0b0](https://github.com/snakemake/snakemake/commit/a08c0b071b2f9a9212117bbcf560fa67f1a02178))
+
+
+### Documentation
+
+* clarify minimum Snakemake version for profiles ([86dc277](https://github.com/snakemake/snakemake/commit/86dc277d530a557c9bdd6784b863f63ab859a1c7))
+* clarify the channel priority in environment definition deployment.rst ([#2352](https://github.com/snakemake/snakemake/issues/2352)) ([76aa964](https://github.com/snakemake/snakemake/commit/76aa964c38b4aa069d9cce6f8f43c91c7d496cfb))
+* fix typo (stackoverflow issue) ([#2365](https://github.com/snakemake/snakemake/issues/2365)) ([f770984](https://github.com/snakemake/snakemake/commit/f7709844cd932465859a2095edafcf9baa8c2bf7))
+* note on using checkpoint mechanism only for input function, not for params or resources. ([#2353](https://github.com/snakemake/snakemake/issues/2353)) ([4be2f9d](https://github.com/snakemake/snakemake/commit/4be2f9dd9fb41dc169bae068753ceed9552248e7))
+
 ## [7.30.1](https://github.com/snakemake/snakemake/compare/v7.30.0...v7.30.1) (2023-06-28)
 
 

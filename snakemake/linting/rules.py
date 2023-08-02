@@ -111,7 +111,7 @@ class RuleLinter(Linter):
                 links=[links.external_scripts, links.notebooks],
             )
 
-    def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
+    def lint_iofile_by_index(self, rule, regex=re.compile(r"(input|output)\[[0-9]+\]")):
         if rule.shellcmd and regex.search(rule.shellcmd):
             yield Lint(
                 title="Do not access input and output files individually by index in shell commands",

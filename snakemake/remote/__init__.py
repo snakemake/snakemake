@@ -65,7 +65,6 @@ class AbstractRemoteProvider:
     __metaclass__ = ABCMeta
 
     supports_default = False
-    allows_directories = False
 
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs

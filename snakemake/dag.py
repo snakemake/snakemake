@@ -2460,17 +2460,10 @@ class DAG(DAGExecutorInterface):
         rules.update(job.rule for job in self.needrun_jobs())
         rules.update(job.rule for job in self.finished_jobs)
 
-        max_threads = defaultdict(int)
-        min_threads = defaultdict(lambda: sys.maxsize)
-        for job in chain(self.needrun_jobs(), self.finished_jobs):
-            max_threads[job.rule] = max(max_threads[job.rule], job.threads)
-            min_threads[job.rule] = min(min_threads[job.rule], job.threads)
         rows = [
             {
                 "job": rule.name,
                 "count": count,
-                "min threads": min_threads[rule],
-                "max threads": max_threads[rule],
             }
             for rule, count in sorted(
                 rules.most_common(), key=lambda item: item[0].name
@@ -2480,8 +2473,6 @@ class DAG(DAGExecutorInterface):
             {
                 "job": "total",
                 "count": sum(rules.values()),
-                "min threads": min(min_threads.values()),
-                "max threads": max(max_threads.values()),
             }
         )
 

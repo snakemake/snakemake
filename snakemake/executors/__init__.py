@@ -20,6 +20,7 @@ import tempfile
 from functools import partial
 from collections import namedtuple
 import base64
+from typing import List
 import uuid
 import re
 import math
@@ -142,7 +143,7 @@ class AbstractExecutor(ABC):
 
     def run_jobs(
         self,
-        jobs: list[ExecutorJobInterface],
+        jobs: List[ExecutorJobInterface],
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -721,7 +722,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if self.workflow.verbose or (not job.is_group() and job.is_run):
+            if self.workflow.verbose or (not job.is_group() and not job.is_shell):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 

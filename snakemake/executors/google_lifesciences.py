@@ -71,6 +71,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         regions=None,
         location=None,
         cache=False,
+        service_account_email=None,
+        network=None,
+        subnetwork=None,
         local_input=None,
         restart_times=None,
         max_status_checks_per_second=1,
@@ -117,14 +120,22 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self.project = (
             os.environ.get("GOOGLE_CLOUD_PROJECT") or self._bucket_service.project
         )
-
         # Determine API location based on user preference, and then regions
         self._set_location(location)
-
         # Tell the user right away the regions, location, and container
         logger.debug("regions=%s" % self.regions)
         logger.debug("location=%s" % self.location)
         logger.debug("container=%s" % self.container_image)
+
+        # If specified, capture service account and GCE VM network configuration
+        self.service_account_email = service_account_email
+        self.network = network
+        self.subnetwork = subnetwork
+
+        # Log service account and VM network configuration
+        logger.debug("service_account_email=%s" % self.service_account_email)
+        logger.debug("network=%s" % self.network)
+        logger.debug("subnetwork=%s" % self.subnetwork)
 
         # Keep track of build packages to clean up shutdown, and generate
         self._build_packages = set()
@@ -154,7 +165,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         import httplib2
         import googleapiclient
 
-        # Credentials must be exported to environment
+        # Credentials may be exported to the environment or from a service account on a GCE VM instance.
         try:
             # oauth2client is deprecated, see: https://google-auth.readthedocs.io/en/master/oauth2client-deprecation.html
             # google.auth is replacement
@@ -571,6 +582,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
                 )
         else:
             preemptible = job.rule.name in self.preemptible_rules
+
         # We add the size for the image itself (10 GB) to bootDiskSizeGb
         virtual_machine = {
             "machineType": smallest,
@@ -578,6 +590,20 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             "bootDiskSizeGb": disk_gb + 10,
             "preemptible": preemptible,
         }
+
+        # Add custom GCE VM configuration
+        if self.network and self.subnetwork:
+            virtual_machine["network"] = {
+                "network": self.network,
+                "usePrivateAddress": False,
+                "subnetwork": self.subnetwork,
+            }
+
+        if self.service_account_email:
+            virtual_machine["service_account"] = {
+                "email": self.service_account_email,
+                "scopes": ["https://www.googleapis.com/auth/cloud-platform"],
+            }
 
         # If the user wants gpus, add accelerators here
         if gpu_count:
