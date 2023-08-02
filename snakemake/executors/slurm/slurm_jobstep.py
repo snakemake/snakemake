@@ -1,16 +1,12 @@
 import os
 import subprocess
 from snakemake.common.tbdstring import TBDString
-
-from snakemake.jobs import Job
-from snakemake.logging import logger
-from snakemake.deployment.conda import Conda
-from snakemake.exceptions import print_exception
-from snakemake.exceptions import log_verbose_traceback
-from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    WorkflowExecutorInterface,
+)
 
 
 class SlurmJobstepExecutor(ClusterExecutor):
@@ -21,8 +17,8 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         printreason=False,
         quiet=False,
         printshellcmds=False,
@@ -61,7 +57,13 @@ class SlurmJobstepExecutor(ClusterExecutor):
     async def _wait_for_jobs(self):
         pass
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         jobsteps = dict()
 
         # TODO revisit special handling for group job levels via srun at a later stage

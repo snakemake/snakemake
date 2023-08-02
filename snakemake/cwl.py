@@ -5,19 +5,15 @@ __license__ = "MIT"
 
 from urllib.request import pathname2url
 import os
-import subprocess
 import tempfile
 import json
 import shutil
-import uuid
 from itertools import chain
 
 from snakemake.utils import format
-from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image, Mode
-from snakemake.io import is_flagged
 
 
 def cwl(
@@ -87,7 +83,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(
-                "All output files have to be relative to the " "working directory."
+                "All output files have to be relative to the working directory."
             )
 
     get_output_id = lambda job, i: f"#main/job-{job.jobid}/{i}"

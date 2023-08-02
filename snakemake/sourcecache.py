@@ -23,8 +23,7 @@ from snakemake.common import (
     smart_join,
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
-from snakemake.io import git_content, split_git_path
-from snakemake.logging import logger
+from snakemake.io import split_git_path
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -344,7 +343,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
 
 class SourceCache:
     cache_whitelist = [
-        "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
+        r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, runtime_cache_path=None):
