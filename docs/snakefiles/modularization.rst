@@ -138,6 +138,10 @@ The second statement, ``use rule * from other_workflow exclude ruleC as other_*`
 Thereby, the ``as other_*`` at the end renames all those rules with a common prefix.
 This can be handy to avoid rule name conflicts (note that rules from modules can otherwise overwrite rules from your current workflow or other modules).
 
+.. note::
+
+    The imported module cannot be named as `workflow`, which is a reserved name.
+
 The module is evaluated in a separate namespace, and only the selected rules are added to the current workflow.
 Non-rule Python statements inside the module are also evaluated in that separate namespace.
 They are available in the module-defining workflow under the name of the module (e.g. here ``other_workflow.myfunction()`` would call the function ``myfunction`` that has been defined in the model, e.g. in ``other_workflow/Snakefile``).
@@ -304,3 +308,10 @@ For the latter, it is also possible to specify an alternative host, e.g.
 
 While specifying a tag is highly encouraged, it is alternatively possible to specify a `commit` or a `branch` via respective keyword arguments.
 Note that only when specifying a tag or a commit, Snakemake is able to persistently cache the source, thereby avoiding to repeatedly query it in case of multiple executions.
+
+~~~~~~~~~~~~~~~~~~~~
+Private repositories
+~~~~~~~~~~~~~~~~~~~~
+
+To access source code resources located in private repositories you can define an
+access token in the ``GITHUB_TOKEN`` and/or ``GITLAB_TOKEN`` environment variables.

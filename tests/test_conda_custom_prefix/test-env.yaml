@@ -1,5 +1,6 @@
 channels:
   - conda-forge
   - bioconda
+  - nodefaults
 dependencies:
-  - snakemake-minimal ==5.7.1
+  - snakemake-minimal ==7.28.3

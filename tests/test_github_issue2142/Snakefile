@@ -1,0 +1,8 @@
+rule all:
+    input: "data.txt"
+    log:
+        "logs/all.log"
+
+rule A:
+    output: "data.txt"
+    shell: "touch {output}"

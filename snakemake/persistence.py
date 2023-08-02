@@ -5,24 +5,28 @@ __license__ = "MIT"
 
 import os
 import shutil
-import signal
-import marshal
 import pickle
 import json
+import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
 
 import snakemake.exceptions
+from snakemake.interfaces import PersistenceExecutorInterface
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
+from snakemake.io import is_flagged, get_flag_value
 
 
-class Persistence:
+UNREPRESENTABLE = object()
+
+
+class Persistence(PersistenceExecutorInterface):
     def __init__(
         self,
         nolock=False,
@@ -32,12 +36,21 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        import importlib.util
+
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
+
+        self._max_len = None
+
+        self._path = os.path.abspath(".snakemake")
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
@@ -66,7 +79,7 @@ class Persistence:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self.aux_path = os.path.join(self.path, "auxiliary")
+        self._aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
         migration_indicator = Path(
@@ -106,6 +119,14 @@ class Persistence:
 
         self._read_record = self._read_record_cached
 
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def aux_path(self):
+        return self._aux_path
+
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
         i = 0
@@ -123,14 +144,11 @@ class Persistence:
                             self._metadata_path
                         )
                         os.makedirs(target_path, exist_ok=True)
-                        shutil.copyfile(
-                            path / filename,
-                            target_path / filename,
-                        )
+                        shutil.copyfile(path / filename, target_path / filename)
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
-                    logger.info("{} files migrated".format(i))
+                    logger.info(f"{i} files migrated")
 
         logger.info("Migration complete")
 
@@ -195,6 +213,30 @@ class Persistence:
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
 
+    def cleanup_containers(self):
+        from humanfriendly import format_size
+
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
+
     def conda_cleanup_envs(self):
         # cleanup envs
         in_use = set(env.hash[:8] for env in self.dag.conda_envs.values())
@@ -213,11 +255,7 @@ class Persistence:
 
     def started(self, job, external_jobid=None):
         for f in job.output:
-            self._record(
-                self._incomplete_path,
-                {"external_jobid": external_jobid},
-                f,
-            )
+            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
     def finished(self, job, keep_metadata=True):
         if not keep_metadata:
@@ -419,15 +457,55 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        return sorted(job.input)
+        get_path = (
+            lambda f: get_flag_value(f, "sourcecache_entry")
+            if is_flagged(f, "sourcecache_entry")
+            else f
+        )
+        return sorted(get_path(f) for f in job.input)
 
     @lru_cache()
     def _log(self, job):
         return sorted(job.log)
 
+    def _serialize_param_builtin(self, param):
+        if param is None or isinstance(
+            param,
+            (
+                int,
+                float,
+                bool,
+                str,
+                complex,
+                range,
+                list,
+                tuple,
+                dict,
+                set,
+                frozenset,
+                bytes,
+                bytearray,
+            ),
+        ):
+            return repr(param)
+        else:
+            return UNREPRESENTABLE
+
+    def _serialize_param_pandas(self, param):
+        import pandas as pd
+
+        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(param).tolist())
+        return self._serialize_param_builtin(param)
+
     @lru_cache()
     def _params(self, job):
-        return sorted(map(repr, job.params))
+        return sorted(
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                map(self._serialize_param, job.params),
+            )
+        )
 
     @lru_cache()
     def _output(self, job):
@@ -452,7 +530,11 @@ class Persistence:
             suffix=f".{os.path.basename(recpath)[:8]}",
         ) as tmpfile:
             json.dump(json_value, tmpfile)
-        os.rename(tmpfile.name, recpath)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
@@ -483,7 +565,7 @@ class Persistence:
             except json.JSONDecodeError as e:
                 pass
         # case: file is corrupted, delete it
-        logger.warning(f"Deleting corrupted metadata record.")
+        logger.warning("Deleting corrupted metadata record.")
         self._delete_record(subject, id)
         return dict()
 
@@ -494,23 +576,28 @@ class Persistence:
         return (
             f
             for f, _ in listfiles(
-                os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type))
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
             )
             if not os.path.isdir(f)
         )
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:
                     print(*files, sep="\n", file=lock)
                 return
 
+    def _fetch_max_len(self, subject):
+        if self._max_len is None:
+            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
+        return self._max_len
+
     def _record_path(self, subject, id):
         max_len = (
-            os.pathconf(subject, "PC_NAME_MAX") if os.name == "posix" else 255
+            self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
         if max_len == 0:
             max_len = 255

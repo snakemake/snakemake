@@ -16,10 +16,12 @@ import urllib
 import pytest
 import glob
 import subprocess
+import tarfile
 
 from snakemake import snakemake
 from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
+from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
 
 
 def dpath(path):
@@ -54,6 +56,10 @@ def has_gcloud_service_key():
     return "GCP_AVAILABLE" in os.environ
 
 
+def has_azbatch_account_url():
+    return os.environ.get("AZ_BATCH_ACCOUNT_URL")
+
+
 def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
@@ -63,6 +69,12 @@ gcloud = pytest.mark.skipif(
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
+)
+
+azbatch = pytest.mark.skipif(
+    not is_connected() or not has_azbatch_account_url(),
+    reason="Skipping AZBATCH tests because "
+    "no inet connection or no AZ_BATCH_ACCOUNT_URL.",
 )
 
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
@@ -92,6 +104,24 @@ def get_expected_files(results_dir):
     ]
 
 
+def untar_folder(tar_file, output_path):
+    if not os.path.isdir(output_path):
+        with tarfile.open(tar_file) as tar:
+            tar.extractall(path=output_path)
+
+
+def print_tree(path, exclude=None):
+    for root, _dirs, files in os.walk(path):
+        if exclude and root.startswith(os.path.join(path, exclude)):
+            continue
+        level = root.replace(path, "").count(os.sep)
+        indent = " " * 4 * level
+        print(f"{indent}{os.path.basename(root)}/")
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            print(f"{subindent}{f}")
+
+
 def run(
     path,
     shouldfail=False,
@@ -107,9 +137,10 @@ def run(
     conda_frontend="mamba",
     config=dict(),
     targets=None,
-    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:main"),
+    container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
+    overwrite_resource_scopes=None,
     **params,
 ):
     """
@@ -175,13 +206,21 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.check_output(
-                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                subprocess.run(
+                    shellcmd,
+                    cwd=path if no_tmpdir else tmpdir,
+                    check=True,
+                    shell=True,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 )
                 success = True
             else:
                 with subprocess.Popen(
-                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                    shlex.split(shellcmd),
+                    cwd=path if no_tmpdir else tmpdir,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 ) as process:
                     time.sleep(sigint_after)
                     process.send_signal(signal.SIGINT)
@@ -189,7 +228,7 @@ def run(
                     success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
-            print(e.stderr, file=sys.stderr)
+            print(e.stdout.decode(), file=sys.stderr)
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
         success = snakemake(
@@ -203,12 +242,20 @@ def run(
             targets=targets,
             conda_frontend=conda_frontend,
             container_image=container_image,
+            overwrite_resource_scopes=(
+                ResourceScopes(overwrite_resource_scopes)
+                if overwrite_resource_scopes is not None
+                else overwrite_resource_scopes
+            ),
             **params,
         )
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
+        if not success:
+            print("Workdir:")
+            print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
 
     if check_results:

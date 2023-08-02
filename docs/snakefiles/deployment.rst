@@ -37,7 +37,7 @@ following structure:
 
 In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``.
 Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure.
-This main structure and the recommendations below are implemented in `this Snakemake workflow template <https://github.com/snakemake-workflows/snakemake-workflow-template>`_ that you can use to `create your own workflow repository with a single click on "Use this template" <https://github.com/snakemake-workflows/snakemake-workflow-template/generate>_.
+This main structure and the recommendations below are implemented in `this Snakemake workflow template <https://github.com/snakemake-workflows/snakemake-workflow-template>`_ that you can use to `create your own workflow repository with a single click on "Use this template" <https://github.com/snakemake-workflows/snakemake-workflow-template/generate>`_.
 In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``.
 Such modules should end with ``.smk``, the recommended file extension of Snakemake.
 Further, :ref:`scripts <snakefiles-external_scripts>` should be stored in a subfolder ``workflow/scripts`` and notebooks in a subfolder ``workflow/notebooks``.
@@ -183,7 +183,7 @@ Above, several things have changed.
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -269,6 +269,8 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
      - r=3.3.1
      - r-ggplot2=2.1.0
 
+Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority.
+
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
 
 Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
@@ -353,7 +355,15 @@ Post-deployment scripts must be placed next to their corresponding environment-f
         └── interproscan.post-deploy.sh
 
 The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+Importantly, if the script relies on certain shell specific syntax, (e.g. `set -o pipefail` for bash), make sure to add a matching shebang to the script, e.g.:
 
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    # ...
+
+If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
 
 .. _conda_named_env:
 

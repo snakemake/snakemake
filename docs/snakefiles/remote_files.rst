@@ -150,15 +150,15 @@ variables are not passed directly to AzureRemoteProvider (see
 [BlobServiceClient
 class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
 for naming), they will be read from environment variables, named
-`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
-`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
-a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+``AZ_BLOB_ACCOUNT_URL`` and ``AZ_BLOB_CREDENTIAL``. ``AZ_BLOB_ACCOUNT_URL`` takes the form
+``https://<accountname>.blob.core.windows.net`` and may also contain a SAS. If
+a SAS is not part of the URL, ``AZ_BLOB_CREDENTIAL`` has to be set to the SAS or alternatively to
 the storage account key.
 
 When using AzBlob as default remote provider you will almost always want to
 pass these environment variables on to the remote execution environment (e.g.
-Kubernetes) with `--envvars`, e.g
-`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
+Kubernetes) with ```--envvars``, e.g
+``--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL``.
 
 .. code-block:: python
 
@@ -510,6 +510,14 @@ This flag can be overridden on a file by file basis as described in the S3 remot
         shell:
             'xrdcp {input[0]} {output[0]}'
 
+In order to access the files using autorization tokens, the "url_decorator" parameter can be used to append the necessary string to the URL e.g.
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+    XRootD = XRootDRemoteProvider(stay_on_remote=True, url_decorator=lambda x: x + "?xrd.wantprot=unix&authz=XXXXXX")
+    
+
 GenBank / NCBI Entrez
 =====================
 
@@ -594,15 +602,16 @@ GFAL
 
 GFAL support is available in Snakemake 4.1 and later.
 
-Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+Snakemake supports reading and writing remote files via the `GFAL2 Python bindings <https://dmc-docs.web.cern.ch/dmc-docs/gfal2-python.html>`_ . This package is not installed by default with a Snakemake installation. The easiest installation method is with mamba or conda. e.g.: ``mamba install -c conda-forge python-gfal2``.
+
 By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
-In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
+
 
 .. code-block:: python
 
     from snakemake.remote import gfal
 
-    gfal = gfal.RemoteProvider(retry=5)
+    gfal = gfal.RemoteProvider()
 
     rule a:
         input:
@@ -614,8 +623,6 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
 
 Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
@@ -633,7 +640,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider(retry=5)
+    gridftp = gridftp.RemoteProvider(streams=4)
 
     rule a:
         input:
@@ -645,8 +652,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
+The keyword argument to the remote provider allows to set the number of parallel streams used for file tranfers(4 per default). When ``streams``is set to 1 or smaller, the files are trasfered in a serial way. Paralell stream may be unsupported depending on the system configuration.
 
 Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.

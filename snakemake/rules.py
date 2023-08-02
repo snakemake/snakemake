@@ -4,24 +4,22 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-import re
 import types
+import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
-import sys
-import inspect
-import sre_constants
 import collections
-from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
 from functools import partial
 
+try:
+    import re._constants as sre_constants
+except ImportError:  # python < 3.11
+    import sre_constants
+
 from snakemake.io import (
     IOFile,
     _IOFile,
-    protected,
-    temp,
-    dynamic,
     Namedlist,
     AnnotatedString,
     contains_wildcard_constraints,
@@ -60,7 +58,9 @@ from snakemake.common import (
     get_input_function_aux_params,
     lazy_property,
     TBDString,
+    mb_to_mib,
 )
+from snakemake.resources import infer_resources
 
 
 class Rule:
@@ -193,7 +193,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
             for key in wildcards.keys():
-                s = s.replace("{{{{{}}}}}".format(key), "{{{}}}".format(key))
+                s = s.replace(f"{{{{{key}}}}}", f"{{{key}}}")
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -397,12 +397,21 @@ class Rule:
     def output(self):
         return self._output
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
+        products = [self.output]
+        if include_logfiles:
+            products.append(self.log)
         if self.benchmark:
-            return chain(self.output, self.log, [self.benchmark])
-        else:
-            return chain(self.output, self.log)
+            products.append([self.benchmark])
+        return chain(*products)
+
+    def get_some_product(self):
+        for product in self.products():
+            return product
+        return None
+
+    def has_products(self):
+        return self.get_some_product() is not None
 
     def register_wildcards(self, wildcard_names):
         if self._wildcard_names is None:
@@ -492,11 +501,11 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
-        if not (self.wildcard_constraints or self.workflow._wildcard_constraints):
+        if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
         try:
             return update_wildcard_constraints(
-                item, self.wildcard_constraints, self.workflow._wildcard_constraints
+                item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
             raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
@@ -743,6 +752,13 @@ class Rule:
 
         _aux_params = get_input_function_aux_params(func, aux_params)
 
+        # call any callables in _aux_params
+        # This way, we enable to delay the evaluation of expensive
+        # aux params until they are actually needed.
+        for name, value in list(_aux_params.items()):
+            if callable(value):
+                _aux_params[name] = value()
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
             if isinstance(value, types.GeneratorType):
@@ -903,7 +919,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in input files cannot be " "determined from output files:",
+                "Wildcards in input files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -924,7 +940,7 @@ class Rule:
 
         return input, mapping, dependencies, incomplete
 
-    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
+    def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
                 if isinstance(p, str):
@@ -947,6 +963,13 @@ class Rule:
                     "Please add the output of the respective checkpoint to the rule inputs."
                 )
 
+        # We make sure that resources are only evaluated if a param function
+        # actually needs them by turning them into callables and delegating their
+        # evaluation to a later stage that only happens if the param function
+        # requests access to resources or threads.
+        resources = lambda: job.resources
+        threads = lambda: job.resources._cores
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -965,7 +988,7 @@ class Rule:
                     "input": input._plainstrings(),
                     "resources": resources,
                     "output": output._plainstrings(),
-                    "threads": resources._cores,
+                    "threads": threads,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
@@ -1017,7 +1040,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in log files cannot be " "determined from output files:",
+                "Wildcards in log files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1045,39 +1068,48 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(
+        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+    ):
         resources = dict()
 
         def apply(name, res, threads=None):
-            if callable(res):
-                aux = dict(rulename=self.name)
-                if threads is not None:
-                    aux["threads"] = threads
-                try:
-                    res, _ = self.apply_input_function(
-                        res,
-                        wildcards,
-                        input=input,
-                        attempt=attempt,
-                        incomplete_checkpoint_func=lambda e: 0,
-                        raw_exceptions=True,
-                        **aux,
+            if skip_evaluation is not None and name in skip_evaluation:
+                res = TBDString()
+            else:
+                if callable(res):
+                    aux = dict(rulename=self.name)
+                    if threads is not None:
+                        aux["threads"] = threads
+                    try:
+                        res, _ = self.apply_input_function(
+                            res,
+                            wildcards,
+                            input=input,
+                            attempt=attempt,
+                            incomplete_checkpoint_func=lambda e: 0,
+                            raw_exceptions=True,
+                            **aux,
+                        )
+                    except (Exception, BaseException) as e:
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
+
+                if isinstance(res, float):
+                    # round to integer
+                    res = int(round(res))
+
+                if (
+                    not isinstance(res, int)
+                    and not isinstance(res, str)
+                    and res is not None
+                ):
+                    raise WorkflowError(
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
+                        rule=self,
                     )
-                except (Exception, BaseException) as e:
-                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
-
-            if isinstance(res, float):
-                # round to integer
-                res = int(round(res))
-
-            if not isinstance(res, int) and not isinstance(res, str):
-                raise WorkflowError(
-                    f"Resource {name} is neither int, float(would be rounded to nearest int), or str.",
-                    rule=self,
-                )
 
             global_res = self.workflow.global_resources.get(name)
-            if global_res is not None:
+            if global_res is not None and res is not None:
                 if not isinstance(res, TBDString) and type(res) != type(global_res):
                     global_type = (
                         "an int" if isinstance(global_res, int) else type(global_res)
@@ -1093,13 +1125,34 @@ class Rule:
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if threads is None:
+            raise WorkflowError("Threads must be given as an int", rule=self)
         if self.workflow.max_threads is not None:
             threads = min(threads, self.workflow.max_threads)
         resources["_cores"] = threads
 
-        for name, res in self.resources.items():
+        for name, res in list(self.resources.items()):
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+
+                if value is not None:
+                    resources[name] = value
+                    # Infer standard resources from eventual human readable forms.
+                    infer_resources(name, value, resources)
+
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
+                        ):
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
+
         resources = Resources(fromdict=resources)
         return resources
 
@@ -1156,35 +1209,64 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.products:
+            for o in self.products():
                 if o.match(requested_output):
                     return True
             return False
         except sre_constants.error as ex:
             raise IOFileException(
-                "{} in wildcard statement".format(ex),
+                f"{ex} in wildcard statement",
                 snakefile=self.snakefile,
                 lineno=self.lineno,
             )
         except ValueError as ex:
-            raise IOFileException(
-                "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
-            )
+            raise IOFileException(f"{ex}", snakefile=self.snakefile, lineno=self.lineno)
 
-    def get_wildcards(self, requested_output):
+    def get_wildcards(self, requested_output, wildcards_dict=None):
         """
-        Return wildcard dictionary by matching regular expression
-        output files to the requested concrete ones.
+        Return wildcard dictionary by
+        1. trying to format the output with the given wildcards and comparing with the requested output
+        2. matching regular expression output files to the requested concrete ones.
 
         Arguments
         requested_output -- a concrete filepath
         """
         if requested_output is None:
             return dict()
+
+        # first try to match the output with the given wildcards
+        if wildcards_dict is not None:
+            if self.wildcard_names <= wildcards_dict.keys():
+                wildcards_dict = {
+                    wildcard: value
+                    for wildcard, value in wildcards_dict.items()
+                    if wildcard in self.wildcard_names
+                }
+                for o in self.products():
+                    try:
+                        applied = o.apply_wildcards(wildcards_dict)
+                        # if the output formatted with the wildcards matches the requested output,
+                        if applied == requested_output:
+                            # we check whether the wildcards satisfy the constraints
+                            constraints = o.wildcard_constraints()
+
+                            def check_constraint(wildcard, value):
+                                constraint = constraints.get(wildcard)
+                                return constraint is None or constraint.match(value)
+
+                            if all(
+                                check_constraint(name, value)
+                                for name, value in wildcards_dict.items()
+                            ):
+                                # and then just return the given wildcards_dict limited to the wildcards that are actually used
+                                return wildcards_dict
+                    except WildcardError:
+                        continue
+
         bestmatchlen = 0
         bestmatch = None
 
-        for o in self.products:
+        for o in self.products():
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
@@ -1219,7 +1301,10 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.output == other.output
+        if isinstance(other, Rule):
+            return self.name == other.name and self.output == other.output
+        else:
+            return False
 
 
 class Ruleorder:

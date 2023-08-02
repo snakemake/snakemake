@@ -3,17 +3,17 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import hashlib
 from pathlib import Path
 import posixpath
 import re
 import os
 import shutil
+import stat
 from snakemake import utils
 import tempfile
 import io
 from abc import ABC, abstractmethod
-from datetime import datetime
+from urllib.parse import unquote
 
 from snakemake.common import (
     ON_WINDOWS,
@@ -23,8 +23,7 @@ from snakemake.common import (
     smart_join,
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
-from snakemake.io import git_content, split_git_path
-from snakemake.logging import logger
+from snakemake.io import split_git_path
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -44,10 +43,9 @@ class SourceFile(ABC):
     def is_persistently_cacheable(self):
         ...
 
-    def get_uri_hash(self):
-        urihash = hashlib.sha256()
-        urihash.update(self.get_path_or_uri().encode())
-        return urihash.hexdigest()
+    def get_cache_path(self):
+        uri = parse_uri(self.get_path_or_uri())
+        return os.path.join(uri.scheme, unquote(uri.uri_path.lstrip("/")))
 
     def get_basedir(self):
         path = os.path.dirname(self.get_path_or_uri())
@@ -149,15 +147,18 @@ class LocalGitFile(SourceFile):
         self.path = path
 
     def get_path_or_uri(self):
-        return "git+file://{}/{}@{}".format(self.repo_path, self.path, self.ref)
+        return "git+file://{}/{}@{}".format(
+            os.path.abspath(self.repo_path), self.path, self.ref
+        )
 
     def join(self, path):
+        path = os.path.normpath("/".join((self.path, path)))
+        if ON_WINDOWS:
+            # convert back to URL separators
+            # (win specific separators are introduced by normpath above)
+            path = path.replace("\\", "/")
         return LocalGitFile(
-            self.repo_path,
-            "/".join((self.path, path)),
-            tag=self.tag,
-            ref=self.ref,
-            commit=self.commit,
+            self.repo_path, path, tag=self.tag, ref=self._ref, commit=self.commit
         )
 
     def get_basedir(self):
@@ -166,7 +167,7 @@ class LocalGitFile(SourceFile):
             path=os.path.dirname(self.path),
             tag=self.tag,
             commit=self.commit,
-            ref=self.ref,
+            ref=self._ref,
         )
 
     def is_persistently_cacheable(self):
@@ -221,6 +222,7 @@ class HostingProviderFile(SourceFile):
         self.commit = commit
         self.branch = branch
         self.path = path.strip("/")
+        self.token = None
 
     def is_persistently_cacheable(self):
         return bool(self.tag or self.commit)
@@ -242,7 +244,7 @@ class HostingProviderFile(SourceFile):
         )
 
     def join(self, path):
-        path = os.path.normpath("{}/{}".format(self.path, path))
+        path = os.path.normpath(f"{self.path}/{path}")
         if ON_WINDOWS:
             # convert back to URL separators
             # (win specific separators are introduced by normpath above)
@@ -261,8 +263,22 @@ class HostingProviderFile(SourceFile):
 
 
 class GithubFile(HostingProviderFile):
+    def __init__(
+        self,
+        repo: str,
+        path: str,
+        tag: str = None,
+        branch: str = None,
+        commit: str = None,
+    ):
+        super().__init__(repo, path, tag, branch, commit)
+        self.token = os.environ.get("GITHUB_TOKEN", None)
+
     def get_path_or_uri(self):
-        return "https://github.com/{}/raw/{}/{}".format(self.repo, self.ref, self.path)
+        auth = f":{self.token}@" if self.token else ""
+        return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
+            auth, self.repo, self.ref, self.path
+        )
 
 
 class GitlabFile(HostingProviderFile):
@@ -277,10 +293,18 @@ class GitlabFile(HostingProviderFile):
     ):
         super().__init__(repo, path, tag, branch, commit)
         self.host = host
+        self.token = os.environ.get("GITLAB_TOKEN", None)
 
     def get_path_or_uri(self):
-        return "https://{}/{}/-/raw/{}/{}".format(
-            self.host or "gitlab.com", self.repo, self.ref, self.path
+        from urllib.parse import quote
+
+        auth = f"&private_token={self.token}" if self.token else ""
+        return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
+            self.host or "gitlab.com",
+            quote(self.repo, safe=""),
+            quote(self.path, safe=""),
+            self.ref,
+            auth,
         )
 
 
@@ -319,7 +343,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
 
 class SourceCache:
     cache_whitelist = [
-        "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
+        r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, runtime_cache_path=None):
@@ -330,9 +354,7 @@ class SourceCache:
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
-            self.runtime_cache = tempfile.TemporaryDirectory(
-                dir=runtime_cache_parent,
-            )
+            self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
             self._runtime_cache_path = None
         else:
             self._runtime_cache_path = runtime_cache_path
@@ -345,7 +367,9 @@ class SourceCache:
 
     def open(self, source_file, mode="r"):
         cache_entry = self._cache(source_file)
-        return self._open_local_or_remote(LocalSourceFile(cache_entry), mode)
+        return self._open_local_or_remote(
+            LocalSourceFile(cache_entry), mode, encoding="utf-8"
+        )
 
     def exists(self, source_file):
         try:
@@ -354,20 +378,21 @@ class SourceCache:
             return False
         return True
 
-    def get_path(self, source_file, mode="r"):
+    def get_path(self, source_file):
         cache_entry = self._cache(source_file)
         return str(cache_entry)
 
     def _cache_entry(self, source_file):
-        urihash = source_file.get_uri_hash()
+        file_cache_path = source_file.get_cache_path()
+        assert file_cache_path
 
         # TODO add git support to smart_open!
         if source_file.is_persistently_cacheable():
             # check cache
-            return self.cache / urihash
+            return self.cache / file_cache_path
         else:
             # check runtime cache
-            return Path(self.runtime_cache_path) / urihash
+            return Path(self.runtime_cache_path) / file_cache_path
 
     def _cache(self, source_file):
         cache_entry = self._cache_entry(source_file)
@@ -378,12 +403,18 @@ class SourceCache:
     def _do_cache(self, source_file, cache_entry):
         # open from origin
         with self._open_local_or_remote(source_file, "rb") as source:
+            cache_entry.parent.mkdir(parents=True, exist_ok=True)
             tmp_source = tempfile.NamedTemporaryFile(
                 prefix=str(cache_entry),
                 delete=False,  # no need to delete since we move it below
             )
             tmp_source.write(source.read())
             tmp_source.close()
+            # ensure read and write permissions for owner and group
+            os.chmod(
+                tmp_source.name,
+                stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP,
+            )
             # Atomic move to right name.
             # This way we avoid the need to lock.
             shutil.move(tmp_source.name, cache_entry)
@@ -396,21 +427,17 @@ class SourceCache:
             # as mtime.
             os.utime(cache_entry, times=(mtime, mtime))
 
-    def _open_local_or_remote(self, source_file, mode):
-        from retry.api import retry_call
+    def _open_local_or_remote(self, source_file, mode, encoding=None):
+        from reretry.api import retry_call
 
         if source_file.is_local:
-            return self._open(source_file, mode)
+            return self._open(source_file, mode, encoding=encoding)
         else:
             return retry_call(
-                self._open,
-                [source_file, mode],
-                tries=3,
-                delay=3,
-                backoff=2,
+                self._open, [source_file, mode, encoding], tries=3, delay=3, backoff=2
             )
 
-    def _open(self, source_file, mode):
+    def _open(self, source_file, mode, encoding=None):
         from smart_open import open
 
         if isinstance(source_file, LocalGitFile):
@@ -418,13 +445,13 @@ class SourceCache:
 
             return io.BytesIO(
                 git.Repo(source_file.repo_path)
-                .git.show("{}:{}".format(source_file.ref, source_file.path))
+                .git.show(f"{source_file.ref}:{source_file.path}")
                 .encode()
             )
 
         path_or_uri = source_file.get_path_or_uri()
 
         try:
-            return open(path_or_uri, mode)
+            return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError("Failed to open source file {}".format(path_or_uri), e)
+            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)

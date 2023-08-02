@@ -6,7 +6,6 @@ __license__ = "MIT"
 
 import os
 import subprocess as sp
-import time
 import shutil
 
 from snakemake.exceptions import WorkflowError
@@ -16,12 +15,12 @@ from snakemake.utils import os_sync
 
 if not shutil.which("globus-url-copy"):
     raise WorkflowError(
-        "The globus-url-copy command has to be available for " "gridftp remote support."
+        "The globus-url-copy command has to be available for gridftp remote support."
     )
 
 if not shutil.which("gfal-ls"):
     raise WorkflowError(
-        "The gfal-* commands need to be available for " "gridftp remote support."
+        "The gfal-* commands need to be available for gridftp remote support."
     )
 
 
@@ -34,16 +33,14 @@ class RemoteProvider(gfal.RemoteProvider):
 
 class RemoteObject(gfal.RemoteObject):
     def _globus(self, *args):
-        cmd = ["globus-url-copy"] + list(args)
+        cmd = ["globus-url-copy"] + self._parallelstreams() + list(args)
         try:
             logger.debug(" ".join(cmd))
             return sp.run(
                 cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
             ).stdout.decode()
         except sp.CalledProcessError as e:
-            raise WorkflowError(
-                "Error calling globus-url-copy:\n{}".format(cmd, e.stderr.decode())
-            )
+            raise WorkflowError(f"Error calling globus-url-copy:\n{cmd}")
 
     def _download(self):
         if self.exists():
@@ -56,9 +53,7 @@ class RemoteObject(gfal.RemoteObject):
             source = self.remote_file()
             target = "file://" + os.path.abspath(self.local_file())
 
-            self._globus(
-                "-parallel", "4", "-create-dest", "-recurse", "-dp", source, target
-            )
+            self._globus("-create-dest", "-recurse", "-dp", source, target)
 
             os_sync()
             return self.local_file()
@@ -72,6 +67,14 @@ class RemoteObject(gfal.RemoteObject):
             # first delete file, such that globus does not fail
             self._gfal("rm", target)
 
-        self._globus(
-            "-parallel", "4", "-create-dest", "-recurse", "-dp", source, target
-        )
+            self._globus("-create-dest", "-recurse", "-dp", source, target)
+
+    def _parallelstreams(self):
+        n_streams = 4
+        if "streams" in self.kwargs:
+            n_streams = int(self.kwargs["streams"])
+
+        elif "streams" in self.provider.kwargs:
+            n_streams = int(self.provider.kwargs["streams"])
+
+        return [] if n_streams <= 1 else ["-parallel", str(n_streams)]
