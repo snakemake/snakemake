@@ -6,7 +6,6 @@ __license__ = "MIT"
 
 import os
 import subprocess as sp
-import time
 import shutil
 
 from snakemake.exceptions import WorkflowError
@@ -16,12 +15,12 @@ from snakemake.utils import os_sync
 
 if not shutil.which("globus-url-copy"):
     raise WorkflowError(
-        "The globus-url-copy command has to be available for " "gridftp remote support."
+        "The globus-url-copy command has to be available for gridftp remote support."
     )
 
 if not shutil.which("gfal-ls"):
     raise WorkflowError(
-        "The gfal-* commands need to be available for " "gridftp remote support."
+        "The gfal-* commands need to be available for gridftp remote support."
     )
 
 
@@ -41,9 +40,7 @@ class RemoteObject(gfal.RemoteObject):
                 cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
             ).stdout.decode()
         except sp.CalledProcessError as e:
-            raise WorkflowError(
-                "Error calling globus-url-copy:\n{}".format(cmd, e.stderr.decode())
-            )
+            raise WorkflowError(f"Error calling globus-url-copy:\n{cmd}")
 
     def _download(self):
         if self.exists():

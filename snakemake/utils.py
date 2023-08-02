@@ -7,10 +7,8 @@ import os
 import json
 import re
 import inspect
-from typing import DefaultDict
 from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
-import platform
 from itertools import chain
 import collections
 import multiprocessing
@@ -18,11 +16,10 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
-from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS, is_local_file, smart_join
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -125,7 +122,7 @@ def validate(data, schema, set_default=True):
                             jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
-                            "Error validating row {} of data frame.".format(i), e
+                            f"Error validating row {i} of data frame.", e
                         )
                 if set_default:
                     newdata = pd.DataFrame(recordlist, data.index)
@@ -337,7 +334,7 @@ class SequenceFormatter(string.Formatter):
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
             return ",".join(
-                "{}={}".format(name, value)
+                f"{name}={value}"
                 for name, value in sorted(value.items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):

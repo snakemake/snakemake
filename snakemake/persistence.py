@@ -5,19 +5,18 @@ __license__ = "MIT"
 
 import os
 import shutil
-import signal
-import marshal
 import pickle
 import json
 import stat
 import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
 
 import snakemake.exceptions
+from snakemake.interfaces import PersistenceExecutorInterface
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
@@ -27,7 +26,7 @@ from snakemake.io import is_flagged, get_flag_value
 UNREPRESENTABLE = object()
 
 
-class Persistence:
+class Persistence(PersistenceExecutorInterface):
     def __init__(
         self,
         nolock=False,
@@ -37,20 +36,21 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        try:
-            import pandas as pd
+        import importlib.util
 
-            self._serialize_param = self._serialize_param_pandas
-        except ImportError:
-            self._serialize_param = self._serialize_param_builtin
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
 
         self._max_len = None
-        self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+
+        self._path = os.path.abspath(".snakemake")
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
@@ -79,7 +79,7 @@ class Persistence:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self.aux_path = os.path.join(self.path, "auxiliary")
+        self._aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
         migration_indicator = Path(
@@ -119,6 +119,14 @@ class Persistence:
 
         self._read_record = self._read_record_cached
 
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def aux_path(self):
+        return self._aux_path
+
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
         i = 0
@@ -140,7 +148,7 @@ class Persistence:
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
-                    logger.info("{} files migrated".format(i))
+                    logger.info(f"{i} files migrated")
 
         logger.info("Migration complete")
 
@@ -557,7 +565,7 @@ class Persistence:
             except json.JSONDecodeError as e:
                 pass
         # case: file is corrupted, delete it
-        logger.warning(f"Deleting corrupted metadata record.")
+        logger.warning("Deleting corrupted metadata record.")
         self._delete_record(subject, id)
         return dict()
 
@@ -568,14 +576,14 @@ class Persistence:
         return (
             f
             for f, _ in listfiles(
-                os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type))
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
             )
             if not os.path.isdir(f)
         )
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:

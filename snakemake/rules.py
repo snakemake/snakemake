@@ -3,16 +3,11 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import math
 import os
-import re
 import types
 import typing
 from snakemake.path_modifier import PATH_MODIFIER_FLAG
-import sys
-import inspect
 import collections
-from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
 from functools import partial
@@ -25,9 +20,6 @@ except ImportError:  # python < 3.11
 from snakemake.io import (
     IOFile,
     _IOFile,
-    protected,
-    temp,
-    dynamic,
     Namedlist,
     AnnotatedString,
     contains_wildcard_constraints,
@@ -201,7 +193,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
             for key in wildcards.keys():
-                s = s.replace("{{{{{}}}}}".format(key), "{{{}}}".format(key))
+                s = s.replace(f"{{{{{key}}}}}", f"{{{key}}}")
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -509,11 +501,11 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
-        if not (self.wildcard_constraints or self.workflow._wildcard_constraints):
+        if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
         try:
             return update_wildcard_constraints(
-                item, self.wildcard_constraints, self.workflow._wildcard_constraints
+                item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
             raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
@@ -760,6 +752,13 @@ class Rule:
 
         _aux_params = get_input_function_aux_params(func, aux_params)
 
+        # call any callables in _aux_params
+        # This way, we enable to delay the evaluation of expensive
+        # aux params until they are actually needed.
+        for name, value in list(_aux_params.items()):
+            if callable(value):
+                _aux_params[name] = value()
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
             if isinstance(value, types.GeneratorType):
@@ -920,7 +919,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in input files cannot be " "determined from output files:",
+                "Wildcards in input files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -941,7 +940,7 @@ class Rule:
 
         return input, mapping, dependencies, incomplete
 
-    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
+    def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
                 if isinstance(p, str):
@@ -964,6 +963,13 @@ class Rule:
                     "Please add the output of the respective checkpoint to the rule inputs."
                 )
 
+        # We make sure that resources are only evaluated if a param function
+        # actually needs them by turning them into callables and delegating their
+        # evaluation to a later stage that only happens if the param function
+        # requests access to resources or threads.
+        resources = lambda: job.resources
+        threads = lambda: job.resources._cores
+
         params = Params()
         try:
             # When applying wildcards to params, the return type need not be
@@ -982,7 +988,7 @@ class Rule:
                     "input": input._plainstrings(),
                     "resources": resources,
                     "output": output._plainstrings(),
-                    "threads": resources._cores,
+                    "threads": threads,
                 },
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
@@ -1034,7 +1040,7 @@ class Rule:
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in log files cannot be " "determined from output files:",
+                "Wildcards in log files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -1209,14 +1215,12 @@ class Rule:
             return False
         except sre_constants.error as ex:
             raise IOFileException(
-                "{} in wildcard statement".format(ex),
+                f"{ex} in wildcard statement",
                 snakefile=self.snakefile,
                 lineno=self.lineno,
             )
         except ValueError as ex:
-            raise IOFileException(
-                "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
-            )
+            raise IOFileException(f"{ex}", snakefile=self.snakefile, lineno=self.lineno)
 
     def get_wildcards(self, requested_output, wildcards_dict=None):
         """

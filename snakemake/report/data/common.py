@@ -13,5 +13,5 @@ def get_resource_as_string(path_or_uri):
         if r.status_code == requests.codes.ok:
             return r.text
         raise WorkflowError(
-            "Failed to download resource needed for " "report: {}".format(path_or_uri)
+            "Failed to download resource needed for report: {}".format(path_or_uri)
         )

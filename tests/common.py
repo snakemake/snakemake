@@ -56,6 +56,10 @@ def has_gcloud_service_key():
     return "GCP_AVAILABLE" in os.environ
 
 
+def has_azbatch_account_url():
+    return os.environ.get("AZ_BATCH_ACCOUNT_URL")
+
+
 def has_zenodo_token():
     return os.environ.get("ZENODO_SANDBOX_PAT")
 
@@ -65,6 +69,12 @@ gcloud = pytest.mark.skipif(
     reason="Skipping GCLOUD tests because not on "
     "CI, no inet connection or not logged "
     "in to gcloud.",
+)
+
+azbatch = pytest.mark.skipif(
+    not is_connected() or not has_azbatch_account_url(),
+    reason="Skipping AZBATCH tests because "
+    "no inet connection or no AZ_BATCH_ACCOUNT_URL.",
 )
 
 connected = pytest.mark.skipif(not is_connected(), reason="no internet connection")
@@ -196,13 +206,21 @@ def run(
         shellcmd = "{} -m {}".format(sys.executable, shellcmd)
         try:
             if sigint_after is None:
-                subprocess.check_output(
-                    shellcmd, cwd=path if no_tmpdir else tmpdir, shell=True
+                subprocess.run(
+                    shellcmd,
+                    cwd=path if no_tmpdir else tmpdir,
+                    check=True,
+                    shell=True,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 )
                 success = True
             else:
                 with subprocess.Popen(
-                    shlex.split(shellcmd), cwd=path if no_tmpdir else tmpdir
+                    shlex.split(shellcmd),
+                    cwd=path if no_tmpdir else tmpdir,
+                    stderr=subprocess.STDOUT,
+                    stdout=subprocess.PIPE,
                 ) as process:
                     time.sleep(sigint_after)
                     process.send_signal(signal.SIGINT)
@@ -210,7 +228,7 @@ def run(
                     success = process.returncode == 0
         except subprocess.CalledProcessError as e:
             success = False
-            print(e.stderr, file=sys.stderr)
+            print(e.stdout.decode(), file=sys.stderr)
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
         success = snakemake(

@@ -23,8 +23,7 @@ from snakemake.common import (
     smart_join,
 )
 from snakemake.exceptions import WorkflowError, SourceFileError
-from snakemake.io import git_content, split_git_path
-from snakemake.logging import logger
+from snakemake.io import split_git_path
 
 
 def _check_git_args(tag: str = None, branch: str = None, commit: str = None):
@@ -245,7 +244,7 @@ class HostingProviderFile(SourceFile):
         )
 
     def join(self, path):
-        path = os.path.normpath("{}/{}".format(self.path, path))
+        path = os.path.normpath(f"{self.path}/{path}")
         if ON_WINDOWS:
             # convert back to URL separators
             # (win specific separators are introduced by normpath above)
@@ -276,7 +275,7 @@ class GithubFile(HostingProviderFile):
         self.token = os.environ.get("GITHUB_TOKEN", None)
 
     def get_path_or_uri(self):
-        auth = ":{}@".format(self.token) if self.token else ""
+        auth = f":{self.token}@" if self.token else ""
         return "https://{}raw.githubusercontent.com/{}/{}/{}".format(
             auth, self.repo, self.ref, self.path
         )
@@ -299,7 +298,7 @@ class GitlabFile(HostingProviderFile):
     def get_path_or_uri(self):
         from urllib.parse import quote
 
-        auth = "&private_token={}".format(self.token) if self.token else ""
+        auth = f"&private_token={self.token}" if self.token else ""
         return "https://{}/api/v4/projects/{}/repository/files/{}/raw?ref={}{}".format(
             self.host or "gitlab.com",
             quote(self.repo, safe=""),
@@ -344,7 +343,7 @@ def infer_source_file(path_or_uri, basedir: SourceFile = None):
 
 class SourceCache:
     cache_whitelist = [
-        "https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
+        r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, runtime_cache_path=None):
@@ -446,7 +445,7 @@ class SourceCache:
 
             return io.BytesIO(
                 git.Repo(source_file.repo_path)
-                .git.show("{}:{}".format(source_file.ref, source_file.path))
+                .git.show(f"{source_file.ref}:{source_file.path}")
                 .encode()
             )
 
@@ -455,4 +454,4 @@ class SourceCache:
         try:
             return open(path_or_uri, mode, encoding=None if "b" in mode else encoding)
         except Exception as e:
-            raise WorkflowError("Failed to open source file {}".format(path_or_uri), e)
+            raise WorkflowError(f"Failed to open source file {path_or_uri}", e)
