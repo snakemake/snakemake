@@ -1,6 +1,8 @@
 import os
+import requests
 import sys
 import tempfile
+import google.auth
 
 from google.cloud import storage
 
@@ -10,14 +12,27 @@ from common import *
 
 
 def has_google_credentials():
-    return "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
+    credentials, _ = google.auth.default()
+    return credentials
 
 
 google_credentials = pytest.mark.skipif(
     not has_google_credentials(),
     reason="Skipping google lifesciences tests because  "
-    "GOOGLE_APPLICATION_CREDENTIALS not found in the environment.",
+    "Google credentials were not found in the environment.",
 )
+
+
+def get_default_service_account_email():
+    """Returns the default service account if running on a GCE VM, otherwise None."""
+    response = requests.get(
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email",
+        headers={"Metadata-Flavor": "Google"},
+    )
+    if response.status_code == requests.codes.ok:
+        return response.text
+    else:
+        return None
 
 
 def cleanup_google_storage(prefix, bucket_name="snakemake-testing", restrict_to=None):
@@ -74,6 +89,7 @@ def test_google_lifesciences():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
+            google_lifesciences_service_account_email=get_default_service_account_email(),
             preemption_default=None,
             preemptible_rules=["pack=1"],
         )
@@ -97,6 +113,7 @@ def test_touch_remote_prefix():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
+            google_lifesciences_service_account_email=get_default_service_account_email(),
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
@@ -116,6 +133,7 @@ def test_cloud_checkpoints_issue574():
             default_remote_prefix="%s/%s" % (bucket_name, storage_prefix),
             google_lifesciences=True,
             google_lifesciences_cache=False,
+            google_lifesciences_service_account_email=get_default_service_account_email(),
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)
@@ -139,6 +157,7 @@ def test_github_issue1396():
 
 
 def test_github_issue1460():
+    service_account_email = get_default_service_account_email()
     bucket_name = get_temp_bucket_name()
     create_google_storage(bucket_name)
     storage_prefix = "test_github_issue1460"
@@ -150,6 +169,7 @@ def test_github_issue1460():
             default_remote_prefix=prefix,
             google_lifesciences=True,
             google_lifesciences_cache=False,
+            google_lifesciences_service_account_email=service_account_email,
         )
         cleanup_google_storage(
             storage_prefix,
@@ -165,6 +185,7 @@ def test_github_issue1460():
             default_remote_prefix=prefix,
             google_lifesciences=True,
             google_lifesciences_cache=False,
+            google_lifesciences_service_account_email=service_account_email,
         )
     finally:
         cleanup_google_storage(storage_prefix, bucket_name)

@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import inspect
 import itertools
 import os
 from collections.abc import Iterable
@@ -20,14 +19,14 @@ import tempfile
 import textwrap
 import sys
 import pickle
-import subprocess
 import collections
 import re
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
-from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
+from pathlib import Path
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -37,10 +36,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
-    smart_join,
-    is_local_file,
 )
-from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
@@ -183,7 +179,6 @@ class REncoder:
 
     @classmethod
     def encode_value(cls, value):
-
         if value is None:
             return "NULL"
         elif isinstance(value, str):
@@ -211,7 +206,7 @@ class REncoder:
 
             except ImportError:
                 pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
+        raise ValueError(f"Unsupported value for conversion into R: {value}")
 
     @classmethod
     def encode_list(cls, l):
@@ -221,13 +216,13 @@ class REncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return '"{}" = {}'.format(name, cls.encode_value(value))
+            return f'"{name}" = {cls.encode_value(value)}'
 
         return ", ".join(map(encode_item, items))
 
     @classmethod
     def encode_dict(cls, d):
-        d = "list({})".format(cls.encode_items(d.items()))
+        d = f"list({cls.encode_items(d.items())})"
         return d
 
     @classmethod
@@ -272,9 +267,7 @@ class JuliaEncoder:
                     return str(value)
             except ImportError:
                 pass
-        raise ValueError(
-            "Unsupported value for conversion into Julia: {}".format(value)
-        )
+        raise ValueError(f"Unsupported value for conversion into Julia: {value}")
 
     @classmethod
     def encode_list(cls, l):
@@ -284,7 +277,7 @@ class JuliaEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return '"{}" => {}'.format(name, cls.encode_value(value))
+            return f'"{name}" => {cls.encode_value(value)}'
 
         return ", ".join(map(encode_item, items))
 
@@ -292,12 +285,12 @@ class JuliaEncoder:
     def encode_positional_items(cls, namedlist):
         encoded = ""
         for index, value in enumerate(namedlist):
-            encoded += "{} => {}, ".format(index + 1, cls.encode_value(value))
+            encoded += f"{index + 1} => {cls.encode_value(value)}, "
         return encoded
 
     @classmethod
     def encode_dict(cls, d):
-        d = "Dict({})".format(cls.encode_items(d.items()))
+        d = f"Dict({cls.encode_items(d.items())})"
         return d
 
     @classmethod
@@ -579,7 +572,6 @@ class PythonScript(ScriptBase):
         )
 
     def get_preamble(self):
-
         if isinstance(self.path, LocalSourceFile):
             file_override = os.path.realpath(self.path.get_path_or_uri())
         else:
@@ -622,25 +614,41 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None and ON_WINDOWS:
-            prefix = self.conda_env
-        elif self.conda_env is not None:
-            prefix = os.path.join(self.conda_env, "bin")
+        def contains_python(prefix):
+            if not ON_WINDOWS:
+                return (prefix / "python").exists()
+            else:
+                return (prefix / "python.exe").exists()
+
+        if self.conda_env is not None:
+            prefix = Path(self.conda_env)
+            if not ON_WINDOWS:
+                prefix /= "bin"
+            # Define fallback prefix in case conda_env is a named environment
+            # instead of a full path.
+            fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
+            return contains_python(prefix) or contains_python(fallback_prefix)
         elif self.env_modules is not None:
-            prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
+            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
+            return contains_python(prefix)
         else:
             raise NotImplementedError()
-        if not ON_WINDOWS:
-            return os.path.exists(os.path.join(prefix, "python"))
-        else:
-            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
+        # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution
+        # stuff may be printed around in unpredictable ways.
+        # The code below has to work with python 2.7 as well, therefore it should be written backwards compatible.
         out = self._execute_cmd(
-            "python -c \"import sys; print('.'.join(map(str, sys.version_info[:2])))\"",
+            'python -c "from __future__ import print_function; import sys, json; '
+            'print(json.dumps([sys.version_info.major, sys.version_info.minor]))"',
             read=True,
         )
-        return tuple(map(int, out.strip().split(".")))
+        try:
+            return tuple(json.loads(out))
+        except ValueError as e:
+            raise WorkflowError(
+                f"Unable to determine Python version from output '{out}': {e}"
+            )
 
     def execute_script(self, fname, edit=False):
         py_exec = sys.executable

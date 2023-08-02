@@ -5,8 +5,8 @@ __license__ = "MIT"
 
 import concurrent.futures
 import contextlib
-from functools import update_wrapper
 import itertools
+import math
 import platform
 import hashlib
 import inspect
@@ -14,7 +14,6 @@ import threading
 import uuid
 import os
 import asyncio
-import sys
 import collections
 from pathlib import Path
 
@@ -34,6 +33,13 @@ NOTHING_TO_BE_DONE_MSG = (
 )
 
 ON_WINDOWS = platform.system() == "Windows"
+# limit the number of input/output files list in job properties
+# see https://github.com/snakemake/snakemake/issues/2097
+IO_PROP_LIMIT = 100
+
+
+def mb_to_mib(mb):
+    return int(math.ceil(mb * 0.95367431640625))
 
 
 def parse_key_value_arg(arg, errmsg):
@@ -47,10 +53,8 @@ def parse_key_value_arg(arg, errmsg):
 def dict_to_key_value_args(some_dict: dict, quote_str: bool = True):
     items = []
     for key, value in some_dict.items():
-        encoded = (
-            "'{}'".format(value) if quote_str and isinstance(value, str) else value
-        )
-        items.append("{}={}".format(key, encoded))
+        encoded = f"'{value}'" if quote_str and isinstance(value, str) else value
+        items.append(f"{key}={encoded}")
     return items
 
 
@@ -115,7 +119,7 @@ def smart_join(base, path, abspath=False):
     else:
         from smart_open import parse_uri
 
-        uri = parse_uri("{}/{}".format(base, path))
+        uri = parse_uri(f"{base}/{path}")
         if not ON_WINDOWS:
             # Norm the path such that it does not contain any ../,
             # which is invalid in an URL.
@@ -123,7 +127,7 @@ def smart_join(base, path, abspath=False):
             uri_path = os.path.normpath(uri.uri_path)
         else:
             uri_path = uri.uri_path
-        return "{scheme}:/{uri_path}".format(scheme=uri.scheme, uri_path=uri_path)
+        return f"{uri.scheme}:/{uri_path}"
 
 
 def num_if_possible(s):
@@ -142,7 +146,7 @@ def get_last_stable_version():
 
 
 def get_container_image():
-    return "snakemake/snakemake:v{}".format(get_last_stable_version())
+    return f"snakemake/snakemake:v{get_last_stable_version()}"
 
 
 def get_uuid(name):
@@ -201,7 +205,7 @@ class lazy_property(property):
 
     def __init__(self, method):
         self.method = method
-        self.cached = "_{}".format(method.__name__)
+        self.cached = f"_{method.__name__}"
         super().__init__(method, doc=method.__doc__)
 
     def __get__(self, instance, owner):

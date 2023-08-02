@@ -6,13 +6,9 @@ __license__ = "MIT"
 # built-ins
 import os
 import re
-import math
-import functools
-import concurrent.futures
 
 # module-specific
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )
@@ -33,7 +29,6 @@ except ImportError as e:
 class RemoteProvider(
     AbstractRemoteProvider
 ):  # class inherits from AbstractRemoteProvider
-
     supports_default = True  # class variable
 
     def __init__(
@@ -44,7 +39,7 @@ class RemoteProvider(
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )  # in addition to methods provided by AbstractRemoteProvider, we add these in
 
         self._s3c = S3Helper(*args, **kwargs)  # _private variable by convention
@@ -294,7 +289,7 @@ class S3Helper(object):
             return destination_path
         except:
             raise S3FileException(
-                "Error downloading file '%s' from bucket '%s'." % (key, bucket_name)
+                f"Error downloading file '{key}' from bucket '{bucket_name}'."
             )
 
     def delete_from_bucket(self, bucket_name, key):

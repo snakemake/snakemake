@@ -9,14 +9,14 @@ import uuid
 import subprocess as sp
 from pathlib import Path
 
-from snakemake.resources import DefaultResources
+from snakemake import parse_cores_jobs
+from snakemake.exceptions import CliException
+from snakemake.utils import available_cpu_count
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
-
-from snakemake.resources import GroupResources
 
 
 def test_list_untracked():
@@ -246,11 +246,7 @@ def test_report_dir():
 
 
 def test_report_display_code():
-    run(
-        dpath("test_report_display_code"),
-        report="report.html",
-        check_md5=False,
-    )
+    run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
 def test_dynamic():
@@ -329,6 +325,10 @@ def test_url_include():
 
 def test_touch():
     run(dpath("test_touch"))
+
+
+def test_touch_flag_with_directories():
+    run(dpath("test_touch_with_directories"), touch=True)
 
 
 def test_config():
@@ -548,9 +548,7 @@ def test_wrapper_local_git_prefix():
         print("Cloning complete.")
 
         run(
-            dpath("test_wrapper"),
-            use_conda=True,
-            wrapper_prefix=f"git+file://{tmpdir}",
+            dpath("test_wrapper"), use_conda=True, wrapper_prefix=f"git+file://{tmpdir}"
         )
 
 
@@ -941,6 +939,15 @@ def test_group_jobs():
 
 
 @skip_on_windows
+def test_group_jobs_attempts():
+    run(dpath("test_group_jobs_attempts"), cluster="./qsub", restart_times=2)
+
+
+def assert_resources(resources: dict, **expected_resources):
+    assert {res: resources[res] for res in expected_resources} == expected_resources
+
+
+@skip_on_windows
 def test_group_jobs_resources(mocker):
     spy = mocker.spy(GroupResources, "basic_layered")
     run(
@@ -951,15 +958,16 @@ def test_group_jobs_resources(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert dict(spy.spy_return) == {
-        "_nodes": 1,
-        "_cores": 6,
-        "runtime": 420,
-        "mem_mb": 60000,
-        "fake_res": 600,
-        "global_res": 2000,
-        "disk_mb": 2000,
-    }
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=6,
+        mem_mb=60000,
+        runtime=420,
+        fake_res=600,
+        global_res=2000,
+        disk_mb=2000,
+    )
 
 
 @skip_on_windows
@@ -974,15 +982,16 @@ def test_group_jobs_resources_with_max_threads(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert dict(spy.spy_return) == {
-        "_nodes": 1,
-        "_cores": 5,
-        "runtime": 380,
-        "mem_mb": 60000,
-        "fake_res": 1200,
-        "global_res": 3000,
-        "disk_mb": 3000,
-    }
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=5,
+        mem_mb=60000,
+        runtime=380,
+        fake_res=1200,
+        global_res=3000,
+        disk_mb=3000,
+    )
 
 
 @skip_on_windows
@@ -997,15 +1006,16 @@ def test_group_jobs_resources_with_limited_resources(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert dict(spy.spy_return) == {
-        "_nodes": 1,
-        "_cores": 1,
-        "runtime": 700,
-        "mem_mb": 10000,
-        "fake_res": 400,
-        "global_res": 1000,
-        "disk_mb": 1000,
-    }
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=1,
+        mem_mb=10000,
+        runtime=700,
+        fake_res=400,
+        global_res=1000,
+        disk_mb=1000,
+    )
 
 
 @skip_on_windows
@@ -1056,7 +1066,7 @@ def test_new_resources_can_be_defined_as_local():
 
 @skip_on_windows
 def test_resources_can_be_overwritten_as_global():
-    # Test only works if both mem_mb and global_res are overwritten as local
+    # Test only works if fake_res overwritten as global
     tmp = run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1065,7 +1075,7 @@ def test_resources_can_be_overwritten_as_global():
         nodes=5,
         cleanup=False,
         resources={"typo": 23, "fake_res": 200},
-        overwrite_resource_scopes={"fake_res": {"local"}},
+        overwrite_resource_scopes={"fake_res": "global"},
         group_components={0: 5, 1: 5},
         overwrite_groups={"a": 0, "a_1": 1, "b": 2, "c": 2},
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1078,10 +1088,27 @@ def test_resources_can_be_overwritten_as_global():
 
 
 @skip_on_windows
+def test_scopes_submitted_to_cluster(mocker):
+    from snakemake.executors import AbstractExecutor
+
+    spy = mocker.spy(AbstractExecutor, "get_resource_scopes_args")
+    run(
+        dpath("test_group_jobs_resources"),
+        cluster="./qsub",
+        # cluster_status="./status_failed",
+        overwrite_resource_scopes={"fake_res": "local"},
+        max_threads=1,
+        default_resources=DefaultResources(["mem_mb=0"]),
+    )
+
+    assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
+
+
+@skip_on_windows
 def test_resources_submitted_to_cluster(mocker):
     from snakemake.executors import AbstractExecutor
 
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1091,19 +1118,17 @@ def test_resources_submitted_to_cluster(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.split()[1:]) == {
-        "'mem_mb=60000'",
-        "'fake_res=1200'",
-        "'global_res=3000'",
-        "'disk_mb=3000'",
-    }
+
+    assert_resources(
+        spy.spy_return, mem_mb=60000, fake_res=1200, global_res=3000, disk_mb=3000
+    )
 
 
 @skip_on_windows
 def test_excluded_resources_not_submitted_to_cluster(mocker):
     from snakemake.executors import AbstractExecutor
 
-    spy = mocker.spy(AbstractExecutor, "get_resource_declarations")
+    spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1114,11 +1139,7 @@ def test_excluded_resources_not_submitted_to_cluster(mocker):
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert set(spy.spy_return.split()[1:]) == {
-        "'mem_mb=60000'",
-        "'global_res=3000'",
-        "'disk_mb=3000'",
-    }
+    assert_resources(spy.spy_return, mem_mb=60000, global_res=3000, disk_mb=3000)
 
 
 @skip_on_windows
@@ -1139,19 +1160,22 @@ def test_group_job_resources_with_pipe(mocker):
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 60000,
-        },
+        resources={"mem_mb": 60000},
         group_components={0: 5},
         default_resources=DefaultResources(["mem_mb=0"]),
     )
-    assert dict(spy.spy_return) == {
-        "_nodes": 1,
-        "_cores": 6,
-        "runtime": 240,
-        "mem_mb": 50000,
-        "disk_mb": 1000,
-    }
+
+    # revert to original version
+    RealExecutor.get_job_args = get_job_args
+
+    assert_resources(
+        dict(spy.spy_return),
+        _nodes=1,
+        _cores=6,
+        runtime=240,
+        mem_mb=50000,
+        disk_mb=1000,
+    )
 
 
 @skip_on_windows
@@ -1160,9 +1184,7 @@ def test_group_job_resources_with_pipe_with_too_much_constraint():
         dpath("test_group_with_pipe"),
         cluster="./qsub",
         cores=6,
-        resources={
-            "mem_mb": 20000,
-        },
+        resources={"mem_mb": 20000},
         group_components={0: 5},
         shouldfail=True,
         default_resources=DefaultResources(["mem_mb=0"]),
@@ -1358,6 +1380,7 @@ def test_issue1281():
     run(dpath("test_issue1281"))
 
 
+@skip_on_windows  # TODO on windows, dot command is suddenly not found anymore although it is installed
 def test_filegraph():
     workdir = dpath("test_filegraph")
     dot_path = os.path.join(workdir, "fg.dot")
@@ -1369,13 +1392,11 @@ def test_filegraph():
         dot_path = dot_path.replace("\\", "/")
 
     # make sure the calls work
-    shell("cd {workdir};python -m snakemake --filegraph > {dot_path}")
+    shell("cd {workdir}; python -m snakemake --filegraph > {dot_path}")
 
     # make sure the output can be interpreted by dot
-    with open(dot_path, "rb") as dot_file, open(pdf_path, "wb") as pdf_file:
-        pdf_file.write(
-            subprocess.check_output(["dot", "-Tpdf"], stdin=dot_file, cwd=workdir)
-        )
+    shell("cd {workdir}; dot -Tpdf > {pdf_path} < {dot_path}")
+
     # make sure the generated pdf file is not empty
     assert os.stat(pdf_path).st_size > 0
 
@@ -1409,6 +1430,11 @@ def test_github_issue78():
 
 
 def test_envvars():
+    for var in ["TEST_ENV_VAR", "TEST_ENV_VAR2"]:
+        try:
+            del os.environ[var]
+        except KeyError:
+            pass
     run(dpath("test_envvars"), shouldfail=True)
     os.environ["TEST_ENV_VAR"] = "test"
     os.environ["TEST_ENV_VAR2"] = "test"
@@ -1437,6 +1463,9 @@ def test_github_issue988():
     run(dpath("test_github_issue988"))
 
 
+@pytest.mark.skip(
+    reason="ftp connections currently fail in github actions (TODO try again in the future)"
+)
 def test_github_issue1062():
     # old code failed in dry run
     run(dpath("test_github_issue1062"), dryrun=True)
@@ -1466,6 +1495,7 @@ def test_output_file_cache_remote():
 
 @connected
 @zenodo
+@pytest.mark.xfail(reason="zenodo currently returns an internal server error")
 def test_remote_zenodo():
     run(dpath("test_remote_zenodo"))
 
@@ -1481,6 +1511,59 @@ def test_core_dependent_threads():
 @skip_on_windows
 def test_env_modules():
     run(dpath("test_env_modules"), use_env_modules=True)
+
+
+class TestParseCoresJobs:
+    def run_test(self, func, ref):
+        if ref is None:
+            with pytest.raises(CliException):
+                func()
+            return
+        assert func() == ref
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, None), (1, 1)],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_no_exec(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, True, False, False), output)
+        # Test dryrun seperately
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, True), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, 1)],
+            [(4, 4), (4, 4)],
+            [(None, 1), (None, 1)],
+            [(None, None), None],
+            [(1, None), None],
+            [("all", "unlimited"), (available_cpu_count(), sys.maxsize)],
+        ],
+    )
+    def test_non_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, True, False), output)
+
+    @pytest.mark.parametrize(
+        ("input", "output"),
+        [
+            [(1, 1), (1, None)],
+            [(4, 4), (4, None)],
+            [(None, 1), (1, None)],
+            [(None, None), None],
+            [(1, None), (1, None)],
+            [(None, "all"), (available_cpu_count(), None)],
+            [(None, "unlimited"), None],
+            [("all", "unlimited"), (available_cpu_count(), None)],
+        ],
+    )
+    def test_local_job(self, input, output):
+        self.run_test(lambda: parse_cores_jobs(*input, False, False, False), output)
 
 
 @skip_on_windows
@@ -1530,11 +1613,11 @@ def test_scatter_gather():
     run(dpath("test_scatter_gather"), overwrite_scatter={"split": 2})
 
 
-def test_scatter_gather_multiple_processes():
-    run(
-        dpath("test_scatter_gather_multiple_processes"),
-        overwrite_scatter={"rule_b": 2},
-    )
+# SLURM tests go here, after successfull tests
+
+
+def test_parsing_terminal_comment_following_statement():
+    run(dpath("test_parsing_terminal_comment_following_statement"))
 
 
 @skip_on_windows
@@ -1594,6 +1677,10 @@ def test_metadata_migration():
 
 def test_paramspace():
     run(dpath("test_paramspace"))
+
+
+def test_paramspace_single_wildcard():
+    run(dpath("test_paramspace_single_wildcard"))
 
 
 def test_github_issue806():
@@ -1661,66 +1748,6 @@ def test_module_complex():
 
 def test_module_complex2():
     run(dpath("test_module_complex2"), dryrun=True)
-
-
-@skip_on_windows
-def test_module_use_local_git_repo():
-    untar_folder(
-        dpath("test_module_local_git/module.tar.gz"),
-        dpath("test_module_local_git/repo/module"),
-    )
-    run(dpath("test_module_local_git"), dryrun=True)
-
-
-@skip_on_windows
-def test_module_use_local_relative_git_repo():
-    untar_folder(
-        dpath("test_module_local_git/module.tar.gz"),
-        dpath("test_module_local_git/repo/module"),
-    )
-    run(dpath("test_module_local_git"), snakefile="Snakefile_relative", dryrun=True)
-
-
-@skip_on_windows
-def test_module_use_local_git_repo_missing_rule():
-    untar_folder(
-        dpath("test_module_local_git/module.tar.gz"),
-        dpath("test_module_local_git/repo/module"),
-    )
-    run(
-        dpath("test_module_local_git"),
-        snakefile="Snakefile_missing_rule",
-        dryrun=True,
-        shouldfail=True,
-    )
-
-
-@skip_on_windows
-def test_module_use_local_git_repo_missing_schema():
-    untar_folder(
-        dpath("test_module_local_git/module.tar.gz"),
-        dpath("test_module_local_git/repo/module"),
-    )
-    run(
-        dpath("test_module_local_git"),
-        snakefile="Snakefile_missing_schema",
-        dryrun=True,
-        shouldfail=True,
-    )
-
-
-@skip_on_windows
-def test_module_use_local_git_repo_missing_rule_and_schema():
-    untar_folder(
-        dpath("test_module_local_git/module.tar.gz"),
-        dpath("test_module_local_git/repo/module"),
-    )
-    run(
-        dpath("test_module_local_git"),
-        snakefile="Snakefile_main_missing_rule_and_schema",
-        dryrun=True,
-        shouldfail=True,
-    )
 
 
 @skip_on_windows
@@ -1926,6 +1953,10 @@ def test_github_issue1498():
     run(dpath("test_github_issue1498"))
 
 
+def test_lazy_resources():
+    run(dpath("test_lazy_resources"))
+
+
 def test_cleanup_metadata_fail():
     run(dpath("test09"), cleanup_metadata=["xyz"])
 
@@ -1933,6 +1964,10 @@ def test_cleanup_metadata_fail():
 @skip_on_windows  # same on win, no need to test
 def test_github_issue1389():
     run(dpath("test_github_issue1389"), resources={"foo": 4}, shouldfail=True)
+
+
+def test_github_issue2142():
+    run(dpath("test_github_issue2142"))
 
 
 def test_ensure_nonempty_fail():
@@ -1965,6 +2000,10 @@ def test_retries():
     run(dpath("test_retries"))
 
 
+def test_retries_not_overriden():
+    run(dpath("test_retries_not_overriden"), restart_times=3, shouldfail=True)
+
+
 @skip_on_windows  # OS agnostic
 def test_module_input_func():
     run(dpath("test_module_input_func"))
@@ -1982,6 +2021,15 @@ def test_github_issue1618():
 
 def test_conda_python_script():
     run(dpath("test_conda_python_script"), use_conda=True)
+
+
+def test_conda_python_3_7_script():
+    run(dpath("test_conda_python_3_7_script"), use_conda=True)
+
+
+def test_prebuilt_conda_script():
+    sp.run("conda env create -f tests/test_prebuilt_conda_script/env.yaml", shell=True)
+    run(dpath("test_prebuilt_conda_script"), use_conda=True)
 
 
 @skip_on_windows
@@ -2008,3 +2056,47 @@ def test_github_issue1882():
         run(tmpdir, forceall=True)
     finally:
         shutil.rmtree(tmpdir)
+
+
+@skip_on_windows  # not platform dependent
+def test_inferred_resources():
+    run(dpath("test_inferred_resources"))
+
+
+@skip_on_windows  # not platform dependent
+def test_workflow_profile():
+    test_path = dpath("test_workflow_profile")
+    general_profile = os.path.join(test_path, "dummy-general-profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --profile {general_profile} -c1",
+    )
+
+
+@skip_on_windows  # not platform dependent
+def test_no_workflow_profile():
+    test_path = dpath("test_no_workflow_profile")
+    general_profile = os.path.join(test_path, "dummy-general-profile")
+    # workflow profile is loaded by default
+    run(
+        test_path,
+        snakefile="workflow/Snakefile",
+        shellcmd=f"snakemake --profile {general_profile} --workflow-profile none -c1",
+    )
+
+
+@skip_on_windows
+def test_localrule():
+    run(dpath("test_localrule"), targets=["1.txt", "2.txt"])
+
+
+@skip_on_windows
+def test_module_wildcard_constraints():
+    run(dpath("test_module_wildcard_constraints"))
+
+
+@skip_on_windows
+def test_config_yte():
+    run(dpath("test_config_yte"))

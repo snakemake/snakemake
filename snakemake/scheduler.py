@@ -4,21 +4,14 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
-import datetime
 import threading
-import operator
-import time
-import math
-import asyncio
 
 from functools import partial
-from collections import defaultdict
-from itertools import chain, accumulate, product
+from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
 from snakemake.executors import (
     AbstractExecutor,
-    ClusterExecutor,
     DryrunExecutor,
     TouchExecutor,
     CPUExecutor,
@@ -30,13 +23,14 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
-
+from snakemake.executors.slurm.slurm_submit import SlurmExecutor
+from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
-from snakemake.common import async_run
+from snakemake.common import ON_WINDOWS
+from snakemake.interfaces import JobSchedulerExecutorInterface
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -47,7 +41,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -64,7 +58,7 @@ class DummyRateLimiter(ContextDecorator):
         return False
 
 
-class JobScheduler:
+class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
         workflow,
@@ -72,6 +66,8 @@ class JobScheduler:
         local_cores=1,
         dryrun=False,
         touch=False,
+        slurm=None,
+        slurm_jobstep=None,
         cluster=None,
         cluster_status=None,
         cluster_config=None,
@@ -81,16 +77,23 @@ class JobScheduler:
         cluster_sidecar=None,
         drmaa=None,
         drmaa_log_dir=None,
+        env_modules=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
         container_image=None,
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        google_lifesciences_service_account_email=None,
+        google_lifesciences_network=None,
+        google_lifesciences_subnetwork=None,
         tes=None,
         precommand="",
         preemption_default=None,
@@ -177,6 +180,61 @@ class JobScheduler:
                 quiet=quiet,
                 printshellcmds=printshellcmds,
             )
+        elif slurm:
+            if ON_WINDOWS:
+                raise WorkflowError("SLURM execution is not supported on Windows.")
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+            # we need to adjust the maximum status checks per second
+            # on a SLURM cluster, to not overstrain the scheduler;
+            # timings for tested SLURM clusters, extracted from --verbose
+            # output with:
+            # ```
+            #   grep "sacct output" .snakemake/log/2023-02-13T210004.601290.snakemake.log | \
+            #   awk '{ counter += 1; sum += $6; sum_of_squares += ($6)^2 } \
+            #     END { print "average: ",sum/counter," sd: ",sqrt((sum_of_squares - sum^2/counter) / counter); }
+            # ````
+            #   * cluster 1:
+            #     * sacct:    average:  0.073896   sd:  0.0640178
+            #     * scontrol: average:  0.0193017  sd:  0.0358858
+            # Thus, 2 status checks per second should leave enough
+            # capacity for everybody.
+            # TODO: check timings on other slurm clusters, to:
+            #   * confirm that this cap is reasonable
+            #   * check if scontrol is the quicker option across the board
+            if max_status_checks_per_second > 2:
+                max_status_checks_per_second = 2
+
+            self._executor = SlurmExecutor(
+                workflow,
+                dag,
+                cores=None,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cluster_config=cluster_config,
+                max_status_checks_per_second=max_status_checks_per_second,
+            )
+
+        elif slurm_jobstep:
+            self._executor = SlurmJobstepExecutor(
+                workflow,
+                dag,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                env_modules=env_modules,
+            )
+            self._local_executor = self._executor
+
         elif cluster or cluster_sync or (drmaa is not None):
             if not workflow.immediate_submit:
                 # No local jobs when using immediate submit!
@@ -191,6 +249,7 @@ class JobScheduler:
                     cores=local_cores,
                     keepincomplete=keepincomplete,
                 )
+
             if cluster or cluster_sync:
                 if cluster_sync:
                     constructor = SynchronousClusterExecutor
@@ -310,6 +369,36 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
             )
 
+        elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+                    e,
+                )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
@@ -329,6 +418,9 @@ class JobScheduler:
                 regions=google_lifesciences_regions,
                 location=google_lifesciences_location,
                 cache=google_lifesciences_cache,
+                service_account_email=google_lifesciences_service_account_email,
+                network=google_lifesciences_network,
+                subnetwork=google_lifesciences_subnetwork,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -512,12 +604,10 @@ class JobScheduler:
                     for job in needrun:
                         job.reset_params_and_resources()
 
+                    logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        "Resources before job selection: {}".format(self.resources)
-                    )
-                    logger.debug(
-                        "Ready jobs ({}):\n\t".format(len(needrun))
-                        + "\n\t".join(map(str, needrun))
+                        f"Ready jobs ({len(needrun)})"
+                        # + "\n\t".join(map(str, needrun))
                     )
 
                     if not self._last_job_selection_empty:
@@ -526,12 +616,11 @@ class JobScheduler:
                     self._last_job_selection_empty = not run
 
                     logger.debug(
-                        "Selected jobs ({}):\n\t".format(len(run))
-                        + "\n\t".join(map(str, run))
+                        f"Selected jobs ({len(run)})"
+                        # + "\n\t".join(map(str, run))
                     )
-                    logger.debug(
-                        "Resources after job selection: {}".format(self.resources)
-                    )
+                    logger.debug(f"Resources after job selection: {self.resources}")
+
                 # update running jobs
                 with self._lock:
                     self.running.update(run)
@@ -590,6 +679,7 @@ class JobScheduler:
     def run(self, jobs, executor=None):
         if executor is None:
             executor = self._executor
+
         executor.run_jobs(
             jobs,
             callback=self._finish_callback,
@@ -678,7 +768,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
+                    f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }
@@ -698,14 +788,14 @@ class JobScheduler:
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
-                    "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
+                    f"temp_file_{idx}", lowBound=0, upBound=1, cat="Continuous"
                 )
                 for idx, temp_file in enumerate(temp_files)
             }
 
             temp_file_deletable = {
                 temp_file: pulp.LpVariable(
-                    "deletable_{}".format(idx),
+                    f"deletable_{idx}",
                     lowBound=0,
                     upBound=1,
                     cat=pulp.LpInteger,
