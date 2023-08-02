@@ -321,7 +321,7 @@ To quickly exemplify the latter, you could provide the following workflow profil
     set-threads:
         b: 16
 
-to set the memory requirement of rule ``b`` to 1000 MB.
+to set the (maximum) number of threads rule ``b`` uses to 16.
 
 
 .. _snakefiles-resources:
