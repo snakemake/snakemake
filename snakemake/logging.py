@@ -275,7 +275,9 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(url, data=json.dumps(server_info), headers=self._headers)
+        response = requests.post(
+            url, data=json.dumps(server_info), headers=self._headers
+        )
         self.check_response(response, "/update_workflow_status")
 
 
