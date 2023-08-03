@@ -1,5 +1,27 @@
 # Changelog
 
+## [7.32.0](https://github.com/snakemake/snakemake/compare/v7.31.1...v7.32.0) (2023-08-03)
+
+
+### Features
+
+* add support for Kubernetes service account name spec ([#2254](https://github.com/snakemake/snakemake/issues/2254)) ([3370426](https://github.com/snakemake/snakemake/commit/3370426da7ee78af5de54689f623e2b5afa45f1f))
+
+
+### Bug Fixes
+
+* Enable values with an = sign in default_resources ([#2340](https://github.com/snakemake/snakemake/issues/2340)) ([c1c9229](https://github.com/snakemake/snakemake/commit/c1c922904f09c133e39872346a541e7cd216d0d2))
+* Escape workdir paths for potential spaces in paths ([#2196](https://github.com/snakemake/snakemake/issues/2196)) ([9261f7e](https://github.com/snakemake/snakemake/commit/9261f7ea50a8ae424c015faca73b7811fb51d093))
+* ga4gh executor resources ([#2042](https://github.com/snakemake/snakemake/issues/2042)) ([ad6eaef](https://github.com/snakemake/snakemake/commit/ad6eaef6bac05d4de682f59d9d4a088f143b5798))
+* print exceptions when job is not a shell job ([#2385](https://github.com/snakemake/snakemake/issues/2385)) ([8a37b85](https://github.com/snakemake/snakemake/commit/8a37b8584f216ada10caffcbb8b731efd675376a))
+* remote-azblob-sasToken-Authorization ([#1800](https://github.com/snakemake/snakemake/issues/1800)) ([bc854a7](https://github.com/snakemake/snakemake/commit/bc854a7e012cac751b708df83378fd5791e6e6fc))
+* wms-monitor now gets data in correct json format ([#2347](https://github.com/snakemake/snakemake/issues/2347)) ([7fafa7a](https://github.com/snakemake/snakemake/commit/7fafa7ace72f8a727457f4abe6db2f9ed2d74d64))
+
+
+### Documentation
+
+* fix a copy&paste (?) mistake ([#2386](https://github.com/snakemake/snakemake/issues/2386)) ([d878847](https://github.com/snakemake/snakemake/commit/d87884749fd9450062f6fde5b7727867396e7a78))
+
 ## [7.31.1](https://github.com/snakemake/snakemake/compare/v7.31.0...v7.31.1) (2023-08-02)
 
 
