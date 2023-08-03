@@ -489,17 +489,23 @@ def update_config(config, overwrite_config):
       config (dict): dictionary to update
       overwrite_config (dict): dictionary whose items will overwrite those in config
     """
-    for key, value in overwrite_config.items():
-        if not isinstance(config, collections.abc.Mapping):
-            # the config cannot be updated as it is no dict
-            # -> just overwrite it with the new value
-            config = {}
-        if isinstance(value, collections.abc.Mapping):
-            sub_config = config.get(key, {})
-            update_config(sub_config, value)
-            config[key] = sub_config
-        else:
-            config[key] = value
+    def _update_config(config, overwrite_config):
+        """Necessary as recursive calls require a return value,
+        but `update_config()` has no return value.
+        """
+        for key, value in overwrite_config.items():
+            if not isinstance(config, collections.abc.Mapping):
+                # the config cannot be updated as it is no dict
+                # -> just overwrite it with the new value
+                config = {}
+            if isinstance(value, collections.abc.Mapping):
+                sub_config = config.get(key, {})
+                config[key] = _update_config(sub_config, value)
+            else:
+                config[key] = value
+        return config
+
+    _update_config(config, overwrite_config)
 
 
 def available_cpu_count():
