@@ -1742,6 +1742,7 @@ class KubernetesExecutor(ClusterExecutor):
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
+        k8s_service_account_name=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1783,6 +1784,7 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
 
         self.k8s_cpu_scalar = k8s_cpu_scalar
+        self.k8s_service_account_name = k8s_service_account_name
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1969,6 +1971,10 @@ class KubernetesExecutor(ClusterExecutor):
         body.spec = kubernetes.client.V1PodSpec(
             containers=[container], node_selector=node_selector
         )
+        # Add service account name if provided
+        if self.k8s_service_account_name:
+            body.spec.service_account_name = self.k8s_service_account_name
+
         # fail on first error
         body.spec.restart_policy = "Never"
 
