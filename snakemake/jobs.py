@@ -347,6 +347,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
+        if self.dag.mark_all_ancient:
+            return
         path = self.rule.script or self.rule.notebook
         if not path:
             return
@@ -356,9 +358,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
             for f in self.expanded_output:
-                if f.exists:
-                    if not f.is_newer(script_mtime):
-                        yield f
+                if f.exists and not f.is_newer(script_mtime):
+                    yield f
         # TODO also handle remote file case here.
 
     def get_target_spec(self):

@@ -736,6 +736,7 @@ class Workflow(WorkflowExecutorInterface):
         batch=None,
         keepincomplete=False,
         containerize=False,
+        mark_all_ancient=False,
     ):
         self.check_localrules()
 
@@ -837,6 +838,7 @@ class Workflow(WorkflowExecutorInterface):
             notemp=notemp,
             keep_remote_local=keep_remote_local,
             batch=batch,
+            mark_all_ancient=mark_all_ancient,
         )
 
         self._persistence = Persistence(
