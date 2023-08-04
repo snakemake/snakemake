@@ -544,7 +544,7 @@ class CPUExecutor(RealExecutor):
         return False
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
-        return f"cd {self.workflow.workdir_init}"
+        return f"cd {shlex.quote(self.workflow.workdir_init)}"
 
     def get_exec_mode(self):
         return Mode.subprocess
@@ -722,7 +722,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except (Exception, BaseException) as ex:
             self.print_job_error(job)
-            if self.workflow.verbose or (not job.is_group() and job.is_run):
+            if self.workflow.verbose or (not job.is_group() and not job.is_shell):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
@@ -1086,8 +1086,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
         if self.assume_shared_fs:
-            # quoting the workdir since it may contain spaces
-            return f"cd {repr(self.workflow.workdir_init)}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
@@ -1445,7 +1444,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job):
         if self.assume_shared_fs:
-            return f"cd {self.workflow.workdir_init}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
@@ -1575,7 +1574,7 @@ class DRMAAExecutor(ClusterExecutor):
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
         if self.assume_shared_fs:
-            return f"cd {self.workflow.workdir_init}"
+            return f"cd {shlex.quote(self.workflow.workdir_init)}"
         else:
             return ""
 
@@ -1742,6 +1741,7 @@ class KubernetesExecutor(ClusterExecutor):
         namespace,
         container_image=None,
         k8s_cpu_scalar=1.0,
+        k8s_service_account_name=None,
         jobname="{rulename}.{jobid}",
         printreason=False,
         quiet=False,
@@ -1783,6 +1783,7 @@ class KubernetesExecutor(ClusterExecutor):
         import kubernetes.client
 
         self.k8s_cpu_scalar = k8s_cpu_scalar
+        self.k8s_service_account_name = k8s_service_account_name
         self.kubeapi = kubernetes.client.CoreV1Api()
         self.batchapi = kubernetes.client.BatchV1Api()
         self.namespace = namespace
@@ -1969,6 +1970,10 @@ class KubernetesExecutor(ClusterExecutor):
         body.spec = kubernetes.client.V1PodSpec(
             containers=[container], node_selector=node_selector
         )
+        # Add service account name if provided
+        if self.k8s_service_account_name:
+            body.spec.service_account_name = self.k8s_service_account_name
+
         # fail on first error
         body.spec.restart_policy = "Never"
 

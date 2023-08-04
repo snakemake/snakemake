@@ -181,6 +181,7 @@ def snakemake(
     kubernetes=None,
     container_image=None,
     k8s_cpu_scalar=1.0,
+    k8s_service_account_name=None,
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
@@ -325,6 +326,7 @@ def snakemake(
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
         k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
+        k8s_service_account_name (str): Custom k8s service account, needed for workload identity.
         flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
@@ -753,6 +755,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    k8s_service_account_name=k8s_service_account_name,
                     conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
@@ -819,6 +822,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    k8s_service_account_name=k8s_service_account_name,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,
@@ -2473,6 +2477,16 @@ def get_argument_parser(profiles=None):
         "see the original value, i.e. as the value substituted in {threads}.",
     )
 
+    group_kubernetes.add_argument(
+        "--k8s-service-account-name",
+        metavar="SERVICEACCOUNTNAME",
+        default=None,
+        help="This argument allows the use of customer service accounts for "
+        "kubernetes pods. If specified serviceAccountName will be added to the "
+        "pod specs. This is needed when using workload identity which is enforced "
+        "when using Google Cloud GKE Autopilot.",
+    )
+
     group_tibanna.add_argument(
         "--tibanna",
         action="store_true",
@@ -3179,6 +3193,7 @@ def main(argv=None):
             kubernetes=args.kubernetes,
             container_image=args.container_image,
             k8s_cpu_scalar=args.k8s_cpu_scalar,
+            k8s_service_account_name=args.k8s_service_account_name,
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
