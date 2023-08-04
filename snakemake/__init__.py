@@ -1266,7 +1266,7 @@ def get_argument_parser(profiles=None):
         "-s",
         metavar="FILE",
         help=(
-            "The workflow definition in form of a snakefile."
+            "The workflow definition in form of a snakefile. "
             "Usually, you should not need to specify this. "
             "By default, Snakemake will search for {} "
             "beneath the current working "
@@ -1412,7 +1412,7 @@ def get_argument_parser(profiles=None):
         type=int,
         default=None,
         help=(
-            "A preemptible instance can be requested when using the Google Life Sciences API. If you set a --preemption-default,"
+            "A preemptible instance can be requested when using the Google Life Sciences API. If you set a --preemption-default, "
             "all rules will be subject to the default. Specifically, this integer is the number of restart attempts that will be "
             "made given that the instance is killed unexpectedly. Note that preemptible instances have a maximum running time of 24 "
             "hours. If you want to set preemptible instances for only a subset of rules, use --preemptible-rules instead."
@@ -2262,15 +2262,15 @@ def get_argument_parser(profiles=None):
         metavar="FILE",
         default=None,
         help="Provide a custom script containing a function 'def log_handler(msg):'. "
-        "Snakemake will call this function for every logging output (given as a dictionary msg)"
+        "Snakemake will call this function for every logging output (given as a dictionary msg) "
         "allowing to e.g. send notifications in the form of e.g. slack messages or emails.",
     )
     group_behavior.add_argument(
         "--log-service",
         default=None,
         choices=["none", "slack", "wms"],
-        help="Set a specific messaging service for logging output."
-        "Snakemake will notify the service on errors and completed execution."
+        help="Set a specific messaging service for logging output. "
+        "Snakemake will notify the service on errors and completed execution. "
         "Currently slack and workflow management system (wms) are supported.",
     )
 
@@ -2322,8 +2322,8 @@ def get_argument_parser(profiles=None):
         "--cluster-sync",
         metavar="CMD",
         help=(
-            "cluster submission command will block, returning the remote exit"
-            "status upon remote termination (for example, this should be used"
+            "cluster submission command will block, returning the remote exit "
+            "status upon remote termination (for example, this should be used "
             "if the cluster command is 'qsub -sync y' (SGE)"
         ),
     ),
@@ -2350,7 +2350,7 @@ def get_argument_parser(profiles=None):
         default=[],
         action="append",
         help=(
-            "A JSON or YAML file that defines the wildcards used in 'cluster'"
+            "A JSON or YAML file that defines the wildcards used in 'cluster' "
             "for specific rules, instead of having them specified in the Snakefile. "
             "For example, for rule 'job' you may define: "
             "{ 'job' : { 'time' : '24:00:00' } } to specify the time for rule 'job'. "
@@ -2422,7 +2422,7 @@ def get_argument_parser(profiles=None):
     group_cluster.add_argument(
         "--drmaa-log-dir",
         metavar="DIR",
-        help="Specify a directory in which stdout and stderr files of DRMAA"
+        help="Specify a directory in which stdout and stderr files of DRMAA "
         " jobs will be written. The value may be given as a relative path,"
         " in which case Snakemake will use the current invocation directory"
         " as the origin. If given, this will override any given '-o' and/or"
@@ -2502,7 +2502,7 @@ def get_argument_parser(profiles=None):
     )
     group_tibanna.add_argument(
         "--tibanna-sfn",
-        help="Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty)."
+        help="Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty). "
         "This works as serverless scheduler/resource allocator and must be "
         "deployed first using tibanna cli. (e.g. tibanna deploy_unicorn --usergroup="
         "monty --buckets=bucketname)",
@@ -2679,7 +2679,7 @@ def get_argument_parser(profiles=None):
     group_singularity.add_argument(
         "--singularity-prefix",
         metavar="DIR",
-        help="Specify a directory in which singularity images will be stored."
+        help="Specify a directory in which singularity images will be stored. "
         "If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
         "If supplied, the `--use-singularity` flag must also be set. The value "
