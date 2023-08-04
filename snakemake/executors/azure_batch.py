@@ -291,7 +291,6 @@ class AzBatchExecutor(ClusterExecutor):
             dirname = dirname.removeprefix(osxprefix)
 
         self.workdir = dirname
-        self.workflow.default_resources = DefaultResources(mode="bare")
 
         # Relative path for running on instance
         self._set_snakefile()
