@@ -285,9 +285,9 @@ def run(
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
                     with open(expectedfile) as expected:
-                        expected_content = expected.read()
+                        expected_content = expected.read().strip()
                     with open(targetfile) as target:
-                        content = target.read()
+                        content = target.read().strip()
                     assert (
                         False
                     ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
