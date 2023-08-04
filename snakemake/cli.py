@@ -8,9 +8,6 @@ import sys
 from snakemake import logging
 from snakemake.api import snakemake
 
-if sys.version_info < (3, 9):
-    raise ValueError("Snakemake requires at least Python 3.9.")
-
 import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
