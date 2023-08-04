@@ -25,8 +25,13 @@ from snakemake.interfaces import (
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
-from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
+from snakemake.common import (
+    bytesto,
+    get_container_image,
+    get_file_hash,
+    async_lock,
+)
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
@@ -177,7 +182,9 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         :param str resource_id: The scope to use to get the token (default ARM)
         """
         try:
-            from azure.core.pipeline.policies import BearerTokenCredentialPolicy
+            from azure.core.pipeline.policies import (
+                BearerTokenCredentialPolicy,
+            )
             from azure.identity import DefaultAzureCredential
 
         except ImportError:
@@ -291,7 +298,7 @@ class AzBatchExecutor(ClusterExecutor):
             dirname = dirname.removeprefix(osxprefix)
 
         self.workdir = dirname
-        self.workflow.default_resources = DefaultResources(mode="bare")
+        self.workflow._default_resources = DefaultResources(mode="bare")
 
         # Relative path for running on instance
         self._set_snakefile()
@@ -548,7 +555,9 @@ class AzBatchExecutor(ClusterExecutor):
                         )
                         logger.debug(
                             "task {} completed: result={} exit_code={}\n".format(
-                                batch_job.task_id, task.execution_info.result, rc
+                                batch_job.task_id,
+                                task.execution_info.result,
+                                rc,
                             )
                         )
                         logger.debug(
@@ -624,7 +633,9 @@ class AzBatchExecutor(ClusterExecutor):
                                 try:
                                     stderr_file = (
                                         self.batch_client.file.get_from_compute_node(
-                                            self.pool_id, n.id, "/startup/stderr.txt"
+                                            self.pool_id,
+                                            n.id,
+                                            "/startup/stderr.txt",
                                         )
                                     )
                                     stderr_stream = self._read_stream_as_string(
@@ -636,7 +647,9 @@ class AzBatchExecutor(ClusterExecutor):
                                 try:
                                     stdout_file = (
                                         self.batch_client.file.get_from_compute_node(
-                                            self.pool_id, n.id, "/startup/stdout.txt"
+                                            self.pool_id,
+                                            n.id,
+                                            "/startup/stdout.txt",
                                         )
                                     )
                                     stdout_stream = self._read_stream_as_string(
@@ -685,7 +698,8 @@ class AzBatchExecutor(ClusterExecutor):
         # Specify container configuration, fetching an image
         #  https://docs.microsoft.com/en-us/azure/batch/batch-docker-container-workloads#prefetch-images-for-container-configuration
         container_config = batchmodels.ContainerConfiguration(
-            type="dockerCompatible", container_image_names=[self.container_image]
+            type="dockerCompatible",
+            container_image_names=[self.container_image],
         )
 
         user = None
