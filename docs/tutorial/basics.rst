@@ -85,7 +85,7 @@ Step 1: Mapping reads
 Our first Snakemake rule maps reads of a given sample to a given reference genome (see :ref:`tutorial-background`).
 For this, we will use the tool bwa_, specifically the subcommand ``bwa mem``.
 In the working directory, **create a new file** called ``Snakefile`` with an editor of your choice.
-We propose to use the integrated development environment (IDE) tool _`Visual Studio Code`, since it provides a good syntax highlighting _`Snakemake extension` and a _`remote extension` for directly using the IDE on a remote server.
+We propose to use the integrated development environment (IDE) tool `Visual Studio Code`_, since it provides a good syntax highlighting `Snakemake extension`_ and a `remote extension`_ for directly using the IDE on a remote server.
 In the Snakefile, define the following rule:
 
 .. code:: python
