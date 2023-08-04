@@ -1246,7 +1246,7 @@ def get_argument_parser(profiles=None):
             of a particular rule or the amount of memory needed.
             Note that in such cases, the arguments may be given as nested YAML mappings 
             in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
-            """
+            """,
     )
 
     group_exec.add_argument(
