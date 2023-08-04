@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 import textwrap
 import tokenize
-from typing import Any, Dict, Generator, List
+from typing import Any, Dict, Generator, List, Optional
 
 import snakemake
 from snakemake import common, sourcecache, workflow
@@ -189,7 +189,7 @@ class GlobalKeywordState(KeywordState):
 
 
 class DecoratorKeywordState(KeywordState):
-    decorator: str | None = None
+    decorator: Optional[str] = None
     args: List[str] = []
 
     def start(self):
@@ -561,9 +561,9 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-    overwrite_cmd: str | None = None
-    start_func: str | None = None
-    end_func: str | None = None
+    overwrite_cmd: Optional[str] = None
+    start_func: Optional[str] = None
+    end_func: Optional[str] = None
 
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(
@@ -1264,7 +1264,7 @@ class Snakefile:
 
 
 def format_tokens(tokens) -> Generator[str, None, None]:
-    t_: str | None = None
+    t_: Optional[str] = None
     for t in tokens:
         if t_ and not t.isspace() and not t_.isspace():
             yield " "
