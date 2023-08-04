@@ -13,5 +13,4 @@ rule work:
 
 # rules.work has to work even if the rule is renamed in a parent module
 # The rulename itself can be already modified.
-rules.work
-# assert hasattr(rules, "work"), f"bug: rule cannot be accessed as work: {dir(rules)}"
+assert hasattr(rules, "work"), f"bug: rule cannot be accessed as work: {dir(rules)}"
