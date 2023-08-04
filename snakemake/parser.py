@@ -3,13 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import tokenize
 import textwrap
-from typing import Optional
+import tokenize
+from typing import Any, Dict, Generator, List
 
-from snakemake import common
-from snakemake.sourcecache import SourceFile
-from snakemake.workflow import Workflow
+import snakemake
+from snakemake import common, sourcecache, workflow
 
 dd = textwrap.dedent
 
@@ -70,7 +69,7 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-    subautomata = dict()
+    subautomata: Dict[str, Any] = {}
 
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
@@ -190,8 +189,8 @@ class GlobalKeywordState(KeywordState):
 
 
 class DecoratorKeywordState(KeywordState):
-    decorator: Optional[str] = None
-    args = list()
+    decorator: str | None = None
+    args: List[str] = []
 
     def start(self):
         yield f"@workflow.{self.decorator}"
@@ -562,9 +561,9 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-    overwrite_cmd: Optional[str] = None
-    start_func: Optional[str] = None
-    end_func: Optional[str] = None
+    overwrite_cmd: str | None = None
+    start_func: str | None = None
+    end_func: str | None = None
 
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(
@@ -1239,7 +1238,12 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path: SourceFile, workflow: Workflow, rulecount=0):
+    def __init__(
+        self,
+        path: "sourcecache.SourceFile",
+        workflow: "workflow.Workflow",
+        rulecount=0,
+    ):
         self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
@@ -1259,8 +1263,8 @@ class Snakefile:
         self.file.close()
 
 
-def format_tokens(tokens):
-    t_: str = None
+def format_tokens(tokens) -> Generator[str, None, None]:
+    t_: str | None = None
     for t in tokens:
         if t_ and not t.isspace() and not t_.isspace():
             yield " "

@@ -19,6 +19,7 @@ from operator import attrgetter
 from pathlib import Path
 
 from snakemake import workflow
+from snakemake import workflow as _workflow
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
@@ -36,6 +37,7 @@ from snakemake.exceptions import (
     WildcardError,
     WorkflowError,
 )
+from snakemake.interfaces import DAGExecutorInterface
 from snakemake.io import (
     PeriodicityDetector,
     get_flag_value,
@@ -47,7 +49,6 @@ from snakemake.jobs import GroupJobFactory, Job, JobFactory, Reason
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-from snakemake.workflow import Workflow
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -139,7 +140,7 @@ class DAG(DAGExecutorInterface):
         self._finished = set()
         self._dynamic = set()
         self._len = 0
-        self.workflow: Workflow = workflow
+        self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles

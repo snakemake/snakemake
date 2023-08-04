@@ -9,7 +9,6 @@ from snakemake.common import MIN_PY_VERSION
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(
         f"Snakemake requires at least Python {MIN_PY_VERSION}. Please ensure to execute it in a compatible Python environment.",
-        file=sys.stderr,
     )
 
 import os
