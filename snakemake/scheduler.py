@@ -4,21 +4,14 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
-import datetime
 import threading
-import operator
-import time
-import math
-import asyncio
 
 from functools import partial
-from collections import defaultdict
-from itertools import chain, accumulate, product
+from itertools import chain, accumulate
 from contextlib import ContextDecorator
 
 from snakemake.executors import (
     AbstractExecutor,
-    ClusterExecutor,
     DryrunExecutor,
     TouchExecutor,
     CPUExecutor,
@@ -36,8 +29,8 @@ from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import ON_WINDOWS
+from snakemake.interfaces import JobSchedulerExecutorInterface
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -48,7 +41,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -65,7 +58,7 @@ class DummyRateLimiter(ContextDecorator):
         return False
 
 
-class JobScheduler:
+class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
         workflow,
@@ -87,14 +80,21 @@ class JobScheduler:
         env_modules=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
+        k8s_service_account_name=None,
         container_image=None,
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        google_lifesciences_service_account_email=None,
+        google_lifesciences_network=None,
+        google_lifesciences_subnetwork=None,
         tes=None,
         precommand="",
         preemption_default=None,
@@ -317,6 +317,7 @@ class JobScheduler:
                 kubernetes,
                 container_image=container_image,
                 k8s_cpu_scalar=k8s_cpu_scalar,
+                k8s_service_account_name=k8s_service_account_name,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,
@@ -370,6 +371,36 @@ class JobScheduler:
                 printshellcmds=printshellcmds,
             )
 
+        elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+                    e,
+                )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                cores,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+            )
+
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
@@ -389,6 +420,9 @@ class JobScheduler:
                 regions=google_lifesciences_regions,
                 location=google_lifesciences_location,
                 cache=google_lifesciences_cache,
+                service_account_email=google_lifesciences_service_account_email,
+                network=google_lifesciences_network,
+                subnetwork=google_lifesciences_subnetwork,
                 printreason=printreason,
                 quiet=quiet,
                 printshellcmds=printshellcmds,

@@ -7,10 +7,7 @@ import subprocess
 import shutil
 import os
 import hashlib
-from distutils.version import LooseVersion
 
-import snakemake
-from snakemake.deployment.conda import Conda
 from snakemake.common import (
     is_local_file,
     parse_uri,
@@ -27,9 +24,7 @@ SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
 class Image:
     def __init__(self, url, dag, is_containerized):
         if " " in url:
-            raise WorkflowError(
-                "Invalid singularity image URL containing " "whitespace."
-            )
+            raise WorkflowError("Invalid singularity image URL containing whitespace.")
 
         self.singularity = Singularity()
 
@@ -52,18 +47,18 @@ class Image:
         if self.is_local:
             return
         if dryrun:
-            logger.info("Singularity image {} will be pulled.".format(self.url))
+            logger.info(f"Singularity image {self.url} will be pulled.")
             return
-        logger.debug("Singularity image location: {}".format(self.path))
+        logger.debug(f"Singularity image location: {self.path}")
         if not os.path.exists(self.path):
-            logger.info("Pulling singularity image {}.".format(self.url))
+            logger.info(f"Pulling singularity image {self.url}.")
             try:
                 p = subprocess.check_output(
                     [
                         "singularity",
                         "pull",
                         "--name",
-                        "{}.simg".format(self.hash),
+                        f"{self.hash}.simg",
                         self.url,
                     ],
                     cwd=self._img_dir,
@@ -102,9 +97,7 @@ def shellcmd(
     and environment variables to be passed."""
 
     if envvars:
-        envvars = " ".join(
-            "SINGULARITYENV_{}={}".format(k, v) for k, v in envvars.items()
-        )
+        envvars = " ".join(f"SINGULARITYENV_{k}={v}" for k, v in envvars.items())
     else:
         envvars = ""
 
@@ -157,7 +150,29 @@ class Singularity:
         ), "bug: singularity version accessed before check() has been called"
         return self._version
 
+    def parseversion(self, raw_version):
+        import packaging
+
+        raw_version = raw_version.rsplit(" ", 1)[-1]
+        if raw_version.startswith("v"):
+            raw_version = raw_version[1:]
+
+        parsed_version = None
+        trimend = len(raw_version)
+        while parsed_version is None:
+            try:
+                parsed_version = packaging.version.Version(raw_version[:trimend])
+            except packaging.version.InvalidVersion:
+                trimend = trimend - 1
+                if trimend == 0:
+                    raise WorkflowError(
+                        f"Apptainer/Singularity version cannot be parsed: {raw_version}"
+                    )
+        return parsed_version
+
     def check(self):
+        from packaging.version import parse
+
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
@@ -171,16 +186,11 @@ class Singularity:
                 ).decode()
             except subprocess.CalledProcessError as e:
                 raise WorkflowError(
-                    "Failed to get singularity version:\n{}".format(e.stderr.decode())
+                    f"Failed to get singularity version:\n{e.stderr.decode()}"
                 )
             if v.startswith("apptainer"):
-                v = v.rsplit(" ", 1)[-1]
-                if not LooseVersion(v) >= LooseVersion("1.0.0"):
+                if self.parseversion(v) < parse("1.0.0"):
                     raise WorkflowError("Minimum apptainer version is 1.0.0.")
-            else:
-                v = v.rsplit(" ", 1)[-1]
-                if v.startswith("v"):
-                    v = v[1:]
-                if not LooseVersion(v) >= LooseVersion("2.4.1"):
-                    raise WorkflowError("Minimum singularity version is 2.4.1.")
+            elif self.parseversion(v) < parse("2.4.1"):
+                raise WorkflowError("Minimum singularity version is 2.4.1.")
             self._version = v

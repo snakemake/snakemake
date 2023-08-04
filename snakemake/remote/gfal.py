@@ -4,9 +4,7 @@ __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
-import re
 import stat
-from datetime import datetime
 
 from snakemake.remote import (
     AbstractRemoteProvider,
@@ -27,7 +25,6 @@ except ImportError as e:
 
 class RemoteProvider(AbstractRemoteProvider):
     supports_default = True
-    allows_directories = True
 
     gfalcntx = gfal2.creat_context()
 

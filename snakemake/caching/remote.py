@@ -5,11 +5,10 @@ __license__ = "MIT"
 
 import os
 
-from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
-from snakemake.io import get_flag_value, IOFile
+from snakemake.io import get_flag_value
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -60,7 +59,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 )
 
             f = self.remote_provider.remote(
-                "{}/{}{}".format(self.cache_location, provenance_hash, ext)
+                f"{self.cache_location}/{provenance_hash}{ext}"
             )
             remote = get_flag_value(f, "remote_object")
             # set local copy of the remote file

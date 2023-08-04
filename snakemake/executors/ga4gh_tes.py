@@ -4,15 +4,19 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+import math
 import os
-import stat
-import time
 from collections import namedtuple
 
+from snakemake.interfaces import (
+    DAGExecutorInterface,
+    ExecutorJobInterface,
+    WorkflowExecutorInterface,
+)
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor
-from snakemake.common import Mode, get_container_image, async_lock
+from snakemake.common import get_container_image, async_lock
 
 TaskExecutionServiceJob = namedtuple(
     "TaskExecutionServiceJob", "job jobid callback error_callback"
@@ -22,8 +26,8 @@ TaskExecutionServiceJob = namedtuple(
 class TaskExecutionServiceExecutor(ClusterExecutor):
     def __init__(
         self,
-        workflow,
-        dag,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
         cores,
         jobname="snakejob.{name}.{jobid}.sh",
         printreason=False,
@@ -56,7 +60,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             password=os.environ.get("FUNNEL_SERVER_PASSWORD"),
         )
 
-        logger.info("[TES] Job execution on TES: {url}".format(url=self.tes_url))
+        logger.info(f"[TES] Job execution on TES: {self.tes_url}")
 
         super().__init__(
             workflow,
@@ -73,7 +77,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
         )
 
-    def get_job_exec_prefix(self, job):
+    def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return "mkdir /tmp/conda && cd /tmp"
 
     def shutdown(self):
@@ -84,7 +88,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         for job in self.active_jobs:
             try:
                 self.tes_client.cancel_task(job.jobid)
-                logger.info("[TES] Task canceled: {id}".format(id=job.jobid))
+                logger.info(f"[TES] Task canceled: {job.jobid}")
             except Exception:
                 logger.info(
                     "[TES] Canceling task failed. This may be because the job is "
@@ -92,7 +96,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 )
         self.shutdown()
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
 
         jobscript = self.get_jobscript(job)
@@ -102,7 +112,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         try:
             task = self._get_task(job, jobscript)
             tes_id = self.tes_client.create_task(task)
-            logger.info("[TES] Task submitted: {id}".format(id=tes_id))
+            logger.info(f"[TES] Task submitted: {tes_id}")
         except Exception as e:
             raise WorkflowError(str(e))
 
@@ -137,10 +147,10 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                     if res.state in UNFINISHED_STATES:
                         still_running.append(j)
                     elif res.state in ERROR_STATES:
-                        logger.info("[TES] Task errored: {id}".format(id=j.jobid))
+                        logger.info(f"[TES] Task errored: {j.jobid}")
                         j.error_callback(j.job)
                     elif res.state == "COMPLETE":
-                        logger.info("[TES] Task completed: {id}".format(id=j.jobid))
+                        logger.info(f"[TES] Task completed: {j.jobid}")
                         j.callback(j.job)
 
             async with async_lock(self.lock):
@@ -213,7 +223,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         logger.warning(members)
         return model(**members)
 
-    def _get_task_description(self, job):
+    def _get_task_description(self, job: ExecutorJobInterface):
         description = ""
         if job.is_group():
             msgs = [i.message for i in job.jobs if i.message]
@@ -225,7 +235,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         return description
 
-    def _get_task_inputs(self, job, jobscript, checkdir):
+    def _get_task_inputs(self, job: ExecutorJobInterface, jobscript, checkdir):
         inputs = []
 
         # add workflow sources to inputs
@@ -267,7 +277,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 outputs.append(obj)
         return outputs
 
-    def _get_task_outputs(self, job, checkdir):
+    def _get_task_outputs(self, job: ExecutorJobInterface, checkdir):
         outputs = []
         # add output files to outputs
         outputs = self._append_task_outputs(outputs, job.output, checkdir)
@@ -298,7 +308,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         )
         return executors
 
-    def _get_task(self, job, jobscript):
+    def _get_task(self, job: ExecutorJobInterface, jobscript):
         import tes
 
         checkdir, _ = os.path.split(self.snakefile)
@@ -312,13 +322,13 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         task["resources"] = tes.models.Resources()
 
         # define resources
-        if "_cores" in job.resources:
-            task["resources"]["cpu_cores"] = job.resources["_cores"]
-        if "mem_mb" in job.resources:
-            task["resources"]["ram_gb"] = job.resources["mem_mb"] / 1000
-        if "disk_mb" in job.resources:
-            task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
+        if job.resources.get("_cores") is not None:
+            task["resources"].cpu_cores = job.resources["_cores"]
+        if job.resources.get("mem_mb") is not None:
+            task["resources"].ram_gb = math.ceil(job.resources["mem_mb"] / 1000)
+        if job.resources.get("disk_mb") is not None:
+            task["resources"].disk_gb = math.ceil(job.resources["disk_mb"] / 1000)
 
         tes_task = tes.Task(**task)
-        logger.debug("[TES] Built task: {task}".format(task=tes_task))
+        logger.debug(f"[TES] Built task: {tes_task}")
         return tes_task

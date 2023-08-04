@@ -3,15 +3,9 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import TemporaryFile
 import tokenize
 import textwrap
-import os
-from urllib.error import HTTPError, URLError, ContentTooShortError
-import urllib.request
-from io import TextIOWrapper
 
-from snakemake.exceptions import WorkflowError
 from snakemake import common
 
 dd = textwrap.dedent
@@ -745,13 +739,8 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            "@workflow.rule(name={rulename!r}, lineno={lineno}, "
-            "snakefile={snakefile!r}{aux})".format(
-                rulename=self.rulename,
-                lineno=self.lineno,
-                snakefile=self.snakefile.path,
-                aux=aux,
-            )
+            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, "
+            f"snakefile={self.snakefile.path!r}{aux})"
         )
 
     def end(self):
@@ -777,7 +766,7 @@ class Rule(GlobalKeywordState):
                 yield t, token
         else:
             self.error(
-                "Expected name or colon after " "rule or checkpoint keyword.", token
+                "Expected name or colon after rule or checkpoint keyword.", token
             )
 
     def block_content(self, token):

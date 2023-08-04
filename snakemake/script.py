@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import inspect
 import itertools
 import os
 from collections.abc import Iterable
@@ -20,15 +19,14 @@ import tempfile
 import textwrap
 import sys
 import pickle
-import subprocess
 import collections
 import re
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
-from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
+from pathlib import Path
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -38,10 +36,7 @@ from snakemake.common import (
     MIN_PY_VERSION,
     SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
-    smart_join,
-    is_local_file,
 )
-from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
@@ -619,18 +614,25 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None and ON_WINDOWS:
-            prefix = self.conda_env
-        elif self.conda_env is not None:
-            prefix = os.path.join(self.conda_env, "bin")
+        def contains_python(prefix):
+            if not ON_WINDOWS:
+                return (prefix / "python").exists()
+            else:
+                return (prefix / "python.exe").exists()
+
+        if self.conda_env is not None:
+            prefix = Path(self.conda_env)
+            if not ON_WINDOWS:
+                prefix /= "bin"
+            # Define fallback prefix in case conda_env is a named environment
+            # instead of a full path.
+            fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
+            return contains_python(prefix) or contains_python(fallback_prefix)
         elif self.env_modules is not None:
-            prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
+            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
+            return contains_python(prefix)
         else:
             raise NotImplementedError()
-        if not ON_WINDOWS:
-            return os.path.exists(os.path.join(prefix, "python"))
-        else:
-            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
         # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution

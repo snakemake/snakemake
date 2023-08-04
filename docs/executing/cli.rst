@@ -111,17 +111,27 @@ Profiles
 --------
 
 Adapting Snakemake to a particular environment can entail many flags and options.
-Therefore, since Snakemake 4.1, it is possible to specify a configuration profile
-to be used to obtain default options:
+Therefore, since Snakemake 4.1, it is possible to specify configuration profiles
+to be used to obtain default options.
+Since Snakemake 7.29, two kinds of profiles are supported:
+
+* A global profile that is defined in a system-wide or user-specific configuration directory (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+* A workflow specific profile (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profile/default``) in the working directory or next to the Snakefile.
+
+The workflow specific profile is meant to be used to define default options for a particular workflow, like providing constraints for certain custom resources the workflow uses (e.g. ``api_calls``) or overwriting the threads and resource definitions of individual rules without modifying the workflow code itself.
+In contrast, the global profile is meant to be used to define default options for a particular environment, like the default cluster submission command or the default number of jobs to run in parallel.
+
+For example, the command
 
 .. code-block:: console
 
    $ snakemake --profile myprofile
 
-Here, a folder ``myprofile`` is searched in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
-Alternatively, an absolute or relative path to the folder can be given.
+would expect a folder ``myprofile`` in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+Alternatively, an absolute or relative path to the profile folder can be given.
 The default profile to use when no ``--profile`` argument is specified can also be set via the environment variable ``SNAKEMAKE_PROFILE``,
-e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults.
+e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults means that the ``--profile`` flag can be omitted.
+In order unset the profile defined by this environment variable for individual runs without specifying and alternative profile you can provide the special value ``none``, i.e. ``--profile none``.
 
 The profile folder is expected to contain a file ``config.yaml`` that defines default values for the Snakemake command line arguments.
 For example, the file
@@ -134,12 +144,47 @@ For example, the file
 would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
 The profile can be used to set a default for each option of the Snakemake command line interface.
 For this, option ``--someoption`` becomes ``someoption:`` in the profile.
+The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
 If options accept multiple arguments these must be given as YAML list in the profile.
-Under https://github.com/snakemake-profiles/doc, you can find publicly available profiles.
-Feel free to contribute your own.
+If options expect structured arguments (like ``--set-threads RULE=VALUE`` or ``--set-resources RULE:RESOURCE=VALUE``), those can be given as strings in the expected forms, i.e.
 
-The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers.
-See https://github.com/snakemake-profiles/doc for examples.
+.. code-block:: yaml
+
+    set-threads: myrule=5
+    set-resources: myrule:mem=500MB
+
+or alternatively (which is preferable) as YAML maps, e.g.:
+
+.. code-block:: yaml
+
+    set-threads:
+        myrule: 5
+    set-resources:
+        myrule:
+            mem: 500MB
+
+Setting resources or threads via the profile is of course rather a job for the workflow profile instead of the global profile (as such settings are likely workflow specific).
+
+Under https://github.com/snakemake-profiles/doc, you can find publicly available global profiles (e.g. for cluster systems).
+Feel free to contribute your own.
+Workflow specific profiles are either not shared at all, or can be distributed along with the workflow itself where it makes sense.
+For example, when the workflow has its Snakefile at ``workflow/Snakefile``, the profile config should be placed at ``workflow/profiles/default/config.yaml``.
+
+
+Use templating in profiles
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In Snakemake 7.30 or newer, when the profile starts with
+
+.. code-block:: yaml
+
+    __use_yte__: true
+
+It will be treated as a `YTE template <https://yte-template-engine.github.io>`_ and parsed accordingly.
+This can be handy to e.g. define values inside of the profile that are based on environment variables.
+For example, admins could use this to define user-specific settings.
+Another application would be the uniform redefinition of resource requirements for a larger set of rules in a workflow profile (see above).
+However, it should be noted that templated profiles are harder to keep free of errors and the profile author has to make sure that they always work correctly for the user.
 
 
 .. _getting_started-visualization:
