@@ -1246,8 +1246,7 @@ def get_argument_parser(profiles=None):
             of a particular rule or the amount of memory needed.
             Note that in such cases, the arguments may be given as nested YAML mappings 
             in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
-            """,
-        env_var="SNAKEMAKE_PROFILE",
+            """
     )
 
     group_exec.add_argument(
@@ -2758,6 +2757,7 @@ def main(argv=None):
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
         else:
+            # checking for default profile
             default_path = Path("profiles/default")
             workflow_profile_candidates = [
                 default_path,
@@ -2778,11 +2778,14 @@ def main(argv=None):
         if args.profile:
             profiles.append(args.profile)
         if workflow_profile:
+            workflow_profile_stmt = f" and workflow specific profile {workflow_profile}"
             profiles.append(workflow_profile)
+        else:
+            workflow_profile_stmt = ""
 
         print(
             f"Using profile{'s' if len(profiles) > 1 else ''} "
-            f"{' and '.join(map(str, profiles))} for setting default command line arguments.",
+            f"{' and '.join(map(str, profiles))}{workflow_profile_stmt} for setting default command line arguments.",
             file=sys.stderr,
         )
 
