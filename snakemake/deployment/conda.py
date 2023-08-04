@@ -318,7 +318,7 @@ class Env:
         ) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError(f"Error downloading conda package {pkg_url}.")
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             shutil.rmtree(env_archive)
             raise e
         return env_archive

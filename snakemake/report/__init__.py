@@ -573,7 +573,7 @@ def auto_report(dag, path, stylesheet=None):
         try:
             with open(stylesheet) as s:
                 custom_stylesheet = s.read()
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")

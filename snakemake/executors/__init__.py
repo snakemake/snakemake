@@ -365,7 +365,7 @@ class CPUExecutor(RealExecutor):
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
             error_callback(job)
-        except (Exception, BaseException) as ex:
+        except BaseException as ex:
             self.print_job_error(job)
             if self.workflow.verbose or (not job.is_group() and not job.is_shell):
                 print_exception(ex, self.workflow.linemaps)
@@ -1990,7 +1990,7 @@ def run_wrapper(
         # Re-raise the keyboard interrupt in order to record an error in the
         # scheduler but ignore it
         raise e
-    except (Exception, BaseException) as ex:
+    except BaseException as ex:
         # this ensures that exception can be re-raised in the parent thread
         origin = get_exception_origin(ex, linemaps)
         if origin is not None:
@@ -2008,5 +2008,5 @@ def run_wrapper(
     if benchmark is not None:
         try:
             write_benchmark_records(bench_records, benchmark)
-        except (Exception, BaseException) as ex:
+        except BaseException as ex:
             raise WorkflowError(ex)

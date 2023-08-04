@@ -2365,7 +2365,7 @@ class DAG(DAGExecutorInterface):
                 for env in envs:
                     add(env)
 
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             os.remove(path)
             raise e
 

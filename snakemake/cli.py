@@ -70,7 +70,7 @@ def parse_set_resources(args):
         for entry in args.set_resources:
             key, value = parse_key_value_arg(entry, errmsg=errmsg)
             key = key.split(":")
-            if not len(key) == 2:
+            if len(key) != 2:
                 raise ValueError(errmsg)
             rule, resource = key
             try:
@@ -1553,7 +1553,6 @@ def get_argument_parser(profiles=None):
         " stderr files are written to the current working directory.",
     )
 
-    group_cloud = parser.add_argument_group("CLOUD")
     group_flux = parser.add_argument_group("FLUX")
     group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
@@ -1844,7 +1843,6 @@ def generate_parser_metadata(parser, args):
     command = "snakemake %s" % " ".join(
         parser._source_to_settings["command_line"][""][1]
     )
-    workdir = os.getcwd()
     metadata = args.__dict__
     metadata.update({"command": command})
     return metadata
@@ -2034,8 +2032,7 @@ def main(argv=None):
         print(err.msg, sys.stderr)
         sys.exit(1)
 
-    if args.drmaa_log_dir is not None:
-        if not os.path.isabs(args.drmaa_log_dir):
+    if args.drmaa_log_dir is not None and not os.path.isabs(args.drmaa_log_dir):
             args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
     if args.runtime_profile:
@@ -2444,7 +2441,7 @@ def main(argv=None):
 
 def bash_completion(snakefile="Snakefile"):
     """Entry point for bash completion."""
-    if not len(sys.argv) >= 2:
+    if len(sys.argv) < 2:
         print(
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand."
         )

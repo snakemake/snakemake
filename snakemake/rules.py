@@ -777,7 +777,7 @@ class Rule:
                 value = TBDString()
             else:
                 raise e
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             if raw_exceptions:
                 raise e
             else:
@@ -1091,7 +1091,7 @@ class Rule:
                             raw_exceptions=True,
                             **aux,
                         )
-                    except (Exception, BaseException) as e:
+                    except BaseException as e:
                         raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if isinstance(res, float):
