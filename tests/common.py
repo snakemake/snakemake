@@ -33,9 +33,9 @@ def dpath(path):
 def md5sum(filename, ignore_newlines=False):
     if ignore_newlines:
         with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
-            data = f.read().encode("utf8", errors="surrogateescape")
+            data = f.read().encode("utf8", errors="surrogateescape").strip()
     else:
-        data = open(filename, "rb").read()
+        data = open(filename, "rb").read().strip()
     return hashlib.md5(data).hexdigest()
 
 
