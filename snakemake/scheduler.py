@@ -26,6 +26,7 @@ from snakemake.executors import (
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
+from snakemake.executors.aws_batch import AwsBatchExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -96,6 +97,14 @@ class JobScheduler(JobSchedulerExecutorInterface):
         google_lifesciences_network=None,
         google_lifesciences_subnetwork=None,
         tes=None,
+        aws_batch=None,
+        aws_batch_task_timeout=None,
+        aws_batch_tags=dict(),
+        aws_batch_fsap_id=None,
+        aws_batch_efs_project_path=None,
+        aws_batch_task_queue=None,
+        aws_batch_data_already_uploaded=False,
+        aws_batch_workflow_role=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
@@ -451,6 +460,35 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 tes_url=tes,
                 container_image=container_image,
             )
+        elif aws_batch:
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                local_cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                cores=local_cores,
+                keepincomplete=keepincomplete,
+            )
+
+            self._executor = AwsBatchExecutor(
+                workflow,
+                dag,
+                cores=cores,
+                printreason=printreason,
+                quiet=quiet,
+                printshellcmds=printshellcmds,
+                container_image=container_image,
+                fsap_id=aws_batch_fsap_id,
+                efs_project_path=aws_batch_efs_project_path,
+                task_queue=aws_batch_task_queue,
+                data_already_uploaded=aws_batch_data_already_uploaded,
+                workflow_role=aws_batch_workflow_role,
+                assume_shared_fs=assume_shared_fs,
+                task_timeout=aws_batch_task_timeout,
+                tags=aws_batch_tags,
+            )
 
         else:
             self._executor = CPUExecutor(
@@ -498,6 +536,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # This can only happen with --gui, in which case it is fine for now.
             pass
         self._open_jobs.release()
+
 
     def executor_error_callback(self, exception):
         with self._lock:
@@ -747,6 +786,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def exit_gracefully(self, *args):
         with self._lock:
             self._user_kill = "graceful"
+        logger.info("SIGTERM received. Will attempt to cancel running tasks before exit")
+        self._executor.cancel()
         self._open_jobs.release()
 
     def job_selector_ilp(self, jobs):

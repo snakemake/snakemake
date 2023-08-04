@@ -614,6 +614,9 @@ class Persistence(PersistenceExecutorInterface):
         # we only look at output files that will be updated
         return jobfiles(self.dag.needrun_jobs(), "output")
 
+    def all_finishedoutputfiles(self):
+        return jobfiles(self.dag.jobs, "output")
+
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs
         return jobfiles(self.dag.jobs, "input")
