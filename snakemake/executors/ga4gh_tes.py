@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import asyncio
+import math
 import os
 from collections import namedtuple
 
@@ -310,12 +311,12 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
         task["resources"] = tes.models.Resources()
 
         # define resources
-        if "_cores" in job.resources:
-            task["resources"]["cpu_cores"] = job.resources["_cores"]
-        if "mem_mb" in job.resources:
-            task["resources"]["ram_gb"] = job.resources["mem_mb"] / 1000
-        if "disk_mb" in job.resources:
-            task["resources"]["disk_gb"] = job.resources["disk_mb"] / 1000
+        if job.resources.get("_cores") is not None:
+            task["resources"].cpu_cores = job.resources["_cores"]
+        if job.resources.get("mem_mb") is not None:
+            task["resources"].ram_gb = math.ceil(job.resources["mem_mb"] / 1000)
+        if job.resources.get("disk_mb") is not None:
+            task["resources"].disk_gb = math.ceil(job.resources["disk_mb"] / 1000)
 
         tes_task = tes.Task(**task)
         logger.debug(f"[TES] Built task: {tes_task}")

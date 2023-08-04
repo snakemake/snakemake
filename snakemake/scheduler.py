@@ -85,6 +85,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         env_modules=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
+        k8s_service_account_name=None,
         container_image=None,
         flux=None,
         tibanna=None,
@@ -312,6 +313,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 kubernetes,
                 container_image=container_image,
                 k8s_cpu_scalar=k8s_cpu_scalar,
+                k8s_service_account_name=k8s_service_account_name,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(

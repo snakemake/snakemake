@@ -152,6 +152,7 @@ def snakemake(
     kubernetes=None,
     container_image=None,
     k8s_cpu_scalar=1.0,
+    k8s_service_account_name=None,
     flux=False,
     tibanna=False,
     tibanna_sfn=None,
@@ -295,6 +296,7 @@ def snakemake(
         kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
         container_image (str):      Docker image to use, e.g., for Kubernetes.
         k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
+        k8s_service_account_name (str): Custom k8s service account, needed for workload identity.
         flux (bool):                Launch workflow to flux cluster.
         default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
         default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
@@ -706,6 +708,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    k8s_service_account_name=k8s_service_account_name,
                     conda_create_envs_only=conda_create_envs_only,
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
@@ -769,6 +772,7 @@ def snakemake(
                     kubernetes=kubernetes,
                     container_image=container_image,
                     k8s_cpu_scalar=k8s_cpu_scalar,
+                    k8s_service_account_name=k8s_service_account_name,
                     tibanna=tibanna,
                     tibanna_sfn=tibanna_sfn,
                     az_batch=az_batch,

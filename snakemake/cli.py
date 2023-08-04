@@ -1609,6 +1609,16 @@ def get_argument_parser(profiles=None):
         "see the original value, i.e. as the value substituted in {threads}.",
     )
 
+    group_kubernetes.add_argument(
+        "--k8s-service-account-name",
+        metavar="SERVICEACCOUNTNAME",
+        default=None,
+        help="This argument allows the use of customer service accounts for "
+        "kubernetes pods. If specified serviceAccountName will be added to the "
+        "pod specs. This is needed when using workload identity which is enforced "
+        "when using Google Cloud GKE Autopilot.",
+    )
+
     group_tibanna.add_argument(
         "--tibanna",
         action="store_true",
@@ -2322,6 +2332,7 @@ def main(argv=None):
             kubernetes=args.kubernetes,
             container_image=args.container_image,
             k8s_cpu_scalar=args.k8s_cpu_scalar,
+            k8s_service_account_name=args.k8s_service_account_name,
             flux=args.flux,
             tibanna=args.tibanna,
             tibanna_sfn=args.tibanna_sfn,
