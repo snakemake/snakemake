@@ -2116,7 +2116,7 @@ class Workflow(WorkflowExecutorInterface):
                 with WorkflowModifier(
                     self,
                     parent_modifier=self.modifier,
-                    rulename_modifier=get_name_modifier_func(
+                    resolved_rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
                     ruleinfo_overwrite=ruleinfo,
