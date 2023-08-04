@@ -489,6 +489,7 @@ def update_config(config, overwrite_config):
       config (dict): dictionary to update
       overwrite_config (dict): dictionary whose items will overwrite those in config
     """
+
     def _update_config(config, overwrite_config):
         """Necessary as recursive calls require a return value,
         but `update_config()` has no return value.
