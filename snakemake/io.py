@@ -203,7 +203,7 @@ def _refer_to_remote(func: Callable):
     """
 
     @functools.wraps(func)
-    def wrapper(self: _IOFile, *args, **kwargs):
+    def wrapper(self: "_IOFile", *args, **kwargs):
         if self.is_remote:
             if hasattr(self.remote_object, func.__name__):
                 return getattr(self.remote_object, func.__name__)(*args, **kwargs)
