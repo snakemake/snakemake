@@ -15,8 +15,6 @@ rule all:
     default_target: True
 
 
-# rules.deep_work has to work even if the rule is renamed in a parent module
-# The rulename itself can be already modified.
 assert hasattr(
     rules, "shallow_work"
 ), f"bug: rule cannot be accessed as shallow_work: {dir(rules)}"
