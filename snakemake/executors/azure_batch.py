@@ -8,6 +8,7 @@ import io
 import os
 import re
 import shutil
+import shlex
 import sys
 import tarfile
 import tempfile
@@ -294,6 +295,7 @@ class AzBatchExecutor(ClusterExecutor):
             dirname = dirname.removeprefix(osxprefix)
 
         self.workdir = dirname
+        # self.workflow._default_resources = DefaultResources(mode="bare")
 
         # Prepare workflow sources for build package
         self._set_workflow_sources()
@@ -401,7 +403,7 @@ class AzBatchExecutor(ClusterExecutor):
     # token information from being printed to the logs
     def mask_sas_urls(self, attrs: dict):
         attrs_new = attrs.copy()
-        sas_pattern = r"\?s[v|p]=.+(\'|\"|$)"
+        sas_pattern = r"\?[^=]+=([^?'\"]+)"
         mask = 10 * "*"
 
         for k, value in attrs.items():
@@ -443,7 +445,7 @@ class AzBatchExecutor(ClusterExecutor):
                 continue
 
         exec_job = self.format_job_exec(job)
-        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'"
+        exec_job = f"/bin/bash -c 'tar xzf {self.resource_file.file_path} && {shlex.quote(exec_job)}'"
 
         # A string that uniquely identifies the Task within the Job.
         task_uuid = str(uuid.uuid1())
