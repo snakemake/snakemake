@@ -1705,6 +1705,10 @@ def test_modules_all():
     run(dpath("test_modules_all"), targets=["a"])
 
 
+def test_module_nested():
+    run(dpath("test_module_nested"))
+
+
 def test_modules_all_exclude_1():
     # Fail due to conflicting rules
     run(dpath("test_modules_all_exclude"), shouldfail=True)

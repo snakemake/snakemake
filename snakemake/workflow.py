@@ -246,7 +246,6 @@ class Workflow(WorkflowExecutorInterface):
         _globals = globals()
         _globals["workflow"] = self
         _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
-        _globals["rules"] = Rules()
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
@@ -1805,9 +1804,10 @@ class Workflow(WorkflowExecutorInterface):
             self.globals[ruleinfo.func.__name__] = ruleinfo.func
 
             rule_proxy = RuleProxy(rule)
-            if orig_name is not None:
-                setattr(self.globals["rules"], orig_name, rule_proxy)
-            setattr(self.globals["rules"], rule.name, rule_proxy)
+            # Register rule under its original name.
+            # Modules using this snakefile as a module, will register it additionally under their
+            # requested name.
+            self.modifier.rule_proxies._register_rule(orig_name, rule_proxy)
 
             if checkpoint:
                 self.globals["checkpoints"].register(rule, fallback_name=orig_name)
@@ -2118,7 +2118,7 @@ class Workflow(WorkflowExecutorInterface):
                 with WorkflowModifier(
                     self,
                     parent_modifier=self.modifier,
-                    rulename_modifier=get_name_modifier_func(
+                    resolved_rulename_modifier=get_name_modifier_func(
                         rules, name_modifier, parent_modifier=self.modifier
                     ),
                     ruleinfo_overwrite=ruleinfo,

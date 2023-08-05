@@ -252,7 +252,19 @@ def group_into_chunks(n, iterable):
 class Rules:
     """A namespace for rules so that they can be accessed via dot notation."""
 
-    pass
+    def __init__(self):
+        self._rules = dict()
+
+    def _register_rule(self, name, rule):
+        self._rules[name] = rule
+
+    def __getattr__(self, name):
+        from snakemake.exceptions import WorkflowError
+
+        try:
+            return self._rules[name]
+        except KeyError:
+            raise WorkflowError(f"Rule {name} is not defined in this workflow.")
 
 
 class Scatter:

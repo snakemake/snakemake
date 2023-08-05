@@ -6,6 +6,7 @@ __license__ = "MIT"
 from pathlib import Path
 import types
 import re
+from snakemake.common import Rules
 
 from snakemake.exceptions import WorkflowError
 from snakemake.path_modifier import PathModifier
@@ -50,6 +51,7 @@ class ModuleInfo:
         self.meta_wrapper = meta_wrapper
         self.config = config
         self.skip_validation = skip_validation
+        self.parent_modifier = self.workflow.modifier
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -76,7 +78,7 @@ class ModuleInfo:
         skip_global_report_caption=False,
     ):
         snakefile = self.get_snakefile()
-        with WorkflowModifier(
+        modifier = WorkflowModifier(
             self.workflow,
             config=self.config,
             base_snakefile=snakefile,
@@ -85,15 +87,20 @@ class ModuleInfo:
             skip_global_report_caption=skip_global_report_caption,
             rule_exclude_list=exclude_rules,
             rule_whitelist=self.get_rule_whitelist(rules),
-            rulename_modifier=get_name_modifier_func(rules, name_modifier),
+            resolved_rulename_modifier=get_name_modifier_func(
+                rules, name_modifier, parent_modifier=self.parent_modifier
+            ),
+            local_rulename_modifier=get_name_modifier_func(rules, name_modifier),
             ruleinfo_overwrite=ruleinfo,
             allow_rule_overwrite=True,
             namespace=self.name,
             replace_prefix=self.replace_prefix,
             prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
-        ):
+        )
+        with modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
+            self.parent_modifier.inherit_rule_proxies(modifier)
 
     def get_snakefile(self):
         if self.meta_wrapper:
@@ -138,7 +145,8 @@ class WorkflowModifier:
         skip_configfile=False,
         skip_validation=False,
         skip_global_report_caption=False,
-        rulename_modifier=None,
+        resolved_rulename_modifier=None,
+        local_rulename_modifier=None,
         rule_whitelist=None,
         rule_exclude_list=None,
         ruleinfo_overwrite=None,
@@ -153,7 +161,8 @@ class WorkflowModifier:
             self.base_snakefile = parent_modifier.base_snakefile
             self.globals = parent_modifier.globals
             self.skip_configfile = parent_modifier.skip_configfile
-            self.rulename_modifier = parent_modifier.rulename_modifier
+            self.resolved_rulename_modifier = parent_modifier.resolved_rulename_modifier
+            self.local_rulename_modifier = parent_modifier.local_rulename_modifier
             self.skip_validation = parent_modifier.skip_validation
             self.skip_global_report_caption = parent_modifier.skip_global_report_caption
             self.rule_whitelist = parent_modifier.rule_whitelist
@@ -175,12 +184,15 @@ class WorkflowModifier:
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
+        self.rule_proxies = Rules()
 
         if config is not None:
             self.globals["config"] = config
+        self.globals["rules"] = self.rule_proxies
 
         self.skip_configfile = skip_configfile
-        self.rulename_modifier = rulename_modifier
+        self.resolved_rulename_modifier = resolved_rulename_modifier
+        self.local_rulename_modifier = local_rulename_modifier
         self.skip_validation = skip_validation
         self.skip_global_report_caption = skip_global_report_caption
         self.rule_whitelist = rule_whitelist
@@ -191,14 +203,21 @@ class WorkflowModifier:
         self.replace_wrapper_tag = replace_wrapper_tag
         self.namespace = namespace
 
+    def inherit_rule_proxies(self, child_modifier):
+        if child_modifier.local_rulename_modifier is not None:
+            for name, rule in child_modifier.rule_proxies._rules.items():
+                self.rule_proxies._register_rule(
+                    child_modifier.local_rulename_modifier(name), rule
+                )
+
     def skip_rule(self, rulename):
         return (
             self.rule_whitelist is not None and rulename not in self.rule_whitelist
         ) or (self.rule_exclude_list is not None and rulename in self.rule_exclude_list)
 
     def modify_rulename(self, rulename):
-        if self.rulename_modifier is not None:
-            return self.rulename_modifier(rulename)
+        if self.resolved_rulename_modifier is not None:
+            return self.resolved_rulename_modifier(rulename)
         return rulename
 
     def modify_path(self, path, property=None):
