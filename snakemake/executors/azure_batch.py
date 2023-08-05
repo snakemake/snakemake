@@ -295,7 +295,6 @@ class AzBatchExecutor(ClusterExecutor):
             dirname = dirname.removeprefix(osxprefix)
 
         self.workdir = dirname
-        # self.workflow._default_resources = DefaultResources(mode="bare")
 
         # Prepare workflow sources for build package
         self._set_workflow_sources()
