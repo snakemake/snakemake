@@ -15,15 +15,28 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 
-from snakemake.common import (DYNAMIC_FILL, IO_PROP_LIMIT, TBDString, get_uuid,
-                              is_local_file, lazy_property)
-from snakemake.exceptions import (ProtectedOutputException, RuleException,
-                                  WorkflowError)
-from snakemake.interfaces import (GroupJobExecutorInterface,
-                                  JobExecutorInterface,
-                                  SingleJobExecutorInterface)
-from snakemake.io import (IOFile, Resources, Wildcards, get_flag_value,
-                          is_flagged, wait_for_files)
+from snakemake.common import (
+    DYNAMIC_FILL,
+    IO_PROP_LIMIT,
+    TBDString,
+    get_uuid,
+    is_local_file,
+    lazy_property,
+)
+from snakemake.exceptions import ProtectedOutputException, RuleException, WorkflowError
+from snakemake.interfaces import (
+    GroupJobExecutorInterface,
+    JobExecutorInterface,
+    SingleJobExecutorInterface,
+)
+from snakemake.io import (
+    IOFile,
+    Resources,
+    Wildcards,
+    get_flag_value,
+    is_flagged,
+    wait_for_files,
+)
 from snakemake.logging import logger
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
