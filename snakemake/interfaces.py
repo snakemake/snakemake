@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
 
 
-class ExecutorJobInterface(ABC):
+class JobExecutorInterface(ABC):
     @property
     @abstractmethod
     def name(self):
@@ -110,11 +110,6 @@ class ExecutorJobInterface(ABC):
 
     @property
     @abstractmethod
-    def resources(self):
-        ...
-
-    @property
-    @abstractmethod
     def log(self):
         ...
 
@@ -136,7 +131,7 @@ class ExecutorJobInterface(ABC):
         ...
 
 
-class SingleJobExecutorInterface(ABC):
+class SingleJobExecutorInterface(JobExecutorInterface, ABC):
     @property
     @abstractmethod
     def rule(self):
@@ -207,7 +202,7 @@ class SingleJobExecutorInterface(ABC):
         ...
 
 
-class GroupJobExecutorInterface(ABC):
+class GroupJobExecutorInterface(JobExecutorInterface, ABC):
     @property
     @abstractmethod
     def jobs(self):
@@ -224,17 +219,17 @@ class GroupJobExecutorInterface(ABC):
         ...
 
 
-class DAGExecutorInterface(ABC):
+class DAGExecutorInterface(JobExecutorInterface, ABC):
     @abstractmethod
-    def is_edit_notebook_job(self, job: ExecutorJobInterface):
+    def is_edit_notebook_job(self, job: JobExecutorInterface):
         ...
 
     @abstractmethod
-    def incomplete_external_jobid(self, job: ExecutorJobInterface):
+    def incomplete_external_jobid(self, job: JobExecutorInterface):
         ...
 
     @abstractmethod
-    def jobid(self, job: ExecutorJobInterface):
+    def jobid(self, job: JobExecutorInterface):
         ...
 
     @abstractmethod
@@ -242,13 +237,13 @@ class DAGExecutorInterface(ABC):
         ...
 
 
-class JobSchedulerExecutorInterface(ABC):
+class JobSchedulerExecutorInterface(JobExecutorInterface, ABC):
     @abstractmethod
     def executor_error_callback(self, exception):
         ...
 
 
-class PersistenceExecutorInterface(ABC):
+class PersistenceExecutorInterface(JobExecutorInterface, ABC):
     @abstractmethod
     def cleanup(self):
         ...
@@ -264,7 +259,7 @@ class PersistenceExecutorInterface(ABC):
         ...
 
 
-class WorkflowExecutorInterface(ABC):
+class WorkflowExecutorInterface(JobExecutorInterface, ABC):
     @property
     @abstractmethod
     def latency_wait(self) -> int:
@@ -397,11 +392,6 @@ class WorkflowExecutorInterface(ABC):
     @property
     @abstractmethod
     def persistence(self) -> PersistenceExecutorInterface:
-        ...
-
-    @property
-    @abstractmethod
-    def keep_metadata(self):
         ...
 
     @property

@@ -16,7 +16,7 @@ from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
 from snakemake.interfaces import (
-    ExecutorJobInterface,
+    JobExecutorInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
 )
@@ -66,7 +66,7 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class AbstractJob(ExecutorJobInterface):
+class AbstractJob(JobExecutorInterface):
     @abstractmethod
     def reset_params_and_resources(self):
         ...

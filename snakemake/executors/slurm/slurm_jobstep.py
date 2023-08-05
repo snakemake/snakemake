@@ -4,7 +4,7 @@ from snakemake.common.tbdstring import TBDString
 from snakemake.executors import ClusterExecutor
 from snakemake.interfaces import (
     DAGExecutorInterface,
-    ExecutorJobInterface,
+    JobExecutorInterface,
     WorkflowExecutorInterface,
 )
 
@@ -59,7 +59,7 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,

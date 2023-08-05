@@ -17,7 +17,7 @@ import math
 
 from snakemake.interfaces import (
     DAGExecutorInterface,
-    ExecutorJobInterface,
+    JobExecutorInterface,
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
@@ -456,7 +456,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             rule = self.workflow.get_rule(rule_name)
             rule.restart_times = restart_times
 
-    def _generate_job_resources(self, job: ExecutorJobInterface):
+    def _generate_job_resources(self, job: JobExecutorInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -757,7 +757,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         _upload()
 
-    def _generate_log_action(self, job: ExecutorJobInterface):
+    def _generate_log_action(self, job: JobExecutorInterface):
         """generate an action to save the pipeline logs to storage."""
         # script should be changed to this when added to version control!
         # https://raw.githubusercontent.com/snakemake/snakemake/main/snakemake/executors/google_lifesciences_helper.py
@@ -779,7 +779,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
         return action
 
-    def _generate_job_action(self, job: ExecutorJobInterface):
+    def _generate_job_action(self, job: JobExecutorInterface):
         """
         Generate a single action to execute the job.
         """
@@ -813,11 +813,11 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         }
         return action
 
-    def _get_jobname(self, job: ExecutorJobInterface):
+    def _get_jobname(self, job: JobExecutorInterface):
         # Use a dummy job name (human readable and also namespaced)
         return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
-    def _generate_pipeline_labels(self, job: ExecutorJobInterface):
+    def _generate_pipeline_labels(self, job: JobExecutorInterface):
         """
         Generate basic labels to identify the job, namespace, and that
         snakemake is running the show!
@@ -842,7 +842,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
             logger.warning("This API does not support environment secrets.")
         return envvars
 
-    def _generate_pipeline(self, job: ExecutorJobInterface):
+    def _generate_pipeline(self, job: JobExecutorInterface):
         """
         Based on the job details, generate a google Pipeline object
         to pass to pipelines.run. This includes actions, resources,
@@ -868,7 +868,7 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,

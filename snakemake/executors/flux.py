@@ -11,7 +11,7 @@ from snakemake.exceptions import WorkflowError
 from snakemake.executors import ClusterExecutor, sleep
 from snakemake.interfaces import (
     DAGExecutorInterface,
-    ExecutorJobInterface,
+    JobExecutorInterface,
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
@@ -79,7 +79,7 @@ class FluxExecutor(ClusterExecutor):
                 flux.job.cancel(self.f, job.jobid)
         self.shutdown()
 
-    def _set_job_resources(self, job: ExecutorJobInterface):
+    def _set_job_resources(self, job: JobExecutorInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -92,13 +92,13 @@ class FluxExecutor(ClusterExecutor):
         assert os.path.exists(self.workflow.main_snakefile)
         return self.workflow.main_snakefile
 
-    def _get_jobname(self, job: ExecutorJobInterface):
+    def _get_jobname(self, job: JobExecutorInterface):
         # Use a dummy job name (human readable and also namespaced)
         return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
     def run(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,

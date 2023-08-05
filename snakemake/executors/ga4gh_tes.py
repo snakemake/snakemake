@@ -10,7 +10,7 @@ from collections import namedtuple
 
 from snakemake.interfaces import (
     DAGExecutorInterface,
-    ExecutorJobInterface,
+    JobExecutorInterface,
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
@@ -77,7 +77,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             max_status_checks_per_second=max_status_checks_per_second,
         )
 
-    def get_job_exec_prefix(self, job: ExecutorJobInterface):
+    def get_job_exec_prefix(self, job: JobExecutorInterface):
         return "mkdir /tmp/conda && cd /tmp"
 
     def shutdown(self):
@@ -98,7 +98,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -223,7 +223,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         logger.warning(members)
         return model(**members)
 
-    def _get_task_description(self, job: ExecutorJobInterface):
+    def _get_task_description(self, job: JobExecutorInterface):
         description = ""
         if job.is_group():
             msgs = [i.message for i in job.jobs if i.message]
@@ -235,7 +235,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
 
         return description
 
-    def _get_task_inputs(self, job: ExecutorJobInterface, jobscript, checkdir):
+    def _get_task_inputs(self, job: JobExecutorInterface, jobscript, checkdir):
         inputs = []
 
         # add workflow sources to inputs
@@ -277,7 +277,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
                 outputs.append(obj)
         return outputs
 
-    def _get_task_outputs(self, job: ExecutorJobInterface, checkdir):
+    def _get_task_outputs(self, job: JobExecutorInterface, checkdir):
         outputs = []
         # add output files to outputs
         outputs = self._append_task_outputs(outputs, job.output, checkdir)
@@ -308,7 +308,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
         )
         return executors
 
-    def _get_task(self, job: ExecutorJobInterface, jobscript):
+    def _get_task(self, job: JobExecutorInterface, jobscript):
         import tes
 
         checkdir, _ = os.path.split(self.snakefile)
