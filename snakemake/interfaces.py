@@ -219,7 +219,7 @@ class GroupJobExecutorInterface(JobExecutorInterface, ABC):
         ...
 
 
-class DAGExecutorInterface(JobExecutorInterface, ABC):
+class DAGExecutorInterface(ABC):
     @abstractmethod
     def is_edit_notebook_job(self, job: JobExecutorInterface):
         ...
@@ -237,13 +237,13 @@ class DAGExecutorInterface(JobExecutorInterface, ABC):
         ...
 
 
-class JobSchedulerExecutorInterface(JobExecutorInterface, ABC):
+class JobSchedulerExecutorInterface(ABC):
     @abstractmethod
     def executor_error_callback(self, exception):
         ...
 
 
-class PersistenceExecutorInterface(JobExecutorInterface, ABC):
+class PersistenceExecutorInterface(ABC):
     @abstractmethod
     def cleanup(self):
         ...
@@ -259,7 +259,7 @@ class PersistenceExecutorInterface(JobExecutorInterface, ABC):
         ...
 
 
-class WorkflowExecutorInterface(JobExecutorInterface, ABC):
+class WorkflowExecutorInterface(ABC):
     @property
     @abstractmethod
     def latency_wait(self) -> int:
