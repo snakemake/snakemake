@@ -29,7 +29,6 @@ from snakemake.interfaces import (
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
-from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
