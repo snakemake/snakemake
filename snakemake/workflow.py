@@ -694,7 +694,7 @@ class Workflow(WorkflowExecutorInterface):
         stats=None,
         force_incomplete=False,
         ignore_incomplete=False,
-        list_version_changes=False,
+        list_conda_env_changes=False,
         list_code_changes=False,
         list_input_changes=False,
         list_params_changes=False,
@@ -852,7 +852,7 @@ class Workflow(WorkflowExecutorInterface):
             or summary
             or detailed_summary
             or archive
-            or list_version_changes
+            or list_conda_env_changes
             or list_code_changes
             or list_input_changes
             or list_params_changes
@@ -1045,8 +1045,8 @@ class Workflow(WorkflowExecutorInterface):
         elif delete_temp_output:
             dag.clean(only_temp=True, dryrun=dryrun)
             return True
-        elif list_version_changes:
-            items = dag.get_outputs_with_changes("version")
+        elif list_conda_env_changes:
+            items = dag.get_outputs_with_changes("conda_env")
             if items:
                 print(*items, sep="\n")
             return True
