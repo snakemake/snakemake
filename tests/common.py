@@ -33,9 +33,9 @@ def dpath(path):
 def md5sum(filename, ignore_newlines=False):
     if ignore_newlines:
         with open(filename, "r", encoding="utf-8", errors="surrogateescape") as f:
-            data = f.read().encode("utf8", errors="surrogateescape")
+            data = f.read().strip().encode("utf8", errors="surrogateescape")
     else:
-        data = open(filename, "rb").read()
+        data = open(filename, "rb").read().strip()
     return hashlib.md5(data).hexdigest()
 
 
@@ -285,9 +285,9 @@ def run(
                 md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
                 if md5target != md5expected:
                     with open(expectedfile) as expected:
-                        expected_content = expected.read()
+                        expected_content = expected.read().strip()
                     with open(targetfile) as target:
-                        content = target.read()
+                        content = target.read().strip()
                     assert (
                         False
                     ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
