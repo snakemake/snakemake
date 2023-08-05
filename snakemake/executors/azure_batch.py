@@ -295,9 +295,6 @@ class AzBatchExecutor(ClusterExecutor):
 
         self.workdir = dirname
 
-        # Relative path for running on instance
-        self._set_snakefile()
-
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
@@ -854,14 +851,6 @@ class AzBatchExecutor(ClusterExecutor):
                 raise WorkflowError(
                     "AZ_BLOB_CREDENTIAL is not a valid storage account SAS token."
                 )
-
-    def _set_snakefile(self):
-        """The snakefile must be a relative path, which cannot be reliably
-        derived from the self.workflow.snakefile as we might have moved
-        execution into a temporary directory, and the initial Snakefile
-        was somewhere else on the system.
-        """
-        self.snakefile = os.path.basename(self.workflow.main_snakefile)
 
     # from google_lifesciences.py
     def _set_workflow_sources(self):
