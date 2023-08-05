@@ -3,46 +3,31 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-import sys
 import base64
-import tempfile
 import json
+import os
 import shutil
-
+import sys
+import tempfile
+from abc import abstractmethod
 from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
-from abc import ABC, abstractmethod
-from snakemake.interfaces import (
-    JobExecutorInterface,
-    GroupJobExecutorInterface,
-    SingleJobExecutorInterface,
-)
 
-from snakemake.io import (
-    IOFile,
-    Wildcards,
-    Resources,
-    is_flagged,
-    get_flag_value,
-    wait_for_files,
-)
+from snakemake.common import (DYNAMIC_FILL, IO_PROP_LIMIT, TBDString, get_uuid,
+                              is_local_file, lazy_property)
+from snakemake.exceptions import (ProtectedOutputException, RuleException,
+                                  WorkflowError)
+from snakemake.interfaces import (GroupJobExecutorInterface,
+                                  JobExecutorInterface,
+                                  SingleJobExecutorInterface)
+from snakemake.io import (IOFile, Resources, Wildcards, get_flag_value,
+                          is_flagged, wait_for_files)
+from snakemake.logging import logger
 from snakemake.resources import GroupResources
 from snakemake.target_jobs import TargetSpec
 from snakemake.utils import format, listfiles
-from snakemake.exceptions import RuleException, ProtectedOutputException, WorkflowError
-
-from snakemake.logging import logger
-from snakemake.common import (
-    DYNAMIC_FILL,
-    is_local_file,
-    lazy_property,
-    get_uuid,
-    TBDString,
-    IO_PROP_LIMIT,
-)
 
 
 def format_files(job, io, dynamicio):
@@ -1203,10 +1188,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def name(self):
         return self.rule.name
-
-    @property
-    def priority(self):
-        return self.dag.priority(self)
 
     def products(self, include_logfiles=True):
         products = list(self.output)

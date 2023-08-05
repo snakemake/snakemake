@@ -3,58 +3,61 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from abc import ABC, abstractmethod
 import asyncio
-import os
-import sys
-import contextlib
-import time
-import json
-import stat
-import shutil
-import shlex
-import threading
-import concurrent.futures
-import subprocess
-import tempfile
-from functools import partial
-from collections import namedtuple
 import base64
-from typing import List
-import uuid
-import re
+import concurrent.futures
+import contextlib
+import json
 import math
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    JobExecutorInterface,
-    GroupJobExecutorInterface,
-    SingleJobExecutorInterface,
-    WorkflowExecutorInterface,
-)
-from snakemake.target_jobs import encode_target_jobs_cli_args
+import os
+import re
+import shlex
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from abc import ABC, abstractmethod
+from collections import namedtuple
 from fractions import Fraction
+from functools import partial
+from typing import List, Tuple, Union
 
-from snakemake.shell import shell
-from snakemake.logging import logger
-from snakemake.stats import Stats
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
-from snakemake.exceptions import print_exception, get_exception_origin
-from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
-from snakemake.exceptions import (
-    WorkflowError,
-    SpawnedJobError,
-    CacheMissException,
-)
 from snakemake.common import (
     Mode,
+    async_lock,
     get_container_image,
     get_uuid,
     lazy_property,
-    async_lock,
+)
+from snakemake.exceptions import (
+    CacheMissException,
+    RuleException,
+    SpawnedJobError,
+    WorkflowError,
+    format_error,
+    get_exception_origin,
+    log_verbose_traceback,
+    print_exception,
 )
 from snakemake.executors.common import format_cli_arg, join_cli_args
-
+from snakemake.interfaces import (
+    AnyJobExecutorInterface,
+    DAGExecutorInterface,
+    GroupJobExecutorInterface,
+    JobExecutorInterface,
+    SingleJobExecutorInterface,
+    WorkflowExecutorInterface,
+)
+from snakemake.io import Wildcards, get_wildcard_names
+from snakemake.logging import logger
+from snakemake.shell import shell
+from snakemake.stats import Stats
+from snakemake.target_jobs import encode_target_jobs_cli_args
+from snakemake.utils import makedirs
 
 # TODO move each executor into a separate submodule
 
@@ -143,7 +146,7 @@ class AbstractExecutor(ABC):
 
     def run_jobs(
         self,
-        jobs: List[JobExecutorInterface],
+        jobs: List[AnyJobExecutorInterface],
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -164,7 +167,7 @@ class AbstractExecutor(ABC):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -181,14 +184,14 @@ class AbstractExecutor(ABC):
     def cancel(self):
         ...
 
-    def _run(self, job: JobExecutorInterface):
+    def _run(self, job: AnyJobExecutorInterface):
         job.check_protected_output()
         self.printjob(job)
 
     def rule_prefix(self, job: JobExecutorInterface):
         return "local " if job.is_local else ""
 
-    def printjob(self, job: JobExecutorInterface):
+    def printjob(self, job: AnyJobExecutorInterface):
         job.log_info(skip_dynamic=True)
 
     def print_job_error(self, job: JobExecutorInterface, msg=None, **kwargs):
@@ -204,15 +207,17 @@ class AbstractExecutor(ABC):
 
 
 class DryrunExecutor(AbstractExecutor):
-    def printjob(self, job: JobExecutorInterface):
+    def printjob(self, job: AnyJobExecutorInterface):
         super().printjob(job)
         if job.is_group():
-            for j in job.jobs:
+            job: GroupJobExecutorInterface  # type: ignore [no-redef]
+            for j in job.jobs:  # type: ignore [union-attr]
                 self.printcache(j)
         else:
-            self.printcache(job)
+            job: SingleJobExecutorInterface  # type: ignore [no-redef]
+            self.printcache(job)  # type: ignore [arg-type]
 
-    def printcache(self, job: JobExecutorInterface):
+    def printcache(self, job: SingleJobExecutorInterface):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         if cache_mode:
             if self.workflow.output_file_cache.exists(job, cache_mode):
@@ -263,11 +268,12 @@ class RealExecutor(AbstractExecutor):
         self.assume_shared_fs = assume_shared_fs
         self.stats = Stats()
         self.snakefile = workflow.main_snakefile
+        self.cores = 1
 
     def register_job(self, job: JobExecutorInterface):
         job.register()
 
-    def _run(self, job: JobExecutorInterface, callback=None, error_callback=None):
+    def _run(self, job: AnyJobExecutorInterface, callback=None, error_callback=None):
         super()._run(job)
         self.stats.report_job_start(job)
 
@@ -397,7 +403,7 @@ class RealExecutor(AbstractExecutor):
     def get_workdir_arg(self):
         return self.workflow_property_to_arg("overwrite_workdir", flag="--directory")
 
-    def get_job_args(self, job: JobExecutorInterface, **kwargs):
+    def get_job_args(self, job: AnyJobExecutorInterface, **kwargs):
         return join_cli_args(
             [
                 format_cli_arg(
@@ -445,7 +451,7 @@ class RealExecutor(AbstractExecutor):
     def get_job_exec_suffix(self, job: JobExecutorInterface):
         return ""
 
-    def format_job_exec(self, job: JobExecutorInterface):
+    def format_job_exec(self, job: AnyJobExecutorInterface):
         prefix = self.get_job_exec_prefix(job)
         if prefix:
             prefix += " &&"
@@ -469,7 +475,7 @@ class RealExecutor(AbstractExecutor):
 class TouchExecutor(RealExecutor):
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -483,7 +489,7 @@ class TouchExecutor(RealExecutor):
             print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    def handle_job_success(self, job: JobExecutorInterface):
+    def handle_job_success(self, job: JobExecutorInterface):  # type: ignore [override] #No params should be passed here
         super().handle_job_success(job, ignore_missing_output=True)
 
     def cancel(self):
@@ -499,7 +505,7 @@ class TouchExecutor(RealExecutor):
         raise NotImplementedError()
 
 
-_ProcessPoolExceptions = (KeyboardInterrupt,)
+_ProcessPoolExceptions: Tuple = (KeyboardInterrupt,)
 try:
     from concurrent.futures.process import BrokenProcessPool
 
@@ -555,12 +561,12 @@ class CPUExecutor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
-    def get_job_args(self, job: JobExecutorInterface, **kwargs):
+    def get_job_args(self, job: AnyJobExecutorInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet"
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -568,8 +574,9 @@ class CPUExecutor(RealExecutor):
         super()._run(job)
 
         if job.is_group():
+            job: GroupJobExecutorInterface  # type: ignore [no-redef]
             # if we still don't have enough workers for this group, create a new pool here
-            missing_workers = max(len(job) - self.workers, 0)
+            missing_workers = max(len(job) - self.workers, 0)  # type: ignore [arg-type]
             if missing_workers:
                 self.workers += missing_workers
                 self.pool = concurrent.futures.ThreadPoolExecutor(
@@ -577,13 +584,14 @@ class CPUExecutor(RealExecutor):
                 )
 
             # the future waits for the entire group job
-            future = self.pool.submit(self.run_group_job, job)
+            future = self.pool.submit(self.run_group_job, job)  # type: ignore [arg-type]
         else:
-            future = self.run_single_job(job)
+            job: SingleJobExecutorInterface  # type: ignore [no-redef]
+            future = self.run_single_job(job)  # type: ignore [arg-type]
 
         future.add_done_callback(partial(self._callback, job, callback, error_callback))
 
-    def job_args_and_prepare(self, job: JobExecutorInterface):
+    def job_args_and_prepare(self, job: SingleJobExecutorInterface):
         job.prepare()
 
         conda_env = (
@@ -726,10 +734,10 @@ class CPUExecutor(RealExecutor):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
-    def handle_job_success(self, job: JobExecutorInterface):
+    def handle_job_success(self, job: JobExecutorInterface):  # type: ignore [override] #No params should be passed here
         super().handle_job_success(job)
 
-    def handle_job_error(self, job: JobExecutorInterface):
+    def handle_job_error(self, job: JobExecutorInterface):  # type: ignore [override] #No params should be passed here
         super().handle_job_error(job)
         if not self.keepincomplete:
             job.cleanup()
@@ -805,7 +813,7 @@ class ClusterExecutor(RealExecutor):
 
         self.restart_times = restart_times
 
-        self.active_jobs = list()
+        self.active_jobs: List[Tuple] = list()
         self.lock = threading.Lock()
         self.wait = True
         self.wait_thread = threading.Thread(target=self._wait_thread)
@@ -855,7 +863,7 @@ class ClusterExecutor(RealExecutor):
     def get_exec_mode(self):
         return Mode.cluster
 
-    def get_job_args(self, job: JobExecutorInterface):
+    def get_job_args(self, job: AnyJobExecutorInterface, **kwargs):
         waitfiles_parameter = ""
         if self.assume_shared_fs:
             wait_for_files = []
@@ -875,7 +883,7 @@ class ClusterExecutor(RealExecutor):
             else:
                 waitfiles_parameter = format_cli_arg("--wait-for-files", wait_for_files)
 
-        return f"{super().get_job_args(job)} {waitfiles_parameter}"
+        return f"{super().get_job_args(job, **kwargs)} {waitfiles_parameter}"
 
     @abstractmethod
     async def _wait_for_jobs(self):
@@ -902,7 +910,7 @@ class ClusterExecutor(RealExecutor):
     def cancel(self):
         self.shutdown()
 
-    def _run(self, job: JobExecutorInterface, callback=None, error_callback=None):
+    def _run(self, job: AnyJobExecutorInterface, callback=None, error_callback=None):
         if self.assume_shared_fs:
             job.remove_existing_output()
             job.download_remote_input()
@@ -914,10 +922,10 @@ class ClusterExecutor(RealExecutor):
             self._tmpdir = tempfile.mkdtemp(dir=".snakemake", prefix="tmp.")
         return os.path.abspath(self._tmpdir)
 
-    def get_jobname(self, job: JobExecutorInterface):
+    def get_jobname(self, job: AnyJobExecutorInterface):
         return job.format_wildcards(self.jobname, cluster=self.cluster_wildcards(job))
 
-    def get_jobscript(self, job: JobExecutorInterface):
+    def get_jobscript(self, job: AnyJobExecutorInterface):
         f = self.get_jobname(job)
 
         if os.path.sep in f:
@@ -928,7 +936,7 @@ class ClusterExecutor(RealExecutor):
 
         return os.path.join(self.tmpdir, f)
 
-    def write_jobscript(self, job: JobExecutorInterface, jobscript):
+    def write_jobscript(self, job: AnyJobExecutorInterface, jobscript):
         exec_job = self.format_job_exec(job)
 
         try:
@@ -950,7 +958,7 @@ class ClusterExecutor(RealExecutor):
             print(content, file=f)
         os.chmod(jobscript, os.stat(jobscript).st_mode | stat.S_IXUSR | stat.S_IRUSR)
 
-    def cluster_params(self, job: JobExecutorInterface):
+    def cluster_params(self, job: AnyJobExecutorInterface):
         """Return wildcards object for job from cluster_config."""
         cluster = self.cluster_config.get("__default__", dict()).copy()
         cluster.update(self.cluster_config.get(job.name, dict()))
@@ -961,6 +969,7 @@ class ClusterExecutor(RealExecutor):
                     cluster[key] = job.format_wildcards(value)
                 except NameError as e:
                     if job.is_group():
+                        job: GroupJobExecutorInterface  # type: ignore [no-redef]
                         msg = (
                             "Failed to format cluster config for group job. "
                             "You have to ensure that your default entry "
@@ -968,23 +977,24 @@ class ClusterExecutor(RealExecutor):
                             "cannot provide, like {rule}, {wildcards}."
                         )
                     else:
+                        job: SingleJobExecutorInterface  # type: ignore [no-redef]
                         msg = (
                             "Failed to format cluster config "
-                            "entry for job {}.".format(job.rule.name)
+                            "entry for job {}.".format(job.rule.name)  # type: ignore [union-attr]
                         )
                     raise WorkflowError(msg, e)
 
         return cluster
 
-    def cluster_wildcards(self, job: JobExecutorInterface):
+    def cluster_wildcards(self, job: AnyJobExecutorInterface):
         return Wildcards(fromdict=self.cluster_params(job))
 
-    def handle_job_success(self, job: JobExecutorInterface):
+    def handle_job_success(self, job: JobExecutorInterface):  # type: ignore [override] #No params should be passed here
         super().handle_job_success(
             job, upload_remote=False, handle_log=False, handle_touch=False
         )
 
-    def handle_job_error(self, job: JobExecutorInterface):
+    def handle_job_error(self, job: JobExecutorInterface):  # type: ignore [override] #No params should be passed here
         # TODO what about removing empty remote dirs?? This cannot be decided
         # on the cluster node.
         super().handle_job_error(job, upload_remote=False)
@@ -1196,7 +1206,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -1244,7 +1254,7 @@ class GenericClusterExecutor(ClusterExecutor):
                 self.submitcmd, dependencies=deps, cluster=self.cluster_wildcards(job)
             )
         except AttributeError as e:
-            raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)
+            raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)  # type: ignore [union-attr]
 
         try:
             env = dict(os.environ)
@@ -1355,7 +1365,7 @@ class GenericClusterExecutor(ClusterExecutor):
 
         else:
 
-            def job_status(job):
+            def job_status(job, valid_returns=None):
                 if os.path.exists(active_job.jobfinished):
                     os.remove(active_job.jobfinished)
                     os.remove(active_job.jobscript)
@@ -1454,7 +1464,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -1472,7 +1482,7 @@ class SynchronousClusterExecutor(ClusterExecutor):
                 self.submitcmd, dependencies=deps, cluster=self.cluster_wildcards(job)
             )
         except AttributeError as e:
-            raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)
+            raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)  # type: ignore [union-attr]
 
         process = subprocess.Popen(
             '{submitcmd} "{jobscript}"'.format(
@@ -1580,7 +1590,7 @@ class DRMAAExecutor(ClusterExecutor):
 
     def cancel(self):
         from drmaa.const import JobControlAction
-        from drmaa.errors import InvalidJobException, InternalException
+        from drmaa.errors import InternalException, InvalidJobException
 
         for jobid in self.submitted:
             try:
@@ -1592,7 +1602,7 @@ class DRMAAExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -1606,7 +1616,7 @@ class DRMAAExecutor(ClusterExecutor):
                 self.drmaa_args, cluster=self.cluster_wildcards(job)
             )
         except AttributeError as e:
-            raise WorkflowError(str(e), rule=job.rule)
+            raise WorkflowError(str(e), rule=job.rule if not job.is_group() else None)  # type: ignore [union-attr]
 
         import drmaa
 
@@ -1928,7 +1938,7 @@ class KubernetesExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,
@@ -2315,7 +2325,7 @@ class TibannaExecutor(ClusterExecutor):
     def get_snakefile(self):
         return os.path.basename(self.snakefile)
 
-    def add_command(self, job: JobExecutorInterface, tibanna_args, tibanna_config):
+    def add_command(self, job: AnyJobExecutorInterface, tibanna_args, tibanna_config):
         # format command
         command = self.format_job_exec(job)
 
@@ -2352,8 +2362,9 @@ class TibannaExecutor(ClusterExecutor):
             rel = f
         return rel
 
-    def make_tibanna_input(self, job: JobExecutorInterface):
-        from tibanna import ec2_utils, core as tibanna_core
+    def make_tibanna_input(self, job: AnyJobExecutorInterface):
+        from tibanna import core as tibanna_core
+        from tibanna import ec2_utils
 
         # input & output
         # Local snakemake command here must be run with --default-remote-prefix
@@ -2411,9 +2422,11 @@ class TibannaExecutor(ClusterExecutor):
         # jobid, grouping, run_name
         jobid = tibanna_core.create_jobid()
         if job.is_group():
-            run_name = f"snakemake-job-{str(jobid)}-group-{str(job.groupid)}"
+            job: GroupJobExecutorInterface  # type: ignore [no-redef]
+            run_name = f"snakemake-job-{str(jobid)}-group-{str(job.groupid)}"  # type: ignore [union-attr]
         else:
-            run_name = f"snakemake-job-{str(jobid)}-rule-{str(job.rule)}"
+            job: SingleJobExecutorInterface  # type: ignore [no-redef]
+            run_name = f"snakemake-job-{str(jobid)}-rule-{str(job.rule)}"  # type: ignore [union-attr]
 
         # tibanna input
         tibanna_config = {
@@ -2446,7 +2459,7 @@ class TibannaExecutor(ClusterExecutor):
 
     def run(
         self,
-        job: JobExecutorInterface,
+        job: AnyJobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,

@@ -3,10 +3,10 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import sys
-
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
+from typing import Dict, Generator, List, Optional, Union
+
+from snakemake import io
 
 
 class JobExecutorInterface(ABC):
@@ -82,7 +82,17 @@ class JobExecutorInterface(ABC):
         ...
 
     @abstractmethod
-    def postprocess(self):
+    def postprocess(
+        self,
+        upload_remote=True,
+        handle_log=True,
+        handle_touch=True,
+        error=False,
+        ignore_missing_output=False,
+        assume_shared_fs=True,
+        latency_wait=None,
+        keep_metadata=True,
+    ):
         ...
 
     @abstractmethod
@@ -128,6 +138,11 @@ class JobExecutorInterface(ABC):
     @property
     @abstractmethod
     def needs_singularity(self):
+        ...
+
+    @property
+    @abstractmethod
+    def expanded_output(self) -> Generator[io._IOFile, None, None]:
         ...
 
 
@@ -201,6 +216,16 @@ class SingleJobExecutorInterface(JobExecutorInterface, ABC):
     def message(self):
         ...
 
+    @property
+    @abstractmethod
+    def is_service(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def is_shell(self) -> bool:
+        ...
+
 
 class GroupJobExecutorInterface(JobExecutorInterface, ABC):
     @property
@@ -217,6 +242,17 @@ class GroupJobExecutorInterface(JobExecutorInterface, ABC):
     @abstractmethod
     def toposorted(self):
         ...
+
+    @abstractmethod
+    def __len__(self):
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Generator[SingleJobExecutorInterface, None, None]:
+        ...
+
+
+AnyJobExecutorInterface = Union[GroupJobExecutorInterface, SingleJobExecutorInterface]
 
 
 class DAGExecutorInterface(ABC):
@@ -245,7 +281,7 @@ class JobSchedulerExecutorInterface(ABC):
 
 class PersistenceExecutorInterface(ABC):
     @abstractmethod
-    def cleanup(self):
+    def cleanup(self, job: JobExecutorInterface):
         ...
 
     @property
@@ -256,6 +292,10 @@ class PersistenceExecutorInterface(ABC):
     @property
     @abstractmethod
     def aux_path(self):
+        ...
+
+    @abstractmethod
+    def started(self, job, external_jobid=None) -> None:
         ...
 
 
