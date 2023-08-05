@@ -3,29 +3,31 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import os
-from collections import namedtuple
-from urllib.parse import urlparse
 import datetime
-import uuid
 import io
+import os
+import re
 import shutil
+import sys
 import tarfile
 import tempfile
-import sys
-import re
-import msrest.authentication as msa
+import uuid
+from collections import namedtuple
 from pprint import pformat
+from typing import Optional
+from urllib.parse import urlparse
 
-from snakemake.executors import ClusterExecutor, sleep
+import msrest.authentication as msa
+
+from snakemake.common import async_lock, bytesto, get_container_image, get_file_hash
 from snakemake.exceptions import WorkflowError
+from snakemake.executors import ClusterExecutor, sleep
 from snakemake.interfaces import (
     DAGExecutorInterface,
     ExecutorJobInterface,
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
-from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
@@ -152,7 +154,7 @@ class AzBatchConfig:
         )
 
     @staticmethod
-    def set_or_default(evar: str, default: str | None):
+    def set_or_default(evar: str, default: Optional[str]):
         gotvar = os.getenv(evar)
         if gotvar is not None:
             return gotvar
@@ -192,7 +194,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
 
     def _make_request(self):
         try:
-            from azure.core.pipeline import PipelineRequest, PipelineContext
+            from azure.core.pipeline import PipelineContext, PipelineRequest
             from azure.core.pipeline.transport import HttpRequest
         except ImportError:
             raise WorkflowError("The Python 3 package azure-core is required")
@@ -256,9 +258,10 @@ class AzBatchExecutor(ClusterExecutor):
 
         try:
             from azure.batch import BatchServiceClient
-            from azure.mgmt.batch import BatchManagementClient
             from azure.batch.batch_auth import SharedKeyCredentials
             from azure.identity import DefaultAzureCredential
+            from azure.mgmt.batch import BatchManagementClient
+
             from snakemake.remote.AzBlob import AzureStorageHelper
 
         except ImportError:

@@ -4,43 +4,51 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import html
-from operator import attrgetter
 import os
-import sys
 import shutil
+import subprocess
+import sys
+import tarfile
 import textwrap
 import time
-import tarfile
-from collections import defaultdict, Counter, deque, namedtuple
-from itertools import chain, filterfalse, groupby
-from functools import partial
-from pathlib import Path
 import uuid
-import subprocess
-from snakemake.interfaces import DAGExecutorInterface
+from collections import Counter, defaultdict, deque, namedtuple
+from functools import partial
+from itertools import chain, filterfalse, groupby
+from operator import attrgetter
+from pathlib import Path
 
+from snakemake import workflow
+from snakemake import workflow as _workflow
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
+from snakemake.deployment import singularity
+from snakemake.exceptions import (
+    AmbiguousRuleException,
+    ChildIOException,
+    CyclicGraphException,
+    ImproperOutputException,
+    IncompleteFilesException,
+    InputFunctionException,
+    MissingInputException,
+    MissingOutputException,
+    MissingRuleException,
+    PeriodicWildcardError,
+    RemoteFileException,
+    WildcardError,
+    WorkflowError,
+)
+from snakemake.interfaces import DAGExecutorInterface
 from snakemake.io import (
     PeriodicityDetector,
     get_flag_value,
     is_callable,
-    wait_for_files,
     is_flagged,
+    wait_for_files,
 )
-from snakemake.jobs import Reason, JobFactory, GroupJobFactory, Job
-from snakemake.exceptions import MissingInputException, WildcardError
-from snakemake.exceptions import MissingRuleException, AmbiguousRuleException
-from snakemake.exceptions import CyclicGraphException, MissingOutputException
-from snakemake.exceptions import IncompleteFilesException, ImproperOutputException
-from snakemake.exceptions import PeriodicWildcardError
-from snakemake.exceptions import RemoteFileException, WorkflowError, ChildIOException
-from snakemake.exceptions import InputFunctionException
+from snakemake.jobs import GroupJobFactory, Job, JobFactory, Reason
 from snakemake.logging import logger
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
-from snakemake.deployment import singularity
 from snakemake.output_index import OutputIndex
-from snakemake import workflow
 from snakemake.sourcecache import LocalSourceFile, SourceFile
-
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
 
@@ -132,7 +140,7 @@ class DAG(DAGExecutorInterface):
         self._finished = set()
         self._dynamic = set()
         self._len = 0
-        self.workflow = workflow
+        self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
         self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles

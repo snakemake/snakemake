@@ -9,7 +9,6 @@ from snakemake.common import MIN_PY_VERSION
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(
         f"Snakemake requires at least Python {MIN_PY_VERSION}. Please ensure to execute it in a compatible Python environment.",
-        file=sys.stderr,
     )
 
 import os
@@ -1228,10 +1227,10 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--workflow-profile",
         help="""
-            Path (relative to current directory) to workflow specific profile 
+            Path (relative to current directory) to workflow specific profile
             folder to use for configuring Snakemake with parameters specific for this
             workflow (like resources).
-            If this flag is not used, Snakemake will by default use 
+            If this flag is not used, Snakemake will by default use
             'profiles/default' if present (searched both relative to current directory
             and relative to Snakefile, in this order).
             For skipping any workflow specific profile provide the special value 'none'.
@@ -1244,7 +1243,7 @@ def get_argument_parser(profiles=None):
             file. It is advisable to use the workflow profile to set
             or overwrite e.g. workflow specific resources like the amount of threads
             of a particular rule or the amount of memory needed.
-            Note that in such cases, the arguments may be given as nested YAML mappings 
+            Note that in such cases, the arguments may be given as nested YAML mappings
             in the profile, e.g. 'set-threads: myrule: 4' instead of 'set-threads: myrule=4'.
             """,
     )

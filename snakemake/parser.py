@@ -3,10 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import tokenize
 import textwrap
+import tokenize
+from typing import Any, Dict, Generator, List, Optional
 
-from snakemake import common
+import snakemake
+from snakemake import common, sourcecache, workflow
 
 dd = textwrap.dedent
 
@@ -67,9 +69,9 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-    subautomata = dict()
+    subautomata: Dict[str, Any] = {}
 
-    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+    def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
         self.snakefile = snakefile
         self.state = None
@@ -187,8 +189,8 @@ class GlobalKeywordState(KeywordState):
 
 
 class DecoratorKeywordState(KeywordState):
-    decorator = None
-    args = list()
+    decorator: Optional[str] = None
+    args: List[str] = []
 
     def start(self):
         yield f"@workflow.{self.decorator}"
@@ -559,9 +561,9 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-    overwrite_cmd = None
-    start_func = None
-    end_func = None
+    overwrite_cmd: Optional[str] = None
+    start_func: Optional[str] = None
+    end_func: Optional[str] = None
 
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(
@@ -1219,7 +1221,7 @@ class Python(TokenAutomaton):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.python
 
-    def python(self, token):
+    def python(self, token: tokenize.TokenInfo):
         if not (is_indent(token) or is_dedent(token)):
             if self.lasttoken is None or self.lasttoken.isspace():
                 try:
@@ -1236,7 +1238,12 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path, workflow, rulecount=0):
+    def __init__(
+        self,
+        path: "sourcecache.SourceFile",
+        workflow: "workflow.Workflow",
+        rulecount=0,
+    ):
         self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
@@ -1256,8 +1263,8 @@ class Snakefile:
         self.file.close()
 
 
-def format_tokens(tokens):
-    t_ = None
+def format_tokens(tokens) -> Generator[str, None, None]:
+    t_: Optional[str] = None
     for t in tokens:
         if t_ and not t.isspace() and not t_.isspace():
             yield " "
