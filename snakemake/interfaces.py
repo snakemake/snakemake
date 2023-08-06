@@ -147,10 +147,9 @@ class JobExecutorInterface(ABC):
 
 
 class SingleJobExecutorInterface(JobExecutorInterface, ABC):
-    @property
     @abstractmethod
-    def rule(self):
-        ...
+    def __init__(self, rule):
+        self.rule = rule
 
     @abstractmethod
     def prepare(self):

@@ -1640,7 +1640,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         if not isinstance(other, AbstractJob):
             return False
         if other.is_group():
-            return self.jobs == other.jobs
+            other: GroupJob  # type: ignore [no-redef]
+            return self.jobs == other.jobs  # type: ignore [attr-defined]
         else:
             return False
 
@@ -1806,10 +1807,10 @@ class Reason:
                         "Software environment definition has changed since last execution"
                     )
 
-        s = "; ".join(s)
+        s_ = "; ".join(s)
         if self.finished:
-            return f"Finished (was: {s})"
-        return s
+            return f"Finished (was: {s_})"
+        return s_
 
     def __bool__(self):
         v = bool(
