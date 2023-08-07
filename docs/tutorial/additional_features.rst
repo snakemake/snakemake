@@ -77,8 +77,9 @@ For this, Snakemake provides the ``include`` directive to include another Snakef
 
 .. code:: python
 
-    include: "path/to/other.snakefile"
+    include: "path/to/other.smk"
 
+As can be seen, the default file extensions for snakefiles other than the main snakefile is ``.smk``.
 Alternatively, Snakemake allows to **define sub-workflows**.
 A sub-workflow refers to a working directory with a complete Snakemake workflow.
 Output files of that sub-workflow can be used in the current Snakefile.
