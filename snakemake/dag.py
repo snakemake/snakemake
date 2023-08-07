@@ -40,7 +40,6 @@ from snakemake.exceptions import (
     WildcardError,
     WorkflowError,
 )
-from snakemake.interfaces import DAGExecutorInterface
 from snakemake.io import (
     PeriodicityDetector,
     get_flag_value,
