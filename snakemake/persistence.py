@@ -15,8 +15,11 @@ from functools import lru_cache
 from itertools import count
 from pathlib import Path
 
+from snakemake_interface_executor_plugins.persistence import (
+    PersistenceExecutorInterface,
+)
+
 import snakemake.exceptions
-from snakemake.interfaces import PersistenceExecutorInterface
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles

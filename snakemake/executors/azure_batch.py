@@ -18,16 +18,18 @@ from pprint import pformat
 from typing import Optional
 from urllib.parse import urlparse
 
+from snakemake_interface_executor_plugins.executors import RemoteExecutor
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import sleep
+
+from snakemake.exceptions import WorkflowError
 import msrest.authentication as msa
 
 from snakemake.common import async_lock, bytesto, get_container_image, get_file_hash
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor, sleep
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+from snakemake.executors import sleep
 from snakemake.logging import logger
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
@@ -221,24 +223,20 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         return super(AzureIdentityCredentialAdapter, self).signed_session(session)
 
 
-class AzBatchExecutor(ClusterExecutor):
+class AzBatchExecutor(RemoteExecutor):
     "Azure Batch Executor"
 
     def __init__(
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        cores,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
         container_image=None,
         regions=None,
         location=None,
         cache=False,
-        local_input=None,
-        restart_times=None,
         max_status_checks_per_second=1,
         az_batch_account_url=None,
         az_batch_enable_autoscale=False,
@@ -246,14 +244,11 @@ class AzBatchExecutor(ClusterExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=1,
+            max_status_checks_per_second=max_status_checks_per_second,
         )
 
         try:

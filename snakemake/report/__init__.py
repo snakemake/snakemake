@@ -42,11 +42,12 @@ from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake.common import (
     get_input_function_aux_params,
-    lazy_property,
 )
 from snakemake import logging
 from snakemake.report import data
 from snakemake.report.rulegraph_spec import rulegraph_spec
+
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 class EmbeddedMixin(object):
@@ -572,7 +573,7 @@ def auto_report(dag, path, stylesheet=None):
         try:
             with open(stylesheet) as s:
                 custom_stylesheet = s.read()
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")

@@ -43,8 +43,7 @@ jobs:
 
   testing:
     runs-on: ubuntu-latest
-    # TODO comment in once slurm works again
-    # needs: formatting
+    needs: formatting
     services:
       mysql:
         image: mysql:8.0
@@ -169,7 +168,11 @@ jobs:
         shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
+
           mamba env update -q -n snakemake --file test-environment.yml
+
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
 
           # additionally add singularity
 
@@ -310,6 +313,9 @@ jobs:
         run: |
           conda config --set channel_priority strict
           mamba env update -q --file test-environment.yml
+
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
       - name: Run tests
         env:
           CI: true

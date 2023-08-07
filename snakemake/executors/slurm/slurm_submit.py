@@ -7,15 +7,16 @@ import time
 import shlex
 import subprocess
 import uuid
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
 from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
@@ -86,7 +87,7 @@ def get_default_partition(job):
     return ""
 
 
-class SlurmExecutor(ClusterExecutor):
+class SlurmExecutor(RemoteExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
@@ -96,26 +97,18 @@ class SlurmExecutor(ClusterExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        cores,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob_{name}_{jobid}",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
         max_status_checks_per_second=0.5,
-        cluster_config=None,
     ):
         super().__init__(
             workflow,
             dag,
-            cores,
+            stats,
+            logger,
+            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
-            restart_times=restart_times,
-            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
         self.run_uuid = str(uuid.uuid4())

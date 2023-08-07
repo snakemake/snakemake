@@ -34,8 +34,8 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
-    SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
+    get_snakemake_searchpaths,
 )
 from snakemake.deployment import singularity
 
@@ -543,33 +543,34 @@ class PythonScript(ScriptBase):
         # Obtain search path for current snakemake module.
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
+        searchpaths = get_snakemake_searchpaths()
         if container_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = repr(searchpath)
+            searchpaths = singularity.get_snakemake_searchpath_mountpoints()
 
         # Add the cache path to the search path so that other cached source files in the same dir
         # can be imported.
         if cache_path:
+            # TODO handle this in case of container_img, analogously to above
             cache_searchpath = os.path.dirname(cache_path)
             if cache_searchpath:
-                searchpath += ", " + repr(cache_searchpath)
+                searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
+            searchpaths.append(path.get_basedir().get_path_or_uri())
 
-        return textwrap.dedent(
+        preamble = textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
+        import sys; sys.path.extend({searchpaths}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
         ######## snakemake preamble end #########
         """
         ).format(
-            searchpath=searchpath,
+            searchpaths=repr(searchpaths),
             snakemake=snakemake,
             printshellcmds=logger.printshellcmds,
             preamble_addendum=preamble_addendum,
         )
+        return preamble
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
@@ -1042,16 +1043,6 @@ class RustScript(ScriptBase):
 
         json_string = json.dumps(dict(snakemake))
 
-        # Obtain search path for current snakemake module.
-        # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
-        if container_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = repr(searchpath)
-        # For local scripts, add their location to the path in case they use path-based imports
-        if is_local:
-            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
-
         return textwrap.dedent(
             """
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
@@ -1150,17 +1141,6 @@ class RustScript(ScriptBase):
                         .open(path)?;
                     Ok(gag::Redirect::stdout(log)?)
                 }}
-                
-                fn setup_path(&self) -> anyhow::Result<()> {{
-                    use std::env;
-                    if let Some(path) = env::var_os("PATH") {{
-                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
-                        paths.push(std::path::PathBuf::from("{searchpath}"));
-                        let new_path = env::join_paths(paths)?;
-                        env::set_var("PATH", &new_path);
-                    }}
-                    Ok(())
-                }}
             }}
             
             lazy_static::lazy_static! {{
@@ -1168,14 +1148,12 @@ class RustScript(ScriptBase):
                 #[allow(non_upper_case_globals)]
                 static ref snakemake: Snakemake = {{
                     let s: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
-                    s.setup_path().expect("Failed setting PATH");
                     s
                 }};
             }}
             // TODO include addendum, if any {{preamble_addendum}}
             """
         ).format(
-            searchpath=searchpath,
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )

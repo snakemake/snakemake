@@ -11,8 +11,9 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from snakemake.interfaces import WorkflowExecutorInterface
 
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import ExecMode
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -24,7 +25,6 @@ from snakemake.exceptions import (
     NoRulesException,
     WorkflowError,
 )
-from snakemake.shell import shell
 from snakemake.dag import DAG
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
@@ -39,7 +39,6 @@ from snakemake.io import (
     dynamic,
     glob_wildcards,
     flag,
-    not_iterable,
     touch,
     unpack,
     local,
@@ -60,11 +59,10 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
-
+from snakemake_interface_executor_plugins.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (
-    Mode,
     ON_WINDOWS,
     is_local_file,
     Rules,
@@ -119,7 +117,7 @@ class Workflow(WorkflowExecutorInterface):
         shadow_prefix=None,
         scheduler_type="ilp",
         scheduler_ilp_solver=None,
-        mode=Mode.default,
+        mode=ExecMode.default,
         wrapper_prefix=None,
         printshellcmds=False,
         restart_times=None,
@@ -147,8 +145,11 @@ class Workflow(WorkflowExecutorInterface):
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
+        executor_args=None,
         cleanup_scripts=True,
         immediate_submit=False,
+        keep_incomplete=False,
+        quiet=False,
     ):
         """
         Create the controller.
@@ -215,7 +216,7 @@ class Workflow(WorkflowExecutorInterface):
             [] if overwrite_configfiles is None else list(overwrite_configfiles)
         )
         self.run_local = run_local
-        self.assume_shared_fs = assume_shared_fs
+        self._assume_shared_fs = assume_shared_fs
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self._edit_notebook = edit_notebook
@@ -238,14 +239,19 @@ class Workflow(WorkflowExecutorInterface):
         self.check_envvars = check_envvars
         self._max_threads = max_threads
         self.all_temp = all_temp
+        self._executor_args = executor_args
         self._scheduler = None
         self._local_groupid = local_groupid
         self._keep_metadata = keep_metadata
         self._latency_wait = latency_wait
+        self._keep_incomplete = keep_incomplete
+        self._quiet = quiet
 
         _globals = globals()
+        from snakemake.shell import shell
+
+        _globals["shell"] = shell
         _globals["workflow"] = self
-        _globals["cluster_config"] = copy.deepcopy(self.overwrite_clusterconfig)
         _globals["checkpoints"] = Checkpoints()
         _globals["scatter"] = Scatter()
         _globals["gather"] = Gather()
@@ -282,6 +288,22 @@ class Workflow(WorkflowExecutorInterface):
 
         if envvars is not None:
             self.register_envvars(*envvars)
+
+    @property
+    def quiet(self):
+        return self._quiet
+
+    @property
+    def assume_shared_fs(self):
+        return self._assume_shared_fs
+
+    @property
+    def keep_incomplete(self):
+        return self._keep_incomplete
+
+    @property
+    def executor_args(self):
+        return self._executor_args
 
     @property
     def default_remote_prefix(self):
@@ -653,10 +675,7 @@ class Workflow(WorkflowExecutorInterface):
         until=[],
         omit_from=[],
         prioritytargets=None,
-        quiet=False,
         keepgoing=False,
-        printshellcmds=False,
-        printreason=False,
         printdag=False,
         slurm=None,
         slurm_jobstep=None,
@@ -717,6 +736,7 @@ class Workflow(WorkflowExecutorInterface):
         subsnakemake=None,
         updated_files=None,
         keep_target_files=False,
+        # Note that keep_shadow doesn't seem to be used?
         keep_shadow=False,
         keep_remote_local=False,
         allowed_rules=None,
@@ -861,7 +881,7 @@ class Workflow(WorkflowExecutorInterface):
             or delete_temp_output,
         )
 
-        if self.mode in [Mode.subprocess, Mode.cluster]:
+        if self.mode in [ExecMode.subprocess, ExecMode.remote]:
             self.persistence.deactivate_cache()
 
         if cleanup_metadata:
@@ -1115,12 +1135,10 @@ class Workflow(WorkflowExecutorInterface):
             cluster_cancel=cluster_cancel,
             cluster_cancel_nargs=cluster_cancel_nargs,
             cluster_sidecar=cluster_sidecar,
-            cluster_config=cluster_config,
             cluster_sync=cluster_sync,
             jobname=jobname,
             max_jobs_per_second=max_jobs_per_second,
             max_status_checks_per_second=max_status_checks_per_second,
-            quiet=quiet,
             keepgoing=keepgoing,
             drmaa=drmaa,
             drmaa_log_dir=drmaa_log_dir,
@@ -1146,18 +1164,17 @@ class Workflow(WorkflowExecutorInterface):
             precommand=precommand,
             tibanna_config=tibanna_config,
             container_image=container_image,
-            printreason=printreason,
-            printshellcmds=printshellcmds,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            assume_shared_fs=self.assume_shared_fs,
-            keepincomplete=keepincomplete,
             scheduler_type=scheduler_type,
             scheduler_ilp_solver=scheduler_ilp_solver,
+            executor_args=self.executor_args,
         )
 
         if not dryrun:
             if len(dag):
+                from snakemake.shell import shell
+
                 shell_exec = shell.get_executable()
                 if shell_exec is not None:
                     logger.info(f"Using shell: {shell_exec}")
@@ -1192,7 +1209,7 @@ class Workflow(WorkflowExecutorInterface):
                 ):
                     logger.info("Singularity containers: ignored")
 
-                if self.mode == Mode.default:
+                if self.mode == ExecMode.default:
                     logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1203,7 +1220,7 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
-            if quiet:
+            if self.quiet:
                 # in case of dryrun and quiet, just print above info and exit
                 return True
 
@@ -1245,7 +1262,7 @@ class Workflow(WorkflowExecutorInterface):
                 log_provenance_info()
             raise e
 
-        if not self.immediate_submit and not dryrun and self.mode == Mode.default:
+        if not self.immediate_submit and not dryrun and self.mode == ExecMode.default:
             dag.cleanup_workdir()
 
         if success:

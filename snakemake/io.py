@@ -986,14 +986,6 @@ def apply_wildcards(
     return _wildcard_regex.sub(format_match, pattern)
 
 
-def not_iterable(value):
-    return (
-        isinstance(value, str)
-        or isinstance(value, dict)
-        or not isinstance(value, collections.abc.Iterable)
-    )
-
-
 def is_callable(value):
     return (
         callable(value)
@@ -1015,6 +1007,8 @@ class AnnotatedString(str):
 
 
 def flag(value, flag_type, flag_value=True):
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     if isinstance(value, AnnotatedString):
         value.flags[flag_type] = flag_value
         return value
@@ -1109,6 +1103,8 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run"""
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:

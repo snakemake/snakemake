@@ -8,14 +8,16 @@ import math
 import os
 from collections import namedtuple
 
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import sleep
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
+
 from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
 from snakemake.common import get_container_image, async_lock
 
 TaskExecutionServiceJob = namedtuple(
@@ -23,24 +25,27 @@ TaskExecutionServiceJob = namedtuple(
 )
 
 
-class TaskExecutionServiceExecutor(ClusterExecutor):
+class TaskExecutionServiceExecutor(RemoteExecutor):
     def __init__(
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        cores,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        cluster_config=None,
-        local_input=None,
-        restart_times=None,
-        assume_shared_fs=False,
         max_status_checks_per_second=0.5,
         tes_url=None,
         container_image=None,
     ):
+        super().__init__(
+            workflow,
+            dag,
+            stats,
+            logger,
+            None,
+            jobname=jobname,
+            max_status_checks_per_second=max_status_checks_per_second,
+        )
         try:
             import tes
         except ImportError:
@@ -59,23 +64,7 @@ class TaskExecutionServiceExecutor(ClusterExecutor):
             user=os.environ.get("FUNNEL_SERVER_USER"),
             password=os.environ.get("FUNNEL_SERVER_PASSWORD"),
         )
-
         logger.info(f"[TES] Job execution on TES: {self.tes_url}")
-
-        super().__init__(
-            workflow,
-            dag,
-            None,
-            jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
-            local_input=local_input,
-            restart_times=restart_times,
-            assume_shared_fs=assume_shared_fs,
-            max_status_checks_per_second=max_status_checks_per_second,
-        )
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
         return "mkdir /tmp/conda && cd /tmp"

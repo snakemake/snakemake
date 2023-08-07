@@ -15,16 +15,17 @@ import uuid
 import re
 import math
 
-from snakemake.interfaces import (
-    DAGExecutorInterface,
-    ExecutorJobInterface,
-    WorkflowExecutorInterface,
-)
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
+
 from snakemake.logging import logger
 from snakemake.exceptions import print_exception
 from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor, sleep
 from snakemake.common import bytesto, get_container_image, get_file_hash, async_lock
 from snakemake.resources import DefaultResources
 
@@ -51,7 +52,7 @@ def check_source_size(filename, warning_size_gb=0.2):
     return filename
 
 
-class GoogleLifeSciencesExecutor(ClusterExecutor):
+class GoogleLifeSciencesExecutor(RemoteExecutor):
     """
     The GoogleLifeSciences executor uses Google Cloud Storage, and
     Compute Engine paired with the Google Life Sciences API.
@@ -62,11 +63,9 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        cores,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
         container_image=None,
         regions=None,
         location=None,
@@ -74,29 +73,24 @@ class GoogleLifeSciencesExecutor(ClusterExecutor):
         service_account_email=None,
         network=None,
         subnetwork=None,
-        local_input=None,
-        restart_times=None,
-        max_status_checks_per_second=1,
+        max_status_checks_per_second=10,
         preemption_default=None,
         preemptible_rules=None,
     ):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            assume_shared_fs=False,
-            max_status_checks_per_second=10,
+            max_status_checks_per_second=max_status_checks_per_second,
         )
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
         # Attach variables for easy access
-        self.quiet = quiet
+        self.quiet = workflow.quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 

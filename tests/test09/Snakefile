@@ -1,20 +1,26 @@
-from snakemake import shell
-
-
 def fail(input, output):
-	shell("false && cp {input} {output}")
+    shell("false && cp {input} {output}")
+
 
 def x(input, output):
-	fail(input, output)
+    fail(input, output)
+
 
 rule rule2:
-	input: 'test.inter'
-	output: 'test.out'
-	shell: 'cp {input} {output}'
+    input:
+        "test.inter",
+    output:
+        "test.out",
+    shell:
+        "cp {input} {output}"
+
 
 rule rule1:
-	input: 'test.in'
-	output: 'test.inter'
-	log: "logs/test.log"
-	shell: 
-            "touch {log} && false && cp {input} {output}"
+    input:
+        "test.in",
+    output:
+        "test.inter",
+    log:
+        "logs/test.log",
+    shell:
+        "touch {log} && false && cp {input} {output}"

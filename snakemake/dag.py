@@ -12,11 +12,14 @@ import tarfile
 import textwrap
 import time
 import uuid
+import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
@@ -37,7 +40,6 @@ from snakemake.exceptions import (
     WildcardError,
     WorkflowError,
 )
-from snakemake.interfaces import DAGExecutorInterface
 from snakemake.io import (
     PeriodicityDetector,
     get_flag_value,
@@ -2372,7 +2374,7 @@ class DAG(DAGExecutorInterface):
                 for env in envs:
                     add(env)
 
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             os.remove(path)
             raise e
 

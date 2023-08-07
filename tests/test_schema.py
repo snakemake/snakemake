@@ -131,7 +131,7 @@ def test_config_ref(config_schema_ref):
     # Make sure regular validator works
     config["param"]["bar"] = 1
     config["param"]["jsonbar"] = 2
-    from snakemake import WorkflowError
+    from snakemake.exceptions import WorkflowError
 
     with pytest.raises(WorkflowError):
         validate(config, str(config_schema_ref), False)

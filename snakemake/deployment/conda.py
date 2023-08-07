@@ -31,7 +31,6 @@ from snakemake.exceptions import CreateCondaEnvironmentException, WorkflowError
 from snakemake.logging import logger
 from snakemake.common import (
     is_local_file,
-    lazy_property,
     parse_uri,
     ON_WINDOWS,
 )
@@ -42,6 +41,7 @@ from snakemake.io import (
     contains_wildcard,
     _IOFile,
 )
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 class CondaCleanupMode(Enum):
@@ -318,7 +318,7 @@ class Env:
         ) as e:
             shutil.rmtree(env_archive)
             raise WorkflowError(f"Error downloading conda package {pkg_url}.")
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             shutil.rmtree(env_archive)
             raise e
         return env_archive
