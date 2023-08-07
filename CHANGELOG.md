@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.32.2](https://github.com/snakemake/snakemake/compare/v7.32.1...v7.32.2) (2023-08-07)
+
+
+### Bug Fixes
+
+* unnecessary set Snakefile in AzBatch executor ([#2397](https://github.com/snakemake/snakemake/issues/2397)) ([78e6d6e](https://github.com/snakemake/snakemake/commit/78e6d6ec6a1ad930e40d6edfe9f7210232a674f2))
+
 ## [7.32.1](https://github.com/snakemake/snakemake/compare/v7.32.0...v7.32.1) (2023-08-05)
 
 
