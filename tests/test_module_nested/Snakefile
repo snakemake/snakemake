@@ -1,0 +1,20 @@
+shell.executable("bash")
+
+
+module shallow_module:
+    snakefile:
+        "module_shallow.smk"
+
+
+use rule deep_work from shallow_module as shallow_work
+
+
+rule all:
+    input:
+        "foo.txt",
+    default_target: True
+
+
+assert hasattr(
+    rules, "shallow_work"
+), f"bug: rule cannot be accessed as shallow_work: {dir(rules)}"

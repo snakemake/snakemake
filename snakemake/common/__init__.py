@@ -26,7 +26,7 @@ __version__ = get_versions()["version"]
 del get_versions
 
 
-MIN_PY_VERSION = (3, 9)
+MIN_PY_VERSION = (3, 7)
 DYNAMIC_FILL = "__snakemake_dynamic__"
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
@@ -227,7 +227,19 @@ def group_into_chunks(n, iterable):
 class Rules:
     """A namespace for rules so that they can be accessed via dot notation."""
 
-    pass
+    def __init__(self):
+        self._rules = dict()
+
+    def _register_rule(self, name, rule):
+        self._rules[name] = rule
+
+    def __getattr__(self, name):
+        from snakemake.exceptions import WorkflowError
+
+        try:
+            return self._rules[name]
+        except KeyError:
+            raise WorkflowError(f"Rule {name} is not defined in this workflow.")
 
 
 class Scatter:

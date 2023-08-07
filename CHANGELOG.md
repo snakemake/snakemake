@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.32.1](https://github.com/snakemake/snakemake/compare/v7.32.0...v7.32.1) (2023-08-05)
+
+
+### Bug Fixes
+
+* add missing spaces between lines that get concatenated. ([#2268](https://github.com/snakemake/snakemake/issues/2268)) ([7238458](https://github.com/snakemake/snakemake/commit/7238458c6d56c5d94787b93668718358ad44e9ef))
+* better message about profile usage upon execution ([#2391](https://github.com/snakemake/snakemake/issues/2391)) ([cf8aea5](https://github.com/snakemake/snakemake/commit/cf8aea5862767f104c7e03c09369d401f25d50e7))
+* do not overwrite default resources setting in azure batch executor ([#2395](https://github.com/snakemake/snakemake/issues/2395)) ([4aef3b9](https://github.com/snakemake/snakemake/commit/4aef3b93ddf029c532fabe38e05c262dd4237b5f))
+* updating of non-dict config values gives error ([#2364](https://github.com/snakemake/snakemake/issues/2364)) ([b33aeec](https://github.com/snakemake/snakemake/commit/b33aeecdf51afba6012007a2b125b9c87b7b98f2))
+* wrong rule names when nesting module imports ([#1817](https://github.com/snakemake/snakemake/issues/1817)) ([65c79a4](https://github.com/snakemake/snakemake/commit/65c79a48f956077839bb5ab1ea8d60a5f0ddecab))
+
+
+### Documentation
+
+* basics.rst: suggest VS Code instead of deprecated Atom as IDE ([#2368](https://github.com/snakemake/snakemake/issues/2368)) ([1357316](https://github.com/snakemake/snakemake/commit/135731605b974915cd2bd78b88a981f974bc7b78))
+
 ## [7.32.0](https://github.com/snakemake/snakemake/compare/v7.31.1...v7.32.0) (2023-08-03)
 
 
