@@ -8,6 +8,7 @@ import io
 import os
 import re
 import shutil
+import shlex
 import sys
 import tarfile
 import tempfile
@@ -28,7 +29,6 @@ from snakemake.interfaces import (
     WorkflowExecutorInterface,
 )
 from snakemake.logging import logger
-from snakemake.resources import DefaultResources
 
 AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
@@ -295,9 +295,6 @@ class AzBatchExecutor(ClusterExecutor):
 
         self.workdir = dirname
 
-        # Relative path for running on instance
-        self._set_snakefile()
-
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
@@ -404,7 +401,7 @@ class AzBatchExecutor(ClusterExecutor):
     # token information from being printed to the logs
     def mask_sas_urls(self, attrs: dict):
         attrs_new = attrs.copy()
-        sas_pattern = r"\?s[v|p]=.+(\'|\"|$)"
+        sas_pattern = r"\?[^=]+=([^?'\"]+)"
         mask = 10 * "*"
 
         for k, value in attrs.items():
@@ -446,7 +443,7 @@ class AzBatchExecutor(ClusterExecutor):
                 continue
 
         exec_job = self.format_job_exec(job)
-        exec_job = f"/bin/sh -c 'tar xzf {self.resource_file.file_path} && {exec_job}'"
+        exec_job = f"/bin/bash -c 'tar xzf {self.resource_file.file_path} && {shlex.quote(exec_job)}'"
 
         # A string that uniquely identifies the Task within the Job.
         task_uuid = str(uuid.uuid1())
@@ -854,14 +851,6 @@ class AzBatchExecutor(ClusterExecutor):
                 raise WorkflowError(
                     "AZ_BLOB_CREDENTIAL is not a valid storage account SAS token."
                 )
-
-    def _set_snakefile(self):
-        """The snakefile must be a relative path, which cannot be reliably
-        derived from the self.workflow.snakefile as we might have moved
-        execution into a temporary directory, and the initial Snakefile
-        was somewhere else on the system.
-        """
-        self.snakefile = os.path.basename(self.workflow.main_snakefile)
 
     # from google_lifesciences.py
     def _set_workflow_sources(self):
