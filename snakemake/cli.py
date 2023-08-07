@@ -2036,7 +2036,7 @@ def main(argv=None):
         sys.exit(1)
 
     if args.drmaa_log_dir is not None and not os.path.isabs(args.drmaa_log_dir):
-            args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
+        args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
 
     if args.runtime_profile:
         import yappi
