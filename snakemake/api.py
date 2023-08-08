@@ -3,9 +3,13 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import dataclass
+from pathlib import Path
 import sys
+from typing import List
 
 from snakemake.common import MIN_PY_VERSION
+from snakemake.dag import Batch
 
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
@@ -32,6 +36,36 @@ from snakemake.common import (
     dict_to_key_value_args,
 )
 from snakemake.resources import DefaultResources
+
+@dataclass
+class ExecuteSettings:
+    batch: Batch = None
+    cache: List[str] = None
+
+
+@dataclass
+class Snakemake:
+    snakefile: Path = None
+
+    def execute_workflow(
+        self,
+        settings: ExecuteSettings
+    ):
+        ...
+
+    def create_report(
+        self,
+        report: Path,
+        report_stylesheet: Path = None,
+    ):
+        ...
+
+    def containerize(self):
+        ...
+
+    def lint(self):
+        ...
+
 
 
 def snakemake(
