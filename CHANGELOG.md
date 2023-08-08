@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.32.3](https://github.com/snakemake/snakemake/compare/v7.32.2...v7.32.3) (2023-08-07)
+
+
+### Bug Fixes
+
+* fix bug occuring when using multiple `use rule` statements in combination with the rules object for referring to output of already defined rules.
+
 ## [7.32.2](https://github.com/snakemake/snakemake/compare/v7.32.1...v7.32.2) (2023-08-07)
 
 
