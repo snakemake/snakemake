@@ -227,7 +227,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self._is_updated = False
         self._params_and_resources_resetted = False
 
-        self._attempt = self.dag.workflow.attempt
+        self._attempt = self.dag.workflow.execution_settings.attempt
 
         # TODO get rid of these
         self.dynamic_output, self.dynamic_input = set(), set()
@@ -482,7 +482,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def container_img(self):
-        if self.dag.workflow.use_singularity and self.container_img_url:
+        if self.dag.workflow.deployment_settings.use_singularity and self.container_img_url:
             return self.dag.container_imgs[self.container_img_url]
         return None
 
@@ -1134,7 +1134,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
         if (
-            self.dag.workflow.use_conda
+            self.dag.workflow.deployment_settings.use_conda
             and self.conda_env
             and not self.conda_env.is_named
             and not self.conda_env.is_containerized
@@ -1281,7 +1281,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._log = None
         self._inputsize = None
         self._all_products = None
-        self._attempt = self.dag.workflow.attempt
+        self._attempt = self.dag.workflow.execution_settings.attempt
         self._jobid = None
 
     @property
@@ -1413,7 +1413,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if (
-                self.dag.workflow.use_conda
+                self.dag.workflow.deployment_settings.use_conda
                 and job.conda_env
                 and not job.conda_env.is_named
             ):

@@ -883,7 +883,7 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
 
         # capabilities - this won't currently work (Singularity in Docker)
         # We either need to add CAPS or run in privileged mode (ehh)
-        if job.needs_singularity and self.workflow.use_singularity:
+        if job.needs_singularity and self.workflow.deployment_settings.use_singularity:
             raise WorkflowError(
                 "Singularity requires additional capabilities that "
                 "aren't yet supported for standard Docker runs, and "

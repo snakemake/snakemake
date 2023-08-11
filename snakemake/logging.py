@@ -35,7 +35,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
     }
 
     def __init__(
-        self, nocolor=False, stream=sys.stderr, use_threads=False, mode=ExecMode.default
+        self, nocolor=False, stream=sys.stderr, mode=ExecMode.default
     ):
         super().__init__(stream=stream)
 
@@ -691,7 +691,6 @@ def setup_logger(
     nocolor=False,
     stdout=False,
     debug=False,
-    use_threads=False,
     mode=ExecMode.default,
     show_failed_logs=False,
     dryrun=False,
@@ -717,7 +716,6 @@ def setup_logger(
     stream_handler = ColorizingStreamHandler(
         nocolor=nocolor,
         stream=sys.stdout if stdout else sys.stderr,
-        use_threads=use_threads,
         mode=mode,
     )
     logger.set_stream_handler(stream_handler)

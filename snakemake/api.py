@@ -3,25 +3,29 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
 import sys
-from typing import List
-
-from snakemake.common import MIN_PY_VERSION
-from snakemake.dag import Batch
-
-if sys.version_info < MIN_PY_VERSION:
-    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
-
+from typing import Dict, List, Optional, Set
 import os
 from functools import partial
 import importlib
 
+from snakemake.common import MIN_PY_VERSION
+if sys.version_info < MIN_PY_VERSION:
+    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
+
+from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.settings import OutputSettings, ConfigSettings
+
 from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import (
+    ApiError,
     print_exception,
     WorkflowError,
 )
@@ -37,28 +41,56 @@ from snakemake.common import (
 )
 from snakemake.resources import DefaultResources
 
-@dataclass
-class ExecuteSettings:
-    batch: Batch = None
-    cache: List[str] = None
+
+class ApiBase(ABC):
+    def __post_init__(self):
+        self._check()
+
+    def _check(self):
+        pass
 
 
 @dataclass
-class Snakemake:
-    snakefile: Path = None
+class Snakemake(ApiBase):
+    output_settings: OutputSettings
 
-    def execute_workflow(
-        self,
-        settings: ExecuteSettings
-    ):
-        ...
+    def workflow(self, snakefile: Path, config_settings: ConfigSettings):
+        self._setup_logger()
+        return Workflow(self, snakefile, config_settings)
 
-    def create_report(
+    def _setup_logger(
         self,
-        report: Path,
-        report_stylesheet: Path = None,
+        stdout: bool = False,
+        mode: ExecMode = ExecMode.default,
+        dryrun: bool = False,
     ):
-        ...
+        if not self.output_settings.keep_logger:
+            setup_logger(
+                handler=self.output_settings.log_handler,
+                quiet=self.output_settings.quiet,
+                nocolor=self.output_settings.nocolor,
+                debug=self.output_settings.verbose,
+                printshellcmds=self.output_settings.printshellcmds,
+                debug_dag=self.output_settings.debug_dag,
+                stdout=stdout,
+                mode=mode,
+                show_failed_logs=self.output_settings.show_failed_logs,
+                dryrun=dryrun,
+            )
+
+    def __del__(self):
+        if not self.output_settings.keep_logger:
+            logger.cleanup()
+
+@dataclass
+class Workflow(ApiBase):
+    snakemake: Snakemake
+    snakefile: Path
+    config_settings: ConfigSettings
+    _workflow_store: Workflow = field(init=False)
+
+    def dag(self):
+        return DAG(self)
 
     def containerize(self):
         ...
@@ -66,6 +98,238 @@ class Snakemake:
     def lint(self):
         ...
 
+    def generate_unit_tests(self):
+        ...
+
+    def list_rules(self):
+        ...
+    
+    def list_target_rules(self):
+        ...
+    
+    def print_compilation(self):
+        from snakemake.workflow import Workflow
+
+        workflow = Workflow(self.config_settings)
+        workflow.include(self.snakefile, print_compilation=True)
+
+    @property
+    def workflow(self):
+        if self._workflow_store is None:
+            self._load_workflow()
+        return self._workflow_store
+
+    def _load_workflow(self, print_compilation: bool=False):
+        from snakemake.workflow import Workflow
+
+        workflow = Workflow(self.config_settings)
+        workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=print_compilation)
+        workflow.check()
+        self._workflow_store = workflow
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.snakefile = self.snakefile.absolute()
+
+    def _check(self):
+        if not self.snakefile.exists():
+            raise ApiError(f'Snakefile "{self.snakefile}" not found.')
+
+@dataclass
+class DAG(ApiBase):
+    snakemake: Snakemake
+    workflow: Workflow
+
+    def execute_workflow(
+        self,
+        executor: str,
+        execution_settings: ExecutionSettings,
+        resource_settings: ResourceSettings,
+        deployment_settings: DeploymentSettings,
+        remote_execution_settings: RemoteExecutionSettings,
+        executor_settings: Optional[ExecutorSettingsBase] = None,
+    ):
+        executor_plugin_registry = ExecutorPluginRegistry()
+        executor_plugin = executor_plugin_registry.plugins[executor]
+
+        self.snakemake._setup_logger(
+            stdout=executor_plugin.common_settings.dryrun_exec,
+            mode=self.execution_settings.mode,
+            dryrun=executor_plugin.common_settings.dryrun_exec,
+        )
+
+        run_local = not executor_plugin.common_settings.non_local_exec
+        if run_local:
+            if not executor_plugin.common_settings.dryrun_exec:
+                # clean up all previously recorded jobids.
+                shell.cleanup()
+            if self.execution_settings.debug and self.resource_settings.cores > 1:
+                raise ApiError(
+                    "debug mode cannot be used with multi-core execution, please enforce a single core by setting --cores 1"
+                )
+        else:
+            # non local execution
+            if self.resource_settings.default_resources is None:
+                # use full default resources if in cluster or cloud mode
+                self.resource_settings.default_resources = DefaultResources(mode="full")
+            if self.execution_settings.edit_notebook is not None:
+                raise ApiError(
+                    "Notebook edit mode is only allowed with local execution."
+                )
+            if self.execution_settings.debug:
+                raise ApiError(
+                    "debug mode cannot be used with non-local execution"
+                )
+        
+        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
+
+        self.executor_settings.use_threads = (
+            self.execution_settings.use_threads
+            or (os.name not in ["posix", "nt"])
+            or not run_local
+        )
+
+        with WorkdirHandler(self.execution_settings.workdir):
+            logger.setup_logfile()
+
+    def get_workflow_instance(self):
+        return Workflow(
+            snakefile=self.workflow.get_snakefile(),
+            rerun_triggers=self.execution_settings.rerun_triggers,
+            jobscript=self.remote_execution_settings.jobscript,
+            overwrite_shellcmd=self.execution_settings.overwrite_shellcmd,
+            overwrite_config=self.config_settings.get_overwrite_config(),
+            overwrite_workdir=self.execution_settings.workdir.absolute() if self.execution_settings.workdir else None,
+            overwrite_configfiles=self.config_settings.get_configfiles(),
+            overwrite_threads=overwrite_threads,
+            max_threads=max_threads,
+            overwrite_scatter=overwrite_scatter,
+            overwrite_groups=overwrite_groups,
+            overwrite_resources=overwrite_resources,
+            overwrite_resource_scopes=overwrite_resource_scopes,
+            group_components=group_components,
+            config_args=config_args,
+            debug=debug,
+            verbose=verbose,
+            use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
+            use_singularity=use_singularity,
+            use_env_modules=use_env_modules,
+            conda_frontend=conda_frontend,
+            conda_prefix=conda_prefix,
+            conda_cleanup_pkgs=conda_cleanup_pkgs,
+            singularity_prefix=singularity_prefix,
+            shadow_prefix=shadow_prefix,
+            singularity_args=singularity_args,
+            scheduler_type=scheduler,
+            scheduler_ilp_solver=scheduler_ilp_solver,
+            mode=mode,
+            wrapper_prefix=wrapper_prefix,
+            printshellcmds=printshellcmds,
+            restart_times=restart_times,
+            attempt=attempt,
+            default_remote_provider=_default_remote_provider,
+            default_remote_prefix=default_remote_prefix,
+            run_local=run_local,
+            assume_shared_fs=assume_shared_fs,
+            default_resources=default_resources,
+            cache=cache,
+            cores=cores,
+            nodes=nodes,
+            resources=resources,
+            edit_notebook=edit_notebook,
+            envvars=envvars,
+            max_inventory_wait_time=max_inventory_wait_time,
+            conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
+            execute_subworkflows=execute_subworkflows,
+            scheduler_solver_path=scheduler_solver_path,
+            conda_base_path=conda_base_path,
+            check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
+            all_temp=all_temp,
+            local_groupid=local_groupid,
+            keep_metadata=keep_metadata,
+            latency_wait=latency_wait,
+            executor_args=executor_args,
+            cleanup_scripts=cleanup_scripts,
+            immediate_submit=immediate_submit,
+            quiet=quiet,
+        )
+
+
+    def create_report(
+        self,
+        report: Path,
+        report_stylesheet: Path = None,
+    ):
+        ...
+    
+    def printdag(self):
+        ...
+    
+    def printrulegraph(self):
+        ...
+
+    def printfilegraph(self):
+        ...
+    
+    def printd3dag(self):
+        ...
+
+    def unlock(self):
+        ...
+    
+    def cleanup_metadata(self):
+        ...
+    
+    def conda_cleanup_envs(self):
+        ...
+    
+    def conda_create_envs(self):
+        ...
+    
+    def cleanup_shadow(self):
+        ...
+    
+    def cleanup_scripts(self):
+        ...
+    
+    def cleanup_containers(self):
+        ...
+    
+    def list_code_changes(self):
+        ...
+    
+    def list_input_changes(self):
+        ...
+    
+    def list_params_changes(self):
+        ...
+    
+    def list_untracked(self):
+        ...
+    
+    def list_resources(self):
+        ...
+    
+    def list_conda_envs(self):
+        ...
+    
+    def summary(self):
+        ...
+    
+    def detailed_summary(self):
+        ...
+    
+    def archive(self):
+        ...
+    
+    def delete_all_output(self):
+        ...
+    
+    def delete_temp_output(self):
+        ...
+    
+    def export_to_cwl(self, cwl_file: Path):
+        ...
 
 
 def snakemake(
@@ -486,7 +750,7 @@ def snakemake(
             # use full default resources if in cluster or cloud mode
             default_resources = DefaultResources(mode="full")
         if edit_notebook:
-            raise WorkflowError(
+            raise ApiError(
                 "Notebook edit mode is only allowed with local execution."
             )
 
@@ -869,7 +1133,6 @@ def snakemake(
                     report_stylesheet=report_stylesheet,
                     export_cwl=export_cwl,
                     batch=batch,
-                    keepincomplete=keep_incomplete,
                     containerize=containerize,
                 )
 

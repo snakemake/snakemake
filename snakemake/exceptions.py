@@ -148,6 +148,10 @@ def print_exception(ex, linemaps):
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
+class ApiError(Exception):
+    pass
+
+
 class SourceFileError(WorkflowError):
     def __init__(self, msg):
         super().__init__(f"Error in source file definition: {msg}")

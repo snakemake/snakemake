@@ -334,13 +334,13 @@ class DAG(DAGExecutorInterface):
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
-            if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
+            if job.conda_env_spec and (self.workflow.storage_settings.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
         for env_spec, simg_url in env_set:
             simg = None
-            if simg_url and self.workflow.use_singularity:
+            if simg_url and self.workflow.deployment_settings.use_singularity:
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
@@ -1674,9 +1674,9 @@ class DAG(DAGExecutorInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
-            if self.workflow.use_singularity:
+            if self.workflow.deployment_settings.use_singularity:
                 self.pull_container_imgs()
-            if self.workflow.use_conda:
+            if self.workflow.deployment_settings.use_conda:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 

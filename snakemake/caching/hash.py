@@ -74,7 +74,7 @@ class ProvenanceHashMap:
                 wrapper.get_script(
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
-                    prefix=workflow.wrapper_prefix,
+                    prefix=workflow.execution_settings.wrapper_prefix,
                 ),
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -114,11 +114,11 @@ class ProvenanceHashMap:
 
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
-            if workflow.use_conda and job.conda_env:
-                if workflow.use_singularity and job.conda_env.container_img_url:
+            if workflow.deployment_settings.use_conda and job.conda_env:
+                if workflow.deployment_settings.use_singularity and job.conda_env.container_img_url:
                     h.update(job.conda_env.container_img_url.encode())
                 h.update(job.conda_env.content)
-            elif workflow.use_singularity and job.container_img_url:
+            elif workflow.deployment_settings.use_singularity and job.container_img_url:
                 h.update(job.container_img_url.encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).

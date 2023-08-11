@@ -109,11 +109,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
-        # Note this argument doesn't seem to be used (greediness)
-        greediness=1.0,
         force_use_threads=False,
-        scheduler_type=None,
-        scheduler_ilp_solver=None,
         executor_args=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
@@ -133,8 +129,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.finished_jobs = 0
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
-        self.scheduler_type = scheduler_type
-        self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -247,7 +241,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._local_executor = self._executor
 
         elif cluster or cluster_sync or (drmaa is not None):
-            if not workflow.immediate_submit:
+            if not workflow.remote_execution_settings.immediate_submit:
                 # No local jobs when using immediate submit!
                 # Otherwise, they will fail due to missing input
                 self._local_executor = CPUExecutor(
@@ -279,7 +273,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     submitcmd=(cluster or cluster_sync),
                     jobname=jobname,
                 )
-                if workflow.immediate_submit:
+                if workflow.remote_execution_settings.immediate_submit:
                     self._submit_callback = self._proceed
                     self.update_dynamic = False
                     self.print_progress = False
@@ -444,7 +438,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         # Choose job selector (greedy or ILP)
         self.job_selector = self.job_selector_greedy
-        if scheduler_type == "ilp":
+        if self.workflow.scheduling_settings.scheduler_type == "ilp":
             import pulp
 
             if pulp.apis.LpSolverDefault is None:
@@ -537,7 +531,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     continue
 
                 # all runnable jobs have finished, normal shutdown
-                if not needrun and (not running or self.workflow.immediate_submit):
+                if not needrun and (not running or self.workflow.remote_execution_settings.immediate_submit):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
@@ -881,13 +875,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
         try:
             solver = (
-                pulp.get_solver(self.scheduler_ilp_solver)
-                if self.scheduler_ilp_solver
+                pulp.get_solver(self.workflow.scheduling_settings.scheduler_ilp_solver)
+                if self.workflow.scheduling_settings.scheduler_ilp_solver
                 else pulp.apis.LpSolverDefault
             )
         finally:
             os.environ["PATH"] = old_path
-        solver.msg = self.workflow.verbose
+        solver.msg = self.workflow.output_settings.verbose
         prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
@@ -989,7 +983,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     def job_reward(self, job):
-        if self.touch or self.dryrun or self.workflow.immediate_submit:
+        if self.touch or self.dryrun or self.workflow.remote_execution_settings.immediate_submit:
             temp_size = 0
             input_size = 0
         else:

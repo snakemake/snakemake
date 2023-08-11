@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import dataclass, field
 import re
 import os
 import sys
@@ -11,6 +12,7 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
+from typing import Optional
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.utils import ExecMode
@@ -84,53 +86,32 @@ from snakemake.sourcecache import (
     infer_source_file,
 )
 from snakemake.deployment.conda import Conda
-from snakemake import sourcecache
+from snakemake import api, sourcecache
 
 
+@dataclass
 class Workflow(WorkflowExecutorInterface):
+    config_settings: api.ConfigSettings
+    execution_settings: Optional[api.ExecutionSettings] = None
+    resource_settings: Optional[api.ResourceSettings] = None
+    storage_settings: Optional[api.StorageSettings] = None
+    deployment_settings: Optional[api.DeploymentSettings] = None
+    scheduling_settings: Optional[api.SchedulingSettings] = None
+    output_settings: Optional[api.OutputSettings] = None
+    remote_execution_settings: Optional[api.RemoteExecutionSettings] = None
+    group_settings: Optional[api.GroupSettings] = None
+
     def __init__(
         self,
-        snakefile=None,
-        rerun_triggers=None,
-        jobscript=None,
-        overwrite_shellcmd=None,
-        overwrite_config=None,
-        overwrite_workdir=None,
-        overwrite_configfiles=None,
-        overwrite_clusterconfig=None,
-        overwrite_threads=None,
         overwrite_scatter=None,
         overwrite_groups=None,
-        overwrite_resources=None,
         overwrite_resource_scopes=None,
         group_components=None,
-        config_args=None,
-        debug=False,
-        verbose=False,
-        use_conda=False,
-        conda_frontend=None,
-        conda_prefix=None,
-        use_singularity=False,
-        use_env_modules=False,
-        singularity_prefix=None,
-        singularity_args="",
-        shadow_prefix=None,
-        scheduler_type="ilp",
-        scheduler_ilp_solver=None,
-        mode=ExecMode.default,
-        wrapper_prefix=None,
-        printshellcmds=False,
-        restart_times=None,
-        attempt=1,
-        default_remote_provider=None,
-        default_remote_prefix="",
-        run_local=True,
         assume_shared_fs=True,
         default_resources=None,
         cache=None,
         nodes=1,
         cores=1,
-        resources=None,
         conda_cleanup_pkgs=None,
         edit_notebook=False,
         envvars=None,
@@ -146,77 +127,36 @@ class Workflow(WorkflowExecutorInterface):
         keep_metadata=True,
         latency_wait=3,
         executor_args=None,
-        cleanup_scripts=True,
-        immediate_submit=False,
-        keep_incomplete=False,
         quiet=False,
     ):
         """
         Create the controller.
         """
 
-        self.global_resources = dict() if resources is None else resources
+        self.global_resources = dict() if self.resource_settings is None else self.resource_settings.resources
         self.global_resources["_cores"] = cores
         self.global_resources["_nodes"] = nodes
 
-        self._rerun_triggers = (
-            frozenset(rerun_triggers) if rerun_triggers is not None else frozenset()
-        )
         self._rules = OrderedDict()
         self.default_target = None
         self._workdir = None
-        self.overwrite_workdir = overwrite_workdir
         self._workdir_init = os.path.abspath(os.curdir)
-        self._cleanup_scripts = cleanup_scripts
         self._ruleorder = Ruleorder()
         self._localrules = set()
         self._linemaps = dict()
         self.rule_count = 0
-        self.basedir = os.path.dirname(snakefile)
-        self._main_snakefile = os.path.abspath(snakefile)
         self.included = []
         self.included_stack = []
-        self._jobscript = jobscript
         self._persistence: Persistence = None
         self._subworkflows = dict()
-        self.overwrite_shellcmd = overwrite_shellcmd
-        self.overwrite_config = overwrite_config or dict()
-        self._overwrite_configfiles = overwrite_configfiles
-        self.overwrite_clusterconfig = overwrite_clusterconfig or dict()
-        self._overwrite_threads = overwrite_threads or dict()
-        self._overwrite_resources = overwrite_resources or dict()
-        self._config_args = config_args
-        self._immediate_submit = immediate_submit
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
-        self._debug = debug
-        self._verbose = verbose
         self._rulecount = 0
-        self._use_conda = use_conda
-        self._conda_frontend = conda_frontend
-        self._conda_prefix = conda_prefix
-        self._use_singularity = use_singularity
-        self._use_env_modules = use_env_modules
-        self.singularity_prefix = singularity_prefix
-        self._singularity_args = singularity_args
-        self._shadow_prefix = shadow_prefix
-        self._scheduler_type = scheduler_type
-        self.scheduler_ilp_solver = scheduler_ilp_solver
         self.global_container_img = None
         self.global_is_containerized = False
-        self.mode = mode
-        self._wrapper_prefix = wrapper_prefix
-        self._printshellcmds = printshellcmds
-        self.restart_times = restart_times
-        self.attempt = attempt
-        self.default_remote_provider = default_remote_provider
-        self._default_remote_prefix = default_remote_prefix
-        self.configfiles = (
-            [] if overwrite_configfiles is None else list(overwrite_configfiles)
-        )
-        self.run_local = run_local
-        self._assume_shared_fs = assume_shared_fs
+        self.configfiles = list(self.config_settings.configfiles)
+        self._run_local = None
         self.report_text = None
         self.conda_cleanup_pkgs = conda_cleanup_pkgs
         self._edit_notebook = edit_notebook
@@ -244,7 +184,6 @@ class Workflow(WorkflowExecutorInterface):
         self._local_groupid = local_groupid
         self._keep_metadata = keep_metadata
         self._latency_wait = latency_wait
-        self._keep_incomplete = keep_incomplete
         self._quiet = quiet
 
         _globals = globals()
@@ -266,9 +205,9 @@ class Workflow(WorkflowExecutorInterface):
         if cache is not None:
             self.enable_cache = True
             self.cache_rules = {rulename: "all" for rulename in cache}
-            if self.default_remote_provider is not None:
+            if self.storage_settings.default_remote_provider is not None:
                 self._output_file_cache = RemoteOutputFileCache(
-                    self.default_remote_provider
+                    self.storage_settings.default_remote_provider
                 )
             else:
                 self._output_file_cache = LocalOutputFileCache()
@@ -284,22 +223,24 @@ class Workflow(WorkflowExecutorInterface):
 
         self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
 
-        self.globals["config"] = copy.deepcopy(self.overwrite_config)
+        self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
         if envvars is not None:
             self.register_envvars(*envvars)
 
     @property
+    def run_local(self):
+        assert self._run_local is not None, "bug: self._run_local not initialized"
+        return self._run_local
+
+
+    @property
+    def basedir(self):
+        return os.path.dirname(self.main_snakefile)
+
+    @property
     def quiet(self):
         return self._quiet
-
-    @property
-    def assume_shared_fs(self):
-        return self._assume_shared_fs
-
-    @property
-    def keep_incomplete(self):
-        return self._keep_incomplete
 
     @property
     def executor_args(self):
@@ -308,10 +249,6 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def default_remote_prefix(self):
         return self._default_remote_prefix
-
-    @property
-    def immediate_submit(self):
-        return self._immediate_submit
 
     @property
     def scheduler(self):
@@ -326,40 +263,12 @@ class Workflow(WorkflowExecutorInterface):
         return self._envvars
 
     @property
-    def jobscript(self):
-        return self._jobscript
-
-    @property
-    def verbose(self):
-        return self._verbose
-
-    @property
     def sourcecache(self):
         return self._sourcecache
 
     @property
     def edit_notebook(self):
         return self._edit_notebook
-
-    @property
-    def cleanup_scripts(self):
-        return self._cleanup_scripts
-
-    @property
-    def debug(self):
-        return self._debug
-
-    @property
-    def use_env_modules(self):
-        return self._use_env_modules
-
-    @property
-    def use_singularity(self):
-        return self._use_singularity
-
-    @property
-    def use_conda(self):
-        return self._use_conda
 
     @property
     def workdir_init(self):
@@ -375,7 +284,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def main_snakefile(self):
-        return self._main_snakefile
+        return self.included[0]
 
     @property
     def output_file_cache(self):
@@ -394,20 +303,8 @@ class Workflow(WorkflowExecutorInterface):
         return self._default_resources
 
     @property
-    def scheduler_type(self):
-        return self._scheduler_type
-
-    @property
-    def printshellcmds(self):
-        return self._printshellcmds
-
-    @property
-    def config_args(self):
-        return self._config_args
-
-    @property
     def overwrite_configfiles(self):
-        return self._overwrite_configfiles
+        return self.config_settings.configfiles
 
     @property
     def conda_not_block_search_path_envvars(self):
@@ -422,14 +319,6 @@ class Workflow(WorkflowExecutorInterface):
         return self._overwrite_scatter
 
     @property
-    def overwrite_threads(self):
-        return self._overwrite_threads
-
-    @property
-    def wrapper_prefix(self):
-        return self._wrapper_prefix
-
-    @property
     def keep_metadata(self):
         return self._keep_metadata
 
@@ -442,38 +331,18 @@ class Workflow(WorkflowExecutorInterface):
         return self._execute_subworkflows
 
     @property
-    def singularity_args(self):
-        return self._singularity_args
-
-    @property
-    def conda_prefix(self):
-        return self._conda_prefix
-
-    @property
-    def conda_frontend(self):
-        return self._conda_frontend
-
-    @property
-    def shadow_prefix(self):
-        return self._shadow_prefix
-
-    @property
     def rerun_triggers(self):
-        return self._rerun_triggers
+        return self.execution_settings.rerun_triggers
 
     @property
     def latency_wait(self):
         return self._latency_wait
 
     @property
-    def overwrite_resources(self):
-        return self._overwrite_resources
-
-    @property
     def conda_base_path(self):
         if self._conda_base_path:
             return self._conda_base_path
-        if self.use_conda:
+        if self.deployment_settings.use_conda:
             try:
                 return Conda().prefix_path
             except CreateCondaEnvironmentException as e:
@@ -655,19 +524,18 @@ class Workflow(WorkflowExecutorInterface):
         """
         if isinstance(path, Path):
             path = str(path)
-        if self.default_remote_provider is not None:
+        if self.storage_settings.default_remote_provider is not None:
             path = self.modifier.modify_path(path)
         return IOFile(path)
 
     def execute(
         self,
+        run_local,
         targets=None,
         target_jobs=None,
         dryrun=False,
         generate_unit_tests=None,
         touch=False,
-        scheduler_type=None,
-        scheduler_ilp_solver=None,
         local_cores=1,
         forcetargets=False,
         forceall=False,
@@ -754,9 +622,10 @@ class Workflow(WorkflowExecutorInterface):
         report_stylesheet=None,
         export_cwl=False,
         batch=None,
-        keepincomplete=False,
         containerize=False,
     ):
+        self._run_local = run_local
+
         self.check_localrules()
 
         def rules(items):
@@ -862,9 +731,9 @@ class Workflow(WorkflowExecutorInterface):
         self._persistence = Persistence(
             nolock=nolock,
             dag=dag,
-            conda_prefix=self.conda_prefix,
-            singularity_prefix=self.singularity_prefix,
-            shadow_prefix=self.shadow_prefix,
+            conda_prefix=self.deployment_settings.conda_prefix,
+            singularity_prefix=self.deployment_settings.singularity_prefix,
+            shadow_prefix=self.execution_settings.shadow_prefix,
             warn_only=dryrun
             or printrulegraph
             or printfilegraph
@@ -881,7 +750,7 @@ class Workflow(WorkflowExecutorInterface):
             or delete_temp_output,
         )
 
-        if self.mode in [ExecMode.subprocess, ExecMode.remote]:
+        if self.execution_settings.mode in [ExecMode.subprocess, ExecMode.remote]:
             self.persistence.deactivate_cache()
 
         if cleanup_metadata:
@@ -1003,7 +872,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 return False
 
-        if self.immediate_submit and any(dag.checkpoint_jobs):
+        if self.remote_execution_settings.immediate_submit and any(dag.checkpoint_jobs):
             logger.error(
                 "Immediate submit mode (--immediate-submit) may not be used for workflows "
                 "with checkpoint jobs, as the dependencies cannot be determined before "
@@ -1018,9 +887,9 @@ class Workflow(WorkflowExecutorInterface):
 
             path = generate_unit_tests
             deploy = []
-            if self.use_conda:
+            if self.deployment_settings.use_conda:
                 deploy.append("conda")
-            if self.use_singularity:
+            if self.deployment_settings.use_singularity:
                 deploy.append("singularity")
             unit_tests.generate(
                 dag, path, deploy, configfiles=self.overwrite_configfiles
@@ -1089,12 +958,12 @@ class Workflow(WorkflowExecutorInterface):
             dag.list_untracked()
             return True
 
-        if self.use_singularity and self.assume_shared_fs:
+        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
             dag.pull_container_imgs(
                 dryrun=dryrun or list_conda_envs or cleanup_containers,
                 quiet=list_conda_envs,
             )
-        if self.use_conda:
+        if self.deployment_settings.use_conda:
             dag.create_conda_envs(
                 dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
                 quiet=list_conda_envs,
@@ -1166,8 +1035,6 @@ class Workflow(WorkflowExecutorInterface):
             container_image=container_image,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            scheduler_type=scheduler_type,
-            scheduler_ilp_solver=scheduler_ilp_solver,
             executor_args=self.executor_args,
         )
 
@@ -1201,15 +1068,15 @@ class Workflow(WorkflowExecutorInterface):
                 if self.run_local and any(rule.group for rule in self.rules):
                     logger.info("Group jobs: inactive (local execution)")
 
-                if not self.use_conda and any(rule.conda_env for rule in self.rules):
+                if not self.deployment_settings.use_conda and any(rule.conda_env for rule in self.rules):
                     logger.info("Conda environments: ignored")
 
-                if not self.use_singularity and any(
+                if not self.deployment_settings.use_singularity and any(
                     rule.container_img for rule in self.rules
                 ):
                     logger.info("Singularity containers: ignored")
 
-                if self.mode == ExecMode.default:
+                if self.execution_settings.mode == ExecMode.default:
                     logger.run_info("\n".join(dag.stats()))
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1262,7 +1129,7 @@ class Workflow(WorkflowExecutorInterface):
                 log_provenance_info()
             raise e
 
-        if not self.immediate_submit and not dryrun and self.mode == ExecMode.default:
+        if not self.remote_execution_settings.immediate_submit and not dryrun and self.execution_settings.mode == ExecMode.default:
             dag.cleanup_workdir()
 
         if success:
@@ -1370,7 +1237,6 @@ class Workflow(WorkflowExecutorInterface):
         snakefile,
         overwrite_default_target=False,
         print_compilation=False,
-        overwrite_shellcmd=None,
     ):
         """
         Include a snakefile.
@@ -1388,7 +1254,7 @@ class Workflow(WorkflowExecutorInterface):
         code, linemap, rulecount = parse(
             snakefile,
             self,
-            overwrite_shellcmd=self.overwrite_shellcmd,
+            overwrite_shellcmd=self.execution_settings.overwrite_shellcmd,
             rulecount=self._rulecount,
         )
         self._rulecount = rulecount
@@ -1455,7 +1321,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def workdir(self, workdir):
         """Register workdir."""
-        if self.overwrite_workdir is None:
+        if self.execution_settings.overwrite_workdir is None:
             os.makedirs(workdir, exist_ok=True)
             self._workdir = workdir
             os.chdir(workdir)
@@ -1467,13 +1333,13 @@ class Workflow(WorkflowExecutorInterface):
                 self.configfiles.append(fp)
                 c = snakemake.io.load_configfile(fp)
                 update_config(self.config, c)
-                if self.overwrite_config:
+                if self.config_settings.overwrite_config:
                     logger.info(
                         "Config file {} is extended by additional config specified via the command line.".format(
                             fp
                         )
                     )
-                    update_config(self.config, self.overwrite_config)
+                    update_config(self.config, self.config_settings.overwrite_config)
             elif not self.overwrite_configfiles:
                 fp_full = os.path.abspath(fp)
                 raise WorkflowError(
@@ -1481,7 +1347,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
             else:
                 # CLI configfiles have been specified, do not throw an error but update with their values
-                update_config(self.config, self.overwrite_config)
+                update_config(self.config, self.config_settings.overwrite_config)
 
     def set_pepfile(self, path):
         try:
@@ -1594,8 +1460,8 @@ class Workflow(WorkflowExecutorInterface):
                         "Threads value has to be an integer, float, or a callable.",
                         rule=rule,
                     )
-                if name in self.overwrite_threads:
-                    rule.resources["_cores"] = self.overwrite_threads[name]
+                if name in self.resource_settings.overwrite_threads:
+                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[name]
                 else:
                     if isinstance(ruleinfo.threads, float):
                         ruleinfo.threads = int(ruleinfo.threads)
@@ -1639,8 +1505,8 @@ class Workflow(WorkflowExecutorInterface):
                         rule=rule,
                     )
                 rule.resources.update(resources)
-            if name in self.overwrite_resources:
-                rule.resources.update(self.overwrite_resources[name])
+            if name in self.resource_settings.overwrite_resources:
+                rule.resources.update(self.resource_settings.overwrite_resources[name])
 
             if ruleinfo.priority:
                 if not isinstance(ruleinfo.priority, int) and not isinstance(
@@ -1657,7 +1523,7 @@ class Workflow(WorkflowExecutorInterface):
                         "Retries values have to be integers >= 0", rule=rule
                     )
             rule.restart_times = (
-                self.restart_times if ruleinfo.retries is None else ruleinfo.retries
+                self.execution_settings.restart_times if ruleinfo.retries is None else ruleinfo.retries
             )
 
             if ruleinfo.version:
@@ -1676,7 +1542,7 @@ class Workflow(WorkflowExecutorInterface):
                     rule.group = group
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.wrapper_prefix
+                    ruleinfo.wrapper, prefix=self.execution_settings.wrapper_prefix
                 )
                 # TODO retrieve suitable singularity image
 

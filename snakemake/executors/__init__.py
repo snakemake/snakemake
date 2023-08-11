@@ -235,9 +235,9 @@ class CPUExecutor(RealExecutor):
             job.conda_env.address if self.workflow.use_conda and job.conda_env else None
         )
         container_img = (
-            job.container_img_path if self.workflow.use_singularity else None
+            job.container_img_path if self.workflow.deployment_settings.use_singularity else None
         )
-        env_modules = job.env_modules if self.workflow.use_env_modules else None
+        env_modules = job.env_modules if self.workflow.deployment_settings.use_env_modules else None
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -258,10 +258,10 @@ class CPUExecutor(RealExecutor):
             container_img,
             self.workflow.singularity_args,
             env_modules,
-            self.workflow.use_singularity,
+            self.workflow.deployment_settings.use_singularity,
             self.workflow.linemaps,
-            self.workflow.debug,
-            self.workflow.cleanup_scripts,
+            self.workflow.execution_settings.debug,
+            self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
             self.workflow.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
@@ -367,7 +367,7 @@ class CPUExecutor(RealExecutor):
             error_callback(job)
         except BaseException as ex:
             self.print_job_error(job)
-            if self.workflow.verbose or (not job.is_group() and not job.is_shell):
+            if self.workflow.output_settings.verbose or (not job.is_group() and not job.is_shell):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
@@ -403,7 +403,7 @@ class GenericClusterExecutor(RemoteExecutor):
         max_status_checks_per_second=1,
     ):
         self.submitcmd = submitcmd
-        if not workflow.assume_shared_fs and statuscmd is None:
+        if not self.assume_shared_fs and statuscmd is None:
             raise WorkflowError(
                 "When no shared filesystem can be assumed, a "
                 "status command must be given."
@@ -1349,7 +1349,7 @@ class KubernetesExecutor(RemoteExecutor):
         logger.debug(f"k8s pod resources: {container.resources.requests}")
 
         # capabilities
-        if job.needs_singularity and self.workflow.use_singularity:
+        if job.needs_singularity and self.workflow.deployment_settings.use_singularity:
             # TODO this should work, but it doesn't currently because of
             # missing loop devices
             # singularity inside docker requires SYS_ADMIN capabilities

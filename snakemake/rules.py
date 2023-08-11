@@ -579,7 +579,7 @@ class Rule:
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.mode != ExecMode.subprocess
+                    and self.workflow.execution_settings.mode != ExecMode.subprocess
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(
@@ -1400,7 +1400,7 @@ class RuleProxy:
             modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
 
             if (
-                self.rule.workflow.default_remote_provider is not None
+                self.rule.workflow.storage_settings.default_remote_provider is not None
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):
