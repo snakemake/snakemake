@@ -180,8 +180,6 @@ class DAG(ApiBase):
                 raise ApiError(
                     "debug mode cannot be used with non-local execution"
                 )
-        
-        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
 
         self.executor_settings.use_threads = (
             self.execution_settings.use_threads

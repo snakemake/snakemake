@@ -12,10 +12,13 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
+from snakemake_interface_executor_plugins.utils import ExecMode, lazy_property
+from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake.cli import SpawnedJobArgsFactory
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -100,38 +103,19 @@ class Workflow(WorkflowExecutorInterface):
     output_settings: Optional[api.OutputSettings] = None
     remote_execution_settings: Optional[api.RemoteExecutionSettings] = None
     group_settings: Optional[api.GroupSettings] = None
+    executor_settings: ExecutorSettingsBase = None
 
     def __init__(
         self,
-        overwrite_scatter=None,
-        overwrite_groups=None,
-        overwrite_resource_scopes=None,
-        group_components=None,
-        assume_shared_fs=True,
-        default_resources=None,
-        cache=None,
         nodes=1,
         cores=1,
-        conda_cleanup_pkgs=None,
-        edit_notebook=False,
-        envvars=None,
-        max_inventory_wait_time=20,
-        conda_not_block_search_path_envvars=False,
-        execute_subworkflows=True,
-        scheduler_solver_path=None,
-        conda_base_path=None,
         check_envvars=True,
-        max_threads=None,
-        all_temp=False,
-        local_groupid="local",
-        keep_metadata=True,
-        latency_wait=3,
-        executor_args=None,
-        quiet=False,
     ):
         """
         Create the controller.
         """
+
+        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
 
         self.global_resources = dict() if self.resource_settings is None else self.resource_settings.resources
         self.global_resources["_cores"] = cores
@@ -158,33 +142,17 @@ class Workflow(WorkflowExecutorInterface):
         self.configfiles = list(self.config_settings.configfiles)
         self._run_local = None
         self.report_text = None
-        self.conda_cleanup_pkgs = conda_cleanup_pkgs
-        self._edit_notebook = edit_notebook
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
         self._envvars = set()
-        self.overwrite_groups = overwrite_groups or dict()
-        self.group_components = group_components or dict()
-        self._scatter = dict(overwrite_scatter or dict())
-        self._overwrite_scatter = overwrite_scatter or dict()
-        self._overwrite_resource_scopes = overwrite_resource_scopes or dict()
+        self._scatter = dict(self.resource_settings.overwrite_scatter)
         self._resource_scopes = ResourceScopes.defaults()
-        self._resource_scopes.update(self.overwrite_resource_scopes)
-        self._conda_not_block_search_path_envvars = conda_not_block_search_path_envvars
-        self._execute_subworkflows = execute_subworkflows
+        self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self.modules = dict()
         self._sourcecache = SourceCache()
-        self.scheduler_solver_path = scheduler_solver_path
-        self._conda_base_path = conda_base_path
         self.check_envvars = check_envvars
-        self._max_threads = max_threads
-        self.all_temp = all_temp
-        self._executor_args = executor_args
         self._scheduler = None
-        self._local_groupid = local_groupid
-        self._keep_metadata = keep_metadata
-        self._latency_wait = latency_wait
-        self._quiet = quiet
+        self._spawned_job_general_args = None
 
         _globals = globals()
         from snakemake.shell import shell
@@ -202,9 +170,9 @@ class Workflow(WorkflowExecutorInterface):
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
         self.enable_cache = False
-        if cache is not None:
+        if self.execution_settings.cache is not None:
             self.enable_cache = True
-            self.cache_rules = {rulename: "all" for rulename in cache}
+            self.cache_rules = {rulename: "all" for rulename in self.execution_settings.cache}
             if self.storage_settings.default_remote_provider is not None:
                 self._output_file_cache = RemoteOutputFileCache(
                     self.storage_settings.default_remote_provider
@@ -215,18 +183,16 @@ class Workflow(WorkflowExecutorInterface):
             self._output_file_cache = None
             self.cache_rules = dict()
 
-        if default_resources is not None:
-            self._default_resources = default_resources
-        else:
-            # only _cores, _nodes, and _tmpdir
-            self._default_resources = DefaultResources(mode="bare")
-
-        self.iocache = snakemake.io.IOCache(max_inventory_wait_time)
+        self.iocache = snakemake.io.IOCache(self.execution_settings.max_inventory_wait_time)
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
-        if envvars is not None:
-            self.register_envvars(*envvars)
+        if self.remote_execution_settings.envvars is not None:
+            self.register_envvars(*self.remote_execution_settings.envvars)
+
+    @lazy_property
+    def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
+        return SpawnedJobArgsFactory(self)
 
     @property
     def run_local(self):
@@ -237,14 +203,6 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def basedir(self):
         return os.path.dirname(self.main_snakefile)
-
-    @property
-    def quiet(self):
-        return self._quiet
-
-    @property
-    def executor_args(self):
-        return self._executor_args
 
     @property
     def default_remote_prefix(self):
@@ -265,10 +223,6 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def sourcecache(self):
         return self._sourcecache
-
-    @property
-    def edit_notebook(self):
-        return self._edit_notebook
 
     @property
     def workdir_init(self):
@@ -295,53 +249,17 @@ class Workflow(WorkflowExecutorInterface):
         return self._resource_scopes
 
     @property
-    def overwrite_resource_scopes(self):
-        return self._overwrite_resource_scopes
-
-    @property
-    def default_resources(self):
-        return self._default_resources
-
-    @property
     def overwrite_configfiles(self):
         return self.config_settings.configfiles
-
-    @property
-    def conda_not_block_search_path_envvars(self):
-        return self._conda_not_block_search_path_envvars
-
-    @property
-    def local_groupid(self):
-        return self._local_groupid
-
-    @property
-    def overwrite_scatter(self):
-        return self._overwrite_scatter
-
-    @property
-    def keep_metadata(self):
-        return self._keep_metadata
-
-    @property
-    def max_threads(self):
-        return self._max_threads
-
-    @property
-    def execute_subworkflows(self):
-        return self._execute_subworkflows
 
     @property
     def rerun_triggers(self):
         return self.execution_settings.rerun_triggers
 
     @property
-    def latency_wait(self):
-        return self._latency_wait
-
-    @property
     def conda_base_path(self):
-        if self._conda_base_path:
-            return self._conda_base_path
+        if self.deployment_settings.conda_base_path:
+            return self.deployment_settings.conda_base_path
         if self.deployment_settings.use_conda:
             try:
                 return Conda().prefix_path
@@ -531,6 +449,7 @@ class Workflow(WorkflowExecutorInterface):
     def execute(
         self,
         run_local,
+        executor_plugin=None,
         targets=None,
         target_jobs=None,
         dryrun=False,
@@ -693,7 +612,7 @@ class Workflow(WorkflowExecutorInterface):
         if wait_for_files is not None:
             try:
                 snakemake.io.wait_for_files(
-                    wait_for_files, latency_wait=self.latency_wait
+                    wait_for_files, latency_wait=self.execution_settings.latency_wait
                 )
             except IOError as e:
                 logger.error(str(e))
@@ -799,7 +718,7 @@ class Workflow(WorkflowExecutorInterface):
 
         if (
             self.subworkflows
-            and self.execute_subworkflows
+            and self.execution_settings.execute_subworkflows
             and not printdag
             and not printrulegraph
             and not printfilegraph
@@ -994,6 +913,7 @@ class Workflow(WorkflowExecutorInterface):
         self.scheduler = JobScheduler(
             self,
             dag,
+            executor_plugin=executor_plugin,
             local_cores=local_cores,
             dryrun=dryrun,
             touch=touch,
@@ -1035,7 +955,6 @@ class Workflow(WorkflowExecutorInterface):
             container_image=container_image,
             greediness=greediness,
             force_use_threads=force_use_threads,
-            executor_args=self.executor_args,
         )
 
         if not dryrun:
@@ -1087,7 +1006,7 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 logger.info(NOTHING_TO_BE_DONE_MSG)
                 return True
-            if self.quiet:
+            if self.output_settings.quiet:
                 # in case of dryrun and quiet, just print above info and exit
                 return True
 
@@ -1297,7 +1216,7 @@ class Workflow(WorkflowExecutorInterface):
     def scattergather(self, **content):
         """Register scattergather defaults."""
         self._scatter.update(content)
-        self._scatter.update(self.overwrite_scatter)
+        self._scatter.update(self.resource_settings.overwrite_scatter)
 
         # add corresponding wildcard constraint
         self.global_wildcard_constraints(scatteritem=r"\d+-of-\d+")
@@ -1317,7 +1236,7 @@ class Workflow(WorkflowExecutorInterface):
     def resourcescope(self, **content):
         """Register resource scope defaults"""
         self.resource_scopes.update(content)
-        self.resource_scopes.update(self.overwrite_resource_scopes)
+        self.resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
 
     def workdir(self, workdir):
         """Register workdir."""
@@ -1448,8 +1367,8 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.params:
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
-            if self.default_resources is not None:
-                rule.resources = copy.deepcopy(self.default_resources.parsed)
+            if self.resource_settings.default_resources is not None:
+                rule.resources = copy.deepcopy(self.resource_settings.default_resources.parsed)
             if ruleinfo.threads is not None:
                 if (
                     not isinstance(ruleinfo.threads, int)
@@ -1537,7 +1456,7 @@ class Workflow(WorkflowExecutorInterface):
                 rule.benchmark_modifier = ruleinfo.benchmark.modifier
                 rule.benchmark = ruleinfo.benchmark.paths
             if not self.run_local:
-                group = self.overwrite_groups.get(name) or ruleinfo.group
+                group = self.group_settings.overwrite_groups.get(name) or ruleinfo.group
                 if group is not None:
                     rule.group = group
             if ruleinfo.wrapper:

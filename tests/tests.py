@@ -1089,9 +1089,9 @@ def test_resources_can_be_overwritten_as_global():
 
 @skip_on_windows
 def test_scopes_submitted_to_cluster(mocker):
-    from snakemake.executors import AbstractExecutor
+    from snakemake.cli import SpawnedJobArgs
 
-    spy = mocker.spy(AbstractExecutor, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgs, "get_resource_scopes_args")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",

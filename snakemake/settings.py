@@ -1,5 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
+from enum import Enum
 import importlib
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -59,8 +60,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
         the number of provided cluster nodes (ignored without cluster/cloud support)
     local_cores:
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
-    max_threads:
-        maximal number of threads to use for a single rule (default: None, i.e. unlimited)
     """
     workdir: Optional[Path] = None
     batch: Batch = None
@@ -136,6 +135,11 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
                     "be used as default provider."
                 )
 
+
+class CondaCleanupPkgs(Enum):
+    TARBALLS = "tarballs"
+    CACHE = "cache"
+
 @dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
@@ -157,7 +161,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     """
     use_conda: bool = False
     conda_prefix: Optional[Path] = None
-    conda_cleanup_pkgs: Optional[str] = None
+    conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
     conda_frontend: str = "mamba"
     conda_not_block_search_path_envvars: bool = False
@@ -211,10 +215,10 @@ class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
     max_threads: Optional[int] = None
     resources: Dict[str, int] = dict()
     overwrite_threads: Dict[str, int] = dict()
-    overwrite_scatter: Optional[Dict[str, int]] = None
-    overwrite_resource_scopes: Optional[Dict[str, str]] = None
+    overwrite_scatter: Dict[str, int] = dict()
+    overwrite_resource_scopes: Dict[str, str] = dict()
     overwrite_resources: Dict[str, Dict[str, int]] = dict()
-    default_resources: Optional[DefaultResources] = None
+    default_resources: DefaultResources = DefaultResources(mode="bare")
 
 @dataclass
 class ConfigSettings(SettingsBase, ConfigSettingsExecutorInterface):
@@ -270,6 +274,6 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
 
 @dataclass
 class GroupSettings(SettingsBase):
-    overwrite_groups: Optional[Dict[str, str]] = None
-    group_components: Optional[Dict[str, int]] = None
+    overwrite_groups: Dict[str, str] = dict()
+    group_components: Dict[str, int] = dict()
     local_groupid: str = "local"

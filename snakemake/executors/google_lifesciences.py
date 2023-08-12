@@ -90,7 +90,7 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         self._set_workflow_sources()
 
         # Attach variables for easy access
-        self.quiet = workflow.quiet
+        self.quiet = workflow.output_settings.quiet
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
         self._save_storage_cache = cache
 
@@ -476,7 +476,7 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         # Update default resources using decided memory and disk
         # TODO why is this needed??
         self.default_resources = DefaultResources(
-            from_other=self.workflow.default_resources
+            from_other=self.workflow.resource_settings.default_resources
         )
         self.default_resources.set_resource("mem_mb", mem_mb)
         self.default_resources.set_resource("disk_mb", disk_mb)

@@ -264,8 +264,8 @@ class CPUExecutor(RealExecutor):
             self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
-            self.workflow.conda_base_path,
+            self.workflow.execution_settings.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
+            self.workflow.deployment_settings.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
         )
@@ -1572,7 +1572,7 @@ class TibannaExecutor(RemoteExecutor):
         logger.debug("precommand= " + self.precommand)
         logger.debug("bucket=" + self.s3_bucket)
         logger.debug("subdir=" + self.s3_subdir)
-        self.quiet = workflow.quiet
+        self.quiet = workflow.output_settings.quiet
 
         self.container_image = container_image or get_container_image()
         logger.info(f"Using {self.container_image} for Tibanna jobs.")

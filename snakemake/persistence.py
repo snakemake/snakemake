@@ -260,8 +260,8 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job, keep_metadata=True):
-        if not keep_metadata:
+    def finished(self, job):
+        if not self.dag.workflow.execution_settings.keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(self._incomplete_path, f)
             return

@@ -12,6 +12,7 @@ from contextlib import ContextDecorator
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 
 from snakemake.executors import (
     AbstractExecutor,
@@ -69,6 +70,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self,
         workflow,
         dag,
+        executor_plugin: ExecutorPlugin=None,
         local_cores=1,
         dryrun=False,
         touch=False,
@@ -110,7 +112,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
         force_use_threads=False,
-        executor_args=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
 
@@ -122,7 +123,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.workflow = workflow
         self.dryrun = dryrun
         self.touch = touch
-        self.quiet = workflow.quiet
+        self.quiet = workflow.output_settings.quiet
         self.keepgoing = keepgoing
         self.running = set()
         self.failed = set()
@@ -175,8 +176,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
 
         # We have chosen an executor custom plugin
-        elif executor_args is not None:
-            plugin = registry.plugins[executor_args._executor.name]
+        elif executor_plugin is not None:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
@@ -184,13 +184,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 logger,
                 local_cores,
             )
-            self._executor = plugin.executor(
+            self._executor = executor_plugin.executor(
                 workflow,
                 dag,
                 self.stats,
                 logger,
                 cores,
-                executor_args=executor_args,
+                executor_args=self.workflow.executor_settings,
             )
 
         elif slurm:
@@ -866,12 +866,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
         import pulp
 
         old_path = os.environ["PATH"]
-        if self.workflow.scheduler_solver_path is None:
+        if self.workflow.scheduling_settings.scheduler_solver_path is None:
             # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
             # This is needed for cluster envs, where the cluster job might have a different environment but
             # still needs access to the solver binary.
             os.environ["PATH"] = "{}:{}".format(
-                self.workflow.scheduler_solver_path, os.environ["PATH"]
+                self.workflow.scheduling_settings.scheduler_solver_path, os.environ["PATH"]
             )
         try:
             solver = (

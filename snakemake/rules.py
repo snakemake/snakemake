@@ -587,7 +587,7 @@ class Rule:
                         )
                     )
 
-            if self.workflow.all_temp and output:
+            if self.workflow.execution_settings.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
                 item = flag(item, "temp")
 
@@ -1127,8 +1127,8 @@ class Rule:
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.max_threads is not None:
-            threads = min(threads, self.workflow.max_threads)
+        if self.workflow.resource_settings.max_threads is not None:
+            threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
         for name, res in list(self.resources.items()):

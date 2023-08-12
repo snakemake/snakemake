@@ -83,7 +83,7 @@ class FluxExecutor(RemoteExecutor):
         including default regions and the virtual machine configuration
         """
         self.default_resources = DefaultResources(
-            from_other=self.workflow.default_resources
+            from_other=self.workflow.resource_settings.default_resources
         )
 
     def get_snakefile(self):

@@ -323,7 +323,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         groupid = None
         if group is None:
             if self.dag.workflow.run_local or self.is_local:
-                groupid = self.dag.workflow.local_groupid
+                groupid = self.dag.workflow.group_settings.local_groupid
         else:
             groupid = group.jobid
 
@@ -871,7 +871,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         wait_for_files(
             self.input,
             force_stay_on_remote=force_stay_on_remote,
-            latency_wait=self.dag.workflow.latency_wait,
+            latency_wait=self.dag.workflow.execution_settings.latency_wait,
         )
 
         if not self.is_shadow:
@@ -1162,22 +1162,19 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         handle_touch=True,
         error=False,
         ignore_missing_output=False,
-        assume_shared_fs=True,
-        latency_wait=None,
-        keep_metadata=True,
     ):
         if self.dag.is_edit_notebook_job(self):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
-        if assume_shared_fs:
+        if self.dag.workflow.storage_settings.assume_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:
                 self.dag.handle_log(self)
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=latency_wait, ignore_missing_output=ignore_missing_output
+                    self, wait=self.dag.workflow.execution_settings.latency_wait, ignore_missing_output=ignore_missing_output
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
@@ -1187,13 +1184,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         else:
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=latency_wait, no_touch=True, force_stay_on_remote=True
+                    self, wait=self.dag.workflow.execution_settings.latency_wait, no_touch=True, force_stay_on_remote=True
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(
-                    self, keep_metadata=keep_metadata
-                )
+                self.dag.workflow.persistence.finished(self)
             except IOError as e:
                 raise WorkflowError(
                     "Error recording metadata for finished job "

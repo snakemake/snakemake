@@ -350,7 +350,7 @@ class DAG(DAGExecutorInterface):
                 env = env_spec.get_conda_env(
                     self.workflow,
                     container_img=simg,
-                    cleanup=self.workflow.conda_cleanup_pkgs,
+                    cleanup=self.workflow.deployment_settings.conda_cleanup_pkgs,
                 )
                 self.conda_envs[key] = env
 
@@ -424,7 +424,7 @@ class DAG(DAGExecutorInterface):
             self.postprocess()
 
     def is_edit_notebook_job(self, job):
-        return self.workflow.edit_notebook and job.targetfile in self.targetfiles
+        return self.workflow.execution_settings.edit_notebook and job.targetfile in self.targetfiles
 
     def get_job_group(self, job):
         return self._group.get(job)
@@ -1351,7 +1351,7 @@ class DAG(DAGExecutorInterface):
         for group in self._group.values():
             groups_by_id[group.groupid].add(group)
         for groupid, conn_components in groups_by_id.items():
-            n_components = self.workflow.group_components.get(groupid, 1)
+            n_components = self.workflow.group_settings.group_components.get(groupid, 1)
             if n_components > 1:
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
