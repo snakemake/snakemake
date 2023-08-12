@@ -8,6 +8,7 @@ dependencies:
   - stopit
   - datrie
   - boto3
+  - oras-py
   - moto
   - junit-xml # needed for S3Mocked
   - httpretty
