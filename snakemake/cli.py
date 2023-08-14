@@ -2487,6 +2487,14 @@ def bash_completion(snakefile="Snakefile"):
 class SpawnedJobArgsFactory:
     workflow: Workflow
 
+    def get_default_remote_provider_args(self):
+        return join_cli_args(
+            [
+                format_cli_arg("--default-remote-prefix", self.workflow.storage_settings.default_remote_prefix),
+                format_cli_arg("--default-remote-provider", self.workflow.storage_settings.default_remote_provider.name),
+            ]
+        )
+
     def get_set_resources_args(self):
         return format_cli_arg(
             "--set-resources",
@@ -2528,8 +2536,11 @@ class SpawnedJobArgsFactory:
 
         return format_cli_arg(flag, value, quote=quote)
 
-    @lazy_property
-    def general_args(self):
+    def general_args(
+            self,
+            pass_default_remote_provider_args: bool=True, 
+            pass_default_resources_args: bool=False
+        ):
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
@@ -2537,8 +2548,7 @@ class SpawnedJobArgsFactory:
         """
         w2a = self.workflow_property_to_arg
 
-        return join_cli_args(
-            [
+        args = [
                 "--force",
                 "--keep-target-files",
                 "--keep-remote",
@@ -2580,4 +2590,11 @@ class SpawnedJobArgsFactory:
                 self.get_set_resources_args(),
                 self.get_resource_scopes_args(),
             ]
+        if pass_default_remote_provider_args:
+            args.append(self.get_default_remote_provider_args())
+        if pass_default_resources_args:
+            args.append(w2a("resource_settings.default_resources", attr="args"))
+
+        return join_cli_args(
+            args
         )

@@ -114,6 +114,7 @@ class TouchExecutor(RealExecutor):
             stats,
             logger,
             executor_settings=None,
+            pass_envvar_declarations_to_cmd=False,
         )
 
     def run(
@@ -174,6 +175,7 @@ class CPUExecutor(RealExecutor):
             logger,
             executor_settings=None,
             job_core_limit=cores,
+            pass_envvar_declarations_to_cmd=False,
         )
 
         self.use_threads = use_threads
@@ -426,6 +428,7 @@ class GenericClusterExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
+            pass_envvar_declarations_to_cmd=True,
         )
 
         self.sidecar_vars = None
@@ -779,6 +782,7 @@ class SynchronousClusterExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=10,
+            pass_envvar_declarations_to_cmd=True,
         )
         self.submitcmd = submitcmd
         self.external_jobid = dict()
@@ -884,6 +888,7 @@ class DRMAAExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
+            pass_envvar_declarations_to_cmd=True,
         )
         try:
             import drmaa
@@ -1082,7 +1087,7 @@ class KubernetesExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=10,
-            disable_envvar_declarations=True,
+            pass_envvar_declarations_to_cmd=False,
         )
         # use relative path to Snakefile
         self.snakefile = os.path.relpath(workflow.main_snakefile)
@@ -1537,9 +1542,9 @@ class TibannaExecutor(RemoteExecutor):
             logger,
             None,
             max_status_checks_per_second=max_status_checks_per_second,
-            disable_default_remote_provider_args=True,
-            disable_default_resources_args=True,
-            disable_envvar_declarations=True,
+            pass_default_remote_provider_args=False,
+            pass_default_resources_args=False,
+            pass_envvar_declarations_to_cmd=False,
         )
         self.workflow = workflow
         self.workflow_sources = []
@@ -1565,9 +1570,11 @@ class TibannaExecutor(RemoteExecutor):
             self.precommand = precommand
         else:
             self.precommand = ""
-        self.s3_bucket = workflow.default_remote_prefix.split("/")[0]
+
+        # TODO this does not work if the default remote is something else than S3
+        self.s3_bucket = workflow.storage_settings.default_remote_prefix.split("/")[0]
         self.s3_subdir = re.sub(
-            f"^{self.s3_bucket}/", "", workflow.default_remote_prefix
+            f"^{self.s3_bucket}/", "", workflow.storage_settings.default_remote_prefix
         )
         logger.debug("precommand= " + self.precommand)
         logger.debug("bucket=" + self.s3_bucket)

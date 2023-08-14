@@ -85,6 +85,7 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
+            pass_envvar_declarations_to_cmd=False,
         )
         # Prepare workflow sources for build package
         self._set_workflow_sources()
@@ -135,16 +136,6 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         self._build_packages = set()
         targz = self._generate_build_source_package()
         self._upload_build_source_package(targz)
-
-        # we need to add custom
-        # default resources depending on the instance requested
-        self.default_resources = None
-
-    def get_default_resources_args(self, default_resources=None):
-        assert default_resources is None
-        return super().get_default_resources_args(
-            default_resources=self.default_resources
-        )
 
     def _get_services(self):
         """
@@ -217,10 +208,11 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         """
         import google
 
+        # TODO this does not work if the remote is used without default_remote_prefix
         # Hold path to requested subdirectory and main bucket
-        bucket_name = self.workflow.default_remote_prefix.split("/")[0]
+        bucket_name = self.workflow.storage_settings.default_remote_prefix.split("/")[0]
         self.gs_subdir = re.sub(
-            f"^{bucket_name}/", "", self.workflow.default_remote_prefix
+            f"^{bucket_name}/", "", self.workflow.storage_settings.default_remote_prefix
         )
         self.gs_logs = os.path.join(self.gs_subdir, "google-lifesciences-logs")
 
@@ -414,7 +406,7 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
             "found resource request for {} GPUs. This will limit to n1 "
             "instance types.".format(gpu_count)
         )
-        self.default_resources.set_resource("nvidia_gpu", gpu_count)
+        self.workflow.resource_settings.default_resources.set_resource("nvidia_gpu", gpu_count)
 
         self._machine_type_prefix = self._machine_type_prefix or ""
         if not self._machine_type_prefix.startswith("n1"):
@@ -457,10 +449,20 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         """
         # Right now, do a best effort mapping of resources to instance types
         cores = job.resources.get("_cores", 1)
-        mem_mb = job.resources.get("mem_mb", 15360)
+        if "mem_mb" not in job.resources:
+            raise WorkflowError(
+                f"No memory resource (mem, mem_mb) defined for job from "
+                "rule {job.rule.name}. Make sure to use --default-resources."
+            )
+        mem_mb = job.resources["mem_mb"]
 
+        if "disk_mb" not in job.resources:
+            raise WorkflowError(
+                f"No disk resource (disk, disk_mb) defined for job from rule "
+                "{job.rule.name}. Make sure to use --default-resources."
+            )
         # IOPS performance proportional to disk size
-        disk_mb = job.resources.get("disk_mb", 512000)
+        disk_mb = job.resources["disk_mb"]
 
         # Convert mb to gb
         disk_gb = math.ceil(disk_mb / 1024)
@@ -472,14 +474,6 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         # If a gpu model is specified without a count, we assume 1
         if gpu_model and not gpu_count:
             gpu_count = 1
-
-        # Update default resources using decided memory and disk
-        # TODO why is this needed??
-        self.default_resources = DefaultResources(
-            from_other=self.workflow.resource_settings.default_resources
-        )
-        self.default_resources.set_resource("mem_mb", mem_mb)
-        self.default_resources.set_resource("disk_mb", disk_mb)
 
         # Job resource specification can be overridden by gpu preferences
         self.machine_type_prefix = job.resources.get("machine_type")

@@ -54,10 +54,12 @@ class FluxExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=10,
+            pass_envvar_declarations_to_cmd=True,
         )
 
         # Attach variables for easy access
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
+        # TODO unused
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't access the flux api

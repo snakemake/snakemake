@@ -249,6 +249,7 @@ class AzBatchExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
+            pass_envvar_declarations_to_cmd=False,
         )
 
         try:
@@ -272,8 +273,9 @@ class AzBatchExecutor(RemoteExecutor):
         self.validate_az_blob_credential_is_sas()
         self.azblob_helper = AzureStorageHelper()
 
+        # TODO this does not work if the remote is used without default_remote_prefix
         # get container from remote prefix
-        self.prefix_container = str.split(workflow.default_remote_prefix, "/")[0]
+        self.prefix_container = str.split(workflow.storage_settings.default_remote_prefix, "/")[0]
 
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)

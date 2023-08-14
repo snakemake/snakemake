@@ -116,8 +116,12 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_remote_provider: Optional[str] = None
     default_remote_prefix: Optional[str] = None
     assume_shared_fs: bool = True
+    keep_remote_local: bool = False
 
-    def get_default_remote_provider(self, keep_remote_local: bool):
+    def __post_init__(self):
+        self.default_remote_provider = self._get_default_remote_provider()
+
+    def _get_default_remote_provider(self):
         if self.default_remote_provider is not None:
             try:
                 rmt = importlib.import_module(
@@ -127,7 +131,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
                 raise ApiError(f"Unknown default remote provider {self.default_remote_provider}.")
             if rmt.RemoteProvider.supports_default:
                 return rmt.RemoteProvider(
-                    keep_local=keep_remote_local, is_default=True
+                    keep_local=self.keep_remote_local, is_default=True
                 )
             else:
                 raise ApiError(

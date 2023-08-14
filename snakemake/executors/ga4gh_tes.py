@@ -45,6 +45,7 @@ class TaskExecutionServiceExecutor(RemoteExecutor):
             None,
             jobname=jobname,
             max_status_checks_per_second=max_status_checks_per_second,
+            pass_envvar_declarations_to_cmd=True,
         )
         try:
             import tes

@@ -205,10 +205,6 @@ class Workflow(WorkflowExecutorInterface):
         return os.path.dirname(self.main_snakefile)
 
     @property
-    def default_remote_prefix(self):
-        return self._default_remote_prefix
-
-    @property
     def scheduler(self):
         return self._scheduler
 
