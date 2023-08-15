@@ -18,6 +18,7 @@ from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterf
 from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
 from snakemake_interface_executor_plugins.utils import ExecMode, lazy_property
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.registry.plugin import Plugin as ExecutorPlugin
 from snakemake.cli import SpawnedJobArgsFactory
 
 from snakemake.logging import logger, format_resources
@@ -132,7 +133,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included = []
         self.included_stack = []
         self._persistence: Persistence = None
-        self._subworkflows = dict()
+        self._dag: DAG = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
@@ -140,7 +141,6 @@ class Workflow(WorkflowExecutorInterface):
         self.global_container_img = None
         self.global_is_containerized = False
         self.configfiles = list(self.config_settings.configfiles)
-        self._run_local = None
         self.report_text = None
         # environment variables to pass to jobs
         # These are defined via the "envvars:" syntax in the Snakefile itself
@@ -153,6 +153,7 @@ class Workflow(WorkflowExecutorInterface):
         self.check_envvars = check_envvars
         self._scheduler = None
         self._spawned_job_general_args = None
+        self._executor_plugin = None
 
         _globals = globals()
         from snakemake.shell import shell
@@ -190,15 +191,13 @@ class Workflow(WorkflowExecutorInterface):
         if self.remote_execution_settings.envvars is not None:
             self.register_envvars(*self.remote_execution_settings.envvars)
 
+    @property
+    def executor_plugin(self):
+        return self._executor_plugin
+
     @lazy_property
     def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
         return SpawnedJobArgsFactory(self)
-
-    @property
-    def run_local(self):
-        assert self._run_local is not None, "bug: self._run_local not initialized"
-        return self._run_local
-
 
     @property
     def basedir(self):
@@ -231,6 +230,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def persistence(self):
         return self._persistence
+
+    @property
+    def dag(self):
+        return self._dag
 
     @property
     def main_snakefile(self):
@@ -304,10 +307,6 @@ class Workflow(WorkflowExecutorInterface):
 
     def get_cache_mode(self, rule: Rule):
         return self.cache_rules.get(rule.name)
-
-    @property
-    def subworkflows(self):
-        return self._subworkflows.values()
 
     @property
     def rules(self):
@@ -442,111 +441,18 @@ class Workflow(WorkflowExecutorInterface):
             path = self.modifier.modify_path(path)
         return IOFile(path)
 
-    def execute(
-        self,
-        run_local,
-        executor_plugin=None,
-        targets=None,
-        target_jobs=None,
-        dryrun=False,
-        generate_unit_tests=None,
-        touch=False,
-        local_cores=1,
-        forcetargets=False,
-        forceall=False,
-        forcerun=None,
-        until=[],
-        omit_from=[],
-        prioritytargets=None,
-        keepgoing=False,
-        printdag=False,
-        slurm=None,
-        slurm_jobstep=None,
-        cluster=None,
-        cluster_sync=None,
-        jobname=None,
-        ignore_ambiguity=False,
-        printrulegraph=False,
-        printfilegraph=False,
-        printd3dag=False,
-        drmaa=None,
-        drmaa_log_dir=None,
-        kubernetes=None,
-        k8s_cpu_scalar=1.0,
-        k8s_service_account_name=None,
-        flux=None,
-        tibanna=None,
-        tibanna_sfn=None,
-        az_batch=False,
-        az_batch_enable_autoscale=False,
-        az_batch_account_url=None,
-        google_lifesciences=None,
-        google_lifesciences_regions=None,
-        google_lifesciences_location=None,
-        google_lifesciences_cache=False,
-        google_lifesciences_service_account_email=None,
-        google_lifesciences_network=None,
-        google_lifesciences_subnetwork=None,
-        tes=None,
-        precommand="",
-        preemption_default=None,
-        preemptible_rules=None,
-        tibanna_config=False,
-        container_image=None,
-        stats=None,
-        force_incomplete=False,
-        ignore_incomplete=False,
-        list_version_changes=False,
-        list_code_changes=False,
-        list_input_changes=False,
-        list_params_changes=False,
-        list_untracked=False,
-        list_conda_envs=False,
-        summary=False,
-        archive=None,
-        delete_all_output=False,
-        delete_temp_output=False,
-        detailed_summary=False,
-        wait_for_files=None,
-        nolock=False,
-        unlock=False,
-        notemp=False,
-        nodeps=False,
-        cleanup_metadata=None,
-        conda_cleanup_envs=False,
-        cleanup_containers=False,
-        cleanup_shadow=False,
-        subsnakemake=None,
-        updated_files=None,
-        keep_target_files=False,
-        # Note that keep_shadow doesn't seem to be used?
-        keep_shadow=False,
-        keep_remote_local=False,
-        allowed_rules=None,
-        max_jobs_per_second=None,
-        max_status_checks_per_second=None,
-        greediness=1.0,
-        no_hooks=False,
-        force_use_threads=False,
-        conda_create_envs_only=False,
-        cluster_status=None,
-        cluster_cancel=None,
-        cluster_cancel_nargs=None,
-        cluster_sidecar=None,
-        report=None,
-        report_stylesheet=None,
-        export_cwl=False,
-        batch=None,
-        containerize=False,
-    ):
-        self._run_local = run_local
-
+    def _prepare_dag(
+            self,
+            forceall: bool,
+            ignore_incomplete: bool,
+            lock_warn_only: bool,
+        ) -> DAG:
         self.check_localrules()
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
-        if keep_target_files:
+        if self.execution_settings.keep_target_files:
 
             def files(items):
                 return filterfalse(self.is_rule, items)
@@ -561,7 +467,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if not targets and not target_jobs:
+        if not targets and not self.execution_settings.target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
@@ -596,7 +502,7 @@ class Workflow(WorkflowExecutorInterface):
         if ON_WINDOWS:
             targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
 
-        if forcetargets:
+        if self.execution_settings.forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
@@ -604,26 +510,15 @@ class Workflow(WorkflowExecutorInterface):
         if allowed_rules:
             allowed_rules = set(allowed_rules)
             rules = [rule for rule in rules if rule.name in allowed_rules]
-
-        if wait_for_files is not None:
-            try:
-                snakemake.io.wait_for_files(
-                    wait_for_files, latency_wait=self.execution_settings.latency_wait
-                )
-            except IOError as e:
-                logger.error(str(e))
-                return False
-
-        dag = DAG(
+        
+        self._dag = DAG(
             self,
             rules,
-            dryrun=dryrun,
             targetfiles=targetfiles,
             targetrules=targetrules,
-            target_jobs_def=target_jobs,
             # when cleaning up conda or containers, we should enforce all possible jobs
             # since their envs shall not be deleted
-            forceall=forceall or conda_cleanup_envs or cleanup_containers,
+            forceall=forceall,
             forcefiles=forcefiles,
             forcerules=forcerules,
             priorityfiles=priorityfiles,
@@ -632,450 +527,494 @@ class Workflow(WorkflowExecutorInterface):
             untilrules=untilrules,
             omitfiles=omitfiles,
             omitrules=omitrules,
-            ignore_ambiguity=ignore_ambiguity,
-            force_incomplete=force_incomplete,
-            ignore_incomplete=ignore_incomplete
-            or printdag
-            or printrulegraph
-            or printfilegraph,
-            notemp=notemp,
-            keep_remote_local=keep_remote_local,
-            batch=batch,
+            ignore_incomplete=ignore_incomplete,
         )
 
         self._persistence = Persistence(
-            nolock=nolock,
-            dag=dag,
+            nolock=self.execution_settings.nolock,
+            dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
             singularity_prefix=self.deployment_settings.singularity_prefix,
             shadow_prefix=self.execution_settings.shadow_prefix,
-            warn_only=dryrun
-            or printrulegraph
-            or printfilegraph
-            or printdag
-            or summary
-            or detailed_summary
-            or archive
-            or list_version_changes
-            or list_code_changes
-            or list_input_changes
-            or list_params_changes
-            or list_untracked
-            or delete_all_output
-            or delete_temp_output,
+            warn_only=lock_warn_only,
+        )
+
+    def cleanup_metadata(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        failed = []
+        for path in self.execution_settings.cleanup_metadata:
+            success = self.persistence.cleanup_metadata(path)
+            if not success:
+                failed.append(path)
+        if failed:
+            raise WorkflowError(
+                "Failed to clean up metadata for the following files because the metadata was not present.\n"
+                "If this is expected, there is nothing to do.\nOtherwise, the reason might be file system latency "
+                "or still running jobs.\nConsider running metadata cleanup again.\nFiles:\n"
+                + "\n".join(failed)
+            )
+    
+    def unlock(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+        try:
+            self.persistence.cleanup_locks()
+            logger.info("Unlocked working directory.")
+        except IOError as e:
+            raise WorkflowError(
+                f"Error: Unlocking the directory {os.getcwd()} failed. Maybe "
+                "you don't have the permissions?",
+                e
+            )
+
+    def cleanup_shadow(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=False)
+        self._build_dag()
+        with self.persistence.lock():
+            self.persistence.cleanup_shadow()
+
+
+    def delete_temp_output(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def delete_all_output(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def list_untracked(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def list_params_changes(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def list_input_changes(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def list_code_changes(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def archive(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def detailed_summary(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def summary(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+
+    def conda_cleanup_envs(self):
+        self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
+        self._build_dag()
+        ...
+
+    def cleanup_containers(self):
+        self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
+        self._build_dag()
+        ...
+    
+    def printdag(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+    
+    def printrulegraph(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+    
+    def printfilegraph(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+    
+    def printd3dag(self):
+        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._build_dag()
+        ...
+    
+    def containerize(self):
+        from snakemake.deployment.containerize import containerize
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+        with self.persistence.lock():
+            containerize(self, self.dag)
+
+    def _build_dag(self):
+        logger.info("Building DAG of jobs...")
+        self.dag.init()
+        self.dag.update_checkpoint_dependencies()
+        self.dag.check_dynamic()
+
+    def execute(
+        self,
+        executor_plugin: ExecutorPlugin=None,
+    ):
+        self._executor_plugin = executor_plugin
+        self._create_dag()
+
+        if self.execution_settings.wait_for_files is not None:
+            try:
+                snakemake.io.wait_for_files(
+                    self.execution_settings.wait_for_files, latency_wait=self.execution_settings.latency_wait
+                )
+            except IOError as e:
+                logger.error(str(e))
+                return False
+
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=self.dryrun,
         )
 
         if self.execution_settings.mode in [ExecMode.subprocess, ExecMode.remote]:
             self.persistence.deactivate_cache()
 
-        if cleanup_metadata:
-            failed = []
-            for f in cleanup_metadata:
-                success = self.persistence.cleanup_metadata(f)
-                if not success:
-                    failed.append(f)
-            if failed:
-                logger.warning(
-                    "Failed to clean up metadata for the following files because the metadata was not present.\n"
-                    "If this is expected, there is nothing to do.\nOtherwise, the reason might be file system latency "
-                    "or still running jobs.\nConsider running metadata cleanup again.\nFiles:\n"
-                    + "\n".join(failed)
-                )
-            return True
+        self._build_dag()
 
-        if unlock:
-            try:
-                self.persistence.cleanup_locks()
-                logger.info("Unlocking working directory.")
+        with self.persistence.lock():
+            dag.postprocess(update_needrun=False)
+            if not dryrun:
+                # deactivate IOCache such that from now on we always get updated
+                # size, existence and mtime information
+                # ATTENTION: this may never be removed without really good reason.
+                # Otherwise weird things may happen.
+                self.iocache.deactivate()
+                # clear and deactivate persistence cache, from now on we want to see updates
+                self.persistence.deactivate_cache()
+
+            if nodeps:
+                missing_input = [
+                    f
+                    for job in dag.targetjobs
+                    for f in job.input
+                    if dag.needrun(job) and not os.path.exists(f)
+                ]
+                if missing_input:
+                    logger.error(
+                        "Dependency resolution disabled (--nodeps) "
+                        "but missing input "
+                        "files detected. If this happens on a cluster, please make sure "
+                        "that you handle the dependencies yourself or turn off "
+                        "--immediate-submit. Missing input files:\n{}".format(
+                            "\n".join(missing_input)
+                        )
+                    )
+                    return False
+
+            if self.remote_execution_settings.immediate_submit and any(dag.checkpoint_jobs):
+                logger.error(
+                    "Immediate submit mode (--immediate-submit) may not be used for workflows "
+                    "with checkpoint jobs, as the dependencies cannot be determined before "
+                    "execution in such cases."
+                )
+                return False
+
+            updated_files.extend(f for job in dag.needrun_jobs() for f in job.output)
+
+            if generate_unit_tests:
+                from snakemake import unit_tests
+
+                path = generate_unit_tests
+                deploy = []
+                if self.deployment_settings.use_conda:
+                    deploy.append("conda")
+                if self.deployment_settings.use_singularity:
+                    deploy.append("singularity")
+                unit_tests.generate(
+                    dag, path, deploy, configfiles=self.overwrite_configfiles
+                )
                 return True
-            except IOError:
-                logger.error(
-                    "Error: Unlocking the directory {} failed. Maybe "
-                    "you don't have the permissions?"
+            elif export_cwl:
+                from snakemake.cwl import dag_to_cwl
+                import json
+
+                with open(export_cwl, "w") as cwl:
+                    json.dump(dag_to_cwl(dag), cwl, indent=4)
+                return True
+            elif report:
+                from snakemake.report import auto_report
+
+                auto_report(dag, report, stylesheet=report_stylesheet)
+                return True
+            elif printd3dag:
+                dag.d3dag()
+                return True
+            elif printdag:
+                print(dag)
+                return True
+            elif printrulegraph:
+                print(dag.rule_dot())
+                return True
+            elif printfilegraph:
+                print(dag.filegraph_dot())
+                return True
+            elif summary:
+                print("\n".join(dag.summary(detailed=False)))
+                return True
+            elif detailed_summary:
+                print("\n".join(dag.summary(detailed=True)))
+                return True
+            elif archive:
+                dag.archive(archive)
+                return True
+            elif delete_all_output:
+                dag.clean(only_temp=False, dryrun=dryrun)
+                return True
+            elif delete_temp_output:
+                dag.clean(only_temp=True, dryrun=dryrun)
+                return True
+            elif list_code_changes:
+                items = dag.get_outputs_with_changes("code")
+                if items:
+                    print(*items, sep="\n")
+                return True
+            elif list_input_changes:
+                items = dag.get_outputs_with_changes("input")
+                if items:
+                    print(*items, sep="\n")
+                return True
+            elif list_params_changes:
+                items = dag.get_outputs_with_changes("params")
+                if items:
+                    print(*items, sep="\n")
+                return True
+            elif list_untracked:
+                dag.list_untracked()
+                return True
+
+            if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+                dag.pull_container_imgs(
+                    dryrun=dryrun or list_conda_envs or cleanup_containers,
+                    quiet=list_conda_envs,
                 )
-                return False
-
-        logger.info("Building DAG of jobs...")
-        dag.init()
-        dag.update_checkpoint_dependencies()
-        dag.check_dynamic()
-
-        self.persistence.lock()
-
-        if cleanup_shadow:
-            self.persistence.cleanup_shadow()
-            return True
-
-        if containerize:
-            from snakemake.deployment.containerize import containerize
-
-            containerize(self, dag)
-            return True
-
-        if (
-            self.subworkflows
-            and self.execution_settings.execute_subworkflows
-            and not printdag
-            and not printrulegraph
-            and not printfilegraph
-        ):
-            # backup globals
-            globals_backup = dict(self.globals)
-            # execute subworkflows
-            for subworkflow in self.subworkflows:
-                subworkflow_targets = subworkflow.targets(dag)
-                logger.debug(
-                    "Files requested from subworkflow:\n    {}".format(
-                        "\n    ".join(subworkflow_targets)
-                    )
-                )
-                updated = list()
-                if subworkflow_targets:
-                    logger.info(f"Executing subworkflow {subworkflow.name}.")
-                    if not subsnakemake(
-                        subworkflow.snakefile,
-                        workdir=subworkflow.workdir,
-                        targets=subworkflow_targets,
-                        cores=self._cores,
-                        nodes=self.nodes,
-                        resources=self.global_resources,
-                        configfiles=[subworkflow.configfile]
-                        if subworkflow.configfile
-                        else None,
-                        updated_files=updated,
-                        rerun_triggers=self.rerun_triggers,
-                    ):
-                        return False
-                    dag.updated_subworkflow_files.update(
-                        subworkflow.target(f) for f in updated
-                    )
-                else:
-                    logger.info(
-                        f"Subworkflow {subworkflow.name}: {NOTHING_TO_BE_DONE_MSG}"
-                    )
-            if self.subworkflows:
-                logger.info("Executing main workflow.")
-            # rescue globals
-            self.globals.update(globals_backup)
-
-        dag.postprocess(update_needrun=False)
-        if not dryrun:
-            # deactivate IOCache such that from now on we always get updated
-            # size, existence and mtime information
-            # ATTENTION: this may never be removed without really good reason.
-            # Otherwise weird things may happen.
-            self.iocache.deactivate()
-            # clear and deactivate persistence cache, from now on we want to see updates
-            self.persistence.deactivate_cache()
-
-        if nodeps:
-            missing_input = [
-                f
-                for job in dag.targetjobs
-                for f in job.input
-                if dag.needrun(job) and not os.path.exists(f)
-            ]
-            if missing_input:
-                logger.error(
-                    "Dependency resolution disabled (--nodeps) "
-                    "but missing input "
-                    "files detected. If this happens on a cluster, please make sure "
-                    "that you handle the dependencies yourself or turn off "
-                    "--immediate-submit. Missing input files:\n{}".format(
-                        "\n".join(missing_input)
-                    )
-                )
-                return False
-
-        if self.remote_execution_settings.immediate_submit and any(dag.checkpoint_jobs):
-            logger.error(
-                "Immediate submit mode (--immediate-submit) may not be used for workflows "
-                "with checkpoint jobs, as the dependencies cannot be determined before "
-                "execution in such cases."
-            )
-            return False
-
-        updated_files.extend(f for job in dag.needrun_jobs() for f in job.output)
-
-        if generate_unit_tests:
-            from snakemake import unit_tests
-
-            path = generate_unit_tests
-            deploy = []
             if self.deployment_settings.use_conda:
-                deploy.append("conda")
-            if self.deployment_settings.use_singularity:
-                deploy.append("singularity")
-            unit_tests.generate(
-                dag, path, deploy, configfiles=self.overwrite_configfiles
-            )
-            return True
-        elif export_cwl:
-            from snakemake.cwl import dag_to_cwl
-            import json
+                dag.create_conda_envs(
+                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
+                    quiet=list_conda_envs,
+                )
+                if conda_create_envs_only:
+                    return True
 
-            with open(export_cwl, "w") as cwl:
-                json.dump(dag_to_cwl(dag), cwl, indent=4)
-            return True
-        elif report:
-            from snakemake.report import auto_report
-
-            auto_report(dag, report, stylesheet=report_stylesheet)
-            return True
-        elif printd3dag:
-            dag.d3dag()
-            return True
-        elif printdag:
-            print(dag)
-            return True
-        elif printrulegraph:
-            print(dag.rule_dot())
-            return True
-        elif printfilegraph:
-            print(dag.filegraph_dot())
-            return True
-        elif summary:
-            print("\n".join(dag.summary(detailed=False)))
-            return True
-        elif detailed_summary:
-            print("\n".join(dag.summary(detailed=True)))
-            return True
-        elif archive:
-            dag.archive(archive)
-            return True
-        elif delete_all_output:
-            dag.clean(only_temp=False, dryrun=dryrun)
-            return True
-        elif delete_temp_output:
-            dag.clean(only_temp=True, dryrun=dryrun)
-            return True
-        elif list_version_changes:
-            items = dag.get_outputs_with_changes("version")
-            if items:
-                print(*items, sep="\n")
-            return True
-        elif list_code_changes:
-            items = dag.get_outputs_with_changes("code")
-            if items:
-                print(*items, sep="\n")
-            return True
-        elif list_input_changes:
-            items = dag.get_outputs_with_changes("input")
-            if items:
-                print(*items, sep="\n")
-            return True
-        elif list_params_changes:
-            items = dag.get_outputs_with_changes("params")
-            if items:
-                print(*items, sep="\n")
-            return True
-        elif list_untracked:
-            dag.list_untracked()
-            return True
-
-        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
-            dag.pull_container_imgs(
-                dryrun=dryrun or list_conda_envs or cleanup_containers,
-                quiet=list_conda_envs,
-            )
-        if self.deployment_settings.use_conda:
-            dag.create_conda_envs(
-                dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                quiet=list_conda_envs,
-            )
-            if conda_create_envs_only:
+            if list_conda_envs:
+                print("environment", "container", "location", sep="\t")
+                for env in set(job.conda_env for job in dag.jobs):
+                    if env and not env.is_named:
+                        print(
+                            env.file.simplify_path(),
+                            env.container_img_url or "",
+                            simplify_path(env.address),
+                            sep="\t",
+                        )
                 return True
 
-        if list_conda_envs:
-            print("environment", "container", "location", sep="\t")
-            for env in set(job.conda_env for job in dag.jobs):
-                if env and not env.is_named:
-                    print(
-                        env.file.simplify_path(),
-                        env.container_img_url or "",
-                        simplify_path(env.address),
-                        sep="\t",
-                    )
-            return True
+            if conda_cleanup_envs:
+                self.persistence.conda_cleanup_envs()
+                return True
 
-        if conda_cleanup_envs:
-            self.persistence.conda_cleanup_envs()
-            return True
+            if cleanup_containers:
+                self.persistence.cleanup_containers()
+                return True
 
-        if cleanup_containers:
-            self.persistence.cleanup_containers()
-            return True
+            self.scheduler = JobScheduler(
+                self,
+                dag,
+                executor_plugin=executor_plugin,
+                local_cores=local_cores,
+                dryrun=dryrun,
+                touch=touch,
+                slurm=slurm,
+                slurm_jobstep=slurm_jobstep,
+                cluster=cluster,
+                cluster_status=cluster_status,
+                cluster_cancel=cluster_cancel,
+                cluster_cancel_nargs=cluster_cancel_nargs,
+                cluster_sidecar=cluster_sidecar,
+                cluster_sync=cluster_sync,
+                jobname=jobname,
+                max_jobs_per_second=max_jobs_per_second,
+                max_status_checks_per_second=max_status_checks_per_second,
+                keepgoing=keepgoing,
+                drmaa=drmaa,
+                drmaa_log_dir=drmaa_log_dir,
+                kubernetes=kubernetes,
+                k8s_cpu_scalar=k8s_cpu_scalar,
+                k8s_service_account_name=k8s_service_account_name,
+                flux=flux,
+                tibanna=tibanna,
+                tibanna_sfn=tibanna_sfn,
+                az_batch=az_batch,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
+                az_batch_account_url=az_batch_account_url,
+                google_lifesciences=google_lifesciences,
+                google_lifesciences_regions=google_lifesciences_regions,
+                google_lifesciences_location=google_lifesciences_location,
+                google_lifesciences_cache=google_lifesciences_cache,
+                google_lifesciences_service_account_email=google_lifesciences_service_account_email,
+                google_lifesciences_network=google_lifesciences_network,
+                google_lifesciences_subnetwork=google_lifesciences_subnetwork,
+                tes=tes,
+                preemption_default=preemption_default,
+                preemptible_rules=preemptible_rules,
+                precommand=precommand,
+                tibanna_config=tibanna_config,
+                container_image=container_image,
+                greediness=greediness,
+                force_use_threads=force_use_threads,
+            )
 
-        self.scheduler = JobScheduler(
-            self,
-            dag,
-            executor_plugin=executor_plugin,
-            local_cores=local_cores,
-            dryrun=dryrun,
-            touch=touch,
-            slurm=slurm,
-            slurm_jobstep=slurm_jobstep,
-            cluster=cluster,
-            cluster_status=cluster_status,
-            cluster_cancel=cluster_cancel,
-            cluster_cancel_nargs=cluster_cancel_nargs,
-            cluster_sidecar=cluster_sidecar,
-            cluster_sync=cluster_sync,
-            jobname=jobname,
-            max_jobs_per_second=max_jobs_per_second,
-            max_status_checks_per_second=max_status_checks_per_second,
-            keepgoing=keepgoing,
-            drmaa=drmaa,
-            drmaa_log_dir=drmaa_log_dir,
-            kubernetes=kubernetes,
-            k8s_cpu_scalar=k8s_cpu_scalar,
-            k8s_service_account_name=k8s_service_account_name,
-            flux=flux,
-            tibanna=tibanna,
-            tibanna_sfn=tibanna_sfn,
-            az_batch=az_batch,
-            az_batch_enable_autoscale=az_batch_enable_autoscale,
-            az_batch_account_url=az_batch_account_url,
-            google_lifesciences=google_lifesciences,
-            google_lifesciences_regions=google_lifesciences_regions,
-            google_lifesciences_location=google_lifesciences_location,
-            google_lifesciences_cache=google_lifesciences_cache,
-            google_lifesciences_service_account_email=google_lifesciences_service_account_email,
-            google_lifesciences_network=google_lifesciences_network,
-            google_lifesciences_subnetwork=google_lifesciences_subnetwork,
-            tes=tes,
-            preemption_default=preemption_default,
-            preemptible_rules=preemptible_rules,
-            precommand=precommand,
-            tibanna_config=tibanna_config,
-            container_image=container_image,
-            greediness=greediness,
-            force_use_threads=force_use_threads,
-        )
+            if not dryrun:
+                if len(dag):
+                    from snakemake.shell import shell
 
-        if not dryrun:
-            if len(dag):
-                from snakemake.shell import shell
+                    shell_exec = shell.get_executable()
+                    if shell_exec is not None:
+                        logger.info(f"Using shell: {shell_exec}")
+                    if cluster or cluster_sync or drmaa:
+                        logger.resources_info(f"Provided cluster nodes: {self.nodes}")
+                    elif kubernetes or tibanna or google_lifesciences:
+                        logger.resources_info(f"Provided cloud nodes: {self.nodes}")
+                    else:
+                        if self._cores is not None:
+                            warning = (
+                                ""
+                                if self._cores > 1
+                                else " (use --cores to define parallelism)"
+                            )
+                            logger.resources_info(f"Provided cores: {self._cores}{warning}")
+                            logger.resources_info(
+                                "Rules claiming more threads will be scaled down."
+                            )
 
-                shell_exec = shell.get_executable()
-                if shell_exec is not None:
-                    logger.info(f"Using shell: {shell_exec}")
-                if cluster or cluster_sync or drmaa:
-                    logger.resources_info(f"Provided cluster nodes: {self.nodes}")
-                elif kubernetes or tibanna or google_lifesciences:
-                    logger.resources_info(f"Provided cloud nodes: {self.nodes}")
+                    provided_resources = format_resources(self.global_resources)
+                    if provided_resources:
+                        logger.resources_info(f"Provided resources: {provided_resources}")
+
+                    if self.run_local and any(rule.group for rule in self.rules):
+                        logger.info("Group jobs: inactive (local execution)")
+
+                    if not self.deployment_settings.use_conda and any(rule.conda_env for rule in self.rules):
+                        logger.info("Conda environments: ignored")
+
+                    if not self.deployment_settings.use_singularity and any(
+                        rule.container_img for rule in self.rules
+                    ):
+                        logger.info("Singularity containers: ignored")
+
+                    if self.execution_settings.mode == ExecMode.default:
+                        logger.run_info("\n".join(dag.stats()))
                 else:
-                    if self._cores is not None:
-                        warning = (
-                            ""
-                            if self._cores > 1
-                            else " (use --cores to define parallelism)"
-                        )
-                        logger.resources_info(f"Provided cores: {self._cores}{warning}")
-                        logger.resources_info(
-                            "Rules claiming more threads will be scaled down."
-                        )
-
-                provided_resources = format_resources(self.global_resources)
-                if provided_resources:
-                    logger.resources_info(f"Provided resources: {provided_resources}")
-
-                if self.run_local and any(rule.group for rule in self.rules):
-                    logger.info("Group jobs: inactive (local execution)")
-
-                if not self.deployment_settings.use_conda and any(rule.conda_env for rule in self.rules):
-                    logger.info("Conda environments: ignored")
-
-                if not self.deployment_settings.use_singularity and any(
-                    rule.container_img for rule in self.rules
-                ):
-                    logger.info("Singularity containers: ignored")
-
-                if self.execution_settings.mode == ExecMode.default:
-                    logger.run_info("\n".join(dag.stats()))
+                    logger.info(NOTHING_TO_BE_DONE_MSG)
             else:
-                logger.info(NOTHING_TO_BE_DONE_MSG)
-        else:
-            # the dryrun case
-            if len(dag):
-                logger.run_info("\n".join(dag.stats()))
-            else:
-                logger.info(NOTHING_TO_BE_DONE_MSG)
-                return True
-            if self.output_settings.quiet:
-                # in case of dryrun and quiet, just print above info and exit
-                return True
-
-        if not dryrun and not no_hooks:
-            self._onstart(logger.get_logfile())
-
-        def log_provenance_info():
-            provenance_triggered_jobs = [
-                job
-                for job in dag.needrun_jobs(exclude_finished=False)
-                if dag.reason(job).is_provenance_triggered()
-            ]
-            if provenance_triggered_jobs:
-                logger.info(
-                    "Some jobs were triggered by provenance information, "
-                    "see 'reason' section in the rule displays above.\n"
-                    "If you prefer that only modification time is used to "
-                    "determine whether a job shall be executed, use the command "
-                    "line option '--rerun-triggers mtime' (also see --help).\n"
-                    "If you are sure that a change for a certain output file (say, <outfile>) won't "
-                    "change the result (e.g. because you just changed the formatting of a script "
-                    "or environment definition), you can also wipe its metadata to skip such a trigger via "
-                    "'snakemake --cleanup-metadata <outfile>'. "
-                )
-                logger.info(
-                    "Rules with provenance triggered jobs: "
-                    + ",".join(
-                        sorted(set(job.rule.name for job in provenance_triggered_jobs))
-                    )
-                )
-                logger.info("")
-
-        has_checkpoint_jobs = any(dag.checkpoint_jobs)
-
-        try:
-            success = self.scheduler.schedule()
-        except Exception as e:
-            if dryrun:
-                log_provenance_info()
-            raise e
-
-        if not self.remote_execution_settings.immediate_submit and not dryrun and self.execution_settings.mode == ExecMode.default:
-            dag.cleanup_workdir()
-
-        if success:
-            if dryrun:
+                # the dryrun case
                 if len(dag):
                     logger.run_info("\n".join(dag.stats()))
-                    dag.print_reasons()
-                    log_provenance_info()
-                logger.info("")
-                logger.info(
-                    "This was a dry-run (flag -n). The order of jobs "
-                    "does not reflect the order of execution."
-                )
-                if has_checkpoint_jobs:
+                else:
+                    logger.info(NOTHING_TO_BE_DONE_MSG)
+                    return True
+                if self.output_settings.quiet:
+                    # in case of dryrun and quiet, just print above info and exit
+                    return True
+
+            if not dryrun and not no_hooks:
+                self._onstart(logger.get_logfile())
+
+            def log_provenance_info():
+                provenance_triggered_jobs = [
+                    job
+                    for job in dag.needrun_jobs(exclude_finished=False)
+                    if dag.reason(job).is_provenance_triggered()
+                ]
+                if provenance_triggered_jobs:
                     logger.info(
-                        "The run involves checkpoint jobs, "
-                        "which will result in alteration of the DAG of "
-                        "jobs (e.g. adding more jobs) after their completion."
+                        "Some jobs were triggered by provenance information, "
+                        "see 'reason' section in the rule displays above.\n"
+                        "If you prefer that only modification time is used to "
+                        "determine whether a job shall be executed, use the command "
+                        "line option '--rerun-triggers mtime' (also see --help).\n"
+                        "If you are sure that a change for a certain output file (say, <outfile>) won't "
+                        "change the result (e.g. because you just changed the formatting of a script "
+                        "or environment definition), you can also wipe its metadata to skip such a trigger via "
+                        "'snakemake --cleanup-metadata <outfile>'. "
                     )
+                    logger.info(
+                        "Rules with provenance triggered jobs: "
+                        + ",".join(
+                            sorted(set(job.rule.name for job in provenance_triggered_jobs))
+                        )
+                    )
+                    logger.info("")
+
+            has_checkpoint_jobs = any(dag.checkpoint_jobs)
+
+            try:
+                success = self.scheduler.schedule()
+            except Exception as e:
+                if dryrun:
+                    log_provenance_info()
+                raise e
+
+            if not self.remote_execution_settings.immediate_submit and not dryrun and self.execution_settings.mode == ExecMode.default:
+                dag.cleanup_workdir()
+
+            if success:
+                if dryrun:
+                    if len(dag):
+                        logger.run_info("\n".join(dag.stats()))
+                        dag.print_reasons()
+                        log_provenance_info()
+                    logger.info("")
+                    logger.info(
+                        "This was a dry-run (flag -n). The order of jobs "
+                        "does not reflect the order of execution."
+                    )
+                    if has_checkpoint_jobs:
+                        logger.info(
+                            "The run involves checkpoint jobs, "
+                            "which will result in alteration of the DAG of "
+                            "jobs (e.g. adding more jobs) after their completion."
+                        )
+                else:
+                    if stats:
+                        self.scheduler.stats.to_json(stats)
+                    logger.logfile_hint()
+                if not dryrun and not no_hooks:
+                    self._onsuccess(logger.get_logfile())
+                return True
             else:
-                if stats:
-                    self.scheduler.stats.to_json(stats)
+                if not dryrun and not no_hooks:
+                    self._onerror(logger.get_logfile())
                 logger.logfile_hint()
-            if not dryrun and not no_hooks:
-                self._onsuccess(logger.get_logfile())
-            return True
-        else:
-            if not dryrun and not no_hooks:
-                self._onerror(logger.get_logfile())
-            logger.logfile_hint()
-            return False
+                return False
 
     @property
     def current_basedir(self):
@@ -1298,15 +1237,6 @@ class Workflow(WorkflowExecutorInterface):
     def ruleorder(self, *rulenames):
         self._ruleorder.add(*map(self.modifier.modify_rulename, rulenames))
 
-    def subworkflow(self, name, snakefile=None, workdir=None, configfile=None):
-        # Take absolute path of config file, because it is relative to current
-        # workdir, which could be changed for the subworkflow.
-        if configfile:
-            configfile = os.path.abspath(configfile)
-        sw = Subworkflow(self, name, snakefile, workdir, configfile)
-        self._subworkflows[name] = sw
-        self.globals[name] = sw.target
-
     def localrules(self, *rulenames):
         self._localrules.update(rulenames)
 
@@ -1441,8 +1371,6 @@ class Workflow(WorkflowExecutorInterface):
                 self.execution_settings.restart_times if ruleinfo.retries is None else ruleinfo.retries
             )
 
-            if ruleinfo.version:
-                rule.version = ruleinfo.version
             if ruleinfo.log:
                 rule.log_modifier = ruleinfo.log.modifier
                 rule.set_log(*ruleinfo.log.paths, **ruleinfo.log.kwpaths)
@@ -1766,13 +1694,6 @@ class Workflow(WorkflowExecutorInterface):
 
         return decorate
 
-    def version(self, version):
-        def decorate(ruleinfo):
-            ruleinfo.version = version
-            return ruleinfo
-
-        return decorate
-
     def group(self, group):
         def decorate(ruleinfo):
             ruleinfo.group = group
@@ -1960,32 +1881,6 @@ class Subworkflow:
         if not os.path.isabs(workdir):
             return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
         return workdir
-
-    def target(self, paths):
-        if not_iterable(paths):
-            path = paths
-            path = (
-                path
-                if os.path.isabs(path) or path.startswith("root://")
-                else os.path.join(self.workdir, path)
-            )
-            return flag(path, "subworkflow", self)
-        return [self.target(path) for path in paths]
-
-    def targets(self, dag):
-        def relpath(f):
-            if f.startswith(self.workdir):
-                return os.path.relpath(f, start=self.workdir)
-            # do not adjust absolute targets outside of workdir
-            return f
-
-        return [
-            relpath(f)
-            for job in dag.jobs
-            for f in job.subworkflow_input
-            if job.subworkflow_input[f] is self
-        ]
-
 
 def srcdir(path):
     """Return the absolute path, relative to the source directory of the current Snakefile."""

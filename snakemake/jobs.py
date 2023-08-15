@@ -88,7 +88,7 @@ class AbstractJob(ExecutorJobInterface):
 
 def _get_scheduler_resources(job):
     if job._scheduler_resources is None:
-        if job.dag.workflow.run_local or job.is_local:
+        if job.dag.workflow.executor_plugin.common_settings.local_exec or job.is_local:
             job._scheduler_resources = job.resources
         else:
             job._scheduler_resources = Resources(
@@ -166,7 +166,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "temp_output",
         "protected_output",
         "touch_output",
-        "subworkflow_input",
         "_hash",
         "_attempt",
         "_group",
@@ -233,7 +232,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
-        self.subworkflow_input = dict()
         for f in self.output:
             f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
@@ -248,20 +246,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             f_ = input_mapping[f]
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
-            if f_ in self.rule.subworkflow_input:
-                self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
-            elif "subworkflow" in f.flags:
-                sub = f.flags["subworkflow"]
-                if f in self.subworkflow_input:
-                    other = self.subworkflow_input[f]
-                    if sub != other:
-                        raise WorkflowError(
-                            "The input file {} is ambiguously "
-                            "associated with two subworkflows {} "
-                            "and {}.".format(f, sub, other),
-                            rule=self.rule,
-                        )
-                self.subworkflow_input[f] = sub
 
     @property
     def is_updated(self):
@@ -322,7 +306,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
-            if self.dag.workflow.run_local or self.is_local:
+            if self.dag.workflow.executor_plugin.common_settings.local_exec or self.is_local:
                 groupid = self.dag.workflow.group_settings.local_groupid
         else:
             groupid = group.jobid
@@ -415,7 +399,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def resources(self):
         if self._resources is None:
-            if self.dag.workflow.run_local or self.is_local:
+            if self.dag.workflow.executor_plugin.common_settings.local_exec or self.is_local:
                 skip_evaluation = None
             else:
                 # tmpdir should be evaluated in the context of the actual execution
@@ -637,9 +621,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def missing_input(self):
         """Return missing input files."""
-        # omit file if it comes from a subworkflow
         return set(
-            f for f in self.input if not f.exists and not f in self.subworkflow_input
+            f for f in self.input if not f.exists
         )
 
     @property
@@ -867,7 +850,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             self.benchmark.prepare()
 
         # wait for input files, respecting keep_remote_local
-        force_stay_on_remote = not self.dag.keep_remote_local
+        force_stay_on_remote = not self.dag.workflow.execution_settings.keep_remote_local
         wait_for_files(
             self.input,
             force_stay_on_remote=force_stay_on_remote,
@@ -1422,7 +1405,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 self._resources = GroupResources.basic_layered(
                     toposorted_jobs=self.toposorted,
                     constraints=self.global_resources,
-                    run_local=self.dag.workflow.run_local,
+                    run_local=self.dag.workflow.executor_plugin.common_settings.local_exec,
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )

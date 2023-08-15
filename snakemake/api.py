@@ -1148,6 +1148,7 @@ def snakemake(
     if workdir:
         os.chdir(olddir)
     if "workflow" in locals() and workflow.persistence:
+        # TODO unlocking happens now via context manager
         workflow.persistence.unlock()
     if not keep_logger:
         logger.cleanup()

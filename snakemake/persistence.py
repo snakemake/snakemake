@@ -14,6 +14,7 @@ from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
+from contextlib import contextmanager
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
@@ -188,13 +189,18 @@ class Persistence(PersistenceExecutorInterface):
                 "Another possibility is that a previous run exited unexpectedly."
             )
 
+    @contextmanager
     def lock(self):
         if self.locked:
             raise snakemake.exceptions.LockException()
-        self._lock(self.all_inputfiles(), "input")
-        self._lock(self.all_outputfiles(), "output")
+        try:
+            self._lock(self.all_inputfiles(), "input")
+            self._lock(self.all_outputfiles(), "output")
+            yield
+        finally:
+            self.unlock()
 
-    def unlock(self, *args):
+    def unlock(self):
         logger.debug("unlocking")
         for lockfile in self._lockfile.values():
             try:
@@ -266,7 +272,6 @@ class Persistence(PersistenceExecutorInterface):
                 self._delete_record(self._incomplete_path, f)
             return
 
-        version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         log = self._log(job)
@@ -289,7 +294,6 @@ class Persistence(PersistenceExecutorInterface):
             self._record(
                 self._metadata_path,
                 {
-                    "version": version,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -352,9 +356,6 @@ class Persistence(PersistenceExecutorInterface):
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
-    def version(self, path):
-        return self.metadata(path).get("version")
-
     def rule(self, path):
         return self.metadata(path).get("rule")
 
@@ -388,10 +389,6 @@ class Persistence(PersistenceExecutorInterface):
             for output_path in job.output
         )
 
-    def version_changed(self, job, file=None):
-        """Yields output files with changed versions or bool if file given."""
-        return _bool_or_gen(self._version_changed, job, file=file)
-
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
@@ -411,11 +408,6 @@ class Persistence(PersistenceExecutorInterface):
     def container_changed(self, job, file=None):
         """Yields output files with changed container img or bool if file given."""
         return _bool_or_gen(self._container_changed, job, file=file)
-
-    def _version_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.version(file)
-        return recorded is not None and recorded != job.rule.version
 
     def _code_changed(self, job, file=None):
         assert file is not None

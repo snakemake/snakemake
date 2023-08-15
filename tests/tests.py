@@ -289,14 +289,6 @@ def test_keyword_list():
     run(dpath("test_keyword_list"))
 
 
-# Fails on WIN because some snakemake doesn't release the logfile
-# which cause a PermissionError when the test setup tries to
-# remove the temporary files
-@skip_on_windows
-def test_subworkflows():
-    run(dpath("test_subworkflows"), subpath=dpath("test02"))
-
-
 def test_globwildcards():
     run(dpath("test_globwildcards"))
 

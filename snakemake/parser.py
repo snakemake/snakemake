@@ -70,6 +70,7 @@ class StopAutomaton(Exception):
 
 class TokenAutomaton:
     subautomata: Dict[str, Any] = {}
+    deprecated: Dict[str, str] = {}
 
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
@@ -112,7 +113,13 @@ class TokenAutomaton:
     def error(self, msg, token):
         raise SyntaxError(msg, (self.snakefile.path, lineno(token), None, None))
 
-    def subautomaton(self, automaton, *args, **kwargs):
+    def subautomaton(self, automaton, *args, token=None, **kwargs):
+        if automaton in self.deprecated:
+            assert token is not None, "bug: deprecation encountered but subautomaton not called with a token"
+            self.error(
+                f"Keyword {automaton} is deprecated. {self.deprecated[automaton]}",
+                token,
+            )
         return self.subautomata[automaton](
             self.snakefile,
             *args,
@@ -319,91 +326,6 @@ class GlobalContainerized(GlobalKeywordState):
     @property
     def keyword(self):
         return "global_containerized"
-
-
-# subworkflows
-
-
-class SubworkflowKeywordState(SectionKeywordState):
-    prefix = "Subworkflow"
-
-
-class SubworkflowSnakefile(SubworkflowKeywordState):
-    pass
-
-
-class SubworkflowWorkdir(SubworkflowKeywordState):
-    pass
-
-
-class SubworkflowConfigfile(SubworkflowKeywordState):
-    pass
-
-
-class Subworkflow(GlobalKeywordState):
-    subautomata = dict(
-        snakefile=SubworkflowSnakefile,
-        workdir=SubworkflowWorkdir,
-        configfile=SubworkflowConfigfile,
-    )
-
-    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
-        super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
-        self.state = self.name
-        self.has_snakefile = False
-        self.has_workdir = False
-        self.has_name = False
-        self.primary_token = None
-
-    def end(self):
-        if not (self.has_snakefile or self.has_workdir):
-            self.error(
-                "A subworkflow needs either a path to a Snakefile or to a workdir.",
-                self.primary_token,
-            )
-        yield ")"
-
-    def name(self, token):
-        if is_name(token):
-            yield f"workflow.subworkflow({token.string!r}", token
-            self.has_name = True
-        elif is_colon(token) and self.has_name:
-            self.primary_token = token
-            self.state = self.block
-        else:
-            self.error("Expected name after subworkflow keyword.", token)
-
-    def block_content(self, token):
-        if is_name(token):
-            try:
-                if token.string == "snakefile":
-                    self.has_snakefile = True
-                if token.string == "workdir":
-                    self.has_workdir = True
-                for t in self.subautomaton(token.string).consume():
-                    yield t
-            except KeyError:
-                self.error(
-                    "Unexpected keyword {} in "
-                    "subworkflow definition".format(token.string),
-                    token,
-                )
-            except StopAutomaton as e:
-                self.indentation(e.token)
-                for t in self.block(e.token):
-                    yield t
-        elif is_comment(token):
-            yield "\n", token
-            yield token.string, token
-        elif is_string(token):
-            # ignore docstring
-            pass
-        else:
-            self.error(
-                "Expecting subworkflow keyword, comment or docstrings "
-                "inside a subworkflow definition.",
-                token,
-            )
 
 
 class Localrules(GlobalKeywordState):
@@ -700,7 +622,6 @@ rule_property_subautomata = dict(
     resources=Resources,
     retries=Retries,
     priority=Priority,
-    version=Version,
     log=Log,
     message=Message,
     benchmark=Benchmark,
@@ -717,6 +638,9 @@ rule_property_subautomata = dict(
     default_target=DefaultTarget,
     localrule=LocalRule,
 )
+rule_property_deprecated = dict(
+    version="Use conda or container directive instead (see docs)."
+)
 
 
 class Rule(GlobalKeywordState):
@@ -730,6 +654,7 @@ class Rule(GlobalKeywordState):
         cwl=CWL,
         **rule_property_subautomata,
     )
+    deprecated = rule_property_deprecated
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -798,7 +723,7 @@ class Rule(GlobalKeywordState):
                         token,
                     )
                 for t in self.subautomaton(
-                    token.string, rulename=self.rulename
+                    token.string, token=token, rulename=self.rulename
                 ).consume():
                     yield t
             except KeyError:
@@ -928,7 +853,7 @@ class Module(GlobalKeywordState):
                     self.has_snakefile = True
                 if token.string == "meta_wrapper":
                     self.has_meta_wrapper = True
-                for t in self.subautomaton(token.string).consume():
+                for t in self.subautomaton(token.string, token=token).consume():
                     yield t
             except KeyError:
                 self.error(
@@ -956,6 +881,7 @@ class Module(GlobalKeywordState):
 
 class UseRule(GlobalKeywordState):
     subautomata = rule_property_subautomata
+    deprecated = rule_property_deprecated
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -1168,7 +1094,7 @@ class UseRule(GlobalKeywordState):
             yield token.string, token
         elif is_name(token):
             try:
-                self._with_block.extend(self.subautomaton(token.string).consume())
+                self._with_block.extend(self.subautomaton(token.string, token=token).consume())
                 yield from ()
             except KeyError:
                 self.error(
@@ -1202,7 +1128,6 @@ class Python(TokenAutomaton):
         ruleorder=Ruleorder,
         rule=Rule,
         checkpoint=Checkpoint,
-        subworkflow=Subworkflow,
         localrules=Localrules,
         onsuccess=OnSuccess,
         onerror=OnError,
@@ -1216,6 +1141,9 @@ class Python(TokenAutomaton):
         module=Module,
         use=UseRule,
     )
+    deprecated=dict(
+        subworkflow="Use module directive instead (see docs)."
+    )
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
@@ -1225,7 +1153,7 @@ class Python(TokenAutomaton):
         if not (is_indent(token) or is_dedent(token)):
             if self.lasttoken is None or self.lasttoken.isspace():
                 try:
-                    for t in self.subautomaton(token.string).consume():
+                    for t in self.subautomaton(token.string, token=token).consume():
                         yield t
                 except KeyError:
                     yield token.string, token

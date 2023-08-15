@@ -177,21 +177,6 @@ def run(
 
     config = dict(config)
 
-    # handle subworkflow
-    if subpath is not None:
-        # set up a working directory for the subworkflow and pass it in `config`
-        # for now, only one subworkflow is supported
-        assert os.path.exists(subpath) and os.path.isdir(
-            subpath
-        ), "{} does not exist".format(subpath)
-        subworkdir = os.path.join(tmpdir, "subworkdir")
-        os.mkdir(subworkdir)
-
-        # copy files
-        for f in os.listdir(subpath):
-            copy(os.path.join(subpath, f), subworkdir)
-        config["subworkdir"] = subworkdir
-
     # copy files
     for f in os.listdir(path):
         copy(os.path.join(path, f), tmpdir)

@@ -113,10 +113,8 @@ class DAG(DAGExecutorInterface):
         self,
         workflow,
         rules=None,
-        dryrun=False,
         targetfiles=None,
         targetrules=None,
-        target_jobs_def=None,
         forceall=False,
         forcerules=None,
         forcefiles=None,
@@ -126,14 +124,8 @@ class DAG(DAGExecutorInterface):
         untilrules=None,
         omitfiles=None,
         omitrules=None,
-        ignore_ambiguity=False,
-        force_incomplete=False,
         ignore_incomplete=False,
-        notemp=False,
-        keep_remote_local=False,
-        batch=None,
     ):
-        self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -144,20 +136,16 @@ class DAG(DAGExecutorInterface):
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
-        self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules
-        self.target_jobs_def = target_jobs_def
         self.target_jobs_rules = (
-            {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
+            {spec.rulename for spec in self.workflow.execution_settings.target_jobs}
         )
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
-        self.notemp = notemp
-        self.keep_remote_local = keep_remote_local
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
@@ -176,7 +164,6 @@ class DAG(DAGExecutorInterface):
         self.untilfiles = set()
         self.omitrules = set()
         self.omitfiles = set()
-        self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
         elif forcerules:
@@ -196,19 +183,21 @@ class DAG(DAGExecutorInterface):
 
         self.omitforce = set()
 
-        self.batch = batch
-        if batch is not None and not batch.is_final:
+        if self.batch is not None and not self.batch.is_final:
             # Since not all input files of a batching rule are considered, we cannot run
             # beyond that rule.
             # For the final batch, we do not need to omit anything.
-            self.omitrules.add(batch.rulename)
+            self.omitrules.add(self.batch.rulename)
 
-        self.force_incomplete = force_incomplete
         self.ignore_incomplete = ignore_incomplete
 
         self.periodic_wildcard_detector = PeriodicityDetector()
 
         self.update_output_index()
+
+    @property
+    def batch(self):
+        return self.workflow.execution_settings.batch
 
     def init(self, progress=False):
         """Initialise the DAG."""
@@ -225,19 +214,18 @@ class DAG(DAGExecutorInterface):
             )
             self.targetjobs.add(job)
 
-        if self.target_jobs_def:
-            for spec in self.target_jobs_def:
-                job = self.update(
-                    [
-                        self.new_job(
-                            self.workflow.get_rule(spec.rulename),
-                            wildcards_dict=spec.wildcards_dict,
-                        )
-                    ],
-                    progress=progress,
-                    create_inventory=True,
-                )
-                self.targetjobs.add(job)
+        for spec in self.workflow.execution_settings.target_jobs:
+            job = self.update(
+                [
+                    self.new_job(
+                        self.workflow.get_rule(spec.rulename),
+                        wildcards_dict=spec.wildcards_dict,
+                    )
+                ],
+                progress=progress,
+                create_inventory=True,
+            )
+            self.targetjobs.add(job)
 
         self.cleanup()
 
@@ -387,7 +375,7 @@ class DAG(DAGExecutorInterface):
         if not self.ignore_incomplete:
             incomplete = self.incomplete_files
             if incomplete:
-                if self.force_incomplete:
+                if self.workflow.execution_settings.force_incomplete:
                     logger.debug("Forcing incomplete files:")
                     logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
@@ -400,7 +388,7 @@ class DAG(DAGExecutorInterface):
         Returns None, if job is not incomplete, or if no external jobid has been
         registered or if force_incomplete is True.
         """
-        if self.force_incomplete:
+        if self.workflow.execution_settings.force_incomplete:
             return None
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
@@ -717,7 +705,7 @@ class DAG(DAGExecutorInterface):
 
     def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
-        if self.notemp:
+        if self.workflow.execution_settings.notemp:
             return
 
         if job.is_group():
@@ -757,7 +745,7 @@ class DAG(DAGExecutorInterface):
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
-            if self.dryrun:
+            if self.worflow.executor_plugin.common_settings.dryrun_exec:
                 logger.info(f"Would remove temporary output {f}")
             else:
                 logger.info(f"Removing temporary output {f}.")
@@ -795,7 +783,7 @@ class DAG(DAGExecutorInterface):
                             "read AND write permissions."
                         )
 
-        if not self.keep_remote_local:
+        if not self.workflow.execution_settings.keep_remote_local:
             if not any(f.is_remote for f in job.input):
                 return
 
@@ -937,7 +925,7 @@ class DAG(DAGExecutorInterface):
         ambiguities = list(
             filter(lambda x: not x < producer and not producer < x, producers[1:])
         )
-        if ambiguities and not self.ignore_ambiguity:
+        if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
         logger.dag_debug(dict(status="selected", job=producer))
         logger.dag_debug(
@@ -1099,9 +1087,6 @@ class DAG(DAGExecutorInterface):
         def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-            updated_subworkflow_input = self.updated_subworkflow_files.intersection(
-                job.input
-            )
 
             if (
                 job not in self.omitforce
@@ -1109,8 +1094,6 @@ class DAG(DAGExecutorInterface):
                 or not self.forcefiles.isdisjoint(job.output)
             ):
                 reason.forced = True
-            elif updated_subworkflow_input:
-                reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
                 if not job.has_products(include_logfiles=False):
@@ -1127,7 +1110,7 @@ class DAG(DAGExecutorInterface):
                     if job.rule in self.targetrules:
                         files = set(job.products(include_logfiles=False))
                     elif (
-                        self.target_jobs_def is not None
+                        self.workflow.execution_settings.target_jobs
                         and job.rule.name in self.target_jobs_rules
                     ):
                         files = set(job.products(include_logfiles=False))
@@ -1869,10 +1852,6 @@ class DAG(DAGExecutorInterface):
                 input_files = input_batch
 
         for file in input_files:
-            # omit the file if it comes from a subworkflow
-            if file in job.subworkflow_input:
-                continue
-
             try:
                 yield PotentialDependency(file, known_producers[file], True)
             except KeyError:

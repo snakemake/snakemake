@@ -31,19 +31,6 @@ class SettingsBase(ABC):
     def _check(self):
         pass
 
-    def __getattr__(self, name):
-        if name in self.__dict__:
-            # attr defined explicitly
-            return self.__dict__[name]
-        elif name.startswith("get_"):
-            # no getter method, use plain attribute
-            getattr(self, name[4:])
-        else:
-            # not present at all
-            raise AttributeError(
-                f"Settings object has no attribute {name}."
-            )
-
 @dataclass
 class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     """
@@ -65,7 +52,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     batch: Batch = None
     cache: Optional[List[str]] = None
     targets: Optional[List[str]] = None
-    target_jobs: Optional[Dict[str, str]] = None
+    target_jobs: Set(str) = set()
     forcetargets: bool = False
     forceall: bool = False
     forcerun: Optional[List[str]] = None
@@ -98,18 +85,16 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_incomplete: bool = False
     keep_metadata: bool = True
     max_inventory_wait_time: int = 20
-    execute_subworkflows: bool = True
     edit_notebook: Optional[Path] = None
     rerun_triggers: List[str]=RERUN_TRIGGERS
     cleanup_scripts: bool = True
+    cleanup_metadata: List[Path] = []
 
     def _check(self):
         # TODO move into API as immediate_submit has been moved to remote_execution_settings
         assert not self.immediate_submit or (
             self.immediate_submit and self.notemp
         ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
-
-
 
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):

@@ -87,11 +87,9 @@ class Rule:
             self.temp_output = set()
             self.protected_output = set()
             self.touch_output = set()
-            self.subworkflow_input = dict()
             self.shadow_depth = None
             self.resources = None
             self.priority = 0
-            self._version = None
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
@@ -137,11 +135,9 @@ class Rule:
             self.temp_output = set(other.temp_output)
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
-            self.subworkflow_input = dict(other.subworkflow_input)
             self.shadow_depth = other.shadow_depth
             self.resources = other.resources
             self.priority = other.priority
-            self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
@@ -331,18 +327,6 @@ class Rule:
         Return True if rule contains wildcards.
         """
         return bool(self.wildcard_names)
-
-    @property
-    def version(self):
-        return self._version
-
-    @version.setter
-    def version(self, version):
-        if isinstance(version, str) and "\n" in version:
-            raise WorkflowError(
-                "Version string may not contain line breaks.", rule=self
-            )
-        self._version = version
 
     @property
     def benchmark(self):
@@ -620,22 +604,6 @@ class Rule:
                         report_obj.htmlindex,
                     )
                     item.flags["report"] = r
-            if is_flagged(item, "subworkflow"):
-                if output:
-                    raise SyntaxError("Only input files may refer to a subworkflow")
-                else:
-                    # record the workflow this item comes from
-                    sub = item.flags["subworkflow"]
-                    if _item in self.subworkflow_input:
-                        other = self.subworkflow_input[_item]
-                        if sub != other:
-                            raise WorkflowError(
-                                "The input file {} is ambiguously "
-                                "associated with two subworkflows "
-                                "{} and {}.".format(item, sub, other),
-                                rule=self,
-                            )
-                    self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
                 inoutput._add_name(name)
