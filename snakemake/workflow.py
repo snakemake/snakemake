@@ -676,7 +676,8 @@ class Workflow(WorkflowExecutorInterface):
 
     def execute(
         self,
-        executor_plugin: ExecutorPlugin=None,
+        executor_plugin: ExecutorPlugin,
+        updated_files: Optional[List[str]]=None,
     ):
         self._executor_plugin = executor_plugin
         self._create_dag()
@@ -702,8 +703,8 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         with self.persistence.lock():
-            dag.postprocess(update_needrun=False)
-            if not dryrun:
+            self.dag.postprocess(update_needrun=False)
+            if not self.dryrun:
                 # deactivate IOCache such that from now on we always get updated
                 # size, existence and mtime information
                 # ATTENTION: this may never be removed without really good reason.
@@ -712,34 +713,15 @@ class Workflow(WorkflowExecutorInterface):
                 # clear and deactivate persistence cache, from now on we want to see updates
                 self.persistence.deactivate_cache()
 
-            if nodeps:
-                missing_input = [
-                    f
-                    for job in dag.targetjobs
-                    for f in job.input
-                    if dag.needrun(job) and not os.path.exists(f)
-                ]
-                if missing_input:
-                    logger.error(
-                        "Dependency resolution disabled (--nodeps) "
-                        "but missing input "
-                        "files detected. If this happens on a cluster, please make sure "
-                        "that you handle the dependencies yourself or turn off "
-                        "--immediate-submit. Missing input files:\n{}".format(
-                            "\n".join(missing_input)
-                        )
-                    )
-                    return False
-
-            if self.remote_execution_settings.immediate_submit and any(dag.checkpoint_jobs):
-                logger.error(
+            if self.remote_execution_settings.immediate_submit and any(self.dag.checkpoint_jobs):
+                raise WorkflowError(
                     "Immediate submit mode (--immediate-submit) may not be used for workflows "
                     "with checkpoint jobs, as the dependencies cannot be determined before "
                     "execution in such cases."
                 )
-                return False
 
-            updated_files.extend(f for job in dag.needrun_jobs() for f in job.output)
+            if updated_files is not None:
+                updated_files.extend(f for job in self.dag.needrun_jobs() for f in job.output)
 
             if generate_unit_tests:
                 from snakemake import unit_tests
