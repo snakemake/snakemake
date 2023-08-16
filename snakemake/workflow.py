@@ -31,7 +31,7 @@ from snakemake.exceptions import (
     NoRulesException,
     WorkflowError,
 )
-from snakemake.dag import DAG
+from snakemake.dag import DAG, ChangeType
 from snakemake.scheduler import JobScheduler
 from snakemake.parser import parse
 import snakemake.io
@@ -194,6 +194,10 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def executor_plugin(self):
         return self._executor_plugin
+
+    @property
+    def dryrun(self):
+        return self.executor_plugin.common_settings.dryrun_exec
 
     @lazy_property
     def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -539,6 +543,30 @@ class Workflow(WorkflowExecutorInterface):
             warn_only=lock_warn_only,
         )
 
+    def generate_unit_tests(self, path):
+        """Generate unit tests for the workflow.
+        
+        Arguments
+        path -- Path to the directory where the unit tests shall be generated.
+        """
+        from snakemake import unit_tests
+
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+
+        deploy = []
+        if self.deployment_settings.use_conda:
+            deploy.append("conda")
+        if self.deployment_settings.use_singularity:
+            deploy.append("singularity")
+        unit_tests.generate(
+            self.dag, path, deploy, configfiles=self.overwrite_configfiles
+        )
+
     def cleanup_metadata(self):
         self._prepare_dag(
             forceall=self.execution_settings.forceall,
@@ -582,10 +610,11 @@ class Workflow(WorkflowExecutorInterface):
             self.persistence.cleanup_shadow()
 
 
-    def delete_temp_output(self):
+    def delete_output(self, only_temp: bool = False, dryrun: bool = False):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
-        ...
+
+        self.dag.clean(only_temp=only_temp, dryrun=dryrun)
 
     def delete_all_output(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -595,12 +624,16 @@ class Workflow(WorkflowExecutorInterface):
     def list_untracked(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
-        ...
 
-    def list_params_changes(self):
+        self.dag.list_untracked()
+
+    def list_changes(self, change_type: ChangeType):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
-        ...
+        
+        items = self.dag.get_outputs_with_changes(change_type)
+        if items:
+            print(*items, sep="\n")
 
     def list_input_changes(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -612,20 +645,22 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
         ...
 
-    def archive(self):
+    def archive(self, path: Path):
+        """Archive the workflow.
+        
+        Arguments
+        path -- Path to the archive file.
+        """
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
-        ...
 
-    def detailed_summary(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
-        self._build_dag()
-        ...
+        self.dag.archive(path)
 
-    def summary(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+    def summary(self, detailed: bool = False):
+        self._prepare_dag(forceall=self.execution_settings.forceall, ignore_incomplete=True, lock_warn_only=True)
         self._build_dag()
-        ...
+
+        print("\n".join(self.dag.summary(detailed=detailed)))
 
     def conda_cleanup_envs(self):
         self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
@@ -638,24 +673,41 @@ class Workflow(WorkflowExecutorInterface):
         ...
     
     def printdag(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=True
+        )
         self._build_dag()
-        ...
+        print(self.dag)
     
     def printrulegraph(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=True
+        )
         self._build_dag()
-        ...
+        self.dag.rule_dot()
     
     def printfilegraph(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=True
+        )
         self._build_dag()
-        ...
+        self.dag.filegraph_dot()
     
     def printd3dag(self):
-        self._prepare_dag(forceall=False, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=True
+        )
         self._build_dag()
-        ...
+
+        self.dag.d3dag()
     
     def containerize(self):
         from snakemake.deployment.containerize import containerize
@@ -667,6 +719,39 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
         with self.persistence.lock():
             containerize(self, self.dag)
+    
+    def export_cwl(self, path: Path):
+        """Export the workflow as CWL document.
+        
+        Arguments
+        path -- the path to the CWL document to be created.
+        """
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+
+        from snakemake.cwl import dag_to_cwl
+        import json
+
+        with open(path, "w") as cwl:
+            json.dump(dag_to_cwl(self.dag), cwl, indent=4)
+
+    def create_report(self, path: Path, stylesheet: Optional[Path]=None):
+        from snakemake.report import auto_report
+
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+
+        auto_report(self.dag, path, stylesheet=stylesheet)
+
+
 
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
@@ -723,79 +808,9 @@ class Workflow(WorkflowExecutorInterface):
             if updated_files is not None:
                 updated_files.extend(f for job in self.dag.needrun_jobs() for f in job.output)
 
-            if generate_unit_tests:
-                from snakemake import unit_tests
-
-                path = generate_unit_tests
-                deploy = []
-                if self.deployment_settings.use_conda:
-                    deploy.append("conda")
-                if self.deployment_settings.use_singularity:
-                    deploy.append("singularity")
-                unit_tests.generate(
-                    dag, path, deploy, configfiles=self.overwrite_configfiles
-                )
-                return True
-            elif export_cwl:
-                from snakemake.cwl import dag_to_cwl
-                import json
-
-                with open(export_cwl, "w") as cwl:
-                    json.dump(dag_to_cwl(dag), cwl, indent=4)
-                return True
-            elif report:
-                from snakemake.report import auto_report
-
-                auto_report(dag, report, stylesheet=report_stylesheet)
-                return True
-            elif printd3dag:
-                dag.d3dag()
-                return True
-            elif printdag:
-                print(dag)
-                return True
-            elif printrulegraph:
-                print(dag.rule_dot())
-                return True
-            elif printfilegraph:
-                print(dag.filegraph_dot())
-                return True
-            elif summary:
-                print("\n".join(dag.summary(detailed=False)))
-                return True
-            elif detailed_summary:
-                print("\n".join(dag.summary(detailed=True)))
-                return True
-            elif archive:
-                dag.archive(archive)
-                return True
-            elif delete_all_output:
-                dag.clean(only_temp=False, dryrun=dryrun)
-                return True
-            elif delete_temp_output:
-                dag.clean(only_temp=True, dryrun=dryrun)
-                return True
-            elif list_code_changes:
-                items = dag.get_outputs_with_changes("code")
-                if items:
-                    print(*items, sep="\n")
-                return True
-            elif list_input_changes:
-                items = dag.get_outputs_with_changes("input")
-                if items:
-                    print(*items, sep="\n")
-                return True
-            elif list_params_changes:
-                items = dag.get_outputs_with_changes("params")
-                if items:
-                    print(*items, sep="\n")
-                return True
-            elif list_untracked:
-                dag.list_untracked()
-                return True
 
             if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
-                dag.pull_container_imgs(
+                self.dag.pull_container_imgs(
                     dryrun=dryrun or list_conda_envs or cleanup_containers,
                     quiet=list_conda_envs,
                 )
