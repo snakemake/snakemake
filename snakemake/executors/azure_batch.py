@@ -479,6 +479,7 @@ class AzBatchExecutor(RemoteExecutor):
         self,
         job: ExecutorJobInterface,
         callback=None,
+        submit_callback=None,
         error_callback=None,
     ):
         import azure.batch._batch_service_client as batch
