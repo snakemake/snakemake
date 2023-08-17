@@ -51,15 +51,17 @@ AzBatchJob = namedtuple(
 
 
 def check_source_size(filename, warning_size_gb=0.2):
-    """A helper function to check the filesize, and return the file
+    """
+    A helper function to check the filesize, and return the file
     to the calling function Additionally, given that we encourage these
     packages to be small, we set a warning at 200MB (0.2GB).
     """
     gb = bytesto(os.stat(filename).st_size, "g")
     if gb > warning_size_gb:
         logger.warning(
-            f"File {filename} (size {gb} GB) is greater than the {warning_size_gb} GB "
-            f"suggested size. Consider uploading larger files to storage first."
+            f"File {filename} (size {gb} GB) is greater than the "
+            f"{warning_size_gb} GB suggested size. Consider uploading "
+            f"larger files to storage first."
         )
     return filename
 
@@ -205,8 +207,8 @@ class AzBatchConfig:
 
 
 # AzureIdentityCredentialAdapter is required to authenticate batch with
-# managed identity credentials because not all Azure SDKs support the
-# azure.identity credentials yet, and azure.batch.batch_service_client is one of them.
+# managed identity credentials because azure.batch.batch_service_clint
+# does not support azure.identity authentication yet.
 # ref1: https://gist.github.com/lmazuel/cc683d82ea1d7b40208de7c9fc8de59d
 # ref2: https://gist.github.com/lmazuel/cc683d82ea1d7b40208de7c9fc8de59d
 class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
@@ -216,9 +218,12 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         resource_id="https://management.azure.com/.default",
         **kwargs,
     ):
-        """Adapt any azure-identity credential to work with SDK that needs azure.common.credentials or msrestazure.
-        Default resource is ARM (syntax of endpoint v2)
-        :param credential: Any azure-identity credential (DefaultAzureCredential by default)
+        """
+        Adapt any azure-identity credential to work with SDK that needs
+        azure.common.credentials or msrestazure. Default resource is
+        ARM (syntax of endpoint v2).
+        :param credential:
+        Any azure-identity credential (DefaultAzureCredential by default)
         :param str resource_id: The scope to use to get the token (default ARM)
         """
         try:
@@ -229,7 +234,8 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
 
         except ImportError:
             raise WorkflowError(
-                "The Python 3 packages 'azure-core' and 'azure-identity' are required"
+                "The Python 3 packages 'azure-core' and "
+                "'azure-identity' are required"
             )
 
         super(AzureIdentityCredentialAdapter, self).__init__(None)
@@ -252,11 +258,13 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         )
 
     def set_token(self):
-        """Ask the azure-core BearerTokenCredentialPolicy policy to get a token.
+        """
+        Ask the azure-core BearerTokenCredentialPolicy policy to get a token.
         Using the policy gives us for free the caching system of azure-core.
-        We could make this code simpler by using private method, but by definition
-        I can't assure they will be there forever, so mocking a fake call to the policy
-        to extract the token, using 100% public API."""
+        We could make this code simpler by using private method, but by
+        definition I can't assure they will be there forever, so mocking a
+        fake call to the policy to extract the token, using 100% public API.
+        """
         request = self._make_request()
         self._policy.on_request(request)
         # Read Authorization, and get the second part after Bearer
@@ -308,8 +316,8 @@ class AzBatchExecutor(RemoteExecutor):
 
         except ImportError:
             raise WorkflowError(
-                "The Python 3 packages 'azure-batch', 'azure-mgmt-batch', and 'azure-identity'"
-                " must be installed to use Azure Batch"
+                "The Python 3 packages 'azure-batch', 'azure-mgmt-batch', "
+                "and 'azure-identity' must be installed to use Azure Batch"
             )
 
         AZURE_BATCH_RESOURCE_ENDPOINT = "https://batch.core.windows.net/"
@@ -342,7 +350,8 @@ class AzBatchExecutor(RemoteExecutor):
         # Prepare workflow sources for build package
         self._set_workflow_sources()
 
-        # Pool ids can only contain any combination of alphanumeric characters along with dash and underscore
+        # Pool IDs can only contain any combination of alphanumeric
+        # characters, dashes, or underscores
         ts = datetime.datetime.now().strftime("%Y-%m%dT%H-%M-%S")
         self.pool_id = f"snakepool-{ts:s}"
         self.job_id = f"snakejob-{ts:s}"
@@ -858,7 +867,7 @@ class AzBatchExecutor(RemoteExecutor):
             fixed_scale=FixedScaleSettings(target_dedicated_nodes=1)
         )
 
-        # if enable autoscale set to minimum allowed autoscale evaluattion
+        # if enable autoscale set to minimum allowed autoscale evaluation
         # interval of five minutes
         if self.az_batch_enable_autoscale:
             scale_settings = ScaleSettings(
@@ -935,9 +944,7 @@ class AzBatchExecutor(RemoteExecutor):
             # regex pattern for Storage Account SAS Token
             rgx = r"\?sv=.*&ss=.*&srt=.*&sp=.*&se=.*&st=.*&spr=.*&sig=.*"
             if re.compile(rgx).match(cred) is None:
-                raise WorkflowError(
-                    "AZ_BLOB_CREDENTIAL is not a valid storage account SAS token."
-                )
+                raise WorkflowError("Invalid AZ_BLOB_CREDENTIAL SAS token.")
 
     # from google_lifesciences.py
     def _set_workflow_sources(self):
@@ -960,21 +967,22 @@ class AzBatchExecutor(RemoteExecutor):
                     check_source_size(os.path.abspath(wfs))
                 )
 
-    # from google_lifesciences.py
     def _generate_build_source_package(self):
-        """in order for the instance to access the working directory in storage,
-        we need to upload it. This file is cleaned up at the end of the run.
-        We do this, and then obtain from the instance and extract.
         """
-        # Workflow sources for cloud executor must all be under same workdir root
+        The working directory (Snakefile, envs, etc) are zipped and uploaded
+        to blob storage. This file is added to the batch task as a resource
+        file and cleaned up on shutdown.
+        """
+        # Workflow sources must all be under same working directory root
         for filename in self.workflow_sources:
             if self.workdir not in filename:
                 raise WorkflowError(
-                    "All source files must be present in the working directory, "
-                    "{workdir} to be uploaded to a build package that respects "
-                    "relative paths, but {filename} was found outside of this "
-                    "directory. Please set your working directory accordingly, "
-                    "and the path of your Snakefile to be relative to it.".format(
+                    "All source files must exits in the working directory, "
+                    "{workdir} to be uploaded to a build package that "
+                    "respects relative paths, but {filename} was found "
+                    "outside of this directory. Please set your working "
+                    "directory accordingly, and the path of your Snakefile "
+                    "to be relative to it.".format(
                         workdir=self.workdir, filename=filename
                     )
                 )
@@ -991,7 +999,8 @@ class AzBatchExecutor(RemoteExecutor):
             arcname = filename.replace(self.workdir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
         logger.debug(
-            f"Created {targz} with the following contents: {self.workflow_sources}"
+            f"Created {targz} with the following contents: "
+            f"{self.workflow_sources}"
         )
         tar.close()
 
