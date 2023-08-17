@@ -288,6 +288,8 @@ class SlurmExecutor(RemoteExecutor):
         command -- a slurm command that returns one line for each job with:
                    "<raw/main_job_id>|<long_status_string>"
         """
+        res = query_duration = None
+
         try:
             time_before_query = time.time()
             command_res = subprocess.check_output(
@@ -393,6 +395,10 @@ class SlurmExecutor(RemoteExecutor):
                         # -X: only show main job, no substeps
                         f"sacct -X --parsable2 --noheader --format=JobIdRaw,State --name {self.run_uuid}"
                     )
+                    if status_of_jobs is None and sacct_query_duration is None:
+                        logger.debug(f"Could not check status of job {self.run_uuid}")
+                        continue
+
                     logger.debug(f"status_of_jobs after sacct is: {status_of_jobs}")
                     # only take jobs that are still active
                     active_jobs_ids_with_current_sacct_status = (
