@@ -754,6 +754,7 @@ class AzBatchExecutor(RemoteExecutor):
             NodeCommunicationMode,
             Pool,
             PoolIdentityType,
+            ContainerType,
             ResourceFile,
             ScaleSettings,
             StartTask,
@@ -780,6 +781,7 @@ class AzBatchExecutor(RemoteExecutor):
             )
 
         container_config = ContainerConfiguration(
+            type=ContainerType.DOCKER_COMPATIBLE,
             container_image_names=[self.container_image],
         )
 
@@ -801,22 +803,6 @@ class AzBatchExecutor(RemoteExecutor):
                 user_assigned_identities={mrid: UserAssignedIdentities()},
             )
 
-        if self.batch_config.container_registry_url is not None:
-            if (
-                self.batch_config.container_registry_user is not None
-                and self.batch_config.container_registry_pass is not None
-            ):
-                user = self.batch_config.container_registry_user
-                passw = self.batch_config.container_registry_pass
-            else:
-                raise WorkflowError(
-                    "Invalid container registry authentication. "
-                    "BATCH_CONTAINER_REGISTRY_USER and "
-                    "BATCH_CONTAINER_REGISTRY_PASS or "
-                    "MANAGED_IDENTITY_CLIENT_ID and "
-                    "MANAGED_IDENTITY_RESOURCE_ID are required"
-                )
-
             registry_conf = [
                 ContainerRegistry(
                     registry_server=self.batch_config.container_registry_url,
@@ -827,6 +813,7 @@ class AzBatchExecutor(RemoteExecutor):
             ]
 
             container_config = ContainerConfiguration(
+                type="DockerCompatible",
                 container_image_names=[self.container_image],
                 container_registries=registry_conf,
             )
