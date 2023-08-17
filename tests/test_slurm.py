@@ -93,7 +93,10 @@ def test_slurm_extra_arguments():
         show_failed_logs=True,
         use_conda=True,
         default_resources=DefaultResources(
-            ["slurm_account=runner", "slurm_partition=debug",
-             "slurm_extra='--mail-type=none'"]
+            [
+                "slurm_account=runner",
+                "slurm_partition=debug",
+                "slurm_extra='--mail-type=none'",
+            ]
         ),
     )

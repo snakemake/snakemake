@@ -45,9 +45,7 @@ from snakemake.common import (
 )
 from snakemake.logging import logger
 
-AzBatchJob = namedtuple(
-    "AzBatchJob", "job jobid task_id callback error_callback"
-)
+AzBatchJob = namedtuple("AzBatchJob", "job jobid task_id callback error_callback")
 
 
 def check_source_size(filename, warning_size_gb=0.2):
@@ -75,14 +73,10 @@ class AzBatchConfig:
         result = urlparse(self.batch_account_url)
         self.batch_account_name = str.split(result.hostname, ".")[0]
 
-        self.batch_account_key = self.set_or_default(
-            "AZ_BATCH_ACCOUNT_KEY", None
-        )
+        self.batch_account_key = self.set_or_default("AZ_BATCH_ACCOUNT_KEY", None)
 
         # optional subnet config
-        self.batch_pool_subnet_id = self.set_or_default(
-            "BATCH_POOL_SUBNET_ID", None
-        )
+        self.batch_pool_subnet_id = self.set_or_default("BATCH_POOL_SUBNET_ID", None)
 
         # managed identity resource id configuration
         self.managed_identity_resource_id = self.set_or_default(
@@ -91,12 +85,8 @@ class AzBatchConfig:
 
         # parse subscription and resource id
         if self.managed_identity_resource_id is not None:
-            self.subscription_id = self.managed_identity_resource_id.split(
-                "/"
-            )[2]
-            self.resource_group = self.managed_identity_resource_id.split("/")[
-                4
-            ]
+            self.subscription_id = self.managed_identity_resource_id.split("/")[2]
+            self.resource_group = self.managed_identity_resource_id.split("/")[4]
 
         self.managed_identity_client_id = self.set_or_default(
             "BATCH_MANAGED_IDENTITY_CLIENT_ID", None
@@ -127,9 +117,7 @@ class AzBatchConfig:
                 )
 
         # sas url to a batch node start task bash script
-        self.batch_node_start_task_sasurl = os.getenv(
-            "BATCH_NODE_START_TASK_SAS_URL"
-        )
+        self.batch_node_start_task_sasurl = os.getenv("BATCH_NODE_START_TASK_SAS_URL")
 
         # options configured with env vars or default
         self.batch_pool_image_publisher = self.set_or_default(
@@ -152,13 +140,9 @@ class AzBatchConfig:
         )
 
         # dedicated pool node count
-        self.batch_pool_node_count = self.set_or_default(
-            "BATCH_POOL_NODE_COUNT", 1
-        )
+        self.batch_pool_node_count = self.set_or_default("BATCH_POOL_NODE_COUNT", 1)
 
-        self.batch_tasks_per_node = self.set_or_default(
-            "BATCH_TASKS_PER_NODE", 1
-        )
+        self.batch_tasks_per_node = self.set_or_default("BATCH_TASKS_PER_NODE", 1)
 
         # possible values "spread" or "pack"
         self.batch_node_fill_type = self.set_or_default(
@@ -241,9 +225,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
         super(AzureIdentityCredentialAdapter, self).__init__(None)
         if credential is None:
             credential = DefaultAzureCredential()
-        self._policy = BearerTokenCredentialPolicy(
-            credential, resource_id, **kwargs
-        )
+        self._policy = BearerTokenCredentialPolicy(credential, resource_id, **kwargs)
 
     def _make_request(self):
         try:
@@ -273,9 +255,7 @@ class AzureIdentityCredentialAdapter(msa.BasicTokenAuthentication):
 
     def signed_session(self, session=None):
         self.set_token()
-        return super(AzureIdentityCredentialAdapter, self).signed_session(
-            session
-        )
+        return super(AzureIdentityCredentialAdapter, self).signed_session(session)
 
 
 class AzBatchExecutor(RemoteExecutor):
@@ -328,9 +308,7 @@ class AzBatchExecutor(RemoteExecutor):
         self.azblob_helper = AzureStorageHelper()
 
         # get container from remote prefix
-        self.prefix_container = str.split(workflow.default_remote_prefix, "/")[
-            0
-        ]
+        self.prefix_container = str.split(workflow.default_remote_prefix, "/")[0]
 
         # setup batch configuration sets self.az_batch_config
         self.batch_config = AzBatchConfig(az_batch_account_url)
@@ -491,9 +469,7 @@ class AzBatchExecutor(RemoteExecutor):
         for key in self.envvars:
             try:
                 envsettings.append(
-                    batchmodels.EnvironmentSetting(
-                        name=key, value=os.environ[key]
-                    )
+                    batchmodels.EnvironmentSetting(name=key, value=os.environ[key])
                 )
             except KeyError:
                 continue
@@ -564,15 +540,11 @@ class AzBatchExecutor(RemoteExecutor):
             output.close()
 
     # adopted from https://github.com/Azure-Samples/batch-python-quickstart/blob/master/src/python_quickstart_client.py
-    def _get_task_output(
-        self, job_id, task_id, stdout_or_stderr, encoding=None
-    ):
+    def _get_task_output(self, job_id, task_id, stdout_or_stderr, encoding=None):
         assert stdout_or_stderr in ["stdout", "stderr"]
         fname = stdout_or_stderr + ".txt"
         try:
-            stream = self.batch_client.file.get_from_task(
-                job_id, task_id, fname
-            )
+            stream = self.batch_client.file.get_from_task(job_id, task_id, fname)
             content = self._read_stream_as_string(stream, encoding)
         except Exception:
             content = ""
@@ -594,12 +566,8 @@ class AzBatchExecutor(RemoteExecutor):
             # Loop through active jobs and act on status
             for batch_job in active_jobs:
                 async with self.status_rate_limiter:
-                    logger.debug(
-                        f"Monitoring {len(active_jobs)} active AzBatch tasks"
-                    )
-                    task = self.batch_client.task.get(
-                        self.job_id, batch_job.task_id
-                    )
+                    logger.debug(f"Monitoring {len(active_jobs)} active AzBatch tasks")
+                    task = self.batch_client.task.get(self.job_id, batch_job.task_id)
 
                     if task.state == batchmodels.TaskState.completed:
                         dt = (
@@ -673,9 +641,7 @@ class AzBatchExecutor(RemoteExecutor):
 
                         # fail if start task fails on a node or node state becomes unusable
                         # and stream stderr stdout to stream
-                        node_list = self.batch_client.compute_node.list(
-                            self.pool_id
-                        )
+                        node_list = self.batch_client.compute_node.list(self.pool_id)
                         for n in node_list:
                             # error on unusable node (this occurs if your container image fails to pull)
                             if n.state == "unusable":
@@ -694,29 +660,29 @@ class AzBatchExecutor(RemoteExecutor):
                                 == batchmodels.TaskExecutionResult.failure
                             ):
                                 try:
-                                    stderr_file = self.batch_client.file.get_from_compute_node(
-                                        self.pool_id,
-                                        n.id,
-                                        "/startup/stderr.txt",
-                                    )
-                                    stderr_stream = (
-                                        self._read_stream_as_string(
-                                            stderr_file, "utf-8"
+                                    stderr_file = (
+                                        self.batch_client.file.get_from_compute_node(
+                                            self.pool_id,
+                                            n.id,
+                                            "/startup/stderr.txt",
                                         )
+                                    )
+                                    stderr_stream = self._read_stream_as_string(
+                                        stderr_file, "utf-8"
                                     )
                                 except Exception:
                                     stderr_stream = ""
 
                                 try:
-                                    stdout_file = self.batch_client.file.get_from_compute_node(
-                                        self.pool_id,
-                                        n.id,
-                                        "/startup/stdout.txt",
-                                    )
-                                    stdout_stream = (
-                                        self._read_stream_as_string(
-                                            stdout_file, "utf-8"
+                                    stdout_file = (
+                                        self.batch_client.file.get_from_compute_node(
+                                            self.pool_id,
+                                            n.id,
+                                            "/startup/stdout.txt",
                                         )
+                                    )
+                                    stdout_stream = self._read_stream_as_string(
+                                        stdout_file, "utf-8"
                                     )
                                 except Exception:
                                     stdout_stream = ""
@@ -900,8 +866,7 @@ class AzBatchExecutor(RemoteExecutor):
 
         except HttpResponseError as e:
             raise WorkflowError(
-                f"Error: Failed to create batch pool: "
-                f"{pprint.pformat(e.__dict__)}"
+                f"Error: Failed to create batch pool: " f"{pprint.pformat(e.__dict__)}"
             )
 
     def create_batch_job(self):
@@ -945,15 +910,10 @@ class AzBatchExecutor(RemoteExecutor):
             if os.path.isdir(wfs):
                 for dirpath, dirnames, filenames in os.walk(wfs):
                     self.workflow_sources.extend(
-                        [
-                            check_source_size(os.path.join(dirpath, f))
-                            for f in filenames
-                        ]
+                        [check_source_size(os.path.join(dirpath, f)) for f in filenames]
                     )
             else:
-                self.workflow_sources.append(
-                    check_source_size(os.path.abspath(wfs))
-                )
+                self.workflow_sources.append(check_source_size(os.path.abspath(wfs)))
 
     def _generate_build_source_package(self):
         """
@@ -977,9 +937,7 @@ class AzBatchExecutor(RemoteExecutor):
 
         # We will generate a tar.gz package, renamed by hash
         tmpname = next(tempfile._get_candidate_names())
-        targz = os.path.join(
-            tempfile.gettempdir(), f"snakemake-{tmpname}.tar.gz"
-        )
+        targz = os.path.join(tempfile.gettempdir(), f"snakemake-{tmpname}.tar.gz")
         tar = tarfile.open(targz, "w:gz")
 
         # Add all workflow_sources files
@@ -987,8 +945,7 @@ class AzBatchExecutor(RemoteExecutor):
             arcname = filename.replace(self.workdir + os.path.sep, "")
             tar.add(filename, arcname=arcname)
         logger.debug(
-            f"Created {targz} with the following contents: "
-            f"{self.workflow_sources}"
+            f"Created {targz} with the following contents: " f"{self.workflow_sources}"
         )
         tar.close()
 
