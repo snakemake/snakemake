@@ -2032,7 +2032,7 @@ def main(argv=None):
         args.cores = cores
         args.jobs = jobs
     except CliException as err:
-        print(err.msg, sys.stderr)
+        print(err.msg, file=sys.stderr)
         sys.exit(1)
 
     if args.drmaa_log_dir is not None and not os.path.isabs(args.drmaa_log_dir):
@@ -2129,7 +2129,8 @@ def main(argv=None):
             sys.exit(1)
         elif not url_can_parse(args.az_batch_account_url):
             print(
-                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
+                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com.",
+                file=sys.stderr,
             )
             sys.exit(1)
         elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
@@ -2447,6 +2448,7 @@ def bash_completion(snakefile="Snakefile"):
     if len(sys.argv) < 2:
         print(
             "Calculate bash completion for snakemake. This tool shall not be invoked by hand."
+            file=sys.stderr,
         )
         sys.exit(1)
 
