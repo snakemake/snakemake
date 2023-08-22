@@ -53,9 +53,24 @@ class ApiBase(ABC):
 
 @dataclass
 class SnakemakeApi(ApiBase):
+    """The Snakemake API.
+    
+    Arguments
+    ---------
+
+    output_settings: OutputSettings -- The output settings for the Snakemake API.
+    """
     output_settings: OutputSettings
 
     def workflow(self, snakefile: Path, config_settings: ConfigSettings, resource_settings: ResourceSettings):
+        """Create a workflow API.
+
+        Arguments
+        ---------
+        snakefile: Path -- The path to the snakefile.
+        config_settings: ConfigSettings -- The config settings for the workflow.
+        resource_settings: ResourceSettings -- The resource settings for the workflow.
+        """
         self._setup_logger()
         return WorkflowApi(self, snakefile, config_settings, resource_settings)
 
@@ -85,6 +100,16 @@ class SnakemakeApi(ApiBase):
 
 @dataclass
 class WorkflowApi(ApiBase):
+    """The workflow API.
+    
+    Arguments
+    ---------
+    snakemake_api: SnakemakeApi -- The Snakemake API.
+    snakefile: Path -- The path to the snakefile.
+    config_settings: ConfigSettings -- The config settings for the workflow.
+    resource_settings: ResourceSettings -- The resource settings for the workflow.
+    """
+
     snakemake_api: SnakemakeApi
     snakefile: Path
     config_settings: ConfigSettings
@@ -92,21 +117,47 @@ class WorkflowApi(ApiBase):
     _workflow_store: Workflow = field(init=False)
 
     def dag(self, dag_settings: DAGSettings):
+        """Create a DAG API.
+        
+        Arguments
+        ---------
+        dag_settings: DAGSettings -- The DAG settings for the DAG API.
+        """
         return DAGApi(self.snakemake_api, self, dag_settings=dag_settings)
 
     def lint(self, json: bool = False):
+        """Lint the workflow.
+        
+        Arguments
+        ---------
+        json: bool -- Whether to print the linting results as JSON.
+        """
         self._workflow.lint(json=json)
 
     def generate_unit_tests(self, path: Path):
+        """Generate unit tests for the workflow.
+
+        Arguments
+        ---------
+        path: Path -- The path to store the unit tests.
+        """
         self._workflow.generate_unit_tests(path=path)
 
     def list_rules(self, only_targets: bool = False):
+        """List the rules of the workflow.
+
+        Arguments
+        ---------
+        only_targets: bool -- Whether to only list target rules.
+        """
         self._workflow.list_rules(only_targets=only_targets)
 
     def list_resources(self):
+        """List the resources of the workflow."""
         self._workflow.list_resources()
     
     def print_compilation(self):
+        """Print the pure python compilation of the workflow."""
         from snakemake.workflow import Workflow
 
         workflow = Workflow(self.config_settings, self.resource_settings)
@@ -133,6 +184,15 @@ class WorkflowApi(ApiBase):
 
 @dataclass
 class DAGApi(ApiBase):
+    """The DAG API.
+
+    Arguments
+    ---------
+    snakemake_api: SnakemakeApi -- The Snakemake API.
+    workflow_api: WorkflowApi -- The workflow API.
+    dag_settings: DAGSettings -- The DAG settings for the DAG API.
+    """
+
     snakemake_api: SnakemakeApi
     workflow_api: WorkflowApi
     dag_settings: DAGSettings
@@ -151,6 +211,20 @@ class DAGApi(ApiBase):
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
     ):
+        """Execute the workflow.
+        
+        Arguments
+        ---------
+        executor: str -- The executor to use.
+        execution_settings: ExecutionSettings -- The execution settings for the workflow.
+        resource_settings: ResourceSettings -- The resource settings for the workflow.
+        deployment_settings: DeploymentSettings -- The deployment settings for the workflow.
+        remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
+        storage_settings: StorageSettings -- The storage settings for the workflow.
+        executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
+        updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
+        """
+
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.plugins[executor]
 
@@ -207,6 +281,7 @@ class DAGApi(ApiBase):
 
 
     def containerize(self):
+        """Containerize the workflow."""
         self.workflow_api._workflow.containerize()
 
     def create_report(
@@ -214,60 +289,110 @@ class DAGApi(ApiBase):
         report: Path,
         report_stylesheet: Optional[Path] = None,
     ):
+        """Create a report for the workflow.
+
+        Arguments
+        ---------
+        report: Path -- The path to the report.
+        report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        """
         self.workflow_api._workflow.create_report(
             report=report,
             report_stylesheet=report_stylesheet,
         )
     
     def printdag(self):
+        """Print the DAG of the workflow."""
         self.workflow_api._workflow.printdag()
     
     def printrulegraph(self):
+        """Print the rule graph of the workflow."""
         self.workflow_api._workflow.printrulegraph()
 
     def printfilegraph(self):
+        """Print the file graph of the workflow."""
         self.workflow_api._workflow.printfilegraph()
     
     def printd3dag(self):
+        """Print the DAG of the workflow in D3.js compatible JSON."""
         self.workflow_api._workflow.printd3dag()
 
     def unlock(self):
+        """Unlock the workflow."""
         self.workflow_api._workflow.unlock()
     
     def cleanup_metadata(self):
+        """Cleanup the metadata of the workflow."""
         self.workflow_api._workflow.cleanup_metadata()
     
     def conda_cleanup_envs(self):
+        """Cleanup the conda environments of the workflow."""
         self.workflow_api._workflow.conda_cleanup_envs()
     
     def conda_create_envs(self):
+        """Only create the conda environments of the workflow."""
         self.workflow_api._workflow.conda_create_envs()
 
     def conda_list_envs(self):
+        """List the conda environments of the workflow."""
         self.workflow_api._workflow.conda_list_envs()
     
     def cleanup_shadow(self):
+        """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
     
     def container_cleanup_images(self):
+        """Cleanup the container images of the workflow."""
         self.workflow_api._workflow.container_cleanup_images()
     
     def list_(self, change_type: ChangeType):
+        """List the changes of the workflow.
+
+        Arguments
+        ---------
+        change_type: ChangeType -- The type of changes to list.
+        """
         self.workflow_api._workflow.list_changes(change_type=change_type)
     
     def list_untracked(self):
+        """List the untracked files of the workflow."""
         self.workflow_api._workflow.list_untracked()
     
     def summary(self, detailed: bool = False):
+        """Summarize the workflow.
+
+        Arguments
+        ---------
+        detailed: bool -- Whether to print a detailed summary.
+        """
         self.workflow_api._workflow.summary(detailed=detailed)
     
     def archive(self, path: Path):
+        """Archive the workflow.
+
+        Arguments
+        ---------
+        path: Path -- The path to the archive.
+        """
         self.workflow_api._workflow.archive(path=path)
     
     def delete_output(self, only_temp: bool = False, dryrun: bool = False):
+        """Delete the output of the workflow.
+
+        Arguments
+        ---------
+        only_temp: bool -- Whether to only delete temporary output.
+        dryrun: bool -- Whether to only dry-run the deletion.
+        """
         self.workflow_api._workflow.delete_output(only_temp=only_temp, dryrun=dryrun)
     
     def export_to_cwl(self, path: Path):
+        """Export the workflow to CWL.
+
+        Arguments
+        ---------
+        path: Path -- The path to the CWL file.
+        """
         self.workflow_api._workflow.export_to_cwl(path=path)
 
 
