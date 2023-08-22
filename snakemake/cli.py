@@ -1848,6 +1848,10 @@ def generate_parser_metadata(parser, args):
     return metadata
 
 
+def args_to_api(args):
+    ...
+
+
 def main(argv=None):
     """Main entry point."""
 
@@ -2558,7 +2562,7 @@ class SpawnedJobArgsFactory:
                 "--no-hooks",
                 "--nolock",
                 "--ignore-incomplete",
-                w2a("execution_settings.keep_incomplete")
+                w2a("execution_settings.keep_incomplete"),
                 w2a("rerun_triggers"),
                 w2a("execution_settings.cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("execution_settings.shadow_prefix"),
