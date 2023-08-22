@@ -88,6 +88,7 @@ def render_rulegraph(nodes, links, links_direct):
                         {
                             "type": "linkpath",
                             "shape": "diagonal",
+                            "orient": "vertical",
                             "sourceX": "datum.source.x",
                             "sourceY": "datum.source.y",
                             "targetX": "datum.target.x",
@@ -114,8 +115,8 @@ def render_rulegraph(nodes, links, links_direct):
                     "transform": [
                         {
                             "type": "linkpath",
-                            "shape": "curve",
-                            "orient": "horizontal",
+                            "shape": "diagonal",
+                            "orient": "vertical",
                             "sourceX": "datum.source.x",
                             "sourceY": "datum.source.y",
                             "targetX": "datum.target.x",
