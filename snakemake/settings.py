@@ -164,8 +164,6 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     singularity_prefix: Optional[Path] = None
     use_env_modules: bool = False
 
-
-
 @dataclass
 class SchedulingSettings(SettingsBase):
     """
@@ -205,7 +203,7 @@ class SchedulingSettings(SettingsBase):
 
 @dataclass
 class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
-    cores: Optional[int]
+    cores: Optional[int] = None
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
@@ -215,6 +213,10 @@ class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
     overwrite_resource_scopes: Dict[str, str] = dict()
     overwrite_resources: Dict[str, Dict[str, int]] = dict()
     default_resources: DefaultResources = DefaultResources(mode="bare")
+
+    def _check(self):
+        if self.cores is None and self.nodes is None:
+            raise ApiError("You need to specify either --cores or --jobs.")
 
 @dataclass
 class ConfigSettings(SettingsBase, ConfigSettingsExecutorInterface):

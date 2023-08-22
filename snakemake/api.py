@@ -28,7 +28,6 @@ from snakemake.workflow import Workflow
 from snakemake.exceptions import (
     ApiError,
     print_exception,
-    WorkflowError,
 )
 from snakemake.logging import setup_logger, logger
 from snakemake.io import load_configfile
@@ -62,7 +61,7 @@ def resolve_snakefile(path: Optional[Path]):
         for p in SNAKEFILE_CHOICES:
             if os.path.exists(p):
                 return p
-        raise WorkflowError(f"No Snakefile found, tried {', '.join(SNAKEFILE_CHOICES)}.")
+        raise ApiError(f"No Snakefile found, tried {', '.join(SNAKEFILE_CHOICES)}.")
     return path
 
 
@@ -134,14 +133,18 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     _workflow_store: Workflow = field(init=False)
 
-    def dag(self, dag_settings: DAGSettings):
+    def dag(
+        self,
+        dag_settings: DAGSettings,
+        deployment_settings: DeploymentSettings,
+    ):
         """Create a DAG API.
         
         Arguments
         ---------
         dag_settings: DAGSettings -- The DAG settings for the DAG API.
         """
-        return DAGApi(self.snakemake_api, self, dag_settings=dag_settings)
+        return DAGApi(self.snakemake_api, self, dag_settings=dag_settings, deployment_settings=deployment_settings)
 
     def lint(self, json: bool = False):
         """Lint the workflow.
@@ -214,16 +217,17 @@ class DAGApi(ApiBase):
     snakemake_api: SnakemakeApi
     workflow_api: WorkflowApi
     dag_settings: DAGSettings
+    deployment_settings: DeploymentSettings
 
     def __post_init__(self):
         self.workflow_api._workflow.dag_settings = self.dag_settings
+        self.workflow_api._workflow.deployment_settings = self.deployment_settings
 
     def execute_workflow(
         self,
         executor: str,
         execution_settings: ExecutionSettings,
         resource_settings: ResourceSettings,
-        deployment_settings: DeploymentSettings,
         remote_execution_settings: RemoteExecutionSettings,
         storage_settings: StorageSettings,
         executor_settings: Optional[ExecutorSettingsBase] = None,
@@ -244,7 +248,7 @@ class DAGApi(ApiBase):
         """
 
         if remote_execution_settings.immediate_submit and not execution_settings.notemp:
-            raise WorkflowError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
+            raise ApiError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.plugins[executor]
@@ -260,7 +264,7 @@ class DAGApi(ApiBase):
             if not executor_plugin.common_settings.dryrun_exec:
                 # clean up all previously recorded jobids.
                 shell.cleanup()
-            if self.execution_settings.debug and self.resource_settings.cores > 1:
+            if self.execution_settings.debug and self.workflow_api.resource_settings.cores > 1:
                 raise ApiError(
                     "debug mode cannot be used with multi-core execution, please enforce a single core by setting --cores 1"
                 )
@@ -291,7 +295,6 @@ class DAGApi(ApiBase):
             workflow.execution_settings = execution_settings
             workflow.storage_settings = storage_settings
             workflow.resource_settings = resource_settings
-            workflow.deployment_settings = deployment_settings
             workflow.remote_execution_settings = remote_execution_settings
 
             workflow.execute(
@@ -348,14 +351,17 @@ class DAGApi(ApiBase):
     
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
+        self.deployment_settings.use_conda = True
         self.workflow_api._workflow.conda_cleanup_envs()
     
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
+        self.deployment_settings.use_conda = True
         self.workflow_api._workflow.conda_create_envs()
 
     def conda_list_envs(self):
         """List the conda environments of the workflow."""
+        self.deployment_settings.use_conda = True
         self.workflow_api._workflow.conda_list_envs()
     
     def cleanup_shadow(self):
@@ -364,6 +370,7 @@ class DAGApi(ApiBase):
     
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
+        self.deployment_settings.use_singularity = True
         self.workflow_api._workflow.container_cleanup_images()
     
     def list_(self, change_type: ChangeType):
@@ -934,13 +941,13 @@ def snakemake(
                     "snakemake.remote." + default_remote_provider
                 )
             except ImportError as e:
-                raise WorkflowError("Unknown default remote provider.")
+                raise ApiError("Unknown default remote provider.")
             if rmt.RemoteProvider.supports_default:
                 _default_remote_provider = rmt.RemoteProvider(
                     keep_local=keep_remote_local, is_default=True
                 )
             else:
-                raise WorkflowError(
+                raise ApiError(
                     "Remote provider {} does not (yet) support to "
                     "be used as default provider."
                 )
