@@ -22,6 +22,7 @@ from snakemake.exceptions import ApiError
 from snakemake.io import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
+from snakemake.exceptions import WorkflowError
 
 
 class SettingsBase(ABC):
@@ -78,12 +79,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     cleanup_scripts: bool = True
     cleanup_metadata: List[Path] = []
 
-    def _check(self):
-        # TODO move into API as immediate_submit has been moved to remote_execution_settings
-        assert not self.immediate_submit or (
-            self.immediate_submit and self.notemp
-        ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
-
 @dataclass
 class DAGSettings(SettingsBase):
     targets: Optional[List[str]] = None
@@ -98,6 +93,13 @@ class DAGSettings(SettingsBase):
     allowed_rules: Optional[Set[str]] = None
     rerun_triggers: List[str]=RERUN_TRIGGERS
 
+    def _check(self):
+        if self.batch is not None and self.forceall:
+            raise WorkflowError(
+                "--batch may not be combined with --forceall, because recomputed upstream "
+                "jobs in subsequent batches may render already obtained results outdated."
+            )
+
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_remote_provider: Optional[str] = None
@@ -107,6 +109,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
 
     def __post_init__(self):
         self.default_remote_provider = self._get_default_remote_provider()
+        super().__post_init__()
 
     def _get_default_remote_provider(self):
         if self.default_remote_provider is not None:
@@ -241,11 +244,18 @@ class ConfigSettings(SettingsBase, ConfigSettingsExecutorInterface):
         else:
             return self.config_args
 
+
+class Quietness(Enum):
+    none = 0
+    rules = 1
+    progress = 2
+    all = 3
+
 @dataclass
 class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
     printshellcmds: bool = False
     nocolor: bool = False
-    quiet: bool = False
+    quiet: Quietness = Quietness.none
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False

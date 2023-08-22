@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import sys
 
 from snakemake import logging
-from snakemake.api import snakemake
+from snakemake.api import resolve_snakefile, snakemake
 
 import os
 import glob
@@ -20,6 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.settings import Quietness
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -41,13 +42,6 @@ from snakemake.common import (
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-
-SNAKEFILE_CHOICES = [
-    "Snakefile",
-    "snakefile",
-    "workflow/Snakefile",
-    "workflow/snakefile",
-]
 
 
 def parse_set_threads(args):
@@ -462,6 +456,7 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="*",
         metavar="NAME=INT",
+        type=parse_resources,
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to --cores (see above). A resource is defined as "
@@ -479,6 +474,7 @@ def get_argument_parser(profiles=None):
         "--set-threads",
         metavar="RULE=THREADS",
         nargs="+",
+        type=parse_set_threads,
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -497,6 +493,7 @@ def get_argument_parser(profiles=None):
         "--set-resources",
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
+        type=parse_set_resources,
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -507,6 +504,7 @@ def get_argument_parser(profiles=None):
         "--set-scatter",
         metavar="NAME=SCATTERITEMS",
         nargs="+",
+        type=parse_set_scatter,
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
         "the name of the scattergather process defined via a scattergather directive in the workflow.",
@@ -515,6 +513,7 @@ def get_argument_parser(profiles=None):
         "--set-resource-scopes",
         metavar="RESOURCE=[global|local]",
         nargs="+",
+        type=parse_set_resource_scope,
         help="Overwrite resource scopes. A scope determines how a constraint is "
         "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
         "RESOURCE using --resources will be considered the limit for each group "
@@ -531,6 +530,7 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
+        type=DefaultResources,
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
@@ -579,6 +579,7 @@ def get_argument_parser(profiles=None):
         "-C",
         nargs="*",
         metavar="KEY=VALUE",
+        type=parse_config,
         help=(
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
@@ -699,6 +700,7 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--batch",
         metavar="RULE=BATCH/BATCHES",
+        type=parse_batch,
         help=(
             "Only create the given BATCH of the input files of the given RULE. "
             "This can be used to iteratively run parts of very large workflows. "
@@ -812,26 +814,18 @@ def get_argument_parser(profiles=None):
         help=("Do not evaluate or execute subworkflows."),
     )
 
-    # TODO add group_partitioning, allowing to define --group rulename=groupname.
-    # i.e. setting groups via the CLI for improving cluster performance given
-    # available resources.
-    # TODO add an additional flag --group-components groupname=3, allowing to set the
-    # number of connected components a group is allowed to span. By default, this is 1
-    # (as now), but the flag allows to extend this. This can be used to run e.g.
-    # 3 jobs of the same rule in the same group, although they are not connected.
-    # Can be helpful for putting together many small jobs or benefitting of shared memory
-    # setups.
-
     group_group = parser.add_argument_group("GROUPING")
     group_group.add_argument(
         "--groups",
         nargs="+",
+        type=parse_groups,
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
     group_group.add_argument(
         "--group-components",
         nargs="+",
+        type=parse_group_components,
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -1152,8 +1146,9 @@ def get_argument_parser(profiles=None):
         "--quiet",
         "-q",
         nargs="*",
-        choices=["progress", "rules", "all"],
+        choices=[q.name for q in Quietness],
         default=None,
+        type=parse_quietness,
         help="Do not output certain information. "
         "If used without arguments, do not output any progress or rule "
         "information. Defining 'all' results in no information being "
@@ -1848,12 +1843,104 @@ def generate_parser_metadata(parser, args):
     return metadata
 
 
+def parse_args(argv):
+    parser = get_argument_parser()
+    args = parser.parse_args(argv)
+
+    snakefile = resolve_snakefile(args.snakefile)
+    workflow_profile = None
+    if args.workflow_profile != "none":
+        if args.workflow_profile:
+            workflow_profile = args.workflow_profile
+        else:
+            # checking for default profile
+            default_path = Path("profiles/default")
+            workflow_profile_candidates = [
+                default_path,
+                Path(snakefile).parent.joinpath(default_path),
+            ]
+            for profile in workflow_profile_candidates:
+                if profile.exists():
+                    workflow_profile = profile
+                    break
+
+    if args.profile == "none":
+        args.profile = None
+
+    if (args.profile or workflow_profile) and args.mode == ExecMode.default:
+        # Reparse args while inferring config file from profile.
+        # But only do this if the user has invoked Snakemake (ExecMode.default)
+        profiles = []
+        if args.profile:
+            profiles.append(args.profile)
+        if workflow_profile:
+            workflow_profile_stmt = f" and workflow specific profile {workflow_profile}"
+            profiles.append(workflow_profile)
+        else:
+            workflow_profile_stmt = ""
+
+        print(
+            f"Using profile{'s' if len(profiles) > 1 else ''} "
+            f"{' and '.join(map(str, profiles))}{workflow_profile_stmt} for setting default command line arguments.",
+            file=sys.stderr,
+        )
+
+        parser = get_argument_parser(profiles=profiles)
+        args = parser.parse_args(argv)
+
+        def adjust_path(f):
+            if os.path.exists(f) or os.path.isabs(f):
+                return f
+            else:
+                return get_profile_file(args.profile, f, return_default=True)
+
+        # update file paths to be relative to the profile
+        # (if they do not exist relative to CWD)
+        if args.jobscript:
+            args.jobscript = adjust_path(args.jobscript)
+        if args.cluster:
+            args.cluster = adjust_path(args.cluster)
+        if args.cluster_sync:
+            args.cluster_sync = adjust_path(args.cluster_sync)
+        for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
+            if getattr(args, key):
+                setattr(args, key, adjust_path(getattr(args, key)))
+        if args.report_stylesheet:
+            args.report_stylesheet = adjust_path(args.report_stylesheet)
+    return args
+
+
+def parse_quietness(quietness):
+    if quietness is not None and len(quietness) == 0:
+        # default case, set quiet to progress and rule
+        quietness = [Quietness.progress, Quietness.rules]
+    else:
+        quietness = [Quietness[x] for x in quietness]
+    return quietness
+
+
 def args_to_api(args):
-    ...
+    """Convert argparse args to API calls."""
+
+    if args.bash_completion:
+        cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
+        sys.stdout.buffer.write(cmd)
+        sys.exit(0)
+
+
+
+    executor_args = None
+    if args.executor:
+        executor_plugin = ExecutorPluginRegistry().plugins[args.executor]
+        executor_args = executor_plugin.get_executor_settings(args)
 
 
 def main(argv=None):
     """Main entry point."""
+    args = parse_args(argv)
+
+
+    # old code below
 
     if sys.version_info < MIN_PY_VERSION:
         print(
@@ -2599,6 +2686,4 @@ class SpawnedJobArgsFactory:
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
 
-        return join_cli_args(
-            args
-        )
+        return join_cli_args(args)

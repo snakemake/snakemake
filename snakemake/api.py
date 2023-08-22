@@ -12,7 +12,7 @@ import os
 from functools import partial
 import importlib
 
-from snakemake.common import MIN_PY_VERSION
+from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
 from snakemake.dag import ChangeType
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
@@ -51,6 +51,21 @@ class ApiBase(ABC):
         pass
 
 
+def resolve_snakefile(path: Optional[Path]):
+    """Get path to the snakefile.
+    
+    Arguments
+    ---------
+    path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+    """
+    if path is None:
+        for p in SNAKEFILE_CHOICES:
+            if os.path.exists(p):
+                return p
+        raise WorkflowError(f"No Snakefile found, tried {', '.join(SNAKEFILE_CHOICES)}.")
+    return path
+
+
 @dataclass
 class SnakemakeApi(ApiBase):
     """The Snakemake API.
@@ -62,16 +77,19 @@ class SnakemakeApi(ApiBase):
     """
     output_settings: OutputSettings
 
-    def workflow(self, snakefile: Path, config_settings: ConfigSettings, resource_settings: ResourceSettings):
+    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, snakefile: Optional[Path]):
         """Create a workflow API.
 
         Arguments
         ---------
-        snakefile: Path -- The path to the snakefile.
         config_settings: ConfigSettings -- The config settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
+        snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
         """
         self._setup_logger()
+
+        snakefile = resolve_snakefile(snakefile)
+
         return WorkflowApi(self, snakefile, config_settings, resource_settings)
 
     def _setup_logger(
@@ -224,6 +242,9 @@ class DAGApi(ApiBase):
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
+
+        if remote_execution_settings.immediate_submit and not execution_settings.notemp:
+            raise WorkflowError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
 
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.plugins[executor]

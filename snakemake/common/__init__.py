@@ -38,7 +38,12 @@ ON_WINDOWS = platform.system() == "Windows"
 # limit the number of input/output files list in job properties
 # see https://github.com/snakemake/snakemake/issues/2097
 IO_PROP_LIMIT = 100
-
+SNAKEFILE_CHOICES = [
+    "Snakefile",
+    "snakefile",
+    "workflow/Snakefile",
+    "workflow/snakefile",
+]
 
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
