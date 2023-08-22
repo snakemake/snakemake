@@ -13,11 +13,12 @@ from functools import partial
 import importlib
 
 from snakemake.common import MIN_PY_VERSION
+from snakemake.dag import ChangeType
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import OutputSettings, ConfigSettings
+from snakemake.settings import DAGSettings, DeploymentSettings, ExecutionSettings, OutputSettings, ConfigSettings, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
@@ -51,12 +52,12 @@ class ApiBase(ABC):
 
 
 @dataclass
-class Snakemake(ApiBase):
+class SnakemakeApi(ApiBase):
     output_settings: OutputSettings
 
-    def workflow(self, snakefile: Path, config_settings: ConfigSettings):
+    def workflow(self, snakefile: Path, config_settings: ConfigSettings, resource_settings: ResourceSettings):
         self._setup_logger()
-        return Workflow(self, snakefile, config_settings)
+        return WorkflowApi(self, snakefile, config_settings, resource_settings)
 
     def _setup_logger(
         self,
@@ -83,49 +84,44 @@ class Snakemake(ApiBase):
             logger.cleanup()
 
 @dataclass
-class Workflow(ApiBase):
-    snakemake: Snakemake
+class WorkflowApi(ApiBase):
+    snakemake_api: SnakemakeApi
     snakefile: Path
     config_settings: ConfigSettings
+    resource_settings: ResourceSettings
     _workflow_store: Workflow = field(init=False)
 
-    def dag(self):
-        return DAG(self)
+    def dag(self, dag_settings: DAGSettings):
+        return DAGApi(self.snakemake_api, self, dag_settings=dag_settings)
 
-    def containerize(self):
-        ...
+    def lint(self, json: bool = False):
+        self._workflow.lint(json=json)
 
-    def lint(self):
-        ...
+    def generate_unit_tests(self, path: Path):
+        self._workflow.generate_unit_tests(path=path)
 
-    def generate_unit_tests(self):
-        ...
+    def list_rules(self, only_targets: bool = False):
+        self._workflow.list_rules(only_targets=only_targets)
 
-    def list_rules(self):
-        ...
-    
-    def list_target_rules(self):
-        ...
+    def list_resources(self):
+        self._workflow.list_resources()
     
     def print_compilation(self):
         from snakemake.workflow import Workflow
 
-        workflow = Workflow(self.config_settings)
+        workflow = Workflow(self.config_settings, self.resource_settings)
         workflow.include(self.snakefile, print_compilation=True)
 
     @property
-    def workflow(self):
+    def _workflow(self):
         if self._workflow_store is None:
-            self._load_workflow()
-        return self._workflow_store
+            from snakemake.workflow import Workflow
 
-    def _load_workflow(self, print_compilation: bool=False):
-        from snakemake.workflow import Workflow
-
-        workflow = Workflow(self.config_settings)
-        workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=print_compilation)
-        workflow.check()
-        self._workflow_store = workflow
+            workflow = Workflow(self.config_settings, self.resource_settings)
+            workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
+            workflow.check()
+            self._workflow_store = workflow
+        return self._workflow_store        
 
     def __post_init__(self):
         super().__post_init__()
@@ -136,9 +132,13 @@ class Workflow(ApiBase):
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
 
 @dataclass
-class DAG(ApiBase):
-    snakemake: Snakemake
-    workflow: Workflow
+class DAGApi(ApiBase):
+    snakemake_api: SnakemakeApi
+    workflow_api: WorkflowApi
+    dag_settings: DAGSettings
+
+    def __post_init__(self):
+        self.workflow_api._workflow.dag_settings = self.dag_settings
 
     def execute_workflow(
         self,
@@ -147,12 +147,14 @@ class DAG(ApiBase):
         resource_settings: ResourceSettings,
         deployment_settings: DeploymentSettings,
         remote_execution_settings: RemoteExecutionSettings,
+        storage_settings: StorageSettings,
         executor_settings: Optional[ExecutorSettingsBase] = None,
+        updated_files: Optional[List[str]] = None,
     ):
         executor_plugin_registry = ExecutorPluginRegistry()
         executor_plugin = executor_plugin_registry.plugins[executor]
 
-        self.snakemake._setup_logger(
+        self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=self.execution_settings.mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
@@ -190,144 +192,83 @@ class DAG(ApiBase):
         with WorkdirHandler(self.execution_settings.workdir):
             logger.setup_logfile()
 
-    def get_workflow_instance(self):
-        return Workflow(
-            snakefile=self.workflow.get_snakefile(),
-            rerun_triggers=self.execution_settings.rerun_triggers,
-            jobscript=self.remote_execution_settings.jobscript,
-            overwrite_shellcmd=self.execution_settings.overwrite_shellcmd,
-            overwrite_config=self.config_settings.get_overwrite_config(),
-            overwrite_workdir=self.execution_settings.workdir.absolute() if self.execution_settings.workdir else None,
-            overwrite_configfiles=self.config_settings.get_configfiles(),
-            overwrite_threads=overwrite_threads,
-            max_threads=max_threads,
-            overwrite_scatter=overwrite_scatter,
-            overwrite_groups=overwrite_groups,
-            overwrite_resources=overwrite_resources,
-            overwrite_resource_scopes=overwrite_resource_scopes,
-            group_components=group_components,
-            config_args=config_args,
-            debug=debug,
-            verbose=verbose,
-            use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
-            use_singularity=use_singularity,
-            use_env_modules=use_env_modules,
-            conda_frontend=conda_frontend,
-            conda_prefix=conda_prefix,
-            conda_cleanup_pkgs=conda_cleanup_pkgs,
-            singularity_prefix=singularity_prefix,
-            shadow_prefix=shadow_prefix,
-            singularity_args=singularity_args,
-            scheduler_type=scheduler,
-            scheduler_ilp_solver=scheduler_ilp_solver,
-            mode=mode,
-            wrapper_prefix=wrapper_prefix,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            attempt=attempt,
-            default_remote_provider=_default_remote_provider,
-            default_remote_prefix=default_remote_prefix,
-            run_local=run_local,
-            assume_shared_fs=assume_shared_fs,
-            default_resources=default_resources,
-            cache=cache,
-            cores=cores,
-            nodes=nodes,
-            resources=resources,
-            edit_notebook=edit_notebook,
-            envvars=envvars,
-            max_inventory_wait_time=max_inventory_wait_time,
-            conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
-            execute_subworkflows=execute_subworkflows,
-            scheduler_solver_path=scheduler_solver_path,
-            conda_base_path=conda_base_path,
-            check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
-            all_temp=all_temp,
-            local_groupid=local_groupid,
-            keep_metadata=keep_metadata,
-            latency_wait=latency_wait,
-            executor_args=executor_args,
-            cleanup_scripts=cleanup_scripts,
-            immediate_submit=immediate_submit,
-            quiet=quiet,
-        )
+            workflow = self.workflow_api._workflow
+            workflow.execution_settings = execution_settings
+            workflow.storage_settings = storage_settings
+            workflow.resource_settings = resource_settings
+            workflow.deployment_settings = deployment_settings
+            workflow.remote_execution_settings = remote_execution_settings
 
+            workflow.execute(
+                executor_plugin=executor_plugin,
+                executor_settings=executor_settings,
+                updated_files=updated_files,
+            )
+
+
+    def containerize(self):
+        self.workflow_api._workflow.containerize()
 
     def create_report(
         self,
         report: Path,
-        report_stylesheet: Path = None,
+        report_stylesheet: Optional[Path] = None,
     ):
-        ...
+        self.workflow_api._workflow.create_report(
+            report=report,
+            report_stylesheet=report_stylesheet,
+        )
     
     def printdag(self):
-        ...
+        self.workflow_api._workflow.printdag()
     
     def printrulegraph(self):
-        ...
+        self.workflow_api._workflow.printrulegraph()
 
     def printfilegraph(self):
-        ...
+        self.workflow_api._workflow.printfilegraph()
     
     def printd3dag(self):
-        ...
+        self.workflow_api._workflow.printd3dag()
 
     def unlock(self):
-        ...
+        self.workflow_api._workflow.unlock()
     
     def cleanup_metadata(self):
-        ...
+        self.workflow_api._workflow.cleanup_metadata()
     
     def conda_cleanup_envs(self):
-        ...
+        self.workflow_api._workflow.conda_cleanup_envs()
     
     def conda_create_envs(self):
-        ...
+        self.workflow_api._workflow.conda_create_envs()
+
+    def conda_list_envs(self):
+        self.workflow_api._workflow.conda_list_envs()
     
     def cleanup_shadow(self):
-        ...
+        self.workflow_api._workflow.cleanup_shadow()
     
-    def cleanup_scripts(self):
-        ...
+    def container_cleanup_images(self):
+        self.workflow_api._workflow.container_cleanup_images()
     
-    def cleanup_containers(self):
-        ...
-    
-    def list_code_changes(self):
-        ...
-    
-    def list_input_changes(self):
-        ...
-    
-    def list_params_changes(self):
-        ...
+    def list_(self, change_type: ChangeType):
+        self.workflow_api._workflow.list_changes(change_type=change_type)
     
     def list_untracked(self):
-        ...
+        self.workflow_api._workflow.list_untracked()
     
-    def list_resources(self):
-        ...
+    def summary(self, detailed: bool = False):
+        self.workflow_api._workflow.summary(detailed=detailed)
     
-    def list_conda_envs(self):
-        ...
+    def archive(self, path: Path):
+        self.workflow_api._workflow.archive(path=path)
     
-    def summary(self):
-        ...
+    def delete_output(self, only_temp: bool = False, dryrun: bool = False):
+        self.workflow_api._workflow.delete_output(only_temp=only_temp, dryrun=dryrun)
     
-    def detailed_summary(self):
-        ...
-    
-    def archive(self):
-        ...
-    
-    def delete_all_output(self):
-        ...
-    
-    def delete_temp_output(self):
-        ...
-    
-    def export_to_cwl(self, cwl_file: Path):
-        ...
+    def export_to_cwl(self, path: Path):
+        self.workflow_api._workflow.export_to_cwl(path=path)
 
 
 def snakemake(

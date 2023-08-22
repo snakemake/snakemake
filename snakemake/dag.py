@@ -349,9 +349,10 @@ class DAG(DAGExecutorInterface):
                 )
                 self.conda_envs[key] = env
 
-    def create_conda_envs(self, quiet=False):
+    def create_conda_envs(self, dryrun=False, quiet=False):
+        dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
-            if (not self.workflow.dryrun or not quiet) and not env.is_named:
+            if (not dryrun or not quiet) and not env.is_named:
                 env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
@@ -2292,7 +2293,7 @@ class DAG(DAGExecutorInterface):
                 else:
                     yield "\t".join((f, date, rule, version, log, status, pending))
 
-    def archive(self, path):
+    def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
 
         Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
@@ -2311,8 +2312,8 @@ class DAG(DAGExecutorInterface):
                 "Unsupported archive format "
                 "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)"
             )
-        if os.path.exists(path):
-            raise WorkflowError("Archive already exists:\n" + path)
+        if path.exists():
+            raise WorkflowError(f"Archive already exists:\n{path}")
 
         self.create_conda_envs()
 
