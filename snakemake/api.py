@@ -99,7 +99,7 @@ class SnakemakeApi(ApiBase):
     ):
         if not self.output_settings.keep_logger:
             setup_logger(
-                handler=self.output_settings.log_handler,
+                handler=self.output_settings.log_handlers,
                 quiet=self.output_settings.quiet,
                 nocolor=self.output_settings.nocolor,
                 debug=self.output_settings.verbose,

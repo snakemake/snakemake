@@ -6,8 +6,8 @@ __license__ = "MIT"
 from dataclasses import dataclass
 import sys
 
-from snakemake import logging
-from snakemake.api import resolve_snakefile, snakemake
+from snakemake import logging, notebook
+from snakemake.api import SnakemakeApi, resolve_snakefile, snakemake
 
 import os
 import glob
@@ -20,7 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import Quietness
+from snakemake.settings import ConfigSettings, DAGSettings, DeploymentSettings, OutputSettings, Quietness, ResourceSettings
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -31,11 +31,13 @@ from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
+    print_exception,
 )
 from snakemake.io import wait_for_files
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     RERUN_TRIGGERS,
+    RerunTrigger,
     __version__,
     MIN_PY_VERSION,
     get_appdirs,
@@ -612,8 +614,9 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--rerun-triggers",
         nargs="+",
-        choices=RERUN_TRIGGERS,
-        default=RERUN_TRIGGERS,
+        choices=[e.name.replace("_", "-") for e in RerunTrigger],
+        default=RerunTrigger.all(),
+        type=parse_rerun_triggers,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
@@ -863,6 +866,7 @@ def get_argument_parser(profiles=None):
         nargs="?",
         const=".tests/unit",
         metavar="TESTPATH",
+        type=Path,
         help="Automatically generate unit tests for each workflow rule. "
         "This assumes that all input files of each job are already present. "
         "Rules without a job with present input files will be skipped (a warning will be issued). "
@@ -884,6 +888,7 @@ def get_argument_parser(profiles=None):
         help="Compile workflow to CWL and store it in given FILE.",
     )
     group_utils.add_argument(
+        "--list-rules",
         "--list",
         "-l",
         action="store_true",
@@ -1875,13 +1880,91 @@ def parse_quietness(quietness):
     return quietness
 
 
-def args_to_api(args):
+def setup_log_handlers(args, parser):
+    log_handler = []
+    if args.log_handler_script is not None:
+        if not os.path.exists(args.log_handler_script):
+            print(
+                "Error: no log handler script found, {}.".format(
+                    args.log_handler_script
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        log_script = SourceFileLoader("log", args.log_handler_script).load_module()
+        try:
+            log_handler.append(log_script.log_handler)
+        except:
+            print(
+                'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
+                    args.log_handler_script
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if args.log_service == "slack":
+        slack_logger = logging.SlackLogger()
+        log_handler.append(slack_logger.log_handler)
+
+    elif args.wms_monitor or args.log_service == "wms":
+        # Generate additional metadata for server
+        metadata = generate_parser_metadata(parser, args)
+        wms_logger = logging.WMSLogger(
+            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+        )
+        log_handler.append(wms_logger.log_handler)
+    
+    return log_handler
+
+
+def parse_edit_notebook(args):
+    edit_notebook = None
+    if args.draft_notebook:
+
+        args.target = [args.draft_notebook]
+        edit_notebook = notebook.EditMode(draft_only=True)
+    elif args.edit_notebook:
+        args.target = [args.edit_notebook]
+        args.force = True
+        edit_notebook = notebook.EditMode(args.notebook_listen)
+    return edit_notebook
+
+
+def parse_wait_for_files(args):
+    aggregated_wait_for_files = args.wait_for_files
+    if args.wait_for_files_file is not None:
+        wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
+
+        with open(args.wait_for_files_file) as fd:
+            extra_wait_files = [line.strip() for line in fd.readlines()]
+
+        if aggregated_wait_for_files is None:
+            aggregated_wait_for_files = extra_wait_files
+        else:
+            aggregated_wait_for_files.extend(extra_wait_files)
+    return aggregated_wait_for_files
+
+
+def parse_rerun_triggers(values):
+    return {RerunTrigger[x] for x in values}
+
+
+def args_to_api(args, parser):
     """Convert argparse args to API calls."""
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
+
+    # handle legacy executor names
+    if args.dryrun:
+        args.executor = "dryrun"
+    elif args.touch:
+        args.executor = "touch"
+    elif args.cluster:
+        args.executor = "cluster"
 
     executor_plugin = ExecutorPluginRegistry().plugins[args.executor]
     executor_args = executor_plugin.get_executor_settings(args)
@@ -1890,11 +1973,92 @@ def args_to_api(args):
         # use --jobs as an alias for --cores
         args.cores = args.jobs
     
+    # start profiler if requested
     if args.runtime_profile:
         import yappi
 
         yappi.start()
 
+    log_handlers = setup_log_handlers(args, parser)
+
+    edit_notebook = parse_edit_notebook(args)
+    
+    wait_for_files = parse_wait_for_files(args)
+
+    workflow_api = None
+    try:
+        snakemake_api = SnakemakeApi(
+            OutputSettings(
+                printshellcmds=args.printshellcmds,
+                nocolor=args.nocolor,
+                quiet=args.quiet,
+                debug_dag=args.debug_dag,
+                verbose=args.verbose,
+                show_failed_logs=args.show_failed_logs,
+                log_handlers=log_handlers,
+                keep_logger=False,
+            )
+        )
+
+        workflow_api = snakemake_api.workflow(
+            config_settings=ConfigSettings(
+                config=args.config,
+                configfiles=args.configfile,
+            ),
+            resource_settings=ResourceSettings(
+                cores=args.cores,
+                nodes=args.nodes,
+                local_cores=args.local_cores,
+                max_threads=args.max_threads,
+                resources=args.resources,
+                overwrite_threads=args.set_threads,
+                overwrite_scatter=args.set_scatter,
+                overwrite_resource_scopes=args.set_resource_scopes,
+                overwrite_resources=args.set_resources,
+                default_resources=args.default_resources,
+            ),
+            snakefile=args.snakefile,
+        )
+
+        if args.lint:
+            workflow_api.lint()
+        elif args.generate_unit_tests:
+            workflow_api.generate_unit_tests(args.generate_unit_tests)
+        elif args.list_target_rules:
+            workflow_api.list_rules(only_targets=True)
+        elif args.list_rules:
+            workflow_api.list_rules(only_targets=False)
+        elif args.print_compilation:
+            workflow_api.print_compilation()
+        
+        workflow_api.dag(
+            dag_settings=DAGSettings(
+                targets=args.targets,
+                target_jobs=args.target_jobs,
+                batch=args.batch,
+                forcetargets=args.force,
+                forceall=args.forceall,
+                forcerun=args.forcerun,
+                unit=args.until,
+                omit_from=args.omit_from,
+                force_incomplete=args.rerun_incomplete,
+                allowed_rules=args.allowed_rules,
+                rerun_triggers=args.rerun_triggers,
+            ),
+            deployment_settings=DeploymentSettings(
+                
+            )
+        )
+
+
+
+    except Exception as e:
+        linemaps = workflow_api.workflow.linemaps if workflow_api is not None else dict()
+        print_exception(e, linemaps)
+    finally:
+        sys.exit(1)
+
+    # store profiler results if requested
     if args.runtime_profile:
         with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()

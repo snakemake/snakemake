@@ -142,6 +142,8 @@ def print_exception(ex, linemaps):
                 rule=ex.rule,
             )
         )
+    elif isinstance(ex, ApiError):
+        logger.error(f"Error: {ex}")
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:

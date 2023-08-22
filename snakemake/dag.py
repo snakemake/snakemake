@@ -24,7 +24,7 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, RerunTrigger, group_into_chunks, is_local_file
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -146,7 +146,7 @@ class DAG(DAGExecutorInterface):
         self.targetfiles = targetfiles
         self.targetrules = targetrules
         self.target_jobs_rules = (
-            {spec.rulename for spec in self.workflow.execution_settings.target_jobs}
+            {spec.rulename for spec in self.workflow.dag_settings.target_jobs}
         )
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
@@ -204,7 +204,7 @@ class DAG(DAGExecutorInterface):
 
     @property
     def batch(self):
-        return self.workflow.execution_settings.batch
+        return self.workflow.dag_settings.batch
 
     def init(self, progress=False):
         """Initialise the DAG."""
@@ -221,7 +221,7 @@ class DAG(DAGExecutorInterface):
             )
             self.targetjobs.add(job)
 
-        for spec in self.workflow.execution_settings.target_jobs:
+        for spec in self.workflow.dag_settings.target_jobs:
             job = self.update(
                 [
                     self.new_job(
@@ -1118,7 +1118,7 @@ class DAG(DAGExecutorInterface):
                     if job.rule in self.targetrules:
                         files = set(job.products(include_logfiles=False))
                     elif (
-                        self.workflow.execution_settings.target_jobs
+                        self.workflow.dag_settings.target_jobs
                         and job.rule.name in self.target_jobs_rules
                     ):
                         files = set(job.products(include_logfiles=False))
@@ -1155,19 +1155,19 @@ class DAG(DAGExecutorInterface):
                         # The first pass (with depends_on_checkpoint_target == True) is not informative
                         # for determining any other changes than file modification dates, as it will
                         # change after evaluating the input function of the job in the second pass.
-                        if "params" in self.workflow.rerun_triggers:
+                        if RerunTrigger.params in self.workflow.rerun_triggers:
                             reason.params_changed = any(
                                 self.workflow.persistence.params_changed(job)
                             )
-                        if "input" in self.workflow.rerun_triggers:
+                        if RerunTrigger.input in self.workflow.rerun_triggers:
                             reason.input_changed = any(
                                 self.workflow.persistence.input_changed(job)
                             )
-                        if "code" in self.workflow.rerun_triggers:
+                        if RerunTrigger.code in self.workflow.rerun_triggers:
                             reason.code_changed = any(
                                 job.outputs_older_than_script_or_notebook()
                             ) or any(self.workflow.persistence.code_changed(job))
-                        if "software-env" in self.workflow.rerun_triggers:
+                        if RerunTrigger.software_env in self.workflow.rerun_triggers:
                             reason.software_stack_changed = any(
                                 self.workflow.persistence.conda_env_changed(job)
                             ) or any(self.workflow.persistence.container_changed(job))

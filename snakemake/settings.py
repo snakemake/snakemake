@@ -4,6 +4,7 @@ from enum import Enum
 import importlib
 from pathlib import Path
 from typing import Dict, List, Optional, Set
+from snakemake import notebook
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins.settings import (
@@ -16,7 +17,7 @@ from snakemake_interface_executor_plugins.settings import (
     StorageSettingsExecutorInterface,
 )
 
-from snakemake.common import RERUN_TRIGGERS, dict_to_key_value_args
+from snakemake.common import RERUN_TRIGGERS, RerunTrigger, dict_to_key_value_args
 from snakemake.dag import Batch
 from snakemake.exceptions import ApiError
 from snakemake.io import load_configfile
@@ -75,7 +76,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_incomplete: bool = False
     keep_metadata: bool = True
     max_inventory_wait_time: int = 20
-    edit_notebook: Optional[Path] = None
+    edit_notebook: Optional[notebook.EditMode] = None
     cleanup_scripts: bool = True
     cleanup_metadata: List[Path] = []
 
@@ -86,12 +87,12 @@ class DAGSettings(SettingsBase):
     batch: Batch = None
     forcetargets: bool = False
     forceall: bool = False
-    forcerun: Optional[List[str]] = None
-    until: Optional[List[str]] = None
-    omit_from: Optional[List[str]] = None
+    forcerun: List[str] = []
+    until: List[str] = []
+    omit_from: List[str] = []
     force_incomplete: bool = False
-    allowed_rules: Optional[Set[str]] = None
-    rerun_triggers: List[str]=RERUN_TRIGGERS
+    allowed_rules: Set[str] = {}
+    rerun_triggers: Set[RerunTrigger]=RerunTrigger.all()
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -261,7 +262,7 @@ class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
-    log_handler: List[object] = None
+    log_handlers: List[object] = None
     keep_logger: bool = False
 
 

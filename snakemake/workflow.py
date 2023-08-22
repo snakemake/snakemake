@@ -12,7 +12,7 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
@@ -70,6 +70,7 @@ from snakemake_interface_executor_plugins.utils import not_iterable
 import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
+    RerunTrigger,
     is_local_file,
     Rules,
     Scatter,
@@ -263,8 +264,8 @@ class Workflow(WorkflowExecutorInterface):
         return self.config_settings.configfiles
 
     @property
-    def rerun_triggers(self):
-        return self.execution_settings.rerun_triggers
+    def rerun_triggers(self) -> Set[RerunTrigger]:
+        return self.dag_settings.rerun_triggers
 
     @property
     def conda_base_path(self):
@@ -478,28 +479,23 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if not self.dag_settings.targets and not self.execution_settings.target_jobs:
+        if not self.dag_settings.targets and not self.dag_settings.target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
 
-        if prioritytargets is None:
-            prioritytargets = list()
-        if forcerun is None:
-            forcerun = list()
-        if until is None:
-            until = list()
-        if omit_from is None:
-            omit_from = list()
+        prioritytargets = []
+        if self.scheduling_settings is not None:
+            prioritytargets = self.scheduling_settings.prioritytargets
 
         priorityrules = set(rules(prioritytargets))
         priorityfiles = set(files(prioritytargets))
-        forcerules = set(rules(forcerun))
-        forcefiles = set(files(forcerun))
-        untilrules = set(rules(until))
-        untilfiles = set(files(until))
-        omitrules = set(rules(omit_from))
-        omitfiles = set(files(omit_from))
+        forcerules = set(rules(self.dag_settings.forcerun))
+        forcefiles = set(files(self.dag_settings.forcerun))
+        untilrules = set(rules(self.dag_settings.until))
+        untilfiles = set(files(self.dag_settings.until))
+        omitrules = set(rules(self.dag_settings.omit_from))
+        omitfiles = set(files(self.dag_settings.omit_from))
         targetrules = set(
             chain(
                 rules(targets),
@@ -513,7 +509,7 @@ class Workflow(WorkflowExecutorInterface):
         if ON_WINDOWS:
             targetfiles = set(tf.replace(os.sep, os.altsep) for tf in targetfiles)
 
-        if self.execution_settings.forcetargets:
+        if self.dag_settings.forcetargets:
             forcefiles.update(targetfiles)
             forcerules.update(targetrules)
 
@@ -559,7 +555,7 @@ class Workflow(WorkflowExecutorInterface):
         from snakemake import unit_tests
 
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -576,7 +572,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def cleanup_metadata(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -595,7 +591,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def unlock(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -649,7 +645,7 @@ class Workflow(WorkflowExecutorInterface):
         self.dag.archive(path)
 
     def summary(self, detailed: bool = False):
-        self._prepare_dag(forceall=self.execution_settings.forceall, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(forceall=self.dag_settings.forceall, ignore_incomplete=True, lock_warn_only=True)
         self._build_dag()
 
         print("\n".join(self.dag.summary(detailed=detailed)))
@@ -661,7 +657,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def printdag(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=True
         )
@@ -670,7 +666,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def printrulegraph(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=True
         )
@@ -679,7 +675,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def printfilegraph(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=True
         )
@@ -688,7 +684,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def printd3dag(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=True
         )
@@ -699,7 +695,7 @@ class Workflow(WorkflowExecutorInterface):
     def containerize(self):
         from snakemake.deployment.containerize import containerize
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -714,7 +710,7 @@ class Workflow(WorkflowExecutorInterface):
         path -- the path to the CWL document to be created.
         """
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -730,7 +726,7 @@ class Workflow(WorkflowExecutorInterface):
         from snakemake.report import auto_report
 
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -740,7 +736,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def conda_list_envs(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -765,7 +761,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def conda_create_envs(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -777,7 +773,7 @@ class Workflow(WorkflowExecutorInterface):
     
     def conda_cleanup_envs(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -786,7 +782,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def container_cleanup_images(self):
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=False
         )
@@ -819,7 +815,7 @@ class Workflow(WorkflowExecutorInterface):
                 return False
 
         self._prepare_dag(
-            forceall=self.execution_settings.forceall,
+            forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=self.dryrun,
         )

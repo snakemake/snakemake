@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import concurrent.futures
 import contextlib
+from enum import Enum
 import itertools
 import math
 import operator
@@ -32,7 +33,6 @@ UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.i
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
 )
-RERUN_TRIGGERS = ["mtime", "params", "input", "software-env", "code"]
 
 ON_WINDOWS = platform.system() == "Windows"
 # limit the number of input/output files list in job properties
@@ -44,6 +44,18 @@ SNAKEFILE_CHOICES = [
     "workflow/Snakefile",
     "workflow/snakefile",
 ]
+
+class RerunTrigger(Enum):
+    mtime = 0
+    params = 1
+    input = 2
+    software_env = 3
+    code = 4
+
+    @classmethod
+    def all(cls):
+        return {item for item in cls}
+
 
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
