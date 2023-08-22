@@ -96,6 +96,7 @@ from snakemake import api, sourcecache
 @dataclass
 class Workflow(WorkflowExecutorInterface):
     config_settings: api.ConfigSettings
+    dag_settings: Optional[api.DAGSettings] = None
     execution_settings: Optional[api.ExecutionSettings] = None
     resource_settings: Optional[api.ResourceSettings] = None
     storage_settings: Optional[api.StorageSettings] = None
@@ -108,8 +109,6 @@ class Workflow(WorkflowExecutorInterface):
 
     def __init__(
         self,
-        nodes=1,
-        cores=1,
         check_envvars=True,
     ):
         """
@@ -471,7 +470,7 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
-        if not targets and not self.execution_settings.target_jobs:
+        if not self.dag_settings.targets and not self.execution_settings.target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )

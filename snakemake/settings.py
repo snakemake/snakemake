@@ -49,22 +49,13 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
     """
     workdir: Optional[Path] = None
-    batch: Batch = None
     cache: Optional[List[str]] = None
-    targets: Optional[List[str]] = None
-    target_jobs: Set(str) = set()
-    forcetargets: bool = False
-    forceall: bool = False
-    forcerun: Optional[List[str]] = None
-    until: Optional[List[str]] = None
-    omit_from: Optional[List[str]] = None
     stats: Optional[Path] = None
     keepgoing: bool = False
     debug: bool = False
     standalone: bool = False
     ignore_ambiguity: bool = False
     lock: bool = True
-    force_incomplete: bool = False
     ignore_incomplete: bool = False
     latency_wait: 3
     wait_for_files: Optional[List[str]] = None
@@ -72,7 +63,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     all_temp: bool = False
     keep_remote_local: bool = False
     keep_target_files: bool = False
-    allowed_rules: Optional[Set[str]] = None
     no_hooks: bool = False
     overwrite_shellcmd: Optional[str] = None
     updated_files: List[str] = []
@@ -86,7 +76,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_metadata: bool = True
     max_inventory_wait_time: int = 20
     edit_notebook: Optional[Path] = None
-    rerun_triggers: List[str]=RERUN_TRIGGERS
     cleanup_scripts: bool = True
     cleanup_metadata: List[Path] = []
 
@@ -95,6 +84,20 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
         assert not self.immediate_submit or (
             self.immediate_submit and self.notemp
         ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
+
+@dataclass
+class DAGSettings(SettingsBase):
+    targets: Optional[List[str]] = None
+    target_jobs: Set(str) = set()
+    batch: Batch = None
+    forcetargets: bool = False
+    forceall: bool = False
+    forcerun: Optional[List[str]] = None
+    until: Optional[List[str]] = None
+    omit_from: Optional[List[str]] = None
+    force_incomplete: bool = False
+    allowed_rules: Optional[Set[str]] = None
+    rerun_triggers: List[str]=RERUN_TRIGGERS
 
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
