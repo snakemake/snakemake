@@ -58,8 +58,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     forcerun: Optional[List[str]] = None
     until: Optional[List[str]] = None
     omit_from: Optional[List[str]] = None
-    stats: Optional[Path] = None
-    keepgoing: bool = False
+    keep_going: bool = False
     debug: bool = False
     standalone: bool = False
     ignore_ambiguity: bool = False
@@ -181,26 +180,28 @@ class SchedulingSettings(SettingsBase):
     ilp_solver: Optional[str] = None
     solver_path: Optional[Path] = None
     greediness: Optional[float] = None
+    max_jobs_per_second: int = 10
 
-    def get_greediness(self):
+    def __post_init__(self):
+        self.greediness = self._get_greediness()
+
+    def _get_greediness(self):
         if self.greediness is None:
             return 0.5 if self.prioritytargets else 1.0
         else:
             return self.greediness
 
     def _check(self):
-        if not (0 < self._resolved_greediness <= 1.0):
+        if not (0 < self.greedyness <= 1.0):
             raise ApiError(
                 "greediness must be >0 and <=1"
             )
 
-
-
 @dataclass
 class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
-    cores: int = 1
+    cores: Optional[int]
     nodes: Optional[int] = None
-    local_cores: int = 1
+    local_cores: Optional[int] = None
     max_threads: Optional[int] = None
     resources: Dict[str, int] = dict()
     overwrite_threads: Dict[str, int] = dict()
@@ -253,7 +254,6 @@ class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
 class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInterface):
     jobname: str = "snakejob.{rulename}.{jobid}.sh"
     jobscript: Optional[Path] = None
-    max_jobs_per_second: Optional[int] = None
     max_status_checks_per_second: int = 100
     container_image: Optional[str] = None
     preemption_default: Optional[int] = None

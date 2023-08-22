@@ -17,7 +17,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import OutputSettings, ConfigSettings
+from snakemake.settings import OutputSettings, ConfigSettings, ResourceSettings
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
@@ -54,9 +54,9 @@ class ApiBase(ABC):
 class Snakemake(ApiBase):
     output_settings: OutputSettings
 
-    def workflow(self, snakefile: Path, config_settings: ConfigSettings):
+    def workflow(self, snakefile: Path, config_settings: ConfigSettings, resource_settings: ResourceSettings):
         self._setup_logger()
-        return Workflow(self, snakefile, config_settings)
+        return Workflow(self, snakefile, config_settings, resource_settings)
 
     def _setup_logger(
         self,
@@ -87,6 +87,7 @@ class Workflow(ApiBase):
     snakemake: Snakemake
     snakefile: Path
     config_settings: ConfigSettings
+    resource_settings: ResourceSettings
     _workflow_store: Workflow = field(init=False)
 
     def dag(self):

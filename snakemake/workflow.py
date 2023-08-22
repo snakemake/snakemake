@@ -96,8 +96,8 @@ from snakemake import api, sourcecache
 @dataclass
 class Workflow(WorkflowExecutorInterface):
     config_settings: api.ConfigSettings
+    resource_settings: api.ResourceSettings
     execution_settings: Optional[api.ExecutionSettings] = None
-    resource_settings: Optional[api.ResourceSettings] = None
     storage_settings: Optional[api.StorageSettings] = None
     deployment_settings: Optional[api.DeploymentSettings] = None
     scheduling_settings: Optional[api.SchedulingSettings] = None
@@ -108,8 +108,6 @@ class Workflow(WorkflowExecutorInterface):
 
     def __init__(
         self,
-        nodes=1,
-        cores=1,
         check_envvars=True,
     ):
         """
@@ -118,9 +116,9 @@ class Workflow(WorkflowExecutorInterface):
 
         shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
 
-        self.global_resources = dict() if self.resource_settings is None else self.resource_settings.resources
-        self.global_resources["_cores"] = cores
-        self.global_resources["_nodes"] = nodes
+        self.global_resources = self.resource_settings.resources
+        self.global_resources["_cores"] = self.resource_settings.cores
+        self.global_resources["_nodes"] = self.resource_settings.nodes
 
         self._rules = OrderedDict()
         self.default_target = None
@@ -198,6 +196,14 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def dryrun(self):
         return self.executor_plugin.common_settings.dryrun_exec
+
+    @property
+    def use_threads(self):
+        return (
+            self.workflow.execution_settings.use_threads or 
+            (os.name not in ["posix", "nt"]) or 
+            not self.executor_plugin.common_settings.local_exec
+        )
 
     @lazy_property
     def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -751,7 +757,60 @@ class Workflow(WorkflowExecutorInterface):
 
         auto_report(self.dag, path, stylesheet=stylesheet)
 
+    def conda_list_envs(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
 
+        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+            self.dag.pull_container_imgs()
+        self.dag.create_conda_envs(
+            dryrun=True,
+            quiet=True,
+        )
+        print("environment", "container", "location", sep="\t")
+        for env in set(job.conda_env for job in self.dag.jobs):
+            if env and not env.is_named:
+                print(
+                    env.file.simplify_path(),
+                    env.container_img_url or "",
+                    simplify_path(env.address),
+                    sep="\t",
+                )
+        return True
+
+    def conda_create_envs(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+
+        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+            self.dag.pull_container_imgs()
+        self.dag.create_conda_envs()
+    
+    def conda_cleanup_envs(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+        self.persistence.conda_cleanup_envs()
+
+    def container_cleanup_images(self):
+        self._prepare_dag(
+            forceall=self.execution_settings.forceall,
+            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            lock_warn_only=False
+        )
+        self._build_dag()
+        self.persistence.cleanup_containers()
 
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
@@ -810,96 +869,21 @@ class Workflow(WorkflowExecutorInterface):
 
 
             if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
-                self.dag.pull_container_imgs(
-                    dryrun=dryrun or list_conda_envs or cleanup_containers,
-                    quiet=list_conda_envs,
-                )
+                self.dag.pull_container_imgs()
             if self.deployment_settings.use_conda:
-                dag.create_conda_envs(
-                    dryrun=dryrun or list_conda_envs or conda_cleanup_envs,
-                    quiet=list_conda_envs,
-                )
-                if conda_create_envs_only:
-                    return True
+                self.dag.create_conda_envs()
 
-            if list_conda_envs:
-                print("environment", "container", "location", sep="\t")
-                for env in set(job.conda_env for job in dag.jobs):
-                    if env and not env.is_named:
-                        print(
-                            env.file.simplify_path(),
-                            env.container_img_url or "",
-                            simplify_path(env.address),
-                            sep="\t",
-                        )
-                return True
+            self.scheduler = JobScheduler(self, executor_plugin)
 
-            if conda_cleanup_envs:
-                self.persistence.conda_cleanup_envs()
-                return True
-
-            if cleanup_containers:
-                self.persistence.cleanup_containers()
-                return True
-
-            self.scheduler = JobScheduler(
-                self,
-                dag,
-                executor_plugin=executor_plugin,
-                local_cores=local_cores,
-                dryrun=dryrun,
-                touch=touch,
-                slurm=slurm,
-                slurm_jobstep=slurm_jobstep,
-                cluster=cluster,
-                cluster_status=cluster_status,
-                cluster_cancel=cluster_cancel,
-                cluster_cancel_nargs=cluster_cancel_nargs,
-                cluster_sidecar=cluster_sidecar,
-                cluster_sync=cluster_sync,
-                jobname=jobname,
-                max_jobs_per_second=max_jobs_per_second,
-                max_status_checks_per_second=max_status_checks_per_second,
-                keepgoing=keepgoing,
-                drmaa=drmaa,
-                drmaa_log_dir=drmaa_log_dir,
-                kubernetes=kubernetes,
-                k8s_cpu_scalar=k8s_cpu_scalar,
-                k8s_service_account_name=k8s_service_account_name,
-                flux=flux,
-                tibanna=tibanna,
-                tibanna_sfn=tibanna_sfn,
-                az_batch=az_batch,
-                az_batch_enable_autoscale=az_batch_enable_autoscale,
-                az_batch_account_url=az_batch_account_url,
-                google_lifesciences=google_lifesciences,
-                google_lifesciences_regions=google_lifesciences_regions,
-                google_lifesciences_location=google_lifesciences_location,
-                google_lifesciences_cache=google_lifesciences_cache,
-                google_lifesciences_service_account_email=google_lifesciences_service_account_email,
-                google_lifesciences_network=google_lifesciences_network,
-                google_lifesciences_subnetwork=google_lifesciences_subnetwork,
-                tes=tes,
-                preemption_default=preemption_default,
-                preemptible_rules=preemptible_rules,
-                precommand=precommand,
-                tibanna_config=tibanna_config,
-                container_image=container_image,
-                greediness=greediness,
-                force_use_threads=force_use_threads,
-            )
-
-            if not dryrun:
-                if len(dag):
+            if not self.dryrun:
+                if len(self.dag):
                     from snakemake.shell import shell
 
                     shell_exec = shell.get_executable()
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
-                    if cluster or cluster_sync or drmaa:
-                        logger.resources_info(f"Provided cluster nodes: {self.nodes}")
-                    elif kubernetes or tibanna or google_lifesciences:
-                        logger.resources_info(f"Provided cloud nodes: {self.nodes}")
+                    if not self.executor_plugin.common_settings.local_exec:
+                        logger.resources_info(f"Provided remote nodes: {self.nodes}")
                     else:
                         if self._cores is not None:
                             warning = (
@@ -928,28 +912,29 @@ class Workflow(WorkflowExecutorInterface):
                         logger.info("Singularity containers: ignored")
 
                     if self.execution_settings.mode == ExecMode.default:
-                        logger.run_info("\n".join(dag.stats()))
+                        logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
+                    return
             else:
                 # the dryrun case
-                if len(dag):
-                    logger.run_info("\n".join(dag.stats()))
+                if len(self.dag):
+                    logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
-                    return True
+                    return
                 if self.output_settings.quiet:
                     # in case of dryrun and quiet, just print above info and exit
-                    return True
+                    return
 
-            if not dryrun and not no_hooks:
+            if not self.dryrun and not self.execution_settings.no_hooks:
                 self._onstart(logger.get_logfile())
 
             def log_provenance_info():
                 provenance_triggered_jobs = [
                     job
-                    for job in dag.needrun_jobs(exclude_finished=False)
-                    if dag.reason(job).is_provenance_triggered()
+                    for job in self.dag.needrun_jobs(exclude_finished=False)
+                    if self.dag.reason(job).is_provenance_triggered()
                 ]
                 if provenance_triggered_jobs:
                     logger.info(
@@ -971,23 +956,27 @@ class Workflow(WorkflowExecutorInterface):
                     )
                     logger.info("")
 
-            has_checkpoint_jobs = any(dag.checkpoint_jobs)
+            has_checkpoint_jobs = any(self.dag.checkpoint_jobs)
 
             try:
                 success = self.scheduler.schedule()
             except Exception as e:
-                if dryrun:
+                if self.dryrun:
                     log_provenance_info()
                 raise e
 
-            if not self.remote_execution_settings.immediate_submit and not dryrun and self.execution_settings.mode == ExecMode.default:
-                dag.cleanup_workdir()
+            if (
+                not self.remote_execution_settings.immediate_submit and
+                not self.dryrun and
+                self.execution_settings.mode == ExecMode.default
+            ):
+                self.dag.cleanup_workdir()
 
             if success:
-                if dryrun:
-                    if len(dag):
-                        logger.run_info("\n".join(dag.stats()))
-                        dag.print_reasons()
+                if self.dryrun:
+                    if len(self.dag):
+                        logger.run_info("\n".join(self.dag.stats()))
+                        self.dag.print_reasons()
                         log_provenance_info()
                     logger.info("")
                     logger.info(
@@ -1001,17 +990,14 @@ class Workflow(WorkflowExecutorInterface):
                             "jobs (e.g. adding more jobs) after their completion."
                         )
                 else:
-                    if stats:
-                        self.scheduler.stats.to_json(stats)
                     logger.logfile_hint()
-                if not dryrun and not no_hooks:
+                if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onsuccess(logger.get_logfile())
-                return True
             else:
-                if not dryrun and not no_hooks:
+                if not self.dryrun and not self.execution_settings.no_hooks:
                     self._onerror(logger.get_logfile())
                 logger.logfile_hint()
-                return False
+                raise WorkflowError("At least one job did not complete successfully.")
 
     @property
     def current_basedir(self):
