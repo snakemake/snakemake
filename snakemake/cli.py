@@ -20,7 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, OutputSettings, Quietness, ResourceSettings
+from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, Quietness, ResourceSettings
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -1096,11 +1096,6 @@ def get_argument_parser(profiles=None):
         "inferring DAG. This can help to debug unexpected DAG topology or errors.",
     )
     group_output.add_argument(
-        "--stats",
-        metavar="FILE",
-        help="Write stats about Snakefile execution in JSON format to the given file.",
-    )
-    group_output.add_argument(
         "--nocolor", action="store_true", help="Do not use a colored output."
     )
     group_output.add_argument(
@@ -1247,9 +1242,9 @@ def get_argument_parser(profiles=None):
         "fractions allowed.",
     )
     group_behavior.add_argument(
-        "-T",
         "--retries",
         "--restart-times",
+        "-T",
         default=0,
         type=int,
         help="Number of times to restart failing jobs (defaults to 0).",
@@ -1342,9 +1337,9 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--mode",
-        choices=[ExecMode.default, ExecMode.subprocess, ExecMode.remote],
-        default=ExecMode.default,
-        type=int,
+        choices=ExecMode.choices(),
+        default=ExecMode.DEFAULT,
+        type=ExecMode.parse_choice,
         help="Set execution mode of Snakemake (internal use only).",
     )
     group_behavior.add_argument(
@@ -2051,7 +2046,7 @@ def args_to_api(args, parser):
         if args.use_envmodules:
             deployment_method.add(DeploymentMethod.ENV_MODULES)
         
-        workflow_api.dag(
+        dag_api = workflow_api.dag(
             dag_settings=DAGSettings(
                 targets=args.targets,
                 target_jobs=args.target_jobs,
@@ -2077,7 +2072,40 @@ def args_to_api(args, parser):
             )
         )
 
-
+        dag_api.execute_workflow(
+            executor=args.executor,
+            execution_settings=ExecutionSettings(
+                workdir=args.directory,
+                cache=args.cache,
+                keep_going=args.keep_going,
+                debug=args.debug,
+                standalone=True,
+                ignore_ambiguity=args.allow_ambiguity,
+                lock=not args.nolock,
+                ignore_incomplete=args.ignore_incomplete,
+                latency_wait=args.latency_wait,
+                wait_for_files=args.wait_for_files,
+                notemp=args.notemp,
+                all_temp=args.all_temp,
+                keep_remote_local=args.keep_remote,
+                keep_target_files=args.keep_target_files,
+                no_hooks=args.no_hooks,
+                overwrite_shellcmd=args.overwrite_shellcmd,
+                restart_times=args.retries,
+                attempt=args.attempt,
+                use_threads=args.force_use_threads,
+                shadow_prefix=args.shadow_prefix,
+                mode=args.mode,
+                wrapper_prefix=args.wrapper_prefix,
+                keep_incomplete=args.keep_incomplete,
+                keep_metadata=not args.drop_metadata,
+                max_inventory_wait_time=args.max_inventory_time,
+                edit_notebook=edit_notebook,
+                cleanup_scripts=not args.skip_script_cleanup,
+                cleanup_metadata=args.cleanup_metadata,
+            ),
+            
+        )
 
     except Exception as e:
         linemaps = workflow_api.workflow.linemaps if workflow_api is not None else dict()

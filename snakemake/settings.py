@@ -15,6 +15,8 @@ from snakemake_interface_executor_plugins.settings import (
     OutputSettingsExecutorInterface,
     ResourceSettingsExecutorInterface,
     StorageSettingsExecutorInterface,
+    SettingsEnumBase,
+    DeploymentMethod,
 )
 
 from snakemake.common import RERUN_TRIGGERS, RerunTrigger, dict_to_key_value_args
@@ -24,36 +26,6 @@ from snakemake.io import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
-
-
-class ParseChoicesType(Enum):
-    SET = 0
-    LIST = 1
-
-
-class SettingsEnumBase(Enum):
-    parse_choices_type: ParseChoicesType = ParseChoicesType.SET
-
-    @classmethod
-    def choices(cls) -> List[str]:
-        return sorted(cls.item_to_choice(item) for item in cls)
-    
-    @classmethod
-    def all(cls) -> Set[Self]:
-        return {item for item in cls}
-    
-    @classmethod
-    def parse_choices(cls, choices: str) -> List[Self]:
-        container = set if cls.parse_choices_type == ParseChoicesType.SET else list
-        return container(cls.parse_choice(choice) for choice in choices)
-    
-    @classmethod
-    def parse_choice(cls, choice: str) -> Self:
-        return choice.replace("-", "_").upper()
-    
-    @classmethod
-    def item_to_choice(cls, item: Self) -> str:
-        return item.name.replace("_", "-").lower()
     
 
 class RerunTrigger(SettingsEnumBase):
@@ -104,7 +76,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_target_files: bool = False
     no_hooks: bool = False
     overwrite_shellcmd: Optional[str] = None
-    updated_files: List[str] = []
     restart_times: int = 0
     attempt: int = 1
     use_threads: bool = False
@@ -172,12 +143,6 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
 class CondaCleanupPkgs(SettingsEnumBase):
     TARBALLS = 0
     CACHE = 1
-
-
-class DeploymentMethod(SettingsEnumBase):
-    CONDA = 0
-    APPTAINER = 1
-    ENV_MODULES = 2
 
 
 @dataclass
