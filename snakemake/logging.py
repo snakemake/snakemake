@@ -14,6 +14,7 @@ import threading
 from functools import partial
 import inspect
 import textwrap
+from snakemake.settings import Quietness
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 
@@ -411,8 +412,8 @@ class Logger:
         msg["level"] = "d3dag"
         self.handler(msg)
 
-    def is_quiet_about(self, msg_type):
-        return msg_type in self.quiet or "all" in self.quiet
+    def is_quiet_about(self, msg_type: str):
+        return Quietness.ALL in self.quiet or Quietness.parse_choice(msg_type) in self.quiet
 
     def text_handler(self, msg):
         """The default snakemake log handler.

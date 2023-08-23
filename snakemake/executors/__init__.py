@@ -24,6 +24,7 @@ from typing import List
 import uuid
 import re
 import math
+from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -234,12 +235,12 @@ class CPUExecutor(RealExecutor):
         job.prepare()
 
         conda_env = (
-            job.conda_env.address if self.workflow.use_conda and job.conda_env else None
+            job.conda_env.address if DeploymentMethod.CONDA in self.workflow.deployment_settings.deployment_method and job.conda_env else None
         )
         container_img = (
-            job.container_img_path if self.workflow.deployment_settings.use_singularity else None
+            job.container_img_path if DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method else None
         )
-        env_modules = job.env_modules if self.workflow.deployment_settings.use_env_modules else None
+        env_modules = job.env_modules if DeploymentMethod.ENV_MODULES in self.workflow.deployment_settings.deployment_method else None
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -258,9 +259,9 @@ class CPUExecutor(RealExecutor):
             benchmark_repeats,
             conda_env,
             container_img,
-            self.workflow.singularity_args,
+            self.workflow.deployment_settings.apptainer_args,
             env_modules,
-            self.workflow.deployment_settings.use_singularity,
+            DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method,
             self.workflow.linemaps,
             self.workflow.execution_settings.debug,
             self.workflow.execution_settings.cleanup_scripts,

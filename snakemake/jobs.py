@@ -15,6 +15,7 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
+from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
@@ -1117,7 +1118,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
         if (
-            self.dag.workflow.deployment_settings.use_conda
+            DeploymentMethod.CONDA in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
             and not self.conda_env.is_named
             and not self.conda_env.is_containerized
@@ -1391,7 +1392,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if (
-                self.dag.workflow.deployment_settings.use_conda
+                DeploymentMethod.CONDA in self.dag.workflow.deployment_settings.deployment_method
                 and job.conda_env
                 and not job.conda_env.is_named
             ):

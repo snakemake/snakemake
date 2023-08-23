@@ -13,6 +13,7 @@ from functools import partial
 import copy
 from pathlib import Path
 from typing import List, Optional, Set
+from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
@@ -271,7 +272,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_base_path(self):
         if self.deployment_settings.conda_base_path:
             return self.deployment_settings.conda_base_path
-        if self.deployment_settings.use_conda:
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             try:
                 return Conda().prefix_path
             except CreateCondaEnvironmentException as e:
@@ -541,7 +542,7 @@ class Workflow(WorkflowExecutorInterface):
             nolock=self.execution_settings.nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
-            singularity_prefix=self.deployment_settings.singularity_prefix,
+            singularity_prefix=self.deployment_settings.apptainer_prefix,
             shadow_prefix=self.execution_settings.shadow_prefix,
             warn_only=lock_warn_only,
         )
@@ -562,9 +563,9 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
 
         deploy = []
-        if self.deployment_settings.use_conda:
+        if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             deploy.append("conda")
-        if self.deployment_settings.use_singularity:
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
             deploy.append("singularity")
         unit_tests.generate(
             self.dag, path, deploy, configfiles=self.overwrite_configfiles
@@ -742,7 +743,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
             dryrun=True,
@@ -767,7 +768,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
     
@@ -847,9 +848,9 @@ class Workflow(WorkflowExecutorInterface):
                 updated_files.extend(f for job in self.dag.needrun_jobs() for f in job.output)
 
 
-            if self.deployment_settings.use_singularity and self.storage_settings.assume_shared_fs:
+            if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
                 self.dag.pull_container_imgs()
-            if self.deployment_settings.use_conda:
+            if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                 self.dag.create_conda_envs()
 
             self.scheduler = JobScheduler(self, executor_plugin)
@@ -882,10 +883,10 @@ class Workflow(WorkflowExecutorInterface):
                     if self.run_local and any(rule.group for rule in self.rules):
                         logger.info("Group jobs: inactive (local execution)")
 
-                    if not self.deployment_settings.use_conda and any(rule.conda_env for rule in self.rules):
+                    if not DeploymentMethod.CONDA in self.deployment_settings.deployment_method and any(rule.conda_env for rule in self.rules):
                         logger.info("Conda environments: ignored")
 
-                    if not self.deployment_settings.use_singularity and any(
+                    if not DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and any(
                         rule.container_img for rule in self.rules
                     ):
                         logger.info("Singularity containers: ignored")

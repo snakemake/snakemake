@@ -45,17 +45,6 @@ SNAKEFILE_CHOICES = [
     "workflow/snakefile",
 ]
 
-class RerunTrigger(Enum):
-    mtime = 0
-    params = 1
-    input = 2
-    software_env = 3
-    code = 4
-
-    @classmethod
-    def all(cls):
-        return {item for item in cls}
-
 
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [

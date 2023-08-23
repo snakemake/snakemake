@@ -20,7 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import ConfigSettings, DAGSettings, DeploymentSettings, OutputSettings, Quietness, ResourceSettings
+from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, OutputSettings, Quietness, ResourceSettings
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -614,9 +614,9 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--rerun-triggers",
         nargs="+",
-        choices=[e.name.replace("_", "-") for e in RerunTrigger],
+        choices=RerunTrigger.choices(),
         default=RerunTrigger.all(),
-        type=parse_rerun_triggers,
+        type=RerunTrigger.parse_choices,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
@@ -1107,7 +1107,7 @@ def get_argument_parser(profiles=None):
         "--quiet",
         "-q",
         nargs="*",
-        choices=[q.name for q in Quietness],
+        choices=Quietness.choices(),
         default=None,
         type=parse_quietness,
         help="Do not output certain information. "
@@ -1680,6 +1680,20 @@ def get_argument_parser(profiles=None):
         help="Send workflow tasks to GA4GH TES server specified by url.",
     )
 
+    group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
+    group_deployment.add_argument(
+        "--software-deployment-method",
+        "--deployment",
+        choices=DeploymentMethod.choices(),
+        type=DeploymentMethod.parse_choices,
+        help="Specify software environment deployment method."
+    )
+    group_deployment.add_argument(
+        "--cleanup-containers",
+        action="store_true",
+        help="Remove unused containers",
+    )
+
     group_conda = parser.add_argument_group("CONDA")
 
     group_conda.add_argument(
@@ -1746,34 +1760,32 @@ def get_argument_parser(profiles=None):
         "Mamba is much faster and highly recommended.",
     )
 
-    group_singularity = parser.add_argument_group("SINGULARITY")
+    group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
 
     group_singularity.add_argument(
+        "--use-apptainer",
         "--use-singularity",
         action="store_true",
-        help="If defined in the rule, run job within a singularity container. "
+        help="If defined in the rule, run job within a apptainer/singularity container. "
         "If this flag is not set, the singularity directive is ignored.",
     )
     group_singularity.add_argument(
+        "--apptainer-prefix",
         "--singularity-prefix",
         metavar="DIR",
-        help="Specify a directory in which singularity images will be stored."
+        help="Specify a directory in which apptainer/singularity images will be stored."
         "If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
-        "If supplied, the `--use-singularity` flag must also be set. The value "
+        "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path.",
     )
     group_singularity.add_argument(
+        "--apptainer-args",
         "--singularity-args",
         default="",
         metavar="ARGS",
-        help="Pass additional args to singularity.",
-    )
-    group_singularity.add_argument(
-        "--cleanup-containers",
-        action="store_true",
-        help="Remove unused (singularity) containers",
+        help="Pass additional args to apptainer/singularity.",
     )
 
     group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
@@ -1876,7 +1888,7 @@ def parse_quietness(quietness):
         # default case, set quiet to progress and rule
         quietness = [Quietness.progress, Quietness.rules]
     else:
-        quietness = [Quietness[x] for x in quietness]
+        quietness = Quietness.parse_choices()
     return quietness
 
 
@@ -2030,6 +2042,14 @@ def args_to_api(args, parser):
             workflow_api.list_rules(only_targets=False)
         elif args.print_compilation:
             workflow_api.print_compilation()
+
+        deployment_method = args.deployment_method
+        if args.use_conda:
+            deployment_method.add(DeploymentMethod.CONDA)
+        if args.use_apptainer:
+            deployment_method.add(DeploymentMethod.APPTAINER)
+        if args.use_envmodules:
+            deployment_method.add(DeploymentMethod.ENV_MODULES)
         
         workflow_api.dag(
             dag_settings=DAGSettings(
@@ -2046,7 +2066,14 @@ def args_to_api(args, parser):
                 rerun_triggers=args.rerun_triggers,
             ),
             deployment_settings=DeploymentSettings(
-                
+                deployment_method=deployment_method,
+                conda_prefix=args.conda_prefix,
+                conda_cleanup_pkgs=args.conda_cleanup_pkgs,
+                conda_base_path=args.conda_base_path,
+                conda_frontent=args.conda_frontend,
+                conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
+                apptainer_args=args.apptainer_args,
+                apptainer_prefix=args.apptainer_prefix,
             )
         )
 
@@ -2793,13 +2820,13 @@ class SpawnedJobArgsFactory:
                 w2a("rerun_triggers"),
                 w2a("execution_settings.cleanup_scripts", flag="--skip-script-cleanup"),
                 w2a("execution_settings.shadow_prefix"),
-                w2a("deployment_settings.use_conda"),
+                w2a("deployment_settings.deployment_method"),
                 w2a("deployment_settings.conda_frontend"),
                 w2a("deployment_settings.conda_prefix"),
                 w2a("conda_base_path", skip=not self.assume_shared_fs),
                 w2a("deployment_settings.use_singularity"),
-                w2a("deployment_settings.singularity_prefix"),
-                w2a("deployment_settings.singularity_args"),
+                w2a("deployment_settings.apptainer_prefix"),
+                w2a("deployment_settings.apptainer_args"),
                 w2a("execution_settings.execute_subworkflows", flag="--no-subworkflows", invert=True),
                 w2a("resource_settings.max_threads"),
                 w2a("deployment_settings.use_env_modules", flag="--use-envmodules"),

@@ -89,7 +89,7 @@ class Env:
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
-        self._singularity_args = workflow.deployment_settings.singularity_args
+        self._singularity_args = workflow.deployment_settings.apptainer_args
 
     @lazy_property
     def conda(self):

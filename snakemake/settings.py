@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 import importlib
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Self, Set, Type
 from snakemake import notebook
 
 from snakemake_interface_executor_plugins.utils import ExecMode
@@ -24,6 +24,44 @@ from snakemake.io import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
+
+
+class ParseChoicesType(Enum):
+    SET = 0
+    LIST = 1
+
+
+class SettingsEnumBase(Enum):
+    parse_choices_type: ParseChoicesType = ParseChoicesType.SET
+
+    @classmethod
+    def choices(cls) -> List[str]:
+        return sorted(cls.item_to_choice(item) for item in cls)
+    
+    @classmethod
+    def all(cls) -> Set[Self]:
+        return {item for item in cls}
+    
+    @classmethod
+    def parse_choices(cls, choices: str) -> List[Self]:
+        container = set if cls.parse_choices_type == ParseChoicesType.SET else list
+        return container(cls.parse_choice(choice) for choice in choices)
+    
+    @classmethod
+    def parse_choice(cls, choice: str) -> Self:
+        return choice.replace("-", "_").upper()
+    
+    @classmethod
+    def item_to_choice(cls, item: Self) -> str:
+        return item.name.replace("_", "-").lower()
+    
+
+class RerunTrigger(SettingsEnumBase):
+    MTIME = 0
+    PARAMS = 1
+    INPUT = 2
+    SOFTWARE_ENV = 3
+    CODE = 4
 
 
 class SettingsBase(ABC):
@@ -131,9 +169,16 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
                 )
 
 
-class CondaCleanupPkgs(Enum):
-    TARBALLS = "tarballs"
-    CACHE = "cache"
+class CondaCleanupPkgs(SettingsEnumBase):
+    TARBALLS = 0
+    CACHE = 1
+
+
+class DeploymentMethod(SettingsEnumBase):
+    CONDA = 0
+    APPTAINER = 1
+    ENV_MODULES = 2
+
 
 @dataclass
 class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
@@ -141,8 +186,8 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     Parameters
     ----------
 
-    use_conda:
-        use conda environments for each job (defined with conda directive of rules)
+    deployment_method
+        deployment method to use (CONDA, APPTAINER, ENV_MODULES)
     conda_prefix:
         the directory in which conda environments will be created (default None)
     conda_cleanup_pkgs:
@@ -154,16 +199,14 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_base_path:
         Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
-    use_conda: bool = False
+    deployment_method: Set[DeploymentMethod] = set()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
     conda_frontend: str = "mamba"
     conda_not_block_search_path_envvars: bool = False
-    use_singularity: bool = False
-    singularity_args: str = ""
-    singularity_prefix: Optional[Path] = None
-    use_env_modules: bool = False
+    apptainer_args: str = ""
+    apptainer_prefix: Optional[Path] = None
 
 @dataclass
 class SchedulingSettings(SettingsBase):
@@ -248,17 +291,17 @@ class ConfigSettings(SettingsBase, ConfigSettingsExecutorInterface):
             return self.config_args
 
 
-class Quietness(Enum):
-    none = 0
-    rules = 1
-    progress = 2
-    all = 3
+class Quietness(SettingsEnumBase):
+    RULES = 0
+    PROGRESS = 1
+    ALL = 2
+ 
 
 @dataclass
 class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
     printshellcmds: bool = False
     nocolor: bool = False
-    quiet: Quietness = Quietness.none
+    quiet: Optional[Quietness] = None
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False

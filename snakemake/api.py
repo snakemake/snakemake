@@ -18,7 +18,7 @@ if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import DAGSettings, DeploymentSettings, ExecutionSettings, OutputSettings, ConfigSettings, RemoteExecutionSettings, ResourceSettings, StorageSettings
+from snakemake.settings import DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, ConfigSettings, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
@@ -351,17 +351,17 @@ class DAGApi(ApiBase):
     
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
-        self.deployment_settings.use_conda = True
+        self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
         self.workflow_api._workflow.conda_cleanup_envs()
     
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
-        self.deployment_settings.use_conda = True
+        self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
         self.workflow_api._workflow.conda_create_envs()
 
     def conda_list_envs(self):
         """List the conda environments of the workflow."""
-        self.deployment_settings.use_conda = True
+        self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
         self.workflow_api._workflow.conda_list_envs()
     
     def cleanup_shadow(self):
@@ -370,7 +370,7 @@ class DAGApi(ApiBase):
     
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
-        self.deployment_settings.use_singularity = True
+        self.deployment_settings.deployment_method.add(DeploymentMethod.APPTAINER)
         self.workflow_api._workflow.container_cleanup_images()
     
     def list_(self, change_type: ChangeType):

@@ -19,6 +19,7 @@ from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
@@ -1155,19 +1156,19 @@ class DAG(DAGExecutorInterface):
                         # The first pass (with depends_on_checkpoint_target == True) is not informative
                         # for determining any other changes than file modification dates, as it will
                         # change after evaluating the input function of the job in the second pass.
-                        if RerunTrigger.params in self.workflow.rerun_triggers:
+                        if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
                             reason.params_changed = any(
                                 self.workflow.persistence.params_changed(job)
                             )
-                        if RerunTrigger.input in self.workflow.rerun_triggers:
+                        if RerunTrigger.INPUT in self.workflow.rerun_triggers:
                             reason.input_changed = any(
                                 self.workflow.persistence.input_changed(job)
                             )
-                        if RerunTrigger.code in self.workflow.rerun_triggers:
+                        if RerunTrigger.CODE in self.workflow.rerun_triggers:
                             reason.code_changed = any(
                                 job.outputs_older_than_script_or_notebook()
                             ) or any(self.workflow.persistence.code_changed(job))
-                        if RerunTrigger.software_env in self.workflow.rerun_triggers:
+                        if RerunTrigger.SOFTWARE_ENV in self.workflow.rerun_triggers:
                             reason.software_stack_changed = any(
                                 self.workflow.persistence.conda_env_changed(job)
                             ) or any(self.workflow.persistence.container_changed(job))
@@ -1665,9 +1666,9 @@ class DAG(DAGExecutorInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
-            if self.workflow.deployment_settings.use_singularity:
+            if DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method:
                 self.pull_container_imgs()
-            if self.workflow.deployment_settings.use_conda:
+            if DeploymentMethod.CONDA in self.workflow.deployment_settings.deployment_method:
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
