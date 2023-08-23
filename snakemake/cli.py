@@ -2098,6 +2098,7 @@ def args_to_api(args, parser):
             dag_api.container_cleanup_images()
         elif args.list_changes:
             dag_api.list_changes(args.list_changes)
+        # TODO go on with other methods of dag_api
         else:
             dag_api.execute_workflow(
                 executor=args.executor,
