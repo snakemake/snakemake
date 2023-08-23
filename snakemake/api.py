@@ -371,7 +371,7 @@ class DAGApi(ApiBase):
         self.deployment_settings.deployment_method.add(DeploymentMethod.APPTAINER)
         self.workflow_api._workflow.container_cleanup_images()
     
-    def list_(self, change_type: ChangeType):
+    def list_changes(self, change_type: ChangeType):
         """List the changes of the workflow.
 
         Arguments

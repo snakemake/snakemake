@@ -20,7 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import All, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
+from snakemake.settings import All, ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -1000,16 +1000,10 @@ def get_argument_parser(profiles=None):
         "--unlock", action="store_true", help="Remove a lock on the working directory."
     )
     group_utils.add_argument(
-        "--list-version-changes",
-        "--lv",
-        action="store_true",
-        help="List all output files that have been created with "
-        "a different version (as determined by the version keyword).",
-    )
-    group_utils.add_argument(
-        "--list-code-changes",
+        "--list-changes",
         "--lc",
-        action="store_true",
+        choices=ChangeType.choices(),
+        type=ChangeType.parse_choice,
         help="List all output files for which the rule body (run or shell) have "
         "changed in the Snakefile.",
     )
@@ -2092,6 +2086,18 @@ def args_to_api(args, parser):
             dag_api.unlock()
         elif args.cleanup_metadata:
             dag_api.cleanup_metadata()
+        elif args.conda_cleanup_envs:
+            dag_api.conda_cleanup_envs()
+        elif args.conda_create_envs:
+            dag_api.conda_create_envs()
+        elif args.conda_list_envs:
+            dag_api.conda_list_envs()
+        elif args.cleanup_shadow:
+            dag_api.cleanup_shadow()
+        elif args.container_cleanup_images:
+            dag_api.container_cleanup_images()
+        elif args.list_changes:
+            dag_api.list_changes(args.list_changes)
         else:
             dag_api.execute_workflow(
                 executor=args.executor,

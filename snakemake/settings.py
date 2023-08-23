@@ -37,6 +37,12 @@ class RerunTrigger(SettingsEnumBase):
     CODE = 4
 
 
+class ChangeType(SettingsEnumBase):
+    CODE = 0
+    INPUT = 1
+    PARAMS = 2
+
+
 class SettingsBase(ABC):
     def __post_init__(self):
         self._check()

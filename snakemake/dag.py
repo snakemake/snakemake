@@ -53,14 +53,9 @@ from snakemake.jobs import GroupJobFactory, Job, JobFactory, Reason
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
+from snakemake.settings import ChangeType
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
-
-
-class ChangeType(Enum):
-    CODE = "code"
-    INPUT = "input"
-    PARAMS = "params"
 
 
 class Batch:
@@ -2549,7 +2544,7 @@ class DAG(DAGExecutorInterface):
             else []
         )
         changed = list(chain(*map(is_changed, self.jobs)))
-        if change_type == "code":
+        if change_type == ChangeType.CODE:
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
@@ -2557,17 +2552,17 @@ class DAG(DAGExecutorInterface):
 
     def warn_about_changes(self, quiet=False):
         if not quiet:
-            for change_type in ["code", "input", "params"]:
+            for change_type in ChangeType.all():
                 changed = self.get_outputs_with_changes(
                     change_type, include_needrun=False
                 )
                 if changed:
                     rerun_trigger = ""
                     if not ON_WINDOWS:
-                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
+                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-changes {change_type})'."
                     logger.warning(
                         f"The {change_type} used to generate one or several output files has changed:\n"
-                        f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
+                        f"    To inspect which output files have changes, run 'snakemake --list-changes {change_type}'."
                         f"{rerun_trigger}"
                     )
 
