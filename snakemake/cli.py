@@ -20,7 +20,7 @@ import webbrowser
 from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, Quietness, ResourceSettings
+from snakemake.settings import All, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
@@ -519,30 +519,21 @@ def get_argument_parser(profiles=None):
     )
 
     group_exec.add_argument(
-        "--preemption-default",
-        type=int,
-        default=None,
+        "--preemptible-rules",
+        nargs="*",
+        type=set,
         help=(
-            "A preemptible instance can be requested when using the Google Life Sciences API. If you set a --preemption-default,"
-            "all rules will be subject to the default. Specifically, this integer is the number of restart attempts that will be "
-            "made given that the instance is killed unexpectedly. Note that preemptible instances have a maximum running time of 24 "
-            "hours. If you want to set preemptible instances for only a subset of rules, use --preemptible-rules instead."
+            "Define which rules shall use a preemptible machine which can be prematurely killed by e.g. a cloud provider (also called spot instances). "
+            "This is currently only supported by the Google Life Sciences executor and ignored by all other executors. "
+            "If no rule names are provided, all rules are considered to be preemptible. "
+            "The "
         ),
     )
 
     group_exec.add_argument(
-        "--preemptible-rules",
-        nargs="+",
-        default=None,
-        help=(
-            "A preemptible instance can be requested when using the Google Life Sciences API. If you want to use these instances "
-            "for a subset of your rules, you can use --preemptible-rules and then specify a list of rule and integer pairs, where "
-            "each integer indicates the number of restarts to use for the rule's instance in the case that the instance is "
-            "terminated unexpectedly. --preemptible-rules can be used in combination with --preemption-default, and will take "
-            "priority. Note that preemptible instances have a maximum running time of 24. If you want to apply a consistent "
-            "number of retries across all your rules, use --preemption-default instead. "
-            "Example: snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0"
-        ),
+        "--preemptible-retries",
+        type=int,
+        help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting."
     )
 
     group_exec.add_argument(
@@ -812,6 +803,7 @@ def get_argument_parser(profiles=None):
         nargs="?",
         const="report.html",
         metavar="FILE",
+        type=Path,
         help="Create an HTML report with results and statistics. "
         "This can be either a .html file or a .zip file. "
         "In the former case, all results are embedded into the .html (this only works for small data). "
@@ -821,6 +813,7 @@ def get_argument_parser(profiles=None):
     group_report.add_argument(
         "--report-stylesheet",
         metavar="CSSFILE",
+        type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
@@ -1974,7 +1967,7 @@ def args_to_api(args, parser):
         args.executor = "cluster"
 
     executor_plugin = ExecutorPluginRegistry().plugins[args.executor]
-    executor_args = executor_plugin.get_executor_settings(args)
+    executor_settings = executor_plugin.get_executor_settings(args)
     
     if args.cores is None and executor_plugin.common_settings.local_exec:
         # use --jobs as an alias for --cores
@@ -2072,40 +2065,83 @@ def args_to_api(args, parser):
             )
         )
 
-        dag_api.execute_workflow(
-            executor=args.executor,
-            execution_settings=ExecutionSettings(
-                workdir=args.directory,
-                cache=args.cache,
-                keep_going=args.keep_going,
-                debug=args.debug,
-                standalone=True,
-                ignore_ambiguity=args.allow_ambiguity,
-                lock=not args.nolock,
-                ignore_incomplete=args.ignore_incomplete,
-                latency_wait=args.latency_wait,
-                wait_for_files=args.wait_for_files,
-                notemp=args.notemp,
-                all_temp=args.all_temp,
-                keep_remote_local=args.keep_remote,
-                keep_target_files=args.keep_target_files,
-                no_hooks=args.no_hooks,
-                overwrite_shellcmd=args.overwrite_shellcmd,
-                restart_times=args.retries,
-                attempt=args.attempt,
-                use_threads=args.force_use_threads,
-                shadow_prefix=args.shadow_prefix,
-                mode=args.mode,
-                wrapper_prefix=args.wrapper_prefix,
-                keep_incomplete=args.keep_incomplete,
-                keep_metadata=not args.drop_metadata,
-                max_inventory_wait_time=args.max_inventory_time,
-                edit_notebook=edit_notebook,
-                cleanup_scripts=not args.skip_script_cleanup,
-                cleanup_metadata=args.cleanup_metadata,
-            ),
-            
-        )
+        preemptible_rules = None
+        if args.preemptible_rules is not None:
+            if not preemptible_rules:
+                # no specific rule given, consider all to be made preemptible
+                preemptible_rules = PreemptibleRules(all=True)
+            else:
+                preemptible_rules = PreemptibleRules(rules=args.preemptible_rules)
+
+        if args.containerize:
+            dag_api.containerize()
+        elif args.report:
+            dag_api.create_report(
+                report_path=args.report,
+                report_stylesheet=args.report_stylesheet,
+            )
+        elif args.dag:
+            dag_api.printdag()
+        elif args.rulegraph:
+            dag_api.printrulegraph()
+        elif args.filegraph:
+            dag_api.printfilegraph()
+        elif args.d3dag:
+            dag_api.printd3dag()
+        elif args.unlock:
+            dag_api.unlock()
+        elif args.cleanup_metadata:
+            dag_api.cleanup_metadata()
+        else:
+            dag_api.execute_workflow(
+                executor=args.executor,
+                execution_settings=ExecutionSettings(
+                    workdir=args.directory,
+                    cache=args.cache,
+                    keep_going=args.keep_going,
+                    debug=args.debug,
+                    standalone=True,
+                    ignore_ambiguity=args.allow_ambiguity,
+                    lock=not args.nolock,
+                    ignore_incomplete=args.ignore_incomplete,
+                    latency_wait=args.latency_wait,
+                    wait_for_files=wait_for_files,
+                    notemp=args.notemp,
+                    all_temp=args.all_temp,
+                    keep_target_files=args.keep_target_files,
+                    no_hooks=args.no_hooks,
+                    overwrite_shellcmd=args.overwrite_shellcmd,
+                    restart_times=args.retries,
+                    attempt=args.attempt,
+                    use_threads=args.force_use_threads,
+                    shadow_prefix=args.shadow_prefix,
+                    mode=args.mode,
+                    wrapper_prefix=args.wrapper_prefix,
+                    keep_incomplete=args.keep_incomplete,
+                    keep_metadata=not args.drop_metadata,
+                    max_inventory_wait_time=args.max_inventory_time,
+                    edit_notebook=edit_notebook,
+                    cleanup_scripts=not args.skip_script_cleanup,
+                    cleanup_metadata=args.cleanup_metadata,
+                ),
+                remote_execution_settings=RemoteExecutionSettings(
+                    jobname=args.jobname,
+                    jobscript=args.jobscript,
+                    max_status_checks_per_second=args.max_status_checks_per_second,
+                    container_image=args.container_image,
+                    preemptible_retries=args.preemptible_retries,
+                    preemptible_rules=preemptible_rules,
+                    envvars=args.envvars,
+                    immediate_submit=args.immediate_submit,
+                ),
+                storage_settings=StorageSettings(
+                    default_remote_provider=args.default_remote_provider,
+                    default_remote_prefix=args.default_remote_prefix,
+                    assume_shared_fs=args.assume_shared_fs,
+                    keep_remote_local=args.keep_remote,
+                ),
+                executor_settings=executor_settings,
+            )
 
     except Exception as e:
         linemaps = workflow_api.workflow.linemaps if workflow_api is not None else dict()

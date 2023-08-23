@@ -1330,9 +1330,13 @@ class Workflow(WorkflowExecutorInterface):
                     raise RuleException(
                         "Retries values have to be integers >= 0", rule=rule
                     )
-            rule.restart_times = (
-                self.execution_settings.restart_times if ruleinfo.retries is None else ruleinfo.retries
-            )
+            
+            if self.remote_execution_settings.preemptible_rules.is_preemptible(rule.name):
+                rule.restart_times = self.remote_execution_settings.preemptible_retries
+            else:
+                rule.restart_times = (
+                    self.execution_settings.retries if ruleinfo.retries is None else ruleinfo.retries
+                )
 
             if ruleinfo.log:
                 rule.log_modifier = ruleinfo.log.modifier

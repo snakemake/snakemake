@@ -851,7 +851,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             self.benchmark.prepare()
 
         # wait for input files, respecting keep_remote_local
-        force_stay_on_remote = not self.dag.workflow.execution_settings.keep_remote_local
+        force_stay_on_remote = not self.dag.workflow.storage_settings.keep_remote_local
         wait_for_files(
             self.input,
             force_stay_on_remote=force_stay_on_remote,

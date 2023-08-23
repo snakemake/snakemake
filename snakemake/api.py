@@ -227,7 +227,6 @@ class DAGApi(ApiBase):
         self,
         executor: str,
         execution_settings: ExecutionSettings,
-        resource_settings: ResourceSettings,
         remote_execution_settings: RemoteExecutionSettings,
         storage_settings: StorageSettings,
         executor_settings: Optional[ExecutorSettingsBase] = None,
@@ -294,7 +293,6 @@ class DAGApi(ApiBase):
             workflow = self.workflow_api._workflow
             workflow.execution_settings = execution_settings
             workflow.storage_settings = storage_settings
-            workflow.resource_settings = resource_settings
             workflow.remote_execution_settings = remote_execution_settings
 
             workflow.execute(
@@ -1058,7 +1056,7 @@ def snakemake(
                     immediate_submit=immediate_submit,
                     standalone=standalone,
                     ignore_ambiguity=ignore_ambiguity,
-                    restart_times=restart_times,
+                    retries=restart_times,
                     attempt=attempt,
                     lock=lock,
                     unlock=unlock,

@@ -5,6 +5,7 @@ import importlib
 from pathlib import Path
 from typing import Dict, List, Optional, Self, Set, Type
 from snakemake import notebook
+from snakemake.rules import Rule
 
 from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins.settings import (
@@ -72,11 +73,10 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     wait_for_files: Optional[List[str]] = None
     notemp: bool = False
     all_temp: bool = False
-    keep_remote_local: bool = False
     keep_target_files: bool = False
     no_hooks: bool = False
     overwrite_shellcmd: Optional[str] = None
-    restart_times: int = 0
+    retries: int = 0
     attempt: int = 1
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
@@ -275,13 +275,25 @@ class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
 
 
 @dataclass
+class PreemptibleRules:
+    rules: Optional[Set[str]] = None
+    all: bool = False
+
+    def __post_init__(self):
+        assert self.rules or self.all, "bug: either rules or all have to be set"
+    
+    def is_preemptible(self, rulename: str):
+        return self.all or rulename in self.rules
+
+
+@dataclass
 class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInterface):
     jobname: str = "snakejob.{rulename}.{jobid}.sh"
     jobscript: Optional[Path] = None
     max_status_checks_per_second: int = 100
     container_image: Optional[str] = None
-    preemption_default: Optional[int] = None
-    preemptible_rules: Optional[List[str]] = None
+    preemptible_retries: Optional[int] = None
+    preemptible_rules: Optional[PreemptibleRules] = None
     envvars: Optional[List[str]] = None
     immediate_submit: bool = False
 

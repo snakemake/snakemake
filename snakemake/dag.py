@@ -792,7 +792,7 @@ class DAG(DAGExecutorInterface):
                             "read AND write permissions."
                         )
 
-        if not self.workflow.execution_settings.keep_remote_local:
+        if not self.workflow.storage_settings.keep_remote_local:
             if not any(f.is_remote for f in job.input):
                 return
 
