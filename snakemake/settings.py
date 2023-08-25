@@ -67,7 +67,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     local_cores:
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
     """
-    workdir: Optional[Path] = None
     cache: Optional[List[str]] = None
     keep_going: bool = False
     debug: bool = False

@@ -8,9 +8,9 @@ from snakemake.logging import logger
 @dataclass
 class WorkdirHandler:
     workdir: Optional[Path] = None
-    olddir: Path = field(init=False)
+    olddir: Optional[Path] = field(init=False, default=None)
 
-    def __enter__(self):
+    def change_to(self):
         if self.workdir is not None:
             self.olddir = Path.cwd()
             if not self.workdir.exists():
@@ -18,6 +18,6 @@ class WorkdirHandler:
                 self.workdir.mkdir(parents=True)
             self.workdir.chdir()
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def change_back(self):
         if self.workdir is not None:
             self.olddir.chdir()

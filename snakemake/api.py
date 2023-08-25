@@ -75,21 +75,45 @@ class SnakemakeApi(ApiBase):
     output_settings: OutputSettings -- The output settings for the Snakemake API.
     """
     output_settings: OutputSettings
+    _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
 
-    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, snakefile: Optional[Path]):
-        """Create a workflow API.
+    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, snakefile: Optional[Path] = None, workdir: Optional[Path] = None):
+        """Create the workflow API.
+
+        Note that if provided, this also changes to the provided workdir.
+        It will change back to the previous working directory when the workflow API object is deleted.
 
         Arguments
         ---------
         config_settings: ConfigSettings -- The config settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+        workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
         self._setup_logger()
 
         snakefile = resolve_snakefile(snakefile)
 
-        return WorkflowApi(self, snakefile, config_settings, resource_settings)
+        self._workflow_api = WorkflowApi(
+            snakemake_api=self, 
+            snakefile=snakefile, 
+            workdir=workdir, 
+            config_settings=config_settings, 
+            resource_settings=resource_settings
+        )
+        return self._workflow_api
+
+    def print_exception(self, ex: Exception):
+        """Print an exception during workflow execution in a human readable way
+        (with adjusted line numbers for exceptions raised in Snakefiles and stack
+        traces that hide Snakemake internals for better readability).
+
+        Arguments
+        ---------
+        ex: Exception -- The exception to print.
+        """
+        linemaps = self.workflow_api.workflow.linemaps if self.workflow_api is not None else dict()
+        print_exception(ex, linemaps)
 
     def _setup_logger(
         self,
@@ -129,9 +153,11 @@ class WorkflowApi(ApiBase):
 
     snakemake_api: SnakemakeApi
     snakefile: Path
+    workdir: Optional[Path]
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
-    _workflow_store: Workflow = field(init=False)
+    _workflow_store: Optional[Workflow] = field(init=False, default=None)
+    _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
     def dag(
         self,
@@ -198,6 +224,11 @@ class WorkflowApi(ApiBase):
     def __post_init__(self):
         super().__post_init__()
         self.snakefile = self.snakefile.absolute()
+        self._workdir_handler = WorkdirHandler(self.workdir)
+        self._workdir_handler.change_to()
+    
+    def __del__(self):
+        self._workdir_handler.change_back()
 
     def _check(self):
         if not self.snakefile.exists():
@@ -287,20 +318,18 @@ class DAGApi(ApiBase):
             or not run_local
         )
 
-        with WorkdirHandler(self.execution_settings.workdir):
-            logger.setup_logfile()
+        logger.setup_logfile()
 
-            workflow = self.workflow_api._workflow
-            workflow.execution_settings = execution_settings
-            workflow.storage_settings = storage_settings
-            workflow.remote_execution_settings = remote_execution_settings
+        workflow = self.workflow_api._workflow
+        workflow.execution_settings = execution_settings
+        workflow.storage_settings = storage_settings
+        workflow.remote_execution_settings = remote_execution_settings
 
-            workflow.execute(
-                executor_plugin=executor_plugin,
-                executor_settings=executor_settings,
-                updated_files=updated_files,
-            )
-
+        workflow.execute(
+            executor_plugin=executor_plugin,
+            executor_settings=executor_settings,
+            updated_files=updated_files,
+        )
 
     def containerize(self):
         """Containerize the workflow."""

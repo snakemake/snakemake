@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 import signal
 import sys
 import shlex
@@ -17,6 +18,7 @@ import pytest
 import glob
 import subprocess
 import tarfile
+from snakemake import api, settings
 
 from snakemake.api import snakemake
 from snakemake.shell import shell
@@ -141,7 +143,8 @@ def run(
     shellcmd=None,
     sigint_after=None,
     overwrite_resource_scopes=None,
-    **params,
+    executor="local",
+    executor_settings=None,
 ):
     """
     Test the Snakefile in the path.
@@ -216,24 +219,53 @@ def run(
             print(e.stdout.decode(), file=sys.stderr)
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
-        success = snakemake(
-            snakefile=original_snakefile if no_tmpdir else snakefile,
-            cores=cores,
-            nodes=nodes,
-            workdir=path if no_tmpdir else tmpdir,
-            stats="stats.txt",
-            config=config,
-            verbose=True,
-            targets=targets,
-            conda_frontend=conda_frontend,
-            container_image=container_image,
-            overwrite_resource_scopes=(
-                ResourceScopes(overwrite_resource_scopes)
-                if overwrite_resource_scopes is not None
-                else overwrite_resource_scopes
+
+        success = True
+
+        snakemake_api = api.SnakemakeApi(
+            settings.OutputSettings(
+                verbose=True,
             ),
-            **params,
         )
+        workflow_api = snakemake_api.workflow(
+            config_settings=settings.ConfigSettings(
+                config=config,
+            ),
+            resource_settings=settings.ResourceSettings(
+                cores=cores,
+                nodes=nodes,
+                overwrite_resource_scopes=(
+                ResourceScopes(overwrite_resource_scopes)
+                    if overwrite_resource_scopes is not None
+                    else overwrite_resource_scopes
+                ),
+            ),
+            snakefile=original_snakefile if no_tmpdir else snakefile,
+            workdir=Path(path if no_tmpdir else tmpdir),
+        )
+
+        dag_api = workflow_api.dag(
+            dag_settings=settings.DAGSettings(
+                targets=targets,
+            ),
+            deployment_settings=settings.DeploymentSettings(
+                container_image=container_image,
+                conda_frontend=conda_frontend,
+            ),
+        )
+
+        try:
+            dag_api.execute_workflow(
+                executor=executor,
+                execution_settings=settings.ExecutionSettings(),
+                remote_execution_settings=settings.RemoteExecutionSettings(),
+                storage_settings=settings.StorageSettings(),
+                executor_settings=executor_settings,
+            )
+        except Exception as e:
+            success = False
+            snakemake_api.print_exception(e)
+        
 
     if shouldfail:
         assert not success, "expected error on execution"

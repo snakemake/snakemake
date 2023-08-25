@@ -1980,21 +1980,19 @@ def args_to_api(args, parser):
     
     wait_for_files = parse_wait_for_files(args)
 
-    workflow_api = None
-    try:
-        snakemake_api = SnakemakeApi(
-            OutputSettings(
-                printshellcmds=args.printshellcmds,
-                nocolor=args.nocolor,
-                quiet=args.quiet,
-                debug_dag=args.debug_dag,
-                verbose=args.verbose,
-                show_failed_logs=args.show_failed_logs,
-                log_handlers=log_handlers,
-                keep_logger=False,
-            )
+    snakemake_api = SnakemakeApi(
+        OutputSettings(
+            printshellcmds=args.printshellcmds,
+            nocolor=args.nocolor,
+            quiet=args.quiet,
+            debug_dag=args.debug_dag,
+            verbose=args.verbose,
+            show_failed_logs=args.show_failed_logs,
+            log_handlers=log_handlers,
+            keep_logger=False,
         )
-
+    )
+    try:
         workflow_api = snakemake_api.workflow(
             config_settings=ConfigSettings(
                 config=args.config,
@@ -2013,6 +2011,7 @@ def args_to_api(args, parser):
                 default_resources=args.default_resources,
             ),
             snakefile=args.snakefile,
+            workdir=args.directory,
         )
 
         if args.lint:
@@ -2115,7 +2114,6 @@ def args_to_api(args, parser):
             dag_api.execute_workflow(
                 executor=args.executor,
                 execution_settings=ExecutionSettings(
-                    workdir=args.directory,
                     cache=args.cache,
                     keep_going=args.keep_going,
                     debug=args.debug,
@@ -2163,8 +2161,7 @@ def args_to_api(args, parser):
             )
 
     except Exception as e:
-        linemaps = workflow_api.workflow.linemaps if workflow_api is not None else dict()
-        print_exception(e, linemaps)
+        snakemake_api.print_exception(e)
         return False
 
     # store profiler results if requested

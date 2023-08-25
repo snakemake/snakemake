@@ -7,7 +7,6 @@ import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake.logging import logger
 from snakemake_interface_executor_plugins.exceptions import WorkflowError
 
 
@@ -67,6 +66,8 @@ def format_traceback(tb, linemaps):
 
 
 def log_verbose_traceback(ex):
+    from snakemake.logging import logger
+
     tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     logger.debug(tb)
 
@@ -80,6 +81,8 @@ def print_exception(ex, linemaps):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
+    from snakemake.logging import logger
+
     log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(
