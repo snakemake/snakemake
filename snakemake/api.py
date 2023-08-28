@@ -13,14 +13,14 @@ from functools import partial
 import importlib
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
-from snakemake.dag import ChangeType
+from snakemake.settings import ChangeType
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, ConfigSettings, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
@@ -30,7 +30,7 @@ from snakemake.exceptions import (
     print_exception,
 )
 from snakemake.logging import setup_logger, logger
-from snakemake.io import load_configfile
+from snakemake.common.configfile import load_configfile
 from snakemake.shell import shell
 from snakemake.utils import update_config
 from snakemake.common import (
@@ -118,7 +118,7 @@ class SnakemakeApi(ApiBase):
     def _setup_logger(
         self,
         stdout: bool = False,
-        mode: ExecMode = ExecMode.default,
+        mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
     ):
         if not self.output_settings.keep_logger:
@@ -564,7 +564,7 @@ def snakemake(
     scheduler="ilp",
     scheduler_ilp_solver=None,
     conda_create_envs_only=False,
-    mode=ExecMode.default,
+    mode=ExecMode.DEFAULT,
     wrapper_prefix=None,
     kubernetes=None,
     container_image=None,

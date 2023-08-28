@@ -16,13 +16,6 @@ KERNEL_STARTED_RE = re.compile(r"Kernel started: (?P<kernel_id>\S+)")
 KERNEL_SHUTDOWN_RE = re.compile(r"Kernel shutdown: (?P<kernel_id>\S+)")
 
 
-class EditMode:
-    def __init__(self, server_addr=None, draft_only=False):
-        if server_addr is not None:
-            self.ip, self.port = server_addr.split(":")
-        self.draft_only = draft_only
-
-
 def get_cell_sources(source):
     import nbformat
 

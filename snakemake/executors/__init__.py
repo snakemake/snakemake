@@ -39,7 +39,7 @@ from snakemake_interface_executor_plugins.jobs import (
     GroupJobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.utils import sleep
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.shell import shell
 from snakemake.logging import logger
@@ -188,7 +188,7 @@ class CPUExecutor(RealExecutor):
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=self.workers)
 
     def get_exec_mode(self):
-        return ExecMode.subprocess
+        return ExecMode.SUBPROCESS
 
     @property
     def job_specific_local_groupid(self):

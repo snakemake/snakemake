@@ -5,27 +5,23 @@ __license__ = "MIT"
 
 from dataclasses import dataclass
 import sys
+from typing import Set
 
-from snakemake import logging, notebook
-from snakemake.api import SnakemakeApi, resolve_snakefile, snakemake
+from snakemake import logging
+from snakemake.api import SnakemakeApi, resolve_snakefile
 
 import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
-import logging as _logging
 from pathlib import Path
 import re
-import threading
-import webbrowser
-from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import All, ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
+from snakemake.settings import All, ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, NotebookEditMode, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
 
-from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode, lazy_property, format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.settings import ExecMode, format_cli_arg, join_cli_args
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
-from snakemake.target_jobs import parse_target_jobs_cli_args
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import (
@@ -33,7 +29,6 @@ from snakemake.exceptions import (
     ResourceScopesException,
     print_exception,
 )
-from snakemake.io import wait_for_files
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     RERUN_TRIGGERS,
@@ -607,7 +602,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         choices=RerunTrigger.choices(),
         default=RerunTrigger.all(),
-        type=RerunTrigger.parse_choices,
+        type=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
@@ -1668,7 +1663,7 @@ def get_argument_parser(profiles=None):
         "--software-deployment-method",
         "--deployment",
         choices=DeploymentMethod.choices(),
-        type=DeploymentMethod.parse_choices,
+        type=DeploymentMethod.parse_choices_set,
         help="Specify software environment deployment method."
     )
     group_deployment.add_argument(
@@ -1823,9 +1818,9 @@ def parse_args(argv):
     if args.profile == "none":
         args.profile = None
 
-    if (args.profile or workflow_profile) and args.mode == ExecMode.default:
+    if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
         # Reparse args while inferring config file from profile.
-        # But only do this if the user has invoked Snakemake (ExecMode.default)
+        # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
         profiles = []
         if args.profile:
             profiles.append(args.profile)
@@ -1866,12 +1861,12 @@ def parse_args(argv):
     return parser, args
 
 
-def parse_quietness(quietness):
+def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
         quietness = [Quietness.progress, Quietness.rules]
     else:
-        quietness = Quietness.parse_choices()
+        quietness = Quietness.parse_choices_set()
     return quietness
 
 
@@ -1918,15 +1913,17 @@ def parse_edit_notebook(args):
     if args.draft_notebook:
 
         args.target = [args.draft_notebook]
-        edit_notebook = notebook.EditMode(draft_only=True)
+        edit_notebook = NotebookEditMode(draft_only=True)
     elif args.edit_notebook:
         args.target = [args.edit_notebook]
         args.force = True
-        edit_notebook = notebook.EditMode(args.notebook_listen)
+        edit_notebook = NotebookEditMode(args.notebook_listen)
     return edit_notebook
 
 
 def parse_wait_for_files(args):
+    from snakemake.io import wait_for_files
+
     aggregated_wait_for_files = args.wait_for_files
     if args.wait_for_files_file is not None:
         wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)

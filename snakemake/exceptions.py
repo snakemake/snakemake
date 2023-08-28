@@ -7,7 +7,7 @@ import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake_interface_executor_plugins.exceptions import WorkflowError
+from snakemake_interface_common.exceptions import WorkflowError
 
 
 def format_error(
@@ -151,10 +151,6 @@ def print_exception(ex, linemaps):
         logger.info("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
-
-
-class ApiError(Exception):
-    pass
 
 
 class SourceFileError(WorkflowError):

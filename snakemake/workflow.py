@@ -17,9 +17,10 @@ from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
-from snakemake_interface_executor_plugins.utils import ExecMode, lazy_property
+from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry.plugin import Plugin as ExecutorPlugin
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.cli import SpawnedJobArgsFactory
 
 from snakemake.logging import logger, format_resources
@@ -821,7 +822,7 @@ class Workflow(WorkflowExecutorInterface):
             lock_warn_only=self.dryrun,
         )
 
-        if self.execution_settings.mode in [ExecMode.subprocess, ExecMode.remote]:
+        if self.execution_settings.mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
             self.persistence.deactivate_cache()
 
         self._build_dag()
@@ -891,7 +892,7 @@ class Workflow(WorkflowExecutorInterface):
                     ):
                         logger.info("Singularity containers: ignored")
 
-                    if self.execution_settings.mode == ExecMode.default:
+                    if self.execution_settings.mode == ExecMode.DEFAULT:
                         logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -948,7 +949,7 @@ class Workflow(WorkflowExecutorInterface):
             if (
                 not self.remote_execution_settings.immediate_submit and
                 not self.dryrun and
-                self.execution_settings.mode == ExecMode.default
+                self.execution_settings.mode == ExecMode.DEFAULT
             ):
                 self.dag.cleanup_workdir()
 
@@ -1145,10 +1146,11 @@ class Workflow(WorkflowExecutorInterface):
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""
+        from snakemake.common.configfile import load_configfile
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
-                c = snakemake.io.load_configfile(fp)
+                c = load_configfile(fp)
                 update_config(self.config, c)
                 if self.config_settings.overwrite_config:
                     logger.info(

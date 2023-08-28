@@ -14,7 +14,7 @@ from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 
 def cwl(
@@ -211,7 +211,7 @@ def dag_to_cwl(dag):
             "--no-hooks",
             "--nolock",
             "--mode",
-            str(ExecMode.subprocess),
+            str(ExecMode.SUBPROCESS),
         ],
         "inputs": {
             "snakefile": {

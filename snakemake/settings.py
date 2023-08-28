@@ -1,29 +1,22 @@
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import importlib
 from pathlib import Path
-from typing import Dict, List, Optional, Self, Set, Type
-from snakemake import notebook
-from snakemake.rules import Rule
+from typing import Dict, List, Optional, Set
 
-from snakemake_interface_executor_plugins.utils import ExecMode
 from snakemake_interface_executor_plugins.settings import (
     RemoteExecutionSettingsExecutorInterface,
-    ConfigSettingsExecutorInterface,
     DeploymentSettingsExecutorInterface,
     ExecutionSettingsExecutorInterface,
-    OutputSettingsExecutorInterface,
-    ResourceSettingsExecutorInterface,
     StorageSettingsExecutorInterface,
-    SettingsEnumBase,
     DeploymentMethod,
+    ExecMode,
 )
+from snakemake_interface_common.settings import SettingsEnumBase
 
-from snakemake.common import RERUN_TRIGGERS, RerunTrigger, dict_to_key_value_args
-from snakemake.dag import Batch
-from snakemake.exceptions import ApiError
-from snakemake.io import load_configfile
+from snakemake.common import dict_to_key_value_args
+from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
@@ -50,6 +43,14 @@ class SettingsBase(ABC):
     def _check(self):
         pass
 
+
+class NotebookEditMode:
+    def __init__(self, server_addr: Optional[str]=None, draft_only: bool=False):
+        if server_addr is not None:
+            self.ip, self.port = server_addr.split(":")
+        self.draft_only = draft_only
+
+
 @dataclass
 class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     """
@@ -67,6 +68,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     local_cores:
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
     """
+    latency_wait: int = 3
     cache: Optional[List[str]] = None
     keep_going: bool = False
     debug: bool = False
@@ -74,7 +76,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     ignore_ambiguity: bool = False
     lock: bool = True
     ignore_incomplete: bool = False
-    latency_wait: 3
     wait_for_files: Optional[List[str]] = None
     notemp: bool = False
     all_temp: bool = False
@@ -85,27 +86,80 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     attempt: int = 1
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
-    mode: ExecMode = ExecMode.default
+    mode: ExecMode = ExecMode.DEFAULT
     wrapper_prefix: Optional[str] = None
     keep_incomplete: bool = False
     keep_metadata: bool = True
     max_inventory_wait_time: int = 20
-    edit_notebook: Optional[notebook.EditMode] = None
+    edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
-    cleanup_metadata: List[Path] = []
+    cleanup_metadata: List[Path] = field(default_factory=list)
+
+
+class Batch:
+    """Definition of a batch for calculating only a partial DAG."""
+
+    def __init__(self, rulename: str, idx: int, batches: int):
+        assert idx <= batches
+        assert idx > 0
+        self.rulename = rulename
+        self.idx = idx
+        self.batches = batches
+
+    def get_batch(self, items: list):
+        """Return the defined batch of the given items.
+        Items are usually input files."""
+        # make sure that we always consider items in the same order
+        if len(items) < self.batches:
+            raise WorkflowError(
+                "Batching rule {} has less input files than batches. "
+                "Please choose a smaller number of batches.".format(self.rulename)
+            )
+        items = sorted(items)
+
+        # we can equally split items using divmod:
+        # len(items) = (self.batches * quotient) + remainder
+        # Because remainder always < divisor (self.batches),
+        # each batch will be equal to quotient + (1 or 0 item)
+        # from the remainder
+        k, m = divmod(len(items), self.batches)
+
+        # self.batch is one-based, hence we have to subtract 1
+        idx = self.idx - 1
+
+        # First n batches will have k (quotient) items +
+        # one item from the remainder (m). Once we consume all items
+        # from the remainder, last batches only contain k items.
+        i = idx * k + min(idx, m)
+        batch_len = (idx + 1) * k + min(idx + 1, m)
+
+        if self.is_final:
+            # extend the last batch to cover rest of list
+            return items[i:]
+        else:
+            return items[i:batch_len]
+
+    @property
+    def is_final(self):
+        return self.idx == self.batches
+
+    def __str__(self):
+        return f"{self.idx}/{self.batches} (rule {self.rulename})"
+
+
 
 @dataclass
 class DAGSettings(SettingsBase):
     targets: Optional[List[str]] = None
-    target_jobs: Set(str) = set()
+    target_jobs: Set[str] = field(default_factory=set)
     batch: Batch = None
     forcetargets: bool = False
     forceall: bool = False
-    forcerun: List[str] = []
-    until: List[str] = []
-    omit_from: List[str] = []
+    forcerun: List[str] = field(default_factory=list)
+    until: List[str] = field(default_factory=list)
+    omit_from: List[str] = field(default_factory=list)
     force_incomplete: bool = False
-    allowed_rules: Set[str] = {}
+    allowed_rules: Set[str] = field(default_factory=set)
     rerun_triggers: Set[RerunTrigger]=RerunTrigger.all()
 
     def _check(self):
@@ -169,7 +223,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_base_path:
         Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
-    deployment_method: Set[DeploymentMethod] = set()
+    deployment_method: Set[DeploymentMethod] = field(default_factory=set)
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
@@ -216,16 +270,16 @@ class SchedulingSettings(SettingsBase):
             )
 
 @dataclass
-class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
+class ResourceSettings(SettingsBase):
     cores: Optional[int] = None
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Dict[str, int] = dict()
-    overwrite_threads: Dict[str, int] = dict()
-    overwrite_scatter: Dict[str, int] = dict()
-    overwrite_resource_scopes: Dict[str, str] = dict()
-    overwrite_resources: Dict[str, Dict[str, int]] = dict()
+    resources: Dict[str, int] = field(default_factory=dict)
+    overwrite_threads: Dict[str, int] = field(default_factory=dict)
+    overwrite_scatter: Dict[str, int] = field(default_factory=dict)
+    overwrite_resource_scopes: Dict[str, str] = field(default_factory=dict)
+    overwrite_resources: Dict[str, Dict[str, int]] = field(default_factory=dict)
     default_resources: DefaultResources = DefaultResources(mode="bare")
 
     def _check(self):
@@ -233,9 +287,9 @@ class ResourceSettings(SettingsBase, ResourceSettingsExecutorInterface):
             raise ApiError("You need to specify either --cores or --jobs.")
 
 @dataclass
-class ConfigSettings(SettingsBase, ConfigSettingsExecutorInterface):
-    config: Dict[str, str] = dict()
-    configfiles: Optional[List[Path]] = []
+class ConfigSettings(SettingsBase):
+    config: Dict[str, str] = field(default_factory=dict)
+    configfiles: List[Path] = field(default_factory=list)
     config_args: Optional[str] = None
 
     def __post_init__(self):
@@ -268,10 +322,10 @@ class Quietness(SettingsEnumBase):
  
 
 @dataclass
-class OutputSettings(SettingsBase, OutputSettingsExecutorInterface):
+class OutputSettings(SettingsBase):
     printshellcmds: bool = False
     nocolor: bool = False
-    quiet: Optional[Quietness] = None
+    quiet: Optional[Set[Quietness]] = None
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
@@ -304,6 +358,6 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
 
 @dataclass
 class GroupSettings(SettingsBase):
-    overwrite_groups: Dict[str, str] = dict()
-    group_components: Dict[str, int] = dict()
+    overwrite_groups: Dict[str, str] = field(default_factory=dict)
+    group_components: Dict[str, int] = field(default_factory=dict)
     local_groupid: str = "local"

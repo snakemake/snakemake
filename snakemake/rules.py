@@ -17,7 +17,7 @@ try:
 except ImportError:  # python < 3.11
     import sre_constants
 
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.io import (
     IOFile,
@@ -61,9 +61,10 @@ from snakemake.common import (
 )
 from snakemake.resources import infer_resources
 from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
+from snakemake_interface_common.rules import RuleInterface
 
 
-class Rule:
+class Rule(RuleInterface):
     def __init__(self, *args, lineno=None, snakefile=None, restart_times=0):
         """
         Create a rule
@@ -563,7 +564,7 @@ class Rule:
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.execution_settings.mode != ExecMode.subprocess
+                    and self.workflow.execution_settings.mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(
