@@ -235,9 +235,10 @@ def run(
                 overwrite_resource_scopes=(
                 ResourceScopes(overwrite_resource_scopes)
                     if overwrite_resource_scopes is not None
-                    else overwrite_resource_scopes
+                    else dict()
                 ),
             ),
+            storage_settings=settings.StorageSettings(),
             snakefile=Path(original_snakefile if no_tmpdir else snakefile),
             workdir=Path(path if no_tmpdir else tmpdir),
         )
@@ -258,7 +259,6 @@ def run(
                 remote_execution_settings=settings.RemoteExecutionSettings(
                     container_image=container_image,
                 ),
-                storage_settings=settings.StorageSettings(),
                 executor_settings=executor_settings,
             )
         except Exception as e:

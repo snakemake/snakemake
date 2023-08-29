@@ -74,7 +74,7 @@ class Rule(RuleInterface):
         """
         if len(args) == 2:
             name, workflow = args
-            self.name = name
+            self._name = name
             self.workflow = workflow
             self.docstring = None
             self.message = None
@@ -99,8 +99,8 @@ class Rule(RuleInterface):
             self.env_modules = None
             self.group = None
             self._wildcard_names = None
-            self.lineno = lineno
-            self.snakefile = snakefile
+            self._lineno = lineno
+            self._snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
             self.script = None
@@ -122,7 +122,7 @@ class Rule(RuleInterface):
             self.module_globals = None
         elif len(args) == 1:
             other = args[0]
-            self.name = other.name
+            self._name = other.name
             self.workflow = other.workflow
             self.docstring = other.docstring
             self.message = other.message
@@ -151,8 +151,8 @@ class Rule(RuleInterface):
                 if other._wildcard_names is not None
                 else None
             )
-            self.lineno = other.lineno
-            self.snakefile = other.snakefile
+            self._lineno = other.lineno
+            self._snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
@@ -266,6 +266,18 @@ class Rule(RuleInterface):
             branch._conda_env = branch.expand_conda_env(non_dynamic_wildcards)
             return branch, non_dynamic_wildcards
         return branch
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def lineno(self):
+        return self._lineno
+
+    @property
+    def snakefile(self):
+        return self._snakefile
 
     @property
     def is_shell(self):
@@ -572,7 +584,7 @@ class Rule(RuleInterface):
                         )
                     )
 
-            if self.workflow.execution_settings.all_temp and output:
+            if self.workflow.storage_settings.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
                 item = flag(item, "temp")
 

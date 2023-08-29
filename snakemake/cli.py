@@ -1305,12 +1305,6 @@ def get_argument_parser(profiles=None):
         help="Do not invoke onstart, onsuccess or onerror hooks after execution.",
     )
     group_behavior.add_argument(
-        "--overwrite-shellcmd",
-        help="Provide a shell command that shall be executed instead of those "
-        "given in the workflow. "
-        "This is for debugging purposes only.",
-    )
-    group_behavior.add_argument(
         "--debug",
         action="store_true",
         help="Allow to debug rules with e.g. PDB. This flag "
@@ -2011,6 +2005,14 @@ def args_to_api(args, parser):
                 overwrite_resources=args.set_resources,
                 default_resources=args.default_resources,
             ),
+            storage_settings=StorageSettings(
+                default_remote_provider=args.default_remote_provider,
+                default_remote_prefix=args.default_remote_prefix,
+                assume_shared_fs=args.assume_shared_fs,
+                keep_remote_local=args.keep_remote,
+                notemp=args.notemp,
+                all_temp=args.all_temp,
+            ),
             snakefile=args.snakefile,
             workdir=args.directory,
         )
@@ -2124,11 +2126,8 @@ def args_to_api(args, parser):
                     ignore_incomplete=args.ignore_incomplete,
                     latency_wait=args.latency_wait,
                     wait_for_files=wait_for_files,
-                    notemp=args.notemp,
-                    all_temp=args.all_temp,
                     keep_target_files=args.keep_target_files,
                     no_hooks=args.no_hooks,
-                    overwrite_shellcmd=args.overwrite_shellcmd,
                     restart_times=args.retries,
                     attempt=args.attempt,
                     use_threads=args.force_use_threads,
@@ -2151,12 +2150,6 @@ def args_to_api(args, parser):
                     preemptible_rules=preemptible_rules,
                     envvars=args.envvars,
                     immediate_submit=args.immediate_submit,
-                ),
-                storage_settings=StorageSettings(
-                    default_remote_provider=args.default_remote_provider,
-                    default_remote_prefix=args.default_remote_prefix,
-                    assume_shared_fs=args.assume_shared_fs,
-                    keep_remote_local=args.keep_remote,
                 ),
                 scheduling_settings=SchedulingSettings(
                     prioritytargets=args.prioritize,

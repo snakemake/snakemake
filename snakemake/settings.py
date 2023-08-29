@@ -90,11 +90,8 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     lock: bool = True
     ignore_incomplete: bool = False
     wait_for_files: Sequence[str] = tuple()
-    notemp: bool = False
-    all_temp: bool = False
     keep_target_files: bool = False
     no_hooks: bool = False
-    overwrite_shellcmd: Optional[str] = None
     retries: int = 0
     attempt: int = 1
     use_threads: bool = False
@@ -188,6 +185,8 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_remote_prefix: Optional[str] = None
     assume_shared_fs: bool = True
     keep_remote_local: bool = False
+    notemp: bool = False
+    all_temp: bool = False
 
     def __post_init__(self):
         self.default_remote_provider = self._get_default_remote_provider()

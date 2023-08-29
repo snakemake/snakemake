@@ -8,6 +8,7 @@ import re
 import os
 import sys
 from collections import OrderedDict
+from collections.abc import Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
@@ -98,9 +99,9 @@ from snakemake import api, sourcecache
 class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
+    storage_settings: StorageSettings = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
-    storage_settings: Optional[StorageSettings] = None
     deployment_settings: Optional[DeploymentSettings] = None
     scheduling_settings: Optional[SchedulingSettings] = None
     output_settings: Optional[OutputSettings] = None
@@ -108,14 +109,12 @@ class Workflow(WorkflowExecutorInterface):
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
     check_envvars: bool = True
+    cache_rules: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         """
         Create the controller.
         """
-
-        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
-
         self.global_resources = self.resource_settings.resources
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
@@ -168,25 +167,9 @@ class Workflow(WorkflowExecutorInterface):
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
 
         self.enable_cache = False
-        if self.execution_settings.cache is not None:
-            self.enable_cache = True
-            self.cache_rules = {rulename: "all" for rulename in self.execution_settings.cache}
-            if self.storage_settings.default_remote_provider is not None:
-                self._output_file_cache = RemoteOutputFileCache(
-                    self.storage_settings.default_remote_provider
-                )
-            else:
-                self._output_file_cache = LocalOutputFileCache()
-        else:
-            self._output_file_cache = None
-            self.cache_rules = dict()
-
-        self.iocache = snakemake.io.IOCache(self.execution_settings.max_inventory_wait_time)
+        self._output_file_cache = None
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
-
-        if self.remote_execution_settings.envvars:
-            self.register_envvars(*self.remote_execution_settings.envvars)
 
     @property
     def executor_plugin(self):
@@ -800,6 +783,23 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]]=None,
     ):
+        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
+
+        if self.execution_settings.cache is not None:
+            self.enable_cache = True
+            self.cache_rules = {rulename: "all" for rulename in self.execution_settings.cache}
+            if self.storage_settings.default_remote_provider is not None:
+                self._output_file_cache = RemoteOutputFileCache(
+                    self.storage_settings.default_remote_provider
+                )
+            else:
+                self._output_file_cache = LocalOutputFileCache()
+        
+        self.iocache = snakemake.io.IOCache(self.execution_settings.max_inventory_wait_time)
+
+        if self.remote_execution_settings.envvars:
+            self.register_envvars(*self.remote_execution_settings.envvars)
+
         self._executor_plugin = executor_plugin
         self.executor_settings = executor_settings
         self._create_dag()
@@ -1069,7 +1069,6 @@ class Workflow(WorkflowExecutorInterface):
         code, linemap, rulecount = parse(
             snakefile,
             self,
-            overwrite_shellcmd=self.execution_settings.overwrite_shellcmd,
             rulecount=self._rulecount,
         )
         self._rulecount = rulecount

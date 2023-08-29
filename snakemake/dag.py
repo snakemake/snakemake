@@ -657,7 +657,7 @@ class DAG(DAGExecutorInterface):
 
     def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
-        if self.workflow.execution_settings.notemp:
+        if self.workflow.storage_settings.notemp:
             return
 
         if job.is_group():

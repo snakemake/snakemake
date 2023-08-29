@@ -74,7 +74,7 @@ class SnakemakeApi(ApiBase):
     output_settings: OutputSettings
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
 
-    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, snakefile: Optional[Path] = None, workdir: Optional[Path] = None):
+    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, storage_settings: StorageSettings, snakefile: Optional[Path] = None, workdir: Optional[Path] = None):
         """Create the workflow API.
 
         Note that if provided, this also changes to the provided workdir.
@@ -84,6 +84,7 @@ class SnakemakeApi(ApiBase):
         ---------
         config_settings: ConfigSettings -- The config settings for the workflow.
         resource_settings: ResourceSettings -- The resource settings for the workflow.
+        storage_settings: StorageSettings -- The storage settings for the workflow.
         snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
@@ -96,7 +97,8 @@ class SnakemakeApi(ApiBase):
             snakefile=snakefile, 
             workdir=workdir, 
             config_settings=config_settings, 
-            resource_settings=resource_settings
+            resource_settings=resource_settings,
+            storage_settings=storage_settings,
         )
         return self._workflow_api
 
@@ -153,6 +155,7 @@ class WorkflowApi(ApiBase):
     workdir: Optional[Path]
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
+    storage_settings: StorageSettings
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
@@ -178,7 +181,7 @@ class WorkflowApi(ApiBase):
         """
         from snakemake.workflow import Workflow
 
-        workflow = Workflow(self.config_settings, self.resource_settings, check_envvars=False)
+        workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings, check_envvars=False)
         workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
         workflow.check()
         workflow.lint(json=json)
@@ -209,7 +212,7 @@ class WorkflowApi(ApiBase):
         """Print the pure python compilation of the workflow."""
         from snakemake.workflow import Workflow
 
-        workflow = Workflow(self.config_settings, self.resource_settings)
+        workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings)
         workflow.include(self.snakefile, print_compilation=True)
 
     @property
@@ -217,7 +220,7 @@ class WorkflowApi(ApiBase):
         if self._workflow_store is None:
             from snakemake.workflow import Workflow
 
-            workflow = Workflow(self.config_settings, self.resource_settings)
+            workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings)
             workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
             workflow.check()
             self._workflow_store = workflow
@@ -261,7 +264,6 @@ class DAGApi(ApiBase):
         executor: str,
         execution_settings: ExecutionSettings,
         remote_execution_settings: RemoteExecutionSettings,
-        storage_settings: StorageSettings,
         scheduling_settings: SchedulingSettings,
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
@@ -275,12 +277,11 @@ class DAGApi(ApiBase):
         resource_settings: ResourceSettings -- The resource settings for the workflow.
         deployment_settings: DeploymentSettings -- The deployment settings for the workflow.
         remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
-        storage_settings: StorageSettings -- The storage settings for the workflow.
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
 
-        if remote_execution_settings.immediate_submit and not execution_settings.notemp:
+        if remote_execution_settings.immediate_submit and not self._workflow_api.storage_settings.notemp:
             raise ApiError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
 
         executor_plugin_registry = ExecutorPluginRegistry()
@@ -325,7 +326,6 @@ class DAGApi(ApiBase):
 
         workflow = self.workflow_api._workflow
         workflow.execution_settings = execution_settings
-        workflow.storage_settings = storage_settings
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
 
