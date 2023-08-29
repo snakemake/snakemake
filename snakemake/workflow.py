@@ -107,11 +107,9 @@ class Workflow(WorkflowExecutorInterface):
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
+    check_envvars: bool = True
 
-    def __init__(
-        self,
-        check_envvars=True,
-    ):
+    def __post_init__(self):
         """
         Create the controller.
         """
@@ -150,7 +148,6 @@ class Workflow(WorkflowExecutorInterface):
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self.modules = dict()
         self._sourcecache = SourceCache()
-        self.check_envvars = check_envvars
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
@@ -208,7 +205,7 @@ class Workflow(WorkflowExecutorInterface):
         )
 
     @lazy_property
-    def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
+    def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
         from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
         return SpawnedJobArgsFactory(self)

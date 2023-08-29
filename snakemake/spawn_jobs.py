@@ -1,13 +1,20 @@
 from dataclasses import dataclass
 import os
 import sys
+from typing import TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 
-from snakemake.workflow import Workflow
+if TYPE_CHECKING:
+    from snakemake.workflow import Workflow
+    TWorkflow = TypeVar("TWorkflow", bound="Workflow")
+else:
+    TWorkflow = Any
+
+
 
 @dataclass
 class SpawnedJobArgsFactory:
-    workflow: Workflow
+    workflow: TWorkflow
 
     def get_default_remote_provider_args(self):
         return join_cli_args(

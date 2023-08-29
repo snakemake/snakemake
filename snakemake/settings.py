@@ -26,6 +26,13 @@ from snakemake.exceptions import WorkflowError
 
 
 frozendict = lambda: MappingProxyType(dict())
+
+class frozendict(dict):
+    def __init__(self):
+        super().__init__(dict())
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
     
 
 class RerunTrigger(SettingsEnumBase):

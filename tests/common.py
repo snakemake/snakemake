@@ -247,7 +247,6 @@ def run(
                 targets=targets,
             ),
             deployment_settings=settings.DeploymentSettings(
-                container_image=container_image,
                 conda_frontend=conda_frontend,
             ),
         )
@@ -256,7 +255,9 @@ def run(
             dag_api.execute_workflow(
                 executor=executor,
                 execution_settings=settings.ExecutionSettings(),
-                remote_execution_settings=settings.RemoteExecutionSettings(),
+                remote_execution_settings=settings.RemoteExecutionSettings(
+                    container_image=container_image,
+                ),
                 storage_settings=settings.StorageSettings(),
                 executor_settings=executor_settings,
             )
