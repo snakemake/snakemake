@@ -13,7 +13,7 @@ from functools import partial
 import copy
 from pathlib import Path
 from typing import List, Optional, Set
-from snakemake.settings import DeploymentMethod
+from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, GroupSettings, OutputSettings, RemoteExecutionSettings, RerunTrigger, ResourceSettings, SchedulingSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
@@ -21,7 +21,6 @@ from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry.plugin import Plugin as ExecutorPlugin
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake.cli import SpawnedJobArgsFactory
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -72,7 +71,6 @@ from snakemake_interface_executor_plugins.utils import not_iterable
 import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
-    RerunTrigger,
     is_local_file,
     Rules,
     Scatter,
@@ -98,16 +96,16 @@ from snakemake import api, sourcecache
 
 @dataclass
 class Workflow(WorkflowExecutorInterface):
-    config_settings: api.ConfigSettings
-    resource_settings: api.ResourceSettings
-    dag_settings: Optional[api.DAGSettings] = None
-    execution_settings: Optional[api.ExecutionSettings] = None
-    storage_settings: Optional[api.StorageSettings] = None
-    deployment_settings: Optional[api.DeploymentSettings] = None
-    scheduling_settings: Optional[api.SchedulingSettings] = None
-    output_settings: Optional[api.OutputSettings] = None
-    remote_execution_settings: Optional[api.RemoteExecutionSettings] = None
-    group_settings: Optional[api.GroupSettings] = None
+    config_settings: ConfigSettings
+    resource_settings: ResourceSettings
+    dag_settings: Optional[DAGSettings] = None
+    execution_settings: Optional[ExecutionSettings] = None
+    storage_settings: Optional[StorageSettings] = None
+    deployment_settings: Optional[DeploymentSettings] = None
+    scheduling_settings: Optional[SchedulingSettings] = None
+    output_settings: Optional[OutputSettings] = None
+    remote_execution_settings: Optional[RemoteExecutionSettings] = None
+    group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
 
     def __init__(
@@ -190,7 +188,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
-        if self.remote_execution_settings.envvars is not None:
+        if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
 
     @property
@@ -211,6 +209,8 @@ class Workflow(WorkflowExecutorInterface):
 
     @lazy_property
     def spawend_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
+        from snakemake.spawn_jobs import SpawnedJobArgsFactory
+
         return SpawnedJobArgsFactory(self)
 
     @property
@@ -486,7 +486,7 @@ class Workflow(WorkflowExecutorInterface):
                 [self.default_target] if self.default_target is not None else list()
             )
 
-        prioritytargets = []
+        prioritytargets = set()
         if self.scheduling_settings is not None:
             prioritytargets = self.scheduling_settings.prioritytargets
 
@@ -807,7 +807,7 @@ class Workflow(WorkflowExecutorInterface):
         self.executor_settings = executor_settings
         self._create_dag()
 
-        if self.execution_settings.wait_for_files is not None:
+        if self.execution_settings.wait_for_files:
             try:
                 snakemake.io.wait_for_files(
                     self.execution_settings.wait_for_files, latency_wait=self.execution_settings.latency_wait

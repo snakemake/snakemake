@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -16,8 +17,8 @@ class WorkdirHandler:
             if not self.workdir.exists():
                 logger.info(f"Creating specified working directory {self.workdir}.")
                 self.workdir.mkdir(parents=True)
-            self.workdir.chdir()
+            os.chdir(self.workdir)
 
     def change_back(self):
         if self.workdir is not None:
-            self.olddir.chdir()
+            os.chdir(self.olddir)

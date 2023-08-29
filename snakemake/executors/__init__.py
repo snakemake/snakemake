@@ -31,7 +31,6 @@ from snakemake_interface_executor_plugins.executors.real import RealExecutor
 from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
 from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
     ExecutorJobInterface,
@@ -43,9 +42,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.shell import shell
 from snakemake.logging import logger
-from snakemake.stats import Stats
 from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.exceptions import print_exception, get_exception_origin
 from snakemake.exceptions import format_error, RuleException, log_verbose_traceback
 from snakemake.exceptions import (
@@ -106,13 +103,11 @@ class TouchExecutor(RealExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
     ):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             executor_settings=None,
             pass_envvar_declarations_to_cmd=False,
@@ -164,7 +159,6 @@ class CPUExecutor(RealExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         cores: int,
         use_threads=False,
@@ -172,7 +166,6 @@ class CPUExecutor(RealExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             executor_settings=None,
             job_core_limit=cores,
@@ -395,7 +388,6 @@ class GenericClusterExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         submitcmd="qsub",
         statuscmd=None,
@@ -424,7 +416,6 @@ class GenericClusterExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,
@@ -770,7 +761,6 @@ class SynchronousClusterExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         submitcmd="qsub",
         jobname="snakejob.{rulename}.{jobid}.sh",
@@ -778,7 +768,6 @@ class SynchronousClusterExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,
@@ -874,7 +863,6 @@ class DRMAAExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         jobname="snakejob.{rulename}.{jobid}.sh",
         drmaa_args="",
@@ -884,7 +872,6 @@ class DRMAAExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,
@@ -1070,7 +1057,6 @@ class KubernetesExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         namespace,
         container_image=None,
@@ -1083,7 +1069,6 @@ class KubernetesExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,
@@ -1528,7 +1513,6 @@ class TibannaExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         tibanna_sfn,
         precommand="",
@@ -1539,7 +1523,6 @@ class TibannaExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             max_status_checks_per_second=max_status_checks_per_second,

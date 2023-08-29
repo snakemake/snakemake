@@ -20,10 +20,8 @@ import subprocess
 import tarfile
 from snakemake import api, settings
 
-from snakemake.api import snakemake
-from snakemake.shell import shell
 from snakemake.common import ON_WINDOWS
-from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
+from snakemake.resources import ResourceScopes
 
 
 def dpath(path):
@@ -240,7 +238,7 @@ def run(
                     else overwrite_resource_scopes
                 ),
             ),
-            snakefile=original_snakefile if no_tmpdir else snakefile,
+            snakefile=Path(original_snakefile if no_tmpdir else snakefile),
             workdir=Path(path if no_tmpdir else tmpdir),
         )
 

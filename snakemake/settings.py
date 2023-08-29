@@ -3,8 +3,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 import importlib
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from types import MappingProxyType
+from typing import Optional
+from collections.abc import Mapping, Sequence, Set
 
+from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_executor_plugins.settings import (
     RemoteExecutionSettingsExecutorInterface,
     DeploymentSettingsExecutorInterface,
@@ -20,6 +23,9 @@ from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
+
+
+frozendict = lambda: MappingProxyType(dict())
     
 
 class RerunTrigger(SettingsEnumBase):
@@ -69,14 +75,14 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
     """
     latency_wait: int = 3
-    cache: Optional[List[str]] = None
+    cache: Optional[Sequence[str]] = None
     keep_going: bool = False
     debug: bool = False
     standalone: bool = False
     ignore_ambiguity: bool = False
     lock: bool = True
     ignore_incomplete: bool = False
-    wait_for_files: Optional[List[str]] = None
+    wait_for_files: Sequence[str] = tuple()
     notemp: bool = False
     all_temp: bool = False
     keep_target_files: bool = False
@@ -93,7 +99,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     max_inventory_wait_time: int = 20
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
-    cleanup_metadata: List[Path] = field(default_factory=list)
+    cleanup_metadata: Sequence[Path] = tuple()
 
 
 class Batch:
@@ -150,17 +156,17 @@ class Batch:
 
 @dataclass
 class DAGSettings(SettingsBase):
-    targets: Optional[List[str]] = None
-    target_jobs: Set[str] = field(default_factory=set)
+    targets: Set[str] = frozenset()
+    target_jobs: Set[str] = frozenset()
     batch: Batch = None
     forcetargets: bool = False
     forceall: bool = False
-    forcerun: List[str] = field(default_factory=list)
-    until: List[str] = field(default_factory=list)
-    omit_from: List[str] = field(default_factory=list)
+    forcerun: Set[str] = frozenset()
+    until: Set[str] = frozenset()
+    omit_from: Set[str] = frozenset()
     force_incomplete: bool = False
-    allowed_rules: Set[str] = field(default_factory=set)
-    rerun_triggers: Set[RerunTrigger]=RerunTrigger.all()
+    allowed_rules: Set[str] = frozenset()
+    rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
 
     def _check(self):
         if self.batch is not None and self.forceall:
@@ -223,7 +229,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_base_path:
         Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
-    deployment_method: Set[DeploymentMethod] = field(default_factory=set)
+    deployment_method: Set[DeploymentMethod] = frozenset()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
     conda_base_path: Optional[Path] = None
@@ -247,7 +253,7 @@ class SchedulingSettings(SettingsBase):
     greediness:
         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
     """
-    prioritytargets: Optional[List[str]] = None
+    prioritytargets: Set[str] = frozenset()
     scheduler: str = "ilp"
     ilp_solver: Optional[str] = None
     solver_path: Optional[Path] = None
@@ -275,11 +281,11 @@ class ResourceSettings(SettingsBase):
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Dict[str, int] = field(default_factory=dict)
-    overwrite_threads: Dict[str, int] = field(default_factory=dict)
-    overwrite_scatter: Dict[str, int] = field(default_factory=dict)
-    overwrite_resource_scopes: Dict[str, str] = field(default_factory=dict)
-    overwrite_resources: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    resources: Mapping[str, int] = frozendict()
+    overwrite_threads: Mapping[str, int] = frozendict()
+    overwrite_scatter: Mapping[str, int] = frozendict()
+    overwrite_resource_scopes: Mapping[str, str] = frozendict()
+    overwrite_resources: Mapping[str, Mapping[str, int]] = frozendict()
     default_resources: DefaultResources = DefaultResources(mode="bare")
 
     def _check(self):
@@ -288,8 +294,8 @@ class ResourceSettings(SettingsBase):
 
 @dataclass
 class ConfigSettings(SettingsBase):
-    config: Dict[str, str] = field(default_factory=dict)
-    configfiles: List[Path] = field(default_factory=list)
+    config: Mapping[str, str] = frozendict()
+    configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
 
     def __post_init__(self):
@@ -329,7 +335,7 @@ class OutputSettings(SettingsBase):
     debug_dag: bool = False
     verbose: bool = False
     show_failed_logs: bool = False
-    log_handlers: List[object] = None
+    log_handlers: Sequence[object] = tuple()
     keep_logger: bool = False
 
 
@@ -353,11 +359,12 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     container_image: Optional[str] = None
     preemptible_retries: Optional[int] = None
     preemptible_rules: Optional[PreemptibleRules] = None
-    envvars: Optional[List[str]] = None
+    envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
+
 
 @dataclass
 class GroupSettings(SettingsBase):
-    overwrite_groups: Dict[str, str] = field(default_factory=dict)
-    group_components: Dict[str, int] = field(default_factory=dict)
+    overwrite_groups: Mapping[str, str] = frozendict()
+    group_components: Mapping[str, int] = frozendict()
     local_groupid: str = "local"

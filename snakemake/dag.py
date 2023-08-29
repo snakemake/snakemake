@@ -23,7 +23,8 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, RerunTrigger, group_into_chunks, is_local_file
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
+from snakemake.settings import RerunTrigger
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,

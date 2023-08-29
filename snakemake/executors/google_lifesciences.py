@@ -19,7 +19,6 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
-from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
 from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 
 from snakemake.logging import logger
@@ -63,7 +62,6 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
         container_image=None,
@@ -80,7 +78,6 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,

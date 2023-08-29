@@ -17,9 +17,9 @@ from pathlib import Path
 import re
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import All, ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, NotebookEditMode, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, StorageSettings
+from snakemake.settings import ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, NotebookEditMode, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, SchedulingSettings, StorageSettings
 
-from snakemake_interface_executor_plugins.settings import ExecMode, format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake.workflow import Workflow
@@ -27,18 +27,16 @@ from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
-    print_exception,
 )
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
-    RERUN_TRIGGERS,
-    RerunTrigger,
+    SNAKEFILE_CHOICES,
     __version__,
-    MIN_PY_VERSION,
     get_appdirs,
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
+from snakemake.settings import RerunTrigger
 
 
 def parse_set_threads(args):
@@ -289,9 +287,10 @@ def get_argument_parser(profiles=None):
     group_exec = parser.add_argument_group("EXECUTION")
 
     group_exec.add_argument(
-        "target",
+        "targets",
         nargs="*",
         default=None,
+        type=set,
         help="Targets to build. May be rules or files.",
     )
 
@@ -365,6 +364,7 @@ def get_argument_parser(profiles=None):
         "--snakefile",
         "-s",
         metavar="FILE",
+        type=Path,
         help=(
             "The workflow definition in form of a snakefile."
             "Usually, you should not need to specify this. "
@@ -562,6 +562,7 @@ def get_argument_parser(profiles=None):
         "--envvars",
         nargs="+",
         metavar="VARNAME",
+        type=set,
         help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
@@ -650,9 +651,10 @@ def get_argument_parser(profiles=None):
         "-P",
         nargs="+",
         metavar="TARGET",
+        type=set,
         help=(
             "Tell the scheduler to assign creation of given targets "
-            "(and all their dependencies) highest priority. (EXPERIMENTAL)"
+            "(and all their dependencies) highest priority."
         ),
     )
     group_exec.add_argument(
@@ -1155,6 +1157,7 @@ def get_argument_parser(profiles=None):
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
+        type=set,
         help="Wait --latency-wait seconds for these "
         "files to be present before executing the workflow. "
         "This option is used internally to handle filesystem latency in cluster "
@@ -1287,6 +1290,7 @@ def get_argument_parser(profiles=None):
         "know what you are doing.",
     )
     group_behavior.add_argument(
+        "--scheduler-greediness",
         "--greediness",
         type=float,
         default=None,
@@ -1912,10 +1916,10 @@ def parse_edit_notebook(args):
     edit_notebook = None
     if args.draft_notebook:
 
-        args.target = [args.draft_notebook]
+        args.targets = {args.draft_notebook}
         edit_notebook = NotebookEditMode(draft_only=True)
     elif args.edit_notebook:
-        args.target = [args.edit_notebook]
+        args.targets = {args.edit_notebook}
         args.force = True
         edit_notebook = NotebookEditMode(args.notebook_listen)
     return edit_notebook
@@ -1934,7 +1938,7 @@ def parse_wait_for_files(args):
         if aggregated_wait_for_files is None:
             aggregated_wait_for_files = extra_wait_files
         else:
-            aggregated_wait_for_files.extend(extra_wait_files)
+            aggregated_wait_for_files.update(extra_wait_files)
     return aggregated_wait_for_files
 
 
@@ -2154,6 +2158,14 @@ def args_to_api(args, parser):
                     assume_shared_fs=args.assume_shared_fs,
                     keep_remote_local=args.keep_remote,
                 ),
+                scheduling_settings=SchedulingSettings(
+                    prioritytargets=args.prioritize,
+                    scheduler=args.scheduler,
+                    ilp_solver=args.scheduler_ilp_solver,
+                    solver_path=args.scheduler_solver_path,
+                    greediness=args.scheduler_greediness,
+                    max_jobs_per_second=args.max_jobs_per_second,
+                ),
                 executor_settings=executor_settings,
             )
 
@@ -2224,118 +2236,3 @@ def bash_completion(snakefile="Snakefile"):
         if len(candidates) > 0:
             print_candidates(candidates)
     sys.exit(0)
-
-
-@dataclass
-class SpawnedJobArgsFactory:
-    workflow: Workflow
-
-    def get_default_remote_provider_args(self):
-        return join_cli_args(
-            [
-                format_cli_arg("--default-remote-prefix", self.workflow.storage_settings.default_remote_prefix),
-                format_cli_arg("--default-remote-provider", self.workflow.storage_settings.default_remote_provider.name),
-            ]
-        )
-
-    def get_set_resources_args(self):
-        return format_cli_arg(
-            "--set-resources",
-            [
-                f"{rule}:{name}={value}"
-                for rule, res in self.workflow.resource_settings.overwrite_resources.items()
-                for name, value in res.items()
-            ],
-            skip=not self.workflow.resource_settings.overwrite_resources,
-        )
-
-    def get_resource_scopes_args(self):
-        return format_cli_arg(
-            "--set-resource-scopes", self.workflow.overwrite_resource_scopes
-        )
-
-    def workflow_property_to_arg(
-        self, property, flag=None, quote=True, skip=False, invert=False, attr=None
-    ):
-        if skip:
-            return ""
-
-        # Get the value of the property. If property is nested, follow the hierarchy until
-        # reaching the final value.
-        query = property.split(".")
-        base = self.workflow
-        for prop in query[:-1]:
-            base = getattr(base, prop)
-        value = getattr(base, query[-1])
-
-        if value is not None and attr is not None:
-            value = getattr(value, attr)
-
-        if flag is None:
-            flag = f"--{property.replace('_', '-')}"
-
-        if invert and isinstance(value, bool):
-            value = not value
-
-        return format_cli_arg(flag, value, quote=quote)
-
-    def general_args(
-            self,
-            pass_default_remote_provider_args: bool=True, 
-            pass_default_resources_args: bool=False
-        ):
-        """Return a string to add to self.exec_job that includes additional
-        arguments from the command line. This is currently used in the
-        ClusterExecutor and CPUExecutor, as both were using the same
-        code. Both have base class of the RealExecutor.
-        """
-        w2a = self.workflow_property_to_arg
-
-        args = [
-                "--force",
-                "--keep-target-files",
-                "--keep-remote",
-                "--max-inventory-time 0",
-                "--nocolor",
-                "--notemp",
-                "--no-hooks",
-                "--nolock",
-                "--ignore-incomplete",
-                w2a("execution_settings.keep_incomplete"),
-                w2a("rerun_triggers"),
-                w2a("execution_settings.cleanup_scripts", flag="--skip-script-cleanup"),
-                w2a("execution_settings.shadow_prefix"),
-                w2a("deployment_settings.deployment_method"),
-                w2a("deployment_settings.conda_frontend"),
-                w2a("deployment_settings.conda_prefix"),
-                w2a("conda_base_path", skip=not self.assume_shared_fs),
-                w2a("deployment_settings.use_singularity"),
-                w2a("deployment_settings.apptainer_prefix"),
-                w2a("deployment_settings.apptainer_args"),
-                w2a("execution_settings.execute_subworkflows", flag="--no-subworkflows", invert=True),
-                w2a("resource_settings.max_threads"),
-                w2a("deployment_settings.use_env_modules", flag="--use-envmodules"),
-                w2a("execution_settings.keep_metadata", flag="--drop-metadata", invert=True),
-                w2a("execution_settings.wrapper_prefix"),
-                w2a("resource_settings.overwrite_threads", flag="--set-threads"),
-                w2a("overwrite_scatter", flag="--set-scatter"),
-                w2a("deployment_settings.conda_not_block_search_path_envvars"),
-                w2a("overwrite_configfiles", flag="--configfiles"),
-                w2a("config_settings.config_args", flag="--config"),
-                w2a("output_settings.printshellcmds"),
-                w2a("latency_wait"),
-                w2a("scheduler_settings.scheduler_type", flag="--scheduler"),
-                format_cli_arg(
-                    "--scheduler-solver-path",
-                    os.path.dirname(sys.executable),
-                    skip=not self.workflow.storage_settings.assume_shared_fs,
-                ),
-                self.get_set_resources_args(),
-                self.get_resource_scopes_args(),
-            ]
-        if pass_default_remote_provider_args:
-            args.append(self.get_default_remote_provider_args())
-        if pass_default_resources_args:
-            args.append(w2a("resource_settings.default_resources", attr="args"))
-
-        return join_cli_args(args)
