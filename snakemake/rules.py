@@ -65,7 +65,7 @@ from snakemake_interface_common.rules import RuleInterface
 
 
 class Rule(RuleInterface):
-    def __init__(self, *args, lineno=None, snakefile=None, restart_times=0):
+    def __init__(self, *args, lineno=None, snakefile=None):
         """
         Create a rule
 
@@ -97,7 +97,7 @@ class Rule(RuleInterface):
             self._container_img = None
             self.is_containerized = False
             self.env_modules = None
-            self.group = None
+            self._group = None
             self._wildcard_names = None
             self._lineno = lineno
             self._snakefile = snakefile
@@ -112,7 +112,7 @@ class Rule(RuleInterface):
             self.is_handover = False
             self.is_branched = False
             self.is_checkpoint = False
-            self.restart_times = 0
+            self._restart_times = 0
             self.basedir = None
             self.input_modifier = None
             self.output_modifier = None
@@ -145,7 +145,7 @@ class Rule(RuleInterface):
             self._container_img = other._container_img
             self.is_containerized = other.is_containerized
             self.env_modules = other.env_modules
-            self.group = other.group
+            self._group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
                 if other._wildcard_names is not None
@@ -164,7 +164,7 @@ class Rule(RuleInterface):
             self.is_handover = other.is_handover
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
-            self.restart_times = other.restart_times
+            self._restart_times = other.restart_times
             self.basedir = other.basedir
             self.input_modifier = other.input_modifier
             self.output_modifier = other.output_modifier
@@ -278,6 +278,32 @@ class Rule(RuleInterface):
     @property
     def snakefile(self):
         return self._snakefile
+    
+    @property
+    def restart_times(self):
+        if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(self.name):
+            return self.workflow.remote_execution_settings.preemptible_retries
+        if self._restart_times is None:
+            return self.execution_settings.retries
+        return self._restart_times
+    
+    @restart_times.setter
+    def restart_times(self, restart_times):
+        self._restart_times = restart_times
+
+    @property
+    def group(self):
+        if self.workflow.executor_plugin.common_settings.local_exec:
+            return None
+        else:
+            overwrite_group = self.workflow.group_settings.overwrite_groups.get(self.name)
+            if overwrite_group is not None:
+                return overwrite_group
+            return self._group
+
+    @group.setter
+    def group(self, group):
+        self._group = group
 
     @property
     def is_shell(self):

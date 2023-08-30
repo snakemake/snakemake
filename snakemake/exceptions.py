@@ -7,7 +7,7 @@ import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake_interface_common.exceptions import WorkflowError
+from snakemake_interface_common.exceptions import WorkflowError, ApiError
 
 
 def format_error(

@@ -878,7 +878,7 @@ class Workflow(WorkflowExecutorInterface):
                     if provided_resources:
                         logger.resources_info(f"Provided resources: {provided_resources}")
 
-                    if self.run_local and any(rule.group for rule in self.rules):
+                    if self.executor_plugin.common_settings.local_exec and any(rule.group for rule in self.rules):
                         logger.info("Group jobs: inactive (local execution)")
 
                     if not DeploymentMethod.CONDA in self.deployment_settings.deployment_method and any(rule.conda_env for rule in self.rules):
@@ -1329,12 +1329,7 @@ class Workflow(WorkflowExecutorInterface):
                         "Retries values have to be integers >= 0", rule=rule
                     )
             
-            if self.remote_execution_settings.preemptible_rules.is_preemptible(rule.name):
-                rule.restart_times = self.remote_execution_settings.preemptible_retries
-            else:
-                rule.restart_times = (
-                    self.execution_settings.retries if ruleinfo.retries is None else ruleinfo.retries
-                )
+            rule.restart_times = ruleinfo.retries
 
             if ruleinfo.log:
                 rule.log_modifier = ruleinfo.log.modifier
@@ -1344,10 +1339,11 @@ class Workflow(WorkflowExecutorInterface):
             if ruleinfo.benchmark:
                 rule.benchmark_modifier = ruleinfo.benchmark.modifier
                 rule.benchmark = ruleinfo.benchmark.paths
-            if not self.run_local:
-                group = self.group_settings.overwrite_groups.get(name) or ruleinfo.group
-                if group is not None:
-                    rule.group = group
+
+            group = ruleinfo.group
+            if group is not None:
+                rule.group = group
+
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
                     ruleinfo.wrapper, prefix=self.execution_settings.wrapper_prefix

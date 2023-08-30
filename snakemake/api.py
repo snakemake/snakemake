@@ -111,7 +111,7 @@ class SnakemakeApi(ApiBase):
         ---------
         ex: Exception -- The exception to print.
         """
-        linemaps = self.workflow_api.workflow.linemaps if self.workflow_api is not None else dict()
+        linemaps = self._workflow_api._workflow.linemaps if self._workflow_api is not None else dict()
         print_exception(ex, linemaps)
 
     def _setup_logger(
@@ -293,8 +293,7 @@ class DAGApi(ApiBase):
             dryrun=executor_plugin.common_settings.dryrun_exec,
         )
 
-        run_local = not executor_plugin.common_settings.non_local_exec
-        if run_local:
+        if executor_plugin.common_settings.local_exec:
             if not executor_plugin.common_settings.dryrun_exec:
                 # clean up all previously recorded jobids.
                 shell.cleanup()
@@ -319,7 +318,7 @@ class DAGApi(ApiBase):
         self.executor_settings.use_threads = (
             self.execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
-            or not run_local
+            or not executor_plugin.common_settings.local_exec
         )
 
         logger.setup_logfile()
