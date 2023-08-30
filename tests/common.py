@@ -259,7 +259,7 @@ def run(
                 remote_execution_settings=settings.RemoteExecutionSettings(
                     container_image=container_image,
                 ),
-                scheduling_settings=settings.SchedulingSettings(cores=cores, nodes=nodes),
+                scheduling_settings=settings.SchedulingSettings(),
                 executor_settings=executor_settings,
             )
         except Exception as e:
