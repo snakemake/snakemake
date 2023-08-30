@@ -496,9 +496,8 @@ class Workflow(WorkflowExecutorInterface):
             forcerules.update(targetrules)
 
         rules = self.rules
-        if allowed_rules:
-            allowed_rules = set(allowed_rules)
-            rules = [rule for rule in rules if rule.name in allowed_rules]
+        if self.dag_settings.allowed_rules:
+            rules = [rule for rule in rules if rule.name in self.dag_settings.allowed_rules]
         
         self._dag = DAG(
             self,
@@ -520,7 +519,7 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         self._persistence = Persistence(
-            nolock=self.execution_settings.nolock,
+            nolock=not self.execution_settings.lock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
             singularity_prefix=self.deployment_settings.apptainer_prefix,
@@ -783,6 +782,7 @@ class Workflow(WorkflowExecutorInterface):
         executor_settings: ExecutorSettingsBase,
         updated_files: Optional[List[str]]=None,
     ):
+        from snakemake.shell import shell
         shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
 
         if self.execution_settings.cache is not None:
@@ -802,7 +802,6 @@ class Workflow(WorkflowExecutorInterface):
 
         self._executor_plugin = executor_plugin
         self.executor_settings = executor_settings
-        self._create_dag()
 
         if self.execution_settings.wait_for_files:
             try:

@@ -14,27 +14,7 @@ from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorI
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 
-from snakemake.executors import (
-    AbstractExecutor,
-    DryrunExecutor,
-    TouchExecutor,
-    CPUExecutor,
-)
-from snakemake.executors import (
-    GenericClusterExecutor,
-    SynchronousClusterExecutor,
-    DRMAAExecutor,
-    KubernetesExecutor,
-    TibannaExecutor,
-)
-
-from snakemake.executors.slurm.slurm_submit import SlurmExecutor
-from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
-from snakemake.executors.flux import FluxExecutor
-from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
-from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
@@ -72,9 +52,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     ):
         """Create a new instance of KnapsackJobScheduler."""
         self.workflow = workflow
-        cores = self.workflow.global_resources["_cores"]
 
-        self.dag = self.dag
         self.dryrun = self.workflow.dryrun
         self.quiet = self.workflow.output_settings.quiet
         self.keepgoing = self.workflow.execution_settings.keep_going
@@ -112,18 +90,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._finish_callback = self._proceed
 
         self._local_executor = None
-        if self.workflow.dryrun:
-            self._executor: AbstractExecutor = DryrunExecutor(
-                workflow,
-                dag,
-            )
-        elif touch:
-            self._executor = TouchExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-            )
 
         if self.workflow.executor_plugin.common_settings.local_exec:
             self._executor = executor_plugin.executor(

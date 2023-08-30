@@ -71,10 +71,17 @@ class SnakemakeApi(ApiBase):
 
     output_settings: OutputSettings -- The output settings for the Snakemake API.
     """
-    output_settings: OutputSettings
+    output_settings: OutputSettings = field(default_factory=OutputSettings)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
 
-    def workflow(self, config_settings: ConfigSettings, resource_settings: ResourceSettings, storage_settings: StorageSettings, snakefile: Optional[Path] = None, workdir: Optional[Path] = None):
+    def workflow(
+        self,
+        resource_settings: ResourceSettings,
+        config_settings: ConfigSettings = ConfigSettings(),
+        storage_settings: StorageSettings = StorageSettings(), 
+        snakefile: Optional[Path] = None, 
+        workdir: Optional[Path] = None
+    ):
         """Create the workflow API.
 
         Note that if provided, this also changes to the provided workdir.
@@ -161,8 +168,8 @@ class WorkflowApi(ApiBase):
 
     def dag(
         self,
-        dag_settings: DAGSettings,
-        deployment_settings: DeploymentSettings,
+        dag_settings: DAGSettings = DAGSettings(),
+        deployment_settings: DeploymentSettings = DeploymentSettings(),
     ):
         """Create a DAG API.
         
@@ -261,10 +268,10 @@ class DAGApi(ApiBase):
 
     def execute_workflow(
         self,
-        executor: str,
-        execution_settings: ExecutionSettings,
-        remote_execution_settings: RemoteExecutionSettings,
-        scheduling_settings: SchedulingSettings,
+        executor: str = "local",
+        execution_settings: ExecutionSettings = ExecutionSettings(),
+        remote_execution_settings: RemoteExecutionSettings = RemoteExecutionSettings(),
+        scheduling_settings: SchedulingSettings = SchedulingSettings(),
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
     ):
@@ -284,12 +291,12 @@ class DAGApi(ApiBase):
         if remote_execution_settings.immediate_submit and not self._workflow_api.storage_settings.notemp:
             raise ApiError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
 
-        executor_plugin_registry = ExecutorPluginRegistry()
+        executor_plugin_registry = _get_executor_plugin_registry()
         executor_plugin = executor_plugin_registry.plugins[executor]
 
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
-            mode=self.execution_settings.mode,
+            mode=execution_settings.mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
         )
 
@@ -297,26 +304,26 @@ class DAGApi(ApiBase):
             if not executor_plugin.common_settings.dryrun_exec:
                 # clean up all previously recorded jobids.
                 shell.cleanup()
-            if self.execution_settings.debug and self.workflow_api.resource_settings.cores > 1:
+            if execution_settings.debug and self.workflow_api.resource_settings.cores > 1:
                 raise ApiError(
                     "debug mode cannot be used with multi-core execution, please enforce a single core by setting --cores 1"
                 )
         else:
             # non local execution
-            if self.resource_settings.default_resources is None:
+            if self._workflow_api.resource_settings.default_resources is None:
                 # use full default resources if in cluster or cloud mode
-                self.resource_settings.default_resources = DefaultResources(mode="full")
-            if self.execution_settings.edit_notebook is not None:
+                self._workflow_api.resource_settings.default_resources = DefaultResources(mode="full")
+            if execution_settings.edit_notebook is not None:
                 raise ApiError(
                     "Notebook edit mode is only allowed with local execution."
                 )
-            if self.execution_settings.debug:
+            if execution_settings.debug:
                 raise ApiError(
                     "debug mode cannot be used with non-local execution"
                 )
 
-        self.executor_settings.use_threads = (
-            self.execution_settings.use_threads
+        execution_settings.use_threads = (
+            execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
             or not executor_plugin.common_settings.local_exec
         )
@@ -452,3 +459,16 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
+
+
+def _get_executor_plugin_registry():
+    from snakemake.executors import local as local_executor
+    from snakemake.executors import dryrun as dryrun_executor
+    from snakemake.executors import local as touch_executor
+
+    registry = ExecutorPluginRegistry()
+    registry.register_plugin("local", local_executor)
+    registry.register_plugin("dryrun", dryrun_executor)
+    registry.register_plugin("touch", touch_executor)
+
+    return registry

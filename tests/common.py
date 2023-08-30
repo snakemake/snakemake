@@ -226,9 +226,6 @@ def run(
             ),
         )
         workflow_api = snakemake_api.workflow(
-            config_settings=settings.ConfigSettings(
-                config=config,
-            ),
             resource_settings=settings.ResourceSettings(
                 cores=cores,
                 nodes=nodes,
@@ -237,6 +234,9 @@ def run(
                     if overwrite_resource_scopes is not None
                     else dict()
                 ),
+            ),
+            config_settings=settings.ConfigSettings(
+                config=config,
             ),
             storage_settings=settings.StorageSettings(),
             snakefile=Path(original_snakefile if no_tmpdir else snakefile),

@@ -8,7 +8,7 @@ import sys
 from typing import Set
 
 from snakemake import logging
-from snakemake.api import SnakemakeApi, resolve_snakefile
+from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
 
 import os
 import glob
@@ -20,7 +20,6 @@ from importlib.machinery import SourceFileLoader
 from snakemake.settings import ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, NotebookEditMode, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, SchedulingSettings, StorageSettings
 
 from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -623,7 +622,7 @@ def get_argument_parser(profiles=None):
         "--executor",
         "-e",
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
-        choices=ExecutorPluginRegistry().plugins,
+        choices=_get_executor_plugin_registry().plugins.keys(),
     )
     group_exec.add_argument(
         "--forceall",
@@ -1776,7 +1775,7 @@ def get_argument_parser(profiles=None):
     )
 
     # Add namespaced arguments to parser for each plugin
-    ExecutorPluginRegistry().register_cli_args(parser)
+    _get_executor_plugin_registry().register_cli_args(parser)
     return parser
 
 
@@ -1956,7 +1955,7 @@ def args_to_api(args, parser):
     elif args.cluster:
         args.executor = "cluster"
 
-    executor_plugin = ExecutorPluginRegistry().plugins[args.executor]
+    executor_plugin = _get_executor_plugin_registry().plugins[args.executor]
     executor_settings = executor_plugin.get_executor_settings(args)
     
     if args.cores is None and executor_plugin.common_settings.local_exec:
@@ -1989,10 +1988,6 @@ def args_to_api(args, parser):
     )
     try:
         workflow_api = snakemake_api.workflow(
-            config_settings=ConfigSettings(
-                config=args.config,
-                configfiles=args.configfile,
-            ),
             resource_settings=ResourceSettings(
                 cores=args.cores,
                 nodes=args.nodes,
@@ -2004,6 +1999,10 @@ def args_to_api(args, parser):
                 overwrite_resource_scopes=args.set_resource_scopes,
                 overwrite_resources=args.set_resources,
                 default_resources=args.default_resources,
+            ),
+            config_settings=ConfigSettings(
+                config=args.config,
+                configfiles=args.configfile,
             ),
             storage_settings=StorageSettings(
                 default_remote_provider=args.default_remote_provider,
