@@ -26,6 +26,7 @@ from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
+    print_exception,
 )
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
@@ -395,7 +396,6 @@ def get_argument_parser(profiles=None):
         "--jobs",
         "-j",
         metavar="N",
-        const=available_cpu_count(),
         action="store",
         type=parse_jobs,
         help=(
@@ -2186,8 +2186,12 @@ def args_to_api(args, parser):
 
 def main(argv=None):
     """Main entry point."""
-    parser, args = parse_args(argv)
-    success = args_to_api(args, parser)
+    try:
+        parser, args = parse_args(argv)
+        success = args_to_api(args, parser)
+    except Exception as e:
+        print_exception(e)
+        sys.exit(1)
     sys.exit(0 if success else 1)
 
 

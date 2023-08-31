@@ -72,7 +72,7 @@ def log_verbose_traceback(ex):
     logger.debug(tb)
 
 
-def print_exception(ex, linemaps):
+def print_exception(ex, linemaps=None):
     """
     Print an error message for a given exception.
 
@@ -95,7 +95,7 @@ def print_exception(ex, linemaps):
             )
         )
         return
-    origin = get_exception_origin(ex, linemaps)
+    origin = get_exception_origin(ex, linemaps) if linemaps is not None else None
     if origin is not None:
         lineno, file = origin
         logger.error(
