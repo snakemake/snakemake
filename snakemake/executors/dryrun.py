@@ -58,3 +58,7 @@ class Executor(AbstractExecutor):
 
     def handle_job_error(self, job: ExecutorJobInterface):
         pass
+
+    @property
+    def cores(self):
+        return self.workflow.resource_settings.cores

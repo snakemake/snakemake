@@ -2061,13 +2061,14 @@ def args_to_api(args, parser):
             )
         )
 
-        preemptible_rules = None
         if args.preemptible_rules is not None:
             if not preemptible_rules:
                 # no specific rule given, consider all to be made preemptible
                 preemptible_rules = PreemptibleRules(all=True)
             else:
                 preemptible_rules = PreemptibleRules(rules=args.preemptible_rules)
+        else:
+            preemptible_rules = PreemptibleRules()
 
         if args.containerize:
             dag_api.containerize()

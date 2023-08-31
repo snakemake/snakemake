@@ -54,6 +54,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.workflow = workflow
 
         self.dryrun = self.workflow.dryrun
+        self.touch = self.workflow.touch
         self.quiet = self.workflow.output_settings.quiet
         self.keepgoing = self.workflow.execution_settings.keep_going
         self.running = set()
@@ -94,18 +95,15 @@ class JobScheduler(JobSchedulerExecutorInterface):
         if self.workflow.executor_plugin.common_settings.local_exec:
             self._executor = executor_plugin.executor(
                 self.workflow,
-                self.stats,
                 logger,
             )
         else:
             self._executor = executor_plugin.executor(
                 self.workflow,
-                self.stats,
                 logger,
             )
             self._local_executor = ExecutorPluginRegistry().get_executor("local").executor(
                 self.workflow,
-                self.stats,
                 logger,
             )
 
@@ -353,7 +351,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         # Choose job selector (greedy or ILP)
         self.job_selector = self.job_selector_greedy
-        if self.workflow.scheduling_settings.scheduler_type == "ilp":
+        if self.workflow.scheduling_settings.scheduler == "ilp":
             import pulp
 
             if pulp.apis.LpSolverDefault is None:
@@ -387,13 +385,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
     @property
     def open_jobs(self):
         """Return open jobs."""
-        jobs = self.dag.ready_jobs
+        jobs = self.workflow.dag.ready_jobs
 
         if not self.dryrun:
             jobs = [
                 job
                 for job in jobs
-                if not job.dynamic_input and not self.dag.dynamic(job)
+                if not job.dynamic_input and not self.workflow.dag.dynamic(job)
             ]
         return jobs
 
@@ -402,9 +400,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs()
+            for job in self.workflow.dag.needrun_jobs()
             if job not in self.running
-            and not self.dag.finished(job)
+            and not self.workflow.dag.finished(job)
             and job not in self.failed
         ]
 
@@ -499,7 +497,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 with self._lock:
                     self.running.update(run)
                     # remove from ready_jobs
-                    self.dag.register_running(run)
+                    self.workflow.dag.register_running(run)
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
@@ -541,7 +539,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger.job_finished(jobid=job.jobid)
                 self.progress()
 
-            self.dag.finish(job, update_dynamic=self.update_dynamic)
+            self.workflow.dag.finish(job, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
 
     def _error_jobs(self):
@@ -608,10 +606,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
+            logger.info(f"Trying to restart job {self.workflow.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
-            self.dag._ready_jobs.add(job)
+            self.workflow.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
@@ -657,7 +655,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     return f.size / 1e9
 
             temp_files = {
-                temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+                temp_file for job in jobs for temp_file in self.workflow.dag.temp_input(job)
             }
 
             temp_job_improvement = {
@@ -800,7 +798,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
-        return 1 if temp_file in self.dag.temp_input(job) else 0
+        return 1 if temp_file in self.workflow.dag.temp_input(job) else 0
 
     def job_selector_greedy(self, jobs):
         """
@@ -903,7 +901,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             input_size = 0
         else:
             try:
-                temp_size = self.dag.temp_size(job)
+                temp_size = self.workflow.dag.temp_size(job)
                 input_size = job.inputsize
             except FileNotFoundError:
                 # If the file is not yet present, this shall not affect the
@@ -923,4 +921,4 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def progress(self):
         """Display the progress."""
-        logger.progress(done=self.finished_jobs, total=len(self.dag))
+        logger.progress(done=self.finished_jobs, total=len(self.workflow.dag))

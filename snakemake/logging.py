@@ -299,7 +299,7 @@ class Logger:
         self.dryrun = False
 
     def setup_logfile(self):
-        if self.mode == ExecMode.SUBPROCESS and not self.dryrun:
+        if self.mode == ExecMode.DEFAULT and not self.dryrun:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
             self.logfile = os.path.abspath(
                 os.path.join(

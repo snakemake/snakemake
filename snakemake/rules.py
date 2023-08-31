@@ -284,7 +284,7 @@ class Rule(RuleInterface):
         if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(self.name):
             return self.workflow.remote_execution_settings.preemptible_retries
         if self._restart_times is None:
-            return self.execution_settings.retries
+            return self.workflow.execution_settings.retries
         return self._restart_times
     
     @restart_times.setter

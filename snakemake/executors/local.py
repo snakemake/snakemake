@@ -11,6 +11,7 @@ import shlex
 import concurrent.futures
 import subprocess
 from functools import partial
+from snakemake.executors import change_working_directory
 from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
@@ -54,21 +55,17 @@ class Executor(RealExecutor):
     def __init__(
         self,
         workflow: WorkflowExecutorInterface,
-        dag: DAGExecutorInterface,
         logger: LoggerExecutorInterface,
-        cores: int,
-        use_threads=False,
     ):
         super().__init__(
             workflow,
-            dag,
             logger,
-            executor_settings=None,
-            job_core_limit=cores,
             pass_envvar_declarations_to_cmd=False,
         )
 
-        self.use_threads = use_threads
+        self.use_threads = self.workflow.execution_settings.use_threads
+        self.keepincomplete = self.workflow.execution_settings.keep_incomplete
+        cores = self.workflow.resource_settings.cores
 
         # Zero thread jobs do not need a thread, but they occupy additional workers.
         # Hence we need to reserve additional workers for them.
@@ -271,6 +268,10 @@ class Executor(RealExecutor):
         if not self.keepincomplete:
             job.cleanup()
             self.workflow.persistence.cleanup(job)
+    
+    @property
+    def cores(self):
+        return self.workflow.resource_settings.cores
 
 
 def run_wrapper(
@@ -313,7 +314,6 @@ def run_wrapper(
     """
     # get shortcuts to job_rule members
     run = job_rule.run_func
-    version = job_rule.version
     rule = job_rule.name
     is_shell = job_rule.shellcmd is not None
 
@@ -362,7 +362,6 @@ def run_wrapper(
                             threads,
                             resources,
                             log,
-                            version,
                             rule,
                             conda_env,
                             container_img,
@@ -393,7 +392,6 @@ def run_wrapper(
                                 threads,
                                 resources,
                                 log,
-                                version,
                                 rule,
                                 conda_env,
                                 container_img,
@@ -422,7 +420,6 @@ def run_wrapper(
                     threads,
                     resources,
                     log,
-                    version,
                     rule,
                     conda_env,
                     container_img,

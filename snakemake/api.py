@@ -188,7 +188,7 @@ class WorkflowApi(ApiBase):
         """
         from snakemake.workflow import Workflow
 
-        workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings, check_envvars=False)
+        workflow = self._get_workflow(check_envvars=False)
         workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
         workflow.check()
         workflow.lint(json=json)
@@ -217,21 +217,27 @@ class WorkflowApi(ApiBase):
     
     def print_compilation(self):
         """Print the pure python compilation of the workflow."""
-        from snakemake.workflow import Workflow
-
-        workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings)
+        workflow = self._get_workflow()
         workflow.include(self.snakefile, print_compilation=True)
 
     @property
     def _workflow(self):
         if self._workflow_store is None:
-            from snakemake.workflow import Workflow
-
-            workflow = Workflow(self.config_settings, self.resource_settings, self.storage_settings)
+            workflow = self._get_workflow()
             workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
             workflow.check()
             self._workflow_store = workflow
         return self._workflow_store        
+
+    def _get_workflow(self, **kwargs):
+        from snakemake.workflow import Workflow
+        return Workflow(
+            config_settings=self.config_settings,
+            resource_settings=self.resource_settings,
+            storage_settings=self.storage_settings,
+            output_settings=self.snakemake_api.output_settings,
+            **kwargs,
+        )
 
     def __post_init__(self):
         super().__post_init__()

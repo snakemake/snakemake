@@ -178,6 +178,11 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def dryrun(self):
         return self.executor_plugin.common_settings.dryrun_exec
+    
+    @property
+    def touch(self):
+        import snakemake.executors.touch
+        return isinstance(self.executor_plugin.executor, snakemake.executors.touch.Executor)
 
     @property
     def use_threads(self):

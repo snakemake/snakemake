@@ -980,7 +980,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 resources=self.resources,
                 log=self.log,
                 jobid=self.jobid,
-                version=self.rule.version,
                 name=self.name,
                 rule=self.rule.name,
                 rulename=self.rule.name,

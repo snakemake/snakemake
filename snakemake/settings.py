@@ -347,11 +347,8 @@ class OutputSettings(SettingsBase):
 
 @dataclass
 class PreemptibleRules:
-    rules: Optional[Set[str]] = None
+    rules: Set[str] = frozenset()
     all: bool = False
-
-    def __post_init__(self):
-        assert self.rules or self.all, "bug: either rules or all have to be set"
     
     def is_preemptible(self, rulename: str):
         return self.all or rulename in self.rules
@@ -364,7 +361,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     max_status_checks_per_second: int = 100
     container_image: Optional[str] = None
     preemptible_retries: Optional[int] = None
-    preemptible_rules: Optional[PreemptibleRules] = None
+    preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
 
