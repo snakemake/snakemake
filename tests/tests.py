@@ -35,7 +35,7 @@ def test_github_issue_14():
     shutil.rmtree(tmpdir)
 
     # And not here
-    tmpdir = run(dpath("test_github_issue_14"), cleanup=False)
+    tmpdir = run(dpath("test_github_issue_14"), cleanup=False, cleanup_scripts=True)
     assert not os.listdir(os.path.join(tmpdir, ".snakemake", "scripts"))
     shutil.rmtree(tmpdir)
 

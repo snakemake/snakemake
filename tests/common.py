@@ -143,6 +143,7 @@ def run(
     overwrite_resource_scopes=None,
     executor="local",
     executor_settings=None,
+    cleanup_scripts=True,
 ):
     """
     Test the Snakefile in the path.
@@ -255,7 +256,9 @@ def run(
         try:
             dag_api.execute_workflow(
                 executor=executor,
-                execution_settings=settings.ExecutionSettings(),
+                execution_settings=settings.ExecutionSettings(
+                    cleanup_scripts=cleanup_scripts,
+                ),
                 remote_execution_settings=settings.RemoteExecutionSettings(
                     container_image=container_image,
                 ),

@@ -83,6 +83,8 @@ class SpawnedJobArgsFactory:
         """
         w2a = self.workflow_property_to_arg
 
+
+
         args = [
             "--force",
             "--keep-target-files",
@@ -95,7 +97,7 @@ class SpawnedJobArgsFactory:
             "--ignore-incomplete",
             w2a("execution_settings.keep_incomplete"),
             w2a("rerun_triggers"),
-            w2a("execution_settings.cleanup_scripts", flag="--skip-script-cleanup"),
+            w2a("execution_settings.cleanup_scripts", invert=True, flag="--skip-script-cleanup"),
             w2a("execution_settings.shadow_prefix"),
             w2a("deployment_settings.deployment_method"),
             w2a("deployment_settings.conda_frontend"),
