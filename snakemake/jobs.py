@@ -227,7 +227,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self._is_updated = False
         self._params_and_resources_resetted = False
 
-        self._attempt = self.dag.workflow.execution_settings.attempt
+        self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
         self.dynamic_output, self.dynamic_input = set(), set()

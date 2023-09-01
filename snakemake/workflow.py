@@ -14,6 +14,7 @@ from functools import partial
 import copy
 from pathlib import Path
 from typing import List, Optional, Set
+from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
     ConfigSettings,
     DAGSettings,
@@ -127,6 +128,8 @@ class Workflow(WorkflowExecutorInterface):
     executor_settings: ExecutorSettingsBase = None
     check_envvars: bool = True
     cache_rules: Mapping[str, str] = field(default_factory=dict)
+    overwrite_workdir: Optional[str] = None
+    _workdir_handler: Optional[WorkdirHandler] = field(init=False, default=None)
 
     def __post_init__(self):
         """
@@ -138,7 +141,6 @@ class Workflow(WorkflowExecutorInterface):
 
         self._rules = OrderedDict()
         self.default_target = None
-        self._workdir = None
         self._workdir_init = os.path.abspath(os.curdir)
         self._ruleorder = Ruleorder()
         self._localrules = set()
@@ -187,6 +189,17 @@ class Workflow(WorkflowExecutorInterface):
         self._output_file_cache = None
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    def __del__(self):
+        if self._workdir_handler is not None:
+            self._workdir_handler.change_back()
+
+    @property
+    def attempt(self):
+        if self.execution_settings is None:
+            # if not executing, we can safely set this to 1
+            return 1
+        return self.execution_settings.attempt
 
     @property
     def executor_plugin(self):
@@ -423,7 +436,8 @@ class Workflow(WorkflowExecutorInterface):
         if only_targets:
             rules = filterfalse(Rule.has_wildcards, rules)
         for rule in sorted(rules, key=lambda r: r.name):
-            logger.rule_info(name=rule.name, docstring=rule.docstring)
+            docstring = f" ({rule.docstring})" if rule.docstring else ""
+            print(rule.name + docstring)
 
     def list_resources(self):
         for resource in set(
@@ -465,13 +479,15 @@ class Workflow(WorkflowExecutorInterface):
         forceall: bool,
         ignore_incomplete: bool,
         lock_warn_only: bool,
+        nolock: bool = False,
+        shadow_prefix: Optional[str] = None,
     ) -> DAG:
         self.check_localrules()
 
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
-        if self.execution_settings.keep_target_files:
+        if self.dag_settings.target_files_omit_workdir_adjustment:
 
             def files(items):
                 return filterfalse(self.is_rule, items)
@@ -486,10 +502,14 @@ class Workflow(WorkflowExecutorInterface):
                 )
                 return map(relpath, filterfalse(self.is_rule, items))
 
+        self.iocache = snakemake.io.IOCache(self.dag_settings.max_inventory_wait_time)
+
         if not self.dag_settings.targets and not self.dag_settings.target_jobs:
             targets = (
                 [self.default_target] if self.default_target is not None else list()
             )
+        else:
+            targets = self.dag_settings.targets
 
         prioritytargets = set()
         if self.scheduling_settings is not None:
@@ -546,11 +566,11 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         self._persistence = Persistence(
-            nolock=not self.execution_settings.lock,
+            nolock=nolock,
             dag=self._dag,
             conda_prefix=self.deployment_settings.conda_prefix,
             singularity_prefix=self.deployment_settings.apptainer_prefix,
-            shadow_prefix=self.execution_settings.shadow_prefix,
+            shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
         )
 
@@ -837,10 +857,6 @@ class Workflow(WorkflowExecutorInterface):
             else:
                 self._output_file_cache = LocalOutputFileCache()
 
-        self.iocache = snakemake.io.IOCache(
-            self.execution_settings.max_inventory_wait_time
-        )
-
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
 
@@ -861,6 +877,8 @@ class Workflow(WorkflowExecutorInterface):
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
             lock_warn_only=self.dryrun,
+            nolock=not self.execution_settings.lock,
+            shadow_prefix=self.execution_settings.shadow_prefix,
         )
 
         if self.execution_settings.mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
@@ -1199,10 +1217,9 @@ class Workflow(WorkflowExecutorInterface):
 
     def workdir(self, workdir):
         """Register workdir."""
-        if self.execution_settings.overwrite_workdir is None:
-            os.makedirs(workdir, exist_ok=True)
-            self._workdir = workdir
-            os.chdir(workdir)
+        if self.overwrite_workdir is None:
+            self._workdir_handler = WorkdirHandler(Path(workdir))
+            self._workdir_handler.change_to()
 
     def configfile(self, fp):
         """Update the global config with data from the given file."""

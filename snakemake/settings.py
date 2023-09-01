@@ -92,7 +92,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     lock: bool = True
     ignore_incomplete: bool = False
     wait_for_files: Sequence[str] = tuple()
-    keep_target_files: bool = False
     no_hooks: bool = False
     retries: int = 0
     attempt: int = 1
@@ -102,7 +101,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     wrapper_prefix: Optional[str] = None
     keep_incomplete: bool = False
     keep_metadata: bool = True
-    max_inventory_wait_time: int = 20
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
     cleanup_metadata: Sequence[Path] = tuple()
@@ -163,6 +161,7 @@ class Batch:
 class DAGSettings(SettingsBase):
     targets: Set[str] = frozenset()
     target_jobs: Set[str] = frozenset()
+    target_files_omit_workdir_adjustment: bool = False
     batch: Batch = None
     forcetargets: bool = False
     forceall: bool = False
@@ -172,6 +171,7 @@ class DAGSettings(SettingsBase):
     force_incomplete: bool = False
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
+    max_inventory_wait_time: int = 20
 
     def _check(self):
         if self.batch is not None and self.forceall:

@@ -784,18 +784,18 @@ class JobScheduler(JobSchedulerExecutorInterface):
         import pulp
 
         old_path = os.environ["PATH"]
-        if self.workflow.scheduling_settings.scheduler_solver_path is None:
+        if self.workflow.scheduling_settings.solver_path is None:
             # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
             # This is needed for cluster envs, where the cluster job might have a different environment but
             # still needs access to the solver binary.
             os.environ["PATH"] = "{}:{}".format(
-                self.workflow.scheduling_settings.scheduler_solver_path,
+                self.workflow.scheduling_settings.solver_path,
                 os.environ["PATH"],
             )
         try:
             solver = (
-                pulp.get_solver(self.workflow.scheduling_settings.scheduler_ilp_solver)
-                if self.workflow.scheduling_settings.scheduler_ilp_solver
+                pulp.get_solver(self.workflow.scheduling_settings.ilp_solver)
+                if self.workflow.scheduling_settings.ilp_solver
                 else pulp.apis.LpSolverDefault
             )
         finally:

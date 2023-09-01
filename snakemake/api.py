@@ -110,6 +110,7 @@ class SnakemakeApi(ApiBase):
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
         self._setup_logger()
+        self.cleanup()
 
         snakefile = resolve_snakefile(snakefile)
 
@@ -122,6 +123,16 @@ class SnakemakeApi(ApiBase):
             storage_settings=storage_settings,
         )
         return self._workflow_api
+
+    def cleanup(self):
+        """Cleanup the workflow."""
+        if self._workflow_api is not None:
+            self._workflow_api._workdir_handler.change_back()
+            if (
+                self._workflow_api._workflow is not None
+                and self._workflow_api._workflow._workdir_handler is not None
+            ):
+                self._workflow_api._workflow._workdir_handler.change_back()
 
     def print_exception(self, ex: Exception):
         """Print an exception during workflow execution in a human readable way
@@ -265,6 +276,7 @@ class WorkflowApi(ApiBase):
             resource_settings=self.resource_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
+            overwrite_workdir=self.workdir,
             **kwargs,
         )
 
@@ -273,9 +285,6 @@ class WorkflowApi(ApiBase):
         self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)
         self._workdir_handler.change_to()
-
-    def __del__(self):
-        self._workdir_handler.change_back()
 
     def _check(self):
         if not self.snakefile.exists():

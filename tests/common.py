@@ -136,7 +136,7 @@ def run(
     cleanup=True,
     conda_frontend="mamba",
     config=dict(),
-    targets=None,
+    targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
@@ -265,6 +265,7 @@ def run(
         except Exception as e:
             success = False
             snakemake_api.print_exception(e)
+        snakemake_api.cleanup()
 
     if shouldfail:
         assert not success, "expected error on execution"
