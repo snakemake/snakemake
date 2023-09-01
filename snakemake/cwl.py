@@ -211,7 +211,7 @@ def dag_to_cwl(dag):
             "--no-hooks",
             "--nolock",
             "--mode",
-            str(ExecMode.SUBPROCESS),
+            str(ExecMode.SUBPROCESS.item_to_choice()),
         ],
         "inputs": {
             "snakefile": {
