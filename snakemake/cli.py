@@ -3,11 +3,14 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from dataclasses import dataclass
+import argparse
 import sys
 from typing import Set
 
+import configargparse
+
 from snakemake import logging
+import snakemake.common.argparse
 from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
 
 import os
@@ -265,7 +268,6 @@ def get_profile_file(profile, file, return_default=False):
 
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
-    import configargparse
     from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
@@ -290,7 +292,7 @@ def get_argument_parser(profiles=None):
                 exit(1)
             config_files.append(config_file)
 
-    parser = configargparse.ArgumentParser(
+    parser = snakemake.common.argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
         formatter_class=ArgumentDefaultsHelpFormatter,
@@ -432,10 +434,10 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--resources",
         "--res",
-        nargs="*",
+        nargs="+",
         metavar="NAME=INT",
         default=dict(),
-        type=parse_resources,
+        parse_func=parse_resources,
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to --cores (see above). A resource is defined as "
@@ -454,7 +456,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE=THREADS",
         nargs="+",
         default=dict(),
-        type=parse_set_threads,
+        parse_func=parse_set_threads,
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -474,7 +476,7 @@ def get_argument_parser(profiles=None):
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
         default=dict(),
-        type=parse_set_resources,
+        parse_func=parse_set_resources,
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -486,7 +488,7 @@ def get_argument_parser(profiles=None):
         metavar="NAME=SCATTERITEMS",
         nargs="+",
         default=dict(),
-        type=parse_set_scatter,
+        parse_func=parse_set_scatter,
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
         "the name of the scattergather process defined via a scattergather directive in the workflow.",
@@ -496,7 +498,7 @@ def get_argument_parser(profiles=None):
         metavar="RESOURCE=[global|local]",
         nargs="+",
         default=dict(),
-        type=parse_set_resource_scope,
+        parse_func=parse_set_resource_scope,
         help="Overwrite resource scopes. A scope determines how a constraint is "
         "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
         "RESOURCE using --resources will be considered the limit for each group "
@@ -533,7 +535,7 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--preemptible-rules",
         nargs="*",
-        type=set,
+        parse_func=set,
         help=(
             "Define which rules shall use a preemptible machine which can be prematurely killed by e.g. a cloud provider (also called spot instances). "
             "This is currently only supported by the Google Life Sciences executor and ignored by all other executors. "
@@ -554,7 +556,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         metavar="KEY=VALUE",
         default=dict(),
-        type=parse_config,
+        parse_func=parse_config,
         help=(
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
@@ -582,7 +584,7 @@ def get_argument_parser(profiles=None):
         "--envvars",
         nargs="+",
         metavar="VARNAME",
-        type=set,
+        parse_func=set,
         help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
@@ -623,7 +625,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         choices=RerunTrigger.choices(),
         default=RerunTrigger.all(),
-        type=RerunTrigger.parse_choices_set,
+        parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
@@ -660,7 +662,7 @@ def get_argument_parser(profiles=None):
         "-R",
         nargs="*",
         metavar="TARGET",
-        type=set,
+        parse_func=set,
         default=set(),
         help=(
             "Force the re-execution or creation of the given rules or files."
@@ -673,7 +675,7 @@ def get_argument_parser(profiles=None):
         "-P",
         nargs="+",
         metavar="TARGET",
-        type=set,
+        parse_func=set,
         default=set(),
         help=(
             "Tell the scheduler to assign creation of given targets "
@@ -700,7 +702,7 @@ def get_argument_parser(profiles=None):
         "-U",
         nargs="+",
         metavar="TARGET",
-        type=set,
+        parse_func=set,
         default=set(),
         help=(
             "Runs the pipeline until it reaches the specified rules or "
@@ -713,7 +715,7 @@ def get_argument_parser(profiles=None):
         "-O",
         nargs="+",
         metavar="TARGET",
-        type=set,
+        parse_func=set,
         default=set(),
         help=(
             "Prevent the execution or creation of the given rules or files "
@@ -805,14 +807,14 @@ def get_argument_parser(profiles=None):
     group_group.add_argument(
         "--groups",
         nargs="+",
-        type=parse_groups,
+        parse_func=parse_groups,
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
     group_group.add_argument(
         "--group-components",
         nargs="+",
-        type=parse_group_components,
+        parse_func=parse_group_components,
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -1116,7 +1118,7 @@ def get_argument_parser(profiles=None):
         nargs="*",
         choices=Quietness.choices(),
         default=None,
-        type=parse_quietness,
+        parse_func=parse_quietness,
         help="Do not output certain information. "
         "If used without arguments, do not output any progress or rule "
         "information. Defining 'all' results in no information being "
@@ -1184,7 +1186,7 @@ def get_argument_parser(profiles=None):
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
-        type=set,
+        parse_func=set,
         help="Wait --latency-wait seconds for these "
         "files to be present before executing the workflow. "
         "This option is used internally to handle filesystem latency in cluster "
@@ -1232,7 +1234,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--target-jobs",
         nargs="+",
-        type=set,
+        parse_func=set,
         default=set(),
         help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
         "This is meant for internal use by Snakemake itself only.",
@@ -1690,7 +1692,7 @@ def get_argument_parser(profiles=None):
         "--software-deployment-method",
         "--deployment",
         choices=DeploymentMethod.choices(),
-        type=DeploymentMethod.parse_choices_set,
+        parse_func=DeploymentMethod.parse_choices_set,
         default=set(),
         help="Specify software environment deployment method.",
     )
@@ -1892,7 +1894,7 @@ def parse_args(argv):
 def parse_quietness(quietness) -> Set[Quietness]:
     if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        quietness = [Quietness.progress, Quietness.rules]
+        quietness = [Quietness.PROGRESS, Quietness.RULES]
     else:
         quietness = Quietness.parse_choices_set()
     return quietness

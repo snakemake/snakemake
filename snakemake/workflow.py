@@ -268,8 +268,8 @@ class Workflow(WorkflowExecutorInterface):
         return self._dag
 
     @property
-    def main_snakefile(self):
-        return self.included[0]
+    def main_snakefile(self) -> str:
+        return self.included[0].get_cache_path()
 
     @property
     def output_file_cache(self):
@@ -1910,34 +1910,3 @@ class Workflow(WorkflowExecutorInterface):
     @staticmethod
     def _empty_decorator(f):
         return f
-
-
-class Subworkflow:
-    def __init__(self, workflow, name, snakefile, workdir, configfile):
-        self.workflow = workflow
-        self.name = name
-        self._snakefile = snakefile
-        self._workdir = workdir
-        self.configfile = configfile
-
-    @property
-    def snakefile(self):
-        if self._snakefile is None:
-            return os.path.abspath(os.path.join(self.workdir, "Snakefile"))
-        if not os.path.isabs(self._snakefile):
-            return os.path.abspath(os.path.join(self.workflow.basedir, self._snakefile))
-        return self._snakefile
-
-    @property
-    def workdir(self):
-        workdir = "." if self._workdir is None else self._workdir
-        if not os.path.isabs(workdir):
-            return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
-        return workdir
-
-
-def srcdir(path):
-    """Return the absolute path, relative to the source directory of the current Snakefile."""
-    if not workflow.included_stack:
-        return None
-    return workflow.current_basedir.join(path).get_path_or_uri()

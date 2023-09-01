@@ -350,11 +350,6 @@ def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 
 
-@skip_on_windows
-def test_srcdir():
-    run(dpath("test_srcdir"))
-
-
 def test_multiple_includes():
     run(dpath("test_multiple_includes"))
 

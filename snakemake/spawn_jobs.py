@@ -17,18 +17,24 @@ class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
     def get_default_remote_provider_args(self):
-        return join_cli_args(
-            [
-                format_cli_arg(
-                    "--default-remote-prefix",
-                    self.workflow.storage_settings.default_remote_prefix,
-                ),
-                format_cli_arg(
-                    "--default-remote-provider",
-                    self.workflow.storage_settings.default_remote_provider.name,
-                ),
-            ]
+        has_default_remote_provider = (
+            self.workflow.storage_settings.default_remote_provider is not None
         )
+        if has_default_remote_provider:
+            return join_cli_args(
+                [
+                    format_cli_arg(
+                        "--default-remote-prefix",
+                        self.workflow.storage_settings.default_remote_prefix,
+                    ),
+                    format_cli_arg(
+                        "--default-remote-provider",
+                        self.workflow.storage_settings.default_remote_provider.name,
+                    ),
+                ]
+            )
+        else:
+            return ""
 
     def get_set_resources_args(self):
         return format_cli_arg(
@@ -43,7 +49,8 @@ class SpawnedJobArgsFactory:
 
     def get_resource_scopes_args(self):
         return format_cli_arg(
-            "--set-resource-scopes", self.workflow.overwrite_resource_scopes
+            "--set-resource-scopes",
+            self.workflow.resource_settings.overwrite_resource_scopes,
         )
 
     def workflow_property_to_arg(
@@ -83,8 +90,6 @@ class SpawnedJobArgsFactory:
         """
         w2a = self.workflow_property_to_arg
 
-
-
         args = [
             "--force",
             "--keep-target-files",
@@ -97,38 +102,43 @@ class SpawnedJobArgsFactory:
             "--ignore-incomplete",
             w2a("execution_settings.keep_incomplete"),
             w2a("rerun_triggers"),
-            w2a("execution_settings.cleanup_scripts", invert=True, flag="--skip-script-cleanup"),
+            w2a(
+                "execution_settings.cleanup_scripts",
+                invert=True,
+                flag="--skip-script-cleanup",
+            ),
             w2a("execution_settings.shadow_prefix"),
             w2a("deployment_settings.deployment_method"),
             w2a("deployment_settings.conda_frontend"),
             w2a("deployment_settings.conda_prefix"),
-            w2a("conda_base_path", skip=not self.assume_shared_fs),
-            w2a("deployment_settings.use_singularity"),
+            w2a(
+                "conda_base_path",
+                skip=not self.workflow.storage_settings.assume_shared_fs,
+            ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
-            w2a(
-                "execution_settings.execute_subworkflows",
-                flag="--no-subworkflows",
-                invert=True,
-            ),
             w2a("resource_settings.max_threads"),
-            w2a("deployment_settings.use_env_modules", flag="--use-envmodules"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
             w2a("execution_settings.wrapper_prefix"),
             w2a("resource_settings.overwrite_threads", flag="--set-threads"),
-            w2a("overwrite_scatter", flag="--set-scatter"),
+            w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
             w2a("overwrite_configfiles", flag="--configfiles"),
             w2a("config_settings.config_args", flag="--config"),
             w2a("output_settings.printshellcmds"),
-            w2a("latency_wait"),
-            w2a("scheduler_settings.scheduler_type", flag="--scheduler"),
+            w2a("execution_settings.latency_wait"),
+            w2a("scheduling_settings.scheduler", flag="--scheduler"),
             format_cli_arg(
                 "--scheduler-solver-path",
                 os.path.dirname(sys.executable),
                 skip=not self.workflow.storage_settings.assume_shared_fs,
+            ),
+            w2a(
+                "overwrite_workdir",
+                flag="--directory",
+                skip=self.workflow.storage_settings.assume_shared_fs,
             ),
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),

@@ -13,7 +13,7 @@ from functools import partial
 import importlib
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
-from snakemake.settings import ChangeType, SchedulingSettings
+from snakemake.settings import ChangeType, GroupSettings, SchedulingSettings
 
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
@@ -317,6 +317,7 @@ class DAGApi(ApiBase):
         execution_settings: ExecutionSettings = ExecutionSettings(),
         remote_execution_settings: RemoteExecutionSettings = RemoteExecutionSettings(),
         scheduling_settings: SchedulingSettings = SchedulingSettings(),
+        group_settings: GroupSettings = GroupSettings(),
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
     ):
@@ -402,6 +403,7 @@ class DAGApi(ApiBase):
         workflow.execution_settings = execution_settings
         workflow.remote_execution_settings = remote_execution_settings
         workflow.scheduling_settings = scheduling_settings
+        workflow.group_settings = group_settings
 
         workflow.execute(
             executor_plugin=executor_plugin,
