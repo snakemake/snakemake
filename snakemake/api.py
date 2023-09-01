@@ -14,11 +14,22 @@ import importlib
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
 from snakemake.settings import ChangeType, SchedulingSettings
+
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
 
 from snakemake.common.workdir_handler import WorkdirHandler
-from snakemake.settings import DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, OutputSettings, ConfigSettings, RemoteExecutionSettings, ResourceSettings, StorageSettings
+from snakemake.settings import (
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    OutputSettings,
+    ConfigSettings,
+    RemoteExecutionSettings,
+    ResourceSettings,
+    StorageSettings,
+)
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
@@ -49,7 +60,7 @@ class ApiBase(ABC):
 
 def resolve_snakefile(path: Optional[Path]):
     """Get path to the snakefile.
-    
+
     Arguments
     ---------
     path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
@@ -58,19 +69,22 @@ def resolve_snakefile(path: Optional[Path]):
         for p in SNAKEFILE_CHOICES:
             if p.exists():
                 return p
-        raise ApiError(f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}.")
+        raise ApiError(
+            f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
+        )
     return path
 
 
 @dataclass
 class SnakemakeApi(ApiBase):
     """The Snakemake API.
-    
+
     Arguments
     ---------
 
     output_settings: OutputSettings -- The output settings for the Snakemake API.
     """
+
     output_settings: OutputSettings = field(default_factory=OutputSettings)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
 
@@ -78,9 +92,9 @@ class SnakemakeApi(ApiBase):
         self,
         resource_settings: ResourceSettings,
         config_settings: ConfigSettings = ConfigSettings(),
-        storage_settings: StorageSettings = StorageSettings(), 
-        snakefile: Optional[Path] = None, 
-        workdir: Optional[Path] = None
+        storage_settings: StorageSettings = StorageSettings(),
+        snakefile: Optional[Path] = None,
+        workdir: Optional[Path] = None,
     ):
         """Create the workflow API.
 
@@ -100,10 +114,10 @@ class SnakemakeApi(ApiBase):
         snakefile = resolve_snakefile(snakefile)
 
         self._workflow_api = WorkflowApi(
-            snakemake_api=self, 
-            snakefile=snakefile, 
-            workdir=workdir, 
-            config_settings=config_settings, 
+            snakemake_api=self,
+            snakefile=snakefile,
+            workdir=workdir,
+            config_settings=config_settings,
             resource_settings=resource_settings,
             storage_settings=storage_settings,
         )
@@ -118,7 +132,11 @@ class SnakemakeApi(ApiBase):
         ---------
         ex: Exception -- The exception to print.
         """
-        linemaps = self._workflow_api._workflow.linemaps if self._workflow_api is not None else dict()
+        linemaps = (
+            self._workflow_api._workflow.linemaps
+            if self._workflow_api is not None
+            else dict()
+        )
         print_exception(ex, linemaps)
 
     def _setup_logger(
@@ -145,10 +163,11 @@ class SnakemakeApi(ApiBase):
         if not self.output_settings.keep_logger:
             logger.cleanup()
 
+
 @dataclass
 class WorkflowApi(ApiBase):
     """The workflow API.
-    
+
     Arguments
     ---------
     snakemake_api: SnakemakeApi -- The Snakemake API.
@@ -172,16 +191,21 @@ class WorkflowApi(ApiBase):
         deployment_settings: DeploymentSettings = DeploymentSettings(),
     ):
         """Create a DAG API.
-        
+
         Arguments
         ---------
         dag_settings: DAGSettings -- The DAG settings for the DAG API.
         """
-        return DAGApi(self.snakemake_api, self, dag_settings=dag_settings, deployment_settings=deployment_settings)
+        return DAGApi(
+            self.snakemake_api,
+            self,
+            dag_settings=dag_settings,
+            deployment_settings=deployment_settings,
+        )
 
     def lint(self, json: bool = False):
         """Lint the workflow.
-        
+
         Arguments
         ---------
         json: bool -- Whether to print the linting results as JSON.
@@ -189,7 +213,9 @@ class WorkflowApi(ApiBase):
         from snakemake.workflow import Workflow
 
         workflow = self._get_workflow(check_envvars=False)
-        workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
+        workflow.include(
+            self.snakefile, overwrite_default_target=True, print_compilation=False
+        )
         workflow.check()
         workflow.lint(json=json)
 
@@ -214,7 +240,7 @@ class WorkflowApi(ApiBase):
     def list_resources(self):
         """List the resources of the workflow."""
         self._workflow.list_resources()
-    
+
     def print_compilation(self):
         """Print the pure python compilation of the workflow."""
         workflow = self._get_workflow()
@@ -224,13 +250,16 @@ class WorkflowApi(ApiBase):
     def _workflow(self):
         if self._workflow_store is None:
             workflow = self._get_workflow()
-            workflow.include(self.snakefile, overwrite_default_target=True, print_compilation=False)
+            workflow.include(
+                self.snakefile, overwrite_default_target=True, print_compilation=False
+            )
             workflow.check()
             self._workflow_store = workflow
-        return self._workflow_store        
+        return self._workflow_store
 
     def _get_workflow(self, **kwargs):
         from snakemake.workflow import Workflow
+
         return Workflow(
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
@@ -244,13 +273,14 @@ class WorkflowApi(ApiBase):
         self.snakefile = self.snakefile.absolute()
         self._workdir_handler = WorkdirHandler(self.workdir)
         self._workdir_handler.change_to()
-    
+
     def __del__(self):
         self._workdir_handler.change_back()
 
     def _check(self):
         if not self.snakefile.exists():
             raise ApiError(f'Snakefile "{self.snakefile}" not found.')
+
 
 @dataclass
 class DAGApi(ApiBase):
@@ -282,7 +312,7 @@ class DAGApi(ApiBase):
         updated_files: Optional[List[str]] = None,
     ):
         """Execute the workflow.
-        
+
         Arguments
         ---------
         executor: str -- The executor to use.
@@ -294,8 +324,13 @@ class DAGApi(ApiBase):
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
 
-        if remote_execution_settings.immediate_submit and not self._workflow_api.storage_settings.notemp:
-            raise ApiError("immediate_submit has to be combined with notemp (it does not support temp file handling)")
+        if (
+            remote_execution_settings.immediate_submit
+            and not self._workflow_api.storage_settings.notemp
+        ):
+            raise ApiError(
+                "immediate_submit has to be combined with notemp (it does not support temp file handling)"
+            )
 
         executor_plugin_registry = _get_executor_plugin_registry()
         executor_plugin = executor_plugin_registry.plugins[executor]
@@ -308,25 +343,43 @@ class DAGApi(ApiBase):
 
         if executor_plugin.common_settings.local_exec:
             if not executor_plugin.common_settings.dryrun_exec:
+                if self.workflow_api.resource_settings.cores is None:
+                    raise ApiError(
+                        "cores have to be specified for local execution "
+                        "(use --cores N with N being a number >= 1 or 'all')"
+                    )
                 # clean up all previously recorded jobids.
                 shell.cleanup()
-            if execution_settings.debug and self.workflow_api.resource_settings.cores > 1:
+            else:
+                # set cores if that is not done yet
+                if self.workflow_api.resource_settings.cores is None:
+                    self.workflow_api.resource_settings.cores = 1
+            if (
+                execution_settings.debug
+                and self.workflow_api.resource_settings.cores > 1
+            ):
                 raise ApiError(
-                    "debug mode cannot be used with multi-core execution, please enforce a single core by setting --cores 1"
+                    "debug mode cannot be used with multi-core execution, "
+                    "please enforce a single core by setting --cores 1"
                 )
         else:
+            if self.workflow_api.resource_settings.nodes is None:
+                raise ApiError(
+                    "maximum number of parallel jobs/used nodes has to be specified for remote execution "
+                    "(use --jobs N with N being a number >= 1)"
+                )
             # non local execution
-            if self._workflow_api.resource_settings.default_resources is None:
+            if self.workflow_api.resource_settings.default_resources is None:
                 # use full default resources if in cluster or cloud mode
-                self._workflow_api.resource_settings.default_resources = DefaultResources(mode="full")
+                self.workflow_api.resource_settings.default_resources = (
+                    DefaultResources(mode="full")
+                )
             if execution_settings.edit_notebook is not None:
                 raise ApiError(
-                    "Notebook edit mode is only allowed with local execution."
+                    "notebook edit mode is only allowed with local execution."
                 )
             if execution_settings.debug:
-                raise ApiError(
-                    "debug mode cannot be used with non-local execution"
-                )
+                raise ApiError("debug mode cannot be used with non-local execution")
 
         execution_settings.use_threads = (
             execution_settings.use_threads
@@ -367,11 +420,11 @@ class DAGApi(ApiBase):
             report=report,
             report_stylesheet=report_stylesheet,
         )
-    
+
     def printdag(self):
         """Print the DAG of the workflow."""
         self.workflow_api._workflow.printdag()
-    
+
     def printrulegraph(self):
         """Print the rule graph of the workflow."""
         self.workflow_api._workflow.printrulegraph()
@@ -379,7 +432,7 @@ class DAGApi(ApiBase):
     def printfilegraph(self):
         """Print the file graph of the workflow."""
         self.workflow_api._workflow.printfilegraph()
-    
+
     def printd3dag(self):
         """Print the DAG of the workflow in D3.js compatible JSON."""
         self.workflow_api._workflow.printd3dag()
@@ -387,16 +440,16 @@ class DAGApi(ApiBase):
     def unlock(self):
         """Unlock the workflow."""
         self.workflow_api._workflow.unlock()
-    
+
     def cleanup_metadata(self):
         """Cleanup the metadata of the workflow."""
         self.workflow_api._workflow.cleanup_metadata()
-    
+
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
         self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
         self.workflow_api._workflow.conda_cleanup_envs()
-    
+
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
         self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
@@ -406,16 +459,16 @@ class DAGApi(ApiBase):
         """List the conda environments of the workflow."""
         self.deployment_settings.deployment_method.add(DeploymentMethod.CONDA)
         self.workflow_api._workflow.conda_list_envs()
-    
+
     def cleanup_shadow(self):
         """Cleanup the shadow directories of the workflow."""
         self.workflow_api._workflow.cleanup_shadow()
-    
+
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
         self.deployment_settings.deployment_method.add(DeploymentMethod.APPTAINER)
         self.workflow_api._workflow.container_cleanup_images()
-    
+
     def list_changes(self, change_type: ChangeType):
         """List the changes of the workflow.
 
@@ -424,11 +477,11 @@ class DAGApi(ApiBase):
         change_type: ChangeType -- The type of changes to list.
         """
         self.workflow_api._workflow.list_changes(change_type=change_type)
-    
+
     def list_untracked(self):
         """List the untracked files of the workflow."""
         self.workflow_api._workflow.list_untracked()
-    
+
     def summary(self, detailed: bool = False):
         """Summarize the workflow.
 
@@ -437,7 +490,7 @@ class DAGApi(ApiBase):
         detailed: bool -- Whether to print a detailed summary.
         """
         self.workflow_api._workflow.summary(detailed=detailed)
-    
+
     def archive(self, path: Path):
         """Archive the workflow.
 
@@ -446,7 +499,7 @@ class DAGApi(ApiBase):
         path: Path -- The path to the archive.
         """
         self.workflow_api._workflow.archive(path=path)
-    
+
     def delete_output(self, only_temp: bool = False, dryrun: bool = False):
         """Delete the output of the workflow.
 
@@ -456,7 +509,7 @@ class DAGApi(ApiBase):
         dryrun: bool -- Whether to only dry-run the deletion.
         """
         self.workflow_api._workflow.delete_output(only_temp=only_temp, dryrun=dryrun)
-    
+
     def export_to_cwl(self, path: Path):
         """Export the workflow to CWL.
 

@@ -18,7 +18,6 @@ common_settings = CommonSettings(
 )
 
 
-
 class Executor(AbstractExecutor):
     def get_exec_mode(self):
         raise NotImplementedError()

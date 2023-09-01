@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from snakemake_interface_common.exceptions import WorkflowError
 
+
 def _load_configfile(configpath_or_obj, filetype="Config"):
     "Tries to load a configfile first as JSON, then as YAML, into a dict."
     import yaml

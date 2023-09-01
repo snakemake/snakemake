@@ -27,13 +27,14 @@ from snakemake.exceptions import WorkflowError
 
 frozendict = lambda: MappingProxyType(dict())
 
+
 class frozendict(dict):
     def __init__(self):
         super().__init__(dict())
 
     def __hash__(self):
         return hash(tuple(sorted(self.items())))
-    
+
 
 class RerunTrigger(SettingsEnumBase):
     MTIME = 0
@@ -58,7 +59,7 @@ class SettingsBase(ABC):
 
 
 class NotebookEditMode:
-    def __init__(self, server_addr: Optional[str]=None, draft_only: bool=False):
+    def __init__(self, server_addr: Optional[str] = None, draft_only: bool = False):
         if server_addr is not None:
             self.ip, self.port = server_addr.split(":")
         self.draft_only = draft_only
@@ -81,6 +82,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     local_cores:
         the number of provided local cores if in cluster mode (ignored without cluster/cloud support)
     """
+
     latency_wait: int = 3
     cache: Optional[Sequence[str]] = None
     keep_going: bool = False
@@ -157,7 +159,6 @@ class Batch:
         return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
-
 @dataclass
 class DAGSettings(SettingsBase):
     targets: Set[str] = frozenset()
@@ -179,6 +180,7 @@ class DAGSettings(SettingsBase):
                 "jobs in subsequent batches may render already obtained results outdated."
             )
 
+
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_remote_provider: Optional[str] = None
@@ -199,7 +201,9 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
                     "snakemake.remote." + self.default_remote_provider
                 )
             except ImportError as e:
-                raise ApiError(f"Unknown default remote provider {self.default_remote_provider}.")
+                raise ApiError(
+                    f"Unknown default remote provider {self.default_remote_provider}."
+                )
             if rmt.RemoteProvider.supports_default:
                 return rmt.RemoteProvider(
                     keep_local=self.keep_remote_local, is_default=True
@@ -235,6 +239,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_base_path:
         Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
     """
+
     deployment_method: Set[DeploymentMethod] = frozenset()
     conda_prefix: Optional[Path] = None
     conda_cleanup_pkgs: Optional[CondaCleanupPkgs] = None
@@ -243,6 +248,7 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
+
 
 @dataclass
 class SchedulingSettings(SettingsBase):
@@ -259,6 +265,7 @@ class SchedulingSettings(SettingsBase):
     greediness:
         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
     """
+
     prioritytargets: Set[str] = frozenset()
     scheduler: str = "ilp"
     ilp_solver: Optional[str] = None
@@ -277,9 +284,8 @@ class SchedulingSettings(SettingsBase):
 
     def _check(self):
         if not (0 < self.greedyness <= 1.0):
-            raise ApiError(
-                "greediness must be >0 and <=1"
-            )
+            raise ApiError("greediness must be >0 and <=1")
+
 
 @dataclass
 class ResourceSettings(SettingsBase):
@@ -292,11 +298,8 @@ class ResourceSettings(SettingsBase):
     overwrite_scatter: Mapping[str, int] = frozendict()
     overwrite_resource_scopes: Mapping[str, str] = frozendict()
     overwrite_resources: Mapping[str, Mapping[str, int]] = frozendict()
-    default_resources: DefaultResources = DefaultResources(mode="bare")
+    default_resources: Optional[DefaultResources] = None
 
-    def _check(self):
-        if self.cores is None and self.nodes is None:
-            raise ApiError("You need to specify either --cores or --jobs.")
 
 @dataclass
 class ConfigSettings(SettingsBase):
@@ -316,7 +319,7 @@ class ConfigSettings(SettingsBase):
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
             update_config(overwrite_config, self.config)
-    
+
     def _get_configfiles(self):
         return list(map(Path.absolute, self.configfiles))
 
@@ -331,7 +334,7 @@ class Quietness(SettingsEnumBase):
     RULES = 0
     PROGRESS = 1
     ALL = 2
- 
+
 
 @dataclass
 class OutputSettings(SettingsBase):
@@ -349,7 +352,7 @@ class OutputSettings(SettingsBase):
 class PreemptibleRules:
     rules: Set[str] = frozenset()
     all: bool = False
-    
+
     def is_preemptible(self, rulename: str):
         return self.all or rulename in self.rules
 

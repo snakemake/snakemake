@@ -115,7 +115,10 @@ class ProvenanceHashMap:
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
             if workflow.deployment_settings.use_conda and job.conda_env:
-                if workflow.deployment_settings.use_singularity and job.conda_env.container_img_url:
+                if (
+                    workflow.deployment_settings.use_singularity
+                    and job.conda_env.container_img_url
+                ):
                     h.update(job.conda_env.container_img_url.encode())
                 h.update(job.conda_env.content)
             elif workflow.deployment_settings.use_singularity and job.container_img_url:

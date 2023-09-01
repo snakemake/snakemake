@@ -12,5 +12,5 @@ from snakemake.shell import shell
 if __name__ == "__main__":
     from snakemake.cli import main
     import sys
-    
+
     main(sys.argv)

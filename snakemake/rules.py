@@ -278,15 +278,17 @@ class Rule(RuleInterface):
     @property
     def snakefile(self):
         return self._snakefile
-    
+
     @property
     def restart_times(self):
-        if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(self.name):
+        if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(
+            self.name
+        ):
             return self.workflow.remote_execution_settings.preemptible_retries
         if self._restart_times is None:
             return self.workflow.execution_settings.retries
         return self._restart_times
-    
+
     @restart_times.setter
     def restart_times(self, restart_times):
         self._restart_times = restart_times
@@ -296,7 +298,9 @@ class Rule(RuleInterface):
         if self.workflow.executor_plugin.common_settings.local_exec:
             return None
         else:
-            overwrite_group = self.workflow.group_settings.overwrite_groups.get(self.name)
+            overwrite_group = self.workflow.group_settings.overwrite_groups.get(
+                self.name
+            )
             if overwrite_group is not None:
                 return overwrite_group
             return self._group

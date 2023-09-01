@@ -40,13 +40,13 @@ ON_WINDOWS = platform.system() == "Windows"
 IO_PROP_LIMIT = 100
 SNAKEFILE_CHOICES = list(
     map(
-        Path, 
+        Path,
         (
             "Snakefile",
             "snakefile",
             "workflow/Snakefile",
             "workflow/snakefile",
-        )
+        ),
     )
 )
 

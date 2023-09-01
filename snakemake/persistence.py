@@ -181,6 +181,7 @@ class Persistence(PersistenceExecutorInterface):
                             return True
         return False
 
+    @contextmanager
     def lock_warn_only(self):
         if self.locked:
             logger.info(
@@ -188,6 +189,7 @@ class Persistence(PersistenceExecutorInterface):
                 "means that another Snakemake instance is running on this directory. "
                 "Another possibility is that a previous run exited unexpectedly."
             )
+        yield
 
     @contextmanager
     def lock(self):
@@ -434,8 +436,9 @@ class Persistence(PersistenceExecutorInterface):
         recorded = self.container_img_url(file)
         return recorded is not None and recorded != job.container_img_url
 
+    @contextmanager
     def noop(self, *args):
-        pass
+        yield
 
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()

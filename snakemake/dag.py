@@ -89,9 +89,9 @@ class DAG(DAGExecutorInterface):
         self.rules = set(rules)
         self.targetfiles = targetfiles
         self.targetrules = targetrules
-        self.target_jobs_rules = (
-            {spec.rulename for spec in self.workflow.dag_settings.target_jobs}
-        )
+        self.target_jobs_rules = {
+            spec.rulename for spec in self.workflow.dag_settings.target_jobs
+        }
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
@@ -273,7 +273,8 @@ class DAG(DAGExecutorInterface):
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
-            if job.conda_env_spec and (self.workflow.storage_settings.assume_shared_fs or job.is_local)
+            if job.conda_env_spec
+            and (self.workflow.storage_settings.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
@@ -364,7 +365,10 @@ class DAG(DAGExecutorInterface):
             self.postprocess()
 
     def is_edit_notebook_job(self, job):
-        return self.workflow.execution_settings.edit_notebook and job.targetfile in self.targetfiles
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and job.targetfile in self.targetfiles
+        )
 
     def get_job_group(self, job):
         return self._group.get(job)
@@ -1609,9 +1613,15 @@ class DAG(DAGExecutorInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
-            if DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method:
+            if (
+                DeploymentMethod.APPTAINER
+                in self.workflow.deployment_settings.deployment_method
+            ):
                 self.pull_container_imgs()
-            if DeploymentMethod.CONDA in self.workflow.deployment_settings.deployment_method:
+            if (
+                DeploymentMethod.CONDA
+                in self.workflow.deployment_settings.deployment_method
+            ):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
@@ -2320,7 +2330,11 @@ class DAG(DAGExecutorInterface):
                         if f.protected:
                             logger.error(f"Skipping write-protected file {f}.")
                         else:
-                            msg = "Deleting {}" if not self.workflow.dryrun else "Would delete {}"
+                            msg = (
+                                "Deleting {}"
+                                if not self.workflow.dryrun
+                                else "Would delete {}"
+                            )
                             logger.info(msg.format(f))
                             if not self.workflow.dryrun:
                                 # Remove non-empty dirs if flagged as temp()

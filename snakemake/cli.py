@@ -17,7 +17,22 @@ from pathlib import Path
 import re
 import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.settings import ChangeType, ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, NotebookEditMode, OutputSettings, PreemptibleRules, Quietness, RemoteExecutionSettings, ResourceSettings, SchedulingSettings, StorageSettings
+from snakemake.settings import (
+    ChangeType,
+    ConfigSettings,
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    NotebookEditMode,
+    OutputSettings,
+    PreemptibleRules,
+    Quietness,
+    RemoteExecutionSettings,
+    ResourceSettings,
+    SchedulingSettings,
+    StorageSettings,
+)
 
 from snakemake_interface_executor_plugins.settings import ExecMode
 
@@ -167,16 +182,16 @@ def _bool_parser(value):
     raise ValueError
 
 
-def parse_config(args):
+def parse_config(entries):
     """Parse config from args."""
     import yaml
 
     yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
     parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
-    if args.config is not None:
+    if entries:
         valid = re.compile(r"[a-zA-Z_]\w*$")
-        for entry in args.config:
+        for entry in entries:
             key, val = parse_key_value_arg(
                 entry,
                 errmsg="Invalid config definition: Config entries have to be defined as name=value pairs.",
@@ -209,8 +224,7 @@ def parse_cores(cores):
         return int(cores)
     except ValueError:
         raise CliException(
-            "Error parsing number of cores (--cores, -c): must be integer "
-            "or 'all'."
+            "Error parsing number of cores (--cores, -c): must be integer " "or 'all'."
         )
 
 
@@ -421,6 +435,7 @@ def get_argument_parser(profiles=None):
         "--res",
         nargs="*",
         metavar="NAME=INT",
+        default=dict(),
         type=parse_resources,
         help=(
             "Define additional resources that shall constrain the scheduling "
@@ -439,6 +454,7 @@ def get_argument_parser(profiles=None):
         "--set-threads",
         metavar="RULE=THREADS",
         nargs="+",
+        default=dict(),
         type=parse_set_threads,
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
@@ -458,6 +474,7 @@ def get_argument_parser(profiles=None):
         "--set-resources",
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
+        default=dict(),
         type=parse_set_resources,
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
@@ -469,6 +486,7 @@ def get_argument_parser(profiles=None):
         "--set-scatter",
         metavar="NAME=SCATTERITEMS",
         nargs="+",
+        default=dict(),
         type=parse_set_scatter,
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
@@ -478,6 +496,7 @@ def get_argument_parser(profiles=None):
         "--set-resource-scopes",
         metavar="RESOURCE=[global|local]",
         nargs="+",
+        default=dict(),
         type=parse_set_resource_scope,
         help="Overwrite resource scopes. A scope determines how a constraint is "
         "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
@@ -527,7 +546,7 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--preemptible-retries",
         type=int,
-        help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting."
+        help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting.",
     )
 
     group_exec.add_argument(
@@ -535,6 +554,7 @@ def get_argument_parser(profiles=None):
         "-C",
         nargs="*",
         metavar="KEY=VALUE",
+        default=dict(),
         type=parse_config,
         help=(
             "Set or overwrite values in the workflow config object. "
@@ -548,6 +568,8 @@ def get_argument_parser(profiles=None):
         "--configfiles",
         nargs="+",
         metavar="FILE",
+        default=list(),
+        type=list,
         help=(
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
@@ -639,6 +661,8 @@ def get_argument_parser(profiles=None):
         "-R",
         nargs="*",
         metavar="TARGET",
+        type=set,
+        default=set(),
         help=(
             "Force the re-execution or creation of the given rules or files."
             " Use this option if you changed a rule and want to have all its "
@@ -651,6 +675,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         metavar="TARGET",
         type=set,
+        default=set(),
         help=(
             "Tell the scheduler to assign creation of given targets "
             "(and all their dependencies) highest priority."
@@ -676,6 +701,8 @@ def get_argument_parser(profiles=None):
         "-U",
         nargs="+",
         metavar="TARGET",
+        type=set,
+        default=set(),
         help=(
             "Runs the pipeline until it reaches the specified rules or "
             "files. Only runs jobs that are dependencies of the specified "
@@ -687,6 +714,8 @@ def get_argument_parser(profiles=None):
         "-O",
         nargs="+",
         metavar="TARGET",
+        type=set,
+        default=set(),
         help=(
             "Prevent the execution or creation of the given rules or files "
             "as well as any rules or files that are downstream of these targets "
@@ -1204,6 +1233,8 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--target-jobs",
         nargs="+",
+        type=set,
+        default=set(),
         help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
         "This is meant for internal use by Snakemake itself only.",
     )
@@ -1661,10 +1692,11 @@ def get_argument_parser(profiles=None):
         "--deployment",
         choices=DeploymentMethod.choices(),
         type=DeploymentMethod.parse_choices_set,
-        help="Specify software environment deployment method."
+        default=set(),
+        help="Specify software environment deployment method.",
     )
     group_deployment.add_argument(
-        "--cleanup-containers",
+        "--container-cleanup-images",
         action="store_true",
         help="Remove unused containers",
     )
@@ -1901,14 +1933,13 @@ def setup_log_handlers(args, parser):
             args.wms_monitor, args.wms_monitor_arg, metadata=metadata
         )
         log_handler.append(wms_logger.log_handler)
-    
+
     return log_handler
 
 
 def parse_edit_notebook(args):
     edit_notebook = None
     if args.draft_notebook:
-
         args.targets = {args.draft_notebook}
         edit_notebook = NotebookEditMode(draft_only=True)
     elif args.edit_notebook:
@@ -1954,14 +1985,19 @@ def args_to_api(args, parser):
         args.executor = "touch"
     elif args.cluster:
         args.executor = "cluster"
+    elif args.executor is None:
+        args.executor = "local"
 
     executor_plugin = _get_executor_plugin_registry().plugins[args.executor]
     executor_settings = executor_plugin.get_executor_settings(args)
-    
-    if args.cores is None and executor_plugin.common_settings.local_exec:
-        # use --jobs as an alias for --cores
-        args.cores = args.jobs
-    
+
+    if args.cores is None:
+        if executor_plugin.common_settings.local_exec:
+            # use --jobs as an alias for --cores
+            args.cores = args.jobs
+        elif executor_plugin.common_settings.dryrun_exec:
+            args.cores = 1
+
     # start profiler if requested
     if args.runtime_profile:
         import yappi
@@ -1971,7 +2007,7 @@ def args_to_api(args, parser):
     log_handlers = setup_log_handlers(args, parser)
 
     edit_notebook = parse_edit_notebook(args)
-    
+
     wait_for_files = parse_wait_for_files(args)
 
     snakemake_api = SnakemakeApi(
@@ -1990,7 +2026,7 @@ def args_to_api(args, parser):
         workflow_api = snakemake_api.workflow(
             resource_settings=ResourceSettings(
                 cores=args.cores,
-                nodes=args.nodes,
+                nodes=args.jobs,
                 local_cores=args.local_cores,
                 max_threads=args.max_threads,
                 resources=args.resources,
@@ -2007,7 +2043,7 @@ def args_to_api(args, parser):
             storage_settings=StorageSettings(
                 default_remote_provider=args.default_remote_provider,
                 default_remote_prefix=args.default_remote_prefix,
-                assume_shared_fs=args.assume_shared_fs,
+                assume_shared_fs=not args.no_shared_fs,
                 keep_remote_local=args.keep_remote,
                 notemp=args.notemp,
                 all_temp=args.all_temp,
@@ -2027,14 +2063,14 @@ def args_to_api(args, parser):
         elif args.print_compilation:
             workflow_api.print_compilation()
 
-        deployment_method = args.deployment_method
+        deployment_method = args.software_deployment_method
         if args.use_conda:
             deployment_method.add(DeploymentMethod.CONDA)
         if args.use_apptainer:
             deployment_method.add(DeploymentMethod.APPTAINER)
         if args.use_envmodules:
             deployment_method.add(DeploymentMethod.ENV_MODULES)
-        
+
         dag_api = workflow_api.dag(
             dag_settings=DAGSettings(
                 targets=args.targets,
@@ -2043,7 +2079,7 @@ def args_to_api(args, parser):
                 forcetargets=args.force,
                 forceall=args.forceall,
                 forcerun=args.forcerun,
-                unit=args.until,
+                until=args.until,
                 omit_from=args.omit_from,
                 force_incomplete=args.rerun_incomplete,
                 allowed_rules=args.allowed_rules,
@@ -2054,11 +2090,11 @@ def args_to_api(args, parser):
                 conda_prefix=args.conda_prefix,
                 conda_cleanup_pkgs=args.conda_cleanup_pkgs,
                 conda_base_path=args.conda_base_path,
-                conda_frontent=args.conda_frontend,
+                conda_frontend=args.conda_frontend,
                 conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
                 apptainer_args=args.apptainer_args,
                 apptainer_prefix=args.apptainer_prefix,
-            )
+            ),
         )
 
         if args.preemptible_rules is not None:
@@ -2091,9 +2127,9 @@ def args_to_api(args, parser):
             dag_api.cleanup_metadata()
         elif args.conda_cleanup_envs:
             dag_api.conda_cleanup_envs()
-        elif args.conda_create_envs:
+        elif args.conda_create_envs_only:
             dag_api.conda_create_envs()
-        elif args.conda_list_envs:
+        elif args.list_conda_envs:
             dag_api.conda_list_envs()
         elif args.cleanup_shadow:
             dag_api.cleanup_shadow()
@@ -2128,7 +2164,7 @@ def args_to_api(args, parser):
                     wait_for_files=wait_for_files,
                     keep_target_files=args.keep_target_files,
                     no_hooks=args.no_hooks,
-                    restart_times=args.retries,
+                    retries=args.retries,
                     attempt=args.attempt,
                     use_threads=args.force_use_threads,
                     shadow_prefix=args.shadow_prefix,

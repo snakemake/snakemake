@@ -34,9 +34,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
         "ERROR": RED,
     }
 
-    def __init__(
-        self, nocolor=False, stream=sys.stderr, mode=ExecMode.DEFAULT
-    ):
+    def __init__(self, nocolor=False, stream=sys.stderr, mode=ExecMode.DEFAULT):
         super().__init__(stream=stream)
 
         self._output_lock = threading.Lock()
@@ -413,7 +411,11 @@ class Logger:
 
     def is_quiet_about(self, msg_type: str):
         from snakemake.settings import Quietness
-        return Quietness.ALL in self.quiet or Quietness.parse_choice(msg_type) in self.quiet
+
+        return (
+            Quietness.ALL in self.quiet
+            or Quietness.parse_choice(msg_type) in self.quiet
+        )
 
     def text_handler(self, msg):
         """The default snakemake log handler.

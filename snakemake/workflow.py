@@ -14,13 +14,30 @@ from functools import partial
 import copy
 from pathlib import Path
 from typing import List, Optional, Set
-from snakemake.settings import ConfigSettings, DAGSettings, DeploymentMethod, DeploymentSettings, ExecutionSettings, GroupSettings, OutputSettings, RemoteExecutionSettings, RerunTrigger, ResourceSettings, SchedulingSettings, StorageSettings
+from snakemake.settings import (
+    ConfigSettings,
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    GroupSettings,
+    OutputSettings,
+    RemoteExecutionSettings,
+    RerunTrigger,
+    ResourceSettings,
+    SchedulingSettings,
+    StorageSettings,
+)
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
-from snakemake_interface_executor_plugins.cli import SpawnedJobArgsFactoryExecutorInterface
+from snakemake_interface_executor_plugins.cli import (
+    SpawnedJobArgsFactoryExecutorInterface,
+)
 from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
-from snakemake_interface_executor_plugins.registry.plugin import Plugin as ExecutorPlugin
+from snakemake_interface_executor_plugins.registry.plugin import (
+    Plugin as ExecutorPlugin,
+)
 from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.logging import logger, format_resources
@@ -178,18 +195,21 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def dryrun(self):
         return self.executor_plugin.common_settings.dryrun_exec
-    
+
     @property
     def touch(self):
         import snakemake.executors.touch
-        return isinstance(self.executor_plugin.executor, snakemake.executors.touch.Executor)
+
+        return isinstance(
+            self.executor_plugin.executor, snakemake.executors.touch.Executor
+        )
 
     @property
     def use_threads(self):
         return (
-            self.workflow.execution_settings.use_threads or 
-            (os.name not in ["posix", "nt"]) or 
-            not self.executor_plugin.common_settings.local_exec
+            self.workflow.execution_settings.use_threads
+            or (os.name not in ["posix", "nt"])
+            or not self.executor_plugin.common_settings.local_exec
         )
 
     @lazy_property
@@ -441,11 +461,11 @@ class Workflow(WorkflowExecutorInterface):
         return IOFile(path)
 
     def _prepare_dag(
-            self,
-            forceall: bool,
-            ignore_incomplete: bool,
-            lock_warn_only: bool,
-        ) -> DAG:
+        self,
+        forceall: bool,
+        ignore_incomplete: bool,
+        lock_warn_only: bool,
+    ) -> DAG:
         self.check_localrules()
 
         def rules(items):
@@ -502,8 +522,10 @@ class Workflow(WorkflowExecutorInterface):
 
         rules = self.rules
         if self.dag_settings.allowed_rules:
-            rules = [rule for rule in rules if rule.name in self.dag_settings.allowed_rules]
-        
+            rules = [
+                rule for rule in rules if rule.name in self.dag_settings.allowed_rules
+            ]
+
         self._dag = DAG(
             self,
             rules,
@@ -534,7 +556,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
-        
+
         Arguments
         path -- Path to the directory where the unit tests shall be generated.
         """
@@ -543,7 +565,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
 
@@ -560,7 +582,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         failed = []
         for path in self.execution_settings.cleanup_metadata:
@@ -574,12 +596,12 @@ class Workflow(WorkflowExecutorInterface):
                 "or still running jobs.\nConsider running metadata cleanup again.\nFiles:\n"
                 + "\n".join(failed)
             )
-    
+
     def unlock(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
         try:
@@ -589,7 +611,7 @@ class Workflow(WorkflowExecutorInterface):
             raise WorkflowError(
                 f"Error: Unlocking the directory {os.getcwd()} failed. Maybe "
                 "you don't have the permissions?",
-                e
+                e,
             )
 
     def cleanup_shadow(self):
@@ -597,7 +619,6 @@ class Workflow(WorkflowExecutorInterface):
         self._build_dag()
         with self.persistence.lock():
             self.persistence.cleanup_shadow()
-
 
     def delete_output(self, only_temp: bool = False, dryrun: bool = False):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -614,14 +635,14 @@ class Workflow(WorkflowExecutorInterface):
     def list_changes(self, change_type: ChangeType):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
-        
+
         items = self.dag.get_outputs_with_changes(change_type)
         if items:
             print(*items, sep="\n")
 
     def archive(self, path: Path):
         """Archive the workflow.
-        
+
         Arguments
         path -- Path to the archive file.
         """
@@ -631,7 +652,11 @@ class Workflow(WorkflowExecutorInterface):
         self.dag.archive(path)
 
     def summary(self, detailed: bool = False):
-        self._prepare_dag(forceall=self.dag_settings.forceall, ignore_incomplete=True, lock_warn_only=True)
+        self._prepare_dag(
+            forceall=self.dag_settings.forceall,
+            ignore_incomplete=True,
+            lock_warn_only=True,
+        )
         self._build_dag()
 
         print("\n".join(self.dag.summary(detailed=detailed)))
@@ -640,65 +665,66 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
         self._build_dag()
         self.persistence.conda_cleanup_envs()
-    
+
     def printdag(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=True
+            lock_warn_only=True,
         )
         self._build_dag()
         print(self.dag)
-    
+
     def printrulegraph(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=True
+            lock_warn_only=True,
         )
         self._build_dag()
         self.dag.rule_dot()
-    
+
     def printfilegraph(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=True
+            lock_warn_only=True,
         )
         self._build_dag()
         self.dag.filegraph_dot()
-    
+
     def printd3dag(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=True
+            lock_warn_only=True,
         )
         self._build_dag()
 
         self.dag.d3dag()
-    
+
     def containerize(self):
         from snakemake.deployment.containerize import containerize
+
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
         with self.persistence.lock():
             containerize(self, self.dag)
-    
+
     def export_cwl(self, path: Path):
         """Export the workflow as CWL document.
-        
+
         Arguments
         path -- the path to the CWL document to be created.
         """
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
 
@@ -708,13 +734,13 @@ class Workflow(WorkflowExecutorInterface):
         with open(path, "w") as cwl:
             json.dump(dag_to_cwl(self.dag), cwl, indent=4)
 
-    def create_report(self, path: Path, stylesheet: Optional[Path]=None):
+    def create_report(self, path: Path, stylesheet: Optional[Path] = None):
         from snakemake.report import auto_report
 
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
 
@@ -724,11 +750,14 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
 
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
+        if (
+            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
+            and self.storage_settings.assume_shared_fs
+        ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs(
             dryrun=True,
@@ -749,19 +778,22 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
 
-        if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
+        if (
+            DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
+            and self.storage_settings.assume_shared_fs
+        ):
             self.dag.pull_container_imgs()
         self.dag.create_conda_envs()
-    
+
     def conda_cleanup_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
         self.persistence.conda_cleanup_envs()
@@ -770,7 +802,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
             ignore_incomplete=self.execution_settings.ignore_incomplete,
-            lock_warn_only=False
+            lock_warn_only=False,
         )
         self._build_dag()
         self.persistence.cleanup_containers()
@@ -785,22 +817,29 @@ class Workflow(WorkflowExecutorInterface):
         self,
         executor_plugin: ExecutorPlugin,
         executor_settings: ExecutorSettingsBase,
-        updated_files: Optional[List[str]]=None,
+        updated_files: Optional[List[str]] = None,
     ):
         from snakemake.shell import shell
-        shell.conda_block_conflicting_envvars = not self.deployment_settings.conda_not_block_search_path_envvars
+
+        shell.conda_block_conflicting_envvars = (
+            not self.deployment_settings.conda_not_block_search_path_envvars
+        )
 
         if self.execution_settings.cache is not None:
             self.enable_cache = True
-            self.cache_rules = {rulename: "all" for rulename in self.execution_settings.cache}
+            self.cache_rules = {
+                rulename: "all" for rulename in self.execution_settings.cache
+            }
             if self.storage_settings.default_remote_provider is not None:
                 self._output_file_cache = RemoteOutputFileCache(
                     self.storage_settings.default_remote_provider
                 )
             else:
                 self._output_file_cache = LocalOutputFileCache()
-        
-        self.iocache = snakemake.io.IOCache(self.execution_settings.max_inventory_wait_time)
+
+        self.iocache = snakemake.io.IOCache(
+            self.execution_settings.max_inventory_wait_time
+        )
 
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)
@@ -811,7 +850,8 @@ class Workflow(WorkflowExecutorInterface):
         if self.execution_settings.wait_for_files:
             try:
                 snakemake.io.wait_for_files(
-                    self.execution_settings.wait_for_files, latency_wait=self.execution_settings.latency_wait
+                    self.execution_settings.wait_for_files,
+                    latency_wait=self.execution_settings.latency_wait,
                 )
             except IOError as e:
                 logger.error(str(e))
@@ -839,7 +879,9 @@ class Workflow(WorkflowExecutorInterface):
                 # clear and deactivate persistence cache, from now on we want to see updates
                 self.persistence.deactivate_cache()
 
-            if self.remote_execution_settings.immediate_submit and any(self.dag.checkpoint_jobs):
+            if self.remote_execution_settings.immediate_submit and any(
+                self.dag.checkpoint_jobs
+            ):
                 raise WorkflowError(
                     "Immediate submit mode (--immediate-submit) may not be used for workflows "
                     "with checkpoint jobs, as the dependencies cannot be determined before "
@@ -847,10 +889,14 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             if updated_files is not None:
-                updated_files.extend(f for job in self.dag.needrun_jobs() for f in job.output)
+                updated_files.extend(
+                    f for job in self.dag.needrun_jobs() for f in job.output
+                )
 
-
-            if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and self.storage_settings.assume_shared_fs:
+            if (
+                DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method
+                and self.storage_settings.assume_shared_fs
+            ):
                 self.dag.pull_container_imgs()
             if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                 self.dag.create_conda_envs()
@@ -873,23 +919,35 @@ class Workflow(WorkflowExecutorInterface):
                                 if self._cores > 1
                                 else " (use --cores to define parallelism)"
                             )
-                            logger.resources_info(f"Provided cores: {self._cores}{warning}")
+                            logger.resources_info(
+                                f"Provided cores: {self._cores}{warning}"
+                            )
                             logger.resources_info(
                                 "Rules claiming more threads will be scaled down."
                             )
 
                     provided_resources = format_resources(self.global_resources)
                     if provided_resources:
-                        logger.resources_info(f"Provided resources: {provided_resources}")
+                        logger.resources_info(
+                            f"Provided resources: {provided_resources}"
+                        )
 
-                    if self.executor_plugin.common_settings.local_exec and any(rule.group for rule in self.rules):
+                    if self.executor_plugin.common_settings.local_exec and any(
+                        rule.group for rule in self.rules
+                    ):
                         logger.info("Group jobs: inactive (local execution)")
 
-                    if not DeploymentMethod.CONDA in self.deployment_settings.deployment_method and any(rule.conda_env for rule in self.rules):
+                    if (
+                        not DeploymentMethod.CONDA
+                        in self.deployment_settings.deployment_method
+                        and any(rule.conda_env for rule in self.rules)
+                    ):
                         logger.info("Conda environments: ignored")
 
-                    if not DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method and any(
-                        rule.container_img for rule in self.rules
+                    if (
+                        not DeploymentMethod.APPTAINER
+                        in self.deployment_settings.deployment_method
+                        and any(rule.container_img for rule in self.rules)
                     ):
                         logger.info("Singularity containers: ignored")
 
@@ -933,7 +991,9 @@ class Workflow(WorkflowExecutorInterface):
                     logger.info(
                         "Rules with provenance triggered jobs: "
                         + ",".join(
-                            sorted(set(job.rule.name for job in provenance_triggered_jobs))
+                            sorted(
+                                set(job.rule.name for job in provenance_triggered_jobs)
+                            )
                         )
                     )
                     logger.info("")
@@ -948,9 +1008,9 @@ class Workflow(WorkflowExecutorInterface):
                 raise e
 
             if (
-                not self.remote_execution_settings.immediate_submit and
-                not self.dryrun and
-                self.execution_settings.mode == ExecMode.DEFAULT
+                not self.remote_execution_settings.immediate_submit
+                and not self.dryrun
+                and self.execution_settings.mode == ExecMode.DEFAULT
             ):
                 self.dag.cleanup_workdir()
 
@@ -1147,6 +1207,7 @@ class Workflow(WorkflowExecutorInterface):
     def configfile(self, fp):
         """Update the global config with data from the given file."""
         from snakemake.common.configfile import load_configfile
+
         if not self.modifier.skip_configfile:
             if os.path.exists(fp):
                 self.configfiles.append(fp)
@@ -1259,7 +1320,12 @@ class Workflow(WorkflowExecutorInterface):
                 rule.set_params(*ruleinfo.params[0], **ruleinfo.params[1])
             # handle default resources
             if self.resource_settings.default_resources is not None:
-                rule.resources = copy.deepcopy(self.resource_settings.default_resources.parsed)
+                rule.resources = copy.deepcopy(
+                    self.resource_settings.default_resources.parsed
+                )
+            else:
+                rule.resources = dict()
+
             if ruleinfo.threads is not None:
                 if (
                     not isinstance(ruleinfo.threads, int)
@@ -1271,11 +1337,16 @@ class Workflow(WorkflowExecutorInterface):
                         rule=rule,
                     )
                 if name in self.resource_settings.overwrite_threads:
-                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[name]
+                    rule.resources["_cores"] = self.resource_settings.overwrite_threads[
+                        name
+                    ]
                 else:
                     if isinstance(ruleinfo.threads, float):
                         ruleinfo.threads = int(ruleinfo.threads)
                     rule.resources["_cores"] = ruleinfo.threads
+            else:
+                rule.resources["_cores"] = 1
+
             if ruleinfo.shadow_depth:
                 if ruleinfo.shadow_depth not in (
                     True,
@@ -1332,7 +1403,7 @@ class Workflow(WorkflowExecutorInterface):
                     raise RuleException(
                         "Retries values have to be integers >= 0", rule=rule
                     )
-            
+
             rule.restart_times = ruleinfo.retries
 
             if ruleinfo.log:
@@ -1846,6 +1917,7 @@ class Subworkflow:
         if not os.path.isabs(workdir):
             return os.path.abspath(os.path.join(self.workflow.basedir, workdir))
         return workdir
+
 
 def srcdir(path):
     """Return the absolute path, relative to the source directory of the current Snakefile."""

@@ -115,7 +115,9 @@ class TokenAutomaton:
 
     def subautomaton(self, automaton, *args, token=None, **kwargs):
         if automaton in self.deprecated:
-            assert token is not None, "bug: deprecation encountered but subautomaton not called with a token"
+            assert (
+                token is not None
+            ), "bug: deprecation encountered but subautomaton not called with a token"
             self.error(
                 f"Keyword {automaton} is deprecated. {self.deprecated[automaton]}",
                 token,
@@ -1094,7 +1096,9 @@ class UseRule(GlobalKeywordState):
             yield token.string, token
         elif is_name(token):
             try:
-                self._with_block.extend(self.subautomaton(token.string, token=token).consume())
+                self._with_block.extend(
+                    self.subautomaton(token.string, token=token).consume()
+                )
                 yield from ()
             except KeyError:
                 self.error(
@@ -1141,9 +1145,7 @@ class Python(TokenAutomaton):
         module=Module,
         use=UseRule,
     )
-    deprecated=dict(
-        subworkflow="Use module directive instead (see docs)."
-    )
+    deprecated = dict(subworkflow="Use module directive instead (see docs).")
 
     def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)

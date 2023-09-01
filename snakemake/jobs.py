@@ -307,7 +307,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
-            if self.dag.workflow.executor_plugin.common_settings.local_exec or self.is_local:
+            if (
+                self.dag.workflow.executor_plugin.common_settings.local_exec
+                or self.is_local
+            ):
                 groupid = self.dag.workflow.group_settings.local_groupid
         else:
             groupid = group.jobid
@@ -400,7 +403,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def resources(self):
         if self._resources is None:
-            if self.dag.workflow.executor_plugin.common_settings.local_exec or self.is_local:
+            if (
+                self.dag.workflow.executor_plugin.common_settings.local_exec
+                or self.is_local
+            ):
                 skip_evaluation = None
             else:
                 # tmpdir should be evaluated in the context of the actual execution
@@ -467,7 +473,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def container_img(self):
-        if self.dag.workflow.deployment_settings.use_singularity and self.container_img_url:
+        if (
+            self.dag.workflow.deployment_settings.use_singularity
+            and self.container_img_url
+        ):
             return self.dag.container_imgs[self.container_img_url]
         return None
 
@@ -622,9 +631,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def missing_input(self):
         """Return missing input files."""
-        return set(
-            f for f in self.input if not f.exists
-        )
+        return set(f for f in self.input if not f.exists)
 
     @property
     def existing_remote_input(self):
@@ -1117,7 +1124,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
         if (
-            DeploymentMethod.CONDA in self.dag.workflow.deployment_settings.deployment_method
+            DeploymentMethod.CONDA
+            in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
             and not self.conda_env.is_named
             and not self.conda_env.is_containerized
@@ -1157,7 +1165,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 self.dag.handle_log(self)
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=self.dag.workflow.execution_settings.latency_wait, ignore_missing_output=ignore_missing_output
+                    self,
+                    wait=self.dag.workflow.execution_settings.latency_wait,
+                    ignore_missing_output=ignore_missing_output,
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
@@ -1167,7 +1177,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         else:
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=self.dag.workflow.execution_settings.latency_wait, no_touch=True, force_stay_on_remote=True
+                    self,
+                    wait=self.dag.workflow.execution_settings.latency_wait,
+                    no_touch=True,
+                    force_stay_on_remote=True,
                 )
         if not error:
             try:
@@ -1391,7 +1404,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if (
-                DeploymentMethod.CONDA in self.dag.workflow.deployment_settings.deployment_method
+                DeploymentMethod.CONDA
+                in self.dag.workflow.deployment_settings.deployment_method
                 and job.conda_env
                 and not job.conda_env.is_named
             ):

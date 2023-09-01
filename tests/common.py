@@ -230,7 +230,7 @@ def run(
                 cores=cores,
                 nodes=nodes,
                 overwrite_resource_scopes=(
-                ResourceScopes(overwrite_resource_scopes)
+                    ResourceScopes(overwrite_resource_scopes)
                     if overwrite_resource_scopes is not None
                     else dict()
                 ),
@@ -265,7 +265,6 @@ def run(
         except Exception as e:
             success = False
             snakemake_api.print_exception(e)
-        
 
     if shouldfail:
         assert not success, "expected error on execution"

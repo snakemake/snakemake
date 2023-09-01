@@ -403,7 +403,9 @@ class GoogleLifeSciencesExecutor(RemoteExecutor):
             "found resource request for {} GPUs. This will limit to n1 "
             "instance types.".format(gpu_count)
         )
-        self.workflow.resource_settings.default_resources.set_resource("nvidia_gpu", gpu_count)
+        self.workflow.resource_settings.default_resources.set_resource(
+            "nvidia_gpu", gpu_count
+        )
 
         self._machine_type_prefix = self._machine_type_prefix or ""
         if not self._machine_type_prefix.startswith("n1"):

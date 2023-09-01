@@ -121,12 +121,24 @@ class Executor(RealExecutor):
         job.prepare()
 
         conda_env = (
-            job.conda_env.address if DeploymentMethod.CONDA in self.workflow.deployment_settings.deployment_method and job.conda_env else None
+            job.conda_env.address
+            if DeploymentMethod.CONDA
+            in self.workflow.deployment_settings.deployment_method
+            and job.conda_env
+            else None
         )
         container_img = (
-            job.container_img_path if DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method else None
+            job.container_img_path
+            if DeploymentMethod.APPTAINER
+            in self.workflow.deployment_settings.deployment_method
+            else None
         )
-        env_modules = job.env_modules if DeploymentMethod.ENV_MODULES in self.workflow.deployment_settings.deployment_method else None
+        env_modules = (
+            job.env_modules
+            if DeploymentMethod.ENV_MODULES
+            in self.workflow.deployment_settings.deployment_method
+            else None
+        )
 
         benchmark = None
         benchmark_repeats = job.benchmark_repeats or 1
@@ -147,13 +159,16 @@ class Executor(RealExecutor):
             container_img,
             self.workflow.deployment_settings.apptainer_args,
             env_modules,
-            DeploymentMethod.APPTAINER in self.workflow.deployment_settings.deployment_method,
+            DeploymentMethod.APPTAINER
+            in self.workflow.deployment_settings.deployment_method,
             self.workflow.linemaps,
             self.workflow.execution_settings.debug,
             self.workflow.execution_settings.cleanup_scripts,
             job.shadow_dir,
             job.jobid,
-            self.workflow.execution_settings.edit_notebook if self.dag.is_edit_notebook_job(job) else None,
+            self.workflow.execution_settings.edit_notebook
+            if self.dag.is_edit_notebook_job(job)
+            else None,
             self.workflow.deployment_settings.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
@@ -256,7 +271,9 @@ class Executor(RealExecutor):
             error_callback(job)
         except BaseException as ex:
             self.print_job_error(job)
-            if self.workflow.output_settings.verbose or (not job.is_group() and not job.is_shell):
+            if self.workflow.output_settings.verbose or (
+                not job.is_group() and not job.is_shell
+            ):
                 print_exception(ex, self.workflow.linemaps)
             error_callback(job)
 
@@ -268,7 +285,7 @@ class Executor(RealExecutor):
         if not self.keepincomplete:
             job.cleanup()
             self.workflow.persistence.cleanup(job)
-    
+
     @property
     def cores(self):
         return self.workflow.resource_settings.cores

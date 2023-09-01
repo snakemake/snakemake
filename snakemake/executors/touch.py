@@ -67,7 +67,7 @@ class Executor(RealExecutor):
 
     def get_python_executable(self):
         raise NotImplementedError()
-    
+
     @property
     def cores(self):
         return self.workflow.resource_settings.cores

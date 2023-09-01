@@ -4,7 +4,9 @@ import operator as op
 import re
 import tempfile
 
-from snakemake_interface_executor_plugins.resources import DefaultResourcesExecutorInterface
+from snakemake_interface_executor_plugins.resources import (
+    DefaultResourcesExecutorInterface,
+)
 
 from snakemake.exceptions import ResourceScopesException, WorkflowError
 from snakemake.common import TBDString

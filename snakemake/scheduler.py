@@ -45,11 +45,7 @@ class DummyRateLimiter(ContextDecorator):
 
 
 class JobScheduler(JobSchedulerExecutorInterface):
-    def __init__(
-        self,
-        workflow,
-        executor_plugin: ExecutorPlugin
-    ):
+    def __init__(self, workflow, executor_plugin: ExecutorPlugin):
         """Create a new instance of KnapsackJobScheduler."""
         self.workflow = workflow
 
@@ -102,9 +98,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 self.workflow,
                 logger,
             )
-            self._local_executor = ExecutorPluginRegistry().get_executor("local").executor(
-                self.workflow,
-                logger,
+            self._local_executor = (
+                ExecutorPluginRegistry()
+                .get_executor("local")
+                .executor(
+                    self.workflow,
+                    logger,
+                )
             )
 
         # elif slurm:
@@ -444,7 +444,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     continue
 
                 # all runnable jobs have finished, normal shutdown
-                if not needrun and (not running or self.workflow.remote_execution_settings.immediate_submit):
+                if not needrun and (
+                    not running
+                    or self.workflow.remote_execution_settings.immediate_submit
+                ):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
@@ -655,7 +658,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     return f.size / 1e9
 
             temp_files = {
-                temp_file for job in jobs for temp_file in self.workflow.dag.temp_input(job)
+                temp_file
+                for job in jobs
+                for temp_file in self.workflow.dag.temp_input(job)
             }
 
             temp_job_improvement = {
@@ -784,7 +789,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             # This is needed for cluster envs, where the cluster job might have a different environment but
             # still needs access to the solver binary.
             os.environ["PATH"] = "{}:{}".format(
-                self.workflow.scheduling_settings.scheduler_solver_path, os.environ["PATH"]
+                self.workflow.scheduling_settings.scheduler_solver_path,
+                os.environ["PATH"],
             )
         try:
             solver = (
@@ -896,7 +902,11 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     def job_reward(self, job):
-        if self.touch or self.dryrun or self.workflow.remote_execution_settings.immediate_submit:
+        if (
+            self.touch
+            or self.dryrun
+            or self.workflow.remote_execution_settings.immediate_submit
+        ):
             temp_size = 0
             input_size = 0
         else:
