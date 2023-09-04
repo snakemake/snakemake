@@ -3,46 +3,45 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from collections import defaultdict
-import os
-import subprocess
 import glob
-from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
-import logging as _logging
-import re
-import sys
+import importlib
 import inspect
+import logging as _logging
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
 import threading
 import webbrowser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentError
+from collections import defaultdict
 from functools import partial
-import importlib
-import shutil
-import shlex
 from importlib.machinery import SourceFileLoader
-from snakemake.target_jobs import parse_target_jobs_cli_args
 
-from snakemake.workflow import Workflow
+from snakemake.common import (
+    MIN_PY_VERSION,
+    Mode,
+    __version__,
+    dict_to_key_value_args,
+    get_appdirs,
+    parse_key_value_arg,
+)
 from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
-    print_exception,
     WorkflowError,
+    print_exception,
 )
-from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
+from snakemake.logging import SlackLogger, WMSLogger, logger, setup_logger
+from snakemake.resources import DefaultResources, ResourceScopes, parse_resources
 from snakemake.shell import shell
-from snakemake.utils import update_config, available_cpu_count
-from snakemake.common import (
-    Mode,
-    __version__,
-    MIN_PY_VERSION,
-    get_appdirs,
-    dict_to_key_value_args,
-    parse_key_value_arg,
-)
-from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-
+from snakemake.target_jobs import parse_target_jobs_cli_args
+from snakemake.utils import available_cpu_count, update_config
+from snakemake.workflow import Workflow
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
@@ -197,9 +196,8 @@ def snakemake(
     show_failed_logs=False,
     keep_incomplete=False,
     keep_metadata=True,
+    benchmark_output=None,
     benchmark_all=None,
-    print_benchmark=False,
-    print_benchmark_all=False,
     nobenchmark=False,
     messaging=None,
     edit_notebook=None,
@@ -338,10 +336,9 @@ def snakemake(
         export_cwl (str):           Compile workflow to CWL and save to given file
         log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
         keep_incomplete (bool):     keep incomplete output files of failed jobs
-        nobenchmark (bool):   Disable benchmarking for all rules
-        benchmark_all (str):   Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
-        print_benchmark (bool): Print benchmarks of all benchmarked rules, including sizes of all input files, from last run to STDOUT (default False)
-        print_benchmark_all (bool): Print benchamrk metrics of all rules, including sizes of all input files, from last run to STDOUT (default False)
+        nobenchmark (bool):         Disable benchmarking for all rules
+        benchmark_output (str):            Write all benchmared stats to given file (tab-separated)
+        benchmark_all (str):        Benchmark all rules regardless if benchmark directive is set in Snakefile. Write all benchmark stats to given file (tab-separated)
         edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
         scheduler (str):            Select scheduling algorithm (default ilp)
         scheduler_ilp_solver (str): Set solver for ilp scheduler.
@@ -641,22 +638,20 @@ def snakemake(
             scheduler_solver_path=scheduler_solver_path,
             conda_base_path=conda_base_path,
             check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
+            benchmark_output=benchmark_output,
             benchmark_all=benchmark_all,
-            print_benchmark=print_benchmark,
-            print_benchmark_all=print_benchmark_all,
             all_temp=all_temp,
             local_groupid=local_groupid,
             keep_metadata=keep_metadata,
             latency_wait=latency_wait,
         )
         success = True
-
         workflow.include(
             snakefile,
             overwrite_default_target=True,
             print_compilation=print_compilation,
         )
-        if benchmark_all is not None or print_benchmark_all:
+        if benchmark_all is not None:
             if not forceall:
                 logger.warning(
                     "Warning: Benchmarking all rules but --forceall is not set. Resulting benchmarks maybe incomplete or outdated!"
@@ -865,8 +860,6 @@ def snakemake(
                     batch=batch,
                     keepincomplete=keep_incomplete,
                     containerize=containerize,
-                    print_benchmark=print_benchmark,
-                    print_benchmark_all=print_benchmark_all,
                 )
 
     except BrokenPipeError:
@@ -1503,6 +1496,11 @@ def get_argument_parser(profile=None):
             "Tell the scheduler to assign creation of given targets "
             "(and all their dependencies) highest priority. (EXPERIMENTAL)"
         ),
+    )
+    group_exec.add_argument(
+        "--benchmark",
+        metavar="FILE",
+        help="File to write global benchmark of all jobs to.",
     )
     group_exec.add_argument(
         "--benchmark-all",
@@ -2775,8 +2773,6 @@ def main(argv=None):
         or args.archive
         or args.unlock
         or args.cleanup_metadata
-        or args.print_benchmark_all
-        or args.print_benchmark
     )
 
     try:
@@ -3132,9 +3128,8 @@ def main(argv=None):
             show_failed_logs=args.show_failed_logs,
             keep_incomplete=args.keep_incomplete,
             keep_metadata=not args.drop_metadata,
+            benchmark_output=args.benchmark,
             benchmark_all=args.benchmark_all,
-            print_benchmark=args.print_benchmark,
-            print_benchmark_all=args.print_benchmark_all,
             nobenchmark=args.nobenchmark,
             edit_notebook=args.edit_notebook,
             envvars=args.envvars,

@@ -5,14 +5,15 @@ __license__ = "MIT"
 
 import contextlib
 import datetime
-from itertools import chain
 import os
 import sys
-import time
 import threading
+import time
+from itertools import chain
+
 import pandas as pd
 
-from snakemake.exceptions import WorkflowError, IOFileException
+from snakemake.exceptions import IOFileException, WorkflowError
 from snakemake.logging import logger
 
 #: Interval (in seconds) between measuring resource usage
@@ -389,7 +390,7 @@ def write_benchmark_records(records, path):
         print_benchmark_records(records, f)
 
 
-def gather_benchmark_records(benchmark_jobs, persistence=None, list_input=False):
+def gather_benchmark_records(benchmark_jobs, persistence):
     """
     Gather benchmark from given files.
 
@@ -423,7 +424,15 @@ def gather_benchmark_records(benchmark_jobs, persistence=None, list_input=False)
         _benchmark = pd.read_csv(job._benchmark, index_col=None, sep="\t")
         _benchmark.insert(0, "threads", job.threads)
         _benchmark.insert(0, "input_size_mb", job.input.size_mb)
-        if list_input:
+        _benchmark.insert(0, "resources", resources_str)
+        _benchmark.insert(0, "wildcards", wildcard_str)
+        _benchmark.insert(0, "rule", job.rule.name)
+        _benchmark.insert(0, "jobid", job.jobid)
+
+        # Add individual file sizes to last column
+        if len(job.output) == 0:
+            input_file_size = "NA"
+        else:
             infile_sizes = persistence.input_sizes_mb(job.output)
             input_file_size = (
                 ";".join(
@@ -436,10 +445,6 @@ def gather_benchmark_records(benchmark_jobs, persistence=None, list_input=False)
                 if len(infile_sizes) > 0
                 else "NA"
             )
-            _benchmark.insert(0, "input_file_size_mb", input_file_size)
-        _benchmark.insert(0, "resources", resources_str)
-        _benchmark.insert(0, "wildcards", wildcard_str)
-        _benchmark.insert(0, "rule", job.rule.name)
-        _benchmark.insert(0, "jobid", job.jobid)
+        _benchmark.insert(_benchmark.shape[1], "input_file_size_mb", input_file_size)
         benchmarks = pd.concat([benchmarks, _benchmark])
     return benchmarks

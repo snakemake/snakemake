@@ -3,90 +3,87 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import re
-import os
-import sys
-import signal
+import copy
 import json
-from tokenize import maybe
-from typing import DefaultDict
+import os
+import re
+import signal
+import subprocess
+import sys
 import urllib
 from collections import OrderedDict, namedtuple
-from itertools import filterfalse, chain
 from functools import partial
+from itertools import chain, filterfalse
 from operator import attrgetter
-import copy
-import subprocess
 from pathlib import Path, PosixPath
+from tokenize import maybe
+from typing import DefaultDict
 from urllib.request import pathname2url, url2pathname
 
-
-from snakemake.logging import logger, format_resources, format_resource_names
-from snakemake.rules import Rule, Ruleorder, RuleProxy
-from snakemake.exceptions import (
-    CreateCondaEnvironmentException,
-    RuleException,
-    CreateRuleException,
-    UnknownRuleException,
-    NoRulesException,
-    print_exception,
-    WorkflowError,
-)
-from snakemake.shell import shell
-from snakemake.dag import DAG
-from snakemake.scheduler import JobScheduler
-from snakemake.parser import parse
 import snakemake.io
-from snakemake.io import (
-    protected,
-    temp,
-    temporary,
-    ancient,
-    directory,
-    expand,
-    dynamic,
-    glob_wildcards,
-    flag,
-    not_iterable,
-    touch,
-    unpack,
-    local,
-    pipe,
-    service,
-    repeat,
-    report,
-    multiext,
-    ensure,
-    IOFile,
-    sourcecache_entry,
-)
-from snakemake.persistence import Persistence
-from snakemake.utils import update_config
-from snakemake.script import script
-from snakemake.notebook import notebook
-from snakemake.wrapper import wrapper
-from snakemake.cwl import cwl
-from snakemake.template_rendering import render_template
 import snakemake.wrapper
-from snakemake.common import (
-    Mode,
-    bytesto,
-    ON_WINDOWS,
-    is_local_file,
-    parse_uri,
-    Rules,
-    Scatter,
-    Gather,
-    smart_join,
-    NOTHING_TO_BE_DONE_MSG,
-)
-from snakemake.utils import simplify_path
-from snakemake.checkpoints import Checkpoint, Checkpoints
-from snakemake.resources import DefaultResources, ResourceScopes
+from snakemake import sourcecache
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
+from snakemake.checkpoints import Checkpoint, Checkpoints
+from snakemake.common import (
+    NOTHING_TO_BE_DONE_MSG,
+    ON_WINDOWS,
+    Gather,
+    Mode,
+    Rules,
+    Scatter,
+    bytesto,
+    is_local_file,
+    parse_uri,
+    smart_join,
+)
+from snakemake.cwl import cwl
+from snakemake.dag import DAG
+from snakemake.deployment.conda import Conda, is_conda_env_file
+from snakemake.exceptions import (
+    CreateCondaEnvironmentException,
+    CreateRuleException,
+    NoRulesException,
+    RuleException,
+    UnknownRuleException,
+    WorkflowError,
+    print_exception,
+)
+from snakemake.io import (
+    IOFile,
+    ancient,
+    directory,
+    dynamic,
+    ensure,
+    expand,
+    flag,
+    glob_wildcards,
+    local,
+    multiext,
+    not_iterable,
+    pipe,
+    protected,
+    repeat,
+    report,
+    service,
+    sourcecache_entry,
+    temp,
+    temporary,
+    touch,
+    unpack,
+)
+from snakemake.logging import format_resource_names, format_resources, logger
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
+from snakemake.notebook import notebook
+from snakemake.parser import parse
+from snakemake.persistence import Persistence
+from snakemake.resources import DefaultResources, ResourceScopes
 from snakemake.ruleinfo import InOutput, RuleInfo
+from snakemake.rules import Rule, Ruleorder, RuleProxy
+from snakemake.scheduler import JobScheduler
+from snakemake.script import script
+from snakemake.shell import shell
 from snakemake.sourcecache import (
     GenericSourceFile,
     LocalSourceFile,
@@ -94,8 +91,9 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.deployment.conda import Conda, is_conda_env_file
-from snakemake import sourcecache
+from snakemake.template_rendering import render_template
+from snakemake.utils import simplify_path, update_config
+from snakemake.wrapper import wrapper
 
 
 class Workflow:
@@ -153,9 +151,8 @@ class Workflow:
         check_envvars=True,
         max_threads=None,
         all_temp=False,
+        benchmark_output=None,
         benchmark_all=None,
-        print_benchmark_all=False,
-        print_benchmark=False,
         local_groupid="local",
         keep_metadata=True,
         latency_wait=3,
@@ -247,9 +244,8 @@ class Workflow:
         self.check_envvars = check_envvars
         self.max_threads = max_threads
         self.all_temp = all_temp
+        self.benchmark_output = benchmark_output
         self.benchmark_all = benchmark_all
-        self.print_benchmark = print_benchmark
-        self.print_benchmark_all = print_benchmark_all
         self.scheduler = None
         self.local_groupid = local_groupid
         self.keep_metadata = keep_metadata
@@ -550,7 +546,6 @@ class Workflow:
         printrulegraph=False,
         printfilegraph=False,
         printd3dag=False,
-        print_benchmark_all=False,
         print_benchmark=False,
         drmaa=None,
         drmaa_log_dir=None,
@@ -887,8 +882,9 @@ class Workflow:
             )
             return True
         elif export_cwl:
-            from snakemake.cwl import dag_to_cwl
             import json
+
+            from snakemake.cwl import dag_to_cwl
 
             with open(export_cwl, "w") as cwl:
                 json.dump(dag_to_cwl(dag), cwl, indent=4)
@@ -947,23 +943,6 @@ class Workflow:
             return True
         elif list_untracked:
             dag.list_untracked()
-            return True
-        elif print_benchmark_all or print_benchmark:
-            from snakemake.benchmark import gather_benchmark_records
-
-            benchmarked_jobs = [
-                job
-                for job in dag.jobs
-                if job._benchmark is not None
-                and job.rule.name is not self.default_target
-            ]
-            print(
-                gather_benchmark_records(
-                    benchmark_jobs=benchmarked_jobs,
-                    persistence=self.persistence,
-                    list_input=True,
-                )
-            )
             return True
 
         if self.use_singularity and self.assume_shared_fs:
@@ -1159,18 +1138,24 @@ class Workflow:
                 if stats:
                     self.scheduler.stats.to_json(stats)
                 logger.logfile_hint()
-                if self.benchmark_all is not None:
+                if self.benchmark_all is not None or self.benchmark_output is not None:
                     from snakemake.benchmark import gather_benchmark_records
 
+                    benchmark_file = (
+                        self.benchmark_all
+                        if self.benchmark_all is not None
+                        else self.benchmark_output
+                    )
                     benchmark_jobs = [
                         job
                         for job in dag._finished
                         if job.rule.name is not self.default_target
                     ]
                     records = gather_benchmark_records(
-                        benchmark_jobs=benchmark_jobs, list_input=False
+                        benchmark_jobs=benchmark_jobs,
+                        persistence=self.persistence,
                     )
-                    records.to_csv(self.benchmark_all, sep="\t", index=False)
+                    records.to_csv(benchmark_file, sep="\t", index=False)
 
             if not dryrun and not no_hooks:
                 self._onsuccess(logger.get_logfile())
