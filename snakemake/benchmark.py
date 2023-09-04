@@ -5,16 +5,16 @@ __license__ = "MIT"
 
 import contextlib
 import datetime
+from itertools import chain
 import os
 import sys
-import threading
 import time
-from itertools import chain
-
+import threading
 import pandas as pd
 
-from snakemake.exceptions import IOFileException, WorkflowError
+from snakemake.exceptions import WorkflowError, IOFileException
 from snakemake.logging import logger
+
 
 #: Interval (in seconds) between measuring resource usage
 BENCHMARK_INTERVAL = 30

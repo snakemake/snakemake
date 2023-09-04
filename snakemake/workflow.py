@@ -3,87 +3,90 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import copy
-import json
-import os
 import re
-import signal
-import subprocess
+import os
 import sys
-import urllib
-from collections import OrderedDict, namedtuple
-from functools import partial
-from itertools import chain, filterfalse
-from operator import attrgetter
-from pathlib import Path, PosixPath
+import signal
+import json
 from tokenize import maybe
 from typing import DefaultDict
+import urllib
+from collections import OrderedDict, namedtuple
+from itertools import filterfalse, chain
+from functools import partial
+from operator import attrgetter
+import copy
+import subprocess
+from pathlib import Path, PosixPath
 from urllib.request import pathname2url, url2pathname
 
-import snakemake.io
-import snakemake.wrapper
-from snakemake import sourcecache
-from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
-from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
-from snakemake.checkpoints import Checkpoint, Checkpoints
-from snakemake.common import (
-    NOTHING_TO_BE_DONE_MSG,
-    ON_WINDOWS,
-    Gather,
-    Mode,
-    Rules,
-    Scatter,
-    bytesto,
-    is_local_file,
-    parse_uri,
-    smart_join,
-)
-from snakemake.cwl import cwl
-from snakemake.dag import DAG
-from snakemake.deployment.conda import Conda, is_conda_env_file
+
+from snakemake.logging import logger, format_resources, format_resource_names
+from snakemake.rules import Rule, Ruleorder, RuleProxy
 from snakemake.exceptions import (
     CreateCondaEnvironmentException,
-    CreateRuleException,
-    NoRulesException,
     RuleException,
+    CreateRuleException,
     UnknownRuleException,
-    WorkflowError,
+    NoRulesException,
     print_exception,
+    WorkflowError,
 )
+from snakemake.shell import shell
+from snakemake.dag import DAG
+from snakemake.scheduler import JobScheduler
+from snakemake.parser import parse
+import snakemake.io
 from snakemake.io import (
-    IOFile,
-    ancient,
-    directory,
-    dynamic,
-    ensure,
-    expand,
-    flag,
-    glob_wildcards,
-    local,
-    multiext,
-    not_iterable,
-    pipe,
     protected,
-    repeat,
-    report,
-    service,
-    sourcecache_entry,
     temp,
     temporary,
+    ancient,
+    directory,
+    expand,
+    dynamic,
+    glob_wildcards,
+    flag,
+    not_iterable,
     touch,
     unpack,
+    local,
+    pipe,
+    service,
+    repeat,
+    report,
+    multiext,
+    ensure,
+    IOFile,
+    sourcecache_entry,
 )
-from snakemake.logging import format_resource_names, format_resources, logger
-from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
-from snakemake.notebook import notebook
-from snakemake.parser import parse
 from snakemake.persistence import Persistence
-from snakemake.resources import DefaultResources, ResourceScopes
-from snakemake.ruleinfo import InOutput, RuleInfo
-from snakemake.rules import Rule, Ruleorder, RuleProxy
-from snakemake.scheduler import JobScheduler
+from snakemake.utils import update_config
 from snakemake.script import script
-from snakemake.shell import shell
+from snakemake.notebook import notebook
+from snakemake.wrapper import wrapper
+from snakemake.cwl import cwl
+from snakemake.template_rendering import render_template
+import snakemake.wrapper
+from snakemake.common import (
+    Mode,
+    bytesto,
+    ON_WINDOWS,
+    is_local_file,
+    parse_uri,
+    Rules,
+    Scatter,
+    Gather,
+    smart_join,
+    NOTHING_TO_BE_DONE_MSG,
+)
+from snakemake.utils import simplify_path
+from snakemake.checkpoints import Checkpoint, Checkpoints
+from snakemake.resources import DefaultResources, ResourceScopes
+from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
+from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
+from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
+from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
     GenericSourceFile,
     LocalSourceFile,
@@ -91,9 +94,8 @@ from snakemake.sourcecache import (
     SourceFile,
     infer_source_file,
 )
-from snakemake.template_rendering import render_template
-from snakemake.utils import simplify_path, update_config
-from snakemake.wrapper import wrapper
+from snakemake.deployment.conda import Conda, is_conda_env_file
+from snakemake import sourcecache
 
 
 class Workflow:

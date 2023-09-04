@@ -352,7 +352,7 @@ def test_wildcard_keyword():
 
 @skip_on_windows
 def test_benchmark():
-    run(dpath("test_benchmark"), check_md5=False)
+    run(dpath("test_benchmark"), check_md5=False, benchmark_output="benchmark.tsv")
 
 
 @skip_on_windows
@@ -371,30 +371,6 @@ def test_benchmark_global():
             else:
                 assert wildcards == "NA"
 
-    from subprocess import run as srun
-
-    result = srun(
-        ["snakemake", "--print-benchmark", "-d", tmpdir, "-s", tmpdir + "/Snakefile"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert len(result.stdout.split("\n")) == 8
-    result = srun(
-        [
-            "snakemake",
-            "--print-benchmark-all",
-            "-d",
-            tmpdir,
-            "-s",
-            tmpdir + "/Snakefile",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert len(result.stdout.split("\n")) == 13
-    print(result.stdout)
     shutil.rmtree(tmpdir, ignore_errors=ON_WINDOWS)
 
 

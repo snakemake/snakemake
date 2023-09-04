@@ -3,45 +3,45 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import glob
-import importlib
-import inspect
-import logging as _logging
+from collections import defaultdict
 import os
-import re
-import shlex
-import shutil
 import subprocess
+import glob
+from argparse import ArgumentError, ArgumentDefaultsHelpFormatter
+import logging as _logging
+import re
 import sys
+import inspect
 import threading
 import webbrowser
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentError
-from collections import defaultdict
 from functools import partial
+import importlib
+import shutil
+import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.target_jobs import parse_target_jobs_cli_args
 
-from snakemake.common import (
-    MIN_PY_VERSION,
-    Mode,
-    __version__,
-    dict_to_key_value_args,
-    get_appdirs,
-    parse_key_value_arg,
-)
+from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
-    WorkflowError,
     print_exception,
+    WorkflowError,
 )
+from snakemake.logging import setup_logger, logger, SlackLogger, WMSLogger
 from snakemake.io import load_configfile, wait_for_files
-from snakemake.logging import SlackLogger, WMSLogger, logger, setup_logger
-from snakemake.resources import DefaultResources, ResourceScopes, parse_resources
 from snakemake.shell import shell
-from snakemake.target_jobs import parse_target_jobs_cli_args
-from snakemake.utils import available_cpu_count, update_config
-from snakemake.workflow import Workflow
+from snakemake.utils import update_config, available_cpu_count
+from snakemake.common import (
+    Mode,
+    __version__,
+    MIN_PY_VERSION,
+    get_appdirs,
+    dict_to_key_value_args,
+    parse_key_value_arg,
+)
+from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
 
 SNAKEFILE_CHOICES = [
     "Snakefile",
