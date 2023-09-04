@@ -38,6 +38,7 @@ from snakemake.settings import (
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
@@ -515,7 +516,7 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
-        type=DefaultResources,
+        parse_func=DefaultResources,
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
@@ -1029,7 +1030,7 @@ def get_argument_parser(profiles=None):
     group_utils.add_argument(
         "--list-changes",
         "--lc",
-        choices=ChangeType.choices(),
+        choices=ChangeType.all(),
         type=ChangeType.parse_choice,
         help="List all output files for which the rule body (run or shell) have "
         "changed in the Snakefile.",
@@ -1234,7 +1235,7 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--target-jobs",
         nargs="+",
-        parse_func=set,
+        parse_func=parse_target_jobs_cli_args,
         default=set(),
         help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
         "This is meant for internal use by Snakemake itself only.",
@@ -1349,7 +1350,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--mode",
-        choices=ExecMode.choices(),
+        choices=ExecMode.all(),
         default=ExecMode.DEFAULT,
         type=ExecMode.parse_choice,
         help="Set execution mode of Snakemake (internal use only).",

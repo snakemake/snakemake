@@ -269,7 +269,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def main_snakefile(self) -> str:
-        return self.included[0].get_cache_path()
+        return self.included[0].get_path_or_uri()
 
     @property
     def output_file_cache(self):

@@ -701,7 +701,7 @@ class DAG(DAGExecutorInterface):
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
-            if self.worflow.dryrun:
+            if self.workflow.dryrun:
                 logger.info(f"Would remove temporary output {f}")
             else:
                 logger.info(f"Removing temporary output {f}.")

@@ -71,7 +71,7 @@ class SpawnedJobArgsFactory:
             value = getattr(value, attr)
 
         if flag is None:
-            flag = f"--{property.replace('_', '-')}"
+            flag = f"--{query[-1].replace('_', '-')}"
 
         if invert and isinstance(value, bool):
             value = not value
@@ -92,7 +92,7 @@ class SpawnedJobArgsFactory:
 
         args = [
             "--force",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--max-inventory-time 0",
             "--nocolor",
