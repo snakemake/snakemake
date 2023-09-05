@@ -7,10 +7,10 @@ from snakemake import api, settings
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
-class TestWorkflow(ABC):
 
+class TestWorkflowsBase(ABC):
     @abstractmethod
-    def get_executor(self):
+    def get_executor(self) -> str:
         ...
 
     @abstractmethod
@@ -20,7 +20,7 @@ class TestWorkflow(ABC):
     @abstractmethod
     def get_default_remote_provider(self) -> Optional[str]:
         ...
-    
+
     @abstractmethod
     def get_default_remote_prefix(self) -> Optional[str]:
         ...
@@ -62,13 +62,13 @@ class TestWorkflow(ABC):
 
     def test_simple_workflow(self, tmp_path):
         self._run_workflow("simple_workflow", tmp_path)
-    
+
     def test_group_workflow(self, tmp_path):
         self._run_workflow("group_workflow", tmp_path)
 
     def _copy_test_files(self, test_path, tmp_path):
         shutil.copytree(test_path, tmp_path)
-    
+
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
         return registry[self.get_executor()].common_settings

@@ -37,21 +37,17 @@ class Executor(RealExecutor):
             pass_envvar_declarations_to_cmd=False,
         )
 
-    def run(
+    def run_job(
         self,
         job: ExecutorJobInterface,
-        callback=None,
-        submit_callback=None,
-        error_callback=None,
     ):
-        super()._run(job)
         try:
             # Touching of output files will be done by handle_job_success
             time.sleep(0.1)
-            callback(job)
+            self.report_job_success(job)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
-            error_callback(job)
+            self.report_job_error(job)
 
     def get_exec_mode(self):
         raise NotImplementedError()

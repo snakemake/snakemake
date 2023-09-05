@@ -14,6 +14,7 @@ from functools import partial
 from snakemake.executors import change_working_directory
 from snakemake.settings import DeploymentMethod
 
+from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins.executors.real import RealExecutor
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
@@ -92,15 +93,10 @@ class Executor(RealExecutor):
     def get_job_args(self, job: ExecutorJobInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet"
 
-    def run(
+    def run_job(
         self,
         job: ExecutorJobInterface,
-        callback=None,
-        submit_callback=None,
-        error_callback=None,
     ):
-        super()._run(job)
-
         if job.is_group():
             # if we still don't have enough workers for this group, create a new pool here
             missing_workers = max(len(job) - self.workers, 0)
@@ -115,7 +111,8 @@ class Executor(RealExecutor):
         else:
             future = self.run_single_job(job)
 
-        future.add_done_callback(partial(self._callback, job, callback, error_callback))
+        future.add_done_callback(partial(self._callback, job))
+        self.report_job_submission(SubmittedJobInfo(job=job))
 
     def job_args_and_prepare(self, job: ExecutorJobInterface):
         job.prepare()
@@ -255,30 +252,25 @@ class Executor(RealExecutor):
     def cancel(self):
         self.pool.shutdown()
 
-    def _callback(
-        self, job: SingleJobExecutorInterface, callback, error_callback, future
-    ):
+    def _callback(self, job: SingleJobExecutorInterface, future):
         try:
             ex = future.exception()
             if ex is not None:
                 raise ex
-            callback(job)
+            self.report_job_success(job)
         except _ProcessPoolExceptions:
             self.handle_job_error(job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
-            error_callback(job)
+            self.report_job_error(job)
         except BaseException as ex:
             self.print_job_error(job)
             if self.workflow.output_settings.verbose or (
                 not job.is_group() and not job.is_shell
             ):
                 print_exception(ex, self.workflow.linemaps)
-            error_callback(job)
-
-    def handle_job_success(self, job: ExecutorJobInterface):
-        super().handle_job_success(job)
+            self.report_job_error(job)
 
     def handle_job_error(self, job: ExecutorJobInterface):
         super().handle_job_error(job)

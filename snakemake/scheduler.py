@@ -83,8 +83,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._finished = False
         self._job_queue = None
         self._last_job_selection_empty = False
-        self._submit_callback = self._noop
-        self._finish_callback = self._proceed
+        self.submit_callback = self._noop
+        self.finish_callback = self._proceed
 
         self._local_executor = None
 
@@ -555,12 +555,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         if executor is None:
             executor = self._executor
 
-        executor.run_jobs(
-            jobs,
-            callback=self._finish_callback,
-            submit_callback=self._submit_callback,
-            error_callback=self._error,
-        )
+        executor.run_jobs(jobs)
 
     def get_executor(self, job):
         if job.is_local and self._local_executor is not None:
@@ -591,7 +586,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # go on scheduling if there is any free core
                 self._open_jobs.release()
 
-    def _error(self, job):
+    def error_callback(self, job):
         with self._lock:
             self._toerror.append(job)
             self._open_jobs.release()

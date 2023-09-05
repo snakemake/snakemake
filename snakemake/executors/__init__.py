@@ -53,7 +53,6 @@ from snakemake.exceptions import (
 from snakemake.common import (
     get_container_image,
     get_uuid,
-    async_lock,
 )
 
 
