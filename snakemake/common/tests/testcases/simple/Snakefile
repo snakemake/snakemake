@@ -1,0 +1,30 @@
+rule all:
+    input:
+        "test3.out"
+
+rule a:
+    output:
+        "test1.out"
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "test1.out"
+    output:
+        "test2.out"
+    threads: 2
+    shell:
+        "cp {input} {output}"
+
+
+rule c:
+    input:
+        "test2.out"
+    output:
+        "test3.out"
+    resources:
+        mem="5MB"
+    shell:
+        "cp {input} {output}"
