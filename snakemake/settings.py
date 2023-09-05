@@ -3,9 +3,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 import importlib
 from pathlib import Path
-from types import MappingProxyType
 from typing import Optional
 from collections.abc import Mapping, Sequence, Set
+
+import immutables
 
 from snakemake_interface_common.exceptions import ApiError
 from snakemake_interface_executor_plugins.settings import (
@@ -23,17 +24,6 @@ from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
 from snakemake.exceptions import WorkflowError
-
-
-frozendict = lambda: MappingProxyType(dict())
-
-
-class frozendict(dict):
-    def __init__(self):
-        super().__init__(dict())
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.items())))
 
 
 class RerunTrigger(SettingsEnumBase):
@@ -293,17 +283,17 @@ class ResourceSettings(SettingsBase):
     nodes: Optional[int] = None
     local_cores: Optional[int] = None
     max_threads: Optional[int] = None
-    resources: Mapping[str, int] = frozendict()
-    overwrite_threads: Mapping[str, int] = frozendict()
-    overwrite_scatter: Mapping[str, int] = frozendict()
-    overwrite_resource_scopes: Mapping[str, str] = frozendict()
-    overwrite_resources: Mapping[str, Mapping[str, int]] = frozendict()
+    resources: Mapping[str, int] = immutables.Map()
+    overwrite_threads: Mapping[str, int] = immutables.Map()
+    overwrite_scatter: Mapping[str, int] = immutables.Map()
+    overwrite_resource_scopes: Mapping[str, str] = immutables.Map()
+    overwrite_resources: Mapping[str, Mapping[str, int]] = immutables.Map()
     default_resources: Optional[DefaultResources] = None
 
 
 @dataclass
 class ConfigSettings(SettingsBase):
-    config: Mapping[str, str] = frozendict()
+    config: Mapping[str, str] = immutables.Map()
     configfiles: Sequence[Path] = tuple()
     config_args: Optional[str] = None
 
@@ -371,6 +361,6 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
 
 @dataclass
 class GroupSettings(SettingsBase):
-    overwrite_groups: Mapping[str, str] = frozendict()
-    group_components: Mapping[str, int] = frozendict()
+    overwrite_groups: Mapping[str, str] = immutables.Map()
+    group_components: Mapping[str, int] = immutables.Map()
     local_groupid: str = "local"
