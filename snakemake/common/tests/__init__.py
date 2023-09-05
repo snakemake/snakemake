@@ -57,10 +57,10 @@ class TestWorkflowsBase(ABC):
         snakemake_api.cleanup()
 
     def test_simple_workflow(self, tmp_path):
-        self._run_workflow("simple_workflow", tmp_path)
+        self._run_workflow("simple", tmp_path)
 
     def test_group_workflow(self, tmp_path):
-        self._run_workflow("group_workflow", tmp_path)
+        self._run_workflow("group", tmp_path)
 
     def _copy_test_files(self, test_path, tmp_path):
         shutil.copytree(test_path, tmp_path)
