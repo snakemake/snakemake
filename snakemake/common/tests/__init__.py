@@ -23,6 +23,7 @@ class TestWorkflowsBase(ABC):
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
+        tmp_path = Path(tmp_path) / test_name
         self._copy_test_files(test_path, tmp_path)
 
         if self._common_settings().local_exec:
@@ -60,7 +61,7 @@ class TestWorkflowsBase(ABC):
         self._run_workflow("simple", tmp_path)
 
     def test_group_workflow(self, tmp_path):
-        self._run_workflow("group", tmp_path)
+        self._run_workflow("groups", tmp_path)
 
     def _copy_test_files(self, test_path, tmp_path):
         shutil.copytree(test_path, tmp_path)
