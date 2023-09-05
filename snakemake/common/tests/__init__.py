@@ -9,19 +9,15 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 
 class TestWorkflowsBase(ABC):
-    @abstractmethod
     def get_executor(self) -> str:
         ...
 
-    @abstractmethod
     def get_executor_settings(self) -> Optional[ExecutorSettingsBase]:
         ...
 
-    @abstractmethod
     def get_default_remote_provider(self) -> Optional[str]:
         ...
 
-    @abstractmethod
     def get_default_remote_prefix(self) -> Optional[str]:
         ...
 
