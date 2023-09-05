@@ -15,6 +15,7 @@ from functools import lru_cache
 from itertools import count
 from pathlib import Path
 from contextlib import contextmanager
+from typing import Optional
 
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
@@ -264,7 +265,7 @@ class Persistence(PersistenceExecutorInterface):
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid=None):
+    def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 

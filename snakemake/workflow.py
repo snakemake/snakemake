@@ -135,7 +135,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         Create the controller.
         """
-        self.global_resources = self.resource_settings.resources
+        self.global_resources = dict(self.resource_settings.resources)
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
 

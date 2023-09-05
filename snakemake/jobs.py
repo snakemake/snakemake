@@ -1111,8 +1111,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     ):
         logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
-    def register(self):
-        self.dag.workflow.persistence.started(self)
+    def register(self, external_jobid: Optional[str] = None):
+        self.dag.workflow.persistence.started(self, external_jobid)
 
     def get_wait_for_files(self):
         wait_for_files = []
@@ -1366,9 +1366,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             **kwargs,
         )
 
-    def register(self):
+    def register(self, external_jobid: Optional[str] = None):
         for job in self.jobs:
-            job.register()
+            job.register(external_jobid=external_jobid)
 
     def remove_existing_output(self):
         for job in self.jobs:
