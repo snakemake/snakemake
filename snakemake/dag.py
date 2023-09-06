@@ -328,7 +328,7 @@ class DAG(DAGExecutorInterface):
         if not self.ignore_incomplete:
             incomplete = self.incomplete_files
             if incomplete:
-                if self.workflow.execution_settings.force_incomplete:
+                if self.workflow.dag_settings.force_incomplete:
                     logger.debug("Forcing incomplete files:")
                     logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
@@ -341,7 +341,7 @@ class DAG(DAGExecutorInterface):
         Returns None, if job is not incomplete, or if no external jobid has been
         registered or if force_incomplete is True.
         """
-        if self.workflow.execution_settings.force_incomplete:
+        if self.workflow.dag_settings.force_incomplete:
             return None
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
