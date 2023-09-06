@@ -313,6 +313,7 @@ class ConfigSettings(SettingsBase):
                 update_config(overwrite_config, load_configfile(f))
         if self.config:
             update_config(overwrite_config, self.config)
+        return overwrite_config
 
     def _get_configfiles(self):
         return list(map(Path.absolute, self.configfiles))
