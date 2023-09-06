@@ -39,13 +39,10 @@ from snakemake_interface_common.exceptions import ApiError
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
-from snakemake.common.configfile import load_configfile
 from snakemake.shell import shell
-from snakemake.utils import update_config
 from snakemake.common import (
     MIN_PY_VERSION,
     __version__,
-    dict_to_key_value_args,
 )
 from snakemake.resources import DefaultResources
 
@@ -359,7 +356,7 @@ class DAGApi(ApiBase):
         )
 
         if executor_plugin.common_settings.local_exec:
-            if not executor_plugin.common_settings.dryrun_exec:
+            if not executor_plugin.common_settings.dryrun_exec and not executor_plugin.common_settings.touch_exec:
                 if self.workflow_api.resource_settings.cores is None:
                     raise ApiError(
                         "cores have to be specified for local execution "
@@ -541,7 +538,7 @@ class DAGApi(ApiBase):
 def _get_executor_plugin_registry():
     from snakemake.executors import local as local_executor
     from snakemake.executors import dryrun as dryrun_executor
-    from snakemake.executors import local as touch_executor
+    from snakemake.executors import touch as touch_executor
 
     registry = ExecutorPluginRegistry()
     registry.register_plugin("local", local_executor)

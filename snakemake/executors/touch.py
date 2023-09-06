@@ -20,6 +20,7 @@ from snakemake.exceptions import print_exception
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,
+    touch_exec=True,
 )
 
 
@@ -27,14 +28,11 @@ class Executor(RealExecutor):
     def __init__(
         self,
         workflow: WorkflowExecutorInterface,
-        dag: DAGExecutorInterface,
         logger: LoggerExecutorInterface,
     ):
         super().__init__(
             workflow,
-            dag,
             logger,
-            executor_settings=None,
             pass_envvar_declarations_to_cmd=False,
         )
 
