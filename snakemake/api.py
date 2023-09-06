@@ -125,6 +125,8 @@ class SnakemakeApi(ApiBase):
 
     def cleanup(self):
         """Cleanup the workflow."""
+        if not self.output_settings.keep_logger:
+            logger.cleanup()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if (
@@ -168,10 +170,6 @@ class SnakemakeApi(ApiBase):
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
             )
-
-    def __del__(self):
-        if not self.output_settings.keep_logger:
-            logger.cleanup()
 
 
 @dataclass

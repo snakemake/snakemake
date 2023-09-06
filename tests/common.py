@@ -198,6 +198,9 @@ def run(
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
 
+    snakemake_api = None
+    exception = None
+
     # run snakemake
     if shellcmd:
         if not shellcmd.startswith("snakemake"):
@@ -297,14 +300,16 @@ def run(
                     executor_settings=executor_settings,
                 )
         except Exception as e:
+            import pdb; pdb.set_trace()
             success = False
-            snakemake_api.print_exception(e)
-        snakemake_api.cleanup()
+            exception = e
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
         if not success:
+            if snakemake_api is not None and exception is not None:
+                snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"
@@ -346,6 +351,9 @@ def run(
                         content=content,
                         expected_content=expected_content,
                     )
+
+    if snakemake_api is not None:
+        snakemake_api.cleanup()
 
     if not cleanup:
         return tmpdir
