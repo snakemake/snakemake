@@ -144,6 +144,9 @@ def run(
     executor="local",
     executor_settings=None,
     cleanup_scripts=True,
+    scheduler_ilp_solver=None,
+    report=None,
+    report_stylesheet=None,
 ):
     """
     Test the Snakefile in the path.
@@ -254,18 +257,23 @@ def run(
         )
 
         try:
-            dag_api.execute_workflow(
-                executor=executor,
-                execution_settings=settings.ExecutionSettings(
-                    cleanup_scripts=cleanup_scripts,
-                ),
-                remote_execution_settings=settings.RemoteExecutionSettings(
-                    container_image=container_image,
-                    seconds_between_status_checks=0,
-                ),
-                scheduling_settings=settings.SchedulingSettings(),
-                executor_settings=executor_settings,
-            )
+            if report is not None:
+                dag_api.create_report(path=report, stylesheet=report_stylesheet)
+            else:
+                dag_api.execute_workflow(
+                    executor=executor,
+                    execution_settings=settings.ExecutionSettings(
+                        cleanup_scripts=cleanup_scripts,
+                    ),
+                    remote_execution_settings=settings.RemoteExecutionSettings(
+                        container_image=container_image,
+                        seconds_between_status_checks=0,
+                    ),
+                    scheduling_settings=settings.SchedulingSettings(
+                        ilp_solver=scheduler_ilp_solver,
+                    ),
+                    executor_settings=executor_settings,
+                )
         except Exception as e:
             success = False
             snakemake_api.print_exception(e)

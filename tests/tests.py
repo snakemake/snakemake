@@ -97,84 +97,59 @@ def test13():
     run(dpath("test13"))
 
 
-@skip_on_windows
-def test14():
-    os.environ["TESTVAR"] = "test"
-    os.environ["TESTVAR2"] = "test"
-    run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster="./qsub")
+# TODO reenable once cluster-generic plugin is released
+# @skip_on_windows
+# def test_cluster_cancelscript():
+#     outdir = run(
+#         dpath("test_cluster_cancelscript"),
+#         snakefile="Snakefile.nonstandard",
+#         shellcmd=(
+#             "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+#             "--cluster-status=./status.sh -s Snakefile.nonstandard"
+#         ),
+#         shouldfail=True,
+#         cleanup=False,
+#         sigint_after=4,
+#     )
+#     scancel_txt = open("%s/scancel.txt" % outdir).read()
+#     scancel_lines = scancel_txt.splitlines()
+#     assert len(scancel_lines) == 1
+#     assert scancel_lines[0].startswith("cancel")
+#     assert len(scancel_lines[0].split(" ")) == 3
 
 
-@skip_on_windows
-def test_cluster_statusscript():
-    os.environ["TESTVAR"] = "test"
-    run(
-        dpath("test_cluster_statusscript"),
-        snakefile="Snakefile.nonstandard",
-        cluster="./qsub",
-        cluster_status="./status.sh",
-    )
+# @skip_on_windows
+# def test_cluster_cancelscript_nargs1():
+#     outdir = run(
+#         dpath("test_cluster_cancelscript"),
+#         snakefile="Snakefile.nonstandard",
+#         shellcmd=(
+#             "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
+#             "--cluster-status=./status.sh --cluster-cancel-nargs=1 "
+#             "-s Snakefile.nonstandard"
+#         ),
+#         shouldfail=True,
+#         cleanup=False,
+#         sigint_after=4,
+#     )
+#     scancel_txt = open("%s/scancel.txt" % outdir).read()
+#     scancel_lines = scancel_txt.splitlines()
+#     assert len(scancel_lines) == 2
+#     assert scancel_lines[0].startswith("cancel")
+#     assert scancel_lines[1].startswith("cancel")
+#     assert len(scancel_lines[0].split(" ")) == 2
+#     assert len(scancel_lines[1].split(" ")) == 2
 
 
-@skip_on_windows
-def test_cluster_cancelscript():
-    outdir = run(
-        dpath("test_cluster_cancelscript"),
-        snakefile="Snakefile.nonstandard",
-        shellcmd=(
-            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
-            "--cluster-status=./status.sh -s Snakefile.nonstandard"
-        ),
-        shouldfail=True,
-        cleanup=False,
-        sigint_after=4,
-    )
-    scancel_txt = open("%s/scancel.txt" % outdir).read()
-    scancel_lines = scancel_txt.splitlines()
-    assert len(scancel_lines) == 1
-    assert scancel_lines[0].startswith("cancel")
-    assert len(scancel_lines[0].split(" ")) == 3
-
-
-@skip_on_windows
-def test_cluster_sidecar():
-    run(
-        dpath("test_cluster_sidecar"),
-        shellcmd=("snakemake -j 10 --cluster=./sbatch --cluster-sidecar=./sidecar.sh"),
-    )
-
-
-@skip_on_windows
-def test_cluster_cancelscript_nargs1():
-    outdir = run(
-        dpath("test_cluster_cancelscript"),
-        snakefile="Snakefile.nonstandard",
-        shellcmd=(
-            "snakemake -j 10 --cluster=./sbatch --cluster-cancel=./scancel.sh "
-            "--cluster-status=./status.sh --cluster-cancel-nargs=1 "
-            "-s Snakefile.nonstandard"
-        ),
-        shouldfail=True,
-        cleanup=False,
-        sigint_after=4,
-    )
-    scancel_txt = open("%s/scancel.txt" % outdir).read()
-    scancel_lines = scancel_txt.splitlines()
-    assert len(scancel_lines) == 2
-    assert scancel_lines[0].startswith("cancel")
-    assert scancel_lines[1].startswith("cancel")
-    assert len(scancel_lines[0].split(" ")) == 2
-    assert len(scancel_lines[1].split(" ")) == 2
-
-
-@skip_on_windows
-def test_cluster_statusscript_multi():
-    os.environ["TESTVAR"] = "test"
-    run(
-        dpath("test_cluster_statusscript_multi"),
-        snakefile="Snakefile.nonstandard",
-        cluster="./sbatch",
-        cluster_status="./status.sh",
-    )
+# @skip_on_windows
+# def test_cluster_statusscript_multi():
+#     os.environ["TESTVAR"] = "test"
+#     run(
+#         dpath("test_cluster_statusscript_multi"),
+#         snakefile="Snakefile.nonstandard",
+#         cluster="./sbatch",
+#         cluster_status="./status.sh",
+#     )
 
 
 def test15():
@@ -277,7 +252,7 @@ def test_shell():
 
 @skip_on_windows
 def test_temp():
-    run(dpath("test_temp"), cluster="./qsub", targets="test.realigned.bam".split())
+    run(dpath("test_temp"), targets="test.realigned.bam".split())
 
 
 def test_keyword_list():
@@ -315,7 +290,7 @@ def test_touch():
 
 
 def test_touch_flag_with_directories():
-    run(dpath("test_touch_with_directories"), touch=True)
+    run(dpath("test_touch_with_directories"), executor="touch")
 
 
 def test_config():
@@ -1744,7 +1719,7 @@ def test_github_issue1069():
 
 def test_touch_pipeline_with_temp_dir():
     # Issue #1028
-    run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, touch=True)
+    run(dpath("test_touch_pipeline_with_temp_dir"), forceall=True, executor="touch")
 
 
 def test_all_temp():

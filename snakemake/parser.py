@@ -591,7 +591,7 @@ class Wrapper(Script):
         yield (
             ", input, output, params, wildcards, threads, resources, log, "
             "config, rule, conda_env, conda_base_path, container_img, singularity_args, env_modules, "
-            "bench_record, workflow.execution_settings.wrapper_prefix, jobid, bench_iteration, "
+            "bench_record, workflow.workflow_settings.wrapper_prefix, jobid, bench_iteration, "
             "cleanup_scripts, shadow_dir, runtime_sourcecache_path"
         )
 

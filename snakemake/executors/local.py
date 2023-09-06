@@ -40,6 +40,7 @@ from snakemake.exceptions import (
 
 common_settings = CommonSettings(
     non_local_exec=False,
+    implies_no_shared_fs=False,
 )
 
 

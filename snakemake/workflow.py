@@ -28,6 +28,7 @@ from snakemake.settings import (
     ResourceSettings,
     SchedulingSettings,
     StorageSettings,
+    WorkflowSettings,
 )
 
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
@@ -117,6 +118,7 @@ from snakemake import api, sourcecache
 class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
+    workflow_settings: WorkflowSettings
     storage_settings: StorageSettings = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
@@ -222,8 +224,19 @@ class Workflow(WorkflowExecutorInterface):
         return (
             self.workflow.execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
-            or not self.executor_plugin.common_settings.local_exec
+            or not self.local_exec
         )
+    
+    @property
+    def local_exec(self):
+        if self.executor_plugin is not None:
+            return self.executor_plugin.common_settings.local_exec
+        else:
+            return True
+
+    @property
+    def non_local_exec(self):
+        return not self.local_exec
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
@@ -759,7 +772,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=False,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -928,7 +941,7 @@ class Workflow(WorkflowExecutorInterface):
                     shell_exec = shell.get_executable()
                     if shell_exec is not None:
                         logger.info(f"Using shell: {shell_exec}")
-                    if not self.executor_plugin.common_settings.local_exec:
+                    if not self.local_exec:
                         logger.resources_info(f"Provided remote nodes: {self.nodes}")
                     else:
                         if self._cores is not None:
@@ -950,7 +963,7 @@ class Workflow(WorkflowExecutorInterface):
                             f"Provided resources: {provided_resources}"
                         )
 
-                    if self.executor_plugin.common_settings.local_exec and any(
+                    if self.local_exec and any(
                         rule.group for rule in self.rules
                     ):
                         logger.info("Group jobs: inactive (local execution)")
@@ -1438,7 +1451,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if ruleinfo.wrapper:
                 rule.conda_env = snakemake.wrapper.get_conda_env(
-                    ruleinfo.wrapper, prefix=self.execution_settings.wrapper_prefix
+                    ruleinfo.wrapper, prefix=self.workflow_settings.wrapper_prefix
                 )
                 # TODO retrieve suitable singularity image
 

@@ -88,12 +88,16 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
     mode: ExecMode = ExecMode.DEFAULT
-    wrapper_prefix: Optional[str] = None
     keep_incomplete: bool = False
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
     cleanup_metadata: Sequence[Path] = tuple()
+
+
+@dataclass
+class WorkflowSettings(SettingsBase):
+    wrapper_prefix: Optional[str] = None
 
 
 class Batch:

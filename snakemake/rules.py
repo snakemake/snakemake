@@ -295,7 +295,7 @@ class Rule(RuleInterface):
 
     @property
     def group(self):
-        if self.workflow.executor_plugin.common_settings.local_exec:
+        if self.workflow.local_exec:
             return None
         else:
             overwrite_group = self.workflow.group_settings.overwrite_groups.get(

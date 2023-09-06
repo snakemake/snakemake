@@ -35,6 +35,7 @@ from snakemake.settings import (
     ResourceSettings,
     SchedulingSettings,
     StorageSettings,
+    WorkflowSettings,
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
@@ -2056,6 +2057,9 @@ def args_to_api(args, parser):
                 notemp=args.notemp,
                 all_temp=args.all_temp,
             ),
+            workflow_settings=WorkflowSettings(
+                wrapper_prefix=args.wrapper_prefix,
+            ),
             snakefile=args.snakefile,
             workdir=args.directory,
         )
@@ -2120,8 +2124,8 @@ def args_to_api(args, parser):
                 dag_api.containerize()
             elif args.report:
                 dag_api.create_report(
-                    report_path=args.report,
-                    report_stylesheet=args.report_stylesheet,
+                    path=args.report,
+                    stylesheet=args.report_stylesheet,
                 )
             elif args.dag:
                 dag_api.printdag()
@@ -2178,7 +2182,6 @@ def args_to_api(args, parser):
                         use_threads=args.force_use_threads,
                         shadow_prefix=args.shadow_prefix,
                         mode=args.mode,
-                        wrapper_prefix=args.wrapper_prefix,
                         keep_incomplete=args.keep_incomplete,
                         keep_metadata=not args.drop_metadata,
                         edit_notebook=edit_notebook,

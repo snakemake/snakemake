@@ -13,7 +13,7 @@ from functools import partial
 import importlib
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
-from snakemake.settings import ChangeType, GroupSettings, SchedulingSettings
+from snakemake.settings import ChangeType, GroupSettings, SchedulingSettings, WorkflowSettings
 
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
@@ -93,6 +93,7 @@ class SnakemakeApi(ApiBase):
         resource_settings: ResourceSettings,
         config_settings: ConfigSettings = ConfigSettings(),
         storage_settings: StorageSettings = StorageSettings(),
+        workflow_settings: WorkflowSettings = WorkflowSettings(),
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -121,6 +122,7 @@ class SnakemakeApi(ApiBase):
             config_settings=config_settings,
             resource_settings=resource_settings,
             storage_settings=storage_settings,
+            workflow_settings=workflow_settings,
         )
         return self._workflow_api
 
@@ -193,6 +195,7 @@ class WorkflowApi(ApiBase):
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
+    workflow_settings: WorkflowSettings
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
@@ -274,6 +277,7 @@ class WorkflowApi(ApiBase):
         return Workflow(
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
+            workflow_settings=self.workflow_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
@@ -344,6 +348,9 @@ class DAGApi(ApiBase):
 
         executor_plugin_registry = _get_executor_plugin_registry()
         executor_plugin = executor_plugin_registry.get(executor)
+
+        if executor_plugin.common_settings.implies_no_shared_fs:
+            self._workflow_api.storage_settings.assume_shared_fs = False
 
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
@@ -417,8 +424,8 @@ class DAGApi(ApiBase):
 
     def create_report(
         self,
-        report: Path,
-        report_stylesheet: Optional[Path] = None,
+        path: Path,
+        stylesheet: Optional[Path] = None,
     ):
         """Create a report for the workflow.
 
@@ -428,8 +435,8 @@ class DAGApi(ApiBase):
         report_stylesheet: Optional[Path] -- The path to the report stylesheet.
         """
         self.workflow_api._workflow.create_report(
-            report=report,
-            report_stylesheet=report_stylesheet,
+            path=path,
+            stylesheet=stylesheet,
         )
 
     def printdag(self):

@@ -2,14 +2,28 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
 from typing import Optional
+
+import pytest
 from snakemake import api, settings
 
 from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 
+def handle_exceptions(func):
+    def wrapper(self, tmp_path):
+        if self.expect_exception is None:
+            return func(self, tmp_path)
+        else:
+            with pytest.raises(self.expect_exception):
+                return func(self, tmp_path)
+
+    return wrapper
+
+
 class TestWorkflowsBase(ABC):
     __test__ = False
+    expect_exception = None
 
     @abstractmethod
     def get_executor(self) -> str:
@@ -26,6 +40,9 @@ class TestWorkflowsBase(ABC):
     @abstractmethod
     def get_default_remote_prefix(self) -> Optional[str]:
         ...
+
+    def get_assume_shared_fs(self) -> bool:
+        return True
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
@@ -52,6 +69,7 @@ class TestWorkflowsBase(ABC):
             storage_settings=settings.StorageSettings(
                 default_remote_provider=self.get_default_remote_provider(),
                 default_remote_prefix=self.get_default_remote_prefix(),
+                assume_shared_fs=self.get_assume_shared_fs()
             ),
             workdir=Path(tmp_path),
             snakefile=test_path / "Snakefile",
@@ -67,13 +85,15 @@ class TestWorkflowsBase(ABC):
             executor_settings=self.get_executor_settings(),
             remote_execution_settings=settings.RemoteExecutionSettings(
                 seconds_between_status_checks=0,
-            )
+            ),
         )
         snakemake_api.cleanup()
 
+    @handle_exceptions
     def test_simple_workflow(self, tmp_path):
         self._run_workflow("simple", tmp_path)
 
+    @handle_exceptions
     def test_group_workflow(self, tmp_path):
         self._run_workflow("groups", tmp_path)
 

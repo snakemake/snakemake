@@ -204,7 +204,7 @@ def dag_to_cwl(dag):
             "--keep-remote",
             "--force-use-threads",
             "--wrapper-prefix",
-            dag.workflow.execution_settings.wrapper_prefix,
+            dag.workflow.workflow_settings.wrapper_prefix,
             "--notemp",
             "--quiet",
             "--use-conda",

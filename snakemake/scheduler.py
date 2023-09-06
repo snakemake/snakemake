@@ -88,7 +88,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
         self._local_executor = None
 
-        if self.workflow.executor_plugin.common_settings.local_exec:
+        if self.workflow.local_exec:
             self._executor = executor_plugin.executor(
                 self.workflow,
                 logger,

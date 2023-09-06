@@ -106,7 +106,7 @@ class ModuleInfo:
         if self.meta_wrapper:
             return wrapper.get_path(
                 self.meta_wrapper + "/test/Snakefile",
-                self.workflow.execution_settings.wrapper_prefix,
+                self.workflow.workflow_settings.wrapper_prefix,
             )
         elif self.snakefile:
             return self.snakefile

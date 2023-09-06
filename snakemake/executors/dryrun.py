@@ -16,6 +16,7 @@ from snakemake.logging import logger
 common_settings = CommonSettings(
     non_local_exec=False,
     dryrun_exec=True,
+    implies_no_shared_fs=False,
 )
 
 

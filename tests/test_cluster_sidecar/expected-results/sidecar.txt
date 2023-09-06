@@ -1,2 +1,0 @@
-sidecar started
-sidecar stopped

@@ -74,7 +74,7 @@ class ProvenanceHashMap:
                 wrapper.get_script(
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
-                    prefix=workflow.execution_settings.wrapper_prefix,
+                    prefix=workflow.workflow_settings.wrapper_prefix,
                 ),
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,

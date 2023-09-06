@@ -89,7 +89,7 @@ class AbstractJob(ExecutorJobInterface):
 
 def _get_scheduler_resources(job):
     if job._scheduler_resources is None:
-        if job.dag.workflow.executor_plugin.common_settings.local_exec or job.is_local:
+        if job.dag.workflow.local_exec or job.is_local:
             job._scheduler_resources = job.resources
         else:
             job._scheduler_resources = Resources(
@@ -308,7 +308,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         groupid = None
         if group is None:
             if (
-                self.dag.workflow.executor_plugin.common_settings.local_exec
+                self.dag.workflow.local_exec
                 or self.is_local
             ):
                 groupid = self.dag.workflow.group_settings.local_groupid
@@ -404,7 +404,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def resources(self):
         if self._resources is None:
             if (
-                self.dag.workflow.executor_plugin.common_settings.local_exec
+                self.dag.workflow.local_exec
                 or self.is_local
             ):
                 skip_evaluation = None
@@ -1419,7 +1419,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 self._resources = GroupResources.basic_layered(
                     toposorted_jobs=self.toposorted,
                     constraints=self.global_resources,
-                    run_local=self.dag.workflow.executor_plugin.common_settings.local_exec,
+                    run_local=self.dag.workflow.local_exec,
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )

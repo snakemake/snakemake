@@ -121,7 +121,7 @@ class SpawnedJobArgsFactory:
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
-            w2a("execution_settings.wrapper_prefix"),
+            w2a("workflow_settings.wrapper_prefix"),
             w2a("resource_settings.overwrite_threads", flag="--set-threads"),
             w2a("resource_settings.overwrite_scatter", flag="--set-scatter"),
             w2a("deployment_settings.conda_not_block_search_path_envvars"),
