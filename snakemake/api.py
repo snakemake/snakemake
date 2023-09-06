@@ -343,7 +343,7 @@ class DAGApi(ApiBase):
             )
 
         executor_plugin_registry = _get_executor_plugin_registry()
-        executor_plugin = executor_plugin_registry.plugins[executor]
+        executor_plugin = executor_plugin_registry.get(executor)
 
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,

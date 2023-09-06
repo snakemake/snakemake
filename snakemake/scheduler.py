@@ -100,7 +100,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             )
             self._local_executor = (
                 ExecutorPluginRegistry()
-                .get_executor("local")
+                .get("local")
                 .executor(
                     self.workflow,
                     logger,

@@ -1990,7 +1990,7 @@ def args_to_api(args, parser):
     elif args.executor is None:
         args.executor = "local"
 
-    executor_plugin = _get_executor_plugin_registry().plugins[args.executor]
+    executor_plugin = _get_executor_plugin_registry().get(args.executor)
     executor_settings = executor_plugin.get_executor_settings(args)
 
     if args.cores is None:

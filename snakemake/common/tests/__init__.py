@@ -10,7 +10,7 @@ from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 class TestWorkflowsBase(ABC):
     __test__ = False
-    
+
     @abstractmethod
     def get_executor(self) -> str:
         ...
@@ -50,6 +50,7 @@ class TestWorkflowsBase(ABC):
                 nodes=nodes,
             ),
             workdir=Path(tmp_path),
+            snakefile=test_path / "Snakefile",
         )
 
         dag_api = workflow_api.dag(
@@ -74,4 +75,4 @@ class TestWorkflowsBase(ABC):
 
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
-        return registry.plugins[self.get_executor()].common_settings
+        return registry.get(self.get_executor()).common_settings

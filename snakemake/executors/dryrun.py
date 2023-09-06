@@ -8,6 +8,7 @@ from snakemake_interface_executor_plugins.jobs import (
     ExecutorJobInterface,
 )
 from snakemake_interface_executor_plugins import CommonSettings
+from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 
 from snakemake.logging import logger
 
@@ -19,6 +20,13 @@ common_settings = CommonSettings(
 
 
 class Executor(AbstractExecutor):
+    def run_job(
+        self,
+        job: ExecutorJobInterface,
+    ):
+        self.report_job_submission(SubmittedJobInfo(job=job))
+        self.report_job_success(job)
+
     def get_exec_mode(self):
         raise NotImplementedError()
 
