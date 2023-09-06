@@ -1260,6 +1260,12 @@ def get_argument_parser(profiles=None):
         "fractions allowed.",
     )
     group_behavior.add_argument(
+        "--seconds-between-status-checks",
+        default=10,
+        type=int,
+        help="Number of seconds to wait between two rounds of status checks.",
+    )
+    group_behavior.add_argument(
         "--retries",
         "--restart-times",
         "-T",
@@ -2183,6 +2189,7 @@ def args_to_api(args, parser):
                         jobname=args.jobname,
                         jobscript=args.jobscript,
                         max_status_checks_per_second=args.max_status_checks_per_second,
+                        seconds_between_status_checks=args.seconds_between_status_checks,
                         container_image=args.container_image,
                         preemptible_retries=args.preemptible_retries,
                         preemptible_rules=preemptible_rules,

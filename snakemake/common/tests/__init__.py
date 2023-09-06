@@ -49,6 +49,10 @@ class TestWorkflowsBase(ABC):
                 cores=cores,
                 nodes=nodes,
             ),
+            storage_settings=settings.StorageSettings(
+                default_remote_provider=self.get_default_remote_provider(),
+                default_remote_prefix=self.get_default_remote_prefix(),
+            ),
             workdir=Path(tmp_path),
             snakefile=test_path / "Snakefile",
         )
@@ -61,6 +65,9 @@ class TestWorkflowsBase(ABC):
         dag_api.execute_workflow(
             executor=self.get_executor(),
             executor_settings=self.get_executor_settings(),
+            remote_execution_settings=settings.RemoteExecutionSettings(
+                seconds_between_status_checks=0,
+            )
         )
         snakemake_api.cleanup()
 

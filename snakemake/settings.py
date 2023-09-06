@@ -351,7 +351,8 @@ class PreemptibleRules:
 class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInterface):
     jobname: str = "snakejob.{rulename}.{jobid}.sh"
     jobscript: Optional[Path] = None
-    max_status_checks_per_second: int = 100
+    max_status_checks_per_second: float = 100.0
+    seconds_between_status_checks: int = 10
     container_image: Optional[str] = None
     preemptible_retries: Optional[int] = None
     preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)

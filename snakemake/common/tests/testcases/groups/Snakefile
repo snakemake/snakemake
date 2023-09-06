@@ -29,4 +29,4 @@ rule c:
     resources:
         mem="5MB"
     shell:
-        "cp {input} {output}"
+        "cat {input} > {output}"

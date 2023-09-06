@@ -37,7 +37,6 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
-from snakemake_interface_executor_plugins.utils import sleep
 from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.shell import shell

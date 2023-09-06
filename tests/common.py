@@ -261,6 +261,7 @@ def run(
                 ),
                 remote_execution_settings=settings.RemoteExecutionSettings(
                     container_image=container_image,
+                    seconds_between_status_checks=0,
                 ),
                 scheduling_settings=settings.SchedulingSettings(),
                 executor_settings=executor_settings,
