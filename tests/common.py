@@ -300,7 +300,6 @@ def run(
                     executor_settings=executor_settings,
                 )
         except Exception as e:
-            import pdb; pdb.set_trace()
             success = False
             exception = e
 

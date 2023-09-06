@@ -130,7 +130,7 @@ class SnakemakeApi(ApiBase):
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if (
-                self._workflow_api._workflow is not None
+                self._workflow_api._workflow_store is not None
                 and self._workflow_api._workflow._workdir_handler is not None
             ):
                 self._workflow_api._workflow._workdir_handler.change_back()
