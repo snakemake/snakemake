@@ -572,7 +572,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         metavar="FILE",
         default=list(),
-        type=list,
+        type=Path,
         help=(
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
