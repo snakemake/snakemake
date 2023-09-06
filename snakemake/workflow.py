@@ -209,7 +209,10 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def dryrun(self):
-        return self.executor_plugin.common_settings.dryrun_exec
+        if self.executor_plugin is None:
+            return False
+        else:
+            return self.executor_plugin.common_settings.dryrun_exec
 
     @property
     def touch(self):
@@ -782,7 +785,7 @@ class Workflow(WorkflowExecutorInterface):
     def conda_list_envs(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=False,
             lock_warn_only=False,
         )
         self._build_dag()

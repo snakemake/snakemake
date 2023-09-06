@@ -243,6 +243,10 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
 
+    def imply_deployment_method(self, method: DeploymentMethod):
+        self.deployment_method = set(self.deployment_method)
+        self.deployment_method.add(method)
+
 
 @dataclass
 class SchedulingSettings(SettingsBase):

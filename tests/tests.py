@@ -8,10 +8,14 @@ import sys
 import subprocess as sp
 from pathlib import Path
 
+from snakemake.shell import shell
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from .common import *
 from .conftest import skip_on_windows, only_on_windows, ON_WINDOWS, needs_strace
+
+from snakemake_interface_executor_plugins.settings import DeploymentMethod
 
 
 def test_list_untracked():
@@ -345,12 +349,6 @@ def test_remote():
     run(dpath("test_remote"), cores=1)
 
 
-@skip_on_windows
-def test_cluster_sync():
-    os.environ["TESTVAR"] = "test"
-    run(dpath("test14"), snakefile="Snakefile.nonstandard", cluster_sync="./qsub")
-
-
 @pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
@@ -362,7 +360,7 @@ def test_empty_include():
 
 @skip_on_windows
 def test_script():
-    run(dpath("test_script"), use_conda=True, check_md5=False)
+    run(dpath("test_script"), deployment_method={DeploymentMethod.CONDA}, check_md5=False)
 
 
 def test_script_python():
@@ -384,9 +382,10 @@ def test_shadow_prefix():
     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir")
 
 
-@skip_on_windows
-def test_shadow_prefix_qsub():
-    run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
+# TODO add again once generic cluster plugin is released
+# @skip_on_windows
+# def test_shadow_prefix_qsub():
+#     run(dpath("test_shadow_prefix"), shadow_prefix="shadowdir", cluster="./qsub")
 
 
 @skip_on_windows
@@ -450,32 +449,32 @@ def test_issue328():
 
 
 def test_conda():
-    run(dpath("test_conda"), use_conda=True)
+    run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_conda_list_envs():
-    run(dpath("test_conda"), list_conda_envs=True, check_results=False)
+    run(dpath("test_conda"), conda_list_envs=True, check_results=False)
 
 
 def test_upstream_conda():
-    run(dpath("test_conda"), use_conda=True, conda_frontend="conda")
+    run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA}, conda_frontend="conda")
 
 
 @skip_on_windows
 def test_deploy_script():
-    run(dpath("test_deploy_script"), use_conda=True)
+    run(dpath("test_deploy_script"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows
 def test_deploy_hashing():
-    tmpdir = run(dpath("test_deploy_hashing"), use_conda=True, cleanup=False)
+    tmpdir = run(dpath("test_deploy_hashing"), deployment_method={DeploymentMethod.CONDA}, cleanup=False)
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
 def test_conda_custom_prefix():
     run(
         dpath("test_conda_custom_prefix"),
-        use_conda=True,
+        deployment_method={DeploymentMethod.CONDA},
         conda_prefix="custom",
         set_pythonpath=False,
     )
@@ -485,12 +484,12 @@ def test_conda_custom_prefix():
 def test_conda_cmd_exe():
     # Tests the conda environment activation when cmd.exe
     # is used as the shell
-    run(dpath("test_conda_cmd_exe"), use_conda=True)
+    run(dpath("test_conda_cmd_exe"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows  # wrappers are for linux and macos only
 def test_wrapper():
-    run(dpath("test_wrapper"), use_conda=True)
+    run(dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows  # wrappers are for linux and macos only
@@ -505,7 +504,7 @@ def test_wrapper_local_git_prefix():
         print("Cloning complete.")
 
         run(
-            dpath("test_wrapper"), use_conda=True, wrapper_prefix=f"git+file://{tmpdir}"
+            dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA}, wrapper_prefix=f"git+file://{tmpdir}"
         )
 
 
@@ -814,7 +813,7 @@ def test_singularity_conda():
     run(
         dpath("test_singularity_conda"),
         use_singularity=True,
-        use_conda=True,
+        deployment_method={DeploymentMethod.CONDA},
         conda_frontend="conda",
     )
 
@@ -1234,7 +1233,7 @@ def test_issue930():
 
 @skip_on_windows
 def test_issue635():
-    run(dpath("test_issue635"), use_conda=True, check_md5=False)
+    run(dpath("test_issue635"), deployment_method={DeploymentMethod.CONDA}, check_md5=False)
 
 
 # TODO remove skip
@@ -1275,7 +1274,7 @@ def test_issue1092():
 
 @skip_on_windows
 def test_issue1093():
-    run(dpath("test_issue1093"), use_conda=True)
+    run(dpath("test_issue1093"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_issue958():
@@ -1494,7 +1493,7 @@ def test_string_resources():
 
 
 def test_jupyter_notebook():
-    run(dpath("test_jupyter_notebook"), use_conda=True)
+    run(dpath("test_jupyter_notebook"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_jupyter_notebook_draft():
@@ -1502,7 +1501,7 @@ def test_jupyter_notebook_draft():
 
     run(
         dpath("test_jupyter_notebook_draft"),
-        use_conda=True,
+        deployment_method={DeploymentMethod.CONDA},
         edit_notebook=EditMode(draft_only=True),
         targets=["results/result_intermediate.txt"],
         check_md5=False,
@@ -1593,7 +1592,7 @@ def test_github_issue806():
 
 @skip_on_windows
 def test_containerized():
-    run(dpath("test_containerized"), use_conda=True, use_singularity=True)
+    run(dpath("test_containerized"), deployment_method={DeploymentMethod.CONDA}, use_singularity=True)
 
 
 @skip_on_windows
@@ -1762,12 +1761,12 @@ def test_issue1331():
 
 @skip_on_windows
 def test_conda_named():
-    run(dpath("test_conda_named"), use_conda=True)
+    run(dpath("test_conda_named"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows
 def test_conda_function():
-    run(dpath("test_conda_function"), use_conda=True, cores=1)
+    run(dpath("test_conda_function"), deployment_method={DeploymentMethod.CONDA}, cores=1)
 
 
 @skip_on_windows
@@ -1919,7 +1918,7 @@ def test_module_input_func():
 
 @skip_on_windows  # the testcase only has a linux-64 pin file
 def test_conda_pin_file():
-    run(dpath("test_conda_pin_file"), use_conda=True)
+    run(dpath("test_conda_pin_file"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows  # sufficient to test this on linux
@@ -1928,16 +1927,16 @@ def test_github_issue1618():
 
 
 def test_conda_python_script():
-    run(dpath("test_conda_python_script"), use_conda=True)
+    run(dpath("test_conda_python_script"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_conda_python_3_7_script():
-    run(dpath("test_conda_python_3_7_script"), use_conda=True)
+    run(dpath("test_conda_python_3_7_script"), deployment_method={DeploymentMethod.CONDA})
 
 
 def test_prebuilt_conda_script():
     sp.run("conda env create -f tests/test_prebuilt_conda_script/env.yaml", shell=True)
-    run(dpath("test_prebuilt_conda_script"), use_conda=True)
+    run(dpath("test_prebuilt_conda_script"), deployment_method={DeploymentMethod.CONDA})
 
 
 @skip_on_windows

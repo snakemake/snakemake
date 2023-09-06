@@ -1437,21 +1437,6 @@ def get_argument_parser(profiles=None):
             "if the cluster command is 'qsub -sync y' (SGE)"
         ),
     ),
-    cluster_mode_group.add_argument(
-        "--drmaa",
-        nargs="?",
-        const="",
-        metavar="ARGS",
-        help="Execute snakemake on a cluster accessed via DRMAA, "
-        "Snakemake compiles jobs into scripts that are "
-        "submitted to the cluster with the given command, once all input "
-        "files for a particular job are present. ARGS can be used to "
-        "specify options of the underlying cluster system, "
-        "thereby using the job properties name, rulename, input, output, params, wildcards, log, "
-        "threads and dependencies, e.g.: "
-        "--drmaa ' -pe threaded {threads}'. Note that ARGS must be given in quotes and "
-        "with a leading whitespace.",
-    )
 
     group_cluster.add_argument(
         "--immediate-submit",

@@ -147,6 +147,15 @@ def run(
     scheduler_ilp_solver=None,
     report=None,
     report_stylesheet=None,
+    deployment_method=frozenset(),
+    shadow_prefix=None,
+    until=frozenset(),
+    omit_from=frozenset(),
+    forcerun=frozenset(),
+    conda_list_envs=False,
+    conda_prefix=None,
+    wrapper_prefix=None,
+    printshellcmds=False,
 ):
     """
     Test the Snakefile in the path.
@@ -227,43 +236,56 @@ def run(
         snakemake_api = api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
-            ),
-        )
-        workflow_api = snakemake_api.workflow(
-            resource_settings=settings.ResourceSettings(
-                cores=cores,
-                nodes=nodes,
-                overwrite_resource_scopes=(
-                    ResourceScopes(overwrite_resource_scopes)
-                    if overwrite_resource_scopes is not None
-                    else dict()
-                ),
-            ),
-            config_settings=settings.ConfigSettings(
-                config=config,
-            ),
-            storage_settings=settings.StorageSettings(),
-            snakefile=Path(original_snakefile if no_tmpdir else snakefile),
-            workdir=Path(path if no_tmpdir else tmpdir),
-        )
-
-        dag_api = workflow_api.dag(
-            dag_settings=settings.DAGSettings(
-                targets=targets,
-            ),
-            deployment_settings=settings.DeploymentSettings(
-                conda_frontend=conda_frontend,
+                printshellcmds=printshellcmds,
             ),
         )
 
         try:
+            workflow_api = snakemake_api.workflow(
+                resource_settings=settings.ResourceSettings(
+                    cores=cores,
+                    nodes=nodes,
+                    overwrite_resource_scopes=(
+                        ResourceScopes(overwrite_resource_scopes)
+                        if overwrite_resource_scopes is not None
+                        else dict()
+                    ),
+                ),
+                config_settings=settings.ConfigSettings(
+                    config=config,
+                ),
+                storage_settings=settings.StorageSettings(),
+                workflow_settings=settings.WorkflowSettings(
+                    wrapper_prefix=wrapper_prefix,
+                ),
+                snakefile=Path(original_snakefile if no_tmpdir else snakefile),
+                workdir=Path(path if no_tmpdir else tmpdir),
+            )
+
+            dag_api = workflow_api.dag(
+                dag_settings=settings.DAGSettings(
+                    targets=targets,
+                    until=until,
+                    omit_from=omit_from,
+                    forcerun=forcerun,
+                ),
+                deployment_settings=settings.DeploymentSettings(
+                    conda_frontend=conda_frontend,
+                    conda_prefix=conda_prefix,
+                    deployment_method=deployment_method,
+                ),
+            )
+
             if report is not None:
                 dag_api.create_report(path=report, stylesheet=report_stylesheet)
+            elif conda_list_envs:
+                dag_api.conda_list_envs()
             else:
                 dag_api.execute_workflow(
                     executor=executor,
                     execution_settings=settings.ExecutionSettings(
                         cleanup_scripts=cleanup_scripts,
+                        shadow_prefix=shadow_prefix,
                     ),
                     remote_execution_settings=settings.RemoteExecutionSettings(
                         container_image=container_image,

@@ -167,7 +167,7 @@ class Executor(RealExecutor):
             self.workflow.execution_settings.edit_notebook
             if self.dag.is_edit_notebook_job(job)
             else None,
-            self.workflow.deployment_settings.conda_base_path,
+            self.workflow.conda_base_path,
             job.rule.basedir,
             self.workflow.sourcecache.runtime_cache_path,
         )
