@@ -51,7 +51,7 @@ SNAKEFILE_CHOICES = list(
 
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
-        path for path in sys.path if path.endswith("site-packages")
+        path for path in sys.path if os.path.isdir(path)
     ]
     return list(unique_justseen(paths))
 

@@ -188,8 +188,8 @@ class Singularity:
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
-                    "The singularity command has to be "
-                    "available in order to use singularity "
+                    "The apptainer or singularity command has to be "
+                    "available in order to use apptainer/singularity "
                     "integration."
                 )
             try:

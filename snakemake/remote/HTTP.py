@@ -3,12 +3,14 @@ __copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
+from dataclasses import dataclass
 import os
 import re
 import collections
 import shutil
 import email.utils
 from contextlib import contextmanager
+import snakemake
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
@@ -99,6 +101,15 @@ class RemoteObject(DomainObject):
         )
         self.additional_request_string = additional_request_string
 
+    async def inventory(self, cache: snakemake.io.IOCache):
+        """From this file, try to find as much existence and modification date
+        information as possible.
+        """
+        # If this is implemented in a remote object, results have to be stored in
+        # the given IOCache object.
+        res = self.httpr(verb="HEAD")
+
+
     # === Implementations of abstract class members ===
 
     @contextmanager  # makes this a context manager. after 'yield' is __exit__()
@@ -147,6 +158,7 @@ class RemoteObject(DomainObject):
         if verb.upper() == "GET":
             r = requests.get(url, *args_to_use, stream=stream, **kwargs_to_use)
         if verb.upper() == "HEAD":
+            import pdb; pdb.set_trace()
             r = requests.head(url, *args_to_use, **kwargs_to_use)
 
         yield r
@@ -161,7 +173,6 @@ class RemoteObject(DomainObject):
                         f"The file specified appears to have been moved (HTTP {httpr.status_code}), check the URL or try adding 'allow_redirects=True' to the remote() file object: {httpr.url}"
                     )
                 return httpr.status_code == requests.codes.ok
-            return False
         else:
             raise HTTPFileException(
                 "The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s"

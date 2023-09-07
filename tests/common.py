@@ -18,8 +18,10 @@ import pytest
 import glob
 import subprocess
 import tarfile
-from snakemake import api, settings
 
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+
+from snakemake import api, settings
 from snakemake.common import ON_WINDOWS
 from snakemake.resources import ResourceScopes
 
@@ -156,6 +158,14 @@ def run(
     conda_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
+    default_remote_provider=None,
+    default_remote_prefix=None,
+    archive=None,
+    cluster=None,
+    retries=0,
+    resources=dict(),
+    default_resources=None,
+    group_components=dict(),
 ):
     """
     Test the Snakefile in the path.
@@ -234,6 +244,12 @@ def run(
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
 
+        if cluster is not None:
+            executor = "cluster-generic"
+            plugin = ExecutorPluginRegistry().get(executor)
+            executor_settings = plugin.executor_settings_class(submit_cmd=cluster)
+            nodes = 3
+
         success = True
 
         snakemake_api = api.SnakemakeApi(
@@ -253,11 +269,16 @@ def run(
                         if overwrite_resource_scopes is not None
                         else dict()
                     ),
+                    resources=resources,
+                    default_resources=default_resources,
                 ),
                 config_settings=settings.ConfigSettings(
                     config=config,
                 ),
-                storage_settings=settings.StorageSettings(),
+                storage_settings=settings.StorageSettings(
+                    default_remote_provider=default_remote_provider,
+                    default_remote_prefix=default_remote_prefix,
+                ),
                 workflow_settings=settings.WorkflowSettings(
                     wrapper_prefix=wrapper_prefix,
                 ),
@@ -283,12 +304,15 @@ def run(
                 dag_api.create_report(path=report, stylesheet=report_stylesheet)
             elif conda_list_envs:
                 dag_api.conda_list_envs()
+            elif archive is not None:
+                dag_api.archive(Path(archive))
             else:
                 dag_api.execute_workflow(
                     executor=executor,
                     execution_settings=settings.ExecutionSettings(
                         cleanup_scripts=cleanup_scripts,
                         shadow_prefix=shadow_prefix,
+                        retries=retries,
                     ),
                     remote_execution_settings=settings.RemoteExecutionSettings(
                         container_image=container_image,
@@ -296,6 +320,9 @@ def run(
                     ),
                     scheduling_settings=settings.SchedulingSettings(
                         ilp_solver=scheduler_ilp_solver,
+                    ),
+                    group_settings=settings.GroupSettings(
+                        group_components=group_components,
                     ),
                     executor_settings=executor_settings,
                 )

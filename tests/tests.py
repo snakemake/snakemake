@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess as sp
 from pathlib import Path
+from snakemake.resources import DefaultResources, GroupResources
 
 from snakemake.shell import shell
 
@@ -612,60 +613,62 @@ def test_dup_out_patterns():
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
 
+# TODO reactivate once generic cluster executor is properly released
+# @skip_on_windows
+# def test_restartable_job_cmd_exit_1_no_restart():
+#     """Test the restartable job feature on ``exit 1``
 
-@skip_on_windows
-def test_restartable_job_cmd_exit_1_no_restart():
-    """Test the restartable job feature on ``exit 1``
-
-    The shell snippet in the Snakemake file will fail the first time
-    and succeed the second time.
-    """
-    run(
-        dpath("test_restartable_job_cmd_exit_1"),
-        cluster="./qsub",
-        restart_times=0,
-        shouldfail=True,
-    )
-
-
-@skip_on_windows
-def test_restartable_job_cmd_exit_1_one_restart():
-    # Restarting once is enough
-    run(
-        dpath("test_restartable_job_cmd_exit_1"),
-        cluster="./qsub",
-        restart_times=1,
-        printshellcmds=True,
-    )
+#     The shell snippet in the Snakemake file will fail the first time
+#     and succeed the second time.
+#     """
+#     run(
+#         dpath("test_restartable_job_cmd_exit_1"),
+#         cluster="./qsub",
+#         retries=0,
+#         shouldfail=True,
+#     )
 
 
-@skip_on_windows
-def test_restartable_job_qsub_exit_1():
-    """Test the restartable job feature when qsub fails
+# TODO reactivate once generic cluster executor is properly released
+# @skip_on_windows
+# def test_restartable_job_cmd_exit_1_one_restart():
+#     # Restarting once is enough
+#     run(
+#         dpath("test_restartable_job_cmd_exit_1"),
+#         cluster="./qsub",
+#         retries=1,
+#         printshellcmds=True,
+#     )
 
-    The qsub in the subdirectory will fail the first time and succeed the
-    second time.
-    """
-    # Even two consecutive times should fail as files are cleared
-    run(
-        dpath("test_restartable_job_qsub_exit_1"),
-        cluster="./qsub",
-        restart_times=0,
-        shouldfail=True,
-    )
-    run(
-        dpath("test_restartable_job_qsub_exit_1"),
-        cluster="./qsub",
-        restart_times=0,
-        shouldfail=True,
-    )
-    # Restarting once is enough
-    run(
-        dpath("test_restartable_job_qsub_exit_1"),
-        cluster="./qsub",
-        restart_times=1,
-        shouldfail=False,
-    )
+
+# TODO reactivate once generic cluster executor is properly released
+# @skip_on_windows
+# def test_restartable_job_qsub_exit_1():
+#     """Test the restartable job feature when qsub fails
+
+#     The qsub in the subdirectory will fail the first time and succeed the
+#     second time.
+#     """
+#     # Even two consecutive times should fail as files are cleared
+#     run(
+#         dpath("test_restartable_job_qsub_exit_1"),
+#         cluster="./qsub",
+#         retries=0,
+#         shouldfail=True,
+#     )
+#     run(
+#         dpath("test_restartable_job_qsub_exit_1"),
+#         cluster="./qsub",
+#         retries=0,
+#         shouldfail=True,
+#     )
+#     # Restarting once is enough
+#     run(
+#         dpath("test_restartable_job_qsub_exit_1"),
+#         cluster="./qsub",
+#         retries=1,
+#         shouldfail=False,
+#     )
 
 
 def test_threads():
@@ -784,7 +787,7 @@ def test_profile():
 @skip_on_windows
 @connected
 def test_singularity():
-    run(dpath("test_singularity"), use_singularity=True)
+    run(dpath("test_singularity"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows
@@ -792,7 +795,7 @@ def test_singularity_invalid():
     run(
         dpath("test_singularity"),
         targets=["invalid.txt"],
-        use_singularity=True,
+        deployment_method={DeploymentMethod.APPTAINER},
         shouldfail=True,
     )
 
@@ -802,7 +805,7 @@ def test_singularity_module_invalid():
     run(
         dpath("test_singularity_module"),
         targets=["invalid.txt"],
-        use_singularity=True,
+        deployment_method={DeploymentMethod.APPTAINER},
         shouldfail=True,
     )
 
@@ -812,8 +815,7 @@ def test_singularity_module_invalid():
 def test_singularity_conda():
     run(
         dpath("test_singularity_conda"),
-        use_singularity=True,
-        deployment_method={DeploymentMethod.CONDA},
+        deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER},
         conda_frontend="conda",
     )
 
@@ -821,17 +823,17 @@ def test_singularity_conda():
 @skip_on_windows
 @connected
 def test_singularity_none():
-    run(dpath("test_singularity_none"), use_singularity=True)
+    run(dpath("test_singularity_none"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(dpath("test_singularity_global"), use_singularity=True)
+    run(dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_issue612():
-    run(dpath("test_issue612"), dryrun=True)
+    run(dpath("test_issue612"), executor="dryrun")
 
 
 def test_bash():
@@ -852,14 +854,8 @@ def test_log_input():
 
 @skip_on_windows
 @connected
-def test_cwl():
-    run(dpath("test_cwl"))
-
-
-@skip_on_windows
-@connected
 def test_cwl_singularity():
-    run(dpath("test_cwl"), use_singularity=True)
+    run(dpath("test_cwl"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_issue805():
@@ -896,7 +892,7 @@ def test_group_jobs():
 
 @skip_on_windows
 def test_group_jobs_attempts():
-    run(dpath("test_group_jobs_attempts"), cluster="./qsub", restart_times=2)
+    run(dpath("test_group_jobs_attempts"), cluster="./qsub", retries=2)
 
 
 def assert_resources(resources: dict, **expected_resources):
@@ -1253,7 +1249,7 @@ def test_convert_to_cwl():
 
 
 def test_issue1037():
-    run(dpath("test_issue1037"), dryrun=True, cluster="qsub", targets=["Foo_A.done"])
+    run(dpath("test_issue1037"), executor="dryrun", cluster="qsub", targets=["Foo_A.done"])
 
 
 def test_issue1046():
@@ -1278,7 +1274,7 @@ def test_issue1093():
 
 
 def test_issue958():
-    run(dpath("test_issue958"), cluster="dummy", dryrun=True)
+    run(dpath("test_issue958"), cluster="dummy", executor="dryrun")
 
 
 def test_issue471():
@@ -1291,7 +1287,7 @@ def test_issue1085():
 
 @skip_on_windows
 def test_issue1083():
-    run(dpath("test_issue1083"), use_singularity=True)
+    run(dpath("test_issue1083"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows  # Fails with "The flag 'pipe' used in rule two is only valid for outputs
@@ -1382,7 +1378,7 @@ def test_github_issue52():
 
 @skip_on_windows
 def test_github_issue78():
-    run(dpath("test_github_issue78"), use_singularity=True)
+    run(dpath("test_github_issue78"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_envvars():
@@ -1424,7 +1420,7 @@ def test_github_issue988():
 )
 def test_github_issue1062():
     # old code failed in dry run
-    run(dpath("test_github_issue1062"), dryrun=True)
+    run(dpath("test_github_issue1062"), executor="dryrun")
 
 
 def test_output_file_cache():
@@ -1472,7 +1468,7 @@ def test_env_modules():
 @skip_on_windows
 @connected
 def test_container():
-    run(dpath("test_container"), use_singularity=True)
+    run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
 
 
 def test_linting():
@@ -1528,7 +1524,7 @@ def test_github_issue640():
     run(
         dpath("test_github_issue640"),
         targets=["Output/FileWithRights"],
-        dryrun=True,
+        executor="dryrun",
         cleanup=False,
     )
 
@@ -1592,7 +1588,7 @@ def test_github_issue806():
 
 @skip_on_windows
 def test_containerized():
-    run(dpath("test_containerized"), deployment_method={DeploymentMethod.CONDA}, use_singularity=True)
+    run(dpath("test_containerized"), deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER})
 
 
 @skip_on_windows
@@ -1642,7 +1638,7 @@ def test_modules_specific():
 
 @skip_on_windows  # works in principle but the test framework modifies the target path separator
 def test_modules_meta_wrapper():
-    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], dryrun=True)
+    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], executor="dryrun")
 
 
 def test_use_rule_same_module():
@@ -1650,11 +1646,11 @@ def test_use_rule_same_module():
 
 
 def test_module_complex():
-    run(dpath("test_module_complex"), dryrun=True)
+    run(dpath("test_module_complex"), executor="dryrun")
 
 
 def test_module_complex2():
-    run(dpath("test_module_complex2"), dryrun=True)
+    run(dpath("test_module_complex2"), executor="dryrun")
 
 
 @skip_on_windows
@@ -1817,7 +1813,7 @@ def test_service_jobs():
 
 
 def test_incomplete_params():
-    run(dpath("test_incomplete_params"), dryrun=True, printshellcmds=True)
+    run(dpath("test_incomplete_params"), executor="dryrun", printshellcmds=True)
 
 
 @skip_on_windows
@@ -1837,11 +1833,11 @@ def test_pipe_depend_target_file():
 
 @skip_on_windows  # platform independent issue
 def test_github_issue1500():
-    run(dpath("test_github_issue1500"), dryrun=True)
+    run(dpath("test_github_issue1500"), executor="dryrun")
 
 
 def test_github_issue1542():
-    run(dpath("test_github_issue1542"), dryrun=True)
+    run(dpath("test_github_issue1542"), executor="dryrun")
 
 
 def test_github_issue1550():
@@ -1908,7 +1904,7 @@ def test_retries():
 
 
 def test_retries_not_overriden():
-    run(dpath("test_retries_not_overriden"), restart_times=3, shouldfail=True)
+    run(dpath("test_retries_not_overriden"), retries=3, shouldfail=True)
 
 
 @skip_on_windows  # OS agnostic

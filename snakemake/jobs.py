@@ -474,7 +474,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def container_img(self):
         if (
-            self.dag.workflow.deployment_settings.use_singularity
+            DeploymentMethod.APPTAINER in self.dag.workflow.deployment_settings.deployment_method
             and self.container_img_url
         ):
             return self.dag.container_imgs[self.container_img_url]

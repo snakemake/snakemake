@@ -61,7 +61,7 @@ from snakemake.settings import RerunTrigger
 
 def parse_set_threads(args):
     return parse_set_ints(
-        args.set_threads,
+        args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
     )
@@ -1684,6 +1684,7 @@ def get_argument_parser(profiles=None):
     group_deployment.add_argument(
         "--software-deployment-method",
         "--deployment",
+        nargs="+",
         choices=DeploymentMethod.choices(),
         parse_func=DeploymentMethod.parse_choices_set,
         default=set(),

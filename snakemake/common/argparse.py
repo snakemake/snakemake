@@ -38,7 +38,7 @@ def register_parser_action(parse_func, kwargs):
             "Cannot specify action if parser argument is provided to add_argument."
         )
 
-    class ParserAction(argparse.Action):
+    class ParserAction(argparse._StoreAction):
         def __init__(self, *args, **kwargs):
             if "parser" in kwargs:
                 del kwargs["parse_func"]

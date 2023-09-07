@@ -2253,13 +2253,13 @@ class DAG(DAGExecutorInterface):
         Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
         ancestral input files and conda environments.
         """
-        if path.endswith(".tar"):
+        if path.suffix == ".tar":
             mode = "x"
-        elif path.endswith("tar.bz2"):
+        elif path.suffixes == [".tar", ".bz2"]:
             mode = "x:bz2"
-        elif path.endswith("tar.xz"):
+        elif path.suffixes == [".tar", ".xz"]:
             mode = "x:xz"
-        elif path.endswith("tar.gz"):
+        elif path.suffixes == [".tar", ".gz"]:
             mode = "x:gz"
         else:
             raise WorkflowError(
