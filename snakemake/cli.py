@@ -53,6 +53,7 @@ from snakemake.common import (
     SNAKEFILE_CHOICES,
     __version__,
     get_appdirs,
+    get_container_image,
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
@@ -1532,37 +1533,14 @@ def get_argument_parser(profiles=None):
     group_kubernetes.add_argument(
         "--container-image",
         metavar="IMAGE",
-        help="Docker image to use, e.g., when submitting jobs to kubernetes "
+        default=get_container_image(),
+        help="Docker image to use, e.g., when submitting jobs to remote middleware. "
         "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
         "the same version as the currently running Snakemake instance. "
         "Note that overwriting this value is up to your responsibility. "
         "Any used image has to contain a working snakemake installation "
         "that is compatible with (or ideally the same as) the currently "
         "running version.",
-    )
-    group_kubernetes.add_argument(
-        "--k8s-cpu-scalar",
-        metavar="FLOAT",
-        default=0.95,
-        type=float,
-        help="K8s reserves some proportion of available CPUs for its own use. "
-        "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
-        "are allocatable to k8s pods (i.e. snakemake jobs). As 8 > 7.6, k8s can't "
-        "find a node with enough CPU resource to run such jobs. This argument acts "
-        "as a global scalar on each job's CPU request, so that e.g. a job whose "
-        "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
-        "allowing it to utilise one entire node. N.B: the job itself would still "
-        "see the original value, i.e. as the value substituted in {threads}.",
-    )
-
-    group_kubernetes.add_argument(
-        "--k8s-service-account-name",
-        metavar="SERVICEACCOUNTNAME",
-        default=None,
-        help="This argument allows the use of customer service accounts for "
-        "kubernetes pods. If specified serviceAccountName will be added to the "
-        "pod specs. This is needed when using workload identity which is enforced "
-        "when using Google Cloud GKE Autopilot.",
     )
 
     group_tibanna.add_argument(

@@ -19,7 +19,7 @@ from snakemake_interface_executor_plugins.settings import (
 )
 from snakemake_interface_common.settings import SettingsEnumBase
 
-from snakemake.common import dict_to_key_value_args
+from snakemake.common import dict_to_key_value_args, get_container_image
 from snakemake.common.configfile import load_configfile
 from snakemake.resources import DefaultResources
 from snakemake.utils import update_config
@@ -362,7 +362,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     jobscript: Optional[Path] = None
     max_status_checks_per_second: float = 100.0
     seconds_between_status_checks: int = 10
-    container_image: Optional[str] = None
+    container_image: str = get_container_image()
     preemptible_retries: Optional[int] = None
     preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)
     envvars: Sequence[str] = tuple()
