@@ -307,10 +307,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
-            if (
-                self.dag.workflow.local_exec
-                or self.is_local
-            ):
+            if self.dag.workflow.local_exec or self.is_local:
                 groupid = self.dag.workflow.group_settings.local_groupid
         else:
             groupid = group.jobid
@@ -403,10 +400,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def resources(self):
         if self._resources is None:
-            if (
-                self.dag.workflow.local_exec
-                or self.is_local
-            ):
+            if self.dag.workflow.local_exec or self.is_local:
                 skip_evaluation = None
             else:
                 # tmpdir should be evaluated in the context of the actual execution
@@ -474,7 +468,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def container_img(self):
         if (
-            DeploymentMethod.APPTAINER in self.dag.workflow.deployment_settings.deployment_method
+            DeploymentMethod.APPTAINER
+            in self.dag.workflow.deployment_settings.deployment_method
             and self.container_img_url
         ):
             return self.dag.container_imgs[self.container_img_url]

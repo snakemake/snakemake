@@ -13,7 +13,12 @@ from functools import partial
 import importlib
 
 from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
-from snakemake.settings import ChangeType, GroupSettings, SchedulingSettings, WorkflowSettings
+from snakemake.settings import (
+    ChangeType,
+    GroupSettings,
+    SchedulingSettings,
+    WorkflowSettings,
+)
 
 if sys.version_info < MIN_PY_VERSION:
     raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
@@ -354,7 +359,10 @@ class DAGApi(ApiBase):
         )
 
         if executor_plugin.common_settings.local_exec:
-            if not executor_plugin.common_settings.dryrun_exec and not executor_plugin.common_settings.touch_exec:
+            if (
+                not executor_plugin.common_settings.dryrun_exec
+                and not executor_plugin.common_settings.touch_exec
+            ):
                 if self.workflow_api.resource_settings.cores is None:
                     raise ApiError(
                         "cores have to be specified for local execution "
@@ -531,6 +539,7 @@ class DAGApi(ApiBase):
         path: Path -- The path to the CWL file.
         """
         self.workflow_api._workflow.export_to_cwl(path=path)
+
 
 def _get_executor_plugin_registry():
     from snakemake.executors import local as local_executor

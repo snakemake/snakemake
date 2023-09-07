@@ -229,7 +229,7 @@ class Workflow(WorkflowExecutorInterface):
             or (os.name not in ["posix", "nt"])
             or not self.local_exec
         )
-    
+
     @property
     def local_exec(self):
         if self.executor_plugin is not None:
@@ -966,9 +966,7 @@ class Workflow(WorkflowExecutorInterface):
                             f"Provided resources: {provided_resources}"
                         )
 
-                    if self.local_exec and any(
-                        rule.group for rule in self.rules
-                    ):
+                    if self.local_exec and any(rule.group for rule in self.rules):
                         logger.info("Group jobs: inactive (local execution)")
 
                     if (

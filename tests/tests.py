@@ -361,7 +361,11 @@ def test_empty_include():
 
 @skip_on_windows
 def test_script():
-    run(dpath("test_script"), deployment_method={DeploymentMethod.CONDA}, check_md5=False)
+    run(
+        dpath("test_script"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 def test_script_python():
@@ -458,7 +462,11 @@ def test_conda_list_envs():
 
 
 def test_upstream_conda():
-    run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA}, conda_frontend="conda")
+    run(
+        dpath("test_conda"),
+        deployment_method={DeploymentMethod.CONDA},
+        conda_frontend="conda",
+    )
 
 
 @skip_on_windows
@@ -468,7 +476,11 @@ def test_deploy_script():
 
 @skip_on_windows
 def test_deploy_hashing():
-    tmpdir = run(dpath("test_deploy_hashing"), deployment_method={DeploymentMethod.CONDA}, cleanup=False)
+    tmpdir = run(
+        dpath("test_deploy_hashing"),
+        deployment_method={DeploymentMethod.CONDA},
+        cleanup=False,
+    )
     assert len(next(os.walk(os.path.join(tmpdir, ".snakemake/conda")))[1]) == 2
 
 
@@ -505,7 +517,9 @@ def test_wrapper_local_git_prefix():
         print("Cloning complete.")
 
         run(
-            dpath("test_wrapper"), deployment_method={DeploymentMethod.CONDA}, wrapper_prefix=f"git+file://{tmpdir}"
+            dpath("test_wrapper"),
+            deployment_method={DeploymentMethod.CONDA},
+            wrapper_prefix=f"git+file://{tmpdir}",
         )
 
 
@@ -612,6 +626,7 @@ def test_dup_out_patterns():
     Duplicate output patterns can be detected on the rule level
     """
     run(dpath("test_dup_out_patterns"), shouldfail=True)
+
 
 # TODO reactivate once generic cluster executor is properly released
 # @skip_on_windows
@@ -768,16 +783,17 @@ def test_remote_log():
 
 
 @connected
-@pytest.mark.xfail
 def test_remote_http():
     run(dpath("test_remote_http"))
 
 
 @skip_on_windows
 @connected
-@pytest.mark.xfail
 def test_remote_http_cluster():
-    run(dpath("test_remote_http"), cluster=os.path.abspath(dpath("test14/qsub")))
+    run(
+        dpath("test_remote_http"),
+        cluster=os.path.abspath(dpath("test_group_job_fail/qsub")),
+    )
 
 
 def test_profile():
@@ -829,7 +845,9 @@ def test_singularity_none():
 @skip_on_windows
 @connected
 def test_singularity_global():
-    run(dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER})
+    run(
+        dpath("test_singularity_global"), deployment_method={DeploymentMethod.APPTAINER}
+    )
 
 
 def test_issue612():
@@ -1229,7 +1247,11 @@ def test_issue930():
 
 @skip_on_windows
 def test_issue635():
-    run(dpath("test_issue635"), deployment_method={DeploymentMethod.CONDA}, check_md5=False)
+    run(
+        dpath("test_issue635"),
+        deployment_method={DeploymentMethod.CONDA},
+        check_md5=False,
+    )
 
 
 # TODO remove skip
@@ -1249,7 +1271,12 @@ def test_convert_to_cwl():
 
 
 def test_issue1037():
-    run(dpath("test_issue1037"), executor="dryrun", cluster="qsub", targets=["Foo_A.done"])
+    run(
+        dpath("test_issue1037"),
+        executor="dryrun",
+        cluster="qsub",
+        targets=["Foo_A.done"],
+    )
 
 
 def test_issue1046():
@@ -1588,7 +1615,10 @@ def test_github_issue806():
 
 @skip_on_windows
 def test_containerized():
-    run(dpath("test_containerized"), deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER})
+    run(
+        dpath("test_containerized"),
+        deployment_method={DeploymentMethod.CONDA, DeploymentMethod.APPTAINER},
+    )
 
 
 @skip_on_windows
@@ -1638,7 +1668,11 @@ def test_modules_specific():
 
 @skip_on_windows  # works in principle but the test framework modifies the target path separator
 def test_modules_meta_wrapper():
-    run(dpath("test_modules_meta_wrapper"), targets=["mapped/a.bam.bai"], executor="dryrun")
+    run(
+        dpath("test_modules_meta_wrapper"),
+        targets=["mapped/a.bam.bai"],
+        executor="dryrun",
+    )
 
 
 def test_use_rule_same_module():
@@ -1762,7 +1796,11 @@ def test_conda_named():
 
 @skip_on_windows
 def test_conda_function():
-    run(dpath("test_conda_function"), deployment_method={DeploymentMethod.CONDA}, cores=1)
+    run(
+        dpath("test_conda_function"),
+        deployment_method={DeploymentMethod.CONDA},
+        cores=1,
+    )
 
 
 @skip_on_windows
@@ -1927,7 +1965,10 @@ def test_conda_python_script():
 
 
 def test_conda_python_3_7_script():
-    run(dpath("test_conda_python_3_7_script"), deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_conda_python_3_7_script"),
+        deployment_method={DeploymentMethod.CONDA},
+    )
 
 
 def test_prebuilt_conda_script():

@@ -69,7 +69,7 @@ class TestWorkflowsBase(ABC):
             storage_settings=settings.StorageSettings(
                 default_remote_provider=self.get_default_remote_provider(),
                 default_remote_prefix=self.get_default_remote_prefix(),
-                assume_shared_fs=self.get_assume_shared_fs()
+                assume_shared_fs=self.get_assume_shared_fs(),
             ),
             workdir=Path(tmp_path),
             snakefile=test_path / "Snakefile",

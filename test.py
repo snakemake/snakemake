@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
 import typing
 
+
 class A(ABC):
     @property
     @abstractmethod
