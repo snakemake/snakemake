@@ -358,7 +358,7 @@ def get_argument_parser(profiles=None):
             The profile folder has to contain a file 'config.yaml'.
             This file can be used to set default values for command
             line options in YAML format. For example,
-            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            '--executor slurm' becomes 'executor: slurm' in the YAML
             file. It is advisable to use the workflow profile to set
             or overwrite e.g. workflow specific resources like the amount of threads
             of a particular rule or the amount of memory needed.
@@ -1324,8 +1324,7 @@ def get_argument_parser(profiles=None):
         "separately. Further, it won't take special measures "
         "to deal with filesystem latency issues. This option "
         "will in most cases only make sense in combination with "
-        "--default-remote-provider. Further, when using --cluster "
-        "you will have to also provide --cluster-status. "
+        "--default-remote-provider. "
         "Only activate this if you "
         "know what you are doing.",
     )
@@ -1411,33 +1410,7 @@ def get_argument_parser(profiles=None):
         # mode
     )
 
-    group_cluster = parser.add_argument_group("CLUSTER")
-
-    # TODO extend below description to explain the wildcards that can be used
-    cluster_mode_group = group_cluster.add_mutually_exclusive_group()
-    cluster_mode_group.add_argument(
-        "--cluster",
-        metavar="CMD",
-        help=(
-            "Execute snakemake rules with the given submit command, "
-            "e.g. qsub. Snakemake compiles jobs into scripts that are "
-            "submitted to the cluster with the given command, once all input "
-            "files for a particular job are present.\n"
-            "The submit command can be decorated to make it aware of certain "
-            "job properties (name, rulename, input, output, params, wildcards, log, threads "
-            "and dependencies (see the argument below)), e.g.:\n"
-            "$ snakemake --cluster 'qsub -pe threaded {threads}'."
-        ),
-    ),
-    cluster_mode_group.add_argument(
-        "--cluster-sync",
-        metavar="CMD",
-        help=(
-            "cluster submission command will block, returning the remote exit"
-            "status upon remote termination (for example, this should be used"
-            "if the cluster command is 'qsub -sync y' (SGE)"
-        ),
-    ),
+    group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
     group_cluster.add_argument(
         "--immediate-submit",
@@ -1469,79 +1442,11 @@ def get_argument_parser(profiles=None):
         'cluster (see --cluster). NAME is "snakejob.{name}.{jobid}.sh" '
         "per default. The wildcard {jobid} has to be present in the name.",
     )
-    group_cluster.add_argument(
-        "--cluster-status",
-        help="Status command for cluster execution. This is only considered "
-        "in combination with the --cluster flag. If provided, Snakemake will "
-        "use the status command to determine if a job has finished successfully "
-        "or failed. For this it is necessary that the submit command provided "
-        "to --cluster returns the cluster job id. Then, the status command "
-        "will be invoked with the job id. Snakemake expects it to return "
-        "'success' if the job was successful, 'failed' if the job failed and "
-        "'running' if the job still runs.",
-    )
-    group_cluster.add_argument(
-        "--cluster-cancel",
-        default=None,
-        help="Specify a command that allows to stop currently running jobs. "
-        "The command will be passed a single argument, the job id.",
-    )
-    group_cluster.add_argument(
-        "--cluster-cancel-nargs",
-        type=int,
-        default=1000,
-        help="Specify maximal number of job ids to pass to --cluster-cancel "
-        "command, defaults to 1000.",
-    )
-    group_cluster.add_argument(
-        "--cluster-sidecar",
-        default=None,
-        help="Optional command to start a sidecar process during cluster "
-        "execution.  Only active when --cluster is given as well.",
-    )
-    group_cluster.add_argument(
-        "--drmaa-log-dir",
-        metavar="DIR",
-        help="Specify a directory in which stdout and stderr files of DRMAA"
-        " jobs will be written. The value may be given as a relative path,"
-        " in which case Snakemake will use the current invocation directory"
-        " as the origin. If given, this will override any given '-o' and/or"
-        " '-e' native specification. If not given, all DRMAA stdout and"
-        " stderr files are written to the current working directory.",
-    )
 
     group_flux = parser.add_argument_group("FLUX")
-    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
-    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
     group_tibanna = parser.add_argument_group("TIBANNA")
-
-    group_kubernetes.add_argument(
-        "--kubernetes",
-        metavar="NAMESPACE",
-        nargs="?",
-        const="default",
-        help="Execute workflow in a kubernetes cluster (in the cloud). "
-        "NAMESPACE is the namespace you want to use for your job (if nothing "
-        "specified: 'default'). "
-        "Usually, this requires --default-remote-provider and "
-        "--default-remote-prefix to be set to a S3 or GS bucket where your . "
-        "data shall be stored. It is further advisable to activate conda "
-        "integration via --use-conda.",
-    )
-    group_kubernetes.add_argument(
-        "--container-image",
-        metavar="IMAGE",
-        default=get_container_image(),
-        help="Docker image to use, e.g., when submitting jobs to remote middleware. "
-        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
-        "the same version as the currently running Snakemake instance. "
-        "Note that overwriting this value is up to your responsibility. "
-        "Any used image has to contain a working snakemake installation "
-        "that is compatible with (or ideally the same as) the currently "
-        "running version.",
-    )
 
     group_tibanna.add_argument(
         "--tibanna",
