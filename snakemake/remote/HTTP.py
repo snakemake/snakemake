@@ -11,6 +11,7 @@ import shutil
 import email.utils
 from contextlib import contextmanager
 import snakemake
+import snakemake.io
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
