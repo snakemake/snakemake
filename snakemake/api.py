@@ -342,7 +342,7 @@ class DAGApi(ApiBase):
 
         if (
             remote_execution_settings.immediate_submit
-            and not self._workflow_api.storage_settings.notemp
+            and not self.workflow_api.storage_settings.notemp
         ):
             raise ApiError(
                 "immediate_submit has to be combined with notemp (it does not support temp file handling)"
@@ -352,7 +352,7 @@ class DAGApi(ApiBase):
         executor_plugin = executor_plugin_registry.get_plugin(executor)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
-            self._workflow_api.storage_settings.assume_shared_fs = False
+            self.workflow_api.storage_settings.assume_shared_fs = False
 
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
