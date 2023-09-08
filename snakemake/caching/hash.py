@@ -126,7 +126,11 @@ class ProvenanceHashMap:
                 ):
                     h.update(job.conda_env.container_img_url.encode())
                 h.update(job.conda_env.content)
-            elif workflow.deployment_settings.use_singularity and job.container_img_url:
+            elif (
+                DeploymentMethod.APPTAINER
+                in workflow.deployment_settings.deployment_method
+                and job.container_img_url
+            ):
                 h.update(job.container_img_url.encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).

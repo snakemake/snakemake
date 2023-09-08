@@ -186,15 +186,44 @@ class Workflow(WorkflowExecutorInterface):
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
-
-        self.enable_cache = False
         self._output_file_cache = None
+        self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
-    def __del__(self):
-        if self._workdir_handler is not None:
-            self._workdir_handler.change_back()
+    @property
+    def enable_cache(self):
+        return (
+            self.execution_settings is not None
+            and self.execution_settings.cache is not None
+        )
+
+    def check_cache_rules(self):
+        for rule in self.rules:
+            cache_mode = self.cache_rules.get(rule.name)
+            if cache_mode:
+                if len(rule.output) > 1:
+                    if not all(out.is_multiext for out in rule.output):
+                        raise WorkflowError(
+                            "Rule is marked for between workflow caching but has multiple output files. "
+                            "This is only allowed if multiext() is used to declare them (see docs on between "
+                            "workflow caching).",
+                            rule=rule,
+                        )
+                if not self.enable_cache:
+                    logger.warning(
+                        f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
+                        "(use the --cache argument to enable this)."
+                    )
+            if rule.benchmark:
+                raise WorkflowError(
+                    "Rules with a benchmark directive may not be marked as eligible "
+                    "for between-workflow caching at the same time. The reason is that "
+                    "when the result is taken from cache, there is no way to fill the benchmark file with "
+                    "any reasonable values. Either remove the benchmark directive or disable "
+                    "between-workflow caching for this rule.",
+                    rule=rule,
+                )
 
     @property
     def attempt(self):
@@ -397,6 +426,8 @@ class Workflow(WorkflowExecutorInterface):
                     raise UnknownRuleException(
                         rulename, prefix="Error in ruleorder definition."
                     )
+        self.check_cache_rules()
+        self.check_localrules()
 
     def add_rule(
         self,
@@ -498,8 +529,6 @@ class Workflow(WorkflowExecutorInterface):
         nolock: bool = False,
         shadow_prefix: Optional[str] = None,
     ) -> DAG:
-        self.check_localrules()
-
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
@@ -862,10 +891,9 @@ class Workflow(WorkflowExecutorInterface):
         )
 
         if self.execution_settings.cache is not None:
-            self.enable_cache = True
-            self.cache_rules = {
-                rulename: "all" for rulename in self.execution_settings.cache
-            }
+            self.cache_rules.update(
+                {rulename: "all" for rulename in self.execution_settings.cache}
+            )
             if self.storage_settings.default_remote_provider is not None:
                 self._output_file_cache = RemoteOutputFileCache(
                     self.storage_settings.default_remote_provider
@@ -1549,39 +1577,19 @@ class Workflow(WorkflowExecutorInterface):
                 self._localrules.add(rule.name)
                 rule.is_handover = True
 
-            if ruleinfo.cache:
-                if len(rule.output) > 1:
-                    if not rule.output[0].is_multiext:
-                        raise WorkflowError(
-                            "Rule is marked for between workflow caching but has multiple output files. "
-                            "This is only allowed if multiext() is used to declare them (see docs on between "
-                            "workflow caching).",
-                            rule=rule,
-                        )
-                if not self.enable_cache:
-                    logger.warning(
-                        "Workflow defines that rule {} is eligible for caching between workflows "
-                        "(use the --cache argument to enable this).".format(rule.name)
-                    )
-                else:
-                    if ruleinfo.cache is True or "omit-software" or "all":
-                        self.cache_rules[rule.name] = (
-                            "all" if ruleinfo.cache is True else ruleinfo.cache
-                        )
-                    else:
-                        raise WorkflowError(
-                            "Invalid value for cache directive. Use True or 'omit-software'.",
-                            rule=rule,
-                        )
-            if ruleinfo.benchmark and self.get_cache_mode(rule):
+            if ruleinfo.cache and not (
+                ruleinfo.cache is True
+                or ruleinfo.cache == "omit-software"
+                or ruleinfo.cache == "all"
+            ):
                 raise WorkflowError(
-                    "Rules with a benchmark directive may not be marked as eligible "
-                    "for between-workflow caching at the same time. The reason is that "
-                    "when the result is taken from cache, there is no way to fill the benchmark file with "
-                    "any reasonable values. Either remove the benchmark directive or disable "
-                    "between-workflow caching for this rule.",
+                    "Invalid value for cache directive. Use 'all' or 'omit-software'.",
                     rule=rule,
                 )
+
+            self.cache_rules[rule.name] = (
+                "all" if ruleinfo.cache is True else ruleinfo.cache
+            )
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
