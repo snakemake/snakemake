@@ -11,6 +11,7 @@ from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
+from snakemake.settings import DeploymentMethod
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -114,9 +115,13 @@ class ProvenanceHashMap:
 
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
-            if workflow.deployment_settings.use_conda and job.conda_env:
+            if (
+                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
+                and job.conda_env
+            ):
                 if (
-                    workflow.deployment_settings.use_singularity
+                    DeploymentMethod.APPTAINER
+                    in workflow.deployment_settings.deployment_method
                     and job.conda_env.container_img_url
                 ):
                     h.update(job.conda_env.container_img_url.encode())

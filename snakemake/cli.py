@@ -111,8 +111,7 @@ def parse_set_resource_scope(args):
     if args is not None:
         try:
             return ResourceScopes(
-                parse_key_value_arg(entry, errmsg=err_msg)
-                for entry in args
+                parse_key_value_arg(entry, errmsg=err_msg) for entry in args
             )
         except ResourceScopesException as err:
             invalid_resources = ", ".join(

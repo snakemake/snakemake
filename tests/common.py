@@ -170,6 +170,10 @@ def run(
     max_threads=None,
     overwrite_groups=dict(),
     configfiles=list(),
+    overwrite_resources=dict(),
+    batch=None,
+    envvars=list(),
+    cache=None,
 ):
     """
     Test the Snakefile in the path.
@@ -251,7 +255,9 @@ def run(
         if cluster is not None:
             executor = "cluster-generic"
             plugin = ExecutorPluginRegistry().get_plugin(executor)
-            executor_settings = plugin.executor_settings_class(submit_cmd=cluster, status_cmd=cluster_status)
+            executor_settings = plugin.executor_settings_class(
+                submit_cmd=cluster, status_cmd=cluster_status
+            )
             nodes = 3
 
         success = True
@@ -273,6 +279,7 @@ def run(
                         if overwrite_resource_scopes is not None
                         else dict()
                     ),
+                    overwrite_resources=overwrite_resources,
                     resources=resources,
                     default_resources=default_resources,
                     max_threads=max_threads,
@@ -298,6 +305,7 @@ def run(
                     until=until,
                     omit_from=omit_from,
                     forcerun=forcerun,
+                    batch=batch,
                 ),
                 deployment_settings=settings.DeploymentSettings(
                     conda_frontend=conda_frontend,
@@ -319,10 +327,12 @@ def run(
                         cleanup_scripts=cleanup_scripts,
                         shadow_prefix=shadow_prefix,
                         retries=retries,
+                        cache=cache,
                     ),
                     remote_execution_settings=settings.RemoteExecutionSettings(
                         container_image=container_image,
                         seconds_between_status_checks=0,
+                        envvars=envvars,
                     ),
                     scheduling_settings=settings.SchedulingSettings(
                         ilp_solver=scheduler_ilp_solver,

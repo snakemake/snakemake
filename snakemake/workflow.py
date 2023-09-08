@@ -723,11 +723,11 @@ class Workflow(WorkflowExecutorInterface):
     def printfilegraph(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
-        self.dag.filegraph_dot()
+        print(self.dag.filegraph_dot())
 
     def printd3dag(self):
         self._prepare_dag(

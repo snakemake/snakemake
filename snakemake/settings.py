@@ -298,6 +298,10 @@ class ResourceSettings(SettingsBase):
     overwrite_resources: Mapping[str, Mapping[str, int]] = immutables.Map()
     default_resources: Optional[DefaultResources] = None
 
+    def __post_init__(self):
+        if self.default_resources is None:
+            self.default_resources = DefaultResources(mode="bare")
+
 
 @dataclass
 class ConfigSettings(SettingsBase):
