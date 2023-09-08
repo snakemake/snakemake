@@ -1757,25 +1757,23 @@ def parse_args(argv):
         parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
-        def adjust_path(f):
-            if os.path.exists(f) or os.path.isabs(f):
-                return f
+        def adjust_path(path_or_value):
+            if isinstance(path_or_value, str):
+                adjusted = get_profile_file(
+                    args.profile, path_or_value, return_default=False
+                )
+                if adjusted is None:
+                    return path_or_value
+                else:
+                    return adjusted
             else:
-                return get_profile_file(args.profile, f, return_default=True)
+                return path_or_value
 
-        # update file paths to be relative to the profile
-        # (if they do not exist relative to CWD)
-        if args.jobscript:
-            args.jobscript = adjust_path(args.jobscript)
-        if args.cluster:
-            args.cluster = adjust_path(args.cluster)
-        if args.cluster_sync:
-            args.cluster_sync = adjust_path(args.cluster_sync)
-        for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
-            if getattr(args, key):
-                setattr(args, key, adjust_path(getattr(args, key)))
-        if args.report_stylesheet:
-            args.report_stylesheet = adjust_path(args.report_stylesheet)
+        # Update file paths to be relative to the profile if profile
+        # contains them.
+        for key, _ in list(args._get_kwargs()):
+            setattr(args, key, adjust_path(getattr(args, key)))
+
     return parser, args
 
 
