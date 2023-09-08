@@ -174,6 +174,10 @@ def run(
     batch=None,
     envvars=list(),
     cache=None,
+    edit_notebook=None,
+    overwrite_scatter=dict(),
+    generate_unit_tests=None,
+    force_incomplete=False,
 ):
     """
     Test the Snakefile in the path.
@@ -283,6 +287,7 @@ def run(
                     resources=resources,
                     default_resources=default_resources,
                     max_threads=max_threads,
+                    overwrite_scatter=overwrite_scatter,
                 ),
                 config_settings=settings.ConfigSettings(
                     config=config,
@@ -306,6 +311,7 @@ def run(
                     omit_from=omit_from,
                     forcerun=forcerun,
                     batch=batch,
+                    force_incomplete=force_incomplete,
                 ),
                 deployment_settings=settings.DeploymentSettings(
                     conda_frontend=conda_frontend,
@@ -320,6 +326,8 @@ def run(
                 dag_api.conda_list_envs()
             elif archive is not None:
                 dag_api.archive(Path(archive))
+            elif generate_unit_tests is not None:
+                dag_api.generate_unit_tests(Path(generate_unit_tests))
             else:
                 dag_api.execute_workflow(
                     executor=executor,
@@ -328,6 +336,7 @@ def run(
                         shadow_prefix=shadow_prefix,
                         retries=retries,
                         cache=cache,
+                        edit_notebook=edit_notebook,
                     ),
                     remote_execution_settings=settings.RemoteExecutionSettings(
                         container_image=container_image,

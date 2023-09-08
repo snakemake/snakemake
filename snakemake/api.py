@@ -235,15 +235,6 @@ class WorkflowApi(ApiBase):
         workflow.check()
         return workflow.lint(json=json)
 
-    def generate_unit_tests(self, path: Path):
-        """Generate unit tests for the workflow.
-
-        Arguments
-        ---------
-        path: Path -- The path to store the unit tests.
-        """
-        self._workflow.generate_unit_tests(path=path)
-
     def list_rules(self, only_targets: bool = False):
         """List the rules of the workflow.
 
@@ -422,6 +413,15 @@ class DAGApi(ApiBase):
             executor_settings=executor_settings,
             updated_files=updated_files,
         )
+
+    def generate_unit_tests(self, path: Path):
+        """Generate unit tests for the workflow.
+
+        Arguments
+        ---------
+        path: Path -- The path to store the unit tests.
+        """
+        self.workflow_api._workflow.generate_unit_tests(path=path)
 
     def containerize(self):
         """Containerize the workflow."""

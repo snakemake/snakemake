@@ -629,7 +629,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=False,
             lock_warn_only=False,
         )
         self._build_dag()

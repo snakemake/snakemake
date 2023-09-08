@@ -200,7 +200,7 @@ def dag_to_cwl(dag):
         "requirements": {"ResourceRequirement": {"coresMin": "$(inputs.cores)"}},
         "arguments": [
             "--force",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--force-use-threads",
             "--wrapper-prefix",

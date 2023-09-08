@@ -1488,19 +1488,13 @@ def test_core_dependent_threads():
 
 @skip_on_windows
 def test_env_modules():
-    run(dpath("test_env_modules"), use_env_modules=True)
+    run(dpath("test_env_modules"), deployment_method={DeploymentMethod.ENV_MODULES})
 
 
 @skip_on_windows
 @connected
 def test_container():
     run(dpath("test_container"), deployment_method={DeploymentMethod.APPTAINER})
-
-
-def test_linting():
-    snakemake(
-        snakefile=os.path.join(dpath("test14"), "Snakefile.nonstandard"), lint=True
-    )
 
 
 @skip_on_windows
@@ -1519,12 +1513,12 @@ def test_jupyter_notebook():
 
 
 def test_jupyter_notebook_draft():
-    from snakemake.notebook import EditMode
+    from snakemake.settings import NotebookEditMode
 
     run(
         dpath("test_jupyter_notebook_draft"),
         deployment_method={DeploymentMethod.CONDA},
-        edit_notebook=EditMode(draft_only=True),
+        edit_notebook=NotebookEditMode(draft_only=True),
         targets=["results/result_intermediate.txt"],
         check_md5=False,
     )
