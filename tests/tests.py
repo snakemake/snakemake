@@ -1059,9 +1059,9 @@ def test_resources_can_be_overwritten_as_global():
 
 @skip_on_windows
 def test_scopes_submitted_to_cluster(mocker):
-    from snakemake.cli import SpawnedJobArgs
+    from snakemake.spawn_jobs import SpawnedJobArgsFactory
 
-    spy = mocker.spy(SpawnedJobArgs, "get_resource_scopes_args")
+    spy = mocker.spy(SpawnedJobArgsFactory, "get_resource_scopes_args")
     run(
         dpath("test_group_jobs_resources"),
         cluster="./qsub",
@@ -1071,7 +1071,7 @@ def test_scopes_submitted_to_cluster(mocker):
         default_resources=DefaultResources(["mem_mb=0"]),
     )
 
-    assert spy.spy_return == "--set-resource-scopes 'fake_res=local'"
+    assert spy.spy_return == "--set-resource-scopes \"fake_res='local'\""
 
 
 @skip_on_windows
@@ -1274,7 +1274,6 @@ def test_issue1037():
     run(
         dpath("test_issue1037"),
         executor="dryrun",
-        cluster="qsub",
         targets=["Foo_A.done"],
     )
 
@@ -1301,7 +1300,7 @@ def test_issue1093():
 
 
 def test_issue958():
-    run(dpath("test_issue958"), cluster="dummy", executor="dryrun")
+    run(dpath("test_issue958"), executor="dryrun")
 
 
 def test_issue471():

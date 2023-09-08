@@ -108,11 +108,11 @@ def parse_set_resource_scope(args):
         "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE pairs, "
         "where SCOPE is either 'local', 'global', or 'excluded'"
     )
-    if args.set_resource_scopes is not None:
+    if args is not None:
         try:
             return ResourceScopes(
                 parse_key_value_arg(entry, errmsg=err_msg)
-                for entry in args.set_resource_scopes
+                for entry in args
             )
         except ResourceScopesException as err:
             invalid_resources = ", ".join(
@@ -1577,6 +1577,7 @@ def get_argument_parser(profiles=None):
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
         "--software-deployment-method",
+        "--deployment-method",
         "--deployment",
         nargs="+",
         choices=DeploymentMethod.choices(),

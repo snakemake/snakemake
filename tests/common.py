@@ -162,10 +162,14 @@ def run(
     default_remote_prefix=None,
     archive=None,
     cluster=None,
+    cluster_status=None,
     retries=0,
     resources=dict(),
     default_resources=None,
     group_components=dict(),
+    max_threads=None,
+    overwrite_groups=dict(),
+    configfiles=list(),
 ):
     """
     Test the Snakefile in the path.
@@ -247,7 +251,7 @@ def run(
         if cluster is not None:
             executor = "cluster-generic"
             plugin = ExecutorPluginRegistry().get_plugin(executor)
-            executor_settings = plugin.executor_settings_class(submit_cmd=cluster)
+            executor_settings = plugin.executor_settings_class(submit_cmd=cluster, status_cmd=cluster_status)
             nodes = 3
 
         success = True
@@ -271,9 +275,11 @@ def run(
                     ),
                     resources=resources,
                     default_resources=default_resources,
+                    max_threads=max_threads,
                 ),
                 config_settings=settings.ConfigSettings(
                     config=config,
+                    configfiles=configfiles,
                 ),
                 storage_settings=settings.StorageSettings(
                     default_remote_provider=default_remote_provider,
@@ -323,6 +329,7 @@ def run(
                     ),
                     group_settings=settings.GroupSettings(
                         group_components=group_components,
+                        overwrite_groups=overwrite_groups,
                     ),
                     executor_settings=executor_settings,
                 )
