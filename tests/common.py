@@ -328,9 +328,6 @@ def run(
                 )
         except Exception as e:
             success = False
-            import pdb
-
-            pdb.set_trace()
             exception = e
 
     if shouldfail:
