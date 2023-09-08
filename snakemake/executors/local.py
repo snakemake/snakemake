@@ -112,8 +112,10 @@ class Executor(RealExecutor):
         else:
             future = self.run_single_job(job)
 
-        future.add_done_callback(partial(self._callback, job))
-        self.report_job_submission(SubmittedJobInfo(job=job))
+        job_info = SubmittedJobInfo(job=job)
+
+        future.add_done_callback(partial(self._callback, job_info))
+        self.report_job_submission(job_info)
 
     def job_args_and_prepare(self, job: ExecutorJobInterface):
         job.prepare()
@@ -253,25 +255,25 @@ class Executor(RealExecutor):
     def cancel(self):
         self.pool.shutdown()
 
-    def _callback(self, job: SingleJobExecutorInterface, future):
+    def _callback(self, job_info: SubmittedJobInfo, future):
         try:
             ex = future.exception()
             if ex is not None:
                 raise ex
-            self.report_job_success(job)
+            self.report_job_success(job_info.job)
         except _ProcessPoolExceptions:
-            self.handle_job_error(job)
+            self.handle_job_error(job_info.job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
-            self.report_job_error(job)
+            self.report_job_error(job_info.job)
         except BaseException as ex:
-            self.print_job_error(job)
+            self.print_job_error(job_info)
             if self.workflow.output_settings.verbose or (
-                not job.is_group() and not job.is_shell
+                not job_info.job.is_group() and not job_info.job.is_shell
             ):
                 print_exception(ex, self.workflow.linemaps)
-            self.report_job_error(job)
+            self.report_job_error(job_info.job)
 
     def handle_job_error(self, job: ExecutorJobInterface):
         super().handle_job_error(job)
