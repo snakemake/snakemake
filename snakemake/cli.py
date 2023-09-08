@@ -1413,6 +1413,17 @@ def get_argument_parser(profiles=None):
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
     group_cluster.add_argument(
+        "--container-image",
+        metavar="IMAGE",
+        help="Docker image to use, e.g., when submitting jobs to kubernetes. "
+        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
+        "the same version as the currently running Snakemake instance. "
+        "Note that overwriting this value is up to your responsibility. "
+        "Any used image has to contain a working snakemake installation "
+        "that is compatible with (or ideally the same as) the currently "
+        "running version.",
+    )
+    group_cluster.add_argument(
         "--immediate-submit",
         "--is",
         action="store_true",
@@ -1861,8 +1872,6 @@ def args_to_api(args, parser):
         args.executor = "dryrun"
     elif args.touch:
         args.executor = "touch"
-    elif args.cluster:
-        args.executor = "cluster"
     elif args.executor is None:
         args.executor = "local"
 

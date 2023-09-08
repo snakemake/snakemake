@@ -60,103 +60,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      ###### slurm setup #####
-      # prior to slurm-setup we need the podmand-correct command
-      # see https://github.com/containers/podman/issues/13338
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm,1.0.1
-      - name: Update apt cache
-        run: |
-          sudo apt-get update
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              roles:
-                - role: galaxyproject.slurm
-                  become: true
-              vars:
-                  slurm_upgrade: true
-                  slurm_roles: ['controller', 'exec', 'dbd']
-                  slurm_config_dir: /etc/slurm
-                  #slurm_cgroup_config:
-                  #    CgroupMountpoint: "/sys/fs/cgroup"
-                  #    CgroupAutomount: yes
-                  #    ConstrainCores: yes
-                  #    TaskAffinity: no
-                  #    ConstrainRAMSpace: yes
-                  #    ConstrainSwapSpace: no
-                  #    ConstrainDevices: no
-                  #    AllowedRamSpace: 100
-                  #    AllowedSwapSpace: 0
-                  #    MaxRAMPercent: 100
-                  #    MaxSwapPercent: 100
-                  #    MinRAMSpace: 30
-                  slurm_config:
-                      ClusterName: cluster
-                      #ProctrackType: proctrack/pgid
-                      #SlurmctldHost: localhost # TODO try if we need this
-                      SlurmctldLogFile: /var/log/slurm/slurmctld.log
-                      SlurmctldPidFile: /run/slurmctld.pid
-                      SlurmdLogFile: /var/log/slurm/slurmd.log
-                      SlurmdPidFile: /run/slurmd.pid
-                      SlurmdSpoolDir: /tmp/slurmd # the default /var/lib/slurm/slurmd does not work because of noexec mounting in github actions
-                      StateSaveLocation: /var/lib/slurm/slurmctld
-                      #TaskPlugin: "task/affinity,task/cgroup"
-                      AccountingStorageType: accounting_storage/slurmdbd
-                  slurmdbd_config:
-                      StorageType: accounting_storage/mysql
-                      PidFile: /run/slurmdbd.pid
-                      LogFile: /var/log/slurm/slurmdbd.log
-                      StoragePass: root
-                      StorageUser: root
-                      StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
-                      StoragePort: 8888
-                      DbdHost: localhost
-                  slurm_create_user: yes
-                  #slurm_munge_key: "../../../munge.key"
-                  slurm_nodes:
-                      - name: localhost
-                        State: UNKNOWN
-                        Sockets: 1
-                        CoresPerSocket: 2
-                  slurm_user:
-                      comment: "Slurm Workload Manager"
-                      gid: 1002
-                      group: slurm
-                      home: "/var/lib/slurm"
-                      name: slurm
-                      shell: "/bin/bash"
-                      uid: 1002
-      - name: Set XDG_RUNTIME_DIR
-        run: |
-          mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
-          echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Add Slurm Account
-        run: |
-          echo "Waiting 5 seconds for slurm cluster to be fully initialized."
-          sleep 5
-          sudo sacctmgr -i create account "Name=runner"
-          sudo sacctmgr -i create user "Name=runner" "Account=runner"
-      - name: Configure proxy for sacct
-        run: |
-          # By using this script instead of the real sacct, we avoid the need to install
-          # a full slurmdbd in the CI.
-          echo 'alias sacct=.github/workflows/scripts/sacct-proxy.py' >> ~/.bashrc
-      - name: Test slurm submission
-        run: |
-          srun -vvvv echo "hello world"
-          sudo cat /var/log/slurm/slurmd.log
-      - name: Indicate supported MPI types
-        run: |
-          srun --mpi=list
       - name: Setup mamba
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -208,13 +111,6 @@ jobs:
       #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
       #    aws-region: us-east-1
-
-      - name: Test Slurm
-        env:
-          CI: true
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -v tests/test_slurm.py
 
       - name: Test local
         env:

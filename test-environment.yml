@@ -74,3 +74,4 @@ dependencies:
   - nodejs  # for cwltool
   - apptainer 
   - squashfuse # for apptainer
+  - immutables
