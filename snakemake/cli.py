@@ -594,7 +594,7 @@ def get_argument_parser(profiles=None):
         "--directory",
         "-d",
         metavar="DIR",
-        action="store",
+        type=Path,
         help=(
             "Specify working directory (relative paths in "
             "the snakefile will use this as their origin)."
@@ -1943,7 +1943,10 @@ def args_to_api(args, parser):
         )
 
         if args.lint:
-            workflow_api.lint()
+            any_lint = workflow_api.lint()
+            if any_lint:
+                # trigger exit code 1
+                return False
         elif args.generate_unit_tests:
             workflow_api.generate_unit_tests(args.generate_unit_tests)
         elif args.list_target_rules:

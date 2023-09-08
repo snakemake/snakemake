@@ -223,15 +223,17 @@ class WorkflowApi(ApiBase):
         Arguments
         ---------
         json: bool -- Whether to print the linting results as JSON.
-        """
-        from snakemake.workflow import Workflow
 
+        Returns
+        -------
+        True if any lints were printed
+        """
         workflow = self._get_workflow(check_envvars=False)
         workflow.include(
             self.snakefile, overwrite_default_target=True, print_compilation=False
         )
         workflow.check()
-        workflow.lint(json=json)
+        return workflow.lint(json=json)
 
     def generate_unit_tests(self, path: Path):
         """Generate unit tests for the workflow.
