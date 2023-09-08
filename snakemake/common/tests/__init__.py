@@ -102,4 +102,4 @@ class TestWorkflowsBase(ABC):
 
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
-        return registry.get(self.get_executor()).common_settings
+        return registry.get_plugin(self.get_executor()).common_settings
