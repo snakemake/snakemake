@@ -280,10 +280,9 @@ class DAG(DAGExecutorInterface):
         # Then based on md5sum values
         for env_spec, simg_url in env_set:
             simg = None
-            if (
-                simg_url
-                and self.workflow.deployment_settings.deployment_method
-                == DeploymentMethod.APPTAINER
+            if simg_url and (
+                DeploymentMethod.APPTAINER
+                in self.workflow.deployment_settings.deployment_method
             ):
                 assert (
                     simg_url in self.container_imgs

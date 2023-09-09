@@ -178,6 +178,7 @@ def run(
     overwrite_scatter=dict(),
     generate_unit_tests=None,
     force_incomplete=False,
+    containerize=False,
 ):
     """
     Test the Snakefile in the path.
@@ -328,6 +329,8 @@ def run(
                 dag_api.archive(Path(archive))
             elif generate_unit_tests is not None:
                 dag_api.generate_unit_tests(Path(generate_unit_tests))
+            elif containerize:
+                dag_api.containerize()
             else:
                 dag_api.execute_workflow(
                     executor=executor,

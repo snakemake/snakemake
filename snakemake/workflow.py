@@ -761,7 +761,7 @@ class Workflow(WorkflowExecutorInterface):
     def printd3dag(self):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=True,
         )
         self._build_dag()
@@ -773,7 +773,7 @@ class Workflow(WorkflowExecutorInterface):
 
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=False,
             lock_warn_only=False,
         )
         self._build_dag()
@@ -788,7 +788,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         self._build_dag()
