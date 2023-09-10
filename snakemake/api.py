@@ -464,9 +464,9 @@ class DAGApi(ApiBase):
         """Unlock the workflow."""
         self.workflow_api._workflow.unlock()
 
-    def cleanup_metadata(self):
+    def cleanup_metadata(self, paths: List[Path]):
         """Cleanup the metadata of the workflow."""
-        self.workflow_api._workflow.cleanup_metadata()
+        self.workflow_api._workflow.cleanup_metadata(paths)
 
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""

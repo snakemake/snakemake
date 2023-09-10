@@ -657,14 +657,14 @@ class Workflow(WorkflowExecutorInterface):
             self.dag, path, deploy, configfiles=self.overwrite_configfiles
         )
 
-    def cleanup_metadata(self):
+    def cleanup_metadata(self, paths: List[Path]):
         self._prepare_dag(
             forceall=self.dag_settings.forceall,
-            ignore_incomplete=self.execution_settings.ignore_incomplete,
+            ignore_incomplete=True,
             lock_warn_only=False,
         )
         failed = []
-        for path in self.execution_settings.cleanup_metadata:
+        for path in paths:
             success = self.persistence.cleanup_metadata(path)
             if not success:
                 failed.append(path)

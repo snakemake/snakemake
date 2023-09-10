@@ -8,6 +8,7 @@ import sys
 import subprocess as sp
 from pathlib import Path
 from snakemake.resources import DefaultResources, GroupResources
+from snakemake.settings import RerunTrigger
 
 from snakemake.shell import shell
 
@@ -1758,7 +1759,11 @@ def test_github_issue1158():
 
 
 def test_converting_path_for_r_script():
-    run(dpath("test_converting_path_for_r_script"), cores=1, deployment_method={DeploymentMethod.CONDA})
+    run(
+        dpath("test_converting_path_for_r_script"),
+        cores=1,
+        deployment_method={DeploymentMethod.CONDA},
+    )
 
 
 def test_ancient_dag():
@@ -1892,7 +1897,7 @@ def test_lazy_resources():
 
 
 def test_cleanup_metadata_fail():
-    run(dpath("test09"), cleanup_metadata=["xyz"])
+    run(dpath("test09"), cleanup_metadata=["xyz"], shouldfail=True)
 
 
 @skip_on_windows  # same on win, no need to test
@@ -1971,7 +1976,7 @@ def test_prebuilt_conda_script():
 
 @skip_on_windows
 def test_github_issue1818():
-    run(dpath("test_github_issue1818"), rerun_triggers="input")
+    run(dpath("test_github_issue1818"), rerun_triggers={RerunTrigger.INPUT})
 
 
 @skip_on_windows  # not platform dependent

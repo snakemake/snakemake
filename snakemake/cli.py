@@ -77,8 +77,8 @@ def parse_set_resources(args):
     from collections import defaultdict
 
     assignments = defaultdict(dict)
-    if args.set_resources is not None:
-        for entry in args.set_resources:
+    if args is not None:
+        for entry in args:
             key, value = parse_key_value_arg(entry, errmsg=errmsg)
             key = key.split(":")
             if len(key) != 2:
@@ -97,7 +97,7 @@ def parse_set_resources(args):
 
 def parse_set_scatter(args):
     return parse_set_ints(
-        args.set_scatter,
+        args,
         "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
         "(with SCATTERITEMS being a positive integer).",
     )
@@ -1010,6 +1010,7 @@ def get_argument_parser(profiles=None):
         "--cm",
         nargs="+",
         metavar="FILE",
+        type=Path,
         help="Cleanup the metadata "
         "of given files. That means that snakemake removes any tracked "
         "version info, and any marks that files are incomplete.",
@@ -1945,8 +1946,6 @@ def args_to_api(args, parser):
             if any_lint:
                 # trigger exit code 1
                 return False
-        elif args.generate_unit_tests:
-            workflow_api.generate_unit_tests(args.generate_unit_tests)
         elif args.list_target_rules:
             workflow_api.list_rules(only_targets=True)
         elif args.list_rules:
@@ -2007,6 +2006,8 @@ def args_to_api(args, parser):
                     path=args.report,
                     stylesheet=args.report_stylesheet,
                 )
+            elif args.generate_unit_tests:
+                dag_api.generate_unit_tests(args.generate_unit_tests)
             elif args.dag:
                 dag_api.printdag()
             elif args.rulegraph:
@@ -2018,7 +2019,7 @@ def args_to_api(args, parser):
             elif args.unlock:
                 dag_api.unlock()
             elif args.cleanup_metadata:
-                dag_api.cleanup_metadata()
+                dag_api.cleanup_metadata(args.cleanup_metadata)
             elif args.conda_cleanup_envs:
                 dag_api.conda_cleanup_envs()
             elif args.conda_create_envs_only:
@@ -2065,7 +2066,6 @@ def args_to_api(args, parser):
                         keep_metadata=not args.drop_metadata,
                         edit_notebook=edit_notebook,
                         cleanup_scripts=not args.skip_script_cleanup,
-                        cleanup_metadata=args.cleanup_metadata,
                     ),
                     remote_execution_settings=RemoteExecutionSettings(
                         jobname=args.jobname,

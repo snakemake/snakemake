@@ -181,6 +181,8 @@ def run(
     containerize=False,
     forceall=False,
     all_temp=False,
+    cleanup_metadata=None,
+    rerun_triggers=settings.RerunTrigger.all(),
 ):
     """
     Test the Snakefile in the path.
@@ -318,6 +320,7 @@ def run(
                     force_incomplete=force_incomplete,
                     cache=cache,
                     forceall=forceall,
+                    rerun_triggers=rerun_triggers,
                 ),
                 deployment_settings=settings.DeploymentSettings(
                     conda_frontend=conda_frontend,
@@ -336,6 +339,8 @@ def run(
                 dag_api.generate_unit_tests(Path(generate_unit_tests))
             elif containerize:
                 dag_api.containerize()
+            elif cleanup_metadata:
+                dag_api.cleanup_metadata(cleanup_metadata)
             else:
                 dag_api.execute_workflow(
                     executor=executor,

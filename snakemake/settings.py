@@ -91,7 +91,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
     cleanup_scripts: bool = True
-    cleanup_metadata: Sequence[Path] = tuple()
 
 
 @dataclass
