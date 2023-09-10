@@ -887,13 +887,14 @@ class DAG(DAGExecutorInterface):
         if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
         logger.dag_debug(dict(status="selected", job=producer))
-        logger.dag_debug(
-            dict(
-                file=file,
-                msg="Producer found, hence exceptions are ignored.",
-                exception=WorkflowError(*exceptions),
+        if exceptions:
+            logger.dag_debug(
+                dict(
+                    file=file,
+                    msg="Producer found, hence exceptions are ignored.",
+                    exception=WorkflowError(*exceptions),
+                )
             )
-        )
         return producer
 
     def update_(

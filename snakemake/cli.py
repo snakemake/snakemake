@@ -1977,6 +1977,7 @@ def args_to_api(args, parser):
                     allowed_rules=args.allowed_rules,
                     rerun_triggers=args.rerun_triggers,
                     max_inventory_wait_time=args.max_inventory_time,
+                    cache=args.cache,
                 ),
                 deployment_settings=DeploymentSettings(
                     deployment_method=deployment_method,
@@ -2046,7 +2047,6 @@ def args_to_api(args, parser):
                 dag_api.execute_workflow(
                     executor=args.executor,
                     execution_settings=ExecutionSettings(
-                        cache=args.cache,
                         keep_going=args.keep_going,
                         debug=args.debug,
                         standalone=True,

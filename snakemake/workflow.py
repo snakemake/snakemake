@@ -215,15 +215,15 @@ class Workflow(WorkflowExecutorInterface):
                         f"Workflow defines that rule {rule.name} is eligible for caching between workflows "
                         "(use the --cache argument to enable this)."
                     )
-            if rule.benchmark:
-                raise WorkflowError(
-                    "Rules with a benchmark directive may not be marked as eligible "
-                    "for between-workflow caching at the same time. The reason is that "
-                    "when the result is taken from cache, there is no way to fill the benchmark file with "
-                    "any reasonable values. Either remove the benchmark directive or disable "
-                    "between-workflow caching for this rule.",
-                    rule=rule,
-                )
+                if rule.benchmark:
+                    raise WorkflowError(
+                        "Rules with a benchmark directive may not be marked as eligible "
+                        "for between-workflow caching at the same time. The reason is that "
+                        "when the result is taken from cache, there is no way to fill the benchmark file with "
+                        "any reasonable values. Either remove the benchmark directive or disable "
+                        "between-workflow caching for this rule.",
+                        rule=rule,
+                    )
 
     @property
     def attempt(self):
@@ -383,7 +383,10 @@ class Workflow(WorkflowExecutorInterface):
         return linted
 
     def get_cache_mode(self, rule: Rule):
-        return self.cache_rules.get(rule.name)
+        if self.dag_settings.cache is None:
+            return None
+        else:
+            return self.cache_rules.get(rule.name)
 
     @property
     def rules(self):
@@ -529,6 +532,17 @@ class Workflow(WorkflowExecutorInterface):
         nolock: bool = False,
         shadow_prefix: Optional[str] = None,
     ) -> DAG:
+        if self.dag_settings.cache is not None:
+            self.cache_rules.update(
+                {rulename: "all" for rulename in self.dag_settings.cache}
+            )
+            if self.storage_settings.default_remote_provider is not None:
+                self._output_file_cache = RemoteOutputFileCache(
+                    self.storage_settings.default_remote_provider
+                )
+            else:
+                self._output_file_cache = LocalOutputFileCache()
+
         def rules(items):
             return map(self._rules.__getitem__, filter(self.is_rule, items))
 
@@ -889,17 +903,6 @@ class Workflow(WorkflowExecutorInterface):
         shell.conda_block_conflicting_envvars = (
             not self.deployment_settings.conda_not_block_search_path_envvars
         )
-
-        if self.execution_settings.cache is not None:
-            self.cache_rules.update(
-                {rulename: "all" for rulename in self.execution_settings.cache}
-            )
-            if self.storage_settings.default_remote_provider is not None:
-                self._output_file_cache = RemoteOutputFileCache(
-                    self.storage_settings.default_remote_provider
-                )
-            else:
-                self._output_file_cache = LocalOutputFileCache()
 
         if self.remote_execution_settings.envvars:
             self.register_envvars(*self.remote_execution_settings.envvars)

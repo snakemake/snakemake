@@ -74,7 +74,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     """
 
     latency_wait: int = 3
-    cache: Optional[Sequence[str]] = None
     keep_going: bool = False
     debug: bool = False
     standalone: bool = False
@@ -166,6 +165,7 @@ class DAGSettings(SettingsBase):
     allowed_rules: Set[str] = frozenset()
     rerun_triggers: Set[RerunTrigger] = RerunTrigger.all()
     max_inventory_wait_time: int = 20
+    cache: Optional[Sequence[str]] = None
 
     def _check(self):
         if self.batch is not None and self.forceall:

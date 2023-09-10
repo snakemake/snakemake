@@ -179,6 +179,8 @@ def run(
     generate_unit_tests=None,
     force_incomplete=False,
     containerize=False,
+    forceall=False,
+    all_temp=False,
 ):
     """
     Test the Snakefile in the path.
@@ -297,6 +299,7 @@ def run(
                 storage_settings=settings.StorageSettings(
                     default_remote_provider=default_remote_provider,
                     default_remote_prefix=default_remote_prefix,
+                    all_temp=all_temp,
                 ),
                 workflow_settings=settings.WorkflowSettings(
                     wrapper_prefix=wrapper_prefix,
@@ -313,6 +316,8 @@ def run(
                     forcerun=forcerun,
                     batch=batch,
                     force_incomplete=force_incomplete,
+                    cache=cache,
+                    forceall=forceall,
                 ),
                 deployment_settings=settings.DeploymentSettings(
                     conda_frontend=conda_frontend,
@@ -338,7 +343,6 @@ def run(
                         cleanup_scripts=cleanup_scripts,
                         shadow_prefix=shadow_prefix,
                         retries=retries,
-                        cache=cache,
                         edit_notebook=edit_notebook,
                     ),
                     remote_execution_settings=settings.RemoteExecutionSettings(

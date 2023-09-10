@@ -1758,7 +1758,7 @@ def test_github_issue1158():
 
 
 def test_converting_path_for_r_script():
-    run(dpath("test_converting_path_for_r_script"), cores=1)
+    run(dpath("test_converting_path_for_r_script"), cores=1, deployment_method={DeploymentMethod.CONDA})
 
 
 def test_ancient_dag():
