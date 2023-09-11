@@ -101,8 +101,8 @@ class TestWorkflowsBase(ABC):
             executor_settings=self.get_executor_settings(),
             remote_execution_settings=settings.RemoteExecutionSettings(
                 seconds_between_status_checks=0,
+                envvars=self.get_envvars(),
             ),
-            envvars=self.get_envvars(),
         )
         snakemake_api.cleanup()
 
