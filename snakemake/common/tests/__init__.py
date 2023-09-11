@@ -49,15 +49,15 @@ class TestWorkflowsBase(ABC):
 
     def get_assume_shared_fs(self) -> bool:
         return True
-    
+
     def get_envvars(self) -> List[str]:
         return []
-    
+
     def cleanup_test(self):
         """This method is called after every testcase, also in case of exceptions.
-        
+
         Override to clean up any test files (e.g. in remote storage).
-        """ 
+        """
         pass
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
