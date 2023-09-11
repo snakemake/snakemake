@@ -249,7 +249,10 @@ class Rules:
         try:
             return self._rules[name]
         except KeyError:
-            raise WorkflowError(f"Rule {name} is not defined in this workflow.")
+            raise WorkflowError(
+                f"Rule {name} is not defined in this workflow. "
+                f"Available rules: {', '.join(self._rules)}"
+            )
 
 
 class Scatter:

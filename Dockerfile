@@ -1,20 +1,24 @@
-FROM bitnami/minideb:buster
+FROM mambaorg/micromamba
 LABEL org.opencontainers.image.authors="Johannes Köster <johannes.koester@tu-dortmund.de>"
 ADD . /tmp/repo
 WORKDIR /tmp/repo
-ENV PATH /opt/conda/bin:${PATH}
 ENV LANG C.UTF-8
 ENV SHELL /bin/bash
-RUN install_packages wget curl bzip2 ca-certificates gnupg2 squashfs-tools git
-RUN /bin/bash -c "curl -L https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-\$(uname -m).sh > mambaforge.sh && \
-    bash mambaforge.sh -b -p /opt/conda && \
-    conda config --system --set channel_priority strict && \
-    rm mambaforge.sh"
-RUN /bin/bash -c "mamba create -q -y -c conda-forge -c bioconda -n snakemake snakemake snakemake-minimal --only-deps && \
-    source activate snakemake && \
-    mamba install -q -y -c conda-forge singularity && \
-    conda clean --all -y && \
-    which python && \
-    pip install .[reports,messaging,google-cloud,azure]"
-RUN echo "source activate snakemake" > ~/.bashrc
+USER root 
+
+ENV APT_PKGS bzip2 ca-certificates curl wget gnupg2 squashfs-tools git
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ${APT_PKGS} \
+    && apt-get clean \
+    && rm -rf /var/lib/apt /var/lib/dpkg /var/lib/cache /var/lib/log
+
+RUN micromamba create -q -y -c bioconda -c conda-forge -n snakemake \
+    snakemake snakemake-minimal --only-deps && \
+    eval "$(micromamba shell hook --shell bash)" && \
+    micromamba activate /opt/conda/envs/snakemake && \
+    micromamba install -c conda-forge singularity && \
+    micromamba clean --all -y 
+
 ENV PATH /opt/conda/envs/snakemake/bin:${PATH}
+RUN pip install .[reports,messaging,google-cloud,azure]
