@@ -1,6 +1,7 @@
 rule all:
     input:
-        "b.fa"
+        "b.fa",
+
 
 module fusion_calling:
     meta_wrapper:
@@ -15,8 +16,9 @@ use rule star_index from fusion_calling with:
         fasta="data/genome.fa",
         gtf="data/a.gtf",
 
+
 rule test:
     input:
-        rules.star_index.output
+        rules.star_index.output,
     output:
-        "b.fa"
+        "b.fa",
