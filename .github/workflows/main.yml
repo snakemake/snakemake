@@ -166,7 +166,7 @@ jobs:
           mamba env update -q --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
-          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git@feat/cleanup-interfaces
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
       - name: Run tests
         env:
           CI: true
