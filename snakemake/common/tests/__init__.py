@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
-from typing import Optional
+from typing import List, Optional
 
 import pytest
 from snakemake import api, settings
@@ -43,6 +43,9 @@ class TestWorkflowsBase(ABC):
 
     def get_assume_shared_fs(self) -> bool:
         return True
+    
+    def get_envvars(self) -> List[str]:
+        return []
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
@@ -86,6 +89,7 @@ class TestWorkflowsBase(ABC):
             remote_execution_settings=settings.RemoteExecutionSettings(
                 seconds_between_status_checks=0,
             ),
+            envvars=self.get_envvars(),
         )
         snakemake_api.cleanup()
 

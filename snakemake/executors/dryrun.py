@@ -25,8 +25,9 @@ class Executor(AbstractExecutor):
         self,
         job: ExecutorJobInterface,
     ):
-        self.report_job_submission(SubmittedJobInfo(job=job))
-        self.report_job_success(job)
+        job_info = SubmittedJobInfo(job=job)
+        self.report_job_submission(job_info)
+        self.report_job_success(job_info)
 
     def get_exec_mode(self):
         raise NotImplementedError()

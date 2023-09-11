@@ -1568,12 +1568,6 @@ def get_argument_parser(profiles=None):
         "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
-    group_tes.add_argument(
-        "--tes",
-        metavar="URL",
-        help="Send workflow tasks to GA4GH TES server specified by url.",
-    )
-
     group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
     group_deployment.add_argument(
         "--software-deployment-method",

@@ -12,6 +12,7 @@ from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
     ExecutorJobInterface,
 )
+from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins import CommonSettings
 
 from snakemake.exceptions import print_exception
@@ -40,13 +41,15 @@ class Executor(RealExecutor):
         self,
         job: ExecutorJobInterface,
     ):
+        job_info = SubmittedJobInfo(job=job)
         try:
             # Touching of output files will be done by handle_job_success
             time.sleep(0.1)
-            self.report_job_success(job)
+            self.report_job_submission(job_info)
+            self.report_job_success(job_info)
         except OSError as ex:
             print_exception(ex, self.workflow.linemaps)
-            self.report_job_error(job)
+            self.report_job_error(job_info)
 
     def get_exec_mode(self):
         raise NotImplementedError()

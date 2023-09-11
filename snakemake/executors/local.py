@@ -260,20 +260,19 @@ class Executor(RealExecutor):
             ex = future.exception()
             if ex is not None:
                 raise ex
-            self.report_job_success(job_info.job)
+            self.report_job_success(job_info)
         except _ProcessPoolExceptions:
             self.handle_job_error(job_info.job)
             # no error callback, just silently ignore the interrupt as the main scheduler is also killed
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
-            self.report_job_error(job_info.job)
+            self.report_job_error(job_info)
         except BaseException as ex:
-            self.print_job_error(job_info)
             if self.workflow.output_settings.verbose or (
                 not job_info.job.is_group() and not job_info.job.is_shell
             ):
                 print_exception(ex, self.workflow.linemaps)
-            self.report_job_error(job_info.job)
+            self.report_job_error(job_info)
 
     def handle_job_error(self, job: ExecutorJobInterface):
         super().handle_job_error(job)
