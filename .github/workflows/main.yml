@@ -149,7 +149,7 @@ jobs:
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils"]
+          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
