@@ -167,6 +167,7 @@ jobs:
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install -e .
       - name: Run tests
         env:
           CI: true
