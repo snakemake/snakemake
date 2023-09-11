@@ -10,13 +10,19 @@ from snakemake_interface_executor_plugins import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 
-def handle_exceptions(func):
+def handle_testcase(func):
     def wrapper(self, tmp_path):
         if self.expect_exception is None:
-            return func(self, tmp_path)
+            try:
+                return func(self, tmp_path)
+            finally:
+                self.cleanup_test()
         else:
             with pytest.raises(self.expect_exception):
-                return func(self, tmp_path)
+                try:
+                    return func(self, tmp_path)
+                finally:
+                    self.cleanup_test()
 
     return wrapper
 
@@ -46,6 +52,13 @@ class TestWorkflowsBase(ABC):
     
     def get_envvars(self) -> List[str]:
         return []
+    
+    def cleanup_test(self):
+        """This method is called after every testcase, also in case of exceptions.
+        
+        Override to clean up any test files (e.g. in remote storage).
+        """ 
+        pass
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
@@ -93,11 +106,11 @@ class TestWorkflowsBase(ABC):
         )
         snakemake_api.cleanup()
 
-    @handle_exceptions
+    @handle_testcase
     def test_simple_workflow(self, tmp_path):
         self._run_workflow("simple", tmp_path)
 
-    @handle_exceptions
+    @handle_testcase
     def test_group_workflow(self, tmp_path):
         self._run_workflow("groups", tmp_path)
 
