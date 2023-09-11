@@ -32,8 +32,7 @@ jobs:
 
           source activate black
 
-          black --check --diff snakemake tests/tests.py tests/test_tes.py
-          tests/test_io.py tests/common.py tests/test_google_lifesciences.py
+          black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2.6.2
