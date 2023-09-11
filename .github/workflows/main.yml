@@ -96,21 +96,6 @@ jobs:
           sleep 10
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
-      #- name: Setup Gcloud
-      #  uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
-      #  if: env.GCP_AVAILABLE
-      #  with:
-      #    project_id: "${{ secrets.GCP_PROJECT_ID }}"
-      #    service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
-      #    service_account_key: "${{ secrets.GCP_SA_KEY }}"
-      #    export_default_credentials: true
-      #- name: Setup AWS
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  if: env.AWS_AVAILABLE
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: us-east-1
 
       - name: Test local
         env:
@@ -119,6 +104,7 @@ jobs:
         shell: bash -el {0}
         run: |
           pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
+
       - name: Build and publish docker image
         if: >-
           contains(github.event.pull_request.labels.*.name,
@@ -136,37 +122,6 @@ jobs:
           'update-container-image')
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
-      #- name: Test Google Life Sciences Executor
-      #  if: env.GCP_AVAILABLE
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_google_lifesciences.py
-      #- name: Test Kubernetes execution
-      #  if: env.GCP_AVAILABLE
-      #  env:
-      #    CI: true
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_kubernetes.py
-
-      # TODO temporarily disable testing of the azure batch executor as our azure
-      # account is currently disabled for unknown reason.
-      # Reactivate once that is fixed.
-      # - name: Test Azure Batch Executor
-      #   shell: bash -el {0}
-      #   env:
-      #     AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
-      #     AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
-      #     AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"
-      #     AZ_BATCH_ACCOUNT_URL: "${{ secrets.AZ_BATCH_ACCOUNT_URL }}"
-      #     AZ_BATCH_ACCOUNT_KEY: "${{ secrets.AZ_BATCH_KEY }}"
-      #   run: |
-      #     pytest -s -v -x tests/test_azure_batch_executor.py
-
-      - name: Test GA4GH TES executor
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -s -v -x tests/test_tes.py
 
       - name: Delete container image
         if: >-
