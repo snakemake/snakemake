@@ -15,7 +15,7 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.common import DYNAMIC_FILL
 
