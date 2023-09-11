@@ -2104,3 +2104,7 @@ def test_module_wildcard_constraints():
 @skip_on_windows
 def test_config_yte():
     run(dpath("test_config_yte"))
+
+
+def test_load_metawrapper():
+    run(dpath("test_load_metawrapper"), dryrun=True)
