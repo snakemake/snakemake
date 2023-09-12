@@ -83,7 +83,7 @@ class Executor(RealExecutor):
         return False
 
     def get_job_exec_prefix(self, job: ExecutorJobInterface):
-        return f"cd {repr(self.workflow.workdir_init)}"
+        return f"cd {shlex.quote(self.workflow.workdir_init)}"
 
     def get_python_executable(self):
         return sys.executable
@@ -229,6 +229,8 @@ class Executor(RealExecutor):
 
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
+
+        subprocess.check_call(f"ls {shlex.quote(self.workflow.workdir_init)}", shell=True)
 
         try:
             subprocess.check_call(cmd, shell=True)
