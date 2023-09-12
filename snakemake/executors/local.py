@@ -231,9 +231,13 @@ class Executor(RealExecutor):
         cmd = self.format_job_exec(job)
 
         try:
+            print(cmd, file=sys.stderr)
             subprocess.check_call(
-                f"ls {shlex.quote(self.workflow.workdir_init)}", shell=True
+                f"ls {shlex.quote(self.workflow.workdir_init)}",
+                shell=True,
+                stderr=subprocess.PIPE,
             )
+            print(cmd, file=sys.stderr)
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
             print(e.stderr, file=sys.stderr)
