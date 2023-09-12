@@ -237,7 +237,8 @@ class Executor(RealExecutor):
             subprocess.check_call(
                 f"cd {shlex.quote(Path(self.workflow.workdir_init).as_posix())}",
                 shell=True,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
             print(cmd, file=sys.stderr)
             subprocess.check_call(cmd, shell=True)
