@@ -236,11 +236,12 @@ class Executor(RealExecutor):
                 f"ls {shlex.quote(self.workflow.workdir_init)}",
                 shell=True,
                 stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
             )
             print(cmd, file=sys.stderr)
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
-            print(e.stderr, file=sys.stderr)
+            print(e.stderr, e.stdout, file=sys.stderr)
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
