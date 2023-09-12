@@ -230,13 +230,13 @@ class Executor(RealExecutor):
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
 
-        subprocess.check_call(
-            f"ls {shlex.quote(self.workflow.workdir_init)}", shell=True
-        )
-
         try:
+            subprocess.check_call(
+                f"ls {shlex.quote(self.workflow.workdir_init)}", shell=True
+            )
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
+            print(e.stderr, file=sys.stderr)
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):
