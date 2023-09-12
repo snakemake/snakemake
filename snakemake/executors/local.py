@@ -234,10 +234,9 @@ class Executor(RealExecutor):
             print(os.listdir(self.workflow.workdir_init), file=sys.stderr)
             print(cmd, file=sys.stderr)
             subprocess.check_call(
-                f"cd {shlex.quote(self.workflow.workdir_init)}",
+                f"cd {shlex.quote(self.workflow.workdir_init.as_posix())}",
                 shell=True,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                capture_output=True,
             )
             print(cmd, file=sys.stderr)
             subprocess.check_call(cmd, shell=True)
