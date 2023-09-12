@@ -229,6 +229,7 @@ class Executor(RealExecutor):
 
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
+        self.logger.debug(cmd)
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
