@@ -3,7 +3,7 @@
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=snakemake_snakemake&metric=alert_status)](https://sonarcloud.io/dashboard?id=snakemake_snakemake)
 [![Bioconda](https://img.shields.io/conda/dn/bioconda/snakemake.svg?label=Bioconda)](https://bioconda.github.io/recipes/snakemake/README.html)
 [![Pypi](https://img.shields.io/pypi/pyversions/snakemake.svg)](https://pypi.org/project/snakemake)
-[![docker container status](https://img.shields.io/github/workflow/status/snakemake/snakemake/Publish%20to%20Docker%20Hub?color=blue&label=docker%20container)](https://hub.docker.com/r/snakemake/snakemake)
+[![docker container status](https://img.shields.io/github/actions/workflow/status/snakemake/snakemake/docker-publish.yml?color=blue&label=docker%20container)](https://hub.docker.com/r/snakemake/snakemake)
 [![Stack Overflow](https://img.shields.io/badge/stack-overflow-orange.svg)](https://stackoverflow.com/questions/tagged/snakemake)
 [![Twitter](https://img.shields.io/twitter/follow/johanneskoester.svg?style=social&label=Follow)](https://twitter.com/search?l=&q=%23snakemake%20from%3Ajohanneskoester)
 [![Discord](https://img.shields.io/discord/753690260830945390?label=discord%20chat)](https://discord.gg/NUdMtmr)

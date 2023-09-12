@@ -80,3 +80,20 @@ def test_slurm_complex():
             ]
         ),
     )
+
+
+@skip_on_windows
+def test_slurm_extra_arguments():
+    """Make sure arguments to default resources
+    are allowed to contain = signs, which is needed
+    for extra slurm arguments"""
+    run(
+        dpath("test_slurm_mpi"),
+        slurm=True,
+        show_failed_logs=True,
+        use_conda=True,
+        default_resources=DefaultResources(
+            ["slurm_account=runner", "slurm_partition=debug",
+             "slurm_extra='--mail-type=none'"]
+        ),
+    )

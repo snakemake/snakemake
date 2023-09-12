@@ -1,13 +1,21 @@
-from snakemake import shell
+
 
 
 rule all:
-	input: 'f.1', 'f.2'
+    input:
+        "f.1",
+        "f.2",
+
 
 rule one:
-	output: 'f.1'
-	shell: "touch {output}"
+    output:
+        "f.1",
+    shell:
+        "touch {output}"
+
 
 rule two:
-	output: 'f.2'
-	shell: "touch {output}"
+    output:
+        "f.2",
+    shell:
+        "touch {output}"

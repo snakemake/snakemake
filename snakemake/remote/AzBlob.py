@@ -16,7 +16,6 @@ import re
 # module specific
 from snakemake.exceptions import WorkflowError, AzureFileException
 from snakemake.remote import (
-    AbstractRemoteObject,
     AbstractRemoteProvider,
     AbstractRemoteRetryObject,
 )
@@ -168,7 +167,7 @@ class AzureStorageHelper(object):
         if "stay_on_remote" in kwargs:
             del kwargs["stay_on_remote"]
 
-        # if not handed down explicitely, try to read credentials from
+        # if not handed down explicitly, try to read credentials from
         # environment variables.
         for csavar, envvar in [
             ("account_url", "AZ_BLOB_ACCOUNT_URL"),
@@ -182,10 +181,34 @@ class AzureStorageHelper(object):
         # remove leading '?' from SAS if needed
         # if kwargs.get("sas_token", "").startswith("?"):
         #    kwargs["sas_token"] = kwargs["sas_token"][1:]
+        if kwargs["account_url"] == "" or kwargs["account_url"] is None:
+            raise ValueError("Blob Account URL is None or empty string")
+
+        if not self.is_valid_azure_storage_account_url(kwargs["account_url"]):
+            raise ValueError(
+                "Blob Account URL does not match azure storage blob account url pattern."
+            )
 
         # by right only account_key or sas_token should be set, but we let
         # BlobServiceClient deal with the ambiguity
         self.blob_service_client = BlobServiceClient(**kwargs)
+
+    @staticmethod
+    def is_valid_azure_storage_account_url(blob_account_url: str) -> bool:
+        """
+        Validates if the blob account url is a valid Azure Storage Account URL.
+
+        Args:
+        blob_account_url (str): The name of the environment variable.
+
+        Returns:
+        bool: True if the environment variable is a valid Azure Storage Account URL, False otherwise.
+        """
+        url_pattern = re.compile(
+            r"^https:\/\/[a-z0-9]+(\.[a-z0-9]+)*\.blob\.core\.windows\.net\/?(.+)?$"
+        )
+
+        return bool(url_pattern.match(blob_account_url))
 
     def container_exists(self, container_name):
         return any(
@@ -221,10 +244,17 @@ class AzureStorageHelper(object):
         )
 
         container_client = self.blob_service_client.get_container_client(container_name)
+
+        # create container if it doesn't exist.
+        # for sas token created in the level of container, the exists method will fail with error code 403.
+        #   therefore the exception is passed to cover this type of sas tokens.
+
         try:
-            container_client.create_container()
-        except azure.core.exceptions.ResourceExistsError:
-            pass
+            if not container_client.exists():
+                container_client.create_container()
+        except Exception as e:
+            if e.status_code == 403:
+                pass
 
         if not blob_name:
             if use_relative_path_for_blob_name:
@@ -243,7 +273,7 @@ class AzureStorageHelper(object):
         try:
             with open(file_path, "rb") as data:
                 blob_client.upload_blob(data, blob_type="BlockBlob")
-            return blob_client.get_blob_properties().name
+            return blob_client
         except Exception as e:
             raise WorkflowError("Error in creating blob. %s" % str(e))
             # return None

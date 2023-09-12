@@ -7,10 +7,7 @@ import os
 import json
 import re
 import inspect
-from typing import DefaultDict
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
-import platform
 from itertools import chain
 import collections
 import multiprocessing
@@ -18,11 +15,10 @@ import string
 import shlex
 import sys
 from urllib.parse import urljoin
-from urllib.request import url2pathname
 
 from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
 from snakemake.logging import logger
-from snakemake.common import ON_WINDOWS, is_local_file, smart_join
+from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
 import snakemake
 
@@ -41,6 +37,8 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
+
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
@@ -125,7 +123,7 @@ def validate(data, schema, set_default=True):
                             jsonschema.validate(record, schema, resolver=resolver)
                     except jsonschema.exceptions.ValidationError as e:
                         raise WorkflowError(
-                            "Error validating row {} of data frame.".format(i), e
+                            f"Error validating row {i} of data frame.", e
                         )
                 if set_default:
                     newdata = pd.DataFrame(recordlist, data.index)
@@ -337,7 +335,7 @@ class SequenceFormatter(string.Formatter):
     def format_field(self, value, format_spec):
         if isinstance(value, Wildcards):
             return ",".join(
-                "{}={}".format(name, value)
+                f"{name}={value}"
                 for name, value in sorted(value.items(), key=lambda item: item[0])
             )
         if isinstance(value, (list, tuple, set, frozenset)):
@@ -482,7 +480,7 @@ def min_version(version):
 
 
 def update_config(config, overwrite_config):
-    """Recursively update dictionary config with overwrite_config.
+    """Recursively update dictionary config with overwrite_config in-place.
 
     See
     https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
@@ -491,18 +489,25 @@ def update_config(config, overwrite_config):
     Args:
       config (dict): dictionary to update
       overwrite_config (dict): dictionary whose items will overwrite those in config
-
     """
 
-    def _update(d, u):
-        for key, value in u.items():
+    def _update_config(config, overwrite_config):
+        """Necessary as recursive calls require a return value,
+        but `update_config()` has no return value.
+        """
+        for key, value in overwrite_config.items():
+            if not isinstance(config, collections.abc.Mapping):
+                # the config cannot be updated as it is no dict
+                # -> just overwrite it with the new value
+                config = {}
             if isinstance(value, collections.abc.Mapping):
-                d[key] = _update(d.get(key, {}), value)
+                sub_config = config.get(key, {})
+                config[key] = _update_config(sub_config, value)
             else:
-                d[key] = value
-        return d
+                config[key] = value
+        return config
 
-    _update(config, overwrite_config)
+    _update_config(config, overwrite_config)
 
 
 def available_cpu_count():

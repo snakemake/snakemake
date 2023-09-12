@@ -2,13 +2,14 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python
+  - python >=3.7
   - yte
+  - packaging
   - stopit
   - datrie
   - boto3
   - moto
-  - junit-xml  # needed for S3Mocked
+  - junit-xml # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
@@ -69,3 +70,8 @@ dependencies:
   - sqlalchemy
   - python-duckdb
   - duckdb-engine
+  - msrest
+  - azure-batch
+  - azure-mgmt-batch
+  - azure-identity
+

@@ -13,19 +13,13 @@ import io
 import uuid
 import json
 import time
-import shutil
-import subprocess as sp
 import itertools
-import csv
-from collections import namedtuple, defaultdict
-from itertools import accumulate, chain
-import urllib.parse
+from collections import defaultdict
 import hashlib
 from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
 import numbers
 
-import requests
 
 from docutils.parsers.rst.directives.images import Image, Figure
 from docutils.parsers.rst import directives
@@ -46,16 +40,14 @@ from snakemake.io import (
 )
 from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
-from snakemake import __version__
 from snakemake.common import (
     get_input_function_aux_params,
-    is_local_file,
-    num_if_possible,
-    lazy_property,
 )
 from snakemake import logging
 from snakemake.report import data
 from snakemake.report.rulegraph_spec import rulegraph_spec
+
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 class EmbeddedMixin(object):
@@ -96,10 +88,7 @@ directives.register_directive("embeddedfigure", EmbeddedFigure)
 def data_uri(data, filename, encoding="utf8", mime="text/plain"):
     """Craft a base64 data URI from file with proper encoding and mimetype."""
     data = base64.b64encode(data)
-    uri = "data:{mime};charset={charset};filename={filename};base64,{data}" "".format(
-        filename=filename, mime=mime, charset=encoding, data=data.decode("utf-8")
-    )
-    return uri
+    return f'data:{mime};charset={encoding};filename={filename};base64,{data.decode("utf-8")}'
 
 
 def mime_from_file(file):
@@ -107,7 +96,7 @@ def mime_from_file(file):
     if mime is None:
         mime = "text/plain"
         logger.info(
-            "Could not detect mimetype for {}, assuming " "text/plain.".format(file)
+            "Could not detect mimetype for {}, assuming text/plain.".format(file)
         )
     return mime, encoding
 
@@ -295,7 +284,7 @@ class RuleRecord:
             sources = [self._rule.shellcmd]
             language = "bash"
         elif self._rule.script is not None and not contains_wildcard(self._rule.script):
-            logger.info("Loading script code for rule {}".format(self.name))
+            logger.info(f"Loading script code for rule {self.name}")
             _, source, language, _, _ = script.get_source(
                 self._rule.script, self._rule.workflow.sourcecache, self._rule.basedir
             )
@@ -303,7 +292,7 @@ class RuleRecord:
         elif self._rule.wrapper is not None and not contains_wildcard(
             self._rule.wrapper
         ):
-            logger.info("Loading wrapper code for rule {}".format(self.name))
+            logger.info(f"Loading wrapper code for rule {self.name}")
             _, source, language, _, _ = script.get_source(
                 wrapper.get_script(
                     self._rule.wrapper,
@@ -339,8 +328,7 @@ class RuleRecord:
             return highlighted
         except pygments.util.ClassNotFound:
             return [
-                '<pre class="source"><code>{}</code></pre>'.format(source)
-                for source in sources
+                f'<pre class="source"><code>{source}</code></pre>' for source in sources
             ]
 
     def add(self, job_rec):
@@ -460,13 +448,6 @@ class FileRecord:
 
     def render(self, env, rst_links, categories, files):
         if self.raw_caption is not None:
-            try:
-                from jinja2 import Template
-            except ImportError as e:
-                raise WorkflowError(
-                    "Python package jinja2 must be installed to create reports."
-                )
-
             job = self.job
             snakemake = Snakemake(
                 job.input,
@@ -575,7 +556,7 @@ def expand_labels(labels, wildcards, job):
 
 def auto_report(dag, path, stylesheet=None):
     try:
-        from jinja2 import Template, Environment, PackageLoader, UndefinedError
+        from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
         raise WorkflowError(
             "Python package jinja2 must be installed to create reports."
@@ -592,7 +573,7 @@ def auto_report(dag, path, stylesheet=None):
         try:
             with open(stylesheet) as s:
                 custom_stylesheet = s.read()
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             raise WorkflowError("Unable to read custom report stylesheet.", e)
 
     logger.info("Creating report...")
@@ -613,7 +594,7 @@ def auto_report(dag, path, stylesheet=None):
             if is_flagged(f, "report") and f not in recorded_files:
                 if not f.exists:
                     raise WorkflowError(
-                        "File {} marked for report but does " "not exist.".format(f)
+                        "File {} marked for report but does not exist.".format(f)
                     )
                 report_obj = get_flag_value(f, "report")
 
@@ -677,7 +658,7 @@ def auto_report(dag, path, stylesheet=None):
                         register_file(
                             os.path.join(f, report_obj.htmlindex),
                             aux_files=aux_files,
-                            name_overwrite="{}.html".format(os.path.basename(f)),
+                            name_overwrite=f"{os.path.basename(f)}.html",
                         )
                     elif report_obj.patterns:
                         if not isinstance(report_obj.patterns, list):
@@ -842,7 +823,7 @@ def auto_report(dag, path, stylesheet=None):
                 )
 
     # record time
-    now = "{} {}".format(datetime.datetime.now().ctime(), time.tzname[0])
+    now = f"{datetime.datetime.now().ctime()} {time.tzname[0]}"
     results_size = sum(
         res.size
         for cat in results.values()
@@ -918,4 +899,4 @@ def auto_report(dag, path, stylesheet=None):
         with open(path, "w", encoding="utf-8") as htmlout:
             htmlout.write(rendered)
 
-    logger.info("Report created: {}.".format(path))
+    logger.info(f"Report created: {path}.")

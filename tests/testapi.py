@@ -1,7 +1,7 @@
 """
 Tests for Snakemake’s API
 """
-from snakemake import snakemake
+from snakemake.api import snakemake
 import asyncio
 import sys
 import tempfile

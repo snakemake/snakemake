@@ -66,6 +66,9 @@ jobs:
       - name: Download slurm ansible roles
         run: |
           ansible-galaxy install galaxyproject.slurm,1.0.1
+      - name: Update apt cache
+        run: |
+          sudo apt-get update
       - name: Define slurm playbook
         uses: 1arp/create-a-file-action@0.2
         with:
@@ -77,6 +80,7 @@ jobs:
                 - role: galaxyproject.slurm
                   become: true
               vars:
+                  slurm_upgrade: true
                   slurm_roles: ['controller', 'exec', 'dbd']
                   slurm_config_dir: /etc/slurm
                   #slurm_cgroup_config:
@@ -164,7 +168,11 @@ jobs:
         shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
+
           mamba env update -q -n snakemake --file test-environment.yml
+
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
 
           # additionally add singularity
 
@@ -244,6 +252,21 @@ jobs:
       #  shell: bash -el {0}
       #  run: |
       #    pytest -s -v -x tests/test_kubernetes.py
+
+      # TODO temporarily disable testing of the azure batch executor as our azure
+      # account is currently disabled for unknown reason.
+      # Reactivate once that is fixed.
+      # - name: Test Azure Batch Executor
+      #   shell: bash -el {0}
+      #   env:
+      #     AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
+      #     AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
+      #     AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"
+      #     AZ_BATCH_ACCOUNT_URL: "${{ secrets.AZ_BATCH_ACCOUNT_URL }}"
+      #     AZ_BATCH_ACCOUNT_KEY: "${{ secrets.AZ_BATCH_KEY }}"
+      #   run: |
+      #     pytest -s -v -x tests/test_azure_batch_executor.py
+
       - name: Test GA4GH TES executor
         shell: bash -el {0}
         run: |
@@ -290,6 +313,9 @@ jobs:
         run: |
           conda config --set channel_priority strict
           mamba env update -q --file test-environment.yml
+
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
       - name: Run tests
         env:
           CI: true

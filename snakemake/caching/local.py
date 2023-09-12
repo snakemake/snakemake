@@ -12,8 +12,7 @@ import stat
 from snakemake.logging import logger
 from snakemake.jobs import Job
 from snakemake.exceptions import WorkflowError
-from snakemake.caching.hash import ProvenanceHashMap
-from snakemake.caching import LOCATION_ENVVAR, AbstractOutputFileCache
+from snakemake.caching import AbstractOutputFileCache
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -145,7 +144,7 @@ class OutputFileCache(AbstractOutputFileCache):
 
     def symlink(self, path, outputfile, utime=True):
         if os.utime in os.supports_follow_symlinks or not utime:
-            logger.info("Symlinking output file {} from cache.".format(outputfile))
+            logger.info(f"Symlinking output file {outputfile} from cache.")
             os.symlink(path, outputfile)
             if utime:
                 os.utime(outputfile, follow_symlinks=False)

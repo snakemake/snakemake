@@ -1,19 +1,15 @@
 import os
 import subprocess
-from snakemake.common.tbdstring import TBDString
 
-from snakemake.jobs import Job
-from snakemake.logging import logger
-from snakemake.deployment.conda import Conda
-from snakemake.exceptions import print_exception
-from snakemake.exceptions import log_verbose_traceback
-from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 
 
-class SlurmJobstepExecutor(ClusterExecutor):
+class SlurmJobstepExecutor(RemoteExecutor):
     """
     executes SLURM jobsteps and is *only* instaniated in
     a SLURM job context
@@ -21,15 +17,11 @@ class SlurmJobstepExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        cluster_config=None,
-        restart_times=0,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         max_status_checks_per_second=0.5,
-        **kwargs,
     ):
         # overwrite the command to execute a single snakemake job if necessary
         # exec_job = "..."
@@ -37,13 +29,9 @@ class SlurmJobstepExecutor(ClusterExecutor):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
-            restart_times=restart_times,
-            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
             disable_envvar_declarations=True,
         )
@@ -53,15 +41,16 @@ class SlurmJobstepExecutor(ClusterExecutor):
         self.cpus_on_node = os.getenv("SLURM_CPUS_ON_NODE")
         self.jobid = os.getenv("SLURM_JOB_ID")
 
-        self.context = dict(kwargs)
-        self.env_modules = self.context.get("env_modules", None)
-
-        # if not self.mem_per_node
-
     async def _wait_for_jobs(self):
         pass
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         jobsteps = dict()
 
         # TODO revisit special handling for group job levels via srun at a later stage

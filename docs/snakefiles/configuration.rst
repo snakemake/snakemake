@@ -21,6 +21,9 @@ A configuration is provided as a JSON or YAML file and can be loaded with:
     configfile: "path/to/config.yaml"
 
 The config file can be used to define a dictionary of configuration parameters and their values.
+In case of YAML, the file can optionally be processed with `YTE <https://yte-template-engine.github.io>`_.
+To activate this, you have to add the top-level key ``__use_yte__ = true`` to the YAML file.
+
 In the workflow, the configuration is accessible via the global variable `config`, e.g.
 
 .. code-block:: python
@@ -203,91 +206,6 @@ Validating PEPs
 
 Using the ``pepschema`` directive leads to an automatic parsing of the provided schema *and* PEP validation with the PEP validation tool -- `eido <http://eido.databio.org>`_. Eido schemas extend `JSON Schema <https://json-schema.org>`_ vocabulary to accommodate the powerful PEP features. Follow the `How to write a PEP schema <http://eido.databio.org/en/latest/writing-a-schema>`_ guide to learn more.
 
-.. _snakefiles-cluster_configuration:
-
-----------------------------------
-Cluster Configuration (deprecated)
-----------------------------------
-
-While still being possible, **cluster configuration has been deprecated** by the introduction of :ref:`profiles`.
-
-Snakemake supports a separate configuration file for execution on a cluster.
-A cluster config file allows you to specify cluster submission parameters outside the Snakefile.
-The cluster config is a JSON- or YAML-formatted file that contains objects that match names of rules in the Snakefile.
-The parameters in the cluster config are then accessed by the ``cluster.*`` wildcard when you are submitting jobs.
-Note that a workflow shall never depend on a cluster configuration, because this would limit its portability.
-Therefore, it is also not intended to access the cluster configuration from **within** the workflow.
-
-For example, say that you have the following Snakefile:
-
-.. code-block:: python
-
-    rule all:
-        input: "input1.txt", "input2.txt"
-
-    rule compute1:
-        output: "input1.txt"
-        shell: "touch input1.txt"
-
-    rule compute2:
-        output: "input2.txt"
-        shell: "touch input2.txt"
-
-This Snakefile can then be configured by a corresponding cluster config, say "cluster.json":
-
-
-.. code-block:: json
-
-    {
-        "__default__" :
-        {
-            "account" : "my account",
-            "time" : "00:15:00",
-            "n" : 1,
-            "partition" : "core"
-        },
-        "compute1" :
-        {
-            "time" : "00:20:00"
-        }
-    }
-
-Any string in the cluster configuration can be formatted in the same way as shell commands, e.g. ``{rule}.{wildcards.sample}`` is formatted to ``a.xy`` if the rulename is ``a`` and the wildcard value is ``xy``.
-Here ``__default__`` is a special object that specifies default parameters, these will be inherited by the other configuration objects. The ``compute1`` object here changes the ``time`` parameter, but keeps the other parameters from ``__default__``. The rule ``compute2`` does not have any configuration, and will therefore use the default configuration. You can then run the Snakefile with the following command on a SLURM system.
-
-.. code-block:: console
-
-    $ snakemake -j 999 --cluster-config cluster.json --cluster "sbatch -A {cluster.account} -p {cluster.partition} -n {cluster.n}  -t {cluster.time}"
-
-
-For cluster systems using LSF/BSUB, a cluster config may look like this:
-
-.. code-block:: json
-
-    {
-        "__default__" :
-        {
-            "queue"     : "medium_priority",
-            "nCPUs"     : "16",
-            "memory"    : 20000,
-            "resources" : "\"select[mem>20000] rusage[mem=20000] span[hosts=1]\"",
-            "name"      : "JOBNAME.{rule}.{wildcards}",
-            "output"    : "logs/cluster/{rule}.{wildcards}.out",
-            "error"     : "logs/cluster/{rule}.{wildcards}.err"
-        },
-
-
-        "trimming_PE" :
-        {
-            "memory"    : 30000,
-            "resources" : "\"select[mem>30000] rusage[mem=30000] span[hosts=1]\"",
-        }
-    }
-
-The advantage of this setup is that it is already pretty general by exploiting the wildcard possibilities that Snakemake provides via ``{rule}`` and ``{wildcards}``. So job names, output and error files all have reasonable and trackable default names, only the directies (``logs/cluster``) and job names (``JOBNAME``) have to adjusted accordingly.
-If a rule named ``bamCoverage`` is executed with the wildcard ``basename = sample1``, for example, the output and error files will be ``bamCoverage.basename=sample1.out`` and ``bamCoverage.basename=sample1.err``, respectively.
-
-
 ---------------------------
 Configure Working Directory
 ---------------------------
@@ -299,3 +217,12 @@ All paths in the snakefile are interpreted relative to the directory snakemake i
     workdir: "path/to/workdir"
 
 Usually, it is preferred to only set the working directory via the command line, because above directive limits the portability of Snakemake workflows.
+
+
+.. _snakefiles-cluster_configuration:
+
+---------------------------------------------
+Cluster Configuration (not supported anymore)
+---------------------------------------------
+
+The previously supported cluster configuration has been replaced by configuration profiles (see :ref:`profiles`).

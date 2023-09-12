@@ -50,15 +50,23 @@ This will install snakemake into an isolated software environment, that has to b
 Credentials
 :::::::::::
 
-Using the Google Life Sciences executor with Snakemake requires the environment 
-variable `GOOGLE_APPLICATION_CREDENTIALS` exported, which should point to
+Google's `Application Default Credentials <https://cloud.google.com/docs/authentication/application-default-credentials>`_ 
+automatically find credentials based on the application environment. Snakemake supports two approaches for running with
+Application Default Credentials:
+
+- The `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+- The service account attached to your Google Cloud Project
+
+**`GOOGLE_APPLICATION_CREDENTIALS`**
+
+For this approach, export the environment 
+variable `GOOGLE_APPLICATION_CREDENTIALS`, which should point to
 the full path of the file on your local machine. To generate this file, you
 can refer to the page under iam-admin to `download your service account <https://console.cloud.google.com/iam-admin/iam>`_ key and export it to the environment.
 
 .. code:: console
 
     export GOOGLE_APPLICATION_CREDENTIALS="/home/[username]/credentials.json"
-
 
 The suggested, minimal permissions required for this role include the following:
 
@@ -67,7 +75,17 @@ The suggested, minimal permissions required for this role include the following:
  - Service Account User
  - Cloud Life Sciences Workflows Runner
  - Service Usage Consumer
+ 
+*Note*: This tutorial assumes you are using the `GOOGLE_APPLICATION_CREDENTIALS` approach.
+ 
+**Service Account**
 
+When running on Google Compute Engine Virtual Machine instances, it is preferable to use your project's
+`service account <https://cloud.google.com/docs/authentication/application-default-credentials#attached-sa>`_ .
+
+You can use your service account's email address using the `--google-lifesciences-service-account-email` flag
+when running Snakemake. Should you do this, you do not need to set the `GOOGLE_APPLICATION_CREDENTIALS`
+environment variable.
 
 Step 1: Upload Your Data
 ::::::::::::::::::::::::

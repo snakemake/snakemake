@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import inspect
 import itertools
 import os
 from collections.abc import Iterable
@@ -20,15 +19,14 @@ import tempfile
 import textwrap
 import sys
 import pickle
-import subprocess
 import collections
 import re
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Pattern, Union, Optional, List
-from urllib.request import urlopen, pathname2url
 from urllib.error import URLError
+from pathlib import Path
 
 from snakemake.utils import format
 from snakemake.logging import logger
@@ -36,12 +34,9 @@ from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import (
     MIN_PY_VERSION,
-    SNAKEMAKE_SEARCHPATH,
     ON_WINDOWS,
-    smart_join,
-    is_local_file,
+    get_snakemake_searchpaths,
 )
-from snakemake.io import git_content, split_git_path
 from snakemake.deployment import singularity
 
 # TODO use this to find the right place for inserting the preamble
@@ -211,7 +206,7 @@ class REncoder:
 
             except ImportError:
                 pass
-        raise ValueError("Unsupported value for conversion into R: {}".format(value))
+        raise ValueError(f"Unsupported value for conversion into R: {value}")
 
     @classmethod
     def encode_list(cls, l):
@@ -221,13 +216,13 @@ class REncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return '"{}" = {}'.format(name, cls.encode_value(value))
+            return f'"{name}" = {cls.encode_value(value)}'
 
         return ", ".join(map(encode_item, items))
 
     @classmethod
     def encode_dict(cls, d):
-        d = "list({})".format(cls.encode_items(d.items()))
+        d = f"list({cls.encode_items(d.items())})"
         return d
 
     @classmethod
@@ -272,9 +267,7 @@ class JuliaEncoder:
                     return str(value)
             except ImportError:
                 pass
-        raise ValueError(
-            "Unsupported value for conversion into Julia: {}".format(value)
-        )
+        raise ValueError(f"Unsupported value for conversion into Julia: {value}")
 
     @classmethod
     def encode_list(cls, l):
@@ -284,7 +277,7 @@ class JuliaEncoder:
     def encode_items(cls, items):
         def encode_item(item):
             name, value = item
-            return '"{}" => {}'.format(name, cls.encode_value(value))
+            return f'"{name}" => {cls.encode_value(value)}'
 
         return ", ".join(map(encode_item, items))
 
@@ -292,12 +285,12 @@ class JuliaEncoder:
     def encode_positional_items(cls, namedlist):
         encoded = ""
         for index, value in enumerate(namedlist):
-            encoded += "{} => {}, ".format(index + 1, cls.encode_value(value))
+            encoded += f"{index + 1} => {cls.encode_value(value)}, "
         return encoded
 
     @classmethod
     def encode_dict(cls, d):
-        d = "Dict({})".format(cls.encode_items(d.items()))
+        d = f"Dict({cls.encode_items(d.items())})"
         return d
 
     @classmethod
@@ -550,33 +543,34 @@ class PythonScript(ScriptBase):
         # Obtain search path for current snakemake module.
         # The module is needed for unpickling in the script.
         # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
+        searchpaths = get_snakemake_searchpaths()
         if container_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = repr(searchpath)
+            searchpaths = singularity.get_snakemake_searchpath_mountpoints()
 
         # Add the cache path to the search path so that other cached source files in the same dir
         # can be imported.
         if cache_path:
+            # TODO handle this in case of container_img, analogously to above
             cache_searchpath = os.path.dirname(cache_path)
             if cache_searchpath:
-                searchpath += ", " + repr(cache_searchpath)
+                searchpaths.append(cache_searchpath)
         # For local scripts, add their location to the path in case they use path-based imports
         if is_local:
-            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
+            searchpaths.append(path.get_basedir().get_path_or_uri())
 
-        return textwrap.dedent(
+        preamble = textwrap.dedent(
             """
         ######## snakemake preamble start (automatically inserted, do not edit) ########
-        import sys; sys.path.extend([{searchpath}]); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
+        import sys; sys.path.extend({searchpaths}); import pickle; snakemake = pickle.loads({snakemake}); from snakemake.logging import logger; logger.printshellcmds = {printshellcmds}; {preamble_addendum}
         ######## snakemake preamble end #########
         """
         ).format(
-            searchpath=searchpath,
+            searchpaths=repr(searchpaths),
             snakemake=snakemake,
             printshellcmds=logger.printshellcmds,
             preamble_addendum=preamble_addendum,
         )
+        return preamble
 
     def get_preamble(self):
         if isinstance(self.path, LocalSourceFile):
@@ -621,18 +615,25 @@ class PythonScript(ScriptBase):
         fd.write(self.source.encode())
 
     def _is_python_env(self):
-        if self.conda_env is not None and ON_WINDOWS:
-            prefix = self.conda_env
-        elif self.conda_env is not None:
-            prefix = os.path.join(self.conda_env, "bin")
+        def contains_python(prefix):
+            if not ON_WINDOWS:
+                return (prefix / "python").exists()
+            else:
+                return (prefix / "python.exe").exists()
+
+        if self.conda_env is not None:
+            prefix = Path(self.conda_env)
+            if not ON_WINDOWS:
+                prefix /= "bin"
+            # Define fallback prefix in case conda_env is a named environment
+            # instead of a full path.
+            fallback_prefix = Path(self.conda_base_path) / "envs" / prefix
+            return contains_python(prefix) or contains_python(fallback_prefix)
         elif self.env_modules is not None:
-            prefix = self._execute_cmd("echo $PATH", read=True).split(":")[0]
+            prefix = Path(self._execute_cmd("echo $PATH", read=True).split(":")[0])
+            return contains_python(prefix)
         else:
             raise NotImplementedError()
-        if not ON_WINDOWS:
-            return os.path.exists(os.path.join(prefix, "python"))
-        else:
-            return os.path.exists(os.path.join(prefix, "python.exe"))
 
     def _get_python_version(self):
         # Obtain a clean version string. Using python --version is not reliable, because depending on the distribution
@@ -1042,16 +1043,6 @@ class RustScript(ScriptBase):
 
         json_string = json.dumps(dict(snakemake))
 
-        # Obtain search path for current snakemake module.
-        # We append it at the end (as a fallback).
-        searchpath = SNAKEMAKE_SEARCHPATH
-        if container_img is not None:
-            searchpath = singularity.SNAKEMAKE_MOUNTPOINT
-        searchpath = repr(searchpath)
-        # For local scripts, add their location to the path in case they use path-based imports
-        if is_local:
-            searchpath += ", " + repr(path.get_basedir().get_path_or_uri())
-
         return textwrap.dedent(
             """
             json_typegen::json_typegen!("Snakemake", r###"{json_string}"###, {{
@@ -1150,17 +1141,6 @@ class RustScript(ScriptBase):
                         .open(path)?;
                     Ok(gag::Redirect::stdout(log)?)
                 }}
-                
-                fn setup_path(&self) -> anyhow::Result<()> {{
-                    use std::env;
-                    if let Some(path) = env::var_os("PATH") {{
-                        let mut paths = env::split_paths(&path).collect::<Vec<_>>();
-                        paths.push(std::path::PathBuf::from("{searchpath}"));
-                        let new_path = env::join_paths(paths)?;
-                        env::set_var("PATH", &new_path);
-                    }}
-                    Ok(())
-                }}
             }}
             
             lazy_static::lazy_static! {{
@@ -1168,14 +1148,12 @@ class RustScript(ScriptBase):
                 #[allow(non_upper_case_globals)]
                 static ref snakemake: Snakemake = {{
                     let s: Snakemake = serde_json::from_str(r###"{json_string}"###).expect("Failed parsing snakemake JSON");
-                    s.setup_path().expect("Failed setting PATH");
                     s
                 }};
             }}
             // TODO include addendum, if any {{preamble_addendum}}
             """
         ).format(
-            searchpath=searchpath,
             json_string=json_string,
             preamble_addendum=preamble_addendum,
         )

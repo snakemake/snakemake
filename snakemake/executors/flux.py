@@ -5,11 +5,17 @@ __license__ = "MIT"
 
 import os
 import shlex
-import sys
 from collections import namedtuple
 
-from snakemake.executors import ClusterExecutor, sleep
-from snakemake.executors.common import format_cli_arg, join_cli_args
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.utils import sleep
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
+
+from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
 from snakemake.resources import DefaultResources
 from snakemake.common import async_lock
@@ -27,30 +33,26 @@ FluxJob = namedtuple(
 )
 
 
-class FluxExecutor(ClusterExecutor):
+class FluxExecutor(RemoteExecutor):
     """
     The Flux executor deploys workflows to a flux cluster.
     """
 
     def __init__(
         self,
-        workflow,
-        dag,
-        cores,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
     ):
         super().__init__(
             workflow,
             dag,
+            stats,
+            logger,
             None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            assume_shared_fs=False,
             max_status_checks_per_second=10,
         )
 
@@ -75,7 +77,7 @@ class FluxExecutor(ClusterExecutor):
                 flux.job.cancel(self.f, job.jobid)
         self.shutdown()
 
-    def _set_job_resources(self, job):
+    def _set_job_resources(self, job: ExecutorJobInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -88,11 +90,17 @@ class FluxExecutor(ClusterExecutor):
         assert os.path.exists(self.workflow.main_snakefile)
         return self.workflow.main_snakefile
 
-    def _get_jobname(self, job):
+    def _get_jobname(self, job: ExecutorJobInterface):
         # Use a dummy job name (human readable and also namespaced)
-        return "snakejob-%s-%s-%s" % (self.run_namespace, job.name, job.jobid)
+        return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         """
         Submit a job to flux.
         """
@@ -155,7 +163,7 @@ class FluxExecutor(ClusterExecutor):
 
             # Loop through active jobs and act on status
             for j in active_jobs:
-                logger.debug("Checking status for job {}".format(j.jobid))
+                logger.debug(f"Checking status for job {j.jobid}")
                 if j.flux_future.done():
                     # The exit code can help us determine if the job was successful
                     try:

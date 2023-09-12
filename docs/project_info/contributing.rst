@@ -57,7 +57,6 @@ Below you find a skeleton
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 cluster_config=None,
                  local_input=None,
                  restart_times=None,
                  exec_job=None,
@@ -70,7 +69,6 @@ Below you find a skeleton
                              quiet=quiet,
                              printshellcmds=printshellcmds,
                              latency_wait=latency_wait,
-                             cluster_config=cluster_config,
                              local_input=local_input,
                              restart_times=restart_times,
                              assume_shared_fs=False, # if your executor relies on a shared file system, set this to True

@@ -3,34 +3,34 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import collections
-from hashlib import sha256
-import os
-import shutil
-from pathlib import Path
-import re
-import stat
-import time
-import datetime
-import json
-import copy
-import functools
-import subprocess as sp
-from itertools import product, chain
-from contextlib import contextmanager
-import string
-import collections
 import asyncio
+import collections
+import copy
+import datetime
+import functools
+import json
+import os
+import re
+import shutil
+import stat
+import string
+import subprocess as sp
+import time
+from contextlib import contextmanager
+from hashlib import sha256
+from inspect import isfunction, ismethod
+from itertools import chain, product
+from pathlib import Path
+from typing import Callable, Dict, Set
 
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
-    WorkflowError,
-    WildcardError,
     RemoteFileException,
+    WildcardError,
+    WorkflowError,
 )
 from snakemake.logging import logger
-from inspect import isfunction, ismethod
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 
 
 class Mtime:
@@ -145,12 +145,15 @@ class IOCache:
                 if item is stop_item:
                     queue.task_done()
                     return
-                try:
-                    self.mtime[item] = await self.collect_mtime(item)
-                except Exception as e:
-                    queue.task_done()
+                # Avoid superfluously checking mtime as the same file might be
+                # added multiple times to the queue.
+                if item not in self.mtime:
+                    try:
+                        self.mtime[item] = await self.collect_mtime(item)
+                    except Exception as e:
+                        queue.task_done()
 
-                    raise e
+                        raise e
                 queue.task_done()
 
         tasks = [
@@ -193,6 +196,39 @@ def IOFile(file, rule=None):
     return f
 
 
+def _refer_to_remote(func: Callable):
+    """
+    A decorator so that if the file is remote and has a version
+    of the same file-related function, call that version instead.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self: "_IOFile", *args, **kwargs):
+        if self.is_remote:
+            if hasattr(self.remote_object, func.__name__):
+                return getattr(self.remote_object, func.__name__)(*args, **kwargs)
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def iocache(func: Callable):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # self: _IOFile
+        if self.rule.workflow.iocache.active:
+            cache = getattr(self.rule.workflow.iocache, func.__name__)
+            if self in cache:
+                return cache[self]
+            v = func(self, *args, **kwargs)
+            cache[self] = v
+            return v
+        else:
+            return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class _IOFile(str):
     """
     A file that is either input or output of a rule.
@@ -232,36 +268,6 @@ class _IOFile(str):
         if new.is_remote:
             new.remote_object._iofile = new
         return new
-
-    def iocache(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.rule.workflow.iocache.active:
-                cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
-                v = func(self, *args, **kwargs)
-                cache[self] = v
-                return v
-            else:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
-    def _refer_to_remote(func):
-        """
-        A decorator so that if the file is remote and has a version
-        of the same file-related function, call that version instead.
-        """
-
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.is_remote:
-                if hasattr(self.remote_object, func.__name__):
-                    return getattr(self.remote_object, func.__name__)(*args, **kwargs)
-            return func(self, *args, **kwargs)
-
-        return wrapper
 
     def inventory(self):
         async_run(self._inventory())
@@ -343,7 +349,7 @@ class _IOFile(str):
         """
         if not self.exists:
             raise WorkflowError(
-                "File {} cannot be opened, since it does not exist.".format(self)
+                f"File {self} cannot be opened, since it does not exist."
             )
         if not self.exists_local and self.is_remote:
             self.download_from_remote()
@@ -615,7 +621,7 @@ class _IOFile(str):
             try:
                 if os.lstat(self.file):
                     raise WorkflowError(
-                        "File {} seems to be a broken symlink.".format(self.file)
+                        f"File {self.file} seems to be a broken symlink."
                     )
             except FileNotFoundError as e:
                 # there is no broken symlink present, hence all fine
@@ -633,7 +639,7 @@ class _IOFile(str):
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
             if not self.should_stay_on_remote:
-                logger.info("Downloading from remote: {}".format(self.file))
+                logger.info(f"Downloading from remote: {self.file}")
                 self.remote_object.download()
                 logger.info("Finished download.")
         else:
@@ -643,7 +649,7 @@ class _IOFile(str):
 
     def upload_to_remote(self):
         if self.is_remote:
-            logger.info("Uploading to remote: {}".format(self.file))
+            logger.info(f"Uploading to remote: {self.file}")
             self.remote_object.upload()
             logger.info("Finished upload.")
 
@@ -865,9 +871,7 @@ def wait_for_files(
 
     missing = get_missing()
     if missing:
-        logger.info(
-            "Waiting at most {} seconds for missing files.".format(latency_wait)
-        )
+        logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
         for _ in range(latency_wait):
             missing = get_missing()
             if not missing:
@@ -907,9 +911,7 @@ def remove(file, remove_non_empty_dir=False):
             except OSError as e:
                 # skip non empty directories
                 if e.errno == 39:
-                    logger.info(
-                        "Skipped removing non-empty directory {}".format(e.filename)
-                    )
+                    logger.info(f"Skipped removing non-empty directory {e.filename}")
                 else:
                     logger.warning(str(e))
     # Remember that dangling symlinks fail the os.path.exists() test, but
@@ -943,7 +945,7 @@ def regex(filepattern):
                     "Constraint regex must be defined only in the first "
                     "occurence of the wildcard in a string."
                 )
-            f.append("(?P={})".format(wildcard))
+            f.append(f"(?P={wildcard})")
         else:
             wildcards.add(wildcard)
             f.append(
@@ -975,21 +977,13 @@ def apply_wildcards(
             return str(value)  # convert anything into a str
         except KeyError as ex:
             if keep_dynamic:
-                return "{{{}}}".format(name)
+                return f"{{{name}}}"
             elif fill_missing:
                 return dynamic_fill
             else:
                 raise WildcardError(str(ex))
 
     return _wildcard_regex.sub(format_match, pattern)
-
-
-def not_iterable(value):
-    return (
-        isinstance(value, str)
-        or isinstance(value, dict)
-        or not isinstance(value, collections.abc.Iterable)
-    )
 
 
 def is_callable(value):
@@ -1013,6 +1007,8 @@ class AnnotatedString(str):
 
 
 def flag(value, flag_type, flag_value=True):
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     if isinstance(value, AnnotatedString):
         value.flags[flag_type] = flag_value
         return value
@@ -1107,6 +1103,8 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run"""
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -1281,14 +1279,14 @@ def expand(*args, **wildcards):
             for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
         ]
     except KeyError as e:
-        raise WildcardError("No values given for wildcard {}.".format(e))
+        raise WildcardError(f"No values given for wildcard {e}.")
 
 
 def multiext(prefix, *extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
+            r"Extensions for multiext may not contain path delimiters (/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1348,7 +1346,9 @@ def glob_wildcards(pattern, files=None, followlinks=False):
 
 
 def update_wildcard_constraints(
-    pattern, wildcard_constraints, global_wildcard_constraints
+    pattern,
+    wildcard_constraints: Dict[str, str],
+    global_wildcard_constraints: Dict[str, str],
 ):
     """Update wildcard constraints
 
@@ -1358,7 +1358,7 @@ def update_wildcard_constraints(
       global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
     """
 
-    def replace_constraint(match):
+    def replace_constraint(match: re.Match):
         name = match.group("name")
         constraint = match.group("constraint")
         newconstraint = wildcard_constraints.get(
@@ -1372,11 +1372,11 @@ def update_wildcard_constraints(
             return match.group(0)
         # Only update if a new constraint has actually been set
         elif newconstraint is not None:
-            return "{{{},{}}}".format(name, newconstraint)
+            return f"{{{name},{newconstraint}}}"
         else:
             return match.group(0)
 
-    examined_names = set()
+    examined_names: Set[str] = set()
     updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
@@ -1435,7 +1435,7 @@ def get_git_root_parent_directory(path, input_path):
         tail, head = os.path.split(path)
         if tail is None:
             raise WorkflowError(
-                "Neither provided git path ({}) ".format(input_path)
+                f"Neither provided git path ({input_path}) "
                 + "or parent directories contain a valid git repo."
             )
         else:
@@ -1458,7 +1458,7 @@ def git_content(git_file):
 
     if git_file.startswith("git+file:"):
         (root_path, file_path, version) = split_git_path(git_file)
-        return git.Repo(root_path).git.show("{}:{}".format(version, file_path))
+        return git.Repo(root_path).git.show(f"{version}:{file_path}")
     else:
         raise WorkflowError(
             "Provided git path ({}) doesn't meet the "
@@ -1698,26 +1698,17 @@ def _load_configfile(configpath_or_obj, filetype="Config"):
             except ValueError:
                 f.seek(0)  # try again
             try:
-                # From https://stackoverflow.com/a/21912744/84349
-                class OrderedLoader(yaml.Loader):
-                    pass
+                import yte
 
-                def construct_mapping(loader, node):
-                    loader.flatten_mapping(node)
-                    return collections.OrderedDict(loader.construct_pairs(node))
-
-                OrderedLoader.add_constructor(
-                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
-                )
-                return yaml.load(f, Loader=OrderedLoader)
+                return yte.process_yaml(f, require_use_yte=True)
             except yaml.YAMLError:
                 raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
+                    f"{filetype} file is not valid JSON or YAML. "
                     "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
+                    "whitespace and tab indentation."
                 )
     except FileNotFoundError:
-        raise WorkflowError("{} file {} not found.".format(filetype, configpath))
+        raise WorkflowError(f"{filetype} file {configpath_or_obj} not found.")
 
 
 def load_configfile(configpath):
@@ -1725,7 +1716,7 @@ def load_configfile(configpath):
     config = _load_configfile(configpath)
     if not isinstance(config, dict):
         raise WorkflowError(
-            "Config file must be given as JSON or YAML " "with keys at top level."
+            "Config file must be given as JSON or YAML with keys at top level."
         )
     return config
 

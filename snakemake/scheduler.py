@@ -4,21 +4,17 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os, signal, sys
-import datetime
 import threading
-import operator
-import time
-import math
-import asyncio
 
 from functools import partial
-from collections import defaultdict
-from itertools import chain, accumulate, product
+from itertools import chain, accumulate
 from contextlib import ContextDecorator
+
+from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 from snakemake.executors import (
     AbstractExecutor,
-    ClusterExecutor,
     DryrunExecutor,
     TouchExecutor,
     CPUExecutor,
@@ -30,17 +26,20 @@ from snakemake.executors import (
     KubernetesExecutor,
     TibannaExecutor,
 )
+
 from snakemake.executors.slurm.slurm_submit import SlurmExecutor
 from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
 from snakemake.executors.flux import FluxExecutor
 from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
 from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.shell import shell
-from snakemake.common import ON_WINDOWS, async_run
+from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
+from snakemake.stats import Stats
+
+registry = ExecutorPluginRegistry()
 
 
 def cumsum(iterable, zero=[0]):
@@ -48,7 +47,7 @@ def cumsum(iterable, zero=[0]):
 
 
 _ERROR_MSG_FINAL = (
-    "Exiting because a job execution failed. " "Look above for error message"
+    "Exiting because a job execution failed. Look above for error message"
 )
 
 _ERROR_MSG_ISSUE_823 = (
@@ -65,7 +64,7 @@ class DummyRateLimiter(ContextDecorator):
         return False
 
 
-class JobScheduler:
+class JobScheduler(JobSchedulerExecutorInterface):
     def __init__(
         self,
         workflow,
@@ -77,7 +76,6 @@ class JobScheduler:
         slurm_jobstep=None,
         cluster=None,
         cluster_status=None,
-        cluster_config=None,
         cluster_sync=None,
         cluster_cancel=None,
         cluster_cancel_nargs=None,
@@ -87,52 +85,54 @@ class JobScheduler:
         env_modules=None,
         kubernetes=None,
         k8s_cpu_scalar=1.0,
+        k8s_service_account_name=None,
         container_image=None,
         flux=None,
         tibanna=None,
         tibanna_sfn=None,
+        az_batch=False,
+        az_batch_enable_autoscale=False,
+        az_batch_account_url=None,
         google_lifesciences=None,
         google_lifesciences_regions=None,
         google_lifesciences_location=None,
         google_lifesciences_cache=False,
+        google_lifesciences_service_account_email=None,
+        google_lifesciences_network=None,
+        google_lifesciences_subnetwork=None,
         tes=None,
         precommand="",
         preemption_default=None,
         preemptible_rules=None,
         tibanna_config=False,
         jobname=None,
-        quiet=False,
-        printreason=False,
-        printshellcmds=False,
         keepgoing=False,
         max_jobs_per_second=None,
         max_status_checks_per_second=100,
+        # Note this argument doesn't seem to be used (greediness)
         greediness=1.0,
         force_use_threads=False,
-        assume_shared_fs=True,
-        keepincomplete=False,
         scheduler_type=None,
         scheduler_ilp_solver=None,
+        executor_args=None,
     ):
         """Create a new instance of KnapsackJobScheduler."""
 
         cores = workflow.global_resources["_cores"]
 
         self.cluster = cluster
-        self.cluster_config = cluster_config
         self.cluster_sync = cluster_sync
         self.dag = dag
         self.workflow = workflow
         self.dryrun = dryrun
         self.touch = touch
-        self.quiet = quiet
+        self.quiet = workflow.quiet
         self.keepgoing = keepgoing
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
         self.greediness = 1
         self.max_jobs_per_second = max_jobs_per_second
-        self.keepincomplete = keepincomplete
         self.scheduler_type = scheduler_type
         self.scheduler_ilp_solver = scheduler_ilp_solver
         self._tofinish = []
@@ -164,35 +164,50 @@ class JobScheduler:
         self._submit_callback = self._noop
         self._finish_callback = self._proceed
 
+        self._stats = Stats()
+
         self._local_executor = None
         if dryrun:
             self._executor: AbstractExecutor = DryrunExecutor(
                 workflow,
                 dag,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
             )
         elif touch:
             self._executor = TouchExecutor(
                 workflow,
                 dag,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
+                self.stats,
+                logger,
             )
+
+        # We have chosen an executor custom plugin
+        elif executor_args is not None:
+            plugin = registry.plugins[executor_args._executor.name]
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                self.stats,
+                logger,
+                local_cores,
+            )
+            self._executor = plugin.executor(
+                workflow,
+                dag,
+                self.stats,
+                logger,
+                cores,
+                executor_args=executor_args,
+            )
+
         elif slurm:
             if ON_WINDOWS:
                 raise WorkflowError("SLURM execution is not supported on Windows.")
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
             # we need to adjust the maximum status checks per second
             # on a SLURM cluster, to not overstrain the scheduler;
@@ -217,11 +232,8 @@ class JobScheduler:
             self._executor = SlurmExecutor(
                 workflow,
                 dag,
-                cores=None,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cluster_config=cluster_config,
+                self.stats,
+                logger,
                 max_status_checks_per_second=max_status_checks_per_second,
             )
 
@@ -229,10 +241,8 @@ class JobScheduler:
             self._executor = SlurmJobstepExecutor(
                 workflow,
                 dag,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                env_modules=env_modules,
+                self.stats,
+                logger,
             )
             self._local_executor = self._executor
 
@@ -243,12 +253,9 @@ class JobScheduler:
                 self._local_executor = CPUExecutor(
                     workflow,
                     dag,
+                    self.stats,
+                    logger,
                     local_cores,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    cores=local_cores,
-                    keepincomplete=keepincomplete,
                 )
 
             if cluster or cluster_sync:
@@ -267,15 +274,10 @@ class JobScheduler:
                 self._executor = constructor(
                     workflow,
                     dag,
-                    None,
+                    self.stats,
+                    logger,
                     submitcmd=(cluster or cluster_sync),
-                    cluster_config=cluster_config,
                     jobname=jobname,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    assume_shared_fs=assume_shared_fs,
-                    keepincomplete=keepincomplete,
                 )
                 if workflow.immediate_submit:
                     self._submit_callback = self._proceed
@@ -287,111 +289,117 @@ class JobScheduler:
                 self._executor = DRMAAExecutor(
                     workflow,
                     dag,
-                    None,
+                    self.stats,
+                    logger,
                     drmaa_args=drmaa,
                     drmaa_log_dir=drmaa_log_dir,
                     jobname=jobname,
-                    printreason=printreason,
-                    quiet=quiet,
-                    printshellcmds=printshellcmds,
-                    cluster_config=cluster_config,
-                    assume_shared_fs=assume_shared_fs,
                     max_status_checks_per_second=max_status_checks_per_second,
-                    keepincomplete=keepincomplete,
                 )
         elif kubernetes:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = KubernetesExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 kubernetes,
                 container_image=container_image,
                 k8s_cpu_scalar=k8s_cpu_scalar,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cluster_config=cluster_config,
-                keepincomplete=keepincomplete,
+                k8s_service_account_name=k8s_service_account_name,
             )
         elif tibanna:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = TibannaExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
                 tibanna_sfn,
                 precommand=precommand,
                 tibanna_config=tibanna_config,
                 container_image=container_image,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                keepincomplete=keepincomplete,
             )
 
         elif flux:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
 
             self._executor = FluxExecutor(
                 workflow,
                 dag,
-                cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
+                self.stats,
+                logger,
+            )
+
+        elif az_batch:
+            try:
+                from snakemake.executors.azure_batch import AzBatchExecutor
+            except ImportError as e:
+                raise WorkflowError(
+                    "Unable to load Azure Batch executor. You have to install "
+                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+                    e,
+                )
+            self._local_executor = CPUExecutor(
+                workflow,
+                dag,
+                self.stats,
+                logger,
+                local_cores,
+            )
+            self._executor = AzBatchExecutor(
+                workflow,
+                dag,
+                self.stats,
+                logger,
+                container_image=container_image,
+                az_batch_account_url=az_batch_account_url,
+                az_batch_enable_autoscale=az_batch_enable_autoscale,
             )
 
         elif google_lifesciences:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
             )
 
             self._executor = GoogleLifeSciencesExecutor(
                 workflow,
                 dag,
-                cores,
+                self.stats,
+                logger,
                 container_image=container_image,
                 regions=google_lifesciences_regions,
                 location=google_lifesciences_location,
                 cache=google_lifesciences_cache,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
+                service_account_email=google_lifesciences_service_account_email,
+                network=google_lifesciences_network,
+                subnetwork=google_lifesciences_subnetwork,
                 preemption_default=preemption_default,
                 preemptible_rules=preemptible_rules,
             )
@@ -399,21 +407,16 @@ class JobScheduler:
             self._local_executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
-                cores=local_cores,
-                keepincomplete=keepincomplete,
             )
 
             self._executor = TaskExecutionServiceExecutor(
                 workflow,
                 dag,
-                cores=local_cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
+                self.stats,
+                logger,
                 tes_url=tes,
                 container_image=container_image,
             )
@@ -422,13 +425,10 @@ class JobScheduler:
             self._executor = CPUExecutor(
                 workflow,
                 dag,
+                self.stats,
+                logger,
                 cores,
-                printreason=printreason,
-                quiet=quiet,
-                printshellcmds=printshellcmds,
                 use_threads=use_threads,
-                cores=cores,
-                keepincomplete=keepincomplete,
             )
         from throttler import Throttler
 
@@ -473,10 +473,7 @@ class JobScheduler:
 
     @property
     def stats(self):
-        try:
-            return self._executor.stats
-        except AttributeError:
-            raise TypeError("Executor does not support stats")
+        return self._stats
 
     @property
     def open_jobs(self):
@@ -572,11 +569,9 @@ class JobScheduler:
                     for job in needrun:
                         job.reset_params_and_resources()
 
+                    logger.debug(f"Resources before job selection: {self.resources}")
                     logger.debug(
-                        "Resources before job selection: {}".format(self.resources)
-                    )
-                    logger.debug(
-                        "Ready jobs ({})".format(len(needrun))
+                        f"Ready jobs ({len(needrun)})"
                         # + "\n\t".join(map(str, needrun))
                     )
 
@@ -586,12 +581,10 @@ class JobScheduler:
                     self._last_job_selection_empty = not run
 
                     logger.debug(
-                        "Selected jobs ({})".format(len(run))
+                        f"Selected jobs ({len(run)})"
                         # + "\n\t".join(map(str, run))
                     )
-                    logger.debug(
-                        "Resources after job selection: {}".format(self.resources)
-                    )
+                    logger.debug(f"Resources after job selection: {self.resources}")
 
                 # update running jobs
                 with self._lock:
@@ -740,7 +733,7 @@ class JobScheduler:
             # assert self.resources["_cores"] > 0
             scheduled_jobs = {
                 job: pulp.LpVariable(
-                    "job_{}".format(idx), lowBound=0, upBound=1, cat=pulp.LpInteger
+                    f"job_{idx}", lowBound=0, upBound=1, cat=pulp.LpInteger
                 )
                 for idx, job in enumerate(jobs)
             }
@@ -760,14 +753,14 @@ class JobScheduler:
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
-                    "temp_file_{}".format(idx), lowBound=0, upBound=1, cat="Continuous"
+                    f"temp_file_{idx}", lowBound=0, upBound=1, cat="Continuous"
                 )
                 for idx, temp_file in enumerate(temp_files)
             }
 
             temp_file_deletable = {
                 temp_file: pulp.LpVariable(
-                    "deletable_{}".format(idx),
+                    f"deletable_{idx}",
                     lowBound=0,
                     upBound=1,
                     cat=pulp.LpInteger,

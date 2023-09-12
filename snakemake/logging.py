@@ -15,8 +15,9 @@ from functools import partial
 import inspect
 import textwrap
 
+from snakemake_interface_executor_plugins.utils import ExecMode
+
 from snakemake.common import DYNAMIC_FILL
-from snakemake.common import Mode
 
 
 class ColorizingStreamHandler(_logging.StreamHandler):
@@ -34,7 +35,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
     }
 
     def __init__(
-        self, nocolor=False, stream=sys.stderr, use_threads=False, mode=Mode.default
+        self, nocolor=False, stream=sys.stderr, use_threads=False, mode=ExecMode.default
     ):
         super().__init__(stream=stream)
 
@@ -45,7 +46,7 @@ class ColorizingStreamHandler(_logging.StreamHandler):
     def can_color_tty(self, mode):
         if "TERM" in os.environ and os.environ["TERM"] == "dumb":
             return False
-        if mode == Mode.subprocess:
+        if mode == ExecMode.subprocess:
             return True
         return self.is_tty and not platform.system() == "Windows"
 
@@ -146,20 +147,16 @@ class WMSLogger:
 
         # We first ensure that the server is running, period
         response = requests.get(
-            self.address + "/api/service-info", headers=self._headers
+            f"{self.address}/api/service-info", headers=self._headers
         )
         if response.status_code != 200:
-            sys.stderr.write(
-                "Problem with server: {} {}".format(self.address, os.linesep)
-            )
+            sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
             sys.exit(-1)
 
         # And then that it's ready to be interacted with
         if response.json().get("status") != "running":
             sys.stderr.write(
-                "The status of the server {} is not in 'running' mode {}".format(
-                    self.address, os.linesep
-                )
+                f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
             )
             sys.exit(-1)
 
@@ -185,10 +182,10 @@ class WMSLogger:
         }
 
         response = requests.get(
-            self.address + "/create_workflow",
+            f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=metadata,
+            data=json.dumps(metadata),
         )
 
         # Check the response, will exit on any error
@@ -209,7 +206,7 @@ class WMSLogger:
             return
 
         if status_code == 404:
-            sys.stderr.write("The wms %s endpoint was not found" % endpoint)
+            sys.stderr.write(f"The wms {endpoint} endpoint was not found")
             sys.exit(-1)
         elif status_code == 401:
             sys.stderr.write(
@@ -218,7 +215,7 @@ class WMSLogger:
             sys.exit(-1)
         elif status_code == 500:
             sys.stderr.write(
-                "There was a server error when trying to access %s" % endpoint
+                f"There was a server error when trying to access {endpoint}"
             )
             sys.exit(-1)
         elif status_code == 403:
@@ -227,8 +224,7 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            "The %s response code %s is not recognized."
-            % (endpoint, response.status_code)
+            f"The {endpoint} response code {response.status_code} is not recognized."
         )
 
     @property
@@ -252,7 +248,7 @@ class WMSLogger:
 
             # For an exception, return the name and a message
             elif key == "exception":
-                result[key] = "%s: %s" % (
+                result[key] = "{}: {}".format(
                     msg["exception"].__class__.__name__,
                     msg["exception"] or "Exception",
                 )
@@ -280,7 +276,9 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(url, data=server_info, headers=self._headers)
+        response = requests.post(
+            url, data=json.dumps(server_info), headers=self._headers
+        )
         self.check_response(response, "/update_workflow_status")
 
 
@@ -295,13 +293,13 @@ class Logger:
         self.quiet = set()
         self.logfile = None
         self.last_msg_was_job_info = False
-        self.mode = Mode.default
+        self.mode = ExecMode.default
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
 
     def setup_logfile(self):
-        if self.mode == Mode.default and not self.dryrun:
+        if self.mode == ExecMode.default and not self.dryrun:
             os.makedirs(os.path.join(".snakemake", "log"), exist_ok=True)
             self.logfile = os.path.abspath(
                 os.path.join(
@@ -316,7 +314,7 @@ class Logger:
             self.logger.addHandler(self.logfile_handler)
 
     def cleanup(self):
-        if self.mode == Mode.default and self.logfile_handler is not None:
+        if self.mode == ExecMode.default and self.logfile_handler is not None:
             self.logger.removeHandler(self.logfile_handler)
             self.logfile_handler.close()
         self.log_handler = [self.text_handler]
@@ -341,9 +339,9 @@ class Logger:
         self.logger.setLevel(level)
 
     def logfile_hint(self):
-        if self.mode == Mode.default and not self.dryrun:
+        if self.mode == ExecMode.default and not self.dryrun:
             logfile = self.get_logfile()
-            self.info("Complete log: {}".format(os.path.relpath(logfile)))
+            self.info(f"Complete log: {os.path.relpath(logfile)}")
 
     def location(self, msg):
         callerframerecord = inspect.stack()[1]
@@ -432,7 +430,7 @@ class Logger:
             def format_item(item, omit=None, valueformat=str):
                 value = msg[item]
                 if value != omit:
-                    return "    {}: {}".format(item, valueformat(value))
+                    return f"    {item}: {valueformat(value)}"
 
             yield "{}{} {}:".format(
                 "local" if msg["local"] else "",
@@ -454,7 +452,7 @@ class Logger:
 
             wildcards = format_wildcards(msg["wildcards"])
             if wildcards:
-                yield "    wildcards: " + wildcards
+                yield f"    wildcards: {wildcards}"
 
             for item, omit in zip("priority threads".split(), [0, 1]):
                 fmt = format_item(item, omit=omit)
@@ -463,7 +461,7 @@ class Logger:
 
             resources = format_resources(msg["resources"])
             if resources:
-                yield "    resources: " + resources
+                yield f"    resources: {resources}"
 
         def show_logs(logs):
             for f in logs:
@@ -487,12 +485,12 @@ class Logger:
 
         def indent(item):
             if msg.get("indent"):
-                return "    " + item
+                return f"    {item}"
             else:
                 return item
 
         def timestamp():
-            self.logger.info(indent("[{}]".format(time.asctime())))
+            self.logger.info(indent(f"[{time.asctime()}]"))
 
         level = msg["level"]
 
@@ -652,7 +650,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
             "bug: format_dict applied to something neither a dict nor a Namedlist"
         )
     return ", ".join(
-        "{}={}".format(name, str(value))
+        f"{name}={value}"
         for name, value in items
         if name not in omit_keys and value not in omit_values
     )
@@ -688,13 +686,13 @@ def setup_logger(
     handler=[],
     quiet=False,
     printshellcmds=False,
-    printreason=False,
+    printreason=True,
     debug_dag=False,
     nocolor=False,
     stdout=False,
     debug=False,
     use_threads=False,
-    mode=Mode.default,
+    mode=ExecMode.default,
     show_failed_logs=False,
     dryrun=False,
 ):

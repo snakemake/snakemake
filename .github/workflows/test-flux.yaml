@@ -1,6 +1,7 @@
 name: Test Flux Executor
-on:
-  pull_request: []
+# TODO temporarily disable flux executor tests as the test container is based on Python 3.8 but Snakemake now requires Python 3.9
+# on:
+#   pull_request: []
 
 jobs:
   build:
@@ -26,14 +27,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Setup miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: snakemake
+          channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+
       - name: Install Snakemake
+        shell: bash -el {0}
         run: |
-          wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh           
-          /bin/bash ~/miniconda.sh -b -p /opt/conda
-          # Install snakemake
+          conda config --set channel_priority strict
+          mamba install python>=3.9 pip
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
           pip install .
 
       - name: Start Flux and Test Workflow
+        shell: bash -el {0}
         run: |
           # We must have python3->python accessible for this to work
           ln -s /bin/python3 /usr/local/bin/python
@@ -44,9 +56,8 @@ jobs:
           flux start snakemake --show-failed-logs --verbose --flux --jobs=1 --no-shared-fs
 
       - name: Test Flux with Conda
+        shell: bash -el {0}
         run: |
-          # conda python needs to be after system python
-          export PATH=$PATH:/opt/conda/bin
           which python
           which conda
           cp -R ./tests/test_conda /tmp/test_conda

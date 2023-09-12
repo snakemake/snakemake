@@ -23,8 +23,9 @@ We ensured that no bioinformatics knowledge is needed to understand the tutorial
 .. toctree::
    :maxdepth: 2
 
-   google_lifesciences
+   azure_batch
    azure_aks
+   google_lifesciences
    flux
 
    

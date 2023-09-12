@@ -6,7 +6,7 @@ __license__ = "MIT"
 import os
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
+from snakemake.remote import AbstractRemoteProvider
 from snakemake.exceptions import DropboxFileException, WorkflowError
 from snakemake.utils import os_sync
 

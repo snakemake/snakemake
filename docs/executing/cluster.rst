@@ -51,7 +51,7 @@ in nature. Any given threads and ``mem_mb`` requirements will be passed to SLURM
       output: ...
       threads: 8
       resources:
-          mem_mb: 14000
+          mem_mb=14000
 
 This will give jobs from this rule 14GB of memory and 8 CPU cores.
 It is advisable to use resonable default resources, such that you don't need to specify them for every rule.

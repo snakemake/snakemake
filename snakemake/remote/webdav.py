@@ -3,14 +3,13 @@ __copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, sys
+import os
 import email.utils
 from contextlib import contextmanager
-import functools
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject, DomainObject
-from snakemake.exceptions import WebDAVFileException, WorkflowError
+from snakemake.remote import AbstractRemoteProvider, DomainObject
+from snakemake.exceptions import WorkflowError
 from snakemake.utils import os_sync
 
 try:
@@ -64,7 +63,7 @@ class RemoteObject(DomainObject):
                 self.loop = asyncio.get_event_loop()
                 if self.loop.is_running():
                     raise NotImplementedError(
-                        "Cannot use aioutils in " "asynchroneous environment"
+                        "Cannot use aioutils in asynchroneous environment"
                     )
             except:
                 newloop = True

@@ -106,7 +106,7 @@ class PathModifier:
             return path
 
         # This will convert any AnnotatedString to str
-        fullpath = "{}/{}".format(self.workflow.default_remote_prefix, path)
+        fullpath = f"{self.workflow.default_remote_prefix}/{path}"
         fullpath = os.path.normpath(fullpath)
         remote = self.workflow.default_remote_provider.remote(fullpath)
         return remote

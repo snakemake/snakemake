@@ -1,28 +1,22 @@
 from collections import namedtuple
-from functools import partial
 from io import StringIO
 from fractions import Fraction
 import csv
 import os
-import re
-import stat
-import sys
 import time
 import shlex
-import shutil
 import subprocess
-import tarfile
-import tempfile
 import uuid
 
-from snakemake.jobs import Job
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
+from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
+from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
+from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
+from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
+
 from snakemake.logging import logger
-from snakemake.exceptions import print_exception
-from snakemake.exceptions import log_verbose_traceback
 from snakemake.exceptions import WorkflowError
-from snakemake.executors import ClusterExecutor
-from snakemake.utils import makedirs
-from snakemake.io import get_wildcard_names, Wildcards
 from snakemake.common import async_lock
 
 SlurmJob = namedtuple("SlurmJob", "job jobid callback error_callback slurm_logfile")
@@ -33,7 +27,7 @@ def get_account():
     tries to deduce the acccount from recent jobs,
     returns None, if none is found
     """
-    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%20 | head -n1'
+    cmd = f'sacct -nu "{os.environ["USER"]}" -o Account%256 | head -n1'
     try:
         sacct_out = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
@@ -50,7 +44,7 @@ def test_account(account):
     """
     tests whether the given account is registered, raises an error, if not
     """
-    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%20'
+    cmd = f'sacctmgr -n -s list user "{os.environ["USER"]}" format=account%256'
     try:
         accounts = subprocess.check_output(
             cmd, shell=True, text=True, stderr=subprocess.PIPE
@@ -93,7 +87,7 @@ def get_default_partition(job):
     return ""
 
 
-class SlurmExecutor(ClusterExecutor):
+class SlurmExecutor(RemoteExecutor):
     """
     the SLURM_Executor abstracts execution on SLURM
     clusters using snakemake resource string
@@ -101,28 +95,20 @@ class SlurmExecutor(ClusterExecutor):
 
     def __init__(
         self,
-        workflow,
-        dag,
-        cores,
+        workflow: WorkflowExecutorInterface,
+        dag: DAGExecutorInterface,
+        stats: StatsExecutorInterface,
+        logger: LoggerExecutorInterface,
         jobname="snakejob_{name}_{jobid}",
-        printreason=False,
-        quiet=False,
-        printshellcmds=False,
-        restart_times=0,
         max_status_checks_per_second=0.5,
-        cluster_config=None,
     ):
         super().__init__(
             workflow,
             dag,
-            cores,
+            stats,
+            logger,
+            None,
             jobname=jobname,
-            printreason=printreason,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            cluster_config=cluster_config,
-            restart_times=restart_times,
-            assume_shared_fs=True,
             max_status_checks_per_second=max_status_checks_per_second,
         )
         self.run_uuid = str(uuid.uuid4())
@@ -155,10 +141,10 @@ class SlurmExecutor(ClusterExecutor):
                     stderr=subprocess.PIPE,
                 )
             except subprocess.TimeoutExpired:
-                logger.warning(f"Unable to cancel jobs within a minute.")
+                logger.warning("Unable to cancel jobs within a minute.")
         self.shutdown()
 
-    def get_account_arg(self, job):
+    def get_account_arg(self, job: ExecutorJobInterface):
         """
         checks whether the desired account is valid,
         returns a default account, if applicable
@@ -185,7 +171,7 @@ class SlurmExecutor(ClusterExecutor):
                     )
             return self._fallback_account_arg
 
-    def get_partition_arg(self, job):
+    def get_partition_arg(self, job: ExecutorJobInterface):
         """
         checks whether the desired partition is valid,
         returns a default partition, if applicable
@@ -202,7 +188,13 @@ class SlurmExecutor(ClusterExecutor):
         else:
             return ""
 
-    def run(self, job, callback=None, submit_callback=None, error_callback=None):
+    def run(
+        self,
+        job: ExecutorJobInterface,
+        callback=None,
+        submit_callback=None,
+        error_callback=None,
+    ):
         super()._run(job)
         jobid = job.jobid
 
@@ -251,7 +243,7 @@ class SlurmExecutor(ClusterExecutor):
         if job.resources.get("cpus_per_task"):
             if not isinstance(cpus_per_task, int):
                 raise WorkflowError(
-                    "cpus_per_task must be an integer, but is {}".format(cpus_per_task)
+                    f"cpus_per_task must be an integer, but is {cpus_per_task}"
                 )
             cpus_per_task = job.resources.cpus_per_task
         # ensure that at least 1 cpu is requested

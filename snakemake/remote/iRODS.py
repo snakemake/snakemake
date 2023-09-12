@@ -4,16 +4,13 @@ __email__ = "oliver.stolpe@bihealth.org"
 __license__ = "MIT"
 
 import os
-import re
 
-from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone
 
 # module-specific
 from snakemake.remote import (
     AbstractRemoteProvider,
-    AbstractRemoteObject,
     AbstractRemoteRetryObject,
 )
 from snakemake.exceptions import WorkflowError

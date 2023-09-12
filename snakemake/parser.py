@@ -3,16 +3,12 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-from tempfile import TemporaryFile
-import tokenize
 import textwrap
-import os
-from urllib.error import HTTPError, URLError, ContentTooShortError
-import urllib.request
-from io import TextIOWrapper
+import tokenize
+from typing import Any, Dict, Generator, List, Optional
 
-from snakemake.exceptions import WorkflowError
-from snakemake import common
+import snakemake
+from snakemake import common, sourcecache, workflow
 
 dd = textwrap.dedent
 
@@ -73,9 +69,9 @@ class StopAutomaton(Exception):
 
 
 class TokenAutomaton:
-    subautomata = dict()
+    subautomata: Dict[str, Any] = {}
 
-    def __init__(self, snakefile, base_indent=0, dedent=0, root=True):
+    def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
         self.snakefile = snakefile
         self.state = None
@@ -157,7 +153,7 @@ class KeywordState(TokenAutomaton):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Colon expected after keyword {}.".format(self.keyword), token)
+            self.error(f"Colon expected after keyword {self.keyword}.", token)
 
     def is_block_end(self, token):
         return (self.line and self.indent <= 0) or is_eof(token)
@@ -189,15 +185,15 @@ class KeywordState(TokenAutomaton):
 
 class GlobalKeywordState(KeywordState):
     def start(self):
-        yield "workflow.{keyword}(".format(keyword=self.keyword)
+        yield f"workflow.{self.keyword}("
 
 
 class DecoratorKeywordState(KeywordState):
-    decorator = None
-    args = list()
+    decorator: Optional[str] = None
+    args: List[str] = []
 
     def start(self):
-        yield "@workflow.{}".format(self.decorator)
+        yield f"@workflow.{self.decorator}"
         yield "\n"
         yield "def __{}({}):".format(self.decorator, ", ".join(self.args))
 
@@ -212,12 +208,12 @@ class RuleKeywordState(KeywordState):
 
     def start(self):
         yield "\n"
-        yield "@workflow.{keyword}(".format(keyword=self.keyword)
+        yield f"@workflow.{self.keyword}("
 
 
 class SectionKeywordState(KeywordState):
     def start(self):
-        yield ", {keyword}=".format(keyword=self.keyword)
+        yield f", {self.keyword}="
 
     def end(self):
         # no end needed
@@ -369,7 +365,7 @@ class Subworkflow(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.subworkflow({name!r}".format(name=token.string), token
+            yield f"workflow.subworkflow({token.string!r}", token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -565,9 +561,9 @@ class Run(RuleKeywordState):
 
 
 class AbstractCmd(Run):
-    overwrite_cmd = None
-    start_func = None
-    end_func = None
+    overwrite_cmd: Optional[str] = None
+    start_func: Optional[str] = None
+    end_func: Optional[str] = None
 
     def __init__(self, snakefile, rulename, base_indent=0, dedent=0, root=True):
         super().__init__(
@@ -745,13 +741,8 @@ class Rule(GlobalKeywordState):
 
     def start(self, aux=""):
         yield (
-            "@workflow.rule(name={rulename!r}, lineno={lineno}, "
-            "snakefile={snakefile!r}{aux})".format(
-                rulename=self.rulename,
-                lineno=self.lineno,
-                snakefile=self.snakefile.path,
-                aux=aux,
-            )
+            f"@workflow.rule(name={self.rulename!r}, lineno={self.lineno}, "
+            f"snakefile={self.snakefile.path!r}{aux})"
         )
 
     def end(self):
@@ -777,7 +768,7 @@ class Rule(GlobalKeywordState):
                 yield t, token
         else:
             self.error(
-                "Expected name or colon after " "rule or checkpoint keyword.", token
+                "Expected name or colon after rule or checkpoint keyword.", token
             )
 
     def block_content(self, token):
@@ -812,7 +803,7 @@ class Rule(GlobalKeywordState):
                     yield t
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in rule definition".format(token.string),
+                    f"Unexpected keyword {token.string} in rule definition",
                     token,
                 )
             except StopAutomaton as e:
@@ -824,7 +815,7 @@ class Rule(GlobalKeywordState):
             yield token.string, token
         elif is_string(token):
             yield "\n", token
-            yield "@workflow.docstring({})".format(token.string), token
+            yield f"@workflow.docstring({token.string})", token
         else:
             self.error(
                 "Expecting rule keyword, comment or docstrings "
@@ -922,7 +913,7 @@ class Module(GlobalKeywordState):
 
     def name(self, token):
         if is_name(token):
-            yield "workflow.module({name!r}".format(name=token.string), token
+            yield f"workflow.module({token.string!r}", token
             self.has_name = True
         elif is_colon(token) and self.has_name:
             self.primary_token = token
@@ -994,7 +985,7 @@ class UseRule(GlobalKeywordState):
         rulename = self.rules[0]
         if rulename == "*":
             rulename = "__allrules__"
-        yield "def __userule_{}_{}():".format(self.from_module, rulename)
+        yield f"def __userule_{self.from_module}_{rulename}():"
         # the end is detected.
         # So we can savely reset the indent to zero here
         self.indent = 0
@@ -1181,7 +1172,7 @@ class UseRule(GlobalKeywordState):
                 yield from ()
             except KeyError:
                 self.error(
-                    "Unexpected keyword {} in rule definition".format(token.string),
+                    f"Unexpected keyword {token.string} in rule definition",
                     token,
                 )
             except StopAutomaton as e:
@@ -1230,7 +1221,7 @@ class Python(TokenAutomaton):
         super().__init__(snakefile, base_indent=base_indent, dedent=dedent, root=root)
         self.state = self.python
 
-    def python(self, token):
+    def python(self, token: tokenize.TokenInfo):
         if not (is_indent(token) or is_dedent(token)):
             if self.lasttoken is None or self.lasttoken.isspace():
                 try:
@@ -1247,7 +1238,12 @@ class Python(TokenAutomaton):
 
 
 class Snakefile:
-    def __init__(self, path, workflow, rulecount=0):
+    def __init__(
+        self,
+        path: "sourcecache.SourceFile",
+        workflow: "workflow.Workflow",
+        rulecount=0,
+    ):
         self.path = path.get_path_or_uri()
         self.file = workflow.sourcecache.open(path)
         self.tokens = tokenize.generate_tokens(self.file.readline)
@@ -1267,8 +1263,8 @@ class Snakefile:
         self.file.close()
 
 
-def format_tokens(tokens):
-    t_ = None
+def format_tokens(tokens) -> Generator[str, None, None]:
+    t_: Optional[str] = None
     for t in tokens:
         if t_ and not t.isspace() and not t_.isspace():
             yield " "

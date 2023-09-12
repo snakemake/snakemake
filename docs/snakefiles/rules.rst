@@ -23,7 +23,7 @@ The name is optional and can be left out, creating an anonymous rule. It can als
     To avoid evaluation and replacement, you have to mask the braces by doubling them,
     i.e. ``{{input}}``.
 
-Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_. 
+Inside the shell command, all local and global variables, especially input and output files can be accessed via their names in the `python format minilanguage <https://docs.python.org/py3k/library/string.html#formatspec>`_.
 Here, input and output (and in general any list or tuple) automatically evaluate to a space-separated list of files (i.e. ``path/to/inputfile path/to/other/inputfile``).
 From Snakemake 3.8.0 on, adding the special formatting instruction ``:q`` (e.g. ``"somecommand {input:q} {output:q}")``) will let Snakemake quote each of the list or tuple elements that contains whitespace.
 
@@ -142,7 +142,7 @@ Input files can be Python lists, allowing to easily aggregate over parameters or
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             ["{dataset}/a.txt".format(dataset=dataset) for dataset in DATASETS]
         output:
             "aggregated.txt"
@@ -159,7 +159,7 @@ The expand function
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             expand("{dataset}/a.txt", dataset=DATASETS)
         output:
             "aggregated.txt"
@@ -173,7 +173,7 @@ The ``expand`` function also allows us to combine different variables, e.g.
 .. code-block:: python
 
     rule aggregate:
-        input: 
+        input:
             expand("{dataset}/a.{ext}", dataset=DATASETS, ext=FORMATS)
         output:
             "aggregated.txt"
@@ -226,7 +226,7 @@ The multiext function
 .. code-block:: python
 
     rule plot:
-        input: 
+        input:
             ...
         output:
             multiext("some/plot", ".pdf", ".svg", ".png")
@@ -285,11 +285,11 @@ Further, a rule can be given a number of threads to use, i.e.
 .. sidebar:: Note
 
     On a cluster node, Snakemake uses as many cores as available on that node.
-    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node. 
+    Hence, the number of threads used by a rule never exceeds the number of physically available cores on the node.
     Note: This behavior is not affected by ``--local-cores``, which only applies to jobs running on the main node.
 
 Snakemake can alter the number of cores available based on command line options. Therefore it is useful to propagate it via the built in variable ``threads`` rather than hardcoding it into the shell command.
-In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``). 
+In particular, it should be noted that the specified threads have to be seen as a maximum. When Snakemake is executed with fewer cores, the number of threads will be adjusted, i.e. ``threads = min(threads, cores)`` with ``cores`` being the number of cores specified at the command line (option ``--cores``).
 
 Hardcoding a particular maximum number of threads like above is useful when a certain tool has a natural maximum beyond which parallelization won't help to further speed it up.
 This is often the case, and should be evaluated carefully for production workflows.
@@ -312,6 +312,16 @@ Any arithmetic operation can be performed to derive a number of threads from thi
 Snakemake will always round the calculated value down (while enforcing a minimum of 1 thread).
 
 Starting from version 3.7, threads can also be a callable that returns an ``int`` value. The signature of the callable should be ``callable(wildcards[, input])`` (input is an optional parameter).  It is also possible to refer to a predefined variable (e.g, ``threads: threads_max``) so that the number of cores for a set of rules can be changed with one change only by altering the value of the variable ``threads_max``.
+
+Both threads can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+
+.. code-block:: yaml
+
+    set-threads:
+        b: 16
+
+to set the (maximum) number of threads rule ``b`` uses to 16.
 
 
 .. _snakefiles-resources:
@@ -349,9 +359,14 @@ Apart from making Snakemake aware of hybrid-computing architectures (e.g. with a
 If no limits are given, the resources are ignored in local execution.
 
 Resources can have any arbitrary name, and must be assigned ``int`` or ``str`` values.
-They can also be callables that return ``int``, ``str`` or ``None`` values.
 In case of ``None``, the resource is considered to be unset (i.e. ignored) in the rule.
+
+Resources can also be callables (e.g. functions or lambda expressions) that return ``int``, ``str`` or ``None`` values.
 The signature of the callable must be ``callable(wildcards [, input] [, threads] [, attempt])`` (``input``, ``threads``, and ``attempt`` are optional parameters).
+Such callables are evaluated immediately before the job is executed (or printed during a dry-run).
+
+Since the callables can take e.g. ``input`` as an argument, they can for example be used to obtain the size of an input file and infer the amount of memory needed for the job.
+In order to make this work with a dry-run, where the input files are not yet present, Snakemake automatically converts a ``FileNotFoundError`` that is raised by the callable into a placeholder called ``<TBD>`` that will be displayed during dry-run in such a case.
 
 The parameter ``attempt`` allows us to adjust resources based on how often the job has been restarted (see :ref:`all_options`, option ``--retries``).
 This is handy when executing a Snakemake workflow in a cluster environment, where jobs can e.g. fail because of too limited resources.
@@ -394,7 +409,16 @@ Another application of callables as resources is when memory usage depends on th
 Here, the value the function ``get_mem_mb`` returns grows linearly with the number of threads.
 Of course, any other arithmetic could be performed in that function.
 
-Both threads and resources can be overwritten upon invocation via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options`.
+Both threads and resources can be defined (or overwritten) upon invocation (without modifying the workflow code) via `--set-threads` and `--set-resources`, see :ref:`user_manual-snakemake_options` and via workflow profiles, see :ref:`profiles`.
+To quickly exemplify the latter, you could provide the following workflow profile in a file ``profiles/default/config.yaml`` relative to the Snakefile or the current working directory:
+
+.. code-block:: yaml
+
+    set-resources:
+        b:
+            mem_mb: 1000
+
+to set the memory requirement of rule ``b`` to 1000 MB.
 
 .. _snakefiles-standard-resources:
 
@@ -429,12 +453,12 @@ Because of these special meanings, the above names should always be used instead
 Default Resources
 ~~~~~~~~~~~~~~~~~~
 
-Since it could be cumbersome to define these standard resources for every rule, you can set default values at 
+Since it could be cumbersome to define these standard resources for every rule, you can set default values at
 the terminal or in a :ref:`profile <profiles>`.
 This works via the command line flag ``--default-resources``, see ``snakemake --help`` for more information.
 If those resource definitions are mandatory for a certain execution mode, Snakemake will fail with a hint if they are missing.
 Any resource definitions inside a rule override what has been defined with ``--default-resources``.
-If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``, 
+If ``--default-resources`` are not specified, Snakemake uses ``'mem_mb=max(2*input.size_mb, 1000)'``,
 ``'disk_mb=max(2*input.size_mb, 1000)'``, and ``'tmpdir=system_tmpdir'``.
 The latter points to whatever is the default of the operating system or specified by any of the environment variables ``$TMPDIR``, ``$TEMP``, or ``$TMP`` as outlined `here <https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir>`_.
 If ``--default-resources`` is specified with some definitions, but any of the above defaults (e.g. ``mem_mb``) is omitted, these are still used.
@@ -473,7 +497,7 @@ These options could be overriden at the command line using:
 Resources and Group Jobs
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-New to Snakemake 7.11. 
+New to Snakemake 7.11.
 When submitting :ref:`group jobs <job_grouping>` to the cluster, Snakemake calculates how many resources to request by first determining which component jobs can be run in parallel, and which must be run in series.
 For most resources, such as ``mem_mb`` or ``threads``, a sum will be taken across each parallel layer.
 The layer requiring the most resource (i.e. ``max()``) will determine the final amount requested.
@@ -520,7 +544,7 @@ Note that this is currently implemented for the Google Life Sciences API.
 GPU Resources
 ~~~~~~~~~~~~~
 
-The Google Life Sciences API currently has support for 
+The Google Life Sciences API currently has support for
 `NVIDIA GPUs <https://cloud.google.com/compute/docs/gpus#restrictions>`_, meaning that you can request a number of NVIDIA GPUs explicitly by adding ``nvidia_gpu`` or ``gpu`` to your Snakefile resources for a step:
 
 
@@ -602,16 +626,16 @@ The log file has to use the same wildcards as output files, e.g.
     log: "logs/abc.{dataset}.log"
 
 
-For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect standard output to a file (here, the ``log`` file) in Linux-based systems.
-Note that it is also supported to have multiple (named) log files being specified:
+For programs that do not have an explicit ``log`` parameter, you may always use ``2> {log}`` to redirect stderr to a file (here, the ``log`` file) in Linux-based systems.
+Note that it is also possible to have multiple named log files, which could be used to capture stdout and stderr:
 
 .. code-block:: python
 
     rule abc:
         input: "input.txt"
         output: "output.txt"
-        log: log1="logs/abc.log", log2="logs/xyz.log"
-        shell: "somecommand --log {log.log1} METRICS_FILE={log.log2} {input} {output}"
+        log: stdout="logs/foo.stdout", stderr="logs/foo.stderr"
+        shell: "somecommand {input} {output} > {log.stdout} 2> {log.stderr}"
 
 Non-file parameters for rules
 -----------------------------
@@ -1150,7 +1174,7 @@ When using other languages than Python in the notebook, one needs to additionall
 
 When using an IDE with built-in Jupyter support, an alternative to ``--edit-notebook`` is ``--draft-notebook``.
 Instead of firing up a notebook server, ``--draft-notebook`` just creates a skeleton notebook for editing within the IDE.
-In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the 
+In addition, it prints instructions for configuring the IDE's notebook environment to use the interpreter from the
 Conda environment defined in the corresponding rule.
 For example, running
 
@@ -1196,13 +1220,13 @@ Directories as outputs
 ----------------------
 
 Sometimes it can be convenient to have directories, rather than files, as outputs of a rule.
-As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``. 
-This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake. 
-Marking the output as ``directory`` makes the intent clear, and the output can be safely removed. 
-Another reason comes down to how modification time for directories work. 
-The modification time on a directory changes when a file or a subdirectory is added, removed or renamed. 
-This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed. 
-When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun. 
+As of version 5.2.0, directories as outputs have to be explicitly marked with ``directory``.
+This is primarily for safety reasons; since all outputs are deleted before a job is executed, we don't want to risk deleting important directories if the user makes some mistake.
+Marking the output as ``directory`` makes the intent clear, and the output can be safely removed.
+Another reason comes down to how modification time for directories work.
+The modification time on a directory changes when a file or a subdirectory is added, removed or renamed.
+This can easily happen in not-quite-intended ways, such as when Apple macOS or MS Windows add ``.DS_Store`` or ``thumbs.db`` files to store parameters for how the directory contents should be displayed.
+When the ``directory`` flag is used a hidden file called ``.snakemake_timestamp`` is created in the output directory, and the modification time of that file is used when determining whether the rule output is up to date or if it needs to be rerun.
 Always consider if you can't formulate your workflow using normal files before resorting to using ``directory()``.
 
 .. code-block:: python
@@ -1269,7 +1293,7 @@ A sha256 checksum can be compared as follows:
         shell:
             "somecommand {output}"
 
-In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`). 
+In addition to providing the checksum as plain string, it is possible to provide a pointer to a function (similar to :ref:`input functions <snakefiles_input-functions>`).
 The function has to accept a single argument that will be the wildcards object generated from the application of the rule to create some requested output files:
 
 .. code-block:: python
@@ -1635,7 +1659,7 @@ With the `benchmark` keyword, a rule can be declared to store a benchmark of its
         shell:
             "somecommand {input} {output}"
 
-benchmarks the 
+benchmarks the
 
 * CPU time (in seconds),
 * wall clock time,
@@ -1730,7 +1754,7 @@ For example
 
     snakemake --set-scatter split=2
 
-would set the number of scatter items for the split process defined above to 2 instead of 8. 
+would set the number of scatter items for the split process defined above to 2 instead of 8.
 This allows to adapt parallelization according to the needs of the underlying computing platform and the analysis at hand.
 
 For more complex workflows it's possible to define multiple processes, for example:
@@ -1740,7 +1764,7 @@ For more complex workflows it's possible to define multiple processes, for examp
     scattergather:
         split_a=8,
         split_b=3,
-        
+
 The calls to ``scatter`` and ``gather`` would need to reference the appropriate process name, e.g. ``scatter.split_a`` and ``gather.split_a`` to use the ``split_a`` settings.
 
 .. _snakefiles-grouping:
@@ -1904,7 +1928,7 @@ Consider the following example:
             service("foo.socket")
         shell:
             # here we simulate some kind of server process that provides data via a socket
-            "ln -s /dev/random {output}; sleep 10000" 
+            "ln -s /dev/random {output}; sleep 10000"
 
 
     rule consumer1:
@@ -1946,7 +1970,7 @@ This works by combining the service job pattern from above with the :ref:`group-
             service("foo.{groupid}.socket")
         shell:
             # here we simulate some kind of server process that provides data via a socket
-            "ln -s /dev/random {output}; sleep 10000" 
+            "ln -s /dev/random {output}; sleep 10000"
 
 
     def get_socket(wildcards, groupid):
@@ -1976,7 +2000,7 @@ Parameter space exploration
 ---------------------------
 
 The basic Snakemake functionality already provides everything to handle parameter spaces in any way (sub-spacing for certain rules and even depending on wildcard values, the ability to read or generate spaces on the fly or from files via pandas, etc.).
-However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands. 
+However, it usually would require some boilerplate code for translating a parameter space into wildcard patterns, and translate it back into concrete parameters for scripts and commands.
 From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), this is solved via the Paramspace helper, which can be used as follows:
 
 .. code-block:: python
@@ -1991,14 +2015,14 @@ From Snakemake 5.31 on (inspired by `JUDI <https://pyjudi.readthedocs.io>`_), th
     rule all:
         input:
             # Aggregate over entire parameter space (or a subset thereof if needed)
-            # of course, something like this can happen anywhere in the workflow (not 
+            # of course, something like this can happen anywhere in the workflow (not
             # only at the end).
             expand("results/plots/{params}.pdf", params=paramspace.instance_patterns)
 
 
     rule simulate:
         output:
-            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}" 
+            # format a wildcard pattern like "alpha~{alpha}/beta~{beta}/gamma~{gamma}"
             # into a file path, with alpha, beta, gamma being the columns of the data frame
             f"results/simulations/{paramspace.wildcard_pattern}.tsv"
         params:
@@ -2036,35 +2060,35 @@ This workflow will run as follows:
 
     [Fri Nov 27 20:57:27 2020]
     rule simulate:
-        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                           
-        jobid: 4                                                                                                                                                                               
-        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+        output: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv
+        jobid: 4
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9
 
     [Fri Nov 27 20:57:27 2020]
     rule simulate:
-        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                          
-        jobid: 2                                                                                                                                                                               
-        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+        output: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv
+        jobid: 2
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99
 
     [Fri Nov 27 20:57:27 2020]
     rule plot:
-        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv                                                                                                                            
-        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                                                                 
-        jobid: 3                                                                                                                                                                               
-        wildcards: alpha=2.0, beta=0.0, gamma=3.9                                                                                                                                              
+        input: results/simulations/alpha~2.0/beta~0.0/gamma~3.9.tsv
+        output: results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf
+        jobid: 3
+        wildcards: alpha=2.0, beta=0.0, gamma=3.9
 
 
     [Fri Nov 27 20:57:27 2020]
     rule plot:
-        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv                                                                                                                           
-        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf                                                                                                                                
-        jobid: 1                                                                                                                                                                               
-        wildcards: alpha=1.0, beta=0.1, gamma=0.99                                                                                                                                             
+        input: results/simulations/alpha~1.0/beta~0.1/gamma~0.99.tsv
+        output: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf
+        jobid: 1
+        wildcards: alpha=1.0, beta=0.1, gamma=0.99
 
 
     [Fri Nov 27 20:57:27 2020]
     localrule all:
-        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf                                                                                 
+        input: results/plots/alpha~1.0/beta~0.1/gamma~0.99.pdf, results/plots/alpha~2.0/beta~0.0/gamma~3.9.pdf
         jobid: 0
 
 
@@ -2172,6 +2196,14 @@ To illustrate the possibilities of this mechanism, consider the following comple
           "touch {output}"
 
 As can be seen, the rule aggregate uses an input function.
+
+.. sidebar:: Note
+
+    You don't need to use the checkpoint mechanism to determine parameter or resource values of downstream rules that would be based on the output of previous rules.
+    In fact, it won't even work because the checkpoint mechanism is only considered for input functions.
+    Instead, you can simply use normal parameter or resource functions that just assume that those output files are there. Snakemake will evaluate them immediately before
+    the job is scheduled, when the required files from upstream rules are already present.
+
 Inside the function, we first retrieve the output files of the checkpoint ``somestep`` with the wildcards, passing through the value of the wildcard sample.
 Upon execution, if the checkpoint is not yet complete, Snakemake will record ``somestep`` as a direct dependency of the rule ``aggregate``.
 Once ``somestep`` has finished for a given sample, the input function will automatically be re-evaluated and the method ``get`` will no longer return an exception.
@@ -2286,7 +2318,7 @@ In this example the clusters are being processed by an intermediate rule before 
           "cat {input} > {output}"
 
 Here a new directory will be created for each sample by the checkpoint.
-After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously. 
+After completion of the checkpoint, the ``aggregate_input`` function is re-evaluated as previously.
 The values of the wildcard ``i`` is this time used to expand the pattern ``"post/{sample}/{i}.txt"``, such that the rule ``intermediate`` is executed for each of the determined clusters.
 
 
@@ -2380,7 +2412,7 @@ If the rule needs more than one input file, there has to be one input file calle
             "jinja2"
 
 The template itself has access to ``input``, ``params``, ``wildcards``, and ``config``,
-which are the same objects you can use for example in the ``shell`` or ``run`` directive, 
+which are the same objects you can use for example in the ``shell`` or ``run`` directive,
 and the same objects as can be accessed from ``script`` or ``notebook`` directives (but in the latter two cases they are stored behind the ``snakemake`` object which serves as a dedicated namespace to avoid name clashes).
 
 An example Jinja2 template could look like this:

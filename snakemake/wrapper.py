@@ -4,15 +4,9 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 
-import os
-import posixpath
-
-from urllib.error import URLError
-from urllib.request import urlopen
-
 from snakemake.exceptions import WorkflowError
 from snakemake.script import script
-from snakemake.sourcecache import LocalGitFile, SourceCache, infer_source_file
+from snakemake.sourcecache import SourceCache, infer_source_file
 
 
 PREFIX = "https://github.com/snakemake/snakemake-wrappers/raw/"
@@ -50,11 +44,11 @@ def is_url(path):
 
 def find_extension(source_file, sourcecache: SourceCache):
     for ext in EXTENSIONS:
-        if source_file.get_filename().endswith("wrapper{}".format(ext)):
+        if source_file.get_filename().endswith(f"wrapper{ext}"):
             return source_file
 
     for ext in EXTENSIONS:
-        script = source_file.join("wrapper{}".format(ext))
+        script = source_file.join(f"wrapper{ext}")
 
         if sourcecache.exists(script):
             return script
