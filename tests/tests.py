@@ -67,6 +67,7 @@ def test04():
     run(dpath("test04"), targets=["test.out"])
 
 
+@skip_on_windows # error: "The filename, directory name, or volume label syntax is incorrect".
 def test05():
     run(dpath("test05"))
 
