@@ -65,14 +65,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.print_progress = not self.quiet and not self.dryrun
         self.update_dynamic = not self.dryrun
 
+        nodes_unset = workflow.global_resources["_nodes"] is None
+
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
 
-        if workflow.global_resources["_nodes"] is not None:
+        if not nodes_unset:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
+
         self.resources = dict(self.global_resources)
 
         self._open_jobs = threading.Semaphore(0)
@@ -505,8 +508,12 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
-                self.run(local_runjobs, executor=self._local_executor or self._executor)
-                self.run(runjobs)
+                if local_runjobs:
+                    self.run(
+                        local_runjobs, executor=self._local_executor or self._executor
+                    )
+                if runjobs:
+                    self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -554,7 +561,6 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def run(self, jobs, executor=None):
         if executor is None:
             executor = self._executor
-
         executor.run_jobs(jobs)
 
     def get_executor(self, job):

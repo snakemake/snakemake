@@ -139,7 +139,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         self.global_resources = dict(self.resource_settings.resources)
         self.global_resources["_cores"] = self.resource_settings.cores
-        self.global_resources["_nodes"] = self.resource_settings.nodes or 1
+        self.global_resources["_nodes"] = self.resource_settings.nodes
 
         self._rules = OrderedDict()
         self.default_target = None
