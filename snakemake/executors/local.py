@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 
 import os
+from pathlib import Path
 import sys
 import time
 import shlex
@@ -234,7 +235,7 @@ class Executor(RealExecutor):
             print(os.listdir(self.workflow.workdir_init), file=sys.stderr)
             print(cmd, file=sys.stderr)
             subprocess.check_call(
-                f"cd {shlex.quote(self.workflow.workdir_init.as_posix())}",
+                f"cd {shlex.quote(Path(self.workflow.workdir_init).as_posix())}",
                 shell=True,
                 capture_output=True,
             )
