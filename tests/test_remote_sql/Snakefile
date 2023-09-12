@@ -1,0 +1,72 @@
+# import re, os, sys
+
+from snakemake.remote import SQL
+import pandas as pd
+import sqlite3 as sqlite
+from pandas import testing
+import pathlib as pl
+import datetime as dt
+import numpy as np
+import os 
+
+from sqlalchemy import create_engine
+
+
+def random_time_df(nrow: int) -> pd.DataFrame:
+    dti = pd.date_range(dt.datetime.now() - dt.timedelta(hours=nrow), (dt.datetime.now()), freq="H", inclusive="left").astype(np.int64) / 1e9
+    return pd.DataFrame({"time":dti, "a":range(len(dti))})
+
+def setup_db(path: pl.Path, table:str, nrow: int = 5):
+    print("Running")
+    with sqlite.connect(path) as db_con:
+        # Create table
+        test_df = random_time_df(nrow)
+        test_df.to_sql(table, db_con, if_exists="replace")
+
+def format_engine(db_file: pl.Path) -> str:
+    return f"sqlite:////{str((db_file).resolve())}"
+
+
+db_file = pl.Path("./test.db")
+nrow = 5
+input_table = "test"
+output_table = "test_output"
+#Setup database table
+setup_db(db_file, input_table)
+#Create remote
+provider = SQL.RemoteProvider(format_engine(db_file), stay_on_remote=True)
+
+
+onsuccess:
+    os.remove(db_file)
+
+onerror:
+    os.remove(db_file)
+
+
+rule do:
+    input:
+        data=provider.remote(
+            input_table,
+            time_query="min(time)",
+            date_parser=lambda x: (x), 
+        ),
+    output:
+        data=provider.remote(
+            output_table,
+            time_query="min(time)",
+            date_parser=lambda x: (x), 
+        ),
+        result="result.csv"
+    run:
+        print("Recreating table")
+        eng = create_engine(format_engine(db_file), connect_args={"check_same_thread":False})
+        con = eng.connect()
+        source_data = pd.read_sql_table(input_table, con)
+        output_data = source_data.copy()
+        #Shift table so that after first run the new table is newer than the source table
+        output_data["time"] = output_data["time"] + 100
+        output_data["b"] = output_data["a"] + 1
+        output_data.to_sql(output_table, con, if_exists="replace")
+        output_data["b"].to_csv(output.result, index=False)
+        con.close()

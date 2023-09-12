@@ -28,6 +28,8 @@ Snakemake includes the following remote providers, supported by the correspondin
 * EGA: ``snakemake.remote.EGA``
 * Zenodo: ``snakemake.remote.zenodo``
 * AUTO: an automated remote selector
+* SQL: ``snakemake.remote.SQL``
+
 
 Amazon Simple Storage Service (S3)
 ==================================
@@ -912,3 +914,48 @@ The auto remote provider only works for those which do not require the passing o
             """
             head {input.http_file}
             """
+
+
+Relational database remote provider
+===================
+
+This provider offers a dummy remote provider and remote files to add a table of a relational database as an input or output "file". This should work with any database supported by `Sqlalchemy <https://docs.sqlalchemy.org/en/20/dialects/index.html>`.
+For databases that support this, modification time is obtained from ``INFORMATION_SCHEMA.UPDATE_TIME``, otherwise you need to provide a ``time_query`` SQL expression that returns the modification time of the table as an unix timestamp. In the example below,
+we simply take the ``max`` of the *timestamp* column in the table. 
+
+.. code-block:: python
+
+    from snakemake.remote import SQL
+    import pandas as pd
+    import sqlite3 as sqlite
+    from pandas import testing
+    import pathlib as pl
+    import datetime as dt
+
+    db_file = pl.Path("./test.db")
+    def random_time_df() -> pd.DataFrame:
+        dti = pd.date_range(dt.datetime.now() - dt.timedelta(hours=3), periods=3, freq="H")
+        return pd.DataFrame({"time":dti})
+
+    def setup_db(path: pl.Path, table:str):
+        print("Running")
+        with sqlite.connect(path) as db_con:
+            # Create table
+            test_df = random_time_df()
+            test_df.to_sql(table, db_con, if_exists="replace")
+
+    table = "test"
+    setup_db(db_file, "test")
+    provider = SQL.RemoteProvider(f"sqlite:////{str((db_file).resolve())}", stay_on_remote=True)
+
+
+
+    rule do:
+        input:
+            data=provider.remote(
+                table,
+                time_query="max(time)"
+                date_parser=lambda x: dt.datetime.from_isoformat(x) , 
+            ),
+        run:
+            print("Doing nothing")

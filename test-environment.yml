@@ -67,7 +67,11 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
+  - sqlalchemy
+  - python-duckdb
+  - duckdb-engine
   - msrest
   - azure-batch
   - azure-mgmt-batch
   - azure-identity
+
