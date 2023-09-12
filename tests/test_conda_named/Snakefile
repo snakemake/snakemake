@@ -1,10 +1,12 @@
 import subprocess as sp
+import sys
 
 
 try:
     shell(
         "mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0"
     )
+    print("created conda env", file=sys.stderr)
 except sp.CalledProcessError as e:
     print(e.stderr)
     raise e
