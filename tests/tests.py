@@ -1077,7 +1077,7 @@ def test_scopes_submitted_to_cluster(mocker):
 
 @skip_on_windows
 def test_resources_submitted_to_cluster(mocker):
-    from snakemake.executors import AbstractExecutor
+    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 
     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
     run(
@@ -1097,7 +1097,7 @@ def test_resources_submitted_to_cluster(mocker):
 
 @skip_on_windows
 def test_excluded_resources_not_submitted_to_cluster(mocker):
-    from snakemake.executors import AbstractExecutor
+    from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 
     spy = mocker.spy(AbstractExecutor, "get_resource_declarations_dict")
     run(
@@ -1116,7 +1116,7 @@ def test_excluded_resources_not_submitted_to_cluster(mocker):
 @skip_on_windows
 def test_group_job_resources_with_pipe(mocker):
     import copy
-    from snakemake.executors import RealExecutor
+    from snakemake_interface_executor_plugins.executors.real import RealExecutor
 
     spy = mocker.spy(GroupResources, "basic_layered")
 
