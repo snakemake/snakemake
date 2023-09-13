@@ -8,8 +8,15 @@ rule all:
 rule a:
     output:
         pipe("test.{i}.txt")
+    log:
+        "test.{i}.log"
     shell:
-        "for i in {{0..2}}; do echo {wildcards.i} >> {output}; done"
+        """
+        for i in {{0..2}}; do 
+            echo $i >> {log}
+            echo {wildcards.i} >> {output}
+        done
+        """
 
 
 rule b:
