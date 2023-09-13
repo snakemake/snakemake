@@ -29,4 +29,4 @@ rule a:
     conda:
         "xxx-test-env"
     shell:
-        r"rg --version > {log.rg}; (rg --version | head -n1 | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {output}) 2> {log.err}"
+        r"rg --version | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {log.rg}; (rg --version | head -n1 | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {output}) 2> {log.err}"
