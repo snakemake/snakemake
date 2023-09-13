@@ -288,7 +288,10 @@ class shell:
 
         if jobid is not None:
             with cls._lock:
-                del cls._processes[jobid]
+                try:
+                    del cls._processes[jobid]
+                except KeyError:
+                    pass
 
         if retcode:
             raise sp.CalledProcessError(retcode, cmd)
