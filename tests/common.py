@@ -275,6 +275,7 @@ def run(
             settings.OutputSettings(
                 verbose=True,
                 printshellcmds=printshellcmds,
+                show_failed_logs=True,
             ),
         )
 
