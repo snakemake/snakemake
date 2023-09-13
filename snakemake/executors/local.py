@@ -232,18 +232,8 @@ class Executor(RealExecutor):
         cmd = self.format_job_exec(job)
 
         try:
-            print(os.listdir(self.workflow.workdir_init), file=sys.stderr)
-            print(cmd, file=sys.stderr)
-            subprocess.check_call(
-                f"cd {shlex.quote(Path(self.workflow.workdir_init).as_posix())}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            print(cmd, file=sys.stderr)
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
-            print(e.stderr, e.stdout, file=sys.stderr)
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):

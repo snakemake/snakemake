@@ -396,7 +396,7 @@ class DAGApi(ApiBase):
 
         execution_settings.use_threads = (
             execution_settings.use_threads
-            or (os.name not in ["posix", "nt"])
+            or (os.name not in ["posix"])
             or not executor_plugin.common_settings.local_exec
         )
 
