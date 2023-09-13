@@ -25,6 +25,8 @@ rule all:
 rule a:
     output:
         "test_{version}_v.out",
+    log:
+        err="test_{version}.log",
     params:
         name_prefix="foo",
     conda:
