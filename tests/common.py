@@ -419,6 +419,7 @@ def run(
 
     if snakemake_api is not None:
         snakemake_api.cleanup()
+    assert not os.getcwd().startswith(tmpdir)
 
     if not cleanup:
         return tmpdir
