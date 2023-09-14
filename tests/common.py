@@ -191,235 +191,235 @@ def run(
     directory to the calling test for inspection, and the test should
     clean it up.
     """
-    if check_results is None:
-        if not shouldfail:
-            check_results = True
-        else:
-            check_results = False
-
-    if set_pythonpath:
-        # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
-        # when subprocesses are invoked in the tempdir defined below.
-        os.environ["PYTHONPATH"] = os.getcwd()
-    elif "PYTHONPATH" in os.environ:
-        del os.environ["PYTHONPATH"]
-
-    results_dir = join(path, "expected-results")
-    original_snakefile = join(path, snakefile)
-    assert os.path.exists(original_snakefile)
-    assert os.path.exists(results_dir) and os.path.isdir(
-        results_dir
-    ), "{} does not exist".format(results_dir)
-
-    # If we need to further check results, we won't cleanup tmpdir
-    tmpdir = next(tempfile._get_candidate_names())
-    tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
-    os.mkdir(tmpdir)
-
-    config = dict(config)
-
-    # copy files
-    for f in os.listdir(path):
-        copy(os.path.join(path, f), tmpdir)
-
-    # Snakefile is now in temporary directory
-    snakefile = join(tmpdir, snakefile)
-
-    snakemake_api = None
-    exception = None
-
-    # run snakemake
-    if shellcmd:
-        if not shellcmd.startswith("snakemake"):
-            raise ValueError("shellcmd does not start with snakemake")
-        shellcmd = "{} -m {}".format(sys.executable, shellcmd)
-        try:
-            if sigint_after is None:
-                subprocess.run(
-                    shellcmd,
-                    cwd=path if no_tmpdir else tmpdir,
-                    check=True,
-                    shell=True,
-                    stderr=subprocess.STDOUT,
-                    stdout=subprocess.PIPE,
-                )
-                success = True
+    try:
+        if check_results is None:
+            if not shouldfail:
+                check_results = True
             else:
-                with subprocess.Popen(
-                    shlex.split(shellcmd),
-                    cwd=path if no_tmpdir else tmpdir,
-                    stderr=subprocess.STDOUT,
-                    stdout=subprocess.PIPE,
-                ) as process:
-                    time.sleep(sigint_after)
-                    process.send_signal(signal.SIGINT)
-                    time.sleep(2)
-                    success = process.returncode == 0
-        except subprocess.CalledProcessError as e:
-            success = False
-            print(e.stdout.decode(), file=sys.stderr)
-    else:
-        assert sigint_after is None, "Cannot sent SIGINT when calling directly"
+                check_results = False
 
-        if cluster is not None:
-            executor = "cluster-generic"
-            plugin = ExecutorPluginRegistry().get_plugin(executor)
-            executor_settings = plugin.executor_settings_class(
-                submit_cmd=cluster, status_cmd=cluster_status
-            )
-            nodes = 3
+        if set_pythonpath:
+            # Enforce current workdir (the snakemake source dir) to also be in PYTHONPATH
+            # when subprocesses are invoked in the tempdir defined below.
+            os.environ["PYTHONPATH"] = os.getcwd()
+        elif "PYTHONPATH" in os.environ:
+            del os.environ["PYTHONPATH"]
 
-        success = True
+        results_dir = join(path, "expected-results")
+        original_snakefile = join(path, snakefile)
+        assert os.path.exists(original_snakefile)
+        assert os.path.exists(results_dir) and os.path.isdir(
+            results_dir
+        ), "{} does not exist".format(results_dir)
 
-        snakemake_api = api.SnakemakeApi(
-            settings.OutputSettings(
-                verbose=True,
-                printshellcmds=printshellcmds,
-                show_failed_logs=True,
-            ),
-        )
+        # If we need to further check results, we won't cleanup tmpdir
+        tmpdir = next(tempfile._get_candidate_names())
+        tmpdir = os.path.join(tempfile.gettempdir(), "snakemake-%s" % tmpdir)
+        os.mkdir(tmpdir)
 
-        try:
-            workflow_api = snakemake_api.workflow(
-                resource_settings=settings.ResourceSettings(
-                    cores=cores,
-                    nodes=nodes,
-                    overwrite_resource_scopes=(
-                        ResourceScopes(overwrite_resource_scopes)
-                        if overwrite_resource_scopes is not None
-                        else dict()
-                    ),
-                    overwrite_resources=overwrite_resources,
-                    resources=resources,
-                    default_resources=default_resources,
-                    max_threads=max_threads,
-                    overwrite_scatter=overwrite_scatter,
-                ),
-                config_settings=settings.ConfigSettings(
-                    config=config,
-                    configfiles=configfiles,
-                ),
-                storage_settings=settings.StorageSettings(
-                    default_remote_provider=default_remote_provider,
-                    default_remote_prefix=default_remote_prefix,
-                    all_temp=all_temp,
-                ),
-                workflow_settings=settings.WorkflowSettings(
-                    wrapper_prefix=wrapper_prefix,
-                ),
-                snakefile=Path(original_snakefile if no_tmpdir else snakefile),
-                workdir=Path(path if no_tmpdir else tmpdir),
-            )
+        config = dict(config)
 
-            dag_api = workflow_api.dag(
-                dag_settings=settings.DAGSettings(
-                    targets=targets,
-                    until=until,
-                    omit_from=omit_from,
-                    forcerun=forcerun,
-                    batch=batch,
-                    force_incomplete=force_incomplete,
-                    cache=cache,
-                    forceall=forceall,
-                    rerun_triggers=rerun_triggers,
-                ),
-                deployment_settings=settings.DeploymentSettings(
-                    conda_frontend=conda_frontend,
-                    conda_prefix=conda_prefix,
-                    deployment_method=deployment_method,
-                ),
-            )
+        # copy files
+        for f in os.listdir(path):
+            copy(os.path.join(path, f), tmpdir)
 
-            if report is not None:
-                dag_api.create_report(path=report, stylesheet=report_stylesheet)
-            elif conda_list_envs:
-                dag_api.conda_list_envs()
-            elif archive is not None:
-                dag_api.archive(Path(archive))
-            elif generate_unit_tests is not None:
-                dag_api.generate_unit_tests(Path(generate_unit_tests))
-            elif containerize:
-                dag_api.containerize()
-            elif cleanup_metadata:
-                dag_api.cleanup_metadata(cleanup_metadata)
-            else:
-                dag_api.execute_workflow(
-                    executor=executor,
-                    execution_settings=settings.ExecutionSettings(
-                        cleanup_scripts=cleanup_scripts,
-                        shadow_prefix=shadow_prefix,
-                        retries=retries,
-                        edit_notebook=edit_notebook,
-                    ),
-                    remote_execution_settings=settings.RemoteExecutionSettings(
-                        container_image=container_image,
-                        seconds_between_status_checks=0,
-                        envvars=envvars,
-                    ),
-                    scheduling_settings=settings.SchedulingSettings(
-                        ilp_solver=scheduler_ilp_solver,
-                    ),
-                    group_settings=settings.GroupSettings(
-                        group_components=group_components,
-                        overwrite_groups=overwrite_groups,
-                    ),
-                    executor_settings=executor_settings,
-                )
-        except Exception as e:
-            success = False
-            exception = e
+        # Snakefile is now in temporary directory
+        snakefile = join(tmpdir, snakefile)
 
-    if shouldfail:
-        assert not success, "expected error on execution"
-    else:
-        if not success:
-            if snakemake_api is not None and exception is not None:
-                snakemake_api.print_exception(exception)
-            print("Workdir:")
-            print_tree(tmpdir, exclude=".snakemake/conda")
-        assert success, "expected successful execution"
+        snakemake_api = None
+        exception = None
 
-    if check_results:
-        for resultfile in get_expected_files(results_dir):
-            if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
-                os.path.join(results_dir, resultfile)
-            ):
-                # this means tests cannot use directories as output files
-                continue
-            targetfile = join(tmpdir, resultfile)
-            expectedfile = join(results_dir, resultfile)
-
-            if ON_WINDOWS:
-                if os.path.exists(join(results_dir, resultfile + "_WIN")):
-                    continue  # Skip test if a Windows specific file exists
-                if resultfile.endswith("_WIN"):
-                    targetfile = join(tmpdir, resultfile[:-4])
-            elif resultfile.endswith("_WIN"):
-                # Skip win specific result files on Posix platforms
-                continue
-
-            assert os.path.exists(targetfile), 'expected file "{}" not produced'.format(
-                resultfile
-            )
-            if check_md5:
-                md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
-                md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
-                if md5target != md5expected:
-                    with open(expectedfile) as expected:
-                        expected_content = expected.read().strip()
-                    with open(targetfile) as target:
-                        content = target.read().strip()
-                    assert (
-                        False
-                    ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
-                        resultfile=resultfile,
-                        content=content,
-                        expected_content=expected_content,
+        # run snakemake
+        if shellcmd:
+            if not shellcmd.startswith("snakemake"):
+                raise ValueError("shellcmd does not start with snakemake")
+            shellcmd = "{} -m {}".format(sys.executable, shellcmd)
+            try:
+                if sigint_after is None:
+                    subprocess.run(
+                        shellcmd,
+                        cwd=path if no_tmpdir else tmpdir,
+                        check=True,
+                        shell=True,
+                        stderr=subprocess.STDOUT,
+                        stdout=subprocess.PIPE,
                     )
+                    success = True
+                else:
+                    with subprocess.Popen(
+                        shlex.split(shellcmd),
+                        cwd=path if no_tmpdir else tmpdir,
+                        stderr=subprocess.STDOUT,
+                        stdout=subprocess.PIPE,
+                    ) as process:
+                        time.sleep(sigint_after)
+                        process.send_signal(signal.SIGINT)
+                        time.sleep(2)
+                        success = process.returncode == 0
+            except subprocess.CalledProcessError as e:
+                success = False
+                print(e.stdout.decode(), file=sys.stderr)
+        else:
+            assert sigint_after is None, "Cannot sent SIGINT when calling directly"
 
-    if snakemake_api is not None:
-        snakemake_api.cleanup()
-    assert not os.getcwd().startswith(tmpdir)
+            if cluster is not None:
+                executor = "cluster-generic"
+                plugin = ExecutorPluginRegistry().get_plugin(executor)
+                executor_settings = plugin.executor_settings_class(
+                    submit_cmd=cluster, status_cmd=cluster_status
+                )
+                nodes = 3
+
+            success = True
+
+            snakemake_api = api.SnakemakeApi(
+                settings.OutputSettings(
+                    verbose=True,
+                    printshellcmds=printshellcmds,
+                    show_failed_logs=True,
+                ),
+            )
+
+            try:
+                workflow_api = snakemake_api.workflow(
+                    resource_settings=settings.ResourceSettings(
+                        cores=cores,
+                        nodes=nodes,
+                        overwrite_resource_scopes=(
+                            ResourceScopes(overwrite_resource_scopes)
+                            if overwrite_resource_scopes is not None
+                            else dict()
+                        ),
+                        overwrite_resources=overwrite_resources,
+                        resources=resources,
+                        default_resources=default_resources,
+                        max_threads=max_threads,
+                        overwrite_scatter=overwrite_scatter,
+                    ),
+                    config_settings=settings.ConfigSettings(
+                        config=config,
+                        configfiles=configfiles,
+                    ),
+                    storage_settings=settings.StorageSettings(
+                        default_remote_provider=default_remote_provider,
+                        default_remote_prefix=default_remote_prefix,
+                        all_temp=all_temp,
+                    ),
+                    workflow_settings=settings.WorkflowSettings(
+                        wrapper_prefix=wrapper_prefix,
+                    ),
+                    snakefile=Path(original_snakefile if no_tmpdir else snakefile),
+                    workdir=Path(path if no_tmpdir else tmpdir),
+                )
+
+                dag_api = workflow_api.dag(
+                    dag_settings=settings.DAGSettings(
+                        targets=targets,
+                        until=until,
+                        omit_from=omit_from,
+                        forcerun=forcerun,
+                        batch=batch,
+                        force_incomplete=force_incomplete,
+                        cache=cache,
+                        forceall=forceall,
+                        rerun_triggers=rerun_triggers,
+                    ),
+                    deployment_settings=settings.DeploymentSettings(
+                        conda_frontend=conda_frontend,
+                        conda_prefix=conda_prefix,
+                        deployment_method=deployment_method,
+                    ),
+                )
+
+                if report is not None:
+                    dag_api.create_report(path=report, stylesheet=report_stylesheet)
+                elif conda_list_envs:
+                    dag_api.conda_list_envs()
+                elif archive is not None:
+                    dag_api.archive(Path(archive))
+                elif generate_unit_tests is not None:
+                    dag_api.generate_unit_tests(Path(generate_unit_tests))
+                elif containerize:
+                    dag_api.containerize()
+                elif cleanup_metadata:
+                    dag_api.cleanup_metadata(cleanup_metadata)
+                else:
+                    dag_api.execute_workflow(
+                        executor=executor,
+                        execution_settings=settings.ExecutionSettings(
+                            cleanup_scripts=cleanup_scripts,
+                            shadow_prefix=shadow_prefix,
+                            retries=retries,
+                            edit_notebook=edit_notebook,
+                        ),
+                        remote_execution_settings=settings.RemoteExecutionSettings(
+                            container_image=container_image,
+                            seconds_between_status_checks=0,
+                            envvars=envvars,
+                        ),
+                        scheduling_settings=settings.SchedulingSettings(
+                            ilp_solver=scheduler_ilp_solver,
+                        ),
+                        group_settings=settings.GroupSettings(
+                            group_components=group_components,
+                            overwrite_groups=overwrite_groups,
+                        ),
+                        executor_settings=executor_settings,
+                    )
+            except Exception as e:
+                success = False
+                exception = e
+
+        if shouldfail:
+            assert not success, "expected error on execution"
+        else:
+            if not success:
+                if snakemake_api is not None and exception is not None:
+                    snakemake_api.print_exception(exception)
+                print("Workdir:")
+                print_tree(tmpdir, exclude=".snakemake/conda")
+            assert success, "expected successful execution"
+
+        if check_results:
+            for resultfile in get_expected_files(results_dir):
+                if resultfile in [".gitignore", ".gitkeep"] or not os.path.isfile(
+                    os.path.join(results_dir, resultfile)
+                ):
+                    # this means tests cannot use directories as output files
+                    continue
+                targetfile = join(tmpdir, resultfile)
+                expectedfile = join(results_dir, resultfile)
+
+                if ON_WINDOWS:
+                    if os.path.exists(join(results_dir, resultfile + "_WIN")):
+                        continue  # Skip test if a Windows specific file exists
+                    if resultfile.endswith("_WIN"):
+                        targetfile = join(tmpdir, resultfile[:-4])
+                elif resultfile.endswith("_WIN"):
+                    # Skip win specific result files on Posix platforms
+                    continue
+
+                assert os.path.exists(
+                    targetfile
+                ), 'expected file "{}" not produced'.format(resultfile)
+                if check_md5:
+                    md5expected = md5sum(expectedfile, ignore_newlines=ON_WINDOWS)
+                    md5target = md5sum(targetfile, ignore_newlines=ON_WINDOWS)
+                    if md5target != md5expected:
+                        with open(expectedfile) as expected:
+                            expected_content = expected.read().strip()
+                        with open(targetfile) as target:
+                            content = target.read().strip()
+                        assert (
+                            False
+                        ), "wrong result produced for file '{resultfile}':\n------found------\n{content}\n-----expected-----\n{expected_content}\n-----------------".format(
+                            resultfile=resultfile,
+                            content=content,
+                            expected_content=expected_content,
+                        )
+    finally:
+        if snakemake_api is not None:
+            snakemake_api.cleanup()
 
     if not cleanup:
         return tmpdir

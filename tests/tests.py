@@ -1939,9 +1939,8 @@ def test_conda_python_3_7_script():
 
 
 def test_prebuilt_conda_script():
-    print(os.getcwd())
     sp.run(
-        "conda env create -f tests/test_prebuilt_conda_script/env.yaml",
+        f"conda env create -f {dpath('test_prebuilt_conda_script/env.yaml')}",
         shell=True,
         check=True,
     )
