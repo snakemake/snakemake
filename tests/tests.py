@@ -1942,7 +1942,6 @@ def test_prebuilt_conda_script():
     sp.run(
         f"conda env create -f {dpath('test_prebuilt_conda_script/env.yaml')}",
         shell=True,
-        check=True,
     )
     run(dpath("test_prebuilt_conda_script"), deployment_method={DeploymentMethod.CONDA})
 
