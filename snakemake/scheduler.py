@@ -89,6 +89,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.submit_callback = self._noop
         self.finish_callback = self._proceed
 
+        if workflow.remote_execution_settings.immediate_submit:
+            self.submit_callback = self._proceed
+            self.finish_callback = self._noop
+
         self._local_executor = None
 
         if self.workflow.local_exec:
@@ -580,6 +584,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
+            logger.debug(f"Completion of job {job.rules} reported to scheduler.")
             self._tofinish.append(job)
 
             if self.dryrun:

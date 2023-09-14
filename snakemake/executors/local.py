@@ -196,37 +196,38 @@ class Executor(RealExecutor):
         # we only have to consider pipe or service groups because in local running mode,
         # these are the only groups that will occur
 
-        futures = [self.run_single_job(j) for j in job]
-        n_non_service = sum(1 for j in job if not j.is_service)
+        service_futures = [self.run_single_job(j) for j in job if j.is_service]
+        normal_futures = [self.run_single_job(j) for j in job if not j.is_service]
 
-        while True:
-            n_finished = 0
-            for f in futures:
+        while normal_futures:
+            for f in list(normal_futures):
                 if f.done():
+                    logger.debug("Job inside group is finished.")
                     ex = f.exception()
                     if ex is not None:
+                        logger.debug(f"Job inside group failed with exception {ex}.")
                         # kill all shell commands of the other group jobs
                         # there can be only shell commands because the
                         # run directive is not allowed for pipe jobs
                         for j in job:
                             shell.kill(j.jobid)
                         raise ex
-                    else:
-                        n_finished += 1
-            if n_finished >= n_non_service:
-                # terminate all service jobs since all consumers are done
-                for j in job:
-                    if j.is_service:
-                        logger.info(
-                            f"Terminating service job {j.jobid} since all consuming jobs are finished."
-                        )
-                        shell.terminate(j.jobid)
-                        logger.info(
-                            f"Service job {j.jobid} has been successfully terminated."
-                        )
-
-                return
+                    normal_futures.remove(f)
             time.sleep(1)
+
+        if service_futures:
+            # terminate all service jobs since all consumers are done
+            for j in job:
+                if j.is_service:
+                    logger.info(
+                        f"Terminating service job {j.jobid} since all consuming jobs are finished."
+                    )
+                    shell.terminate(j.jobid)
+                    logger.info(
+                        f"Service job {j.jobid} has been successfully terminated."
+                    )
+
+            return
 
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)

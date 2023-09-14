@@ -1179,8 +1179,8 @@ def test_group_job_fail():
 
 
 @skip_on_windows  # Not supported, but could maybe be implemented. https://stackoverflow.com/questions/48542644/python-and-windows-named-pipes
-def test_pipes():
-    run(dpath("test_pipes"))
+def test_pipes_simple():
+    run(dpath("test_pipes"), printshellcmds=True)
 
 
 @skip_on_windows
