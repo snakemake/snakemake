@@ -89,6 +89,7 @@ class SnakemakeApi(ApiBase):
 
     output_settings: OutputSettings = field(default_factory=OutputSettings)
     _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
+    _is_in_context: bool = field(init=False, default=False)
 
     def workflow(
         self,
@@ -112,8 +113,9 @@ class SnakemakeApi(ApiBase):
         snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
+        self._check_is_in_context()
+
         self._setup_logger()
-        self.cleanup()
 
         snakefile = resolve_snakefile(snakefile)
 
@@ -128,7 +130,7 @@ class SnakemakeApi(ApiBase):
         )
         return self._workflow_api
 
-    def cleanup(self):
+    def _cleanup(self):
         """Cleanup the workflow."""
         if not self.output_settings.keep_logger:
             logger.cleanup()
@@ -175,6 +177,21 @@ class SnakemakeApi(ApiBase):
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
             )
+
+    def _check_is_in_context(self):
+        if not self._is_in_context:
+            raise ApiError(
+                "This method can only be called when SnakemakeApi is used within a with "
+                "statement."
+            )
+
+    def __enter__(self):
+        self._is_in_context = True
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._is_in_context = False
+        self._cleanup()
 
 
 @dataclass
