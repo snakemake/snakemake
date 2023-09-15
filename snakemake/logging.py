@@ -216,6 +216,7 @@ class WMSLogger:
 
         # Provide server parameters to the logger
         self.server = {"url": self.address, "id": id}
+
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
         error codes, 404 (not found), 401 (requires authorization), 403 (permission
@@ -245,7 +246,7 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            f"The {endpoint} response code {response.status_code} is not recognized."
+            f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
         )
 
     @property
