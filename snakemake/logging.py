@@ -158,9 +158,7 @@ class WMSLogger:
         # And then that it's ready to be interacted with
         if response.json().get("status") != "running":
             sys.stderr.write(
-                "The status of the server {} is not in 'running' mode {}".format(
-                    self.address, os.linesep
-                )
+                f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
             )
             sys.exit(-1)
 
@@ -246,8 +244,7 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
-        )
+            f"The {endpoint} response code {response.status_code} is not recognized."        )
 
     @property
     def _headers(self):
