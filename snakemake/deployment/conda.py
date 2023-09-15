@@ -72,7 +72,7 @@ class Env:
         if env_name is not None:
             assert env_file is None, "bug: both env_file and env_name specified"
 
-        self.frontend = workflow.conda_frontend
+        self.frontend = workflow.deployment_settings.conda_frontend
         self.workflow = workflow
 
         self._container_img = container_img
@@ -89,7 +89,7 @@ class Env:
         self._path = None
         self._archive_file = None
         self._cleanup = cleanup
-        self._singularity_args = workflow.singularity_args
+        self._singularity_args = workflow.deployment_settings.apptainer_args
 
     @lazy_property
     def conda(self):

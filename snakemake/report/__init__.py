@@ -297,7 +297,7 @@ class RuleRecord:
                 wrapper.get_script(
                     self._rule.wrapper,
                     self._rule.workflow.sourcecache,
-                    prefix=self._rule.workflow.wrapper_prefix,
+                    prefix=self._rule.workflow.workflow_settings.wrapper_prefix,
                 ),
                 self._rule.workflow.sourcecache,
             )

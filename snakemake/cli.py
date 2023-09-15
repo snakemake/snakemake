@@ -3,55 +3,66 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import argparse
 import sys
+from typing import Set
+
+import configargparse
 
 from snakemake import logging
-from snakemake.api import snakemake
+import snakemake.common.argparse
+from snakemake.api import SnakemakeApi, _get_executor_plugin_registry, resolve_snakefile
 
 import os
 import glob
 from argparse import ArgumentDefaultsHelpFormatter
-import logging as _logging
 from pathlib import Path
 import re
-import threading
-import webbrowser
-from functools import partial
 import shlex
 from importlib.machinery import SourceFileLoader
+from snakemake.settings import (
+    ChangeType,
+    ConfigSettings,
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    NotebookEditMode,
+    OutputSettings,
+    PreemptibleRules,
+    Quietness,
+    RemoteExecutionSettings,
+    ResourceSettings,
+    SchedulingSettings,
+    StorageSettings,
+    WorkflowSettings,
+)
 
-from snakemake_interface_executor_plugins.utils import url_can_parse, ExecMode
-from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
-
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.target_jobs import parse_target_jobs_cli_args
+
 from snakemake.workflow import Workflow
 from snakemake.dag import Batch
 from snakemake.exceptions import (
     CliException,
     ResourceScopesException,
+    print_exception,
 )
-from snakemake.io import wait_for_files
 from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
-    RERUN_TRIGGERS,
+    SNAKEFILE_CHOICES,
     __version__,
-    MIN_PY_VERSION,
     get_appdirs,
+    get_container_image,
     parse_key_value_arg,
 )
 from snakemake.resources import ResourceScopes, parse_resources, DefaultResources
-
-SNAKEFILE_CHOICES = [
-    "Snakefile",
-    "snakefile",
-    "workflow/Snakefile",
-    "workflow/snakefile",
-]
+from snakemake.settings import RerunTrigger
 
 
 def parse_set_threads(args):
     return parse_set_ints(
-        args.set_threads,
+        args,
         "Invalid threads definition: entries have to be defined as RULE=THREADS pairs "
         "(with THREADS being a positive integer).",
     )
@@ -66,8 +77,8 @@ def parse_set_resources(args):
     from collections import defaultdict
 
     assignments = defaultdict(dict)
-    if args.set_resources is not None:
-        for entry in args.set_resources:
+    if args is not None:
+        for entry in args:
             key, value = parse_key_value_arg(entry, errmsg=errmsg)
             key = key.split(":")
             if len(key) != 2:
@@ -86,7 +97,7 @@ def parse_set_resources(args):
 
 def parse_set_scatter(args):
     return parse_set_ints(
-        args.set_scatter,
+        args,
         "Invalid scatter definition: entries have to be defined as NAME=SCATTERITEMS pairs "
         "(with SCATTERITEMS being a positive integer).",
     )
@@ -97,11 +108,10 @@ def parse_set_resource_scope(args):
         "Invalid resource scopes: entries must be defined as RESOURCE=SCOPE pairs, "
         "where SCOPE is either 'local', 'global', or 'excluded'"
     )
-    if args.set_resource_scopes is not None:
+    if args is not None:
         try:
             return ResourceScopes(
-                parse_key_value_arg(entry, errmsg=err_msg)
-                for entry in args.set_resource_scopes
+                parse_key_value_arg(entry, errmsg=err_msg) for entry in args
             )
         except ResourceScopesException as err:
             invalid_resources = ", ".join(
@@ -177,16 +187,16 @@ def _bool_parser(value):
     raise ValueError
 
 
-def parse_config(args):
+def parse_config(entries):
     """Parse config from args."""
     import yaml
 
     yaml_base_load = lambda s: yaml.load(s, Loader=yaml.loader.BaseLoader)
     parsers = [int, float, _bool_parser, yaml_base_load, str]
     config = dict()
-    if args.config is not None:
+    if entries:
         valid = re.compile(r"[a-zA-Z_]\w*$")
-        for entry in args.config:
+        for entry in entries:
             key, val = parse_key_value_arg(
                 entry,
                 errmsg="Invalid config definition: Config entries have to be defined as name=value pairs.",
@@ -212,36 +222,18 @@ def parse_config(args):
     return config
 
 
-def parse_cores(cores, allow_none=False):
-    if cores is None:
-        if allow_none:
-            return cores
-        raise CliException(
-            "Error: you need to specify the maximum number of CPU cores to "
-            "be used at the same time. If you want to use N cores, say --cores N "
-            "or -cN. For all cores on your system (be sure that this is "
-            "appropriate) use --cores all. For no parallelization use --cores 1 or "
-            "-c1."
-        )
+def parse_cores(cores):
     if cores == "all":
         return available_cpu_count()
     try:
         return int(cores)
     except ValueError:
         raise CliException(
-            "Error parsing number of cores (--cores, -c, -j): must be integer, "
-            "empty, or 'all'."
+            "Error parsing number of cores (--cores, -c): must be integer or 'all'."
         )
 
 
-def parse_jobs(jobs, allow_none=False):
-    if jobs is None:
-        if allow_none:
-            return jobs
-        raise CliException(
-            "Error: you need to specify the maximum number of jobs to "
-            "be queued or executed at the same time with --jobs or -j."
-        )
+def parse_jobs(jobs):
     if jobs == "unlimited":
         return sys.maxsize
     try:
@@ -250,20 +242,6 @@ def parse_jobs(jobs, allow_none=False):
         raise CliException(
             "Error parsing number of jobs (--jobs, -j): must be integer."
         )
-
-
-def parse_cores_jobs(cores, jobs, no_exec, non_local_exec, dryrun):
-    if no_exec or dryrun:
-        cores = parse_cores(cores, allow_none=True) or 1
-        jobs = parse_jobs(jobs, allow_none=True) or 1
-    elif non_local_exec:
-        cores = parse_cores(cores, allow_none=True)
-        jobs = parse_jobs(jobs)
-    else:
-        cores = parse_cores(cores or jobs)
-        jobs = None
-
-    return cores, jobs
 
 
 def get_profile_file(profile, file, return_default=False):
@@ -292,7 +270,6 @@ def get_profile_file(profile, file, return_default=False):
 
 def get_argument_parser(profiles=None):
     """Generate and return argument parser."""
-    import configargparse
     from snakemake.profiles import ProfileConfigFileParser
 
     dirs = get_appdirs()
@@ -317,7 +294,7 @@ def get_argument_parser(profiles=None):
                 exit(1)
             config_files.append(config_file)
 
-    parser = configargparse.ArgumentParser(
+    parser = snakemake.common.argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
         "environment for GNU Make-like workflows.",
         formatter_class=ArgumentDefaultsHelpFormatter,
@@ -328,9 +305,9 @@ def get_argument_parser(profiles=None):
     group_exec = parser.add_argument_group("EXECUTION")
 
     group_exec.add_argument(
-        "target",
+        "targets",
         nargs="*",
-        default=None,
+        default=set(),
         help="Targets to build. May be rules or files.",
     )
 
@@ -380,7 +357,7 @@ def get_argument_parser(profiles=None):
             The profile folder has to contain a file 'config.yaml'.
             This file can be used to set default values for command
             line options in YAML format. For example,
-            '--cluster qsub' becomes 'cluster: qsub' in the YAML
+            '--executor slurm' becomes 'executor: slurm' in the YAML
             file. It is advisable to use the workflow profile to set
             or overwrite e.g. workflow specific resources like the amount of threads
             of a particular rule or the amount of memory needed.
@@ -404,6 +381,7 @@ def get_argument_parser(profiles=None):
         "--snakefile",
         "-s",
         metavar="FILE",
+        type=Path,
         help=(
             "The workflow definition in form of a snakefile."
             "Usually, you should not need to specify this. "
@@ -418,9 +396,8 @@ def get_argument_parser(profiles=None):
         "--cores",
         "-c",
         action="store",
-        const=available_cpu_count(),
-        nargs="?",
         metavar="N",
+        type=parse_cores,
         help=(
             "Use at most N CPU cores/jobs in parallel. "
             "If N is omitted or 'all', the limit is set to the number of "
@@ -436,12 +413,12 @@ def get_argument_parser(profiles=None):
         "--jobs",
         "-j",
         metavar="N",
-        nargs="?",
-        const=available_cpu_count(),
         action="store",
+        type=parse_jobs,
         help=(
             "Use at most N CPU cluster/cloud jobs in parallel. For local execution this is "
-            "an alias for --cores. Note: Set to 'unlimited' in case, this does not play a role."
+            "an alias for --cores (it is though recommended to use --cores in that case). "
+            "Note: Set to 'unlimited' to allow any number of parallel jobs."
         ),
     )
     group_exec.add_argument(
@@ -459,8 +436,10 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--resources",
         "--res",
-        nargs="*",
+        nargs="+",
         metavar="NAME=INT",
+        default=dict(),
+        parse_func=parse_resources,
         help=(
             "Define additional resources that shall constrain the scheduling "
             "analogously to --cores (see above). A resource is defined as "
@@ -478,6 +457,8 @@ def get_argument_parser(profiles=None):
         "--set-threads",
         metavar="RULE=THREADS",
         nargs="+",
+        default=dict(),
+        parse_func=parse_set_threads,
         help="Overwrite thread usage of rules. This allows to fine-tune workflow "
         "parallelization. In particular, this is helpful to target certain cluster nodes "
         "by e.g. shifting a rule to use more, or less threads than defined in the workflow. "
@@ -496,6 +477,8 @@ def get_argument_parser(profiles=None):
         "--set-resources",
         metavar="RULE:RESOURCE=VALUE",
         nargs="+",
+        default=dict(),
+        parse_func=parse_set_resources,
         help="Overwrite resource usage of rules. This allows to fine-tune workflow "
         "resources. In particular, this is helpful to target certain cluster nodes "
         "by e.g. defining a certain partition for a rule, or overriding a temporary directory. "
@@ -506,6 +489,8 @@ def get_argument_parser(profiles=None):
         "--set-scatter",
         metavar="NAME=SCATTERITEMS",
         nargs="+",
+        default=dict(),
+        parse_func=parse_set_scatter,
         help="Overwrite number of scatter items of scattergather processes. This allows to fine-tune "
         "workflow parallelization. Thereby, SCATTERITEMS has to be a positive integer, and NAME has to be "
         "the name of the scattergather process defined via a scattergather directive in the workflow.",
@@ -514,6 +499,8 @@ def get_argument_parser(profiles=None):
         "--set-resource-scopes",
         metavar="RESOURCE=[global|local]",
         nargs="+",
+        default=dict(),
+        parse_func=parse_set_resource_scope,
         help="Overwrite resource scopes. A scope determines how a constraint is "
         "reckoned in cluster execution. With RESOURCE=local, a constraint applied to "
         "RESOURCE using --resources will be considered the limit for each group "
@@ -530,6 +517,7 @@ def get_argument_parser(profiles=None):
         "--default-res",
         nargs="*",
         metavar="NAME=INT",
+        parse_func=DefaultResources,
         help=(
             "Define default values of resources for rules that do not define their own values. "
             "In addition to plain integers, python expressions over inputsize are allowed (e.g. '2*input.size_mb'). "
@@ -547,30 +535,21 @@ def get_argument_parser(profiles=None):
     )
 
     group_exec.add_argument(
-        "--preemption-default",
-        type=int,
-        default=None,
+        "--preemptible-rules",
+        nargs="*",
+        parse_func=set,
         help=(
-            "A preemptible instance can be requested when using the Google Life Sciences API. If you set a --preemption-default,"
-            "all rules will be subject to the default. Specifically, this integer is the number of restart attempts that will be "
-            "made given that the instance is killed unexpectedly. Note that preemptible instances have a maximum running time of 24 "
-            "hours. If you want to set preemptible instances for only a subset of rules, use --preemptible-rules instead."
+            "Define which rules shall use a preemptible machine which can be prematurely killed by e.g. a cloud provider (also called spot instances). "
+            "This is currently only supported by the Google Life Sciences executor and ignored by all other executors. "
+            "If no rule names are provided, all rules are considered to be preemptible. "
+            "The "
         ),
     )
 
     group_exec.add_argument(
-        "--preemptible-rules",
-        nargs="+",
-        default=None,
-        help=(
-            "A preemptible instance can be requested when using the Google Life Sciences API. If you want to use these instances "
-            "for a subset of your rules, you can use --preemptible-rules and then specify a list of rule and integer pairs, where "
-            "each integer indicates the number of restarts to use for the rule's instance in the case that the instance is "
-            "terminated unexpectedly. --preemptible-rules can be used in combination with --preemption-default, and will take "
-            "priority. Note that preemptible instances have a maximum running time of 24. If you want to apply a consistent "
-            "number of retries across all your rules, use --preemption-default instead. "
-            "Example: snakemake --preemption-default 10 --preemptible-rules map_reads=3 call_variants=0"
-        ),
+        "--preemptible-retries",
+        type=int,
+        help="Number of retries that shall be made in order to finish a job from of rule that has been marked as preemptible via the --preemptible-rules setting.",
     )
 
     group_exec.add_argument(
@@ -578,6 +557,8 @@ def get_argument_parser(profiles=None):
         "-C",
         nargs="*",
         metavar="KEY=VALUE",
+        default=dict(),
+        parse_func=parse_config,
         help=(
             "Set or overwrite values in the workflow config object. "
             "The workflow config object is accessible as variable config inside "
@@ -590,6 +571,8 @@ def get_argument_parser(profiles=None):
         "--configfiles",
         nargs="+",
         metavar="FILE",
+        default=list(),
+        type=Path,
         help=(
             "Specify or overwrite the config file of the workflow (see the docs). "
             "Values specified in JSON or YAML format are available in the global config "
@@ -603,13 +586,14 @@ def get_argument_parser(profiles=None):
         "--envvars",
         nargs="+",
         metavar="VARNAME",
+        parse_func=set,
         help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(
         "--directory",
         "-d",
         metavar="DIR",
-        action="store",
+        type=Path,
         help=(
             "Specify working directory (relative paths in "
             "the snakefile will use this as their origin)."
@@ -641,8 +625,9 @@ def get_argument_parser(profiles=None):
     group_exec.add_argument(
         "--rerun-triggers",
         nargs="+",
-        choices=RERUN_TRIGGERS,
-        default=RERUN_TRIGGERS,
+        choices=RerunTrigger.choices(),
+        default=RerunTrigger.all(),
+        parse_func=RerunTrigger.parse_choices_set,
         help="Define what triggers the rerunning of a job. By default, "
         "all triggers are used, which guarantees that results are "
         "consistent with the workflow code and configuration. If you "
@@ -662,7 +647,7 @@ def get_argument_parser(profiles=None):
         "--executor",
         "-e",
         help="Specify a custom executor, available via an executor plugin: snakemake_executor_<name>",
-        choices=ExecutorPluginRegistry().plugins,
+        choices=_get_executor_plugin_registry().plugins.keys(),
     )
     group_exec.add_argument(
         "--forceall",
@@ -679,6 +664,8 @@ def get_argument_parser(profiles=None):
         "-R",
         nargs="*",
         metavar="TARGET",
+        parse_func=set,
+        default=set(),
         help=(
             "Force the re-execution or creation of the given rules or files."
             " Use this option if you changed a rule and want to have all its "
@@ -690,14 +677,17 @@ def get_argument_parser(profiles=None):
         "-P",
         nargs="+",
         metavar="TARGET",
+        parse_func=set,
+        default=set(),
         help=(
             "Tell the scheduler to assign creation of given targets "
-            "(and all their dependencies) highest priority. (EXPERIMENTAL)"
+            "(and all their dependencies) highest priority."
         ),
     )
     group_exec.add_argument(
         "--batch",
         metavar="RULE=BATCH/BATCHES",
+        type=parse_batch,
         help=(
             "Only create the given BATCH of the input files of the given RULE. "
             "This can be used to iteratively run parts of very large workflows. "
@@ -714,6 +704,8 @@ def get_argument_parser(profiles=None):
         "-U",
         nargs="+",
         metavar="TARGET",
+        parse_func=set,
+        default=set(),
         help=(
             "Runs the pipeline until it reaches the specified rules or "
             "files. Only runs jobs that are dependencies of the specified "
@@ -725,6 +717,8 @@ def get_argument_parser(profiles=None):
         "-O",
         nargs="+",
         metavar="TARGET",
+        parse_func=set,
+        default=set(),
         help=(
             "Prevent the execution or creation of the given rules or files "
             "as well as any rules or files that are downstream of these targets "
@@ -811,26 +805,18 @@ def get_argument_parser(profiles=None):
         help=("Do not evaluate or execute subworkflows."),
     )
 
-    # TODO add group_partitioning, allowing to define --group rulename=groupname.
-    # i.e. setting groups via the CLI for improving cluster performance given
-    # available resources.
-    # TODO add an additional flag --group-components groupname=3, allowing to set the
-    # number of connected components a group is allowed to span. By default, this is 1
-    # (as now), but the flag allows to extend this. This can be used to run e.g.
-    # 3 jobs of the same rule in the same group, although they are not connected.
-    # Can be helpful for putting together many small jobs or benefitting of shared memory
-    # setups.
-
     group_group = parser.add_argument_group("GROUPING")
     group_group.add_argument(
         "--groups",
         nargs="+",
+        parse_func=parse_groups,
         help="Assign rules to groups (this overwrites any "
         "group definitions from the workflow).",
     )
     group_group.add_argument(
         "--group-components",
         nargs="+",
+        parse_func=parse_group_components,
         help="Set the number of connected components a group is "
         "allowed to span. By default, this is 1, but this flag "
         "allows to extend this. This can be used to run e.g. 3 "
@@ -845,6 +831,7 @@ def get_argument_parser(profiles=None):
         nargs="?",
         const="report.html",
         metavar="FILE",
+        type=Path,
         help="Create an HTML report with results and statistics. "
         "This can be either a .html file or a .zip file. "
         "In the former case, all results are embedded into the .html (this only works for small data). "
@@ -854,6 +841,7 @@ def get_argument_parser(profiles=None):
     group_report.add_argument(
         "--report-stylesheet",
         metavar="CSSFILE",
+        type=Path,
         help="Custom stylesheet to use for report. In particular, this can be used for "
         "branding the report with e.g. a custom logo, see docs.",
     )
@@ -899,6 +887,7 @@ def get_argument_parser(profiles=None):
         nargs="?",
         const=".tests/unit",
         metavar="TESTPATH",
+        type=Path,
         help="Automatically generate unit tests for each workflow rule. "
         "This assumes that all input files of each job are already present. "
         "Rules without a job with present input files will be skipped (a warning will be issued). "
@@ -920,6 +909,7 @@ def get_argument_parser(profiles=None):
         help="Compile workflow to CWL and store it in given FILE.",
     )
     group_utils.add_argument(
+        "--list-rules",
         "--list",
         "-l",
         action="store_true",
@@ -1003,6 +993,7 @@ def get_argument_parser(profiles=None):
     group_utils.add_argument(
         "--archive",
         metavar="FILE",
+        type=Path,
         help="Archive the workflow into the given tar archive FILE. The archive "
         "will be created such that the workflow can be re-executed on a vanilla "
         "system. The function needs conda and git to be installed. "
@@ -1019,6 +1010,7 @@ def get_argument_parser(profiles=None):
         "--cm",
         nargs="+",
         metavar="FILE",
+        type=Path,
         help="Cleanup the metadata "
         "of given files. That means that snakemake removes any tracked "
         "version info, and any marks that files are incomplete.",
@@ -1038,16 +1030,10 @@ def get_argument_parser(profiles=None):
         "--unlock", action="store_true", help="Remove a lock on the working directory."
     )
     group_utils.add_argument(
-        "--list-version-changes",
-        "--lv",
-        action="store_true",
-        help="List all output files that have been created with "
-        "a different version (as determined by the version keyword).",
-    )
-    group_utils.add_argument(
-        "--list-code-changes",
+        "--list-changes",
         "--lc",
-        action="store_true",
+        choices=ChangeType.all(),
+        type=ChangeType.parse_choice,
         help="List all output files for which the rule body (run or shell) have "
         "changed in the Snakefile.",
     )
@@ -1075,7 +1061,8 @@ def get_argument_parser(profiles=None):
         "workflow. This can be used e.g. for identifying leftover files. Hidden files "
         "and directories are ignored.",
     )
-    group_utils.add_argument(
+    group_delete_output = group_utils.add_mutually_exclusive_group()
+    group_delete_output.add_argument(
         "--delete-all-output",
         action="store_true",
         help="Remove all files generated by the workflow. Use together with --dry-run "
@@ -1083,7 +1070,7 @@ def get_argument_parser(profiles=None):
         "not recurse into subworkflows. Write-protected files are not removed. "
         "Nevertheless, use with care!",
     )
-    group_utils.add_argument(
+    group_delete_output.add_argument(
         "--delete-temp-output",
         action="store_true",
         help="Remove all temporary files generated by the workflow. Use together "
@@ -1114,20 +1101,6 @@ def get_argument_parser(profiles=None):
 
     group_output = parser.add_argument_group("OUTPUT")
     group_output.add_argument(
-        "--gui",
-        nargs="?",
-        const="8000",
-        metavar="PORT",
-        type=str,
-        help="Serve an HTML based user interface to the given network and "
-        "port e.g. 168.129.10.15:8000. By default Snakemake is only "
-        "available in the local network (default port: 8000). To make "
-        "Snakemake listen to all ip addresses add the special host address "
-        "0.0.0.0 to the url (0.0.0.0:8000). This is important if Snakemake "
-        "is used in a virtualised environment like Docker. If possible, a "
-        "browser window is opened.",
-    )
-    group_output.add_argument(
         "--printshellcmds",
         "-p",
         action="store_true",
@@ -1140,19 +1113,15 @@ def get_argument_parser(profiles=None):
         "inferring DAG. This can help to debug unexpected DAG topology or errors.",
     )
     group_output.add_argument(
-        "--stats",
-        metavar="FILE",
-        help="Write stats about Snakefile execution in JSON format to the given file.",
-    )
-    group_output.add_argument(
         "--nocolor", action="store_true", help="Do not use a colored output."
     )
     group_output.add_argument(
         "--quiet",
         "-q",
         nargs="*",
-        choices=["progress", "rules", "all"],
+        choices=Quietness.choices(),
         default=None,
+        parse_func=parse_quietness,
         help="Do not output certain information. "
         "If used without arguments, do not output any progress or rule "
         "information. Defining 'all' results in no information being "
@@ -1220,6 +1189,7 @@ def get_argument_parser(profiles=None):
         "--wait-for-files",
         nargs="*",
         metavar="FILE",
+        parse_func=set,
         help="Wait --latency-wait seconds for these "
         "files to be present before executing the workflow. "
         "This option is used internally to handle filesystem latency in cluster "
@@ -1253,7 +1223,7 @@ def get_argument_parser(profiles=None):
         help="Keep local copies of remote input files.",
     )
     group_behavior.add_argument(
-        "--keep-target-files",
+        "--target-files-omit-workdir-adjustment",
         action="store_true",
         help="Do not adjust the paths of given target files relative to the working directory.",
     )
@@ -1267,6 +1237,8 @@ def get_argument_parser(profiles=None):
     group_behavior.add_argument(
         "--target-jobs",
         nargs="+",
+        parse_func=parse_target_jobs_cli_args,
+        default=set(),
         help="Target particular jobs by RULE:WILDCARD1=VALUE,WILDCARD2=VALUE,... "
         "This is meant for internal use by Snakemake itself only.",
     )
@@ -1290,9 +1262,15 @@ def get_argument_parser(profiles=None):
         "fractions allowed.",
     )
     group_behavior.add_argument(
-        "-T",
+        "--seconds-between-status-checks",
+        default=10,
+        type=int,
+        help="Number of seconds to wait between two rounds of status checks.",
+    )
+    group_behavior.add_argument(
         "--retries",
         "--restart-times",
+        "-T",
         default=0,
         type=int,
         help="Number of times to restart failing jobs (defaults to 0).",
@@ -1346,12 +1324,12 @@ def get_argument_parser(profiles=None):
         "separately. Further, it won't take special measures "
         "to deal with filesystem latency issues. This option "
         "will in most cases only make sense in combination with "
-        "--default-remote-provider. Further, when using --cluster "
-        "you will have to also provide --cluster-status. "
+        "--default-remote-provider. "
         "Only activate this if you "
         "know what you are doing.",
     )
     group_behavior.add_argument(
+        "--scheduler-greediness",
         "--greediness",
         type=float,
         default=None,
@@ -1364,12 +1342,6 @@ def get_argument_parser(profiles=None):
         "--no-hooks",
         action="store_true",
         help="Do not invoke onstart, onsuccess or onerror hooks after execution.",
-    )
-    group_behavior.add_argument(
-        "--overwrite-shellcmd",
-        help="Provide a shell command that shall be executed instead of those "
-        "given in the workflow. "
-        "This is for debugging purposes only.",
     )
     group_behavior.add_argument(
         "--debug",
@@ -1385,9 +1357,9 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--mode",
-        choices=[ExecMode.default, ExecMode.subprocess, ExecMode.remote],
-        default=ExecMode.default,
-        type=int,
+        choices=ExecMode.all(),
+        default=ExecMode.DEFAULT,
+        type=ExecMode.parse_choice,
         help="Set execution mode of Snakemake (internal use only).",
     )
     group_behavior.add_argument(
@@ -1438,49 +1410,19 @@ def get_argument_parser(profiles=None):
         # mode
     )
 
-    group_cluster = parser.add_argument_group("CLUSTER")
+    group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
-    # TODO extend below description to explain the wildcards that can be used
-    cluster_mode_group = group_cluster.add_mutually_exclusive_group()
-    cluster_mode_group.add_argument(
-        "--cluster",
-        metavar="CMD",
-        help=(
-            "Execute snakemake rules with the given submit command, "
-            "e.g. qsub. Snakemake compiles jobs into scripts that are "
-            "submitted to the cluster with the given command, once all input "
-            "files for a particular job are present.\n"
-            "The submit command can be decorated to make it aware of certain "
-            "job properties (name, rulename, input, output, params, wildcards, log, threads "
-            "and dependencies (see the argument below)), e.g.:\n"
-            "$ snakemake --cluster 'qsub -pe threaded {threads}'."
-        ),
-    ),
-    cluster_mode_group.add_argument(
-        "--cluster-sync",
-        metavar="CMD",
-        help=(
-            "cluster submission command will block, returning the remote exit"
-            "status upon remote termination (for example, this should be used"
-            "if the cluster command is 'qsub -sync y' (SGE)"
-        ),
-    ),
-    cluster_mode_group.add_argument(
-        "--drmaa",
-        nargs="?",
-        const="",
-        metavar="ARGS",
-        help="Execute snakemake on a cluster accessed via DRMAA, "
-        "Snakemake compiles jobs into scripts that are "
-        "submitted to the cluster with the given command, once all input "
-        "files for a particular job are present. ARGS can be used to "
-        "specify options of the underlying cluster system, "
-        "thereby using the job properties name, rulename, input, output, params, wildcards, log, "
-        "threads and dependencies, e.g.: "
-        "--drmaa ' -pe threaded {threads}'. Note that ARGS must be given in quotes and "
-        "with a leading whitespace.",
+    group_cluster.add_argument(
+        "--container-image",
+        metavar="IMAGE",
+        help="Docker image to use, e.g., when submitting jobs to kubernetes. "
+        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
+        "the same version as the currently running Snakemake instance. "
+        "Note that overwriting this value is up to your responsibility. "
+        "Any used image has to contain a working snakemake installation "
+        "that is compatible with (or ideally the same as) the currently "
+        "running version.",
     )
-
     group_cluster.add_argument(
         "--immediate-submit",
         "--is",
@@ -1511,102 +1453,11 @@ def get_argument_parser(profiles=None):
         'cluster (see --cluster). NAME is "snakejob.{name}.{jobid}.sh" '
         "per default. The wildcard {jobid} has to be present in the name.",
     )
-    group_cluster.add_argument(
-        "--cluster-status",
-        help="Status command for cluster execution. This is only considered "
-        "in combination with the --cluster flag. If provided, Snakemake will "
-        "use the status command to determine if a job has finished successfully "
-        "or failed. For this it is necessary that the submit command provided "
-        "to --cluster returns the cluster job id. Then, the status command "
-        "will be invoked with the job id. Snakemake expects it to return "
-        "'success' if the job was successful, 'failed' if the job failed and "
-        "'running' if the job still runs.",
-    )
-    group_cluster.add_argument(
-        "--cluster-cancel",
-        default=None,
-        help="Specify a command that allows to stop currently running jobs. "
-        "The command will be passed a single argument, the job id.",
-    )
-    group_cluster.add_argument(
-        "--cluster-cancel-nargs",
-        type=int,
-        default=1000,
-        help="Specify maximal number of job ids to pass to --cluster-cancel "
-        "command, defaults to 1000.",
-    )
-    group_cluster.add_argument(
-        "--cluster-sidecar",
-        default=None,
-        help="Optional command to start a sidecar process during cluster "
-        "execution.  Only active when --cluster is given as well.",
-    )
-    group_cluster.add_argument(
-        "--drmaa-log-dir",
-        metavar="DIR",
-        help="Specify a directory in which stdout and stderr files of DRMAA"
-        " jobs will be written. The value may be given as a relative path,"
-        " in which case Snakemake will use the current invocation directory"
-        " as the origin. If given, this will override any given '-o' and/or"
-        " '-e' native specification. If not given, all DRMAA stdout and"
-        " stderr files are written to the current working directory.",
-    )
 
     group_flux = parser.add_argument_group("FLUX")
-    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
-    group_kubernetes = parser.add_argument_group("KUBERNETES")
     group_tes = parser.add_argument_group("TES")
     group_tibanna = parser.add_argument_group("TIBANNA")
-
-    group_kubernetes.add_argument(
-        "--kubernetes",
-        metavar="NAMESPACE",
-        nargs="?",
-        const="default",
-        help="Execute workflow in a kubernetes cluster (in the cloud). "
-        "NAMESPACE is the namespace you want to use for your job (if nothing "
-        "specified: 'default'). "
-        "Usually, this requires --default-remote-provider and "
-        "--default-remote-prefix to be set to a S3 or GS bucket where your . "
-        "data shall be stored. It is further advisable to activate conda "
-        "integration via --use-conda.",
-    )
-    group_kubernetes.add_argument(
-        "--container-image",
-        metavar="IMAGE",
-        help="Docker image to use, e.g., when submitting jobs to kubernetes "
-        "Defaults to 'https://hub.docker.com/r/snakemake/snakemake', tagged with "
-        "the same version as the currently running Snakemake instance. "
-        "Note that overwriting this value is up to your responsibility. "
-        "Any used image has to contain a working snakemake installation "
-        "that is compatible with (or ideally the same as) the currently "
-        "running version.",
-    )
-    group_kubernetes.add_argument(
-        "--k8s-cpu-scalar",
-        metavar="FLOAT",
-        default=0.95,
-        type=float,
-        help="K8s reserves some proportion of available CPUs for its own use. "
-        "So, where an underlying node may have 8 CPUs, only e.g. 7600 milliCPUs "
-        "are allocatable to k8s pods (i.e. snakemake jobs). As 8 > 7.6, k8s can't "
-        "find a node with enough CPU resource to run such jobs. This argument acts "
-        "as a global scalar on each job's CPU request, so that e.g. a job whose "
-        "rule definition asks for 8 CPUs will request 7600m CPUs from k8s, "
-        "allowing it to utilise one entire node. N.B: the job itself would still "
-        "see the original value, i.e. as the value substituted in {threads}.",
-    )
-
-    group_kubernetes.add_argument(
-        "--k8s-service-account-name",
-        metavar="SERVICEACCOUNTNAME",
-        default=None,
-        help="This argument allows the use of customer service accounts for "
-        "kubernetes pods. If specified serviceAccountName will be added to the "
-        "pod specs. This is needed when using workload identity which is enforced "
-        "when using Google Cloud GKE Autopilot.",
-    )
 
     group_tibanna.add_argument(
         "--tibanna",
@@ -1642,72 +1493,6 @@ def get_argument_parser(profiles=None):
         help="Additional tibanna config e.g. --tibanna-config spot_instance=true subnet="
         "<subnet_id> security group=<security_group_id>",
     )
-    group_google_life_science.add_argument(
-        "--google-lifesciences",
-        action="store_true",
-        help="Execute workflow on Google Cloud cloud using the Google Life. "
-        " Science API. This requires default application credentials (json) "
-        " to be created and export to the environment to use Google Cloud "
-        " Storage, Compute Engine, and Life Sciences. The credential file "
-        " should be exported as GOOGLE_APPLICATION_CREDENTIALS for snakemake "
-        " to discover. Also, --use-conda, --use-singularity, --config, "
-        "--configfile are supported and will be carried over.",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-regions",
-        nargs="+",
-        default=["us-east1", "us-west1", "us-central1"],
-        help="Specify one or more valid instance regions (defaults to US)",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-location",
-        help="The Life Sciences API service used to schedule the jobs. "
-        " E.g., us-centra1 (Iowa) and europe-west2 (London) "
-        " Watch the terminal output to see all options found to be available. "
-        " If not specified, defaults to the first found with a matching prefix "
-        " from regions specified with --google-lifesciences-regions.",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-keep-cache",
-        action="store_true",
-        help="Cache workflows in your Google Cloud Storage Bucket specified "
-        "by --default-remote-prefix/{source}/{cache}. Each workflow working "
-        "directory is compressed to a .tar.gz, named by the hash of the "
-        "contents, and kept in Google Cloud Storage. By default, the caches "
-        "are deleted at the shutdown step of the workflow.",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-service-account-email",
-        help="Specify a service account email address",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-network",
-        help="Specify a network for a Google Compute Engine VM instance",
-    )
-    group_google_life_science.add_argument(
-        "--google-lifesciences-subnetwork",
-        help="Specify a subnetwork for a Google Compute Engine VM instance",
-    )
-
-    group_azure_batch = parser.add_argument_group("AZURE_BATCH")
-
-    group_azure_batch.add_argument(
-        "--az-batch",
-        action="store_true",
-        help="Execute workflow on azure batch",
-    )
-
-    group_azure_batch.add_argument(
-        "--az-batch-enable-autoscale",
-        action="store_true",
-        help="Enable autoscaling of the azure batch pool nodes, this option will set the initial dedicated node count to zero, and requires five minutes to resize the cluster, so is only recommended for longer running jobs.",
-    )
-
-    group_azure_batch.add_argument(
-        "--az-batch-account-url",
-        nargs="?",
-        help="Azure batch account url, requires AZ_BATCH_ACCOUNT_KEY environment variable to be set.",
-    )
 
     group_flux.add_argument(
         "--flux",
@@ -1717,10 +1502,21 @@ def get_argument_parser(profiles=None):
         "If you don't have a shared filesystem, additionally specify --no-shared-fs.",
     )
 
-    group_tes.add_argument(
-        "--tes",
-        metavar="URL",
-        help="Send workflow tasks to GA4GH TES server specified by url.",
+    group_deployment = parser.add_argument_group("SOFTWARE DEPLOYMENT")
+    group_deployment.add_argument(
+        "--software-deployment-method",
+        "--deployment-method",
+        "--deployment",
+        nargs="+",
+        choices=DeploymentMethod.choices(),
+        parse_func=DeploymentMethod.parse_choices_set,
+        default=set(),
+        help="Specify software environment deployment method.",
+    )
+    group_deployment.add_argument(
+        "--container-cleanup-images",
+        action="store_true",
+        help="Remove unused containers",
     )
 
     group_conda = parser.add_argument_group("CONDA")
@@ -1789,34 +1585,32 @@ def get_argument_parser(profiles=None):
         "Mamba is much faster and highly recommended.",
     )
 
-    group_singularity = parser.add_argument_group("SINGULARITY")
+    group_singularity = parser.add_argument_group("APPTAINER/SINGULARITY")
 
     group_singularity.add_argument(
+        "--use-apptainer",
         "--use-singularity",
         action="store_true",
-        help="If defined in the rule, run job within a singularity container. "
+        help="If defined in the rule, run job within a apptainer/singularity container. "
         "If this flag is not set, the singularity directive is ignored.",
     )
     group_singularity.add_argument(
+        "--apptainer-prefix",
         "--singularity-prefix",
         metavar="DIR",
-        help="Specify a directory in which singularity images will be stored."
+        help="Specify a directory in which apptainer/singularity images will be stored."
         "If not supplied, the value is set "
         "to the '.snakemake' directory relative to the invocation directory. "
-        "If supplied, the `--use-singularity` flag must also be set. The value "
+        "If supplied, the `--use-apptainer` flag must also be set. The value "
         "may be given as a relative path, which will be extrapolated to the "
         "invocation directory, or as an absolute path.",
     )
     group_singularity.add_argument(
+        "--apptainer-args",
         "--singularity-args",
         default="",
         metavar="ARGS",
-        help="Pass additional args to singularity.",
-    )
-    group_singularity.add_argument(
-        "--cleanup-containers",
-        action="store_true",
-        help="Remove unused (singularity) containers",
+        help="Pass additional args to apptainer/singularity.",
     )
 
     group_env_modules = parser.add_argument_group("ENVIRONMENT MODULES")
@@ -1831,7 +1625,7 @@ def get_argument_parser(profiles=None):
     )
 
     # Add namespaced arguments to parser for each plugin
-    ExecutorPluginRegistry().register_cli_args(parser)
+    _get_executor_plugin_registry().register_cli_args(parser)
     return parser
 
 
@@ -1847,46 +1641,11 @@ def generate_parser_metadata(parser, args):
     return metadata
 
 
-def main(argv=None):
-    """Main entry point."""
-
-    if sys.version_info < MIN_PY_VERSION:
-        print(
-            f"Snakemake requires at least Python {MIN_PY_VERSION}.",
-            file=sys.stderr,
-        )
-        exit(1)
-
+def parse_args(argv):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    snakefile = args.snakefile
-    if snakefile is None:
-        for p in SNAKEFILE_CHOICES:
-            if os.path.exists(p):
-                snakefile = p
-                break
-        if snakefile is None:
-            print(
-                "Error: no Snakefile found, tried {}.".format(
-                    ", ".join(SNAKEFILE_CHOICES)
-                ),
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    # Custom argument parsing based on chosen executor
-    # We also only validate an executor plugin when it's selected
-    executor_args = None
-    if args.executor:
-        plugin = ExecutorPluginRegistry().plugins[args.executor]
-
-        # This is the dataclass prepared by the executor
-        executor_args = plugin.get_executor_settings(args)
-
-        # Hold a handle to the plugin class
-        executor_args._executor = plugin
-
+    snakefile = resolve_snakefile(args.snakefile)
     workflow_profile = None
     if args.workflow_profile != "none":
         if args.workflow_profile:
@@ -1906,9 +1665,9 @@ def main(argv=None):
     if args.profile == "none":
         args.profile = None
 
-    if (args.profile or workflow_profile) and args.mode == ExecMode.default:
+    if (args.profile or workflow_profile) and args.mode == ExecMode.DEFAULT:
         # Reparse args while inferring config file from profile.
-        # But only do this if the user has invoked Snakemake (ExecMode.default)
+        # But only do this if the user has invoked Snakemake (ExecMode.DEFAULT)
         profiles = []
         if args.profile:
             profiles.append(args.profile)
@@ -1927,503 +1686,344 @@ def main(argv=None):
         parser = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
-        def adjust_path(f):
-            if os.path.exists(f) or os.path.isabs(f):
-                return f
+        def adjust_path(path_or_value):
+            if isinstance(path_or_value, str):
+                adjusted = get_profile_file(
+                    args.profile, path_or_value, return_default=False
+                )
+                if adjusted is None:
+                    return path_or_value
+                else:
+                    return adjusted
             else:
-                return get_profile_file(args.profile, f, return_default=True)
+                return path_or_value
 
-        # update file paths to be relative to the profile
-        # (if they do not exist relative to CWD)
-        if args.jobscript:
-            args.jobscript = adjust_path(args.jobscript)
-        if args.cluster:
-            args.cluster = adjust_path(args.cluster)
-        if args.cluster_sync:
-            args.cluster_sync = adjust_path(args.cluster_sync)
-        for key in "cluster_status", "cluster_cancel", "cluster_sidecar":
-            if getattr(args, key):
-                setattr(args, key, adjust_path(getattr(args, key)))
-        if args.report_stylesheet:
-            args.report_stylesheet = adjust_path(args.report_stylesheet)
+        # Update file paths to be relative to the profile if profile
+        # contains them.
+        for key, _ in list(args._get_kwargs()):
+            setattr(args, key, adjust_path(getattr(args, key)))
 
-    if args.quiet is not None and len(args.quiet) == 0:
+    return parser, args
+
+
+def parse_quietness(quietness) -> Set[Quietness]:
+    if quietness is not None and len(quietness) == 0:
         # default case, set quiet to progress and rule
-        args.quiet = ["progress", "rules"]
+        quietness = [Quietness.PROGRESS, Quietness.RULES]
+    else:
+        quietness = Quietness.parse_choices_set()
+    return quietness
+
+
+def setup_log_handlers(args, parser):
+    log_handler = []
+    if args.log_handler_script is not None:
+        if not os.path.exists(args.log_handler_script):
+            print(
+                "Error: no log handler script found, {}.".format(
+                    args.log_handler_script
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        log_script = SourceFileLoader("log", args.log_handler_script).load_module()
+        try:
+            log_handler.append(log_script.log_handler)
+        except:
+            print(
+                'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
+                    args.log_handler_script
+                ),
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if args.log_service == "slack":
+        slack_logger = logging.SlackLogger()
+        log_handler.append(slack_logger.log_handler)
+
+    elif args.wms_monitor or args.log_service == "wms":
+        # Generate additional metadata for server
+        metadata = generate_parser_metadata(parser, args)
+        wms_logger = logging.WMSLogger(
+            args.wms_monitor, args.wms_monitor_arg, metadata=metadata
+        )
+        log_handler.append(wms_logger.log_handler)
+
+    return log_handler
+
+
+def parse_edit_notebook(args):
+    edit_notebook = None
+    if args.draft_notebook:
+        args.targets = {args.draft_notebook}
+        edit_notebook = NotebookEditMode(draft_only=True)
+    elif args.edit_notebook:
+        args.targets = {args.edit_notebook}
+        args.force = True
+        edit_notebook = NotebookEditMode(args.notebook_listen)
+    return edit_notebook
+
+
+def parse_wait_for_files(args):
+    from snakemake.io import wait_for_files
+
+    aggregated_wait_for_files = args.wait_for_files
+    if args.wait_for_files_file is not None:
+        wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
+
+        with open(args.wait_for_files_file) as fd:
+            extra_wait_files = [line.strip() for line in fd.readlines()]
+
+        if aggregated_wait_for_files is None:
+            aggregated_wait_for_files = extra_wait_files
+        else:
+            aggregated_wait_for_files.update(extra_wait_files)
+    return aggregated_wait_for_files
+
+
+def parse_rerun_triggers(values):
+    return {RerunTrigger[x] for x in values}
+
+
+def args_to_api(args, parser):
+    """Convert argparse args to API calls."""
 
     if args.bash_completion:
         cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
         sys.stdout.buffer.write(cmd)
         sys.exit(0)
 
-    if args.batch is not None and args.forceall:
-        print(
-            "--batch may not be combined with --forceall, because recomputed upstream "
-            "jobs in subsequent batches may render already obtained results outdated."
-        )
+    # handle legacy executor names
+    if args.dryrun:
+        args.executor = "dryrun"
+    elif args.touch:
+        args.executor = "touch"
+    elif args.executor is None:
+        args.executor = "local"
 
-    try:
-        resources = parse_resources(args.resources)
-        config = parse_config(args)
+    executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
+    executor_settings = executor_plugin.get_executor_settings(args)
 
-        if args.default_resources is not None:
-            default_resources = DefaultResources(args.default_resources)
-        else:
-            default_resources = None
+    if args.cores is None:
+        if executor_plugin.common_settings.local_exec:
+            # use --jobs as an alias for --cores
+            args.cores = args.jobs
+        elif executor_plugin.common_settings.dryrun_exec:
+            args.cores = 1
 
-        batch = parse_batch(args)
-        overwrite_threads = parse_set_threads(args)
-        overwrite_resources = parse_set_resources(args)
-        overwrite_resource_scopes = parse_set_resource_scope(args)
-
-        overwrite_scatter = parse_set_scatter(args)
-
-        overwrite_groups = parse_groups(args)
-        group_components = parse_group_components(args)
-    except ValueError as e:
-        print(e, file=sys.stderr)
-        print("", file=sys.stderr)
-        sys.exit(1)
-
-    non_local_exec = (
-        args.cluster
-        or args.slurm
-        or args.slurm_jobstep
-        or args.cluster_sync
-        or args.tibanna
-        or args.kubernetes
-        or args.tes
-        or args.az_batch
-        or args.google_lifesciences
-        or args.drmaa
-        or args.flux
-    )
-    no_exec = (
-        args.print_compilation
-        or args.list_code_changes
-        or args.list_conda_envs
-        or args.list_input_changes
-        or args.list_params_changes
-        or args.list
-        or args.list_target_rules
-        or args.list_untracked
-        or args.list_version_changes
-        or args.export_cwl
-        or args.generate_unit_tests
-        or args.dag
-        or args.d3dag
-        or args.filegraph
-        or args.rulegraph
-        or args.summary
-        or args.detailed_summary
-        or args.lint
-        or args.containerize
-        or args.report
-        or args.gui
-        or args.archive
-        or args.unlock
-        or args.cleanup_metadata
-    )
-
-    try:
-        cores, jobs = parse_cores_jobs(
-            args.cores, args.jobs, no_exec, non_local_exec, args.dryrun
-        )
-        args.cores = cores
-        args.jobs = jobs
-    except CliException as err:
-        print(err.msg, sys.stderr)
-        sys.exit(1)
-
-    if args.drmaa_log_dir is not None and not os.path.isabs(args.drmaa_log_dir):
-        args.drmaa_log_dir = os.path.abspath(os.path.expanduser(args.drmaa_log_dir))
-
+    # start profiler if requested
     if args.runtime_profile:
         import yappi
 
         yappi.start()
 
-    if args.immediate_submit and not args.notemp:
-        print(
-            "Error: --immediate-submit has to be combined with --notemp, "
-            "because temp file handling is not supported in this mode.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    log_handlers = setup_log_handlers(args, parser)
 
-    if (args.conda_prefix or args.conda_create_envs_only) and not args.use_conda:
-        if args.conda_prefix and os.environ.get("SNAKEMAKE_CONDA_PREFIX", False):
-            print(
-                "Warning: The enviorment variable SNAKEMAKE_CONDA_PREFIX is set"
-                "but --use-conda is not."
-                "Snakemake will ignore SNAKEMAKE_CONDA_PREFIX"
-                "and conda enviorments will not be used or created.",
-                file=sys.stderr,
-            )
-            args.conda_prefix = None
-        else:
-            print(
-                "Error: --use-conda must be set if --conda-prefix or "
-                "--create-envs-only is set.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    edit_notebook = parse_edit_notebook(args)
 
-    if args.singularity_prefix and not args.use_singularity:
-        print(
-            "Error: --use_singularity must be set if --singularity-prefix is set.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    wait_for_files = parse_wait_for_files(args)
 
-    if args.kubernetes and (
-        not args.default_remote_provider or not args.default_remote_prefix
-    ):
-        print(
-            "Error: --kubernetes must be combined with "
-            "--default-remote-provider and --default-remote-prefix, see "
-            "https://snakemake.readthedocs.io/en/stable/executing/cloud.html"
-            "#executing-a-snakemake-workflow-via-kubernetes",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.tibanna:
-        if not args.default_remote_prefix:
-            print(
-                "Error: --tibanna must be combined with --default-remote-prefix "
-                "to provide bucket name and subdirectory (prefix) "
-                "(e.g. 'bucketname/projectname'",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        args.default_remote_prefix = args.default_remote_prefix.rstrip("/")
-        if not args.tibanna_sfn:
-            args.tibanna_sfn = os.environ.get("TIBANNA_DEFAULT_STEP_FUNCTION_NAME", "")
-            if not args.tibanna_sfn:
-                print(
-                    "Error: to use --tibanna, either --tibanna-sfn or environment variable "
-                    "TIBANNA_DEFAULT_STEP_FUNCTION_NAME must be set and exported "
-                    "to provide name of the tibanna unicorn step function "
-                    "(e.g. 'tibanna_unicorn_monty'). The step function must be deployed first "
-                    "using tibanna cli (e.g. tibanna deploy_unicorn --usergroup=monty "
-                    "--buckets=bucketname)",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if args.az_batch:
-        if not args.default_remote_provider or not args.default_remote_prefix:
-            print(
-                "Error: --az-batch must be combined with "
-                "--default-remote-provider AzBlob and --default-remote-prefix to "
-                "provide a blob container name\n",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        elif args.az_batch_account_url is None:
-            print(
-                "Error: --az-batch-account-url must be set when --az-batch is used\n",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        elif not url_can_parse(args.az_batch_account_url):
-            print(
-                "Error: invalide azure batch account url, please use format: https://{account_name}.{location}.batch.azure.com."
-            )
-            sys.exit(1)
-        elif os.getenv("AZ_BATCH_ACCOUNT_KEY") is None:
-            print(
-                "Error: environment variable AZ_BATCH_ACCOUNT_KEY must be set when --az-batch is used\n",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    if args.google_lifesciences:
-        if (
-            not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-            and not args.google_lifesciences_service_account_email
-        ):
-            print(
-                "Error: Either the GOOGLE_APPLICATION_CREDENTIALS environment variable "
-                "or --google-lifesciences-service-account-email must be available "
-                "for --google-lifesciences",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        if not args.default_remote_prefix:
-            print(
-                "Error: --google-lifesciences must be combined with "
-                " --default-remote-prefix to provide bucket name and "
-                "subdirectory (prefix) (e.g. 'bucketname/projectname'",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-    if args.delete_all_output and args.delete_temp_output:
-        print(
-            "Error: --delete-all-output and --delete-temp-output are mutually exclusive.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    if args.gui is not None:
-        try:
-            import snakemake.gui as gui
-        except ImportError:
-            print(
-                "Error: GUI needs Flask to be installed. Install "
-                "with easy_install or contact your administrator.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        _logging.getLogger("werkzeug").setLevel(_logging.ERROR)
-
-        _snakemake = partial(snakemake, os.path.abspath(snakefile))
-        gui.register(_snakemake, args)
-
-        if ":" in args.gui:
-            host, port = args.gui.split(":")
-        else:
-            port = args.gui
-            host = "127.0.0.1"
-
-        url = f"http://{host}:{port}"
-        print(f"Listening on {url}.", file=sys.stderr)
-
-        def open_browser():
-            try:
-                webbrowser.open(url)
-            except:
-                pass
-
-        print("Open this address in your browser to access the GUI.", file=sys.stderr)
-        threading.Timer(0.5, open_browser).start()
-        success = True
-
-        try:
-            gui.app.run(debug=False, threaded=True, port=int(port), host=host)
-
-        except (KeyboardInterrupt, SystemExit):
-            # silently close
-            pass
-    else:
-        log_handler = []
-        if args.log_handler_script is not None:
-            if not os.path.exists(args.log_handler_script):
-                print(
-                    "Error: no log handler script found, {}.".format(
-                        args.log_handler_script
-                    ),
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            log_script = SourceFileLoader("log", args.log_handler_script).load_module()
-            try:
-                log_handler.append(log_script.log_handler)
-            except:
-                print(
-                    'Error: Invalid log handler script, {}. Expect python function "log_handler(msg)".'.format(
-                        args.log_handler_script
-                    ),
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-        if args.log_service == "slack":
-            slack_logger = logging.SlackLogger()
-            log_handler.append(slack_logger.log_handler)
-
-        elif args.wms_monitor or args.log_service == "wms":
-            # Generate additional metadata for server
-            metadata = generate_parser_metadata(parser, args)
-            wms_logger = logging.WMSLogger(
-                args.wms_monitor, args.wms_monitor_arg, metadata=metadata
-            )
-            log_handler.append(wms_logger.log_handler)
-
-        if args.draft_notebook:
-            from snakemake import notebook
-
-            args.target = [args.draft_notebook]
-            args.edit_notebook = notebook.EditMode(draft_only=True)
-        elif args.edit_notebook:
-            from snakemake import notebook
-
-            args.target = [args.edit_notebook]
-            args.force = True
-            args.edit_notebook = notebook.EditMode(args.notebook_listen)
-
-        aggregated_wait_for_files = args.wait_for_files
-        if args.wait_for_files_file is not None:
-            wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
-
-            with open(args.wait_for_files_file) as fd:
-                extra_wait_files = [line.strip() for line in fd.readlines()]
-
-            if aggregated_wait_for_files is None:
-                aggregated_wait_for_files = extra_wait_files
-            else:
-                aggregated_wait_for_files.extend(extra_wait_files)
-
-        success = snakemake(
-            snakefile,
-            batch=batch,
-            cache=args.cache,
-            report=args.report,
-            report_stylesheet=args.report_stylesheet,
-            lint=args.lint,
-            containerize=args.containerize,
-            generate_unit_tests=args.generate_unit_tests,
-            listrules=args.list,
-            list_target_rules=args.list_target_rules,
-            cores=args.cores,
-            local_cores=args.local_cores,
-            nodes=args.jobs,
-            resources=resources,
-            overwrite_threads=overwrite_threads,
-            max_threads=args.max_threads,
-            overwrite_scatter=overwrite_scatter,
-            default_resources=default_resources,
-            overwrite_resources=overwrite_resources,
-            overwrite_resource_scopes=overwrite_resource_scopes,
-            config=config,
-            configfiles=args.configfile,
-            config_args=args.config,
-            workdir=args.directory,
-            targets=args.target,
-            target_jobs=parse_target_jobs_cli_args(args),
-            dryrun=args.dryrun,
+    with SnakemakeApi(
+        OutputSettings(
             printshellcmds=args.printshellcmds,
-            debug_dag=args.debug_dag,
-            printdag=args.dag,
-            printrulegraph=args.rulegraph,
-            printfilegraph=args.filegraph,
-            printd3dag=args.d3dag,
-            touch=args.touch,
-            forcetargets=args.force,
-            forceall=args.forceall,
-            forcerun=args.forcerun,
-            prioritytargets=args.prioritize,
-            until=args.until,
-            omit_from=args.omit_from,
-            stats=args.stats,
             nocolor=args.nocolor,
             quiet=args.quiet,
-            keepgoing=args.keep_going,
-            slurm=args.slurm,
-            slurm_jobstep=args.slurm_jobstep,
-            rerun_triggers=args.rerun_triggers,
-            cluster=args.cluster,
-            cluster_sync=args.cluster_sync,
-            drmaa=args.drmaa,
-            drmaa_log_dir=args.drmaa_log_dir,
-            kubernetes=args.kubernetes,
-            container_image=args.container_image,
-            k8s_cpu_scalar=args.k8s_cpu_scalar,
-            k8s_service_account_name=args.k8s_service_account_name,
-            flux=args.flux,
-            tibanna=args.tibanna,
-            tibanna_sfn=args.tibanna_sfn,
-            az_batch=args.az_batch,
-            az_batch_enable_autoscale=args.az_batch_enable_autoscale,
-            az_batch_account_url=args.az_batch_account_url,
-            google_lifesciences=args.google_lifesciences,
-            google_lifesciences_regions=args.google_lifesciences_regions,
-            google_lifesciences_location=args.google_lifesciences_location,
-            google_lifesciences_cache=args.google_lifesciences_keep_cache,
-            google_lifesciences_service_account_email=args.google_lifesciences_service_account_email,
-            google_lifesciences_network=args.google_lifesciences_network,
-            google_lifesciences_subnetwork=args.google_lifesciences_subnetwork,
-            tes=args.tes,
-            precommand=args.precommand,
-            preemption_default=args.preemption_default,
-            preemptible_rules=args.preemptible_rules,
-            tibanna_config=args.tibanna_config,
-            jobname=args.jobname,
-            immediate_submit=args.immediate_submit,
-            standalone=True,
-            ignore_ambiguity=args.allow_ambiguity,
-            lock=not args.nolock,
-            unlock=args.unlock,
-            cleanup_metadata=args.cleanup_metadata,
-            conda_cleanup_envs=args.conda_cleanup_envs,
-            cleanup_containers=args.cleanup_containers,
-            cleanup_shadow=args.cleanup_shadow,
-            force_incomplete=args.rerun_incomplete,
-            ignore_incomplete=args.ignore_incomplete,
-            list_version_changes=args.list_version_changes,
-            list_code_changes=args.list_code_changes,
-            list_input_changes=args.list_input_changes,
-            list_params_changes=args.list_params_changes,
-            list_untracked=args.list_untracked,
-            summary=args.summary,
-            detailed_summary=args.detailed_summary,
-            archive=args.archive,
-            delete_all_output=args.delete_all_output,
-            delete_temp_output=args.delete_temp_output,
-            print_compilation=args.print_compilation,
+            debug_dag=args.debug_dag,
             verbose=args.verbose,
-            debug=args.debug,
-            jobscript=args.jobscript,
-            notemp=args.notemp,
-            all_temp=args.all_temp,
-            keep_remote_local=args.keep_remote,
-            greediness=args.greediness,
-            no_hooks=args.no_hooks,
-            overwrite_shellcmd=args.overwrite_shellcmd,
-            latency_wait=args.latency_wait,
-            wait_for_files=aggregated_wait_for_files,
-            keep_target_files=args.keep_target_files,
-            allowed_rules=args.allowed_rules,
-            max_jobs_per_second=args.max_jobs_per_second,
-            max_status_checks_per_second=args.max_status_checks_per_second,
-            restart_times=args.retries,
-            attempt=args.attempt,
-            force_use_threads=args.force_use_threads,
-            use_conda=args.use_conda,
-            conda_frontend=args.conda_frontend,
-            conda_prefix=args.conda_prefix,
-            conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-            list_conda_envs=args.list_conda_envs,
-            use_singularity=args.use_singularity,
-            use_env_modules=args.use_envmodules,
-            singularity_prefix=args.singularity_prefix,
-            shadow_prefix=args.shadow_prefix,
-            singularity_args=args.singularity_args,
-            scheduler=args.scheduler,
-            scheduler_ilp_solver=args.scheduler_ilp_solver,
-            conda_create_envs_only=args.conda_create_envs_only,
-            mode=args.mode,
-            wrapper_prefix=args.wrapper_prefix,
-            default_remote_provider=args.default_remote_provider,
-            default_remote_prefix=args.default_remote_prefix,
-            assume_shared_fs=not args.no_shared_fs,
-            cluster_status=args.cluster_status,
-            cluster_cancel=args.cluster_cancel,
-            cluster_cancel_nargs=args.cluster_cancel_nargs,
-            cluster_sidecar=args.cluster_sidecar,
-            export_cwl=args.export_cwl,
             show_failed_logs=args.show_failed_logs,
-            keep_incomplete=args.keep_incomplete,
-            keep_metadata=not args.drop_metadata,
-            edit_notebook=args.edit_notebook,
-            envvars=args.envvars,
-            overwrite_groups=overwrite_groups,
-            group_components=group_components,
-            max_inventory_wait_time=args.max_inventory_time,
-            log_handler=log_handler,
-            execute_subworkflows=not args.no_subworkflows,
-            conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-            scheduler_solver_path=args.scheduler_solver_path,
-            conda_base_path=args.conda_base_path,
-            local_groupid=args.local_groupid,
-            executor_args=executor_args,
-            cleanup_scripts=not args.skip_script_cleanup,
+            log_handlers=log_handlers,
+            keep_logger=False,
         )
+    ) as snakemake_api:
+        try:
+            workflow_api = snakemake_api.workflow(
+                resource_settings=ResourceSettings(
+                    cores=args.cores,
+                    nodes=args.jobs,
+                    local_cores=args.local_cores,
+                    max_threads=args.max_threads,
+                    resources=args.resources,
+                    overwrite_threads=args.set_threads,
+                    overwrite_scatter=args.set_scatter,
+                    overwrite_resource_scopes=args.set_resource_scopes,
+                    overwrite_resources=args.set_resources,
+                    default_resources=args.default_resources,
+                ),
+                config_settings=ConfigSettings(
+                    config=args.config,
+                    configfiles=args.configfile,
+                ),
+                storage_settings=StorageSettings(
+                    default_remote_provider=args.default_remote_provider,
+                    default_remote_prefix=args.default_remote_prefix,
+                    assume_shared_fs=not args.no_shared_fs,
+                    keep_remote_local=args.keep_remote,
+                    notemp=args.notemp,
+                    all_temp=args.all_temp,
+                ),
+                workflow_settings=WorkflowSettings(
+                    wrapper_prefix=args.wrapper_prefix,
+                ),
+                snakefile=args.snakefile,
+                workdir=args.directory,
+            )
 
+            if args.lint:
+                any_lint = workflow_api.lint()
+                if any_lint:
+                    # trigger exit code 1
+                    return False
+            elif args.list_target_rules:
+                workflow_api.list_rules(only_targets=True)
+            elif args.list_rules:
+                workflow_api.list_rules(only_targets=False)
+            elif args.print_compilation:
+                workflow_api.print_compilation()
+            else:
+                deployment_method = args.software_deployment_method
+                if args.use_conda:
+                    deployment_method.add(DeploymentMethod.CONDA)
+                if args.use_apptainer:
+                    deployment_method.add(DeploymentMethod.APPTAINER)
+                if args.use_envmodules:
+                    deployment_method.add(DeploymentMethod.ENV_MODULES)
+
+                dag_api = workflow_api.dag(
+                    dag_settings=DAGSettings(
+                        targets=args.targets,
+                        target_jobs=args.target_jobs,
+                        target_files_omit_workdir_adjustment=args.target_files_omit_workdir_adjustment,
+                        batch=args.batch,
+                        forcetargets=args.force,
+                        forceall=args.forceall,
+                        forcerun=args.forcerun,
+                        until=args.until,
+                        omit_from=args.omit_from,
+                        force_incomplete=args.rerun_incomplete,
+                        allowed_rules=args.allowed_rules,
+                        rerun_triggers=args.rerun_triggers,
+                        max_inventory_wait_time=args.max_inventory_time,
+                        cache=args.cache,
+                    ),
+                    deployment_settings=DeploymentSettings(
+                        deployment_method=deployment_method,
+                        conda_prefix=args.conda_prefix,
+                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
+                        conda_base_path=args.conda_base_path,
+                        conda_frontend=args.conda_frontend,
+                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
+                        apptainer_args=args.apptainer_args,
+                        apptainer_prefix=args.apptainer_prefix,
+                    ),
+                )
+
+                if args.preemptible_rules is not None:
+                    if not preemptible_rules:
+                        # no specific rule given, consider all to be made preemptible
+                        preemptible_rules = PreemptibleRules(all=True)
+                    else:
+                        preemptible_rules = PreemptibleRules(
+                            rules=args.preemptible_rules
+                        )
+                else:
+                    preemptible_rules = PreemptibleRules()
+
+                if args.containerize:
+                    dag_api.containerize()
+                elif args.report:
+                    dag_api.create_report(
+                        path=args.report,
+                        stylesheet=args.report_stylesheet,
+                    )
+                elif args.generate_unit_tests:
+                    dag_api.generate_unit_tests(args.generate_unit_tests)
+                elif args.dag:
+                    dag_api.printdag()
+                elif args.rulegraph:
+                    dag_api.printrulegraph()
+                elif args.filegraph:
+                    dag_api.printfilegraph()
+                elif args.d3dag:
+                    dag_api.printd3dag()
+                elif args.unlock:
+                    dag_api.unlock()
+                elif args.cleanup_metadata:
+                    dag_api.cleanup_metadata(args.cleanup_metadata)
+                elif args.conda_cleanup_envs:
+                    dag_api.conda_cleanup_envs()
+                elif args.conda_create_envs_only:
+                    dag_api.conda_create_envs()
+                elif args.list_conda_envs:
+                    dag_api.conda_list_envs()
+                elif args.cleanup_shadow:
+                    dag_api.cleanup_shadow()
+                elif args.container_cleanup_images:
+                    dag_api.container_cleanup_images()
+                elif args.list_changes:
+                    dag_api.list_changes(args.list_changes)
+                elif args.list_untracked:
+                    dag_api.list_untracked()
+                elif args.summary:
+                    dag_api.summary()
+                elif args.detailed_summary:
+                    dag_api.summary(detailed=True)
+                elif args.archive:
+                    dag_api.archive(args.archive)
+                elif args.delete_all_output:
+                    dag_api.delete_output()
+                elif args.delete_temp_output:
+                    dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
+                else:
+                    dag_api.execute_workflow(
+                        executor=args.executor,
+                        execution_settings=ExecutionSettings(
+                            keep_going=args.keep_going,
+                            debug=args.debug,
+                            standalone=True,
+                            ignore_ambiguity=args.allow_ambiguity,
+                            lock=not args.nolock,
+                            ignore_incomplete=args.ignore_incomplete,
+                            latency_wait=args.latency_wait,
+                            wait_for_files=wait_for_files,
+                            no_hooks=args.no_hooks,
+                            retries=args.retries,
+                            attempt=args.attempt,
+                            use_threads=args.force_use_threads,
+                            shadow_prefix=args.shadow_prefix,
+                            mode=args.mode,
+                            keep_incomplete=args.keep_incomplete,
+                            keep_metadata=not args.drop_metadata,
+                            edit_notebook=edit_notebook,
+                            cleanup_scripts=not args.skip_script_cleanup,
+                        ),
+                        remote_execution_settings=RemoteExecutionSettings(
+                            jobname=args.jobname,
+                            jobscript=args.jobscript,
+                            max_status_checks_per_second=args.max_status_checks_per_second,
+                            seconds_between_status_checks=args.seconds_between_status_checks,
+                            container_image=args.container_image,
+                            preemptible_retries=args.preemptible_retries,
+                            preemptible_rules=preemptible_rules,
+                            envvars=args.envvars,
+                            immediate_submit=args.immediate_submit,
+                        ),
+                        scheduling_settings=SchedulingSettings(
+                            prioritytargets=args.prioritize,
+                            scheduler=args.scheduler,
+                            ilp_solver=args.scheduler_ilp_solver,
+                            solver_path=args.scheduler_solver_path,
+                            greediness=args.scheduler_greediness,
+                            max_jobs_per_second=args.max_jobs_per_second,
+                        ),
+                        executor_settings=executor_settings,
+                    )
+
+        except Exception as e:
+            snakemake_api.print_exception(e)
+            return False
+
+    # store profiler results if requested
     if args.runtime_profile:
         with open(args.runtime_profile, "w") as out:
             profile = yappi.get_func_stats()
@@ -2438,7 +2038,18 @@ def main(argv=None):
                     4: ("tavg", 8),
                 },
             )
+    return True
 
+
+def main(argv=None):
+    """Main entry point."""
+    logging.setup_logger()
+    try:
+        parser, args = parse_args(argv)
+        success = args_to_api(args, parser)
+    except Exception as e:
+        print_exception(e)
+        sys.exit(1)
     sys.exit(0 if success else 1)
 
 

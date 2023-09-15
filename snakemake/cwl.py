@@ -14,6 +14,7 @@ from snakemake.utils import format
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
 from snakemake.common import get_container_image
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 
 def cwl(
@@ -199,18 +200,18 @@ def dag_to_cwl(dag):
         "requirements": {"ResourceRequirement": {"coresMin": "$(inputs.cores)"}},
         "arguments": [
             "--force",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--force-use-threads",
             "--wrapper-prefix",
-            dag.workflow.wrapper_prefix,
+            dag.workflow.workflow_settings.wrapper_prefix,
             "--notemp",
             "--quiet",
             "--use-conda",
             "--no-hooks",
             "--nolock",
             "--mode",
-            str(Mode.subprocess),
+            str(ExecMode.SUBPROCESS.item_to_choice()),
         ],
         "inputs": {
             "snakefile": {

@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 import signal
 import sys
 import shlex
@@ -18,10 +19,11 @@ import glob
 import subprocess
 import tarfile
 
-from snakemake.api import snakemake
-from snakemake.shell import shell
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+
+from snakemake import api, settings
 from snakemake.common import ON_WINDOWS
-from snakemake.resources import DefaultResources, GroupResources, ResourceScopes
+from snakemake.resources import ResourceScopes
 
 
 def dpath(path):
@@ -136,12 +138,51 @@ def run(
     cleanup=True,
     conda_frontend="mamba",
     config=dict(),
-    targets=None,
+    targets=set(),
     container_image=os.environ.get("CONTAINER_IMAGE", "snakemake/snakemake:latest"),
     shellcmd=None,
     sigint_after=None,
     overwrite_resource_scopes=None,
-    **params,
+    executor="local",
+    executor_settings=None,
+    cleanup_scripts=True,
+    scheduler_ilp_solver=None,
+    report=None,
+    report_stylesheet=None,
+    deployment_method=frozenset(),
+    shadow_prefix=None,
+    until=frozenset(),
+    omit_from=frozenset(),
+    forcerun=frozenset(),
+    conda_list_envs=False,
+    conda_prefix=None,
+    wrapper_prefix=None,
+    printshellcmds=False,
+    default_remote_provider=None,
+    default_remote_prefix=None,
+    archive=None,
+    cluster=None,
+    cluster_status=None,
+    retries=0,
+    resources=dict(),
+    default_resources=None,
+    group_components=dict(),
+    max_threads=None,
+    overwrite_groups=dict(),
+    configfiles=list(),
+    overwrite_resources=dict(),
+    batch=None,
+    envvars=list(),
+    cache=None,
+    edit_notebook=None,
+    overwrite_scatter=dict(),
+    generate_unit_tests=None,
+    force_incomplete=False,
+    containerize=False,
+    forceall=False,
+    all_temp=False,
+    cleanup_metadata=None,
+    rerun_triggers=settings.RerunTrigger.all(),
 ):
     """
     Test the Snakefile in the path.
@@ -177,27 +218,15 @@ def run(
 
     config = dict(config)
 
-    # handle subworkflow
-    if subpath is not None:
-        # set up a working directory for the subworkflow and pass it in `config`
-        # for now, only one subworkflow is supported
-        assert os.path.exists(subpath) and os.path.isdir(
-            subpath
-        ), "{} does not exist".format(subpath)
-        subworkdir = os.path.join(tmpdir, "subworkdir")
-        os.mkdir(subworkdir)
-
-        # copy files
-        for f in os.listdir(subpath):
-            copy(os.path.join(subpath, f), subworkdir)
-        config["subworkdir"] = subworkdir
-
     # copy files
     for f in os.listdir(path):
         copy(os.path.join(path, f), tmpdir)
 
     # Snakefile is now in temporary directory
     snakefile = join(tmpdir, snakefile)
+
+    snakemake_api = None
+    exception = None
 
     # run snakemake
     if shellcmd:
@@ -231,29 +260,120 @@ def run(
             print(e.stdout.decode(), file=sys.stderr)
     else:
         assert sigint_after is None, "Cannot sent SIGINT when calling directly"
-        success = snakemake(
-            snakefile=original_snakefile if no_tmpdir else snakefile,
-            cores=cores,
-            nodes=nodes,
-            workdir=path if no_tmpdir else tmpdir,
-            stats="stats.txt",
-            config=config,
-            verbose=True,
-            targets=targets,
-            conda_frontend=conda_frontend,
-            container_image=container_image,
-            overwrite_resource_scopes=(
-                ResourceScopes(overwrite_resource_scopes)
-                if overwrite_resource_scopes is not None
-                else overwrite_resource_scopes
+
+        if cluster is not None:
+            executor = "cluster-generic"
+            plugin = ExecutorPluginRegistry().get_plugin(executor)
+            executor_settings = plugin.executor_settings_class(
+                submit_cmd=cluster, status_cmd=cluster_status
+            )
+            nodes = 3
+
+        success = True
+
+        with api.SnakemakeApi(
+            settings.OutputSettings(
+                verbose=True,
+                printshellcmds=printshellcmds,
+                show_failed_logs=True,
             ),
-            **params,
-        )
+        ) as snakemake_api:
+            try:
+                workflow_api = snakemake_api.workflow(
+                    resource_settings=settings.ResourceSettings(
+                        cores=cores,
+                        nodes=nodes,
+                        overwrite_resource_scopes=(
+                            ResourceScopes(overwrite_resource_scopes)
+                            if overwrite_resource_scopes is not None
+                            else dict()
+                        ),
+                        overwrite_resources=overwrite_resources,
+                        resources=resources,
+                        default_resources=default_resources,
+                        max_threads=max_threads,
+                        overwrite_scatter=overwrite_scatter,
+                    ),
+                    config_settings=settings.ConfigSettings(
+                        config=config,
+                        configfiles=configfiles,
+                    ),
+                    storage_settings=settings.StorageSettings(
+                        default_remote_provider=default_remote_provider,
+                        default_remote_prefix=default_remote_prefix,
+                        all_temp=all_temp,
+                    ),
+                    workflow_settings=settings.WorkflowSettings(
+                        wrapper_prefix=wrapper_prefix,
+                    ),
+                    snakefile=Path(original_snakefile if no_tmpdir else snakefile),
+                    workdir=Path(path if no_tmpdir else tmpdir),
+                )
+
+                dag_api = workflow_api.dag(
+                    dag_settings=settings.DAGSettings(
+                        targets=targets,
+                        until=until,
+                        omit_from=omit_from,
+                        forcerun=forcerun,
+                        batch=batch,
+                        force_incomplete=force_incomplete,
+                        cache=cache,
+                        forceall=forceall,
+                        rerun_triggers=rerun_triggers,
+                    ),
+                    deployment_settings=settings.DeploymentSettings(
+                        conda_frontend=conda_frontend,
+                        conda_prefix=conda_prefix,
+                        deployment_method=deployment_method,
+                    ),
+                )
+
+                if report is not None:
+                    dag_api.create_report(path=report, stylesheet=report_stylesheet)
+                elif conda_list_envs:
+                    dag_api.conda_list_envs()
+                elif archive is not None:
+                    dag_api.archive(Path(archive))
+                elif generate_unit_tests is not None:
+                    dag_api.generate_unit_tests(Path(generate_unit_tests))
+                elif containerize:
+                    dag_api.containerize()
+                elif cleanup_metadata:
+                    dag_api.cleanup_metadata(cleanup_metadata)
+                else:
+                    dag_api.execute_workflow(
+                        executor=executor,
+                        execution_settings=settings.ExecutionSettings(
+                            cleanup_scripts=cleanup_scripts,
+                            shadow_prefix=shadow_prefix,
+                            retries=retries,
+                            edit_notebook=edit_notebook,
+                        ),
+                        remote_execution_settings=settings.RemoteExecutionSettings(
+                            container_image=container_image,
+                            seconds_between_status_checks=0,
+                            envvars=envvars,
+                        ),
+                        scheduling_settings=settings.SchedulingSettings(
+                            ilp_solver=scheduler_ilp_solver,
+                        ),
+                        group_settings=settings.GroupSettings(
+                            group_components=group_components,
+                            overwrite_groups=overwrite_groups,
+                        ),
+                        executor_settings=executor_settings,
+                    )
+            except Exception as e:
+                success = False
+                exception = e
 
     if shouldfail:
         assert not success, "expected error on execution"
     else:
         if not success:
+            if snakemake_api is not None and exception is not None:
+                snakemake_api.print_exception(exception)
             print("Workdir:")
             print_tree(tmpdir, exclude=".snakemake/conda")
         assert success, "expected successful execution"

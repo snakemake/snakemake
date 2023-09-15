@@ -32,8 +32,7 @@ jobs:
 
           source activate black
 
-          black --check --diff snakemake tests/tests.py tests/test_tes.py
-          tests/test_io.py tests/common.py tests/test_google_lifesciences.py
+          black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2.6.2
@@ -60,103 +59,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      ###### slurm setup #####
-      # prior to slurm-setup we need the podmand-correct command
-      # see https://github.com/containers/podman/issues/13338
-      - name: Download slurm ansible roles
-        run: |
-          ansible-galaxy install galaxyproject.slurm,1.0.1
-      - name: Update apt cache
-        run: |
-          sudo apt-get update
-      - name: Define slurm playbook
-        uses: 1arp/create-a-file-action@0.2
-        with:
-          file: slurm-playbook.yml
-          content: |
-            - name: Slurm all in One
-              hosts: localhost
-              roles:
-                - role: galaxyproject.slurm
-                  become: true
-              vars:
-                  slurm_upgrade: true
-                  slurm_roles: ['controller', 'exec', 'dbd']
-                  slurm_config_dir: /etc/slurm
-                  #slurm_cgroup_config:
-                  #    CgroupMountpoint: "/sys/fs/cgroup"
-                  #    CgroupAutomount: yes
-                  #    ConstrainCores: yes
-                  #    TaskAffinity: no
-                  #    ConstrainRAMSpace: yes
-                  #    ConstrainSwapSpace: no
-                  #    ConstrainDevices: no
-                  #    AllowedRamSpace: 100
-                  #    AllowedSwapSpace: 0
-                  #    MaxRAMPercent: 100
-                  #    MaxSwapPercent: 100
-                  #    MinRAMSpace: 30
-                  slurm_config:
-                      ClusterName: cluster
-                      #ProctrackType: proctrack/pgid
-                      #SlurmctldHost: localhost # TODO try if we need this
-                      SlurmctldLogFile: /var/log/slurm/slurmctld.log
-                      SlurmctldPidFile: /run/slurmctld.pid
-                      SlurmdLogFile: /var/log/slurm/slurmd.log
-                      SlurmdPidFile: /run/slurmd.pid
-                      SlurmdSpoolDir: /tmp/slurmd # the default /var/lib/slurm/slurmd does not work because of noexec mounting in github actions
-                      StateSaveLocation: /var/lib/slurm/slurmctld
-                      #TaskPlugin: "task/affinity,task/cgroup"
-                      AccountingStorageType: accounting_storage/slurmdbd
-                  slurmdbd_config:
-                      StorageType: accounting_storage/mysql
-                      PidFile: /run/slurmdbd.pid
-                      LogFile: /var/log/slurm/slurmdbd.log
-                      StoragePass: root
-                      StorageUser: root
-                      StorageHost: 127.0.0.1 # see https://stackoverflow.com/questions/58222386/github-actions-using-mysql-service-throws-access-denied-for-user-rootlocalh
-                      StoragePort: 8888
-                      DbdHost: localhost
-                  slurm_create_user: yes
-                  #slurm_munge_key: "../../../munge.key"
-                  slurm_nodes:
-                      - name: localhost
-                        State: UNKNOWN
-                        Sockets: 1
-                        CoresPerSocket: 2
-                  slurm_user:
-                      comment: "Slurm Workload Manager"
-                      gid: 1002
-                      group: slurm
-                      home: "/var/lib/slurm"
-                      name: slurm
-                      shell: "/bin/bash"
-                      uid: 1002
-      - name: Set XDG_RUNTIME_DIR
-        run: |
-          mkdir -p /tmp/1002-runtime # work around podman issue (https://github.com/containers/podman/issues/13338)
-          echo XDG_RUNTIME_DIR=/tmp/1002-runtime >> $GITHUB_ENV
-      - name: Setup slurm
-        run: |
-          ansible-playbook slurm-playbook.yml || (journalctl -xe && exit 1)
-      - name: Add Slurm Account
-        run: |
-          echo "Waiting 5 seconds for slurm cluster to be fully initialized."
-          sleep 5
-          sudo sacctmgr -i create account "Name=runner"
-          sudo sacctmgr -i create user "Name=runner" "Account=runner"
-      - name: Configure proxy for sacct
-        run: |
-          # By using this script instead of the real sacct, we avoid the need to install
-          # a full slurmdbd in the CI.
-          echo 'alias sacct=.github/workflows/scripts/sacct-proxy.py' >> ~/.bashrc
-      - name: Test slurm submission
-        run: |
-          srun -vvvv echo "hello world"
-          sudo cat /var/log/slurm/slurmd.log
-      - name: Indicate supported MPI types
-        run: |
-          srun --mpi=list
       - name: Setup mamba
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -173,13 +75,14 @@ jobs:
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
+          pip install -e .
 
-          # additionally add singularity
-
+          # additionally add singularity (not necessary anymore, included in the test env now)
           # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1:
           # cannot open shared object file: No such file or directory
-          mamba install -n snakemake "singularity<=3.8.6"
+          # mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
           sudo gem install apt-spy2
@@ -193,28 +96,6 @@ jobs:
           sleep 10
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
-      #- name: Setup Gcloud
-      #  uses: GoogleCloudPlatform/github-actions/setup-gcloud@v0.2.1
-      #  if: env.GCP_AVAILABLE
-      #  with:
-      #    project_id: "${{ secrets.GCP_PROJECT_ID }}"
-      #    service_account_email: "${{ secrets.GCP_SA_EMAIL }}"
-      #    service_account_key: "${{ secrets.GCP_SA_KEY }}"
-      #    export_default_credentials: true
-      #- name: Setup AWS
-      #  uses: aws-actions/configure-aws-credentials@v1
-      #  if: env.AWS_AVAILABLE
-      #  with:
-      #    aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
-      #    aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-      #    aws-region: us-east-1
-
-      - name: Test Slurm
-        env:
-          CI: true
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -v tests/test_slurm.py
 
       - name: Test local
         env:
@@ -223,6 +104,7 @@ jobs:
         shell: bash -el {0}
         run: |
           pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/tests.py
+
       - name: Build and publish docker image
         if: >-
           contains(github.event.pull_request.labels.*.name,
@@ -240,37 +122,6 @@ jobs:
           'update-container-image')
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
-      #- name: Test Google Life Sciences Executor
-      #  if: env.GCP_AVAILABLE
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_google_lifesciences.py
-      #- name: Test Kubernetes execution
-      #  if: env.GCP_AVAILABLE
-      #  env:
-      #    CI: true
-      #  shell: bash -el {0}
-      #  run: |
-      #    pytest -s -v -x tests/test_kubernetes.py
-
-      # TODO temporarily disable testing of the azure batch executor as our azure
-      # account is currently disabled for unknown reason.
-      # Reactivate once that is fixed.
-      # - name: Test Azure Batch Executor
-      #   shell: bash -el {0}
-      #   env:
-      #     AZ_BLOB_PREFIX: "${{ secrets.AZ_BLOB_PREFIX }}"
-      #     AZ_BLOB_ACCOUNT_URL: "${{ secrets.AZ_STORAGE_ACCOUNT_URL }}"
-      #     AZ_BLOB_CREDENTIAL: "${{ secrets.AZ_STORAGE_KEY }}"
-      #     AZ_BATCH_ACCOUNT_URL: "${{ secrets.AZ_BATCH_ACCOUNT_URL }}"
-      #     AZ_BATCH_ACCOUNT_KEY: "${{ secrets.AZ_BATCH_KEY }}"
-      #   run: |
-      #     pytest -s -v -x tests/test_azure_batch_executor.py
-
-      - name: Test GA4GH TES executor
-        shell: bash -el {0}
-        run: |
-          pytest --show-capture=stderr -s -v -x tests/test_tes.py
 
       - name: Delete container image
         if: >-
@@ -298,7 +149,7 @@ jobs:
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils"]
+          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
@@ -316,6 +167,7 @@ jobs:
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install -e .
       - name: Run tests
         env:
           CI: true
