@@ -152,7 +152,6 @@ class WMSLogger:
         )
         if response.status_code != 200:
             sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
-
             sys.exit(-1)
 
         # And then that it's ready to be interacted with
