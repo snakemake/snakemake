@@ -128,7 +128,9 @@ class WMSLogger:
         from snakemake.resources import DefaultResources
 
         self.address = address or "http:127.0.0.1:5000"
-        self.args = map(DefaultResources.decode_arg, args) if args else []
+        self.args = list(map(DefaultResources.decode_arg, args)) if args else []
+        self.args = {item[0]: item[1] for item in list(self.args)}
+
         self.metadata = metadata or {}
 
         # A token is suggested but not required, depends on server
@@ -146,16 +148,20 @@ class WMSLogger:
 
         # We first ensure that the server is running, period
         response = requests.get(
-            f"{self.address}/api/service-info", headers=self._headers
+            self.address + "/api/service-info", headers=self._headers
         )
         if response.status_code != 200:
-            sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
+            sys.stderr.write(
+                "Problem with server: {} {}".format(self.address, os.linesep)
+            )
             sys.exit(-1)
 
         # And then that it's ready to be interacted with
         if response.json().get("status") != "running":
             sys.stderr.write(
-                f"The status of the server {self.address} is not in 'running' mode {os.linesep}"
+                "The status of the server {} is not in 'running' mode {}".format(
+                    self.address, os.linesep
+                )
             )
             sys.exit(-1)
 
@@ -181,17 +187,36 @@ class WMSLogger:
         }
 
         response = requests.get(
-            f"{self.address}/create_workflow",
+            self.address + "/create_workflow",
             headers=self._headers,
             params=self.args,
-            data=json.dumps(metadata),
+            data=metadata,
         )
+
+        # Extract the id from the response
+        id = response.json()["id"]
 
         # Check the response, will exit on any error
         self.check_response(response, "/create_workflow")
 
         # Provide server parameters to the logger
-        self.server = {"url": self.address, "id": response.json()["id"]}
+        headers = (
+            {"Content-Type": "application/json"}
+            if self._headers is None
+            else {**self._headers, **{"Content-Type": "application/json"}}
+        )
+
+        # Send the workflow name to the server
+        response_change_workflow_name = requests.put(
+            self.address + f"/api/workflow/{id}",
+            headers=headers,
+            data=json.dumps(self.args),
+        )
+        # Check the response, will exit on any error
+        self.check_response(response_change_workflow_name, f"/api/workflow/{id}")
+
+        # Provide server parameters to the logger
+        self.server = {"url": self.address, "id": id}
 
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
@@ -205,7 +230,7 @@ class WMSLogger:
             return
 
         if status_code == 404:
-            sys.stderr.write(f"The wms {endpoint} endpoint was not found")
+            sys.stderr.write("The wms %s endpoint was not found" % endpoint)
             sys.exit(-1)
         elif status_code == 401:
             sys.stderr.write(
@@ -214,7 +239,7 @@ class WMSLogger:
             sys.exit(-1)
         elif status_code == 500:
             sys.stderr.write(
-                f"There was a server error when trying to access {endpoint}"
+                "There was a server error when trying to access %s" % endpoint
             )
             sys.exit(-1)
         elif status_code == 403:
@@ -223,7 +248,8 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            f"The {endpoint} response code {response.status_code} is not recognized."
+            "The %s response code %s is not recognized."
+            % (endpoint, response.status_code)
         )
 
     @property
@@ -275,9 +301,8 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        response = requests.post(
-            url, data=json.dumps(server_info), headers=self._headers
-        )
+        print(server_info)
+        response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
 
