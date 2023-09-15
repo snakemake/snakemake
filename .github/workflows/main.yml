@@ -35,7 +35,7 @@ jobs:
           black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v2.6.2
+        uses: marocchino/sticky-pull-request-comment@v2.8.0
         with:
           message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
