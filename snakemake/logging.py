@@ -148,12 +148,11 @@ class WMSLogger:
 
         # We first ensure that the server is running, period
         response = requests.get(
-            self.address + "/api/service-info", headers=self._headers
+            f"{self.address}/api/service-info", headers=self._headers
         )
         if response.status_code != 200:
-            sys.stderr.write(
-                "Problem with server: {} {}".format(self.address, os.linesep)
-            )
+            sys.stderr.write(f"Problem with server: {self.address} {os.linesep}")
+
             sys.exit(-1)
 
         # And then that it's ready to be interacted with
@@ -187,7 +186,7 @@ class WMSLogger:
         }
 
         response = requests.get(
-            self.address + "/create_workflow",
+            f"{self.address}/create_workflow",
             headers=self._headers,
             params=self.args,
             data=metadata,
@@ -208,7 +207,7 @@ class WMSLogger:
 
         # Send the workflow name to the server
         response_change_workflow_name = requests.put(
-            self.address + f"/api/workflow/{id}",
+            f"{self.address }/api/workflow/{id}",
             headers=headers,
             data=json.dumps(self.args),
         )
@@ -217,20 +216,18 @@ class WMSLogger:
 
         # Provide server parameters to the logger
         self.server = {"url": self.address, "id": id}
-
     def check_response(self, response, endpoint="wms monitor request"):
         """A helper function to take a response and check for an expected set of
         error codes, 404 (not found), 401 (requires authorization), 403 (permission
         denied), 500 (server error) and 200 (success).
         """
         status_code = response.status_code
-
         # Cut out early on success
         if status_code == 200:
             return
 
         if status_code == 404:
-            sys.stderr.write("The wms %s endpoint was not found" % endpoint)
+            sys.stderr.write(f"The wms {endpoint} endpoint was not found")
             sys.exit(-1)
         elif status_code == 401:
             sys.stderr.write(
@@ -239,7 +236,7 @@ class WMSLogger:
             sys.exit(-1)
         elif status_code == 500:
             sys.stderr.write(
-                "There was a server error when trying to access %s" % endpoint
+                f"There was a server error when trying to access {endpoint}"
             )
             sys.exit(-1)
         elif status_code == 403:
@@ -248,8 +245,7 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            "The %s response code %s is not recognized."
-            % (endpoint, response.status_code)
+            f"The {endpoint} response code {response.status_code} is not recognized."
         )
 
     @property
@@ -301,7 +297,6 @@ class WMSLogger:
             "timestamp": time.asctime(),
             "id": self.server["id"],
         }
-        print(server_info)
         response = requests.post(url, data=server_info, headers=self._headers)
         self.check_response(response, "/update_workflow_status")
 
