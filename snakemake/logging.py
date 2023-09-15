@@ -244,7 +244,8 @@ class WMSLogger:
 
         # Any other response code is not acceptable
         sys.stderr.write(
-            f"The {endpoint} response code {response.status_code} is not recognized."        )
+            f"The {endpoint} response code {response.status_code} is not recognized."
+        )
 
     @property
     def _headers(self):
