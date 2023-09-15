@@ -45,6 +45,8 @@ class SettingsBase(ABC):
         self._check()
 
     def _check(self):
+        # by default, nothing to check
+        # override this method in subclasses if needed
         pass
 
 
@@ -154,7 +156,7 @@ class DAGSettings(SettingsBase):
     targets: Set[str] = frozenset()
     target_jobs: Set[str] = frozenset()
     target_files_omit_workdir_adjustment: bool = False
-    batch: Batch = None
+    batch: Optional[Batch] = None
     forcetargets: bool = False
     forceall: bool = False
     forcerun: Set[str] = frozenset()
@@ -193,7 +195,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
                 rmt = importlib.import_module(
                     "snakemake.remote." + self.default_remote_provider
                 )
-            except ImportError as e:
+            except ImportError:
                 raise ApiError(
                     f"Unknown default remote provider {self.default_remote_provider}."
                 )

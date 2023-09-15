@@ -27,7 +27,7 @@ def get_git_root(path):
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
     except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
+        tail, _ = os.path.split(path)
         return get_git_root_parent_directory(tail, path)
 
 
@@ -50,7 +50,7 @@ def get_git_root_parent_directory(path, input_path):
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
     except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
+        tail, _ = os.path.split(path)
         if tail is None:
             raise WorkflowError(
                 f"Neither provided git path ({input_path}) "

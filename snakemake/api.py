@@ -57,6 +57,8 @@ class ApiBase(ABC):
         self._check()
 
     def _check(self):
+        # nothing to check by default
+        # override in subclasses if needed
         pass
 
 
@@ -94,9 +96,9 @@ class SnakemakeApi(ApiBase):
     def workflow(
         self,
         resource_settings: ResourceSettings,
-        config_settings: ConfigSettings = ConfigSettings(),
-        storage_settings: StorageSettings = StorageSettings(),
-        workflow_settings: WorkflowSettings = WorkflowSettings(),
+        config_settings: Optional[ConfigSettings] = None,
+        storage_settings: Optional[StorageSettings] = None,
+        workflow_settings: Optional[WorkflowSettings] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -113,6 +115,14 @@ class SnakemakeApi(ApiBase):
         snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
         workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
         """
+
+        if config_settings is None:
+            config_settings = ConfigSettings()
+        if storage_settings is None:
+            storage_settings = StorageSettings()
+        if workflow_settings is None:
+            workflow_settings = WorkflowSettings()
+
         self._check_is_in_context()
 
         self._setup_logger()
@@ -218,8 +228,8 @@ class WorkflowApi(ApiBase):
 
     def dag(
         self,
-        dag_settings: DAGSettings = DAGSettings(),
-        deployment_settings: DeploymentSettings = DeploymentSettings(),
+        dag_settings: Optional[DAGSettings] = None,
+        deployment_settings: Optional[DeploymentSettings] = None,
     ):
         """Create a DAG API.
 
@@ -227,6 +237,11 @@ class WorkflowApi(ApiBase):
         ---------
         dag_settings: DAGSettings -- The DAG settings for the DAG API.
         """
+        if dag_settings is None:
+            dag_settings = DAGSettings()
+        if deployment_settings is None:
+            deployment_settings = DeploymentSettings()
+
         return DAGApi(
             self.snakemake_api,
             self,
@@ -328,10 +343,10 @@ class DAGApi(ApiBase):
     def execute_workflow(
         self,
         executor: str = "local",
-        execution_settings: ExecutionSettings = ExecutionSettings(),
-        remote_execution_settings: RemoteExecutionSettings = RemoteExecutionSettings(),
-        scheduling_settings: SchedulingSettings = SchedulingSettings(),
-        group_settings: GroupSettings = GroupSettings(),
+        execution_settings: Optional[ExecutionSettings] = None,
+        remote_execution_settings: Optional[RemoteExecutionSettings] = None,
+        scheduling_settings: Optional[SchedulingSettings] = None,
+        group_settings: Optional[GroupSettings] = None,
         executor_settings: Optional[ExecutorSettingsBase] = None,
         updated_files: Optional[List[str]] = None,
     ):
@@ -347,6 +362,15 @@ class DAGApi(ApiBase):
         executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
         updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
         """
+
+        if execution_settings is None:
+            execution_settings = ExecutionSettings()
+        if remote_execution_settings is None:
+            remote_execution_settings = RemoteExecutionSettings()
+        if scheduling_settings is None:
+            scheduling_settings = SchedulingSettings()
+        if group_settings is None:
+            group_settings = GroupSettings()
 
         if (
             remote_execution_settings.immediate_submit

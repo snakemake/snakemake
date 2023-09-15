@@ -58,9 +58,11 @@ class Executor(RealExecutor):
         super().handle_job_success(job, ignore_missing_output=True)
 
     def cancel(self):
+        # nothing to do
         pass
 
     def shutdown(self):
+        # nothing to do
         pass
 
     def get_python_executable(self):

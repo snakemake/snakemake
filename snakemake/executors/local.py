@@ -227,14 +227,12 @@ class Executor(RealExecutor):
                         f"Service job {j.jobid} has been successfully terminated."
                     )
 
-            return
-
     def spawn_job(self, job: SingleJobExecutorInterface):
         cmd = self.format_job_exec(job)
 
         try:
             subprocess.check_call(cmd, shell=True)
-        except subprocess.CalledProcessError as e:
+        except subprocess.CalledProcessError:
             raise SpawnedJobError()
 
     def cached_or_run(self, job: SingleJobExecutorInterface, run_func, *args):

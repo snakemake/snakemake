@@ -57,15 +57,19 @@ class Executor(AbstractExecutor):
                 )
 
     def cancel(self):
+        # nothing to do
         pass
 
     def shutdown(self):
+        # nothing to do
         pass
 
     def handle_job_success(self, job: ExecutorJobInterface):
+        # nothing to do
         pass
 
     def handle_job_error(self, job: ExecutorJobInterface):
+        # nothing to do
         pass
 
     @property

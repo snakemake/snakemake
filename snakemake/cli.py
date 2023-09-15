@@ -229,7 +229,7 @@ def parse_cores(cores):
         return int(cores)
     except ValueError:
         raise CliException(
-            "Error parsing number of cores (--cores, -c): must be integer " "or 'all'."
+            "Error parsing number of cores (--cores, -c): must be integer or 'all'."
         )
 
 

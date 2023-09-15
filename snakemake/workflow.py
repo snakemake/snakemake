@@ -119,7 +119,7 @@ class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
     resource_settings: ResourceSettings
     workflow_settings: WorkflowSettings
-    storage_settings: StorageSettings = None
+    storage_settings: Optional[StorageSettings] = None
     dag_settings: Optional[DAGSettings] = None
     execution_settings: Optional[ExecutionSettings] = None
     deployment_settings: Optional[DeploymentSettings] = None
@@ -151,7 +151,7 @@ class Workflow(WorkflowExecutorInterface):
         self.included = []
         self.included_stack = []
         self._persistence: Persistence = None
-        self._dag: DAG = None
+        self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
         self._onstart = lambda log: None
@@ -1001,15 +1001,15 @@ class Workflow(WorkflowExecutorInterface):
                         logger.info("Group jobs: inactive (local execution)")
 
                     if (
-                        not DeploymentMethod.CONDA
-                        in self.deployment_settings.deployment_method
+                        DeploymentMethod.CONDA
+                        not in self.deployment_settings.deployment_method
                         and any(rule.conda_env for rule in self.rules)
                     ):
                         logger.info("Conda environments: ignored")
 
                     if (
-                        not DeploymentMethod.APPTAINER
-                        in self.deployment_settings.deployment_method
+                        DeploymentMethod.APPTAINER
+                        not in self.deployment_settings.deployment_method
                         and any(rule.container_img for rule in self.rules)
                     ):
                         logger.info("Singularity containers: ignored")
