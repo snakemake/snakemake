@@ -236,6 +236,7 @@ class DAG(DAGExecutorInterface):
                     create_inventory=True,
                 )
                 self.targetjobs.add(job)
+                self.forcefiles.update(job.output)
 
         self.cleanup()
 
