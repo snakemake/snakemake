@@ -52,7 +52,7 @@ class Menu extends AbstractMenu {
                 { key: "Results", text: "Result" }
             )];
 
-            items.push(...Object.keys(categories).map(function (category) {
+            items.push(...Object.keys(categories).sort().map(function (category) {
                 return _this.getMenuItem(category, "folder", () => app.showCategory(category));
             }));
 
