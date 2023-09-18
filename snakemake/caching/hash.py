@@ -11,6 +11,7 @@ from snakemake.jobs import Job
 from snakemake import script
 from snakemake import wrapper
 from snakemake.exceptions import WorkflowError
+from snakemake.settings import DeploymentMethod
 
 # ATTENTION: increase version number whenever the hashing algorithm below changes!
 __version__ = "0.1"
@@ -74,7 +75,7 @@ class ProvenanceHashMap:
                 wrapper.get_script(
                     job.rule.wrapper,
                     sourcecache=job.rule.workflow.sourcecache,
-                    prefix=workflow.wrapper_prefix,
+                    prefix=workflow.workflow_settings.wrapper_prefix,
                 ),
                 job.rule.workflow.sourcecache,
                 basedir=job.rule.basedir,
@@ -114,11 +115,22 @@ class ProvenanceHashMap:
 
         # Hash used containers or conda environments.
         if cache_mode != "omit-software":
-            if workflow.use_conda and job.conda_env:
-                if workflow.use_singularity and job.conda_env.container_img_url:
+            if (
+                DeploymentMethod.CONDA in workflow.deployment_settings.deployment_method
+                and job.conda_env
+            ):
+                if (
+                    DeploymentMethod.APPTAINER
+                    in workflow.deployment_settings.deployment_method
+                    and job.conda_env.container_img_url
+                ):
                     h.update(job.conda_env.container_img_url.encode())
                 h.update(job.conda_env.content)
-            elif workflow.use_singularity and job.container_img_url:
+            elif (
+                DeploymentMethod.APPTAINER
+                in workflow.deployment_settings.deployment_method
+                and job.container_img_url
+            ):
                 h.update(job.container_img_url.encode())
 
         # Generate hashes of dependencies, and add them in a blockchain fashion (as input to the current hash, sorted by hash value).

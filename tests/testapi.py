@@ -108,9 +108,9 @@ def test_lockexception():
     persistence = Persistence()
     persistence.all_inputfiles = lambda: ["A.txt"]
     persistence.all_outputfiles = lambda: ["B.txt"]
-    persistence.lock()
-    try:
-        persistence.lock()
-    except LockException as e:
-        return True
-    assert False
+    with persistence.lock():
+        try:
+            persistence.lock()
+        except LockException as e:
+            return True
+        assert False

@@ -3,857 +3,595 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
 import sys
-
-from snakemake.common import MIN_PY_VERSION
-
-if sys.version_info < MIN_PY_VERSION:
-    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
-
+from typing import Dict, List, Optional, Set
 import os
 from functools import partial
 import importlib
 
-from snakemake_interface_executor_plugins.utils import ExecMode
+from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
+from snakemake.settings import (
+    ChangeType,
+    GroupSettings,
+    SchedulingSettings,
+    WorkflowSettings,
+)
+
+if sys.version_info < MIN_PY_VERSION:
+    raise ValueError(f"Snakemake requires at least Python {'.'.join(MIN_PY_VERSION)}.")
+
+from snakemake.common.workdir_handler import WorkdirHandler
+from snakemake.settings import (
+    DAGSettings,
+    DeploymentMethod,
+    DeploymentSettings,
+    ExecutionSettings,
+    OutputSettings,
+    ConfigSettings,
+    RemoteExecutionSettings,
+    ResourceSettings,
+    StorageSettings,
+)
+
+from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_common.exceptions import ApiError
 
 from snakemake.workflow import Workflow
-from snakemake.exceptions import (
-    print_exception,
-    WorkflowError,
-)
+from snakemake.exceptions import print_exception
 from snakemake.logging import setup_logger, logger
-from snakemake.io import load_configfile
 from snakemake.shell import shell
-from snakemake.utils import update_config
 from snakemake.common import (
     MIN_PY_VERSION,
-    RERUN_TRIGGERS,
     __version__,
-    dict_to_key_value_args,
 )
 from snakemake.resources import DefaultResources
 
 
-def snakemake(
-    snakefile,
-    batch=None,
-    cache=None,
-    report=None,
-    report_stylesheet=None,
-    containerize=False,
-    lint=None,
-    generate_unit_tests=None,
-    listrules=False,
-    list_target_rules=False,
-    cores=1,
-    nodes=None,
-    local_cores=1,
-    max_threads=None,
-    resources=dict(),
-    overwrite_threads=None,
-    overwrite_scatter=None,
-    overwrite_resource_scopes=None,
-    default_resources=None,
-    overwrite_resources=None,
-    config=dict(),
-    configfiles=None,
-    config_args=None,
-    workdir=None,
-    targets=None,
-    target_jobs=None,
-    dryrun=False,
-    touch=False,
-    forcetargets=False,
-    forceall=False,
-    forcerun=[],
-    until=[],
-    omit_from=[],
-    prioritytargets=[],
-    stats=None,
-    printshellcmds=False,
-    debug_dag=False,
-    printdag=False,
-    printrulegraph=False,
-    printfilegraph=False,
-    printd3dag=False,
-    nocolor=False,
-    quiet=False,
-    keepgoing=False,
-    slurm=None,
-    slurm_jobstep=None,
-    rerun_triggers=RERUN_TRIGGERS,
-    cluster=None,
-    cluster_sync=None,
-    drmaa=None,
-    drmaa_log_dir=None,
-    jobname="snakejob.{rulename}.{jobid}.sh",
-    immediate_submit=False,
-    standalone=False,
-    ignore_ambiguity=False,
-    snakemakepath=None,
-    lock=True,
-    unlock=False,
-    cleanup_metadata=None,
-    conda_cleanup_envs=False,
-    cleanup_shadow=False,
-    cleanup_scripts=True,
-    cleanup_containers=False,
-    force_incomplete=False,
-    ignore_incomplete=False,
-    list_version_changes=False,
-    list_code_changes=False,
-    list_input_changes=False,
-    list_params_changes=False,
-    list_untracked=False,
-    list_resources=False,
-    summary=False,
-    archive=None,
-    delete_all_output=False,
-    delete_temp_output=False,
-    detailed_summary=False,
-    latency_wait=3,
-    wait_for_files=None,
-    print_compilation=False,
-    debug=False,
-    notemp=False,
-    all_temp=False,
-    keep_remote_local=False,
-    nodeps=False,
-    keep_target_files=False,
-    allowed_rules=None,
-    jobscript=None,
-    greediness=None,
-    no_hooks=False,
-    overwrite_shellcmd=None,
-    updated_files=None,
-    log_handler=[],
-    keep_logger=False,
-    max_jobs_per_second=None,
-    max_status_checks_per_second=100,
-    restart_times=0,
-    attempt=1,
-    verbose=False,
-    force_use_threads=False,
-    use_conda=False,
-    use_singularity=False,
-    use_env_modules=False,
-    singularity_args="",
-    conda_frontend="conda",
-    conda_prefix=None,
-    conda_cleanup_pkgs=None,
-    list_conda_envs=False,
-    singularity_prefix=None,
-    shadow_prefix=None,
-    scheduler="ilp",
-    scheduler_ilp_solver=None,
-    conda_create_envs_only=False,
-    mode=ExecMode.default,
-    wrapper_prefix=None,
-    kubernetes=None,
-    container_image=None,
-    k8s_cpu_scalar=1.0,
-    k8s_service_account_name=None,
-    flux=False,
-    tibanna=False,
-    tibanna_sfn=None,
-    az_batch=False,
-    az_batch_enable_autoscale=False,
-    az_batch_account_url=None,
-    google_lifesciences=False,
-    google_lifesciences_regions=None,
-    google_lifesciences_location=None,
-    google_lifesciences_cache=False,
-    google_lifesciences_service_account_email=None,
-    google_lifesciences_network=None,
-    google_lifesciences_subnetwork=None,
-    tes=None,
-    preemption_default=None,
-    preemptible_rules=None,
-    precommand="",
-    default_remote_provider=None,
-    default_remote_prefix="",
-    tibanna_config=False,
-    assume_shared_fs=True,
-    cluster_status=None,
-    cluster_cancel=None,
-    cluster_cancel_nargs=None,
-    cluster_sidecar=None,
-    export_cwl=None,
-    show_failed_logs=False,
-    keep_incomplete=False,
-    keep_metadata=True,
-    messaging=None,
-    edit_notebook=None,
-    envvars=None,
-    overwrite_groups=None,
-    group_components=None,
-    max_inventory_wait_time=20,
-    execute_subworkflows=True,
-    conda_not_block_search_path_envvars=False,
-    scheduler_solver_path=None,
-    conda_base_path=None,
-    local_groupid="local",
-    executor_args=None,
-):
-    """Run snakemake on a given snakefile.
+class ApiBase(ABC):
+    def __post_init__(self):
+        self._check()
 
-    This function provides access to the whole snakemake functionality. It is not thread-safe.
-
-    Args:
-        snakefile (str):            the path to the snakefile
-        batch (Batch):              whether to compute only a partial DAG, defined by the given Batch object (default None)
-        report (str):               create an HTML report for a previous run at the given path
-        lint (str):                 print lints instead of executing (None, "plain" or "json", default None)
-        listrules (bool):           list rules (default False)
-        list_target_rules (bool):   list target rules (default False)
-        cores (int):                the number of provided cores (ignored when using cluster support) (default 1)
-        nodes (int):                the number of provided cluster nodes (ignored without cluster support) (default 1)
-        local_cores (int):          the number of provided local cores if in cluster mode (ignored without cluster support) (default 1)
-        resources (dict):           provided resources, a dictionary assigning integers to resource names, e.g. {gpu=1, io=5} (default {})
-        default_resources (DefaultResources):   default values for resources not defined in rules (default None)
-        config (dict):              override values for workflow config
-        workdir (str):              path to the working directory (default None)
-        targets (list):             list of targets, e.g. rule or file names (default None)
-        target_jobs (dict):         list of snakemake.target_jobs.TargetSpec objects directly targeting specific jobs (default None)
-        dryrun (bool):              only dry-run the workflow (default False)
-        touch (bool):               only touch all output files if present (default False)
-        forcetargets (bool):        force given targets to be re-created (default False)
-        forceall (bool):            force all output files to be re-created (default False)
-        forcerun (list):            list of files and rules that shall be re-created/re-executed (default [])
-        execute_subworkflows (bool):   execute subworkflows if present (default True)
-        prioritytargets (list):     list of targets that shall be run with maximum priority (default [])
-        stats (str):                path to file that shall contain stats about the workflow execution (default None)
-        printshellcmds (bool):      print the shell command of each job (default False)
-        printdag (bool):            print the dag in the graphviz dot language (default False)
-        printrulegraph (bool):      print the graph of rules in the graphviz dot language (default False)
-        printfilegraph (bool):      print the graph of rules with their input and output files in the graphviz dot language (default False)
-        printd3dag (bool):          print a D3.js compatible JSON representation of the DAG (default False)
-        nocolor (bool):             do not print colored output (default False)
-        quiet (bool):               do not print any default job information (default False)
-        keepgoing (bool):           keep going upon errors (default False)
-        cluster (str):              submission command of a cluster or batch system to use, e.g. qsub (default None)
-        cluster_sync (str):         blocking cluster submission command (like SGE 'qsub -sync y')  (default None)
-        drmaa (str):                if not None use DRMAA for cluster support, str specifies native args passed to the cluster when submitting a job
-        drmaa_log_dir (str):        the path to stdout and stderr output of DRMAA jobs (default None)
-        jobname (str):              naming scheme for cluster job scripts (default "snakejob.{rulename}.{jobid}.sh")
-        immediate_submit (bool):    immediately submit all cluster jobs, regardless of dependencies (default False)
-        standalone (bool):          kill all processes very rudely in case of failure (do not use this if you use this API) (default False) (deprecated)
-        ignore_ambiguity (bool):    ignore ambiguous rules and always take the first possible one (default False)
-        snakemakepath (str):        deprecated parameter whose value is ignored. Do not use.
-        lock (bool):                lock the working directory when executing the workflow (default True)
-        unlock (bool):              just unlock the working directory (default False)
-        cleanup_metadata (list):    just cleanup metadata of given list of output files (default None)
-        drop_metadata (bool):       drop metadata file tracking information after job finishes (--report and --list_x_changes information will be incomplete) (default False)
-        conda_cleanup_envs (bool):  just cleanup unused conda environments (default False)
-        cleanup_shadow (bool):      just cleanup old shadow directories (default False)
-        cleanup_scripts (bool):     delete wrapper scripts used for execution (default True)
-        cleanup_containers (bool):  delete unused (singularity) containers (default False)
-        force_incomplete (bool):    force the re-creation of incomplete files (default False)
-        ignore_incomplete (bool):   ignore incomplete files (default False)
-        list_version_changes (bool): list output files with changed rule version (default False)
-        list_code_changes (bool):   list output files with changed rule code (default False)
-        list_input_changes (bool):  list output files with changed input files (default False)
-        list_params_changes (bool): list output files with changed params (default False)
-        list_untracked (bool):      list files in the workdir that are not used in the workflow (default False)
-        summary (bool):             list summary of all output files and their status (default False)
-        archive (str):              archive workflow into the given tarball
-        delete_all_output (bool):    remove all files generated by the workflow (default False)
-        delete_temp_output (bool):   remove all temporary files generated by the workflow (default False)
-        latency_wait (int):         how many seconds to wait for an output file to appear after the execution of a job, e.g. to handle filesystem latency (default 3)
-        wait_for_files (list):      wait for given files to be present before executing the workflow
-        list_resources (bool):      list resources used in the workflow (default False)
-        summary (bool):             list summary of all output files and their status (default False). If no option is specified a basic summary will be output. If 'detailed' is added as an option e.g --summary detailed, extra info about the input and shell commands will be included
-        detailed_summary (bool):    list summary of all input and output files and their status (default False)
-        print_compilation (bool):   print the compilation of the snakefile (default False)
-        debug (bool):               allow to use the debugger within rules
-        notemp (bool):              ignore temp file flags, e.g. do not delete output files marked as a temp after use (default False)
-        keep_remote_local (bool):   keep local copies of remote files (default False)
-        nodeps (bool):              ignore dependencies (default False)
-        keep_target_files (bool):   do not adjust the paths of given target files relative to the working directory.
-        allowed_rules (set):        restrict allowed rules to the given set. If None or empty, all rules are used.
-        jobscript (str):            path to a custom shell script template for cluster jobs (default None)
-        greediness (float):         set the greediness of scheduling. This value between 0 and 1 determines how careful jobs are selected for execution. The default value (0.5 if prioritytargets are used, 1.0 else) provides the best speed and still acceptable scheduling quality.
-        overwrite_shellcmd (str):   a shell command that shall be executed instead of those given in the workflow. This is for debugging purposes only.
-        updated_files(list):        a list that will be filled with the files that are updated or created during the workflow execution
-        verbose (bool):             show additional debug output (default False)
-        max_jobs_per_second (int):  maximal number of cluster/drmaa jobs per second, None to impose no limit (default None)
-        restart_times (int):        number of times to restart failing jobs (default 0)
-        attempt (int):              initial value of Job.attempt. This is intended for internal use only (default 1).
-        force_use_threads:          whether to force the use of threads over processes. helpful if shared memory is full or unavailable (default False)
-        use_conda (bool):           use conda environments for each job (defined with conda directive of rules)
-        use_singularity (bool):     run jobs in singularity containers (if defined with singularity directive)
-        use_env_modules (bool):     load environment modules if defined in rules
-        singularity_args (str):     additional arguments to pass to a singularity
-        conda_prefix (str):         the directory in which conda environments will be created (default None)
-        conda_cleanup_pkgs (snakemake.deployment.conda.CondaCleanupMode):
-                                    whether to clean up conda tarballs after env creation (default None), valid values: "tarballs", "cache"
-        singularity_prefix (str):   the directory to which singularity images will be pulled (default None)
-        shadow_prefix (str):        prefix for shadow directories. The job-specific shadow directories will be created in $SHADOW_PREFIX/shadow/ (default None)
-        conda_create_envs_only (bool):    if specified, only builds the conda environments specified for each job, then exits.
-        list_conda_envs (bool):     list conda environments and their location on disk.
-        mode (snakemake.common.Mode): execution mode
-        wrapper_prefix (str):       prefix for wrapper script URLs (default None)
-        kubernetes (str):           submit jobs to Kubernetes, using the given namespace.
-        container_image (str):      Docker image to use, e.g., for Kubernetes.
-        k8s_cpu_scalar (float):     What proportion of each k8s node's CPUs are availabe to snakemake?
-        k8s_service_account_name (str): Custom k8s service account, needed for workload identity.
-        flux (bool):                Launch workflow to flux cluster.
-        default_remote_provider (str): default remote provider to use instead of local files (e.g. S3, GS)
-        default_remote_prefix (str): prefix for default remote provider (e.g. name of the bucket).
-        tibanna (bool):             submit jobs to AWS cloud using Tibanna.
-        tibanna_sfn (str):          Step function (Unicorn) name of Tibanna (e.g. tibanna_unicorn_monty). This must be deployed first using tibanna cli.
-        az_batch (bool):            Submit jobs to azure batch.
-        az_batch_enable_autoscale (bool): Enable autoscaling of the azure batch pool nodes. This sets the initial dedicated node pool count to zero and resizes the pool only after 5 minutes. So this flag is only recommended for relatively long running jobs.,
-        az_batch_account_url (str): Azure batch account url.
-        google_lifesciences (bool): submit jobs to Google Cloud Life Sciences (pipelines API).
-        google_lifesciences_regions (list): a list of regions (e.g., us-east1)
-        google_lifesciences_location (str): Life Sciences API location (e.g., us-central1)
-        google_lifesciences_cache (bool): save a cache of the compressed working directories in Google Cloud Storage for later usage.
-        google_lifesciences_service_account_email (str): Service account to install on Google pipelines API VM instance.
-        google_lifesciences_network (str): Network name for Google VM instances.
-        google_lifesciences_subnetwork (str): Subnetwork name for Google VM instances.
-        tes (str):                  Execute workflow tasks on GA4GH TES server given by URL.
-        precommand (str):           commands to run on AWS cloud before the snakemake command (e.g. wget, git clone, unzip, etc). Use with --tibanna.
-        preemption_default (int):   set a default number of preemptible instance retries (for Google Life Sciences executor only)
-        preemptible_rules (list):    define custom preemptible instance retries for specific rules (for Google Life Sciences executor only)
-        tibanna_config (list):      Additional tibanna config e.g. --tibanna-config spot_instance=true subnet=<subnet_id> security group=<security_group_id>
-        assume_shared_fs (bool):    assume that cluster nodes share a common filesystem (default true).
-        cluster_status (str):       status command for cluster execution. If None, Snakemake will rely on flag files. Otherwise, it expects the command to return "success", "failure" or "running" when executing with a cluster jobid as a single argument.
-        cluster_cancel (str):       command to cancel multiple job IDs (like SLURM 'scancel') (default None)
-        cluster_cancel_nargs (int): maximal number of job ids to pass to cluster_cancel (default 1000)
-        cluster_sidecar (str):      command that starts a sidecar process, see cluster documentation (default None)
-        export_cwl (str):           Compile workflow to CWL and save to given file
-        log_handler (function):     redirect snakemake output to this custom log handler, a function that takes a log message dictionary (see below) as its only argument (default None). The log message dictionary for the log handler has to following entries:
-        keep_incomplete (bool):     keep incomplete output files of failed jobs
-        edit_notebook (object):     "notebook.EditMode" object to configure notebook server for interactive editing of a rule notebook. If None, do not edit.
-        scheduler (str):            Select scheduling algorithm (default ilp)
-        scheduler_ilp_solver (str): Set solver for ilp scheduler.
-        overwrite_groups (dict):    Rule to group assignments (default None)
-        group_components (dict):    Number of connected components given groups shall span before being split up (1 by default if empty)
-        conda_not_block_search_path_envvars (bool): Do not block search path envvars (R_LIBS, PYTHONPATH, ...) when using conda environments.
-        scheduler_solver_path (str): Path to Snakemake environment (this can be used to e.g. overwrite the search path for the ILP solver used during scheduling).
-        conda_base_path (str):      Path to conda base environment (this can be used to overwrite the search path for conda, mamba, and activate).
-        local_groupid (str):        Local groupid to use as a placeholder for groupid-referrring input functions of local jobs (internal use only, default: local).
-        log_handler (list):         redirect snakemake output to this list of custom log handlers, each a function that takes a log message dictionary (see below) as its only argument (default []). The log message dictionary for the log handler has to following entries:
-        executor_args (dataclasses.Dataclass):  custom Data class to pass to custom executors for more flexibility
-            :level:
-                the log level ("info", "error", "debug", "progress", "job_info")
-
-            :level="info", "error" or "debug":
-                :msg:
-                    the log message
-            :level="progress":
-                :done:
-                    number of already executed jobs
-
-                :total:
-                    number of total jobs
-
-            :level="job_info":
-                :input:
-                    list of input files of a job
-
-                :output:
-                    list of output files of a job
-
-                :log:
-                    path to log file of a job
-
-                :local:
-                    whether a job is executed locally (i.e. ignoring cluster)
-
-                :msg:
-                    the job message
-
-                :reason:
-                    the job reason
-
-                :priority:
-                    the job priority
-
-                :threads:
-                    the threads of the job
+    def _check(self):
+        # nothing to check by default
+        # override in subclasses if needed
+        pass
 
 
-    Returns:
-        bool:   True if workflow execution was successful.
+def resolve_snakefile(path: Optional[Path]):
+    """Get path to the snakefile.
 
+    Arguments
+    ---------
+    path: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
     """
-    assert not immediate_submit or (
-        immediate_submit and notemp
-    ), "immediate_submit has to be combined with notemp (it does not support temp file handling)"
-
-    if tibanna:
-        assume_shared_fs = False
-        default_remote_provider = "S3"
-        default_remote_prefix = default_remote_prefix.rstrip("/")
-        assert (
-            default_remote_prefix
-        ), "default_remote_prefix needed if tibanna is specified"
-        assert tibanna_sfn, "tibanna_sfn needed if tibanna is specified"
-        if tibanna_config:
-            tibanna_config_dict = dict()
-            for cf in tibanna_config:
-                k, v = cf.split("=")
-                if v == "true":
-                    v = True
-                elif v == "false":
-                    v = False
-                elif v.isnumeric():
-                    v = int(v)
-                else:
-                    try:
-                        v = float(v)
-                    except ValueError:
-                        pass
-                tibanna_config_dict.update({k: v})
-            tibanna_config = tibanna_config_dict
-
-    # Azure batch uses compute engine and storage
-    if az_batch:
-        assume_shared_fs = False
-        default_remote_provider = "AzBlob"
-
-    # Google Cloud Life Sciences API uses compute engine and storage
-    if google_lifesciences:
-        assume_shared_fs = False
-        default_remote_provider = "GS"
-        default_remote_prefix = default_remote_prefix.rstrip("/")
-    if kubernetes:
-        assume_shared_fs = False
-
-    # Currently preemptible instances only supported for Google LifeSciences Executor
-    if preemption_default or preemptible_rules and not google_lifesciences:
-        logger.warning(
-            "Preemptible instances are only available for the Google Life Sciences Executor."
+    if path is None:
+        for p in SNAKEFILE_CHOICES:
+            if p.exists():
+                return p
+        raise ApiError(
+            f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
         )
+    return path
 
-    if updated_files is None:
-        updated_files = list()
 
-    run_local = not (
-        cluster
-        or cluster_sync
-        or drmaa
-        or kubernetes
-        or tibanna
-        or az_batch
-        or google_lifesciences
-        or tes
-        or slurm
-        or slurm_jobstep
-    )
-    if run_local:
-        if not dryrun:
-            # clean up all previously recorded jobids.
-            shell.cleanup()
-    else:
-        if default_resources is None:
-            # use full default resources if in cluster or cloud mode
-            default_resources = DefaultResources(mode="full")
-        if edit_notebook:
-            raise WorkflowError(
-                "Notebook edit mode is only allowed with local execution."
-            )
+@dataclass
+class SnakemakeApi(ApiBase):
+    """The Snakemake API.
 
-    shell.conda_block_conflicting_envvars = not conda_not_block_search_path_envvars
+    Arguments
+    ---------
 
-    # force thread use for any kind of cluster
-    use_threads = (
-        force_use_threads
-        or (os.name not in ["posix", "nt"])
-        or cluster
-        or cluster_sync
-        or drmaa
-    )
+    output_settings: OutputSettings -- The output settings for the Snakemake API.
+    """
 
-    if not keep_logger:
-        stdout = (
-            (
-                dryrun
-                and not (printdag or printd3dag or printrulegraph or printfilegraph)
-            )
-            or listrules
-            or list_target_rules
-            or list_resources
-        )
+    output_settings: OutputSettings = field(default_factory=OutputSettings)
+    _workflow_api: Optional["WorkflowApi"] = field(init=False, default=None)
+    _is_in_context: bool = field(init=False, default=False)
 
-        setup_logger(
-            handler=log_handler,
-            quiet=quiet,
-            printshellcmds=printshellcmds,
-            debug_dag=debug_dag,
-            nocolor=nocolor,
-            stdout=stdout,
-            debug=verbose,
-            use_threads=use_threads,
-            mode=mode,
-            show_failed_logs=show_failed_logs,
-            dryrun=dryrun,
-        )
+    def workflow(
+        self,
+        resource_settings: ResourceSettings,
+        config_settings: Optional[ConfigSettings] = None,
+        storage_settings: Optional[StorageSettings] = None,
+        workflow_settings: Optional[WorkflowSettings] = None,
+        snakefile: Optional[Path] = None,
+        workdir: Optional[Path] = None,
+    ):
+        """Create the workflow API.
 
-    if greediness is None:
-        greediness = 0.5 if prioritytargets else 1.0
-    else:
-        if not (0 <= greediness <= 1.0):
-            logger.error("Error: greediness must be a float between 0 and 1.")
-            return False
+        Note that if provided, this also changes to the provided workdir.
+        It will change back to the previous working directory when the workflow API object is deleted.
 
-    if not os.path.exists(snakefile):
-        logger.error(f'Error: Snakefile "{snakefile}" not found.')
-        return False
-    snakefile = os.path.abspath(snakefile)
+        Arguments
+        ---------
+        config_settings: ConfigSettings -- The config settings for the workflow.
+        resource_settings: ResourceSettings -- The resource settings for the workflow.
+        storage_settings: StorageSettings -- The storage settings for the workflow.
+        snakefile: Optional[Path] -- The path to the snakefile. If not provided, default locations will be tried.
+        workdir: Optional[Path] -- The path to the working directory. If not provided, the current working directory will be used.
+        """
 
-    cluster_mode = (
-        (cluster is not None) + (cluster_sync is not None) + (drmaa is not None)
-    )
-    if cluster_mode > 1:
-        logger.error("Error: cluster and drmaa args are mutually exclusive")
-        return False
+        if config_settings is None:
+            config_settings = ConfigSettings()
+        if storage_settings is None:
+            storage_settings = StorageSettings()
+        if workflow_settings is None:
+            workflow_settings = WorkflowSettings()
 
-    if debug and (cluster_mode or cores is not None and cores > 1):
-        logger.error(
-            "Error: debug mode cannot be used with more than one core or cluster execution."
-        )
-        return False
+        self._check_is_in_context()
 
-    overwrite_config = dict()
-    if configfiles is None:
-        configfiles = []
-    for f in configfiles:
-        # get values to override. Later configfiles override earlier ones.
-        update_config(overwrite_config, load_configfile(f))
-    # convert provided paths to absolute paths
-    configfiles = list(map(os.path.abspath, configfiles))
+        self._setup_logger()
 
-    # directly specified elements override any configfiles
-    if config:
-        update_config(overwrite_config, config)
-        if config_args is None:
-            config_args = dict_to_key_value_args(config)
+        snakefile = resolve_snakefile(snakefile)
 
-    if workdir:
-        olddir = os.getcwd()
-        if not os.path.exists(workdir):
-            logger.info(f"Creating specified working directory {workdir}.")
-            os.makedirs(workdir)
-        workdir = os.path.abspath(workdir)
-        os.chdir(workdir)
-
-    logger.setup_logfile()
-
-    try:
-        # handle default remote provider
-        _default_remote_provider = None
-        if default_remote_provider is not None:
-            try:
-                rmt = importlib.import_module(
-                    "snakemake.remote." + default_remote_provider
-                )
-            except ImportError as e:
-                raise WorkflowError("Unknown default remote provider.")
-            if rmt.RemoteProvider.supports_default:
-                _default_remote_provider = rmt.RemoteProvider(
-                    keep_local=keep_remote_local, is_default=True
-                )
-            else:
-                raise WorkflowError(
-                    "Remote provider {} does not (yet) support to "
-                    "be used as default provider."
-                )
-
-        workflow = Workflow(
+        self._workflow_api = WorkflowApi(
+            snakemake_api=self,
             snakefile=snakefile,
-            rerun_triggers=rerun_triggers,
-            jobscript=jobscript,
-            overwrite_shellcmd=overwrite_shellcmd,
-            overwrite_config=overwrite_config,
-            overwrite_workdir=workdir,
-            overwrite_configfiles=configfiles,
-            overwrite_threads=overwrite_threads,
-            max_threads=max_threads,
-            overwrite_scatter=overwrite_scatter,
-            overwrite_groups=overwrite_groups,
-            overwrite_resources=overwrite_resources,
-            overwrite_resource_scopes=overwrite_resource_scopes,
-            group_components=group_components,
-            config_args=config_args,
-            debug=debug,
-            verbose=verbose,
-            use_conda=use_conda or list_conda_envs or conda_cleanup_envs,
-            use_singularity=use_singularity,
-            use_env_modules=use_env_modules,
-            conda_frontend=conda_frontend,
-            conda_prefix=conda_prefix,
-            conda_cleanup_pkgs=conda_cleanup_pkgs,
-            singularity_prefix=singularity_prefix,
-            shadow_prefix=shadow_prefix,
-            singularity_args=singularity_args,
-            scheduler_type=scheduler,
-            scheduler_ilp_solver=scheduler_ilp_solver,
-            mode=mode,
-            wrapper_prefix=wrapper_prefix,
-            printshellcmds=printshellcmds,
-            restart_times=restart_times,
-            attempt=attempt,
-            default_remote_provider=_default_remote_provider,
-            default_remote_prefix=default_remote_prefix,
-            run_local=run_local,
-            assume_shared_fs=assume_shared_fs,
-            default_resources=default_resources,
-            cache=cache,
-            cores=cores,
-            nodes=nodes,
-            resources=resources,
-            edit_notebook=edit_notebook,
-            envvars=envvars,
-            max_inventory_wait_time=max_inventory_wait_time,
-            conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
-            execute_subworkflows=execute_subworkflows,
-            scheduler_solver_path=scheduler_solver_path,
-            conda_base_path=conda_base_path,
-            check_envvars=not lint,  # for linting, we do not need to check whether requested envvars exist
-            all_temp=all_temp,
-            local_groupid=local_groupid,
-            keep_metadata=keep_metadata,
-            latency_wait=latency_wait,
-            executor_args=executor_args,
-            cleanup_scripts=cleanup_scripts,
-            immediate_submit=immediate_submit,
-            quiet=quiet,
+            workdir=workdir,
+            config_settings=config_settings,
+            resource_settings=resource_settings,
+            storage_settings=storage_settings,
+            workflow_settings=workflow_settings,
         )
-        success = True
+        return self._workflow_api
 
+    def _cleanup(self):
+        """Cleanup the workflow."""
+        if not self.output_settings.keep_logger:
+            logger.cleanup()
+        if self._workflow_api is not None:
+            self._workflow_api._workdir_handler.change_back()
+            if (
+                self._workflow_api._workflow_store is not None
+                and self._workflow_api._workflow._workdir_handler is not None
+            ):
+                self._workflow_api._workflow._workdir_handler.change_back()
+
+    def print_exception(self, ex: Exception):
+        """Print an exception during workflow execution in a human readable way
+        (with adjusted line numbers for exceptions raised in Snakefiles and stack
+        traces that hide Snakemake internals for better readability).
+
+        Arguments
+        ---------
+        ex: Exception -- The exception to print.
+        """
+        linemaps = (
+            self._workflow_api._workflow.linemaps
+            if self._workflow_api is not None
+            else dict()
+        )
+        print_exception(ex, linemaps)
+
+    def _setup_logger(
+        self,
+        stdout: bool = False,
+        mode: ExecMode = ExecMode.DEFAULT,
+        dryrun: bool = False,
+    ):
+        if not self.output_settings.keep_logger:
+            setup_logger(
+                handler=self.output_settings.log_handlers,
+                quiet=self.output_settings.quiet,
+                nocolor=self.output_settings.nocolor,
+                debug=self.output_settings.verbose,
+                printshellcmds=self.output_settings.printshellcmds,
+                debug_dag=self.output_settings.debug_dag,
+                stdout=stdout,
+                mode=mode,
+                show_failed_logs=self.output_settings.show_failed_logs,
+                dryrun=dryrun,
+            )
+
+    def _check_is_in_context(self):
+        if not self._is_in_context:
+            raise ApiError(
+                "This method can only be called when SnakemakeApi is used within a with "
+                "statement."
+            )
+
+    def __enter__(self):
+        self._is_in_context = True
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._is_in_context = False
+        self._cleanup()
+
+
+@dataclass
+class WorkflowApi(ApiBase):
+    """The workflow API.
+
+    Arguments
+    ---------
+    snakemake_api: SnakemakeApi -- The Snakemake API.
+    snakefile: Path -- The path to the snakefile.
+    config_settings: ConfigSettings -- The config settings for the workflow.
+    resource_settings: ResourceSettings -- The resource settings for the workflow.
+    """
+
+    snakemake_api: SnakemakeApi
+    snakefile: Path
+    workdir: Optional[Path]
+    config_settings: ConfigSettings
+    resource_settings: ResourceSettings
+    storage_settings: StorageSettings
+    workflow_settings: WorkflowSettings
+    _workflow_store: Optional[Workflow] = field(init=False, default=None)
+    _workdir_handler: Optional[WorkdirHandler] = field(init=False)
+
+    def dag(
+        self,
+        dag_settings: Optional[DAGSettings] = None,
+        deployment_settings: Optional[DeploymentSettings] = None,
+    ):
+        """Create a DAG API.
+
+        Arguments
+        ---------
+        dag_settings: DAGSettings -- The DAG settings for the DAG API.
+        """
+        if dag_settings is None:
+            dag_settings = DAGSettings()
+        if deployment_settings is None:
+            deployment_settings = DeploymentSettings()
+
+        return DAGApi(
+            self.snakemake_api,
+            self,
+            dag_settings=dag_settings,
+            deployment_settings=deployment_settings,
+        )
+
+    def lint(self, json: bool = False):
+        """Lint the workflow.
+
+        Arguments
+        ---------
+        json: bool -- Whether to print the linting results as JSON.
+
+        Returns
+        -------
+        True if any lints were printed
+        """
+        workflow = self._get_workflow(check_envvars=False)
         workflow.include(
-            snakefile,
-            overwrite_default_target=True,
-            print_compilation=print_compilation,
+            self.snakefile, overwrite_default_target=True, print_compilation=False
         )
         workflow.check()
+        return workflow.lint(json=json)
 
-        if not print_compilation:
-            if lint:
-                success = not workflow.lint(json=lint == "json")
-            elif listrules:
-                workflow.list_rules()
-            elif list_target_rules:
-                workflow.list_rules(only_targets=True)
-            elif list_resources:
-                workflow.list_resources()
+    def list_rules(self, only_targets: bool = False):
+        """List the rules of the workflow.
+
+        Arguments
+        ---------
+        only_targets: bool -- Whether to only list target rules.
+        """
+        self._workflow.list_rules(only_targets=only_targets)
+
+    def list_resources(self):
+        """List the resources of the workflow."""
+        self._workflow.list_resources()
+
+    def print_compilation(self):
+        """Print the pure python compilation of the workflow."""
+        workflow = self._get_workflow()
+        workflow.include(self.snakefile, print_compilation=True)
+
+    @property
+    def _workflow(self):
+        if self._workflow_store is None:
+            workflow = self._get_workflow()
+            workflow.include(
+                self.snakefile, overwrite_default_target=True, print_compilation=False
+            )
+            workflow.check()
+            self._workflow_store = workflow
+        return self._workflow_store
+
+    def _get_workflow(self, **kwargs):
+        from snakemake.workflow import Workflow
+
+        return Workflow(
+            config_settings=self.config_settings,
+            resource_settings=self.resource_settings,
+            workflow_settings=self.workflow_settings,
+            storage_settings=self.storage_settings,
+            output_settings=self.snakemake_api.output_settings,
+            overwrite_workdir=self.workdir,
+            **kwargs,
+        )
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.snakefile = self.snakefile.absolute()
+        self._workdir_handler = WorkdirHandler(self.workdir)
+        self._workdir_handler.change_to()
+
+    def _check(self):
+        if not self.snakefile.exists():
+            raise ApiError(f'Snakefile "{self.snakefile}" not found.')
+
+
+@dataclass
+class DAGApi(ApiBase):
+    """The DAG API.
+
+    Arguments
+    ---------
+    snakemake_api: SnakemakeApi -- The Snakemake API.
+    workflow_api: WorkflowApi -- The workflow API.
+    dag_settings: DAGSettings -- The DAG settings for the DAG API.
+    """
+
+    snakemake_api: SnakemakeApi
+    workflow_api: WorkflowApi
+    dag_settings: DAGSettings
+    deployment_settings: DeploymentSettings
+
+    def __post_init__(self):
+        self.workflow_api._workflow.dag_settings = self.dag_settings
+        self.workflow_api._workflow.deployment_settings = self.deployment_settings
+
+    def execute_workflow(
+        self,
+        executor: str = "local",
+        execution_settings: Optional[ExecutionSettings] = None,
+        remote_execution_settings: Optional[RemoteExecutionSettings] = None,
+        scheduling_settings: Optional[SchedulingSettings] = None,
+        group_settings: Optional[GroupSettings] = None,
+        executor_settings: Optional[ExecutorSettingsBase] = None,
+        updated_files: Optional[List[str]] = None,
+    ):
+        """Execute the workflow.
+
+        Arguments
+        ---------
+        executor: str -- The executor to use.
+        execution_settings: ExecutionSettings -- The execution settings for the workflow.
+        resource_settings: ResourceSettings -- The resource settings for the workflow.
+        deployment_settings: DeploymentSettings -- The deployment settings for the workflow.
+        remote_execution_settings: RemoteExecutionSettings -- The remote execution settings for the workflow.
+        executor_settings: Optional[ExecutorSettingsBase] -- The executor settings for the workflow.
+        updated_files: Optional[List[str]] -- An optional list where Snakemake will put all updated files.
+        """
+
+        if execution_settings is None:
+            execution_settings = ExecutionSettings()
+        if remote_execution_settings is None:
+            remote_execution_settings = RemoteExecutionSettings()
+        if scheduling_settings is None:
+            scheduling_settings = SchedulingSettings()
+        if group_settings is None:
+            group_settings = GroupSettings()
+
+        if (
+            remote_execution_settings.immediate_submit
+            and not self.workflow_api.storage_settings.notemp
+        ):
+            raise ApiError(
+                "immediate_submit has to be combined with notemp (it does not support temp file handling)"
+            )
+
+        executor_plugin_registry = _get_executor_plugin_registry()
+        executor_plugin = executor_plugin_registry.get_plugin(executor)
+
+        if executor_plugin.common_settings.implies_no_shared_fs:
+            self.workflow_api.storage_settings.assume_shared_fs = False
+
+        self.snakemake_api._setup_logger(
+            stdout=executor_plugin.common_settings.dryrun_exec,
+            mode=execution_settings.mode,
+            dryrun=executor_plugin.common_settings.dryrun_exec,
+        )
+
+        if executor_plugin.common_settings.local_exec:
+            if (
+                not executor_plugin.common_settings.dryrun_exec
+                and not executor_plugin.common_settings.touch_exec
+            ):
+                if self.workflow_api.resource_settings.cores is None:
+                    raise ApiError(
+                        "cores have to be specified for local execution "
+                        "(use --cores N with N being a number >= 1 or 'all')"
+                    )
+                # clean up all previously recorded jobids.
+                shell.cleanup()
             else:
-                # if not printdag and not printrulegraph:
-                # handle subworkflows
-                subsnakemake = partial(
-                    snakemake,
-                    local_cores=local_cores,
-                    max_threads=max_threads,
-                    cache=cache,
-                    overwrite_threads=overwrite_threads,
-                    overwrite_scatter=overwrite_scatter,
-                    overwrite_resources=overwrite_resources,
-                    overwrite_resource_scopes=overwrite_resource_scopes,
-                    default_resources=default_resources,
-                    dryrun=dryrun,
-                    touch=touch,
-                    printshellcmds=printshellcmds,
-                    debug_dag=debug_dag,
-                    nocolor=nocolor,
-                    quiet=quiet,
-                    keepgoing=keepgoing,
-                    cluster=cluster,
-                    cluster_sync=cluster_sync,
-                    drmaa=drmaa,
-                    drmaa_log_dir=drmaa_log_dir,
-                    jobname=jobname,
-                    immediate_submit=immediate_submit,
-                    standalone=standalone,
-                    ignore_ambiguity=ignore_ambiguity,
-                    restart_times=restart_times,
-                    attempt=attempt,
-                    lock=lock,
-                    unlock=unlock,
-                    cleanup_metadata=cleanup_metadata,
-                    conda_cleanup_envs=conda_cleanup_envs,
-                    cleanup_containers=cleanup_containers,
-                    cleanup_shadow=cleanup_shadow,
-                    cleanup_scripts=cleanup_scripts,
-                    force_incomplete=force_incomplete,
-                    ignore_incomplete=ignore_incomplete,
-                    latency_wait=latency_wait,
-                    verbose=verbose,
-                    notemp=notemp,
-                    all_temp=all_temp,
-                    keep_remote_local=keep_remote_local,
-                    nodeps=nodeps,
-                    jobscript=jobscript,
-                    greediness=greediness,
-                    no_hooks=no_hooks,
-                    overwrite_shellcmd=overwrite_shellcmd,
-                    config=config,
-                    config_args=config_args,
-                    keep_logger=True,
-                    force_use_threads=use_threads,
-                    use_conda=use_conda,
-                    use_singularity=use_singularity,
-                    use_env_modules=use_env_modules,
-                    conda_prefix=conda_prefix,
-                    conda_cleanup_pkgs=conda_cleanup_pkgs,
-                    conda_frontend=conda_frontend,
-                    singularity_prefix=singularity_prefix,
-                    shadow_prefix=shadow_prefix,
-                    singularity_args=singularity_args,
-                    scheduler=scheduler,
-                    scheduler_ilp_solver=scheduler_ilp_solver,
-                    list_conda_envs=list_conda_envs,
-                    kubernetes=kubernetes,
-                    container_image=container_image,
-                    k8s_cpu_scalar=k8s_cpu_scalar,
-                    k8s_service_account_name=k8s_service_account_name,
-                    conda_create_envs_only=conda_create_envs_only,
-                    default_remote_provider=default_remote_provider,
-                    default_remote_prefix=default_remote_prefix,
-                    tibanna=tibanna,
-                    tibanna_sfn=tibanna_sfn,
-                    az_batch=az_batch,
-                    az_batch_enable_autoscale=az_batch_enable_autoscale,
-                    az_batch_account_url=az_batch_account_url,
-                    google_lifesciences=google_lifesciences,
-                    google_lifesciences_regions=google_lifesciences_regions,
-                    google_lifesciences_location=google_lifesciences_location,
-                    google_lifesciences_cache=google_lifesciences_cache,
-                    google_lifesciences_service_account_email=google_lifesciences_service_account_email,
-                    google_lifesciences_network=google_lifesciences_network,
-                    google_lifesciences_subnetwork=google_lifesciences_subnetwork,
-                    flux=flux,
-                    tes=tes,
-                    precommand=precommand,
-                    preemption_default=preemption_default,
-                    preemptible_rules=preemptible_rules,
-                    tibanna_config=tibanna_config,
-                    assume_shared_fs=assume_shared_fs,
-                    cluster_status=cluster_status,
-                    cluster_cancel=cluster_cancel,
-                    cluster_cancel_nargs=cluster_cancel_nargs,
-                    cluster_sidecar=cluster_sidecar,
-                    max_jobs_per_second=max_jobs_per_second,
-                    max_status_checks_per_second=max_status_checks_per_second,
-                    overwrite_groups=overwrite_groups,
-                    group_components=group_components,
-                    max_inventory_wait_time=max_inventory_wait_time,
-                    conda_not_block_search_path_envvars=conda_not_block_search_path_envvars,
-                    local_groupid=local_groupid,
+                # set cores if that is not done yet
+                if self.workflow_api.resource_settings.cores is None:
+                    self.workflow_api.resource_settings.cores = 1
+            if (
+                execution_settings.debug
+                and self.workflow_api.resource_settings.cores > 1
+            ):
+                raise ApiError(
+                    "debug mode cannot be used with multi-core execution, "
+                    "please enforce a single core by setting --cores 1"
                 )
-                success = workflow.execute(
-                    targets=targets,
-                    target_jobs=target_jobs,
-                    dryrun=dryrun,
-                    generate_unit_tests=generate_unit_tests,
-                    touch=touch,
-                    scheduler_type=scheduler,
-                    scheduler_ilp_solver=scheduler_ilp_solver,
-                    local_cores=local_cores,
-                    forcetargets=forcetargets,
-                    forceall=forceall,
-                    forcerun=forcerun,
-                    prioritytargets=prioritytargets,
-                    until=until,
-                    omit_from=omit_from,
-                    keepgoing=keepgoing,
-                    printrulegraph=printrulegraph,
-                    printfilegraph=printfilegraph,
-                    printdag=printdag,
-                    slurm=slurm,
-                    slurm_jobstep=slurm_jobstep,
-                    cluster=cluster,
-                    cluster_sync=cluster_sync,
-                    jobname=jobname,
-                    drmaa=drmaa,
-                    drmaa_log_dir=drmaa_log_dir,
-                    kubernetes=kubernetes,
-                    container_image=container_image,
-                    k8s_cpu_scalar=k8s_cpu_scalar,
-                    k8s_service_account_name=k8s_service_account_name,
-                    tibanna=tibanna,
-                    tibanna_sfn=tibanna_sfn,
-                    az_batch=az_batch,
-                    az_batch_enable_autoscale=az_batch_enable_autoscale,
-                    az_batch_account_url=az_batch_account_url,
-                    google_lifesciences=google_lifesciences,
-                    google_lifesciences_regions=google_lifesciences_regions,
-                    google_lifesciences_location=google_lifesciences_location,
-                    google_lifesciences_cache=google_lifesciences_cache,
-                    google_lifesciences_service_account_email=google_lifesciences_service_account_email,
-                    google_lifesciences_network=google_lifesciences_network,
-                    google_lifesciences_subnetwork=google_lifesciences_subnetwork,
-                    tes=tes,
-                    flux=flux,
-                    precommand=precommand,
-                    preemption_default=preemption_default,
-                    preemptible_rules=preemptible_rules,
-                    tibanna_config=tibanna_config,
-                    max_jobs_per_second=max_jobs_per_second,
-                    max_status_checks_per_second=max_status_checks_per_second,
-                    printd3dag=printd3dag,
-                    ignore_ambiguity=ignore_ambiguity,
-                    stats=stats,
-                    force_incomplete=force_incomplete,
-                    ignore_incomplete=ignore_incomplete,
-                    list_version_changes=list_version_changes,
-                    list_code_changes=list_code_changes,
-                    list_input_changes=list_input_changes,
-                    list_params_changes=list_params_changes,
-                    list_untracked=list_untracked,
-                    list_conda_envs=list_conda_envs,
-                    summary=summary,
-                    archive=archive,
-                    delete_all_output=delete_all_output,
-                    delete_temp_output=delete_temp_output,
-                    wait_for_files=wait_for_files,
-                    detailed_summary=detailed_summary,
-                    nolock=not lock,
-                    unlock=unlock,
-                    notemp=notemp,
-                    keep_remote_local=keep_remote_local,
-                    nodeps=nodeps,
-                    keep_target_files=keep_target_files,
-                    cleanup_metadata=cleanup_metadata,
-                    conda_cleanup_envs=conda_cleanup_envs,
-                    cleanup_containers=cleanup_containers,
-                    cleanup_shadow=cleanup_shadow,
-                    subsnakemake=subsnakemake,
-                    updated_files=updated_files,
-                    allowed_rules=allowed_rules,
-                    greediness=greediness,
-                    no_hooks=no_hooks,
-                    force_use_threads=use_threads,
-                    conda_create_envs_only=conda_create_envs_only,
-                    cluster_status=cluster_status,
-                    cluster_cancel=cluster_cancel,
-                    cluster_cancel_nargs=cluster_cancel_nargs,
-                    cluster_sidecar=cluster_sidecar,
-                    report=report,
-                    report_stylesheet=report_stylesheet,
-                    export_cwl=export_cwl,
-                    batch=batch,
-                    keepincomplete=keep_incomplete,
-                    containerize=containerize,
-                )
-
-    except BrokenPipeError:
-        # ignore this exception and stop. It occurs if snakemake output is piped into less and less quits before reading the whole output.
-        # in such a case, snakemake shall stop scheduling and quit with error 1
-        success = False
-    except BaseException as ex:
-        if "workflow" in locals():
-            print_exception(ex, workflow.linemaps)
         else:
-            print_exception(ex, dict())
-        success = False
+            if self.workflow_api.resource_settings.nodes is None:
+                raise ApiError(
+                    "maximum number of parallel jobs/used nodes has to be specified for remote execution "
+                    "(use --jobs N with N being a number >= 1)"
+                )
+            # non local execution
+            if self.workflow_api.resource_settings.default_resources is None:
+                # use full default resources if in cluster or cloud mode
+                self.workflow_api.resource_settings.default_resources = (
+                    DefaultResources(mode="full")
+                )
+            if execution_settings.edit_notebook is not None:
+                raise ApiError(
+                    "notebook edit mode is only allowed with local execution."
+                )
+            if execution_settings.debug:
+                raise ApiError("debug mode cannot be used with non-local execution")
 
-    if workdir:
-        os.chdir(olddir)
-    if "workflow" in locals() and workflow.persistence:
-        workflow.persistence.unlock()
-    if not keep_logger:
-        logger.cleanup()
-    return success
+        execution_settings.use_threads = (
+            execution_settings.use_threads
+            or (os.name not in ["posix"])
+            or not executor_plugin.common_settings.local_exec
+        )
+
+        logger.setup_logfile()
+
+        workflow = self.workflow_api._workflow
+        workflow.execution_settings = execution_settings
+        workflow.remote_execution_settings = remote_execution_settings
+        workflow.scheduling_settings = scheduling_settings
+        workflow.group_settings = group_settings
+
+        workflow.execute(
+            executor_plugin=executor_plugin,
+            executor_settings=executor_settings,
+            updated_files=updated_files,
+        )
+
+    def generate_unit_tests(self, path: Path):
+        """Generate unit tests for the workflow.
+
+        Arguments
+        ---------
+        path: Path -- The path to store the unit tests.
+        """
+        self.workflow_api._workflow.generate_unit_tests(path=path)
+
+    def containerize(self):
+        """Containerize the workflow."""
+        self.workflow_api._workflow.containerize()
+
+    def create_report(
+        self,
+        path: Path,
+        stylesheet: Optional[Path] = None,
+    ):
+        """Create a report for the workflow.
+
+        Arguments
+        ---------
+        report: Path -- The path to the report.
+        report_stylesheet: Optional[Path] -- The path to the report stylesheet.
+        """
+        self.workflow_api._workflow.create_report(
+            path=path,
+            stylesheet=stylesheet,
+        )
+
+    def printdag(self):
+        """Print the DAG of the workflow."""
+        self.workflow_api._workflow.printdag()
+
+    def printrulegraph(self):
+        """Print the rule graph of the workflow."""
+        self.workflow_api._workflow.printrulegraph()
+
+    def printfilegraph(self):
+        """Print the file graph of the workflow."""
+        self.workflow_api._workflow.printfilegraph()
+
+    def printd3dag(self):
+        """Print the DAG of the workflow in D3.js compatible JSON."""
+        self.workflow_api._workflow.printd3dag()
+
+    def unlock(self):
+        """Unlock the workflow."""
+        self.workflow_api._workflow.unlock()
+
+    def cleanup_metadata(self, paths: List[Path]):
+        """Cleanup the metadata of the workflow."""
+        self.workflow_api._workflow.cleanup_metadata(paths)
+
+    def conda_cleanup_envs(self):
+        """Cleanup the conda environments of the workflow."""
+        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api._workflow.conda_cleanup_envs()
+
+    def conda_create_envs(self):
+        """Only create the conda environments of the workflow."""
+        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api._workflow.conda_create_envs()
+
+    def conda_list_envs(self):
+        """List the conda environments of the workflow."""
+        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api._workflow.conda_list_envs()
+
+    def cleanup_shadow(self):
+        """Cleanup the shadow directories of the workflow."""
+        self.workflow_api._workflow.cleanup_shadow()
+
+    def container_cleanup_images(self):
+        """Cleanup the container images of the workflow."""
+        self.deployment_settings.imply_deployment_method(DeploymentMethod.APPTAINER)
+        self.workflow_api._workflow.container_cleanup_images()
+
+    def list_changes(self, change_type: ChangeType):
+        """List the changes of the workflow.
+
+        Arguments
+        ---------
+        change_type: ChangeType -- The type of changes to list.
+        """
+        self.workflow_api._workflow.list_changes(change_type=change_type)
+
+    def list_untracked(self):
+        """List the untracked files of the workflow."""
+        self.workflow_api._workflow.list_untracked()
+
+    def summary(self, detailed: bool = False):
+        """Summarize the workflow.
+
+        Arguments
+        ---------
+        detailed: bool -- Whether to print a detailed summary.
+        """
+        self.workflow_api._workflow.summary(detailed=detailed)
+
+    def archive(self, path: Path):
+        """Archive the workflow.
+
+        Arguments
+        ---------
+        path: Path -- The path to the archive.
+        """
+        self.workflow_api._workflow.archive(path=path)
+
+    def delete_output(self, only_temp: bool = False, dryrun: bool = False):
+        """Delete the output of the workflow.
+
+        Arguments
+        ---------
+        only_temp: bool -- Whether to only delete temporary output.
+        dryrun: bool -- Whether to only dry-run the deletion.
+        """
+        self.workflow_api._workflow.delete_output(only_temp=only_temp, dryrun=dryrun)
+
+    def export_to_cwl(self, path: Path):
+        """Export the workflow to CWL.
+
+        Arguments
+        ---------
+        path: Path -- The path to the CWL file.
+        """
+        self.workflow_api._workflow.export_to_cwl(path=path)
+
+
+def _get_executor_plugin_registry():
+    from snakemake.executors import local as local_executor
+    from snakemake.executors import dryrun as dryrun_executor
+    from snakemake.executors import touch as touch_executor
+
+    registry = ExecutorPluginRegistry()
+    registry.register_plugin("local", local_executor)
+    registry.register_plugin("dryrun", dryrun_executor)
+    registry.register_plugin("touch", touch_executor)
+
+    return registry

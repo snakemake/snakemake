@@ -107,7 +107,8 @@ class ModuleInfo:
     def get_snakefile(self):
         if self.meta_wrapper:
             return wrapper.get_path(
-                self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix
+                self.meta_wrapper + "/test/Snakefile",
+                self.workflow.workflow_settings.wrapper_prefix,
             )
         elif self.snakefile:
             return self.snakefile

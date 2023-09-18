@@ -3,12 +3,15 @@ __copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
+from dataclasses import dataclass
 import os
 import re
 import collections
 import shutil
 import email.utils
 from contextlib import contextmanager
+import snakemake
+import snakemake.io
 
 # module-specific
 from snakemake.remote import AbstractRemoteProvider, DomainObject
@@ -99,6 +102,15 @@ class RemoteObject(DomainObject):
         )
         self.additional_request_string = additional_request_string
 
+    async def inventory(self, cache: snakemake.io.IOCache):
+        """Obtain all info with a single HTTP request."""
+        name = self.local_file()
+        with self.httpr(verb="HEAD") as httpr:
+            res = ResponseHandler(httpr)
+            cache.mtime[name] = snakemake.io.Mtime(remote=res.mtime())
+            cache.exists_remote[name] = res.exists()
+            cache.size[name] = res.size()
+
     # === Implementations of abstract class members ===
 
     @contextmanager  # makes this a context manager. after 'yield' is __exit__()
@@ -144,24 +156,20 @@ class RemoteObject(DomainObject):
 
         url = self.remote_file() + self.additional_request_string
 
-        if verb.upper() == "GET":
-            r = requests.get(url, *args_to_use, stream=stream, **kwargs_to_use)
-        if verb.upper() == "HEAD":
-            r = requests.head(url, *args_to_use, **kwargs_to_use)
+        try:
+            if verb.upper() == "GET":
+                r = requests.get(url, *args_to_use, stream=stream, **kwargs_to_use)
+            if verb.upper() == "HEAD":
+                r = requests.head(url, *args_to_use, **kwargs_to_use)
 
-        yield r
-        r.close()
+            yield r
+        finally:
+            r.close()
 
     def exists(self):
         if self._matched_address:
             with self.httpr(verb="HEAD") as httpr:
-                # if a file redirect was found
-                if httpr.status_code in range(300, 308):
-                    raise HTTPFileException(
-                        f"The file specified appears to have been moved (HTTP {httpr.status_code}), check the URL or try adding 'allow_redirects=True' to the remote() file object: {httpr.url}"
-                    )
-                return httpr.status_code == requests.codes.ok
-            return False
+                return ResponseHandler(httpr).exists()
         else:
             raise HTTPFileException(
                 "The file cannot be parsed as an HTTP path in form 'host:port/abs/path/to/file': %s"
@@ -171,23 +179,7 @@ class RemoteObject(DomainObject):
     def mtime(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-                file_mtime = self.get_header_item(httpr, "last-modified", default=None)
-                logger.debug(f"HTTP last-modified: {file_mtime}")
-
-                epochTime = 0
-
-                if file_mtime is not None:
-                    modified_tuple = email.utils.parsedate_tz(file_mtime)
-                    if modified_tuple is None:
-                        logger.debug(
-                            "HTTP last-modified not in RFC2822 format: `{}`".format(
-                                file_mtime
-                            )
-                        )
-                    else:
-                        epochTime = email.utils.mktime_tz(modified_tuple)
-
-                return epochTime
+                return ResponseHandler(httpr).mtime()
         else:
             raise HTTPFileException(
                 "The file does not seem to exist remotely: %s" % self.remote_file()
@@ -196,11 +188,7 @@ class RemoteObject(DomainObject):
     def size(self):
         if self.exists():
             with self.httpr(verb="HEAD") as httpr:
-                content_size = int(
-                    self.get_header_item(httpr, "content-size", default=0)
-                )
-
-                return content_size
+                return ResponseHandler(httpr).size()
         else:
             return self._iofile.size_local
 
@@ -237,20 +225,55 @@ class RemoteObject(DomainObject):
             "Upload is not permitted for the HTTP remote provider. Is an output set to HTTP.remote()?"
         )
 
-    def get_header_item(self, httpr, header_name, default):
-        """
-        Since HTTP header capitalization may differ, this returns
-        a header value regardless of case
-        """
-
-        header_value = default
-        for k, v in httpr.headers.items():
-            if k.lower() == header_name:
-                header_value = v
-        return header_value
-
     @property
     def list(self):
         raise HTTPFileException(
             "The HTTP Remote Provider does not currently support list-based operations like glob_wildcards()."
         )
+
+
+@dataclass
+class ResponseHandler:
+    response: requests.Response
+
+    def exists(self):
+        if self.response.status_code in range(300, 308):
+            raise HTTPFileException(
+                f"The file specified appears to have been moved (HTTP {self.response.status_code}), check the URL or try adding 'allow_redirects=True' to the remote() file object: {self.response.url}"
+            )
+        return self.response.status_code == requests.codes.ok
+
+    def mtime(self):
+        file_mtime = get_header_item(self.response, "last-modified", default=None)
+        logger.debug(f"HTTP last-modified: {file_mtime}")
+
+        epochTime = 0
+
+        if file_mtime is not None:
+            modified_tuple = email.utils.parsedate_tz(file_mtime)
+            if modified_tuple is None:
+                logger.debug(
+                    "HTTP last-modified not in RFC2822 format: `{}`".format(file_mtime)
+                )
+            else:
+                epochTime = email.utils.mktime_tz(modified_tuple)
+
+        return epochTime
+
+    def size(self):
+        content_size = int(get_header_item(self.response, "content-size", default=0))
+
+        return content_size
+
+
+def get_header_item(httpr, header_name, default):
+    """
+    Since HTTP header capitalization may differ, this returns
+    a header value regardless of case
+    """
+
+    header_value = default
+    for k, v in httpr.headers.items():
+        if k.lower() == header_name:
+            header_value = v
+    return header_value

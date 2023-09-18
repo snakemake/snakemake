@@ -12,7 +12,6 @@ from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.utils import sleep
 from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
-from snakemake_interface_executor_plugins.persistence import StatsExecutorInterface
 from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 
 from snakemake.exceptions import WorkflowError
@@ -42,22 +41,22 @@ class FluxExecutor(RemoteExecutor):
         self,
         workflow: WorkflowExecutorInterface,
         dag: DAGExecutorInterface,
-        stats: StatsExecutorInterface,
         logger: LoggerExecutorInterface,
         jobname="snakejob.{name}.{jobid}.sh",
     ):
         super().__init__(
             workflow,
             dag,
-            stats,
             logger,
             None,
             jobname=jobname,
             max_status_checks_per_second=10,
+            pass_envvar_declarations_to_cmd=True,
         )
 
         # Attach variables for easy access
         self.workdir = os.path.realpath(os.path.dirname(self.workflow.persistence.path))
+        # TODO unused
         self.envvars = list(self.workflow.envvars) or []
 
         # Quit early if we can't access the flux api
@@ -83,7 +82,7 @@ class FluxExecutor(RemoteExecutor):
         including default regions and the virtual machine configuration
         """
         self.default_resources = DefaultResources(
-            from_other=self.workflow.default_resources
+            from_other=self.workflow.resource_settings.default_resources
         )
 
     def get_snakefile(self):

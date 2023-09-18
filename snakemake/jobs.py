@@ -15,6 +15,7 @@ from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
 from abc import ABC, abstractmethod
+from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
@@ -88,7 +89,7 @@ class AbstractJob(ExecutorJobInterface):
 
 def _get_scheduler_resources(job):
     if job._scheduler_resources is None:
-        if job.dag.workflow.run_local or job.is_local:
+        if job.dag.workflow.local_exec or job.is_local:
             job._scheduler_resources = job.resources
         else:
             job._scheduler_resources = Resources(
@@ -166,7 +167,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "temp_output",
         "protected_output",
         "touch_output",
-        "subworkflow_input",
         "_hash",
         "_attempt",
         "_group",
@@ -233,7 +233,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
-        self.subworkflow_input = dict()
         for f in self.output:
             f_ = output_mapping[f]
             if f_ in self.rule.dynamic_output:
@@ -248,20 +247,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             f_ = input_mapping[f]
             if f_ in self.rule.dynamic_input:
                 self.dynamic_input.add(f)
-            if f_ in self.rule.subworkflow_input:
-                self.subworkflow_input[f] = self.rule.subworkflow_input[f_]
-            elif "subworkflow" in f.flags:
-                sub = f.flags["subworkflow"]
-                if f in self.subworkflow_input:
-                    other = self.subworkflow_input[f]
-                    if sub != other:
-                        raise WorkflowError(
-                            "The input file {} is ambiguously "
-                            "associated with two subworkflows {} "
-                            "and {}.".format(f, sub, other),
-                            rule=self.rule,
-                        )
-                self.subworkflow_input[f] = sub
 
     @property
     def is_updated(self):
@@ -322,8 +307,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         group = self.dag.get_job_group(self)
         groupid = None
         if group is None:
-            if self.dag.workflow.run_local or self.is_local:
-                groupid = self.dag.workflow.local_groupid
+            if self.dag.workflow.local_exec or self.is_local:
+                groupid = self.dag.workflow.group_settings.local_groupid
         else:
             groupid = group.jobid
 
@@ -415,7 +400,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def resources(self):
         if self._resources is None:
-            if self.dag.workflow.run_local or self.is_local:
+            if self.dag.workflow.local_exec or self.is_local:
                 skip_evaluation = None
             else:
                 # tmpdir should be evaluated in the context of the actual execution
@@ -482,7 +467,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     @property
     def container_img(self):
-        if self.dag.workflow.use_singularity and self.container_img_url:
+        if (
+            DeploymentMethod.APPTAINER
+            in self.dag.workflow.deployment_settings.deployment_method
+            and self.container_img_url
+        ):
             return self.dag.container_imgs[self.container_img_url]
         return None
 
@@ -637,10 +626,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def missing_input(self):
         """Return missing input files."""
-        # omit file if it comes from a subworkflow
-        return set(
-            f for f in self.input if not f.exists and not f in self.subworkflow_input
-        )
+        return set(f for f in self.input if not f.exists)
 
     @property
     def existing_remote_input(self):
@@ -867,11 +853,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             self.benchmark.prepare()
 
         # wait for input files, respecting keep_remote_local
-        force_stay_on_remote = not self.dag.keep_remote_local
+        force_stay_on_remote = not self.dag.workflow.storage_settings.keep_remote_local
         wait_for_files(
             self.input,
             force_stay_on_remote=force_stay_on_remote,
-            latency_wait=self.dag.workflow.latency_wait,
+            latency_wait=self.dag.workflow.execution_settings.latency_wait,
         )
 
         if not self.is_shadow:
@@ -996,7 +982,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 resources=self.resources,
                 log=self.log,
                 jobid=self.jobid,
-                version=self.rule.version,
                 name=self.name,
                 rule=self.rule.name,
                 rulename=self.rule.name,
@@ -1121,8 +1106,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     ):
         logger.job_error(**self.get_log_error_info(msg, indent, aux_logs, **kwargs))
 
-    def register(self):
-        self.dag.workflow.persistence.started(self)
+    def register(self, external_jobid: Optional[str] = None):
+        self.dag.workflow.persistence.started(self, external_jobid)
 
     def get_wait_for_files(self):
         wait_for_files = []
@@ -1134,7 +1119,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if self.shadow_dir:
             wait_for_files.append(self.shadow_dir)
         if (
-            self.dag.workflow.use_conda
+            DeploymentMethod.CONDA
+            in self.dag.workflow.deployment_settings.deployment_method
             and self.conda_env
             and not self.conda_env.is_named
             and not self.conda_env.is_containerized
@@ -1162,22 +1148,21 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         handle_touch=True,
         error=False,
         ignore_missing_output=False,
-        assume_shared_fs=True,
-        latency_wait=None,
-        keep_metadata=True,
     ):
         if self.dag.is_edit_notebook_job(self):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
-        if assume_shared_fs:
+        if self.dag.workflow.storage_settings.assume_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:
                 self.dag.handle_log(self)
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=latency_wait, ignore_missing_output=ignore_missing_output
+                    self,
+                    wait=self.dag.workflow.execution_settings.latency_wait,
+                    ignore_missing_output=ignore_missing_output,
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
@@ -1187,13 +1172,14 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         else:
             if not error:
                 self.dag.check_and_touch_output(
-                    self, wait=latency_wait, no_touch=True, force_stay_on_remote=True
+                    self,
+                    wait=self.dag.workflow.execution_settings.latency_wait,
+                    no_touch=True,
+                    force_stay_on_remote=True,
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(
-                    self, keep_metadata=keep_metadata
-                )
+                self.dag.workflow.persistence.finished(self)
             except IOError as e:
                 raise WorkflowError(
                     "Error recording metadata for finished job "
@@ -1281,7 +1267,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         self._log = None
         self._inputsize = None
         self._all_products = None
-        self._attempt = self.dag.workflow.attempt
+        self._attempt = self.dag.workflow.execution_settings.attempt
         self._jobid = None
 
     @property
@@ -1375,9 +1361,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             **kwargs,
         )
 
-    def register(self):
+    def register(self, external_jobid: Optional[str] = None):
         for job in self.jobs:
-            job.register()
+            job.register(external_jobid=external_jobid)
 
     def remove_existing_output(self):
         for job in self.jobs:
@@ -1413,7 +1399,8 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if job.shadow_dir:
                 wait_for_files.append(job.shadow_dir)
             if (
-                self.dag.workflow.use_conda
+                DeploymentMethod.CONDA
+                in self.dag.workflow.deployment_settings.deployment_method
                 and job.conda_env
                 and not job.conda_env.is_named
             ):
@@ -1427,7 +1414,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
                 self._resources = GroupResources.basic_layered(
                     toposorted_jobs=self.toposorted,
                     constraints=self.global_resources,
-                    run_local=self.dag.workflow.run_local,
+                    run_local=self.dag.workflow.local_exec,
                     additive_resources=["runtime"],
                     sortby=["runtime"],
                 )

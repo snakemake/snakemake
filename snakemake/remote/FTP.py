@@ -108,7 +108,7 @@ class RemoteObject(PooledDomainObject):
     # === Implementations of abstract class members ===
 
     def get_default_kwargs(self, **defaults):
-        """define defaults beyond thos set in PooledDomainObject"""
+        """define defaults beyond those set in PooledDomainObject"""
         return super().get_default_kwargs(
             **{"port": 21, "password": None, "username": None}
         )

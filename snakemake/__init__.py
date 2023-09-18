@@ -7,3 +7,10 @@ from snakemake.common import __version__
 
 # Reexports that are part of the public API:
 from snakemake.shell import shell
+
+
+if __name__ == "__main__":
+    from snakemake.cli import main
+    import sys
+
+    main(sys.argv)

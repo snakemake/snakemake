@@ -12,32 +12,12 @@ from contextlib import ContextDecorator
 
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
 
-from snakemake.executors import (
-    AbstractExecutor,
-    DryrunExecutor,
-    TouchExecutor,
-    CPUExecutor,
-)
-from snakemake.executors import (
-    GenericClusterExecutor,
-    SynchronousClusterExecutor,
-    DRMAAExecutor,
-    KubernetesExecutor,
-    TibannaExecutor,
-)
-
-from snakemake.executors.slurm.slurm_submit import SlurmExecutor
-from snakemake.executors.slurm.slurm_jobstep import SlurmJobstepExecutor
-from snakemake.executors.flux import FluxExecutor
-from snakemake.executors.google_lifesciences import GoogleLifeSciencesExecutor
-from snakemake.executors.ga4gh_tes import TaskExecutionServiceExecutor
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
-from snakemake.common import ON_WINDOWS
 from snakemake.logging import logger
 
 from fractions import Fraction
-from snakemake.stats import Stats
 
 registry = ExecutorPluginRegistry()
 
@@ -65,76 +45,19 @@ class DummyRateLimiter(ContextDecorator):
 
 
 class JobScheduler(JobSchedulerExecutorInterface):
-    def __init__(
-        self,
-        workflow,
-        dag,
-        local_cores=1,
-        dryrun=False,
-        touch=False,
-        slurm=None,
-        slurm_jobstep=None,
-        cluster=None,
-        cluster_status=None,
-        cluster_sync=None,
-        cluster_cancel=None,
-        cluster_cancel_nargs=None,
-        cluster_sidecar=None,
-        drmaa=None,
-        drmaa_log_dir=None,
-        env_modules=None,
-        kubernetes=None,
-        k8s_cpu_scalar=1.0,
-        k8s_service_account_name=None,
-        container_image=None,
-        flux=None,
-        tibanna=None,
-        tibanna_sfn=None,
-        az_batch=False,
-        az_batch_enable_autoscale=False,
-        az_batch_account_url=None,
-        google_lifesciences=None,
-        google_lifesciences_regions=None,
-        google_lifesciences_location=None,
-        google_lifesciences_cache=False,
-        google_lifesciences_service_account_email=None,
-        google_lifesciences_network=None,
-        google_lifesciences_subnetwork=None,
-        tes=None,
-        precommand="",
-        preemption_default=None,
-        preemptible_rules=None,
-        tibanna_config=False,
-        jobname=None,
-        keepgoing=False,
-        max_jobs_per_second=None,
-        max_status_checks_per_second=100,
-        # Note this argument doesn't seem to be used (greediness)
-        greediness=1.0,
-        force_use_threads=False,
-        scheduler_type=None,
-        scheduler_ilp_solver=None,
-        executor_args=None,
-    ):
+    def __init__(self, workflow, executor_plugin: ExecutorPlugin):
         """Create a new instance of KnapsackJobScheduler."""
-
-        cores = workflow.global_resources["_cores"]
-
-        self.cluster = cluster
-        self.cluster_sync = cluster_sync
-        self.dag = dag
         self.workflow = workflow
-        self.dryrun = dryrun
-        self.touch = touch
-        self.quiet = workflow.quiet
-        self.keepgoing = keepgoing
+
+        self.dryrun = self.workflow.dryrun
+        self.touch = self.workflow.touch
+        self.quiet = self.workflow.output_settings.quiet
+        self.keepgoing = self.workflow.execution_settings.keep_going
         self.running = set()
         self.failed = set()
         self.finished_jobs = 0
-        self.greediness = 1
-        self.max_jobs_per_second = max_jobs_per_second
-        self.scheduler_type = scheduler_type
-        self.scheduler_ilp_solver = scheduler_ilp_solver
+        self.greediness = self.workflow.scheduling_settings.greediness
+        self.max_jobs_per_second = self.workflow.scheduling_settings.max_jobs_per_second
         self._tofinish = []
         self._toerror = []
         self.handle_job_success = True
@@ -142,17 +65,19 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.print_progress = not self.quiet and not self.dryrun
         self.update_dynamic = not self.dryrun
 
+        nodes_unset = workflow.global_resources["_nodes"] is None
+
         self.global_resources = {
             name: (sys.maxsize if res is None else res)
             for name, res in workflow.global_resources.items()
         }
 
-        if workflow.global_resources["_nodes"] is not None:
+        if not nodes_unset:
             # Do not restrict cores locally if nodes are used (i.e. in case of cluster/cloud submission).
             self.global_resources["_cores"] = sys.maxsize
+
         self.resources = dict(self.global_resources)
 
-        use_threads = force_use_threads or (os.name != "posix")
         self._open_jobs = threading.Semaphore(0)
         self._lock = threading.Lock()
 
@@ -161,290 +86,279 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self._finished = False
         self._job_queue = None
         self._last_job_selection_empty = False
-        self._submit_callback = self._noop
-        self._finish_callback = self._proceed
+        self.submit_callback = self._noop
+        self.finish_callback = self._proceed
 
-        self._stats = Stats()
+        if workflow.remote_execution_settings.immediate_submit:
+            self.submit_callback = self._proceed
+            self.finish_callback = self._noop
 
         self._local_executor = None
-        if dryrun:
-            self._executor: AbstractExecutor = DryrunExecutor(
-                workflow,
-                dag,
-            )
-        elif touch:
-            self._executor = TouchExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-            )
 
-        # We have chosen an executor custom plugin
-        elif executor_args is not None:
-            plugin = registry.plugins[executor_args._executor.name]
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-            self._executor = plugin.executor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                cores,
-                executor_args=executor_args,
-            )
-
-        elif slurm:
-            if ON_WINDOWS:
-                raise WorkflowError("SLURM execution is not supported on Windows.")
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-            # we need to adjust the maximum status checks per second
-            # on a SLURM cluster, to not overstrain the scheduler;
-            # timings for tested SLURM clusters, extracted from --verbose
-            # output with:
-            # ```
-            #   grep "sacct output" .snakemake/log/2023-02-13T210004.601290.snakemake.log | \
-            #   awk '{ counter += 1; sum += $6; sum_of_squares += ($6)^2 } \
-            #     END { print "average: ",sum/counter," sd: ",sqrt((sum_of_squares - sum^2/counter) / counter); }
-            # ````
-            #   * cluster 1:
-            #     * sacct:    average:  0.073896   sd:  0.0640178
-            #     * scontrol: average:  0.0193017  sd:  0.0358858
-            # Thus, 2 status checks per second should leave enough
-            # capacity for everybody.
-            # TODO: check timings on other slurm clusters, to:
-            #   * confirm that this cap is reasonable
-            #   * check if scontrol is the quicker option across the board
-            if max_status_checks_per_second > 2:
-                max_status_checks_per_second = 2
-
-            self._executor = SlurmExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                max_status_checks_per_second=max_status_checks_per_second,
-            )
-
-        elif slurm_jobstep:
-            self._executor = SlurmJobstepExecutor(
-                workflow,
-                dag,
-                self.stats,
+        if self.workflow.local_exec:
+            self._executor = executor_plugin.executor(
+                self.workflow,
                 logger,
             )
-            self._local_executor = self._executor
-
-        elif cluster or cluster_sync or (drmaa is not None):
-            if not workflow.immediate_submit:
-                # No local jobs when using immediate submit!
-                # Otherwise, they will fail due to missing input
-                self._local_executor = CPUExecutor(
-                    workflow,
-                    dag,
-                    self.stats,
-                    logger,
-                    local_cores,
-                )
-
-            if cluster or cluster_sync:
-                if cluster_sync:
-                    constructor = SynchronousClusterExecutor
-                else:
-                    constructor = partial(
-                        GenericClusterExecutor,
-                        statuscmd=cluster_status,
-                        cancelcmd=cluster_cancel,
-                        cancelnargs=cluster_cancel_nargs,
-                        sidecarcmd=cluster_sidecar,
-                        max_status_checks_per_second=max_status_checks_per_second,
-                    )
-
-                self._executor = constructor(
-                    workflow,
-                    dag,
-                    self.stats,
-                    logger,
-                    submitcmd=(cluster or cluster_sync),
-                    jobname=jobname,
-                )
-                if workflow.immediate_submit:
-                    self._submit_callback = self._proceed
-                    self.update_dynamic = False
-                    self.print_progress = False
-                    self.update_resources = False
-                    self.handle_job_success = False
-            else:
-                self._executor = DRMAAExecutor(
-                    workflow,
-                    dag,
-                    self.stats,
-                    logger,
-                    drmaa_args=drmaa,
-                    drmaa_log_dir=drmaa_log_dir,
-                    jobname=jobname,
-                    max_status_checks_per_second=max_status_checks_per_second,
-                )
-        elif kubernetes:
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-
-            self._executor = KubernetesExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                kubernetes,
-                container_image=container_image,
-                k8s_cpu_scalar=k8s_cpu_scalar,
-                k8s_service_account_name=k8s_service_account_name,
-            )
-        elif tibanna:
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-                use_threads=use_threads,
-            )
-
-            self._executor = TibannaExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                cores,
-                tibanna_sfn,
-                precommand=precommand,
-                tibanna_config=tibanna_config,
-                container_image=container_image,
-            )
-
-        elif flux:
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-
-            self._executor = FluxExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-            )
-
-        elif az_batch:
-            try:
-                from snakemake.executors.azure_batch import AzBatchExecutor
-            except ImportError as e:
-                raise WorkflowError(
-                    "Unable to load Azure Batch executor. You have to install "
-                    "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
-                    e,
-                )
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-            self._executor = AzBatchExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                container_image=container_image,
-                az_batch_account_url=az_batch_account_url,
-                az_batch_enable_autoscale=az_batch_enable_autoscale,
-            )
-
-        elif google_lifesciences:
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-
-            self._executor = GoogleLifeSciencesExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                container_image=container_image,
-                regions=google_lifesciences_regions,
-                location=google_lifesciences_location,
-                cache=google_lifesciences_cache,
-                service_account_email=google_lifesciences_service_account_email,
-                network=google_lifesciences_network,
-                subnetwork=google_lifesciences_subnetwork,
-                preemption_default=preemption_default,
-                preemptible_rules=preemptible_rules,
-            )
-        elif tes:
-            self._local_executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                local_cores,
-            )
-
-            self._executor = TaskExecutionServiceExecutor(
-                workflow,
-                dag,
-                self.stats,
-                logger,
-                tes_url=tes,
-                container_image=container_image,
-            )
-
         else:
-            self._executor = CPUExecutor(
-                workflow,
-                dag,
-                self.stats,
+            self._executor = executor_plugin.executor(
+                self.workflow,
                 logger,
-                cores,
-                use_threads=use_threads,
             )
+            self._local_executor = (
+                ExecutorPluginRegistry()
+                .get_plugin("local")
+                .executor(
+                    self.workflow,
+                    logger,
+                )
+            )
+
+        # elif slurm:
+        #     if ON_WINDOWS:
+        #         raise WorkflowError("SLURM execution is not supported on Windows.")
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+        #     # we need to adjust the maximum status checks per second
+        #     # on a SLURM cluster, to not overstrain the scheduler;
+        #     # timings for tested SLURM clusters, extracted from --verbose
+        #     # output with:
+        #     # ```
+        #     #   grep "sacct output" .snakemake/log/2023-02-13T210004.601290.snakemake.log | \
+        #     #   awk '{ counter += 1; sum += $6; sum_of_squares += ($6)^2 } \
+        #     #     END { print "average: ",sum/counter," sd: ",sqrt((sum_of_squares - sum^2/counter) / counter); }
+        #     # ````
+        #     #   * cluster 1:
+        #     #     * sacct:    average:  0.073896   sd:  0.0640178
+        #     #     * scontrol: average:  0.0193017  sd:  0.0358858
+        #     # Thus, 2 status checks per second should leave enough
+        #     # capacity for everybody.
+        #     # TODO: check timings on other slurm clusters, to:
+        #     #   * confirm that this cap is reasonable
+        #     #   * check if scontrol is the quicker option across the board
+        #     if max_status_checks_per_second > 2:
+        #         max_status_checks_per_second = 2
+
+        #     self._executor = SlurmExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         max_status_checks_per_second=max_status_checks_per_second,
+        #     )
+
+        # elif slurm_jobstep:
+        #     self._executor = SlurmJobstepExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #     )
+        #     self._local_executor = self._executor
+
+        # elif cluster or cluster_sync or (drmaa is not None):
+        #     if not workflow.remote_execution_settings.immediate_submit:
+        #         # No local jobs when using immediate submit!
+        #         # Otherwise, they will fail due to missing input
+        #         self._local_executor = CPUExecutor(
+        #             workflow,
+        #             dag,
+        #             self.stats,
+        #             logger,
+        #             local_cores,
+        #         )
+
+        #     if cluster or cluster_sync:
+        #         if cluster_sync:
+        #             constructor = SynchronousClusterExecutor
+        #         else:
+        #             constructor = partial(
+        #                 GenericClusterExecutor,
+        #                 statuscmd=cluster_status,
+        #                 cancelcmd=cluster_cancel,
+        #                 cancelnargs=cluster_cancel_nargs,
+        #                 sidecarcmd=cluster_sidecar,
+        #                 max_status_checks_per_second=max_status_checks_per_second,
+        #             )
+
+        #         self._executor = constructor(
+        #             workflow,
+        #             dag,
+        #             self.stats,
+        #             logger,
+        #             submitcmd=(cluster or cluster_sync),
+        #             jobname=jobname,
+        #         )
+        #         if workflow.remote_execution_settings.immediate_submit:
+        #             self._submit_callback = self._proceed
+        #             self.update_dynamic = False
+        #             self.print_progress = False
+        #             self.update_resources = False
+        #             self.handle_job_success = False
+        #     else:
+        #         self._executor = DRMAAExecutor(
+        #             workflow,
+        #             dag,
+        #             self.stats,
+        #             logger,
+        #             drmaa_args=drmaa,
+        #             drmaa_log_dir=drmaa_log_dir,
+        #             jobname=jobname,
+        #             max_status_checks_per_second=max_status_checks_per_second,
+        #         )
+        # elif kubernetes:
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+
+        #     self._executor = KubernetesExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         kubernetes,
+        #         container_image=container_image,
+        #         k8s_cpu_scalar=k8s_cpu_scalar,
+        #         k8s_service_account_name=k8s_service_account_name,
+        #     )
+        # elif tibanna:
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #         use_threads=use_threads,
+        #     )
+
+        #     self._executor = TibannaExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         cores,
+        #         tibanna_sfn,
+        #         precommand=precommand,
+        #         tibanna_config=tibanna_config,
+        #         container_image=container_image,
+        #     )
+
+        # elif flux:
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+
+        #     self._executor = FluxExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #     )
+
+        # elif az_batch:
+        #     try:
+        #         from snakemake.executors.azure_batch import AzBatchExecutor
+        #     except ImportError as e:
+        #         raise WorkflowError(
+        #             "Unable to load Azure Batch executor. You have to install "
+        #             "the msrest, azure-core, azure-batch, azure-mgmt-batch, and azure-identity packages.",
+        #             e,
+        #         )
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+        #     self._executor = AzBatchExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         container_image=container_image,
+        #         az_batch_account_url=az_batch_account_url,
+        #         az_batch_enable_autoscale=az_batch_enable_autoscale,
+        #     )
+
+        # elif google_lifesciences:
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+
+        #     self._executor = GoogleLifeSciencesExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         container_image=container_image,
+        #         regions=google_lifesciences_regions,
+        #         location=google_lifesciences_location,
+        #         cache=google_lifesciences_cache,
+        #         service_account_email=google_lifesciences_service_account_email,
+        #         network=google_lifesciences_network,
+        #         subnetwork=google_lifesciences_subnetwork,
+        #         preemption_default=preemption_default,
+        #         preemptible_rules=preemptible_rules,
+        #     )
+        # elif tes:
+        #     self._local_executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         local_cores,
+        #     )
+
+        #     self._executor = TaskExecutionServiceExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         tes_url=tes,
+        #         container_image=container_image,
+        #     )
+
+        # else:
+        #     self._executor = CPUExecutor(
+        #         workflow,
+        #         dag,
+        #         self.stats,
+        #         logger,
+        #         cores,
+        #         use_threads=use_threads,
+        #     )
         from throttler import Throttler
 
-        if self.max_jobs_per_second and not self.dryrun:
+        if not self.dryrun:
             max_jobs_frac = Fraction(self.max_jobs_per_second).limit_denominator()
             self.rate_limiter = Throttler(
                 rate_limit=max_jobs_frac.numerator, period=max_jobs_frac.denominator
             )
-
         else:
             # essentially no rate limit
             self.rate_limiter = DummyRateLimiter()
 
         # Choose job selector (greedy or ILP)
         self.job_selector = self.job_selector_greedy
-        if scheduler_type == "ilp":
+        if self.workflow.scheduling_settings.scheduler == "ilp":
             import pulp
 
             if pulp.apis.LpSolverDefault is None:
@@ -478,13 +392,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
     @property
     def open_jobs(self):
         """Return open jobs."""
-        jobs = self.dag.ready_jobs
+        jobs = self.workflow.dag.ready_jobs
 
         if not self.dryrun:
             jobs = [
                 job
                 for job in jobs
-                if not job.dynamic_input and not self.dag.dynamic(job)
+                if not job.dynamic_input and not self.workflow.dag.dynamic(job)
             ]
         return jobs
 
@@ -493,9 +407,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
         """Return jobs to be scheduled including not yet ready ones."""
         return [
             job
-            for job in self.dag.needrun_jobs()
+            for job in self.workflow.dag.needrun_jobs()
             if job not in self.running
-            and not self.dag.finished(job)
+            and not self.workflow.dag.finished(job)
             and job not in self.failed
         ]
 
@@ -537,7 +451,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     continue
 
                 # all runnable jobs have finished, normal shutdown
-                if not needrun and (not running or self.workflow.immediate_submit):
+                if not needrun and (
+                    not running
+                    or self.workflow.remote_execution_settings.immediate_submit
+                ):
                     self._executor.shutdown()
                     if errors:
                         logger.error(_ERROR_MSG_FINAL)
@@ -590,13 +507,17 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 with self._lock:
                     self.running.update(run)
                     # remove from ready_jobs
-                    self.dag.register_running(run)
+                    self.workflow.dag.register_running(run)
 
                 # actually run jobs
                 local_runjobs = [job for job in run if job.is_local]
                 runjobs = [job for job in run if not job.is_local]
-                self.run(local_runjobs, executor=self._local_executor or self._executor)
-                self.run(runjobs)
+                if local_runjobs:
+                    self.run(
+                        local_runjobs, executor=self._local_executor or self._executor
+                    )
+                if runjobs:
+                    self.run(runjobs)
         except (KeyboardInterrupt, SystemExit):
             logger.info(
                 "Terminating processes on user request, this might take some time."
@@ -632,7 +553,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     logger.job_finished(jobid=job.jobid)
                 self.progress()
 
-            self.dag.finish(job, update_dynamic=self.update_dynamic)
+            self.workflow.dag.finish(job, update_dynamic=self.update_dynamic)
         self._tofinish.clear()
 
     def _error_jobs(self):
@@ -644,13 +565,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def run(self, jobs, executor=None):
         if executor is None:
             executor = self._executor
-
-        executor.run_jobs(
-            jobs,
-            callback=self._finish_callback,
-            submit_callback=self._submit_callback,
-            error_callback=self._error,
-        )
+        executor.run_jobs(jobs)
 
     def get_executor(self, job):
         if job.is_local and self._local_executor is not None:
@@ -669,6 +584,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _proceed(self, job):
         """Do stuff after job is finished."""
         with self._lock:
+            logger.debug(f"Completion of job {job.rules} reported to scheduler.")
             self._tofinish.append(job)
 
             if self.dryrun:
@@ -681,7 +597,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 # go on scheduling if there is any free core
                 self._open_jobs.release()
 
-    def _error(self, job):
+    def error_callback(self, job):
         with self._lock:
             self._toerror.append(job)
             self._open_jobs.release()
@@ -699,10 +615,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # attempt starts counting from 1, but the first attempt is not
         # a restart, hence we subtract 1.
         if job.restart_times > job.attempt - 1:
-            logger.info(f"Trying to restart job {self.dag.jobid(job)}.")
+            logger.info(f"Trying to restart job {self.workflow.dag.jobid(job)}.")
             job.attempt += 1
             # add job to those being ready again
-            self.dag._ready_jobs.add(job)
+            self.workflow.dag._ready_jobs.add(job)
         else:
             self._errors = True
             self.failed.add(job)
@@ -748,7 +664,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     return f.size / 1e9
 
             temp_files = {
-                temp_file for job in jobs for temp_file in self.dag.temp_input(job)
+                temp_file
+                for job in jobs
+                for temp_file in self.workflow.dag.temp_input(job)
             }
 
             temp_job_improvement = {
@@ -872,26 +790,27 @@ class JobScheduler(JobSchedulerExecutorInterface):
         import pulp
 
         old_path = os.environ["PATH"]
-        if self.workflow.scheduler_solver_path is None:
+        if self.workflow.scheduling_settings.solver_path is None:
             # Temporarily prepend the given snakemake env to the path, such that the solver can be found in any case.
             # This is needed for cluster envs, where the cluster job might have a different environment but
             # still needs access to the solver binary.
             os.environ["PATH"] = "{}:{}".format(
-                self.workflow.scheduler_solver_path, os.environ["PATH"]
+                self.workflow.scheduling_settings.solver_path,
+                os.environ["PATH"],
             )
         try:
             solver = (
-                pulp.get_solver(self.scheduler_ilp_solver)
-                if self.scheduler_ilp_solver
+                pulp.get_solver(self.workflow.scheduling_settings.ilp_solver)
+                if self.workflow.scheduling_settings.ilp_solver
                 else pulp.apis.LpSolverDefault
             )
         finally:
             os.environ["PATH"] = old_path
-        solver.msg = self.workflow.verbose
+        solver.msg = self.workflow.output_settings.verbose
         prob.solve(solver)
 
     def required_by_job(self, temp_file, job):
-        return 1 if temp_file in self.dag.temp_input(job) else 0
+        return 1 if temp_file in self.workflow.dag.temp_input(job) else 0
 
     def job_selector_greedy(self, jobs):
         """
@@ -989,12 +908,16 @@ class JobScheduler(JobSchedulerExecutorInterface):
         ]
 
     def job_reward(self, job):
-        if self.touch or self.dryrun or self.workflow.immediate_submit:
+        if (
+            self.touch
+            or self.dryrun
+            or self.workflow.remote_execution_settings.immediate_submit
+        ):
             temp_size = 0
             input_size = 0
         else:
             try:
-                temp_size = self.dag.temp_size(job)
+                temp_size = self.workflow.dag.temp_size(job)
                 input_size = job.inputsize
             except FileNotFoundError:
                 # If the file is not yet present, this shall not affect the
@@ -1014,4 +937,4 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
     def progress(self):
         """Display the progress."""
-        logger.progress(done=self.finished_jobs, total=len(self.dag))
+        logger.progress(done=self.finished_jobs, total=len(self.workflow.dag))
