@@ -10,6 +10,7 @@ import base64
 import textwrap
 import datetime
 import io
+from typing import Optional
 import uuid
 import json
 import time
@@ -554,7 +555,7 @@ def expand_labels(labels, wildcards, job):
     }
 
 
-def auto_report(dag, path, stylesheet=None):
+def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
@@ -563,9 +564,9 @@ def auto_report(dag, path, stylesheet=None):
         )
 
     mode_embedded = True
-    if path.endswith(".zip"):
+    if path.suffix == ".zip":
         mode_embedded = False
-    elif not path.endswith(".html"):
+    elif not path.suffix == ".html":
         raise WorkflowError("Report file does not end with .html or .zip")
 
     custom_stylesheet = None
