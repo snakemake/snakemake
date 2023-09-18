@@ -2017,4 +2017,4 @@ def test_config_yte():
 
 
 def test_load_metawrapper():
-    run(dpath("test_load_metawrapper"), dryrun=True)
+    run(dpath("test_load_metawrapper"), executor="dryrun")
