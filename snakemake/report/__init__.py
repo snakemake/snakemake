@@ -566,7 +566,7 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     mode_embedded = True
     if path.suffix == ".zip":
         mode_embedded = False
-    elif not path.suffix == ".html":
+    elif path.suffix != ".html":
         raise WorkflowError("Report file does not end with .html or .zip")
 
     custom_stylesheet = None
