@@ -15,8 +15,9 @@ class Category extends AbstractMenu {
 
     getSubcategoryMenuitems() {
         let _this = this
-        return Object.keys(categories[this.props.category]).map(function (subcategory) {
+        let items = Object.keys(categories[this.props.category]).sort().map(function (subcategory) {
             return _this.getMenuItem(subcategory, "folder", () => _this.showSubcategory(subcategory));
         });
+        return items;
     }
 }
