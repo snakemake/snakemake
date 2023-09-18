@@ -208,11 +208,10 @@ class WorkflowModifier:
         self.namespace = namespace
 
     def inherit_rule_proxies(self, child_modifier):
-        if child_modifier.local_rulename_modifier is not None:
-            for name, rule in child_modifier.rule_proxies._rules.items():
-                self.rule_proxies._register_rule(
-                    child_modifier.local_rulename_modifier(name), rule
-                )
+        for name, rule in child_modifier.rule_proxies._rules.items():
+            if child_modifier.local_rulename_modifier is not None:
+                name = child_modifier.local_rulename_modifier(name)
+            self.rule_proxies._register_rule(name, rule)
 
     def skip_rule(self, rulename):
         return (

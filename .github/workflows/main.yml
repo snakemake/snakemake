@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - series-7
   pull_request:
     branches_ignore: []
 jobs:
