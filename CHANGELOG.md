@@ -1,5 +1,16 @@
 # Changelog
 
+
+## [7.32.4](https://github.com/snakemake/snakemake/compare/v7.32.3...v7.32.4) (2023-08-18)
+
+
+### Bug Fixes
+
+* always sort report (sub-)categories in lexicographical order
+* also inherit rule proxies if there is no rulename modifier specified in a use rule statement
+* ensure that targetjob is always forced. This fixes a bug causing run-directive rules to not being executed even when enforced via e.g. -R.
+
+
 ## [7.32.3](https://github.com/snakemake/snakemake/compare/v7.32.2...v7.32.3) (2023-08-07)
 
 
