@@ -10,7 +10,7 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
-    ExecutorJobInterface,
+    JobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
 from snakemake_interface_executor_plugins import CommonSettings
@@ -39,7 +39,7 @@ class Executor(RealExecutor):
 
     def run_job(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
     ):
         job_info = SubmittedJobInfo(job=job)
         try:
@@ -54,7 +54,7 @@ class Executor(RealExecutor):
     def get_exec_mode(self):
         raise NotImplementedError()
 
-    def handle_job_success(self, job: ExecutorJobInterface):
+    def handle_job_success(self, job: JobExecutorInterface):
         super().handle_job_success(job, ignore_missing_output=True)
 
     def cancel(self):

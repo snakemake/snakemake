@@ -5,7 +5,7 @@ __license__ = "MIT"
 
 from snakemake_interface_executor_plugins.executors.base import AbstractExecutor
 from snakemake_interface_executor_plugins.jobs import (
-    ExecutorJobInterface,
+    JobExecutorInterface,
 )
 from snakemake_interface_executor_plugins import CommonSettings
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
@@ -23,7 +23,7 @@ common_settings = CommonSettings(
 class Executor(AbstractExecutor):
     def run_job(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
     ):
         job_info = SubmittedJobInfo(job=job)
         self.report_job_submission(job_info)
@@ -32,7 +32,7 @@ class Executor(AbstractExecutor):
     def get_exec_mode(self):
         raise NotImplementedError()
 
-    def printjob(self, job: ExecutorJobInterface):
+    def printjob(self, job: JobExecutorInterface):
         super().printjob(job)
         if job.is_group():
             for j in job.jobs:
@@ -40,7 +40,7 @@ class Executor(AbstractExecutor):
         else:
             self.printcache(job)
 
-    def printcache(self, job: ExecutorJobInterface):
+    def printcache(self, job: JobExecutorInterface):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         if cache_mode:
             if self.workflow.output_file_cache.exists(job, cache_mode):
@@ -64,11 +64,11 @@ class Executor(AbstractExecutor):
         # nothing to do
         pass
 
-    def handle_job_success(self, job: ExecutorJobInterface):
+    def handle_job_success(self, job: JobExecutorInterface):
         # nothing to do
         pass
 
-    def handle_job_error(self, job: ExecutorJobInterface):
+    def handle_job_error(self, job: JobExecutorInterface):
         # nothing to do
         pass
 

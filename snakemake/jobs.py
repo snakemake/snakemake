@@ -19,7 +19,7 @@ from snakemake.settings import DeploymentMethod
 
 from snakemake_interface_executor_plugins.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
-    ExecutorJobInterface,
+    JobExecutorInterface,
     GroupJobExecutorInterface,
     SingleJobExecutorInterface,
 )
@@ -68,7 +68,7 @@ def jobfiles(jobs, type):
     return chain(*map(attrgetter(type), jobs))
 
 
-class AbstractJob(ExecutorJobInterface):
+class AbstractJob(JobExecutorInterface):
     @abstractmethod
     def reset_params_and_resources(self):
         ...
@@ -1067,7 +1067,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             reason=str(self.dag.reason(self)),
             resources=self.resources,
             priority="highest"
-            if priority == ExecutorJobInterface.HIGHEST_PRIORITY
+            if priority == JobExecutorInterface.HIGHEST_PRIORITY
             else priority,
             threads=self.threads,
             indent=indent,
@@ -1285,6 +1285,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     @jobs.setter
     def jobs(self, new_jobs):
         self._jobs = new_jobs
+
+    @property
+    def is_containerized(self):
+        return any(job.is_containerized for job in self.jobs)
 
     @property
     def toposorted(self):
