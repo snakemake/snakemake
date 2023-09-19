@@ -72,39 +72,38 @@ class TestWorkflowsBase(ABC):
             cores = 1
             nodes = 3
 
-        snakemake_api = api.SnakemakeApi(
+        with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
             ),
-        )
-        workflow_api = snakemake_api.workflow(
-            resource_settings=settings.ResourceSettings(
-                cores=cores,
-                nodes=nodes,
-            ),
-            storage_settings=settings.StorageSettings(
-                default_remote_provider=self.get_default_remote_provider(),
-                default_remote_prefix=self.get_default_remote_prefix(),
-                assume_shared_fs=self.get_assume_shared_fs(),
-            ),
-            workdir=Path(tmp_path),
-            snakefile=test_path / "Snakefile",
-        )
+        ) as snakemake_api:
+            workflow_api = snakemake_api.workflow(
+                resource_settings=settings.ResourceSettings(
+                    cores=cores,
+                    nodes=nodes,
+                ),
+                storage_settings=settings.StorageSettings(
+                    default_remote_provider=self.get_default_remote_provider(),
+                    default_remote_prefix=self.get_default_remote_prefix(),
+                    assume_shared_fs=self.get_assume_shared_fs(),
+                ),
+                workdir=Path(tmp_path),
+                snakefile=test_path / "Snakefile",
+            )
 
-        dag_api = workflow_api.dag(
-            deployment_settings=settings.DeploymentSettings(
-                deployment_method=deployment_method,
-            ),
-        )
-        dag_api.execute_workflow(
-            executor=self.get_executor(),
-            executor_settings=self.get_executor_settings(),
-            remote_execution_settings=settings.RemoteExecutionSettings(
-                seconds_between_status_checks=0,
-                envvars=self.get_envvars(),
-            ),
-        )
-        snakemake_api.cleanup()
+            dag_api = workflow_api.dag(
+                deployment_settings=settings.DeploymentSettings(
+                    deployment_method=deployment_method,
+                ),
+            )
+            dag_api.execute_workflow(
+                executor=self.get_executor(),
+                executor_settings=self.get_executor_settings(),
+                remote_execution_settings=settings.RemoteExecutionSettings(
+                    seconds_between_status_checks=0,
+                    envvars=self.get_envvars(),
+                ),
+            )
 
     @handle_testcase
     def test_simple_workflow(self, tmp_path):
