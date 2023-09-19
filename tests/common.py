@@ -330,7 +330,11 @@ def run(
                 )
 
                 if report is not None:
-                    dag_api.create_report(path=report, stylesheet=report_stylesheet)
+                    if report_stylesheet is not None:
+                        report_stylesheet = Path(report_stylesheet)
+                    dag_api.create_report(
+                        path=Path(report), stylesheet=report_stylesheet
+                    )
                 elif conda_list_envs:
                     dag_api.conda_list_envs()
                 elif archive is not None:
