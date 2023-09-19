@@ -21,7 +21,7 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.logging import LoggerExecutorInterface
 from snakemake_interface_executor_plugins.jobs import (
-    ExecutorJobInterface,
+    JobExecutorInterface,
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
@@ -83,7 +83,7 @@ class Executor(RealExecutor):
     def job_specific_local_groupid(self):
         return False
 
-    def get_job_exec_prefix(self, job: ExecutorJobInterface):
+    def get_job_exec_prefix(self, job: JobExecutorInterface):
         return f"cd {shlex.quote(self.workflow.workdir_init)}"
 
     def get_python_executable(self):
@@ -92,12 +92,12 @@ class Executor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
-    def get_job_args(self, job: ExecutorJobInterface, **kwargs):
+    def get_job_args(self, job: JobExecutorInterface, **kwargs):
         return f"{super().get_job_args(job, **kwargs)} --quiet"
 
     def run_job(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
     ):
         if job.is_group():
             # if we still don't have enough workers for this group, create a new pool here
@@ -118,7 +118,7 @@ class Executor(RealExecutor):
         future.add_done_callback(partial(self._callback, job_info))
         self.report_job_submission(job_info)
 
-    def job_args_and_prepare(self, job: ExecutorJobInterface):
+    def job_args_and_prepare(self, job: JobExecutorInterface):
         job.prepare()
 
         conda_env = (
@@ -275,7 +275,7 @@ class Executor(RealExecutor):
                 print_exception(ex, self.workflow.linemaps)
             self.report_job_error(job_info)
 
-    def handle_job_error(self, job: ExecutorJobInterface):
+    def handle_job_error(self, job: JobExecutorInterface):
         super().handle_job_error(job)
         if not self.keepincomplete:
             job.cleanup()

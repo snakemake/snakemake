@@ -8,7 +8,7 @@ import shlex
 from collections import namedtuple
 
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
-from snakemake_interface_executor_plugins.jobs import ExecutorJobInterface
+from snakemake_interface_executor_plugins.jobs import JobExecutorInterface
 from snakemake_interface_executor_plugins.workflow import WorkflowExecutorInterface
 from snakemake_interface_executor_plugins.utils import sleep
 from snakemake_interface_executor_plugins.executors.remote import RemoteExecutor
@@ -76,7 +76,7 @@ class FluxExecutor(RemoteExecutor):
                 flux.job.cancel(self.f, job.jobid)
         self.shutdown()
 
-    def _set_job_resources(self, job: ExecutorJobInterface):
+    def _set_job_resources(self, job: JobExecutorInterface):
         """
         Given a particular job, generate the resources that it needs,
         including default regions and the virtual machine configuration
@@ -89,13 +89,13 @@ class FluxExecutor(RemoteExecutor):
         assert os.path.exists(self.workflow.main_snakefile)
         return self.workflow.main_snakefile
 
-    def _get_jobname(self, job: ExecutorJobInterface):
+    def _get_jobname(self, job: JobExecutorInterface):
         # Use a dummy job name (human readable and also namespaced)
         return f"snakejob-{self.run_namespace}-{job.name}-{job.jobid}"
 
     def run(
         self,
-        job: ExecutorJobInterface,
+        job: JobExecutorInterface,
         callback=None,
         submit_callback=None,
         error_callback=None,

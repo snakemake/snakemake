@@ -51,7 +51,7 @@ class Persistence(PersistenceExecutorInterface):
 
         self._max_len = None
 
-        self._path = os.path.abspath(".snakemake")
+        self._path = Path(os.path.abspath(".snakemake"))
         os.makedirs(self.path, exist_ok=True)
 
         self._lockdir = os.path.join(self.path, "locks")
@@ -125,12 +125,12 @@ class Persistence(PersistenceExecutorInterface):
         self._read_record = self._read_record_cached
 
     @property
-    def path(self):
-        return self._path
+    def path(self) -> Path:
+        return Path(self._path)
 
     @property
-    def aux_path(self):
-        return self._aux_path
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
