@@ -264,7 +264,7 @@ def run(
         if cluster is not None:
             executor = "cluster-generic"
             plugin = ExecutorPluginRegistry().get_plugin(executor)
-            executor_settings = plugin.executor_settings_class(
+            executor_settings = plugin.settings_cls(
                 submit_cmd=cluster, status_cmd=cluster_status
             )
             nodes = 3
