@@ -10,6 +10,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
+from typing import Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -48,7 +49,7 @@ from snakemake.io import (
     is_flagged,
     wait_for_files,
 )
-from snakemake.jobs import GroupJobFactory, Job, JobFactory, Reason
+from snakemake.jobs import GroupJob, GroupJobFactory, Job, JobFactory, Reason
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
@@ -652,10 +653,12 @@ class DAG(DAGExecutorInterface):
                 f.touch_or_create()
                 assert os.path.exists(f)
 
-    def temp_input(self, job):
-        for job_, files in self.dependencies[job].items():
-            for f in filter(job_.temp_output.__contains__, files):
-                yield f
+    def temp_input(self, job: Union[Job, GroupJob]):
+        jobs = [job] if not job.is_group() else job
+        for job in jobs:
+            for job_, files in self.dependencies[job].items():
+                for f in filter(job_.temp_output.__contains__, files):
+                    yield f
 
     def temp_size(self, job):
         """Return the total size of temporary input files of the job.
@@ -2567,6 +2570,9 @@ class DAG(DAGExecutorInterface):
                     for f in files
                 )
 
+        import pdb
+
+        pdb.set_trace()
         for job in self.jobs:
             assert not job.is_group(), "bug: groups should not be yielded by DAG.jobs"
             if job.conda_env_spec and job.conda_env_spec.is_file:

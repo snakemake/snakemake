@@ -88,7 +88,7 @@ class TestWorkflowsBase(ABC):
                     assume_shared_fs=self.get_assume_shared_fs(),
                 ),
                 workdir=Path(tmp_path),
-                snakefile=test_path / "Snakefile",
+                snakefile=tmp_path / "Snakefile",
             )
 
             dag_api = workflow_api.dag(
