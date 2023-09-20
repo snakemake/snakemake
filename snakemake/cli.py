@@ -1803,7 +1803,7 @@ def args_to_api(args, parser):
         args.executor = "local"
 
     executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
-    executor_settings = executor_plugin.get_executor_settings(args)
+    executor_settings = executor_plugin.get_settings(args)
 
     if args.cores is None:
         if executor_plugin.common_settings.local_exec:
