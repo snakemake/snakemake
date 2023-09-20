@@ -75,6 +75,7 @@ class TestWorkflowsBase(ABC):
         with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
+                show_failed_logs=True,
             ),
         ) as snakemake_api:
             workflow_api = snakemake_api.workflow(
