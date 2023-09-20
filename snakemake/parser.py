@@ -412,8 +412,10 @@ class Singularity(RuleKeywordState):
 class Container(RuleKeywordState):
     pass
 
+
 class NixFlake(RuleKeywordState):
     pass
+
 
 class Containerized(RuleKeywordState):
     pass

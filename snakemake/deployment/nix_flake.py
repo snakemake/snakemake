@@ -1,5 +1,3 @@
-
-
 class NixFlakeEnv:
 
     """Nix Flake Env"""
