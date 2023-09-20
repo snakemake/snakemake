@@ -30,6 +30,7 @@ def handle_testcase(func):
 class TestWorkflowsBase(ABC):
     __test__ = False
     expect_exception = None
+    omit_tmp = False
 
     @abstractmethod
     def get_executor(self) -> str:
@@ -62,8 +63,11 @@ class TestWorkflowsBase(ABC):
 
     def _run_workflow(self, test_name, tmp_path, deployment_method=frozenset()):
         test_path = Path(__file__).parent / "testcases" / test_name
-        tmp_path = Path(tmp_path) / test_name
-        self._copy_test_files(test_path, tmp_path)
+        if self.omit_tmp:
+            tmp_path = test_path
+        else:
+            tmp_path = Path(tmp_path) / test_name
+            self._copy_test_files(test_path, tmp_path)
 
         if self._common_settings().local_exec:
             cores = 3
