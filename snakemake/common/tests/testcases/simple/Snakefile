@@ -5,8 +5,10 @@ rule all:
 rule a:
     output:
         "test1.out"
+    log:
+        "a.log"
     shell:
-        "touch {output}"
+        "touch {output} 2> {log}"
 
 
 rule b:
@@ -14,9 +16,11 @@ rule b:
         "test1.out"
     output:
         "test2.out"
+    log:
+        "b.log"
     threads: 2
     shell:
-        "cp {input} {output}"
+        "cp {input} {output} 2> {log}"
 
 
 rule c:
@@ -24,7 +28,9 @@ rule c:
         "test2.out"
     output:
         "test3.out"
+    log:
+        "c.log"
     resources:
         mem="5MB"
     shell:
-        "cp {input} {output}"
+        "cp {input} {output} 2> {log}"
