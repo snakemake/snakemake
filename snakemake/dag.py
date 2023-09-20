@@ -2570,9 +2570,6 @@ class DAG(DAGExecutorInterface):
                     for f in files
                 )
 
-        import pdb
-
-        pdb.set_trace()
         for job in self.jobs:
             assert not job.is_group(), "bug: groups should not be yielded by DAG.jobs"
             if job.conda_env_spec and job.conda_env_spec.is_file:
