@@ -7,7 +7,6 @@ import os
 import json
 import re
 import inspect
-from snakemake.sourcecache import LocalSourceFile, infer_source_file
 import textwrap
 from itertools import chain
 import collections
@@ -17,11 +16,11 @@ import shlex
 import sys
 from urllib.parse import urljoin
 
-from snakemake.io import regex, Namedlist, Wildcards, _load_configfile
+from snakemake.io import regex, Namedlist, Wildcards
+from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
-import snakemake
 
 
 def validate(data, schema, set_default=True):
@@ -38,6 +37,8 @@ def validate(data, schema, set_default=True):
             https://python-jsonschema.readthedocs.io/en/latest/faq/ for more
             information
     """
+    from snakemake.sourcecache import LocalSourceFile, infer_source_file
+
     frame = inspect.currentframe().f_back
     workflow = frame.f_globals.get("workflow")
 
@@ -467,13 +468,12 @@ def read_job_properties(
 def min_version(version):
     """Require minimum snakemake version, raise workflow error if not met."""
     import pkg_resources
+    from snakemake.common import __version__
 
-    if pkg_resources.parse_version(snakemake.__version__) < pkg_resources.parse_version(
-        version
-    ):
+    if pkg_resources.parse_version(__version__) < pkg_resources.parse_version(version):
         raise WorkflowError(
             "Expecting Snakemake version {} or higher (you are currently using {}).".format(
-                version, snakemake.__version__
+                version, __version__
             )
         )
 

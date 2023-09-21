@@ -16,7 +16,7 @@ from snakemake.remote import (
     check_deprecated_retry,
 )
 from snakemake.exceptions import WorkflowError
-from snakemake.common import lazy_property
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])

@@ -986,14 +986,6 @@ def apply_wildcards(
     return _wildcard_regex.sub(format_match, pattern)
 
 
-def not_iterable(value):
-    return (
-        isinstance(value, str)
-        or isinstance(value, dict)
-        or not isinstance(value, collections.abc.Iterable)
-    )
-
-
 def is_callable(value):
     return (
         callable(value)
@@ -1015,6 +1007,8 @@ class AnnotatedString(str):
 
 
 def flag(value, flag_type, flag_value=True):
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     if isinstance(value, AnnotatedString):
         value.flags[flag_type] = flag_value
         return value
@@ -1109,6 +1103,8 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run"""
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -1390,87 +1386,6 @@ def update_wildcard_constraints(
     return updated
 
 
-def split_git_path(path):
-    file_sub = re.sub(r"^git\+file:/+", "/", path)
-    (file_path, version) = file_sub.split("@")
-    file_path = os.path.realpath(file_path)
-    root_path = get_git_root(file_path)
-    if file_path.startswith(root_path):
-        file_path = file_path[len(root_path) :].lstrip("/")
-    return (root_path, file_path, version)
-
-
-def get_git_root(path):
-    """
-    Args:
-        path: (str) Path a to a directory/file that is located inside the repo
-    Returns:
-        path to the root folder for git repo
-    """
-    import git
-
-    try:
-        git_repo = git.Repo(path, search_parent_directories=True)
-        return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
-        return get_git_root_parent_directory(tail, path)
-
-
-def get_git_root_parent_directory(path, input_path):
-    """
-    This function will recursively go through parent directories until a git
-    repository is found or until no parent directories are left, in which case
-    an error will be raised. This is needed when providing a path to a
-    file/folder that is located on a branch/tag not currently checked out.
-
-    Args:
-        path: (str) Path a to a directory that is located inside the repo
-        input_path: (str) origin path, used when raising WorkflowError
-    Returns:
-        path to the root folder for git repo
-    """
-    import git
-
-    try:
-        git_repo = git.Repo(path, search_parent_directories=True)
-        return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
-        if tail is None:
-            raise WorkflowError(
-                f"Neither provided git path ({input_path}) "
-                + "or parent directories contain a valid git repo."
-            )
-        else:
-            return get_git_root_parent_directory(tail, input_path)
-
-
-def git_content(git_file):
-    """
-    This function will extract a file from a git repository, one located on
-    the filesystem.
-    The expected format is git+file:///path/to/your/repo/path_to_file@version
-
-    Args:
-      env_file (str): consist of path to repo, @, version, and file information
-                      Ex: git+file:///home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-    Returns:
-        file content or None if the expected format isn't meet
-    """
-    import git
-
-    if git_file.startswith("git+file:"):
-        (root_path, file_path, version) = split_git_path(git_file)
-        return git.Repo(root_path).git.show(f"{version}:{file_path}")
-    else:
-        raise WorkflowError(
-            "Provided git path ({}) doesn't meet the "
-            "expected format:".format(git_file) + ", expected format is "
-            "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
-        )
-
-
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
     if is_callable(pattern):
@@ -1684,45 +1599,6 @@ class Resources(Namedlist):
 
 class Log(Namedlist):
     pass
-
-
-def _load_configfile(configpath_or_obj, filetype="Config"):
-    "Tries to load a configfile first as JSON, then as YAML, into a dict."
-    import yaml
-
-    if isinstance(configpath_or_obj, str) or isinstance(configpath_or_obj, Path):
-        obj = open(configpath_or_obj, encoding="utf-8")
-    else:
-        obj = configpath_or_obj
-
-    try:
-        with obj as f:
-            try:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            except ValueError:
-                f.seek(0)  # try again
-            try:
-                import yte
-
-                return yte.process_yaml(f, require_use_yte=True)
-            except yaml.YAMLError:
-                raise WorkflowError(
-                    f"{filetype} file is not valid JSON or YAML. "
-                    "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation."
-                )
-    except FileNotFoundError:
-        raise WorkflowError(f"{filetype} file {configpath_or_obj} not found.")
-
-
-def load_configfile(configpath):
-    "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
-    config = _load_configfile(configpath)
-    if not isinstance(config, dict):
-        raise WorkflowError(
-            "Config file must be given as JSON or YAML with keys at top level."
-        )
-    return config
 
 
 ##### Wildcard pumping detection #####

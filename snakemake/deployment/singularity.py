@@ -3,22 +3,29 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from pathlib import Path
 import subprocess
 import shutil
 import os
 import hashlib
 
 from snakemake.common import (
+    get_snakemake_searchpaths,
     is_local_file,
     parse_uri,
-    lazy_property,
-    SNAKEMAKE_SEARCHPATH,
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
+
+
+def get_snakemake_searchpath_mountpoints():
+    paths = get_snakemake_searchpaths()
+    base = Path("/mnt/snakemake_searchpaths")
+    return [str(base / f"item_{i}") for i in range(len(paths))]
 
 
 class Image:
@@ -110,7 +117,12 @@ def shellcmd(
 
     if is_python_script:
         # mount host snakemake module into container
-        args += f" --bind {repr(SNAKEMAKE_SEARCHPATH)}:{repr(SNAKEMAKE_MOUNTPOINT)}"
+        args += " ".join(
+            f" --bind {repr(searchpath)}:{repr(mountpoint)}"
+            for searchpath, mountpoint in zip(
+                get_snakemake_searchpaths(), get_snakemake_searchpath_mountpoints()
+            )
+        )
 
     if container_workdir:
         args += f" --pwd {repr(container_workdir)}"
@@ -176,8 +188,8 @@ class Singularity:
         if not self.checked:
             if not shutil.which("singularity"):
                 raise WorkflowError(
-                    "The singularity command has to be "
-                    "available in order to use singularity "
+                    "The apptainer or singularity command has to be "
+                    "available in order to use apptainer/singularity "
                     "integration."
                 )
             try:

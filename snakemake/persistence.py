@@ -14,9 +14,14 @@ from base64 import urlsafe_b64encode, b64encode
 from functools import lru_cache
 from itertools import count
 from pathlib import Path
+from contextlib import contextmanager
+from typing import Optional
+
+from snakemake_interface_executor_plugins.persistence import (
+    PersistenceExecutorInterface,
+)
 
 import snakemake.exceptions
-from snakemake.interfaces import PersistenceExecutorInterface
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
@@ -46,7 +51,7 @@ class Persistence(PersistenceExecutorInterface):
 
         self._max_len = None
 
-        self._path = os.path.abspath(".snakemake")
+        self._path = Path(os.path.abspath(".snakemake"))
         os.makedirs(self.path, exist_ok=True)
 
         self._lockdir = os.path.join(self.path, "locks")
@@ -120,12 +125,12 @@ class Persistence(PersistenceExecutorInterface):
         self._read_record = self._read_record_cached
 
     @property
-    def path(self):
-        return self._path
+    def path(self) -> Path:
+        return Path(self._path)
 
     @property
-    def aux_path(self):
-        return self._aux_path
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
 
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
@@ -177,6 +182,7 @@ class Persistence(PersistenceExecutorInterface):
                             return True
         return False
 
+    @contextmanager
     def lock_warn_only(self):
         if self.locked:
             logger.info(
@@ -184,14 +190,20 @@ class Persistence(PersistenceExecutorInterface):
                 "means that another Snakemake instance is running on this directory. "
                 "Another possibility is that a previous run exited unexpectedly."
             )
+        yield
 
+    @contextmanager
     def lock(self):
         if self.locked:
             raise snakemake.exceptions.LockException()
-        self._lock(self.all_inputfiles(), "input")
-        self._lock(self.all_outputfiles(), "output")
+        try:
+            self._lock(self.all_inputfiles(), "input")
+            self._lock(self.all_outputfiles(), "output")
+            yield
+        finally:
+            self.unlock()
 
-    def unlock(self, *args):
+    def unlock(self):
         logger.debug("unlocking")
         for lockfile in self._lockfile.values():
             try:
@@ -253,17 +265,16 @@ class Persistence(PersistenceExecutorInterface):
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid=None):
+    def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job, keep_metadata=True):
-        if not keep_metadata:
+    def finished(self, job):
+        if not self.dag.workflow.execution_settings.keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(self._incomplete_path, f)
             return
 
-        version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         log = self._log(job)
@@ -286,7 +297,6 @@ class Persistence(PersistenceExecutorInterface):
             self._record(
                 self._metadata_path,
                 {
-                    "version": version,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -349,9 +359,6 @@ class Persistence(PersistenceExecutorInterface):
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
-    def version(self, path):
-        return self.metadata(path).get("version")
-
     def rule(self, path):
         return self.metadata(path).get("rule")
 
@@ -385,10 +392,6 @@ class Persistence(PersistenceExecutorInterface):
             for output_path in job.output
         )
 
-    def version_changed(self, job, file=None):
-        """Yields output files with changed versions or bool if file given."""
-        return _bool_or_gen(self._version_changed, job, file=file)
-
     def code_changed(self, job, file=None):
         """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
@@ -408,11 +411,6 @@ class Persistence(PersistenceExecutorInterface):
     def container_changed(self, job, file=None):
         """Yields output files with changed container img or bool if file given."""
         return _bool_or_gen(self._container_changed, job, file=file)
-
-    def _version_changed(self, job, file=None):
-        assert file is not None
-        recorded = self.version(file)
-        return recorded is not None and recorded != job.rule.version
 
     def _code_changed(self, job, file=None):
         assert file is not None
@@ -439,8 +437,9 @@ class Persistence(PersistenceExecutorInterface):
         recorded = self.container_img_url(file)
         return recorded is not None and recorded != job.container_img_url
 
+    @contextmanager
     def noop(self, *args):
-        pass
+        yield
 
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()

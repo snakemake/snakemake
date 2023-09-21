@@ -1,15 +1,16 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2022, Johannes Köster"
+__copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-import concurrent.futures
-import contextlib
+from enum import Enum
 import itertools
 import math
+import operator
 import platform
 import hashlib
 import inspect
+import sys
 import threading
 import uuid
 import os
@@ -26,7 +27,6 @@ del get_versions
 
 MIN_PY_VERSION = (3, 7)
 DYNAMIC_FILL = "__snakemake_dynamic__"
-SNAKEMAKE_SEARCHPATH = str(Path(__file__).parent.parent.parent)
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."
@@ -36,6 +36,24 @@ ON_WINDOWS = platform.system() == "Windows"
 # limit the number of input/output files list in job properties
 # see https://github.com/snakemake/snakemake/issues/2097
 IO_PROP_LIMIT = 100
+SNAKEFILE_CHOICES = list(
+    map(
+        Path,
+        (
+            "Snakefile",
+            "snakefile",
+            "workflow/Snakefile",
+            "workflow/snakefile",
+        ),
+    )
+)
+
+
+def get_snakemake_searchpaths():
+    paths = [str(Path(__file__).parent.parent.parent)] + [
+        path for path in sys.path if os.path.isdir(path)
+    ]
+    return list(unique_justseen(paths))
 
 
 def mb_to_mib(mb):
@@ -47,6 +65,7 @@ def parse_key_value_arg(arg, errmsg):
         key, val = arg.split("=", 1)
     except ValueError:
         raise ValueError(errmsg + f" (Unparseable value: {repr(arg)})")
+    val = val.strip("'\"")
     return key, val
 
 
@@ -185,40 +204,6 @@ def bytesto(bytes, to, bsize=1024):
     return answer
 
 
-class Mode:
-    """
-    Enum for execution mode of Snakemake.
-    This handles the behavior of e.g. the logger.
-    """
-
-    default = 0
-    subprocess = 1
-    cluster = 2
-
-
-class lazy_property(property):
-    __slots__ = ["method", "cached", "__doc__"]
-
-    @staticmethod
-    def clean(instance, method):
-        delattr(instance, method)
-
-    def __init__(self, method):
-        self.method = method
-        self.cached = f"_{method.__name__}"
-        super().__init__(method, doc=method.__doc__)
-
-    def __get__(self, instance, owner):
-        cached = (
-            getattr(instance, self.cached) if hasattr(instance, self.cached) else None
-        )
-        if cached is not None:
-            return cached
-        value = self.method(instance)
-        setattr(instance, self.cached, value)
-        return value
-
-
 def strip_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix) :]
@@ -264,7 +249,10 @@ class Rules:
         try:
             return self._rules[name]
         except KeyError:
-            raise WorkflowError(f"Rule {name} is not defined in this workflow.")
+            raise WorkflowError(
+                f"Rule {name} is not defined in this workflow. "
+                f"Available rules: {', '.join(self._rules)}"
+            )
 
 
 class Scatter:
@@ -289,20 +277,12 @@ def get_input_function_aux_params(func, candidate_params):
     return {k: v for k, v in candidate_params.items() if k in func_params}
 
 
-_pool = concurrent.futures.ThreadPoolExecutor()
-
-
-@contextlib.asynccontextmanager
-async def async_lock(_lock: threading.Lock):
-    """Use a threaded lock form threading.Lock in an async context
-
-    Necessary because asycio.Lock is not threadsafe, so only one thread can safely use
-    it at a time.
-    Source: https://stackoverflow.com/a/63425191
+def unique_justseen(iterable, key=None):
     """
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(_pool, _lock.acquire)
-    try:
-        yield  # the lock is held
-    finally:
-        _lock.release()
+    List unique elements, preserving order. Remember only the element just seen.
+
+    From https://docs.python.org/3/library/itertools.html#itertools-recipes
+    """
+    # unique_justseen('AAAABBBCCDAABBB') --> A B C D A B
+    # unique_justseen('ABBcCAD', str.lower) --> A B c A D
+    return map(next, map(operator.itemgetter(1), itertools.groupby(iterable, key)))

@@ -7,7 +7,7 @@ import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake.logging import logger
+from snakemake_interface_common.exceptions import WorkflowError, ApiError
 
 
 def format_error(
@@ -66,11 +66,13 @@ def format_traceback(tb, linemaps):
 
 
 def log_verbose_traceback(ex):
+    from snakemake.logging import logger
+
     tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     logger.debug(tb)
 
 
-def print_exception(ex, linemaps):
+def print_exception(ex, linemaps=None):
     """
     Print an error message for a given exception.
 
@@ -79,6 +81,8 @@ def print_exception(ex, linemaps):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
+    from snakemake.logging import logger
+
     log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(
@@ -91,7 +95,7 @@ def print_exception(ex, linemaps):
             )
         )
         return
-    origin = get_exception_origin(ex, linemaps)
+    origin = get_exception_origin(ex, linemaps) if linemaps is not None else None
     if origin is not None:
         lineno, file = origin
         logger.error(
@@ -141,44 +145,14 @@ def print_exception(ex, linemaps):
                 rule=ex.rule,
             )
         )
+    elif isinstance(ex, ApiError):
+        logger.error(f"Error: {ex}")
+    elif isinstance(ex, CliException):
+        logger.error(f"Error: {ex}")
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
-
-
-class WorkflowError(Exception):
-    @staticmethod
-    def format_arg(arg):
-        if isinstance(arg, str):
-            return arg
-        elif isinstance(arg, WorkflowError):
-            spec = ""
-            if arg.rule is not None:
-                spec += f"rule {arg.rule}"
-            if arg.snakefile is not None:
-                if spec:
-                    spec += ", "
-                spec += f"line {arg.lineno}, {arg.snakefile}"
-
-            if spec:
-                spec = f" ({spec})"
-
-            return "{}{}:\n{}".format(
-                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
-            )
-        else:
-            return f"{arg.__class__.__name__}: {arg}"
-
-    def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(self.format_arg(arg) for arg in args))
-        if rule is not None:
-            self.lineno = rule.lineno
-            self.snakefile = rule.snakefile
-        else:
-            self.lineno = lineno
-            self.snakefile = snakefile
-        self.rule = rule
 
 
 class SourceFileError(WorkflowError):

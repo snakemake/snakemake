@@ -17,6 +17,8 @@ try:
 except ImportError:  # python < 3.11
     import sre_constants
 
+from snakemake_interface_executor_plugins.settings import ExecMode
+
 from snakemake.io import (
     IOFile,
     _IOFile,
@@ -37,7 +39,6 @@ from snakemake.io import (
     apply_wildcards,
     is_flagged,
     flag,
-    not_iterable,
     is_callable,
     DYNAMIC_FILL,
     ReportObject,
@@ -52,19 +53,19 @@ from snakemake.exceptions import (
 )
 from snakemake.logging import logger
 from snakemake.common import (
-    Mode,
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
-    lazy_property,
     TBDString,
     mb_to_mib,
 )
 from snakemake.resources import infer_resources
+from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
+from snakemake_interface_common.rules import RuleInterface
 
 
-class Rule:
-    def __init__(self, *args, lineno=None, snakefile=None, restart_times=0):
+class Rule(RuleInterface):
+    def __init__(self, *args, lineno=None, snakefile=None):
         """
         Create a rule
 
@@ -73,7 +74,7 @@ class Rule:
         """
         if len(args) == 2:
             name, workflow = args
-            self.name = name
+            self._name = name
             self.workflow = workflow
             self.docstring = None
             self.message = None
@@ -87,21 +88,19 @@ class Rule:
             self.temp_output = set()
             self.protected_output = set()
             self.touch_output = set()
-            self.subworkflow_input = dict()
             self.shadow_depth = None
             self.resources = None
             self.priority = 0
-            self._version = None
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
             self._container_img = None
             self.is_containerized = False
             self.env_modules = None
-            self.group = None
+            self._group = None
             self._wildcard_names = None
-            self.lineno = lineno
-            self.snakefile = snakefile
+            self._lineno = lineno
+            self._snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
             self.script = None
@@ -113,7 +112,7 @@ class Rule:
             self.is_handover = False
             self.is_branched = False
             self.is_checkpoint = False
-            self.restart_times = 0
+            self._restart_times = 0
             self.basedir = None
             self.input_modifier = None
             self.output_modifier = None
@@ -123,7 +122,7 @@ class Rule:
             self.module_globals = None
         elif len(args) == 1:
             other = args[0]
-            self.name = other.name
+            self._name = other.name
             self.workflow = other.workflow
             self.docstring = other.docstring
             self.message = other.message
@@ -137,25 +136,23 @@ class Rule:
             self.temp_output = set(other.temp_output)
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
-            self.subworkflow_input = dict(other.subworkflow_input)
             self.shadow_depth = other.shadow_depth
             self.resources = other.resources
             self.priority = other.priority
-            self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._container_img = other._container_img
             self.is_containerized = other.is_containerized
             self.env_modules = other.env_modules
-            self.group = other.group
+            self._group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
                 if other._wildcard_names is not None
                 else None
             )
-            self.lineno = other.lineno
-            self.snakefile = other.snakefile
+            self._lineno = other.lineno
+            self._snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
@@ -167,7 +164,7 @@ class Rule:
             self.is_handover = other.is_handover
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
-            self.restart_times = other.restart_times
+            self._restart_times = other.restart_times
             self.basedir = other.basedir
             self.input_modifier = other.input_modifier
             self.output_modifier = other.output_modifier
@@ -271,6 +268,52 @@ class Rule:
         return branch
 
     @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    @property
+    def lineno(self):
+        return self._lineno
+
+    @property
+    def snakefile(self):
+        return self._snakefile
+
+    @property
+    def restart_times(self):
+        if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(
+            self.name
+        ):
+            return self.workflow.remote_execution_settings.preemptible_retries
+        if self._restart_times is None:
+            return self.workflow.execution_settings.retries
+        return self._restart_times
+
+    @restart_times.setter
+    def restart_times(self, restart_times):
+        self._restart_times = restart_times
+
+    @property
+    def group(self):
+        if self.workflow.local_exec:
+            return None
+        else:
+            overwrite_group = self.workflow.group_settings.overwrite_groups.get(
+                self.name
+            )
+            if overwrite_group is not None:
+                return overwrite_group
+            return self._group
+
+    @group.setter
+    def group(self, group):
+        self._group = group
+
+    @property
     def is_shell(self):
         return self.shellcmd is not None
 
@@ -331,18 +374,6 @@ class Rule:
         Return True if rule contains wildcards.
         """
         return bool(self.wildcard_names)
-
-    @property
-    def version(self):
-        return self._version
-
-    @version.setter
-    def version(self, version):
-        if isinstance(version, str) and "\n" in version:
-            raise WorkflowError(
-                "Version string may not contain line breaks.", rule=self
-            )
-        self._version = version
 
     @property
     def benchmark(self):
@@ -579,7 +610,7 @@ class Rule:
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.mode != Mode.subprocess
+                    and self.workflow.execution_settings.mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(
@@ -587,7 +618,7 @@ class Rule:
                         )
                     )
 
-            if self.workflow.all_temp and output:
+            if self.workflow.storage_settings.all_temp and output:
                 # mark as temp if all output files shall be marked as temp
                 item = flag(item, "temp")
 
@@ -620,22 +651,6 @@ class Rule:
                         report_obj.htmlindex,
                     )
                     item.flags["report"] = r
-            if is_flagged(item, "subworkflow"):
-                if output:
-                    raise SyntaxError("Only input files may refer to a subworkflow")
-                else:
-                    # record the workflow this item comes from
-                    sub = item.flags["subworkflow"]
-                    if _item in self.subworkflow_input:
-                        other = self.subworkflow_input[_item]
-                        if sub != other:
-                            raise WorkflowError(
-                                "The input file {} is ambiguously "
-                                "associated with two subworkflows "
-                                "{} and {}.".format(item, sub, other),
-                                rule=self,
-                            )
-                    self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
                 inoutput._add_name(name)
@@ -777,7 +792,7 @@ class Rule:
                 value = TBDString()
             else:
                 raise e
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             if raw_exceptions:
                 raise e
             else:
@@ -1091,7 +1106,7 @@ class Rule:
                             raw_exceptions=True,
                             **aux,
                         )
-                    except (Exception, BaseException) as e:
+                    except BaseException as e:
                         raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
                 if isinstance(res, float):
@@ -1127,8 +1142,8 @@ class Rule:
         threads = apply("_cores", self.resources["_cores"])
         if threads is None:
             raise WorkflowError("Threads must be given as an int", rule=self)
-        if self.workflow.max_threads is not None:
-            threads = min(threads, self.workflow.max_threads)
+        if self.workflow.resource_settings.max_threads is not None:
+            threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
         for name, res in list(self.resources.items()):
@@ -1393,14 +1408,14 @@ class RuleProxy:
 
     def _to_iofile(self, files):
         def cleanup(f):
-            prefix = self.rule.workflow.default_remote_prefix
+            prefix = self.rule.workflow.storage_settings.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
 
             modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
 
             if (
-                self.rule.workflow.default_remote_provider is not None
+                self.rule.workflow.storage_settings.default_remote_provider is not None
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):

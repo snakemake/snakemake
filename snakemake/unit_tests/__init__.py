@@ -5,6 +5,7 @@ import os
 
 from snakemake.logging import logger
 from snakemake import __version__
+from snakemake.exceptions import WorkflowError
 
 
 class RuleTest:
@@ -26,7 +27,7 @@ class RuleTest:
         return self.path / "expected"
 
 
-def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
+def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None):
     """Generate unit tests from given dag at a given path."""
     logger.info("Generating unit tests for each rule...")
 
@@ -43,7 +44,6 @@ def generate(dag, path, deploy=["conda", "singularity"], configfiles=None):
         lstrip_blocks=True,
     )
 
-    path = Path(path)
     os.makedirs(path, exist_ok=True)
 
     with open(path / "common.py", "w") as common:

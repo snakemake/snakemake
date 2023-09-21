@@ -52,6 +52,7 @@ class ModuleInfo:
         self.config = config
         self.skip_validation = skip_validation
         self.parent_modifier = self.workflow.modifier
+        self.rule_proxies = Rules()
 
         if prefix is not None:
             if isinstance(prefix, Path):
@@ -97,6 +98,7 @@ class ModuleInfo:
             replace_prefix=self.replace_prefix,
             prefix=self.prefix,
             replace_wrapper_tag=self.get_wrapper_tag(),
+            rule_proxies=self.rule_proxies,
         )
         with modifier:
             self.workflow.include(snakefile, overwrite_default_target=True)
@@ -105,7 +107,8 @@ class ModuleInfo:
     def get_snakefile(self):
         if self.meta_wrapper:
             return wrapper.get_path(
-                self.meta_wrapper + "/test/Snakefile", self.workflow.wrapper_prefix
+                self.meta_wrapper + "/test/Snakefile",
+                self.workflow.workflow_settings.wrapper_prefix,
             )
         elif self.snakefile:
             return self.snakefile
@@ -155,6 +158,7 @@ class WorkflowModifier:
         prefix=None,
         replace_wrapper_tag=None,
         namespace=None,
+        rule_proxies=None,
     ):
         if parent_modifier is not None:
             # init with values from parent modifier
@@ -174,6 +178,7 @@ class WorkflowModifier:
             self.namespace = parent_modifier.namespace
             self.wildcard_constraints = parent_modifier.wildcard_constraints
             self.rules = parent_modifier.rules
+            self.rule_proxies = parent_modifier.rule_proxies
         else:
             # default settings for globals if not inheriting from parent
             self.globals = (
@@ -181,14 +186,14 @@ class WorkflowModifier:
             )
             self.wildcard_constraints = dict()
             self.rules = set()
+            self.rule_proxies = rule_proxies or Rules()
+            self.globals["rules"] = self.rule_proxies
 
         self.workflow = workflow
         self.base_snakefile = base_snakefile
-        self.rule_proxies = Rules()
 
         if config is not None:
             self.globals["config"] = config
-        self.globals["rules"] = self.rule_proxies
 
         self.skip_configfile = skip_configfile
         self.resolved_rulename_modifier = resolved_rulename_modifier
@@ -204,11 +209,10 @@ class WorkflowModifier:
         self.namespace = namespace
 
     def inherit_rule_proxies(self, child_modifier):
-        if child_modifier.local_rulename_modifier is not None:
-            for name, rule in child_modifier.rule_proxies._rules.items():
-                self.rule_proxies._register_rule(
-                    child_modifier.local_rulename_modifier(name), rule
-                )
+        for name, rule in child_modifier.rule_proxies._rules.items():
+            if child_modifier.local_rulename_modifier is not None:
+                name = child_modifier.local_rulename_modifier(name)
+            self.rule_proxies._register_rule(name, rule)
 
     def skip_rule(self, rulename):
         return (

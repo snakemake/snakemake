@@ -7,20 +7,25 @@ import html
 import os
 import shutil
 import subprocess
-import sys
 import tarfile
 import textwrap
 import time
+from typing import Union
 import uuid
+import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
 from functools import partial
 from itertools import chain, filterfalse, groupby
 from operator import attrgetter
 from pathlib import Path
+from snakemake.settings import DeploymentMethod
+
+from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
+from snakemake.settings import RerunTrigger
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
     AmbiguousRuleException,
@@ -37,7 +42,6 @@ from snakemake.exceptions import (
     WildcardError,
     WorkflowError,
 )
-from snakemake.interfaces import DAGExecutorInterface
 from snakemake.io import (
     PeriodicityDetector,
     get_flag_value,
@@ -45,63 +49,13 @@ from snakemake.io import (
     is_flagged,
     wait_for_files,
 )
-from snakemake.jobs import GroupJobFactory, Job, JobFactory, Reason
+from snakemake.jobs import GroupJob, GroupJobFactory, Job, JobFactory, Reason
 from snakemake.logging import logger
 from snakemake.output_index import OutputIndex
 from snakemake.sourcecache import LocalSourceFile, SourceFile
+from snakemake.settings import ChangeType, Batch
 
 PotentialDependency = namedtuple("PotentialDependency", ["file", "jobs", "known"])
-
-
-class Batch:
-    """Definition of a batch for calculating only a partial DAG."""
-
-    def __init__(self, rulename: str, idx: int, batches: int):
-        assert idx <= batches
-        assert idx > 0
-        self.rulename = rulename
-        self.idx = idx
-        self.batches = batches
-
-    def get_batch(self, items: list):
-        """Return the defined batch of the given items.
-        Items are usually input files."""
-        # make sure that we always consider items in the same order
-        if len(items) < self.batches:
-            raise WorkflowError(
-                "Batching rule {} has less input files than batches. "
-                "Please choose a smaller number of batches.".format(self.rulename)
-            )
-        items = sorted(items)
-
-        # we can equally split items using divmod:
-        # len(items) = (self.batches * quotient) + remainder
-        # Because remainder always < divisor (self.batches),
-        # each batch will be equal to quotient + (1 or 0 item)
-        # from the remainder
-        k, m = divmod(len(items), self.batches)
-
-        # self.batch is one-based, hence we have to subtract 1
-        idx = self.idx - 1
-
-        # First n batches will have k (quotient) items +
-        # one item from the remainder (m). Once we consume all items
-        # from the remainder, last batches only contain k items.
-        i = idx * k + min(idx, m)
-        batch_len = (idx + 1) * k + min(idx + 1, m)
-
-        if self.is_final:
-            # extend the last batch to cover rest of list
-            return items[i:]
-        else:
-            return items[i:batch_len]
-
-    @property
-    def is_final(self):
-        return self.idx == self.batches
-
-    def __str__(self):
-        return f"{self.idx}/{self.batches} (rule {self.rulename})"
 
 
 class DAG(DAGExecutorInterface):
@@ -111,10 +65,8 @@ class DAG(DAGExecutorInterface):
         self,
         workflow,
         rules=None,
-        dryrun=False,
         targetfiles=None,
         targetrules=None,
-        target_jobs_def=None,
         forceall=False,
         forcerules=None,
         forcefiles=None,
@@ -124,14 +76,8 @@ class DAG(DAGExecutorInterface):
         untilrules=None,
         omitfiles=None,
         omitrules=None,
-        ignore_ambiguity=False,
-        force_incomplete=False,
         ignore_incomplete=False,
-        notemp=False,
-        keep_remote_local=False,
-        batch=None,
     ):
-        self.dryrun = dryrun
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -142,20 +88,16 @@ class DAG(DAGExecutorInterface):
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
-        self.ignore_ambiguity = ignore_ambiguity
         self.targetfiles = targetfiles
         self.targetrules = targetrules
-        self.target_jobs_def = target_jobs_def
-        self.target_jobs_rules = (
-            {spec.rulename for spec in target_jobs_def} if target_jobs_def else set()
-        )
+        self.target_jobs_rules = {
+            spec.rulename for spec in self.workflow.dag_settings.target_jobs
+        }
         self.priorityfiles = priorityfiles
         self.priorityrules = priorityrules
         self.targetjobs = set()
         self.prioritytargetjobs = set()
         self._ready_jobs = set()
-        self.notemp = notemp
-        self.keep_remote_local = keep_remote_local
         self._jobid = dict()
         self.job_cache = dict()
         self.conda_envs = dict()
@@ -174,7 +116,6 @@ class DAG(DAGExecutorInterface):
         self.untilfiles = set()
         self.omitrules = set()
         self.omitfiles = set()
-        self.updated_subworkflow_files = set()
         if forceall:
             self.forcerules.update(self.rules)
         elif forcerules:
@@ -194,19 +135,21 @@ class DAG(DAGExecutorInterface):
 
         self.omitforce = set()
 
-        self.batch = batch
-        if batch is not None and not batch.is_final:
+        if self.batch is not None and not self.batch.is_final:
             # Since not all input files of a batching rule are considered, we cannot run
             # beyond that rule.
             # For the final batch, we do not need to omit anything.
-            self.omitrules.add(batch.rulename)
+            self.omitrules.add(self.batch.rulename)
 
-        self.force_incomplete = force_incomplete
         self.ignore_incomplete = ignore_incomplete
 
         self.periodic_wildcard_detector = PeriodicityDetector()
 
         self.update_output_index()
+
+    @property
+    def batch(self):
+        return self.workflow.dag_settings.batch
 
     def init(self, progress=False):
         """Initialise the DAG."""
@@ -223,19 +166,19 @@ class DAG(DAGExecutorInterface):
             )
             self.targetjobs.add(job)
 
-        if self.target_jobs_def:
-            for spec in self.target_jobs_def:
-                job = self.update(
-                    [
-                        self.new_job(
-                            self.workflow.get_rule(spec.rulename),
-                            wildcards_dict=spec.wildcards_dict,
-                        )
-                    ],
-                    progress=progress,
-                    create_inventory=True,
-                )
-                self.targetjobs.add(job)
+        for spec in self.workflow.dag_settings.target_jobs:
+            job = self.update(
+                [
+                    self.new_job(
+                        self.workflow.get_rule(spec.rulename),
+                        wildcards_dict=spec.wildcards_dict,
+                    )
+                ],
+                progress=progress,
+                create_inventory=True,
+            )
+            self.targetjobs.add(job)
+            self.forcefiles.update(job.output)
 
         self.cleanup()
 
@@ -332,13 +275,17 @@ class DAG(DAGExecutorInterface):
         env_set = {
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
-            if job.conda_env_spec and (self.workflow.assume_shared_fs or job.is_local)
+            if job.conda_env_spec
+            and (self.workflow.storage_settings.assume_shared_fs or job.is_local)
         }
 
         # Then based on md5sum values
         for env_spec, simg_url in env_set:
             simg = None
-            if simg_url and self.workflow.use_singularity:
+            if simg_url and (
+                DeploymentMethod.APPTAINER
+                in self.workflow.deployment_settings.deployment_method
+            ):
                 assert (
                     simg_url in self.container_imgs
                 ), "bug: must first pull singularity images"
@@ -348,14 +295,15 @@ class DAG(DAGExecutorInterface):
                 env = env_spec.get_conda_env(
                     self.workflow,
                     container_img=simg,
-                    cleanup=self.workflow.conda_cleanup_pkgs,
+                    cleanup=self.workflow.deployment_settings.conda_cleanup_pkgs,
                 )
                 self.conda_envs[key] = env
 
     def create_conda_envs(self, dryrun=False, quiet=False):
+        dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
             if (not dryrun or not quiet) and not env.is_named:
-                env.create(dryrun)
+                env.create(self.workflow.dryrun)
 
     def update_container_imgs(self):
         # First deduplicate based on job.conda_env_spec
@@ -370,10 +318,10 @@ class DAG(DAGExecutorInterface):
                 img = singularity.Image(img_url, self, is_containerized)
                 self.container_imgs[img_url] = img
 
-    def pull_container_imgs(self, dryrun=False, quiet=False):
+    def pull_container_imgs(self, quiet=False):
         for img in self.container_imgs.values():
-            if not dryrun or not quiet:
-                img.pull(dryrun)
+            if not self.workflow.dryrun or not quiet:
+                img.pull(self.workflow.dryrun)
 
     def update_output_index(self):
         """Update the OutputIndex."""
@@ -385,7 +333,7 @@ class DAG(DAGExecutorInterface):
         if not self.ignore_incomplete:
             incomplete = self.incomplete_files
             if incomplete:
-                if self.force_incomplete:
+                if self.workflow.dag_settings.force_incomplete:
                     logger.debug("Forcing incomplete files:")
                     logger.debug("\t" + "\n\t".join(incomplete))
                     self.forcefiles.update(incomplete)
@@ -398,7 +346,7 @@ class DAG(DAGExecutorInterface):
         Returns None, if job is not incomplete, or if no external jobid has been
         registered or if force_incomplete is True.
         """
-        if self.force_incomplete:
+        if self.workflow.dag_settings.force_incomplete:
             return None
         jobids = self.workflow.persistence.external_jobids(job)
         if len(jobids) == 1:
@@ -422,7 +370,10 @@ class DAG(DAGExecutorInterface):
             self.postprocess()
 
     def is_edit_notebook_job(self, job):
-        return self.workflow.edit_notebook and job.targetfile in self.targetfiles
+        return (
+            self.workflow.execution_settings.edit_notebook
+            and job.targetfile in self.targetfiles
+        )
 
     def get_job_group(self, job):
         return self._group.get(job)
@@ -702,10 +653,12 @@ class DAG(DAGExecutorInterface):
                 f.touch_or_create()
                 assert os.path.exists(f)
 
-    def temp_input(self, job):
-        for job_, files in self.dependencies[job].items():
-            for f in filter(job_.temp_output.__contains__, files):
-                yield f
+    def temp_input(self, job: Union[Job, GroupJob]):
+        jobs = [job] if not job.is_group() else job
+        for job in jobs:
+            for job_, files in self.dependencies[job].items():
+                for f in filter(job_.temp_output.__contains__, files):
+                    yield f
 
     def temp_size(self, job):
         """Return the total size of temporary input files of the job.
@@ -715,7 +668,7 @@ class DAG(DAGExecutorInterface):
 
     def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
-        if self.notemp:
+        if self.workflow.storage_settings.notemp:
             return
 
         if job.is_group():
@@ -755,7 +708,7 @@ class DAG(DAGExecutorInterface):
                 yield from filterfalse(partial(needed, job), tempfiles)
 
         for f in unneeded_files():
-            if self.dryrun:
+            if self.workflow.dryrun:
                 logger.info(f"Would remove temporary output {f}")
             else:
                 logger.info(f"Removing temporary output {f}.")
@@ -793,7 +746,7 @@ class DAG(DAGExecutorInterface):
                             "read AND write permissions."
                         )
 
-        if not self.keep_remote_local:
+        if not self.workflow.storage_settings.keep_remote_local:
             if not any(f.is_remote for f in job.input):
                 return
 
@@ -935,16 +888,17 @@ class DAG(DAGExecutorInterface):
         ambiguities = list(
             filter(lambda x: not x < producer and not producer < x, producers[1:])
         )
-        if ambiguities and not self.ignore_ambiguity:
+        if ambiguities and not self.workflow.execution_settings.ignore_ambiguity:
             raise AmbiguousRuleException(file, producer, ambiguities[0])
         logger.dag_debug(dict(status="selected", job=producer))
-        logger.dag_debug(
-            dict(
-                file=file,
-                msg="Producer found, hence exceptions are ignored.",
-                exception=WorkflowError(*exceptions),
+        if exceptions:
+            logger.dag_debug(
+                dict(
+                    file=file,
+                    msg="Producer found, hence exceptions are ignored.",
+                    exception=WorkflowError(*exceptions),
+                )
             )
-        )
         return producer
 
     def update_(
@@ -1097,9 +1051,6 @@ class DAG(DAGExecutorInterface):
         def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
-            updated_subworkflow_input = self.updated_subworkflow_files.intersection(
-                job.input
-            )
 
             if (
                 job not in self.omitforce
@@ -1107,8 +1058,6 @@ class DAG(DAGExecutorInterface):
                 or not self.forcefiles.isdisjoint(job.output)
             ):
                 reason.forced = True
-            elif updated_subworkflow_input:
-                reason.updated_input.update(updated_subworkflow_input)
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
                 if not job.has_products(include_logfiles=False):
@@ -1125,7 +1074,7 @@ class DAG(DAGExecutorInterface):
                     if job.rule in self.targetrules:
                         files = set(job.products(include_logfiles=False))
                     elif (
-                        self.target_jobs_def is not None
+                        self.workflow.dag_settings.target_jobs
                         and job.rule.name in self.target_jobs_rules
                     ):
                         files = set(job.products(include_logfiles=False))
@@ -1162,19 +1111,19 @@ class DAG(DAGExecutorInterface):
                         # The first pass (with depends_on_checkpoint_target == True) is not informative
                         # for determining any other changes than file modification dates, as it will
                         # change after evaluating the input function of the job in the second pass.
-                        if "params" in self.workflow.rerun_triggers:
+                        if RerunTrigger.PARAMS in self.workflow.rerun_triggers:
                             reason.params_changed = any(
                                 self.workflow.persistence.params_changed(job)
                             )
-                        if "input" in self.workflow.rerun_triggers:
+                        if RerunTrigger.INPUT in self.workflow.rerun_triggers:
                             reason.input_changed = any(
                                 self.workflow.persistence.input_changed(job)
                             )
-                        if "code" in self.workflow.rerun_triggers:
+                        if RerunTrigger.CODE in self.workflow.rerun_triggers:
                             reason.code_changed = any(
                                 job.outputs_older_than_script_or_notebook()
                             ) or any(self.workflow.persistence.code_changed(job))
-                        if "software-env" in self.workflow.rerun_triggers:
+                        if RerunTrigger.SOFTWARE_ENV in self.workflow.rerun_triggers:
                             reason.software_stack_changed = any(
                                 self.workflow.persistence.conda_env_changed(job)
                             ) or any(self.workflow.persistence.container_changed(job))
@@ -1349,7 +1298,7 @@ class DAG(DAGExecutorInterface):
         for group in self._group.values():
             groups_by_id[group.groupid].add(group)
         for groupid, conn_components in groups_by_id.items():
-            n_components = self.workflow.group_components.get(groupid, 1)
+            n_components = self.workflow.group_settings.group_components.get(groupid, 1)
             if n_components > 1:
                 for chunk in group_into_chunks(n_components, conn_components):
                     if len(chunk) > 1:
@@ -1672,9 +1621,15 @@ class DAG(DAGExecutorInterface):
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
             # and singularity images are set up.
-            if self.workflow.use_singularity:
+            if (
+                DeploymentMethod.APPTAINER
+                in self.workflow.deployment_settings.deployment_method
+            ):
                 self.pull_container_imgs()
-            if self.workflow.use_conda:
+            if (
+                DeploymentMethod.CONDA
+                in self.workflow.deployment_settings.deployment_method
+            ):
                 self.create_conda_envs()
             potential_new_ready_jobs = True
 
@@ -1867,10 +1822,6 @@ class DAG(DAGExecutorInterface):
                 input_files = input_batch
 
         for file in input_files:
-            # omit the file if it comes from a subworkflow
-            if file in job.subworkflow_input:
-                continue
-
             try:
                 yield PotentialDependency(file, known_producers[file], True)
             except KeyError:
@@ -2304,27 +2255,27 @@ class DAG(DAGExecutorInterface):
                 else:
                     yield "\t".join((f, date, rule, version, log, status, pending))
 
-    def archive(self, path):
+    def archive(self, path: Path):
         """Archives workflow such that it can be re-run on a different system.
 
         Archiving includes git versioned files (i.e. Snakefiles, config files, ...),
         ancestral input files and conda environments.
         """
-        if path.endswith(".tar"):
+        if path.suffix == ".tar":
             mode = "x"
-        elif path.endswith("tar.bz2"):
+        elif path.suffixes == [".tar", ".bz2"]:
             mode = "x:bz2"
-        elif path.endswith("tar.xz"):
+        elif path.suffixes == [".tar", ".xz"]:
             mode = "x:xz"
-        elif path.endswith("tar.gz"):
+        elif path.suffixes == [".tar", ".gz"]:
             mode = "x:gz"
         else:
             raise WorkflowError(
                 "Unsupported archive format "
                 "(supported: .tar, .tar.gz, .tar.bz2, .tar.xz)"
             )
-        if os.path.exists(path):
-            raise WorkflowError("Archive already exists:\n" + path)
+        if path.exists():
+            raise WorkflowError(f"Archive already exists:\n{path}")
 
         self.create_conda_envs()
 
@@ -2372,7 +2323,7 @@ class DAG(DAGExecutorInterface):
                 for env in envs:
                     add(env)
 
-        except (Exception, BaseException) as e:
+        except BaseException as e:
             os.remove(path)
             raise e
 
@@ -2413,7 +2364,7 @@ class DAG(DAGExecutorInterface):
             )
             dirs[:] = [d for d in dirs if not d[0] == "."]
         for f in sorted(list(files_in_cwd - used_files)):
-            logger.info(f)
+            print(f)
 
     def d3dag(self, max_jobs=10000):
         def node(job):
@@ -2552,14 +2503,14 @@ class DAG(DAGExecutorInterface):
 
             yield sorted_layer
 
-    def get_outputs_with_changes(self, change_type, include_needrun=True):
+    def get_outputs_with_changes(self, change_type: ChangeType, include_needrun=True):
         is_changed = lambda job: (
             getattr(self.workflow.persistence, f"{change_type}_changed")(job)
             if not job.is_group() and (include_needrun or not self.needrun(job))
             else []
         )
         changed = list(chain(*map(is_changed, self.jobs)))
-        if change_type == "code":
+        if change_type == ChangeType.CODE:
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
                     changed.extend(list(job.outputs_older_than_script_or_notebook()))
@@ -2567,17 +2518,17 @@ class DAG(DAGExecutorInterface):
 
     def warn_about_changes(self, quiet=False):
         if not quiet:
-            for change_type in ["code", "input", "params"]:
+            for change_type in ChangeType.all():
                 changed = self.get_outputs_with_changes(
                     change_type, include_needrun=False
                 )
                 if changed:
                     rerun_trigger = ""
                     if not ON_WINDOWS:
-                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-{change_type}-changes)'."
+                        rerun_trigger = f"\n    To trigger a re-run, use 'snakemake -R $(snakemake --list-changes {change_type})'."
                     logger.warning(
                         f"The {change_type} used to generate one or several output files has changed:\n"
-                        f"    To inspect which output files have changes, run 'snakemake --list-{change_type}-changes'."
+                        f"    To inspect which output files have changes, run 'snakemake --list-changes {change_type}'."
                         f"{rerun_trigger}"
                     )
 
@@ -2620,6 +2571,7 @@ class DAG(DAGExecutorInterface):
                 )
 
         for job in self.jobs:
+            assert not job.is_group(), "bug: groups should not be yielded by DAG.jobs"
             if job.conda_env_spec and job.conda_env_spec.is_file:
                 f = local_path(job.conda_env_spec.file)
                 if f:

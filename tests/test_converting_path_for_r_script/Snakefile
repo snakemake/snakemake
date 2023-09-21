@@ -14,5 +14,7 @@ rule step1:
     param_dir=Path("dir")
   output:
     out_file=Path("out-file.txt")
+  conda:
+    "env.yaml"
   script:
     "r-script.R"

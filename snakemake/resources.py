@@ -4,11 +4,15 @@ import operator as op
 import re
 import tempfile
 
+from snakemake_interface_executor_plugins.resources import (
+    DefaultResourcesExecutorInterface,
+)
+
 from snakemake.exceptions import ResourceScopesException, WorkflowError
 from snakemake.common import TBDString
 
 
-class DefaultResources:
+class DefaultResources(DefaultResourcesExecutorInterface):
     defaults = {
         "mem_mb": "max(2*input.size_mb, 1000)",
         "disk_mb": "max(2*input.size_mb, 1000)",
@@ -541,6 +545,7 @@ class GroupResources:
 def parse_resources(resources_args, fallback=None):
     """Parse resources from args."""
     resources = dict()
+
     if resources_args is not None:
         valid = re.compile(r"[a-zA-Z_]\w*$")
 

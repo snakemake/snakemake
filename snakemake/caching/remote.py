@@ -9,6 +9,7 @@ from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
 from snakemake.io import get_flag_value
+from snakemake.remote import AbstractRemoteProvider
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -18,7 +19,7 @@ class OutputFileCache(AbstractOutputFileCache):
     each output file. This is the remote version.
     """
 
-    def __init__(self, remote_provider):
+    def __init__(self, remote_provider: AbstractRemoteProvider):
         super().__init__()
         self.remote_provider = remote_provider
 
