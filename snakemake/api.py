@@ -172,6 +172,7 @@ class SnakemakeApi(ApiBase):
         stdout: bool = False,
         mode: ExecMode = ExecMode.DEFAULT,
         dryrun: bool = False,
+        latency_wait: int = 5,
     ):
         if not self.output_settings.keep_logger:
             setup_logger(
@@ -185,6 +186,7 @@ class SnakemakeApi(ApiBase):
                 mode=mode,
                 show_failed_logs=self.output_settings.show_failed_logs,
                 dryrun=dryrun,
+                latency_wait=latency_wait,
             )
 
     def _check_is_in_context(self):
@@ -389,6 +391,7 @@ class DAGApi(ApiBase):
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=execution_settings.mode,
             dryrun=executor_plugin.common_settings.dryrun_exec,
+            latency_wait=execution_settings.latency_wait,
         )
 
         if executor_plugin.common_settings.local_exec:

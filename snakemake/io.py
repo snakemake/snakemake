@@ -24,12 +24,14 @@ from pathlib import Path
 from typing import Callable, Dict, Set
 
 from snakemake_interface_storage_plugins.io import (
-    AnnotatedStringBase,
+    AnnotatedStringStorageInterface,
     AnnotatedString,
     is_flagged,
     flag,
     WILDCARD_REGEX,
     regex_from_filepattern,
+    IOCacheStorageInterface,
+    Mtime,
 )
 
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
@@ -40,32 +42,6 @@ from snakemake.exceptions import (
     WorkflowError,
 )
 from snakemake.logging import logger
-
-
-class Mtime:
-    __slots__ = ["_local", "_local_target", "_remote"]
-
-    def __init__(self, local=None, local_target=None, remote=None):
-        self._local = local
-        self._local_target = local_target
-        self._remote = remote
-
-    def local_or_remote(self, follow_symlinks=False):
-        if self._remote is not None:
-            return self._remote
-        if follow_symlinks and self._local_target is not None:
-            return self._local_target
-        return self._local
-
-    def remote(
-        self,
-    ):
-        return self._remote
-
-    def local(self, follow_symlinks=False):
-        if follow_symlinks and self._local_target is not None:
-            return self._local_target
-        return self._local
 
 
 def lutime(f, times):
@@ -131,7 +107,7 @@ class ExistsDict(dict):
         return parent in self.has_inventory or super().__contains__(path)
 
 
-class IOCache:
+class IOCache(IOCacheStorageInterface):
     def __init__(self, max_wait_time):
         self.mtime = dict()
         self.exists_local = ExistsDict(self)
@@ -238,7 +214,7 @@ def iocache(func: Callable):
     return wrapper
 
 
-class _IOFile(str, AnnotatedStringBase):
+class _IOFile(str, AnnotatedStringStorageInterface):
     """
     A file that is either input or output of a rule.
     """
