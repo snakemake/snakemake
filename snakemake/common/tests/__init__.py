@@ -31,6 +31,7 @@ class TestWorkflowsBase(ABC):
     __test__ = False
     expect_exception = None
     omit_tmp = False
+    latency_wait = 5
 
     @abstractmethod
     def get_executor(self) -> str:
@@ -104,6 +105,9 @@ class TestWorkflowsBase(ABC):
             dag_api.execute_workflow(
                 executor=self.get_executor(),
                 executor_settings=self.get_executor_settings(),
+                execution_settings=settings.ExecutionSettings(
+                    latency_wait=self.latency_wait,
+                ),
                 remote_execution_settings=settings.RemoteExecutionSettings(
                     seconds_between_status_checks=0,
                     envvars=self.get_envvars(),
