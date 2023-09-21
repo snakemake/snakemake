@@ -306,6 +306,7 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
+        latency_wait = 5
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -484,6 +485,9 @@ class Logger:
                 yield f"    resources: {resources}"
 
         def show_logs(logs):
+            from snakemake.io import wait_for_files
+
+            wait_for_files(logs, latency_wait=self.latency_wait)
             for f in logs:
                 try:
                     content = open(f, "r").read()
@@ -714,6 +718,7 @@ def setup_logger(
     mode=None,
     show_failed_logs=False,
     dryrun=False,
+    latency_wait=5,
 ):
     if mode is None:
         mode = get_default_exec_mode()
@@ -750,3 +755,4 @@ def setup_logger(
     logger.mode = mode
     logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs
+    logger.latency_wait = latency_wait
