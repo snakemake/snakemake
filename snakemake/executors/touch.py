@@ -13,7 +13,7 @@ from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
 )
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
-from snakemake_interface_executor_plugins import CommonSettings
+from snakemake_interface_executor_plugins.settings import CommonSettings
 
 from snakemake.exceptions import print_exception
 

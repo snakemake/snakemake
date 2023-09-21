@@ -36,8 +36,7 @@ from snakemake.settings import (
     StorageSettings,
 )
 
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_common.exceptions import ApiError
 

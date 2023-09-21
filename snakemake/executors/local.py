@@ -25,8 +25,7 @@ from snakemake_interface_executor_plugins.jobs import (
     SingleJobExecutorInterface,
     GroupJobExecutorInterface,
 )
-from snakemake_interface_executor_plugins.settings import ExecMode
-from snakemake_interface_executor_plugins import CommonSettings
+from snakemake_interface_executor_plugins.settings import ExecMode, CommonSettings
 
 from snakemake.shell import shell
 from snakemake.logging import logger

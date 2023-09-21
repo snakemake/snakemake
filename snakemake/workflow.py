@@ -36,7 +36,7 @@ from snakemake_interface_executor_plugins.cli import (
     SpawnedJobArgsFactoryExecutorInterface,
 )
 from snakemake_interface_executor_plugins.utils import lazy_property
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry.plugin import (
     Plugin as ExecutorPlugin,
 )

@@ -9,7 +9,7 @@ from snakemake_interface_executor_plugins.resources import (
 )
 
 from snakemake.exceptions import ResourceScopesException, WorkflowError
-from snakemake.common import TBDString
+from snakemake.common.tbdstring import TBDString
 
 
 class DefaultResources(DefaultResourcesExecutorInterface):

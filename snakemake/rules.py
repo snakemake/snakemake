@@ -56,9 +56,9 @@ from snakemake.common import (
     ON_WINDOWS,
     get_function_params,
     get_input_function_aux_params,
-    TBDString,
     mb_to_mib,
 )
+from snakemake.common.tbdstring import TBDString
 from snakemake.resources import infer_resources
 from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
 from snakemake_interface_common.rules import RuleInterface

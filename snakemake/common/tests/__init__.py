@@ -6,7 +6,7 @@ from typing import List, Optional
 import pytest
 from snakemake import api, settings
 
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 
 

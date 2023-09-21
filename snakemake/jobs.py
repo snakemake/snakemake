@@ -42,9 +42,9 @@ from snakemake.common import (
     DYNAMIC_FILL,
     is_local_file,
     get_uuid,
-    TBDString,
     IO_PROP_LIMIT,
 )
+from snakemake.common.tbdstring import TBDString
 
 
 def format_files(job, io, dynamicio):

@@ -3,7 +3,6 @@ __copyright__ = "Copyright 2023, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
-from enum import Enum
 import itertools
 import math
 import operator
@@ -11,7 +10,6 @@ import platform
 import hashlib
 import inspect
 import sys
-import threading
 import uuid
 import os
 import asyncio
@@ -19,7 +17,6 @@ import collections
 from pathlib import Path
 
 from snakemake._version import get_versions
-from snakemake.common.tbdstring import TBDString
 
 __version__ = get_versions()["version"]
 del get_versions

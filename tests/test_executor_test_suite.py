@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 import snakemake.common.tests
 
-from snakemake_interface_executor_plugins import ExecutorSettingsBase
+from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_executor_plugin_cluster_generic import ExecutorSettings
 
 
