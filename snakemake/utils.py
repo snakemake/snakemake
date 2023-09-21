@@ -16,11 +16,12 @@ import shlex
 import sys
 from urllib.parse import urljoin
 
-from snakemake.io import regex, Namedlist, Wildcards
+from snakemake.io import Namedlist, Wildcards
 from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
+from snakemake_interface_storage_plugins import regex_from_filepattern
 
 
 def validate(data, schema, set_default=True):
@@ -186,7 +187,7 @@ def listfiles(pattern, restriction=None, omit_value=None):
             dirname = "."
     else:
         dirname = os.path.dirname(pattern)
-    pattern = re.compile(regex(pattern))
+    pattern = re.compile(regex_from_filepattern(pattern))
 
     for dirpath, dirnames, filenames in os.walk(dirname):
         for f in chain(filenames, dirnames):
@@ -755,7 +756,7 @@ class Paramspace:
                     for name in self.dataframe.columns
                 )
             )
-            rexp = re.compile(regex(pattern))
+            rexp = re.compile(regex_from_filepattern(pattern))
             match = rexp.match(wildcard_value)
             if not match:
                 raise WorkflowError(

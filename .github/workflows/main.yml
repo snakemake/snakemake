@@ -76,6 +76,7 @@ jobs:
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
           pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
+          pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install -e .
 
           # additionally add singularity (not necessary anymore, included in the test env now)

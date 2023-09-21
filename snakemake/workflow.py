@@ -86,7 +86,7 @@ from snakemake.notebook import notebook
 from snakemake.wrapper import wrapper
 from snakemake.cwl import cwl
 from snakemake.template_rendering import render_template
-from snakemake_interface_executor_plugins.utils import not_iterable
+from snakemake_interface_common.utils import not_iterable
 
 import snakemake.wrapper
 from snakemake.common import (

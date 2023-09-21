@@ -23,6 +23,15 @@ from itertools import chain, product
 from pathlib import Path
 from typing import Callable, Dict, Set
 
+from snakemake_interface_storage_plugins.io import (
+    AnnotatedStringBase,
+    AnnotatedString,
+    is_flagged,
+    flag,
+    WILDCARD_REGEX,
+    regex_from_filepattern,
+)
+
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
@@ -229,7 +238,7 @@ def iocache(func: Callable):
     return wrapper
 
 
-class _IOFile(str):
+class _IOFile(str, AnnotatedStringBase):
     """
     A file that is either input or output of a rule.
     """
@@ -757,7 +766,7 @@ class _IOFile(str):
     def regex(self):
         if self._regex is None:
             # compile a regular expression
-            self._regex = re.compile(regex(self.file))
+            self._regex = re.compile(regex_from_filepattern(self.file))
         return self._regex
 
     def wildcard_constraints(self):
@@ -766,14 +775,14 @@ class _IOFile(str):
         return self._wildcard_constraints
 
     def constant_prefix(self):
-        first_wildcard = _wildcard_regex.search(self.file)
+        first_wildcard = WILDCARD_REGEX.search(self.file)
         if first_wildcard:
             return self.file[: first_wildcard.start()]
         return self.file
 
     def constant_suffix(self):
         m = None
-        for m in _wildcard_regex.finditer(self.file):
+        for m in WILDCARD_REGEX.finditer(self.file):
             pass
         last_wildcard = m
         if last_wildcard:
@@ -825,24 +834,6 @@ _double_slash_regex = (
 )
 
 
-_wildcard_regex = re.compile(
-    r"""
-    \{
-        (?=(   # This lookahead assertion emulates an 'atomic group'
-               # which is required for performance
-            \s*(?P<name>\w+)                    # wildcard name
-            (\s*,\s*
-                (?P<constraint>                 # an optional constraint
-                    ([^{}]+ | \{\d+(,\d+)?\})*  # allow curly braces to nest one level
-                )                               # ...  as in '{w,a{3,5}}'
-            )?\s*
-        ))\1
-    \}
-    """,
-    re.VERBOSE,
-)
-
-
 def wait_for_files(
     files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
@@ -887,15 +878,15 @@ def wait_for_files(
 
 
 def get_wildcard_names(pattern):
-    return set(match.group("name") for match in _wildcard_regex.finditer(pattern))
+    return set(match.group("name") for match in WILDCARD_REGEX.finditer(pattern))
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(str(path)) is not None
+    return WILDCARD_REGEX.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
-    return any(match.group("constraint") for match in _wildcard_regex.finditer(pattern))
+    return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
 def remove(file, remove_non_empty_dir=False):
@@ -926,38 +917,10 @@ def remove(file, remove_non_empty_dir=False):
 
 def get_wildcard_constraints(pattern):
     constraints = {}
-    for match in _wildcard_regex.finditer(pattern):
+    for match in WILDCARD_REGEX.finditer(pattern):
         if match.group("constraint"):
             constraints[match.group("name")] = re.compile(match.group("constraint"))
     return constraints
-
-
-def regex(filepattern):
-    f = []
-    last = 0
-    wildcards = set()
-    for match in _wildcard_regex.finditer(filepattern):
-        f.append(re.escape(filepattern[last : match.start()]))
-        wildcard = match.group("name")
-        if wildcard in wildcards:
-            if match.group("constraint"):
-                raise ValueError(
-                    "Constraint regex must be defined only in the first "
-                    "occurence of the wildcard in a string."
-                )
-            f.append(f"(?P={wildcard})")
-        else:
-            wildcards.add(wildcard)
-            f.append(
-                "(?P<{}>{})".format(
-                    wildcard,
-                    match.group("constraint") if match.group("constraint") else ".+",
-                )
-            )
-        last = match.end()
-    f.append(re.escape(filepattern[last:]))
-    f.append("$")  # ensure that the match spans the whole file
-    return "".join(f)
 
 
 def apply_wildcards(
@@ -983,7 +946,7 @@ def apply_wildcards(
             else:
                 raise WildcardError(str(ex))
 
-    return _wildcard_regex.sub(format_match, pattern)
+    return WILDCARD_REGEX.sub(format_match, pattern)
 
 
 def is_callable(value):
@@ -992,39 +955,6 @@ def is_callable(value):
         or (isinstance(value, _IOFile) and value._is_function)
         or (isinstance(value, AnnotatedString) and value.callable is not None)
     )
-
-
-class AnnotatedString(str):
-    def __init__(self, value):
-        self.flags = dict()
-        self.callable = value if is_callable(value) else None
-
-    def new_from(self, new_value):
-        new = str.__new__(self.__class__, new_value)
-        new.flags = self.flags
-        new.callable = self.callable
-        return new
-
-
-def flag(value, flag_type, flag_value=True):
-    from snakemake_interface_executor_plugins.utils import not_iterable
-
-    if isinstance(value, AnnotatedString):
-        value.flags[flag_type] = flag_value
-        return value
-    if not_iterable(value):
-        value = AnnotatedString(value)
-        value.flags[flag_type] = flag_value
-        return value
-    return [flag(v, flag_type, flag_value=flag_value) for v in value]
-
-
-def is_flagged(value, flag):
-    if isinstance(value, AnnotatedString):
-        return flag in value.flags and value.flags[flag]
-    if isinstance(value, _IOFile):
-        return flag in value.flags and value.flags[flag]
-    return False
 
 
 def get_flag_value(value, flag_type):
@@ -1103,12 +1033,12 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run"""
-    from snakemake_interface_executor_plugins.utils import not_iterable
+    from snakemake_interface_common.utils import not_iterable
 
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
-        matches = list(_wildcard_regex.finditer(file))
+        matches = list(WILDCARD_REGEX.finditer(file))
         # if len(matches) != 1:
         #    raise SyntaxError("Dynamic files need exactly one wildcard.")
         for match in matches:
@@ -1307,44 +1237,6 @@ def limit(pattern, **wildcards):
     )
 
 
-def glob_wildcards(pattern, files=None, followlinks=False):
-    """
-    Glob the values of the wildcards by matching the given pattern to the filesystem.
-    Returns a named tuple with a list of values for each wildcard.
-    """
-    pattern = os.path.normpath(pattern)
-    first_wildcard = re.search("{[^{]", pattern)
-    dirname = (
-        os.path.dirname(pattern[: first_wildcard.start()])
-        if first_wildcard
-        else os.path.dirname(pattern)
-    )
-    if not dirname:
-        dirname = "."
-
-    names = [match.group("name") for match in _wildcard_regex.finditer(pattern)]
-    Wildcards = collections.namedtuple("Wildcards", names)
-    wildcards = Wildcards(*[list() for name in names])
-
-    pattern = re.compile(regex(pattern))
-
-    if files is None:
-        files = (
-            os.path.normpath(os.path.join(dirpath, f))
-            for dirpath, dirnames, filenames in os.walk(
-                dirname, followlinks=followlinks
-            )
-            for f in chain(filenames, dirnames)
-        )
-
-    for f in files:
-        match = re.match(pattern, f)
-        if match:
-            for name, value in match.groupdict().items():
-                getattr(wildcards, name).append(value)
-    return wildcards
-
-
 def update_wildcard_constraints(
     pattern,
     wildcard_constraints: Dict[str, str],
@@ -1377,7 +1269,7 @@ def update_wildcard_constraints(
             return match.group(0)
 
     examined_names: Set[str] = set()
-    updated = _wildcard_regex.sub(replace_constraint, pattern)
+    updated = WILDCARD_REGEX.sub(replace_constraint, pattern)
 
     # inherit flags
     if isinstance(pattern, AnnotatedString):
@@ -1395,7 +1287,7 @@ def strip_wildcard_constraints(pattern):
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))
 
-    return _wildcard_regex.sub(strip_constraint, pattern)
+    return WILDCARD_REGEX.sub(strip_constraint, pattern)
 
 
 class Namedlist(list):
