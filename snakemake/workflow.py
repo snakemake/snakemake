@@ -13,7 +13,7 @@ from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
     ConfigSettings,
@@ -41,6 +41,7 @@ from snakemake_interface_executor_plugins.registry.plugin import (
     Plugin as ExecutorPlugin,
 )
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 
 from snakemake.logging import logger, format_resources
 from snakemake.rules import Rule, Ruleorder, RuleProxy
@@ -100,7 +101,7 @@ from snakemake.common import (
 )
 from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
-from snakemake.resources import DefaultResources, ResourceScopes
+from snakemake.resources import ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
 from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
@@ -128,6 +129,7 @@ class Workflow(WorkflowExecutorInterface):
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
+    storage_provider_settings: TaggedSettings = None
     check_envvars: bool = True
     cache_rules: Mapping[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str] = None
@@ -137,6 +139,8 @@ class Workflow(WorkflowExecutorInterface):
         """
         Create the controller.
         """
+        from snakemake.storage import StorageRegistry
+
         self.global_resources = dict(self.resource_settings.resources)
         self.global_resources["_cores"] = self.resource_settings.cores
         self.global_resources["_nodes"] = self.resource_settings.nodes
@@ -171,6 +175,7 @@ class Workflow(WorkflowExecutorInterface):
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
+        self._storage_registry = StorageRegistry(self)
 
         _globals = globals()
         from snakemake.shell import shell
@@ -183,6 +188,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
+        _globals["storage"] = self._storage_registry.storage_object
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -520,7 +526,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         if isinstance(path, Path):
             path = str(path)
-        if self.storage_settings.default_remote_provider is not None:
+        if self.storage_settings.default_storage_provider is not None:
             path = self.modifier.modify_path(path)
         return IOFile(path)
 
@@ -536,9 +542,9 @@ class Workflow(WorkflowExecutorInterface):
             self.cache_rules.update(
                 {rulename: "all" for rulename in self.dag_settings.cache}
             )
-            if self.storage_settings.default_remote_provider is not None:
+            if self.storage_settings.default_storage_provider is not None:
                 self._output_file_cache = RemoteOutputFileCache(
-                    self.storage_settings.default_remote_provider
+                    self.storage_settings.default_storage_provider
                 )
             else:
                 self._output_file_cache = LocalOutputFileCache()

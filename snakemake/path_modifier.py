@@ -97,7 +97,7 @@ class PathModifier:
                 return bool(value.callable)
 
         if (
-            self.workflow.storage_settings.default_remote_provider is None
+            self.workflow.storage_settings.default_storage_provider is None
             or is_flagged(path, "remote_object")
             or is_flagged(path, "local")
             or is_annotated_callable(path)
@@ -106,9 +106,9 @@ class PathModifier:
             return path
 
         # This will convert any AnnotatedString to str
-        fullpath = f"{self.workflow.storage_settings.default_remote_prefix}/{path}"
+        fullpath = f"{self.workflow.storage_settings.default_storage_prefix}/{path}"
         fullpath = os.path.normpath(fullpath)
-        remote = self.workflow.storage_settings.default_remote_provider.remote(fullpath)
+        remote = self.workflow.storage_settings.default_storage_provider.remote(fullpath)
         return remote
 
     @property

@@ -577,7 +577,7 @@ class Rule(RuleInterface):
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
             # Check to see that all flags are valid
-            # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
+            # Note that "storage", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
                 for item_flag in item.flags:
                     if not output and item_flag in [
@@ -1408,14 +1408,14 @@ class RuleProxy:
 
     def _to_iofile(self, files):
         def cleanup(f):
-            prefix = self.rule.workflow.storage_settings.default_remote_prefix
+            prefix = self.rule.workflow.storage_settings.default_storage_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
 
             modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
 
             if (
-                self.rule.workflow.storage_settings.default_remote_provider is not None
+                self.rule.workflow.storage_settings.default_storage_provider is not None
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):

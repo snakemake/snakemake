@@ -39,6 +39,7 @@ from snakemake.settings import (
 )
 
 from snakemake_interface_executor_plugins.settings import ExecMode
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake.target_jobs import parse_target_jobs_cli_args
 
 from snakemake.workflow import Workflow
@@ -1626,6 +1627,7 @@ def get_argument_parser(profiles=None):
 
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
+    StoragePluginRegistry().register_cli_args(parser)
     return parser
 
 
@@ -1805,6 +1807,10 @@ def args_to_api(args, parser):
     executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
+    storage_provider_settings = [
+        plugin.get_settings(args) for plugin in StoragePluginRegistry().plugins.values()
+    ]
+
     if args.cores is None:
         if executor_plugin.common_settings.local_exec:
             # use --jobs as an alias for --cores
@@ -1855,8 +1861,8 @@ def args_to_api(args, parser):
                     configfiles=args.configfile,
                 ),
                 storage_settings=StorageSettings(
-                    default_remote_provider=args.default_remote_provider,
-                    default_remote_prefix=args.default_remote_prefix,
+                    default_storage_provider=args.default_storage_provider,
+                    default_storage_prefix=args.default_storage_prefix,
                     assume_shared_fs=not args.no_shared_fs,
                     keep_remote_local=args.keep_remote,
                     notemp=args.notemp,
@@ -1865,6 +1871,7 @@ def args_to_api(args, parser):
                 workflow_settings=WorkflowSettings(
                     wrapper_prefix=args.wrapper_prefix,
                 ),
+                storage_provider_settings=storage_provider_settings,
                 snakefile=args.snakefile,
                 workdir=args.directory,
             )

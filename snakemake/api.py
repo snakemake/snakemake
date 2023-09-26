@@ -38,6 +38,7 @@ from snakemake.settings import (
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
 from snakemake_interface_common.exceptions import ApiError
 
 from snakemake.workflow import Workflow
@@ -98,6 +99,7 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
+        storage_provider_settings: List[StorageProviderSettingsBase] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -136,6 +138,7 @@ class SnakemakeApi(ApiBase):
             resource_settings=resource_settings,
             storage_settings=storage_settings,
             workflow_settings=workflow_settings,
+            storage_provider_settings=storage_provider_settings,
         )
         return self._workflow_api
 
@@ -224,6 +227,7 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
+    storage_provider_settings: List[StorageProviderSettingsBase]
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
@@ -307,6 +311,7 @@ class WorkflowApi(ApiBase):
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
+            storage_provider_settings=self.storage_provider_settings,
             **kwargs,
         )
 

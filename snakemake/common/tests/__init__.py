@@ -42,11 +42,11 @@ class TestWorkflowsBase(ABC):
         ...
 
     @abstractmethod
-    def get_default_remote_provider(self) -> Optional[str]:
+    def get_default_storage_provider(self) -> Optional[str]:
         ...
 
     @abstractmethod
-    def get_default_remote_prefix(self) -> Optional[str]:
+    def get_default_storage_prefix(self) -> Optional[str]:
         ...
 
     def get_assume_shared_fs(self) -> bool:
@@ -89,8 +89,8 @@ class TestWorkflowsBase(ABC):
                     nodes=nodes,
                 ),
                 storage_settings=settings.StorageSettings(
-                    default_remote_provider=self.get_default_remote_provider(),
-                    default_remote_prefix=self.get_default_remote_prefix(),
+                    default_storage_provider=self.get_default_storage_provider(),
+                    default_storage_prefix=self.get_default_storage_prefix(),
                     assume_shared_fs=self.get_assume_shared_fs(),
                 ),
                 workdir=Path(tmp_path),

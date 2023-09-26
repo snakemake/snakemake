@@ -21,7 +21,7 @@ from snakemake.common.configfile import _load_configfile
 from snakemake.logging import logger
 from snakemake.common import ON_WINDOWS
 from snakemake.exceptions import WorkflowError
-from snakemake_interface_storage_plugins import regex_from_filepattern
+from snakemake_interface_storage_plugins.io import regex_from_filepattern
 
 
 def validate(data, schema, set_default=True):

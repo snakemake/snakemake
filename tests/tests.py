@@ -722,8 +722,8 @@ def test_default_remote():
     run(
         dpath("test_default_remote"),
         cores=1,
-        default_remote_provider="S3Mocked",
-        default_remote_prefix="test-remote-bucket",
+        default_storage_provider="S3Mocked",
+        default_storage_prefix="test-remote-bucket",
     )
 
 
@@ -1468,8 +1468,8 @@ def test_output_file_cache_remote():
     run(
         test_path,
         cache=["a", "b", "c"],
-        default_remote_provider="S3Mocked",
-        default_remote_prefix="test-remote-bucket",
+        default_storage_provider="S3Mocked",
+        default_storage_prefix="test-remote-bucket",
     )
 
 

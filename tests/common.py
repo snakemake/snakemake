@@ -158,8 +158,8 @@ def run(
     conda_prefix=None,
     wrapper_prefix=None,
     printshellcmds=False,
-    default_remote_provider=None,
-    default_remote_prefix=None,
+    default_storage_provider=None,
+    default_storage_prefix=None,
     archive=None,
     cluster=None,
     cluster_status=None,
@@ -299,8 +299,8 @@ def run(
                         configfiles=configfiles,
                     ),
                     storage_settings=settings.StorageSettings(
-                        default_remote_provider=default_remote_provider,
-                        default_remote_prefix=default_remote_prefix,
+                        default_storage_provider=default_storage_provider,
+                        default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
                     ),
                     workflow_settings=settings.WorkflowSettings(

@@ -16,20 +16,20 @@ else:
 class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
-    def get_default_remote_provider_args(self):
-        has_default_remote_provider = (
-            self.workflow.storage_settings.default_remote_provider is not None
+    def get_default_storage_provider_args(self):
+        has_default_storage_provider = (
+            self.workflow.storage_settings.default_storage_provider is not None
         )
-        if has_default_remote_provider:
+        if has_default_storage_provider:
             return join_cli_args(
                 [
                     format_cli_arg(
                         "--default-remote-prefix",
-                        self.workflow.storage_settings.default_remote_prefix,
+                        self.workflow.storage_settings.default_storage_prefix,
                     ),
                     format_cli_arg(
                         "--default-remote-provider",
-                        self.workflow.storage_settings.default_remote_provider.name,
+                        self.workflow.storage_settings.default_storage_provider.name,
                     ),
                 ]
             )
@@ -80,7 +80,7 @@ class SpawnedJobArgsFactory:
 
     def general_args(
         self,
-        pass_default_remote_provider_args: bool = True,
+        pass_default_storage_provider_args: bool = True,
         pass_default_resources_args: bool = False,
     ):
         """Return a string to add to self.exec_job that includes additional
@@ -143,8 +143,8 @@ class SpawnedJobArgsFactory:
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
-        if pass_default_remote_provider_args:
-            args.append(self.get_default_remote_provider_args())
+        if pass_default_storage_provider_args:
+            args.append(self.get_default_storage_provider_args())
         if pass_default_resources_args:
             args.append(w2a("resource_settings.default_resources", attr="args"))
 
