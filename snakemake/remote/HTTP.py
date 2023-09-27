@@ -108,7 +108,7 @@ class RemoteObject(DomainObject):
         with self.httpr(verb="HEAD") as httpr:
             res = ResponseHandler(httpr)
             cache.mtime[name] = snakemake.io.Mtime(remote=res.mtime())
-            cache.exists_remote[name] = res.exists()
+            cache.exists_in_storage[name] = res.exists()
             cache.size[name] = res.size()
 
     # === Implementations of abstract class members ===

@@ -29,7 +29,6 @@ from snakemake_interface_storage_plugins.io import (
     is_flagged,
     flag,
     WILDCARD_REGEX,
-    regex_from_filepattern,
     IOCacheStorageInterface,
     Mtime,
 )
@@ -109,13 +108,29 @@ class ExistsDict(dict):
 
 class IOCache(IOCacheStorageInterface):
     def __init__(self, max_wait_time):
-        self.mtime = dict()
-        self.exists_local = ExistsDict(self)
-        self.exists_remote = ExistsDict(self)
-        self.size = dict()
+        self._mtime = dict()
+        self._exists_local = ExistsDict(self)
+        self._exists_in_storage = ExistsDict(self)
+        self._size = dict()
         self.active = True
         self.remaining_wait_time = max_wait_time
         self.max_wait_time = max_wait_time
+
+    @property
+    def mtime(self):
+        return self._mtime
+    
+    @property
+    def exists_local(self):
+        return self._exists_local
+    
+    @property
+    def exists_in_storage(self):
+        return self._exists_in_storage
+    
+    @property
+    def size(self):
+        return self._size
 
     def mtime_inventory(self, jobs):
         async_run(self._mtime_inventory(jobs))
@@ -166,7 +181,7 @@ class IOCache(IOCacheStorageInterface):
         self.mtime.clear()
         self.size.clear()
         self.exists_local.clear()
-        self.exists_remote.clear()
+        self.exists_in_storage.clear()
         self.remaining_wait_time = self.max_wait_time
 
     def deactivate(self):
@@ -181,17 +196,17 @@ def IOFile(file, rule=None):
     return f
 
 
-def _refer_to_remote(func: Callable):
+def _refer_to_storage(func: Callable):
     """
-    A decorator so that if the file is remote and has a version
+    A decorator so that if the file is in storage and has a version
     of the same file-related function, call that version instead.
     """
 
     @functools.wraps(func)
     def wrapper(self: "_IOFile", *args, **kwargs):
-        if self.is_remote:
-            if hasattr(self.remote_object, func.__name__):
-                return getattr(self.remote_object, func.__name__)(*args, **kwargs)
+        if self.is_storage:
+            if hasattr(self.storage_object, func.__name__):
+                return getattr(self.storage_object, func.__name__)(*args, **kwargs)
         return func(self, *args, **kwargs)
 
     return wrapper
@@ -240,8 +255,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         obj._regex = None
         obj._wildcard_constraints = None
 
-        if obj.is_remote:
-            obj.remote_object._iofile = obj
+        if obj.is_storage:
+            obj.storage_object._iofile = obj
 
         return obj
 
@@ -250,8 +265,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         new._is_function = self._is_function
         new._file = self._file
         new.rule = self.rule
-        if new.is_remote:
-            new.remote_object._iofile = new
+        if new.is_storage:
+            new.storage_object._iofile = new
         return new
 
     def inventory(self):
@@ -264,9 +279,9 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         cache = self.rule.workflow.iocache
         if cache.active:
             tasks = []
-            if self.is_remote and self not in cache.exists_remote:
+            if self.is_storage and self not in cache.exists_in_storage:
                 # info not yet in inventory, let's discover as much as we can
-                tasks.append(self.remote_object.inventory(cache))
+                tasks.append(self.storage_object.inventory(cache))
             if not ON_WINDOWS and self not in cache.exists_local:
                 # we don't want to mess with different path representations on windows
                 tasks.append(self._local_inventory(cache))
@@ -315,7 +330,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
         cache.remaining_wait_time -= time.time() - start_time
 
-    @_refer_to_remote
+    @_refer_to_storage
     def get_inventory_parent(self):
         """If eligible for inventory, get the parent of a given path.
 
@@ -328,7 +343,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from remote first.
+        """Open this file. If necessary, download it from storage first.
 
         This can (and should) be used in a `with`-statement.
         """
@@ -336,8 +351,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             raise WorkflowError(
                 f"File {self} cannot be opened, since it does not exist."
             )
-        if not self.exists_local and self.is_remote:
-            self.download_from_remote()
+        if not self.exists_local and self.is_storage:
+            async_run(self.retrieve_from_storage())
 
         f = open(self)
         try:
@@ -349,8 +364,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         return contains_wildcard(self.file)
 
     @property
-    def is_remote(self):
-        return is_flagged(self._file, "remote_object")
+    def is_storage(self):
+        return is_flagged(self._file, "storage_object")
 
     @property
     def is_ancient(self):
@@ -372,27 +387,20 @@ class _IOFile(str, AnnotatedStringStorageInterface):
     def multiext_prefix(self):
         return get_flag_value(self._file, "multiext")
 
-    def update_remote_filepath(self):
-        # if the file string is different in the iofile, update the remote object
-        # (as in the case of wildcard expansion)
-        remote_object = self.remote_object
-        if remote_object._file != self._file:
-            remote_object._iofile = self
-
     @property
     def should_keep_local(self):
-        return self.remote_object.keep_local
+        return self.storage_object.keep_local
 
     @property
-    def should_stay_on_remote(self):
-        return self.remote_object.stay_on_remote
+    def should_not_be_retrieved_from_storage(self):
+        return not self.storage_object.retrieve
 
     @property
-    def remote_object(self):
-        return get_flag_value(self._file, "remote_object")
+    def storage_object(self):
+        return get_flag_value(self._file, "storage_object")
 
     @property
-    @_refer_to_remote
+    @_refer_to_storage
     def file(self):
         if not self._is_function:
             return self._file
@@ -428,7 +436,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 "File path '{}' contains line break. "
                 "This is likely unintended. {}".format(self._file, hint)
             )
-        if _double_slash_regex.search(self._file) is not None and not self.is_remote:
+        if _double_slash_regex.search(self._file) is not None and not self.is_storage:
             logger.warning(
                 "File path {} contains double '{}'. "
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
@@ -436,8 +444,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @property
     def exists(self):
-        if self.is_remote:
-            return self.exists_remote
+        if self.is_storage:
+            return self.exists_in_storage
         else:
             return self.exists_local
 
@@ -455,10 +463,10 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @property
     @iocache
-    def exists_remote(self):
-        if not self.is_remote:
+    def exists_in_storage(self):
+        if not self.is_storage:
             return False
-        return self.remote_object.exists()
+        return self.storage_object.exists()
 
     @property
     def protected(self):
@@ -481,10 +489,10 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
         Usually, this will be one stat call only. For symlinks and directories
         it will be two, for symlinked directories it will be three,
-        for remote files it will additionally query the remote
+        for storage files it will additionally query the storage
         location.
         """
-        mtime_remote = self.remote_object.mtime() if self.is_remote else None
+        mtime_in_storage = self.storage_object.mtime() if self.is_storage else None
 
         # We first do a normal stat.
         try:
@@ -511,7 +519,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
                 # In the usual case, not a dir, not a symlink.
                 # We need just a single stat call.
-                return Mtime(local=mtime, remote=mtime_remote)
+                return Mtime(local=mtime, storage=mtime_in_storage)
 
             else:
                 # In case of a symlink, we need the stats for the target file/dir.
@@ -528,12 +536,12 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                         pass
 
                 return Mtime(
-                    local=mtime, local_target=mtime_target, remote=mtime_remote
+                    local=mtime, local_target=mtime_target, storage=mtime_in_storage
                 )
 
         except FileNotFoundError:
-            if self.is_remote:
-                return Mtime(remote=mtime_remote)
+            if self.is_storage:
+                return Mtime(storage=mtime_in_storage)
             raise WorkflowError(
                 "Unable to obtain modification time of file {} although it existed before. "
                 "It could be that a concurrent process has deleted it while Snakemake "
@@ -555,7 +563,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @property
     @iocache
-    @_refer_to_remote
+    @_refer_to_storage
     def size(self):
         return self.size_local
 
@@ -612,30 +620,30 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 # there is no broken symlink present, hence all fine
                 return
 
-    @_refer_to_remote
+    @_refer_to_storage
     def is_newer(self, time):
         """Returns true of the file (which is an input file) is newer than time, or if it is
         a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
 
-        return self.mtime.local_or_remote(follow_symlinks=True) > time
+        return self.mtime.local_or_storage(follow_symlinks=True) > time
 
-    def download_from_remote(self):
-        if self.is_remote and self.remote_object.exists():
-            if not self.should_stay_on_remote:
-                logger.info(f"Downloading from remote: {self.file}")
-                self.remote_object.download()
-                logger.info("Finished download.")
+    async def retrieve_from_storage(self):
+        if self.is_storage and self.storage_object.exists():
+            if not self.should_not_be_retrieved_from_storage:
+                logger.info(f"Retrieving from storage: {self.file}")
+                self.storage_object.managed_retrieve()
+                logger.info("Finished retrieval.")
         else:
-            raise RemoteFileException(
-                "The file to be downloaded does not seem to exist remotely."
+            raise WorkflowError(
+                "The file to be retrieved does not seem to exist in the storage.", rule=self.rule
             )
 
-    def upload_to_remote(self):
-        if self.is_remote:
-            logger.info(f"Uploading to remote: {self.file}")
-            self.remote_object.upload()
+    def store_in_storage(self):
+        if self.is_storage:
+            logger.info(f"Storing in storage: {self.file}")
+            self.storage_object.managed_store()
             logger.info("Finished upload.")
 
     def prepare(self):
@@ -721,18 +729,33 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         # this bit ensures flags are transferred over to files after
         # wildcards are applied
 
-        file_with_wildcards_applied = IOFile(
-            apply_wildcards(
-                f,
+        file_with_wildcards_applied = None
+
+        if self.is_storage:
+            storage_object = copy.copy(self.storage_object)
+            storage_object.query = apply_wildcards(
+                storage_object.query,
                 wildcards,
                 fill_missing=fill_missing,
                 fail_dynamic=fail_dynamic,
                 dynamic_fill=DYNAMIC_FILL,
-            ),
-            rule=self.rule,
-        )
-
-        file_with_wildcards_applied.clone_flags(self)
+            )
+            storage_object.validate_query()
+            file_with_wildcards_applied = IOFile(storage_object.local_path(), rule=self.rule)
+            file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
+            file_with_wildcards_applied.flags["storage_object"] = storage_object
+        else:
+            file_with_wildcards_applied = IOFile(
+                apply_wildcards(
+                    f,
+                    wildcards,
+                    fill_missing=fill_missing,
+                    fail_dynamic=fail_dynamic,
+                    dynamic_fill=DYNAMIC_FILL,
+                ),
+                rule=self.rule,
+            )
+            file_with_wildcards_applied.clone_flags(self)
 
         return file_with_wildcards_applied
 
@@ -771,26 +794,27 @@ class _IOFile(str, AnnotatedStringStorageInterface):
     def format_dynamic(self):
         return self.replace(DYNAMIC_FILL, "{*}")
 
-    def clone_flags(self, other):
+    def clone_flags(self, other, skip_storage_object=False):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
         if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
-            if "remote_object" in self._file.flags:
-                self._file.flags["remote_object"] = copy.copy(
-                    self._file.flags["remote_object"]
+            if skip_storage_object and self.is_storage:
+                del self._file.flags["storage_object"]
+            else:
+                assert "storage_object" not in self._file.flags, (
+                    "bug: storage object cannot be safely cloned as the query might have "
+                    "to change"
                 )
-                self.update_remote_filepath()
 
-    def clone_remote_object(self, other):
+    def clone_storage_object(self, other):
         if (
             isinstance(other._file, AnnotatedString)
-            and "remote_object" in other._file.flags
+            and "storage_object" in other._file.flags
         ):
-            self._file.flags["remote_object"] = copy.copy(
-                other._file.flags["remote_object"]
+            self._file.flags["storage_object"] = copy.copy(
+                other._file.flags["storage_object"]
             )
-            self.update_remote_filepath()
 
     def set_flags(self, flags):
         if isinstance(self._file, str):
@@ -811,7 +835,7 @@ _double_slash_regex = (
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
+    files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
@@ -821,11 +845,11 @@ def wait_for_files(
             f
             for f in files
             if not (
-                f.exists_remote
+                f.exists_in_storage
                 if (
                     isinstance(f, _IOFile)
-                    and f.is_remote
-                    and (force_stay_on_remote or f.should_stay_on_remote)
+                    and f.is_storage
+                    and (not wait_for_local or f.should_not_be_retrieved_from_storage)
                 )
                 else os.path.exists(f)
                 if not (
@@ -866,9 +890,9 @@ def contains_wildcard_constraints(pattern):
 
 
 def remove(file, remove_non_empty_dir=False):
-    if file.is_remote and file.should_stay_on_remote:
-        if file.exists_remote:
-            file.remote_object.remove()
+    if file.is_storage and file.should_not_be_retrieved_from_storage:
+        if file.exists_in_storage:
+            file.storage_object.remove()
     elif os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
             shutil.rmtree(file)
@@ -897,6 +921,34 @@ def get_wildcard_constraints(pattern):
         if match.group("constraint"):
             constraints[match.group("name")] = re.compile(match.group("constraint"))
     return constraints
+
+
+def regex_from_filepattern(filepattern):
+    f = []
+    last = 0
+    wildcards = set()
+    for match in WILDCARD_REGEX.finditer(filepattern):
+        f.append(re.escape(filepattern[last : match.start()]))
+        wildcard = match.group("name")
+        if wildcard in wildcards:
+            if match.group("constraint"):
+                raise ValueError(
+                    "Constraint regex must be defined only in the first "
+                    "occurence of the wildcard in a string."
+                )
+            f.append(f"(?P={wildcard})")
+        else:
+            wildcards.add(wildcard)
+            f.append(
+                "(?P<{}>{})".format(
+                    wildcard,
+                    match.group("constraint") if match.group("constraint") else ".+",
+                )
+            )
+        last = match.end()
+    f.append(re.escape(filepattern[last:]))
+    f.append("$")  # ensure that the match spans the whole file
+    return "".join(f)
 
 
 def apply_wildcards(
@@ -954,8 +1006,8 @@ def directory(value):
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and directory flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and directory flags are mutually exclusive.")
     if is_flagged(value, "dynamic"):
         raise SyntaxError("Dynamic and directory flags are mutually exclusive.")
     return flag(value, "directory")
@@ -967,16 +1019,16 @@ def temp(value):
     """
     if is_flagged(value, "protected"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and temporary flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and temporary flags are mutually exclusive.")
     return flag(value, "temp")
 
 
 def pipe(value):
     if is_flagged(value, "protected"):
         raise SyntaxError("Pipes may not be protected.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Pipes may not be remote files.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Pipes may not be in storage.")
     if ON_WINDOWS:
         logger.warning("Pipes are not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
@@ -984,9 +1036,9 @@ def pipe(value):
 
 def service(value):
     if is_flagged(value, "protected"):
-        raise SyntaxError("Pipes may not be protected.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Pipes may not be remote files.")
+        raise SyntaxError("Service may not be protected.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Service may not be storage files.")
     return flag(value, "service")
 
 
@@ -999,8 +1051,8 @@ def protected(value):
     """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and protected flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and protected flags are mutually exclusive.")
     return flag(value, "protected")
 
 
@@ -1092,11 +1144,11 @@ def report(
 
 
 def local(value):
-    """Mark a file as a local file. This disables the application of a default remote
+    """Mark a file as a local file. This disables the application of a default storage
     provider.
     """
-    if is_flagged(value, "remote"):
-        raise SyntaxError("Remote and local flags are mutually exclusive.")
+    if is_flagged(value, "storage_object"):
+        raise SyntaxError("Storage and local flags are mutually exclusive.")
     return flag(value, "local")
 
 
@@ -1213,6 +1265,50 @@ def limit(pattern, **wildcards):
     )
 
 
+def glob_wildcards(pattern, files=None, followlinks=False):
+    """
+    Glob the values of the wildcards by matching the given pattern to the filesystem.
+    Returns a named tuple with a list of values for each wildcard.
+    """
+    if is_flagged(pattern, "remote_object") and files is None:
+        # for storage object patterns, we obtain the list of files from
+        # the storage provider
+        pattern = pattern.path_without_protocol()
+        files = pattern.flags["remote_object"].list_all_below_ancestor()
+
+    pattern = os.path.normpath(pattern)
+    first_wildcard = re.search("{[^{]", pattern)
+    dirname = (
+        os.path.dirname(pattern[: first_wildcard.start()])
+        if first_wildcard
+        else os.path.dirname(pattern)
+    )
+    if not dirname:
+        dirname = "."
+
+    names = [match.group("name") for match in WILDCARD_REGEX.finditer(pattern)]
+    Wildcards = collections.namedtuple("Wildcards", names)
+    wildcards = Wildcards(*[list() for name in names])
+
+    pattern = re.compile(regex_from_filepattern(pattern))
+
+    if files is None:
+        files = (
+            os.path.normpath(os.path.join(dirpath, f))
+            for dirpath, dirnames, filenames in os.walk(
+                dirname, followlinks=followlinks
+            )
+            for f in chain(filenames, dirnames)
+        )
+
+    for f in files:
+        match = re.match(pattern, f)
+        if match:
+            for name, value in match.groupdict().items():
+                getattr(wildcards, name).append(value)
+    return wildcards
+
+
 def update_wildcard_constraints(
     pattern,
     wildcard_constraints: Dict[str, str],
@@ -1302,8 +1398,8 @@ class Namedlist(list):
                 self.extend(map(custom_map, toclone))
             elif plainstr:
                 self.extend(
-                    x.remote_object.to_plainstr()
-                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    x.storage_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone
                 )

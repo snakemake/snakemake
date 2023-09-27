@@ -123,14 +123,14 @@ class AbstractRemoteProvider:
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
-        return snakemake.io.flag(value, "remote_object", remote_object)
+        return snakemake.io.flag(value, "storage_object", remote_object)
 
     def glob_wildcards(self, pattern, *args, **kwargs):
         args = self.args if not args else args
         kwargs = self.kwargs if not kwargs else kwargs
 
         referenceObj = snakemake.io._IOFile(self.remote(pattern, *args, **kwargs))
-        remote_object = snakemake.io.get_flag_value(referenceObj, "remote_object")
+        remote_object = snakemake.io.get_flag_value(referenceObj, "storage_object")
         if not remote_object.stay_on_remote:
             pattern = "./" + remote_object.name
             pattern = os.path.normpath(pattern)

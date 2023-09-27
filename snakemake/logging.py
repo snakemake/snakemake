@@ -718,6 +718,7 @@ def setup_logger(
     mode=None,
     show_failed_logs=False,
     dryrun=False,
+    latency_wait=5,
 ):
     if mode is None:
         mode = get_default_exec_mode()
@@ -754,3 +755,4 @@ def setup_logger(
     logger.mode = mode
     logger.dryrun = dryrun
     logger.show_failed_logs = show_failed_logs
+    logger.latency_wait = latency_wait

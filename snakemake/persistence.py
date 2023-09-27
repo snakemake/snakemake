@@ -290,7 +290,7 @@ class Persistence(PersistenceExecutorInterface):
                 starttime = self._read_record(self._metadata_path, f).get(
                     "starttime", None
                 )
-            endtime = f.mtime.local_or_remote() if f.exists else fallback_time
+            endtime = f.mtime.local_or_storage() if f.exists else fallback_time
 
             checksums = ((infile, infile.checksum()) for infile in job.input)
 

@@ -180,7 +180,7 @@ class RemoteObject(AbstractRemoteObject):
         for blob in self.client.list_blobs(self.bucket_name, prefix=subfolder):
             # By way of being listed, it exists. mtime is a datetime object
             name = f"{blob.bucket.name}/{blob.name}"
-            cache.exists_remote[name] = True
+            cache.exists_in_storage[name] = True
             cache.mtime[name] = snakemake.io.Mtime(remote=blob.updated.timestamp())
             cache.size[name] = blob.size
             # TODO cache "is directory" information
@@ -189,7 +189,7 @@ class RemoteObject(AbstractRemoteObject):
 
         # Mark bucket and prefix as having an inventory, such that this method is
         # only called once for the subfolder in the bucket.
-        cache.exists_remote.has_inventory.add(f"{self.bucket_name}/{subfolder}")
+        cache.exists_in_storage.has_inventory.add(f"{self.bucket_name}/{subfolder}")
 
     # === Implementations of abstract class members ===
 

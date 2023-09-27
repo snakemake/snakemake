@@ -24,11 +24,11 @@ class SpawnedJobArgsFactory:
             return join_cli_args(
                 [
                     format_cli_arg(
-                        "--default-remote-prefix",
+                        "--default-storage-prefix",
                         self.workflow.storage_settings.default_storage_prefix,
                     ),
                     format_cli_arg(
-                        "--default-remote-provider",
+                        "--default-storage-provider",
                         self.workflow.storage_settings.default_storage_provider.name,
                     ),
                 ]
@@ -93,7 +93,7 @@ class SpawnedJobArgsFactory:
         args = [
             "--force",
             "--target-files-omit-workdir-adjustment",
-            "--keep-remote",
+            "--keep-storage-local-copies",
             "--max-inventory-time 0",
             "--nocolor",
             "--notemp",

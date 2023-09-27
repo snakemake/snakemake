@@ -1219,7 +1219,7 @@ def get_argument_parser(profiles=None):
         "in order to save space.",
     )
     group_behavior.add_argument(
-        "--keep-remote",
+        "--keep-storage-local-copies",
         action="store_true",
         help="Keep local copies of remote input files.",
     )
@@ -1292,27 +1292,16 @@ def get_argument_parser(profiles=None):
         "e.g., use a git URL like 'git+file://path/to/your/local/clone@'.",
     )
     group_behavior.add_argument(
-        "--default-remote-provider",
-        choices=[
-            "S3",
-            "GS",
-            "FTP",
-            "SFTP",
-            "S3Mocked",
-            "gfal",
-            "gridftp",
-            "iRODS",
-            "AzBlob",
-            "XRootD",
-        ],
-        help="Specify default remote provider to be used for "
+        "--default-storage-provider",
+        choices=StoragePluginRegistry().get_registered_plugins(),
+        help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
         "one.",
     )
     group_behavior.add_argument(
-        "--default-remote-prefix",
+        "--default-storage-prefix",
         default="",
-        help="Specify prefix for default remote provider. E.g. a bucket name.",
+        help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",
@@ -1325,7 +1314,7 @@ def get_argument_parser(profiles=None):
         "separately. Further, it won't take special measures "
         "to deal with filesystem latency issues. This option "
         "will in most cases only make sense in combination with "
-        "--default-remote-provider. "
+        "--default-storage-provider. "
         "Only activate this if you "
         "know what you are doing.",
     )
@@ -1464,7 +1453,7 @@ def get_argument_parser(profiles=None):
         "--tibanna",
         action="store_true",
         help="Execute workflow on AWS cloud using Tibanna. This requires "
-        "--default-remote-prefix to be set to S3 bucket name and prefix"
+        "--default-storage-prefix to be set to S3 bucket name and prefix"
         " (e.g. 'bucketname/subdirectory') where input is already stored"
         " and output will be sent to. Using --tibanna implies --default-resources"
         " is set as default. Optionally, use --precommand to"
@@ -1807,9 +1796,10 @@ def args_to_api(args, parser):
     executor_plugin = _get_executor_plugin_registry().get_plugin(args.executor)
     executor_settings = executor_plugin.get_settings(args)
 
-    storage_provider_settings = [
-        plugin.get_settings(args) for plugin in StoragePluginRegistry().plugins.values()
-    ]
+    storage_provider_settings = {
+        name: StoragePluginRegistry().get_plugin(name).get_settings(args)
+        for name in StoragePluginRegistry().get_registered_plugins()
+    }
 
     if args.cores is None:
         if executor_plugin.common_settings.local_exec:
@@ -1864,7 +1854,7 @@ def args_to_api(args, parser):
                     default_storage_provider=args.default_storage_provider,
                     default_storage_prefix=args.default_storage_prefix,
                     assume_shared_fs=not args.no_shared_fs,
-                    keep_remote_local=args.keep_remote,
+                    keep_storage_local=args.keep_storage_local_copies,
                     notemp=args.notemp,
                     all_temp=args.all_temp,
                 ),

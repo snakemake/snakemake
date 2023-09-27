@@ -17,7 +17,6 @@ from snakemake_interface_executor_plugins.settings import (
     DeploymentMethod,
     ExecMode,
 )
-from snakemake_interface_stroage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.settings import SettingsEnumBase
 
 from snakemake.common import dict_to_key_value_args, get_container_image
@@ -182,7 +181,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_provider: Optional[str] = None
     default_storage_prefix: Optional[str] = None
     assume_shared_fs: bool = True
-    keep_remote_local: bool = False
+    keep_storage_local: bool = False
     notemp: bool = False
     all_temp: bool = False
 

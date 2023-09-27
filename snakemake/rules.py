@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import copy
 import os
 import types
 import typing
@@ -524,11 +525,19 @@ class Rule(RuleInterface):
     def update_wildcard_constraints(self):
         for i in range(len(self.output)):
             item = self.output[i]
-            newitem = IOFile(
-                self._update_item_wildcard_constraints(self.output[i]), rule=self
-            )
-            # the updated item has to have the same flags
-            newitem.clone_flags(item)
+
+            newitem = None
+            if item.is_storage:
+                storage_object = copy.copy(item.storage_object.clone())
+                storage_object.query = self._update_item_wildcard_constraints(storage_object.query)
+                newitem = IOFile(storage_object.local_path(), rule=self)
+                newitem.clone_flags(item, skip_storage_object=True)
+                newitem.flags["storage_object"] = storage_object
+            else:
+                newitem = IOFile(
+                    self._update_item_wildcard_constraints(self.output[i]), rule=self
+                )
+                newitem.clone_flags(item)
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
@@ -539,7 +548,7 @@ class Rule(RuleInterface):
                 item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
-            raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
+            raise WorkflowError(e, snakefile=self.snakefile, lineno=self.lineno)
 
     def _set_inoutput_item(self, item, output=False, name=None):
         """
@@ -1423,7 +1432,7 @@ class RuleProxy:
                 cleaned = IOFile(cleaned, rule=self.rule)
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
-                cleaned.clone_remote_object(f)
+                cleaned.clone_storage_object(f)
 
             if modified_by is not None:
                 cleaned.flags[PATH_MODIFIER_FLAG] = modified_by

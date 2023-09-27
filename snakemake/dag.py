@@ -24,7 +24,7 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
 from snakemake import workflow as _workflow
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, group_into_chunks, is_local_file
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run, group_into_chunks, is_local_file
 from snakemake.settings import RerunTrigger
 from snakemake.deployment import singularity
 from snakemake.exceptions import (
@@ -299,6 +299,14 @@ class DAG(DAGExecutorInterface):
                 )
                 self.conda_envs[key] = env
 
+    def retrieve_storage_inputs(self):
+        async def runner():
+            for job in self.jobs:
+                for f in job.input:
+                    if f.is_storage and self.is_external_input(f, job):
+                        f.retrieve_from_storage()
+        async_run(runner())
+
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
         for env in self.conda_envs.values():
@@ -543,7 +551,7 @@ class DAG(DAGExecutorInterface):
         wait=3,
         ignore_missing_output=False,
         no_touch=False,
-        force_stay_on_remote=False,
+        wait_for_local=False,
     ):
         """Raise exception if output files of job are missing."""
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
@@ -555,7 +563,7 @@ class DAG(DAGExecutorInterface):
                 wait_for_files(
                     expanded_output,
                     latency_wait=wait,
-                    force_stay_on_remote=force_stay_on_remote,
+                    wait_for_local=wait_for_local,
                     ignore_pipe_or_service=True,
                 )
             except IOError as e:
@@ -566,10 +574,11 @@ class DAG(DAGExecutorInterface):
         def correctly_flagged_with_dir(f):
             """Check that files flagged as directories are in fact directories
 
-            In ambiguous cases, such as when f is remote, or f doesn't exist and
+            In ambiguous cases, such as when f is managed by a storage backend, or f 
+            doesn't exist and
             ignore_missing_output is true, always return True
             """
-            if f.remote_object:
+            if f.storage_object:
                 return True
             if ignore_missing_output and not os.path.exists(f):
                 return True
@@ -714,16 +723,16 @@ class DAG(DAGExecutorInterface):
                 logger.info(f"Removing temporary output {f}.")
                 f.remove(remove_non_empty_dir=True)
 
-    def handle_log(self, job, upload_remote=True):
+    def handle_log(self, job):
         for f in job.log:
             f = job.shadowed_path(f)
             if not f.exists_local:
                 # If log file was not created during job, create an empty one.
                 f.touch_or_create()
 
-    def handle_remote(self, job, upload=True):
+    def handle_storage(self, job, store_in_storage=True):
         """Remove local files if they are no longer needed and upload."""
-        if upload:
+        if store_in_storage:
             # handle output files
             files = job.expanded_output
             if job.benchmark:
@@ -731,23 +740,23 @@ class DAG(DAGExecutorInterface):
             if job.log:
                 files = chain(files, job.log)
             for f in files:
-                if f.is_remote and not f.should_stay_on_remote:
-                    f.upload_to_remote()
-                    remote_mtime = f.mtime.remote()
-                    # immediately force local mtime to match remote,
+                if f.is_storage and not f.should_not_be_retrieved_from_storage:
+                    f.store_in_storage()
+                    storage_mtime = f.mtime.storage()
+                    # immediately force local mtime to match storage,
                     # since conversions from S3 headers are not 100% reliable
                     # without this, newness comparisons may fail down the line
-                    f.touch(times=(remote_mtime, remote_mtime))
+                    f.touch(times=(storage_mtime, storage_mtime))
 
-                    if not f.exists_remote:
+                    if not f.exists_in_storage:
                         raise RemoteFileException(
                             "The file upload was attempted, but it does not "
-                            "exist on remote. Check that your credentials have "
+                            "exist in storage. Check that your credentials have "
                             "read AND write permissions."
                         )
 
-        if not self.workflow.storage_settings.keep_remote_local:
-            if not any(f.is_remote for f in job.input):
+        if not self.workflow.storage_settings.keep_storage_local:
+            if not any(f.is_storage for f in job.input):
                 return
 
             # handle input files
@@ -759,7 +768,7 @@ class DAG(DAGExecutorInterface):
 
             def unneeded_files():
                 putative = (
-                    lambda f: f.is_remote
+                    lambda f: f.is_storage
                     and not f.protected
                     and not f.should_keep_local
                 )
@@ -778,13 +787,13 @@ class DAG(DAGExecutorInterface):
                         else:
                             yield f
                 for f in filter(putative, job.input):
-                    # TODO what about remote inputs that are used by multiple jobs?
+                    # TODO what about storage inputs that are used by multiple jobs?
                     if f not in generated_input:
                         yield f
 
             for f in unneeded_files():
                 if f.exists_local:
-                    logger.info(f"Removing local copy of remote file: {f}")
+                    logger.info(f"Removing local copy of storage file: {f}")
                     f.remove()
 
     def jobid(self, job):
@@ -1367,11 +1376,11 @@ class DAG(DAGExecutorInterface):
                 visited_groups.add(group)
                 yield group
 
-    def close_remote_objects(self):
-        """Close all remote objects."""
+    def close_storage_objects(self):
+        """Close all storage objects."""
         for job in self.jobs:
             if not self.needrun(job):
-                job.close_remote()
+                job.close_storage()
 
     def postprocess(
         self, update_needrun=True, update_incomplete_input_expand_jobs=True
@@ -1401,7 +1410,7 @@ class DAG(DAGExecutorInterface):
                 return
 
         self.update_ready()
-        self.close_remote_objects()
+        self.close_storage_objects()
         self.update_checkpoint_outputs()
 
     def handle_pipes_and_services(self):
@@ -2213,7 +2222,7 @@ class DAG(DAGExecutorInterface):
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
 
-                date = time.ctime(f.mtime.local_or_remote()) if f.exists else "-"
+                date = time.ctime(f.mtime.local_or_storage()) if f.exists else "-"
 
                 pending = "update pending" if self.reason(job) else "no update"
 
@@ -2308,9 +2317,7 @@ class DAG(DAGExecutorInterface):
                 for job in self.jobs:
                     # input files
                     for f in job.input:
-                        if not any(
-                            f in files for files in self.dependencies[job].values()
-                        ):
+                        if self.is_external_input(f, job):
                             # this is an input file that is not created by any job
                             add(f)
 
@@ -2326,6 +2333,12 @@ class DAG(DAGExecutorInterface):
         except BaseException as e:
             os.remove(path)
             raise e
+
+    def is_external_input(self, file, job):
+        """Return True if the given file is an external input for the given job."""
+        return not any(
+            file in files for files in self.dependencies[job].values()
+        )
 
     def clean(self, only_temp=False, dryrun=False):
         """Removes files generated by the workflow."""

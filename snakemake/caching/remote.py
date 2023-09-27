@@ -62,7 +62,7 @@ class OutputFileCache(AbstractOutputFileCache):
             f = self.remote_provider.remote(
                 f"{self.cache_location}/{provenance_hash}{ext}"
             )
-            remote = get_flag_value(f, "remote_object")
+            remote = get_flag_value(f, "storage_object")
             # set local copy of the remote file
             remote._iofile = outputfile
             yield remote

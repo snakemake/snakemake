@@ -60,7 +60,7 @@ class PathModifier:
             property in self.skip_properties
             or os.path.isabs(path)
             or path.startswith("..")
-            or is_flagged(path, "remote_object")
+            or is_flagged(path, "storage_object")
             or is_callable(path)
         ):
             # no replacement
@@ -98,7 +98,7 @@ class PathModifier:
 
         if (
             self.workflow.storage_settings.default_storage_provider is None
-            or is_flagged(path, "remote_object")
+            or is_flagged(path, "storage_object")
             or is_flagged(path, "local")
             or is_annotated_callable(path)
         ):

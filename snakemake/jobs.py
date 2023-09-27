@@ -17,7 +17,7 @@ from typing import Optional
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     GroupJobExecutorInterface,
@@ -40,6 +40,7 @@ from snakemake.exceptions import RuleException, ProtectedOutputException, Workfl
 from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
+    async_run,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -633,8 +634,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         files = set()
 
         for f in self.input:
-            if f.is_remote:
-                if f.exists_remote:
+            if f.is_storage:
+                if f.exists_in_storage:
                     files.add(f)
         return files
 
@@ -642,32 +643,32 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def existing_remote_output(self):
         files = set()
 
-        for f in self.remote_output:
-            if f.exists_remote:
+        for f in self.storage_output:
+            if f.exists_in_storage:
                 files.add(f)
         return files
 
     @property
     def missing_remote_input(self):
-        return self.remote_input - self.existing_remote_input
+        return self.storage_input - self.existing_remote_input
 
     @property
     def missing_remote_output(self):
-        return self.remote_output - self.existing_remote_output
+        return self.storage_output - self.existing_remote_output
 
     @property
     def output_mintime(self):
         """Return oldest output file."""
         try:
             mintime = min(
-                f.mtime.local_or_remote() for f in self.expanded_output if f.exists
+                f.mtime.local_or_storage() for f in self.expanded_output if f.exists
             )
         except ValueError:
             # no existing output
             mintime = None
 
         if self.benchmark and self.benchmark.exists:
-            mintime_benchmark = self.benchmark.mtime.local_or_remote()
+            mintime_benchmark = self.benchmark.mtime.local_or_storage()
             if mintime is not None:
                 return min(mintime, mintime_benchmark)
             else:
@@ -697,7 +698,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def local_input(self):
         for f in self.input:
-            if not f.is_remote:
+            if not f.is_storage:
                 yield f
 
     @property
@@ -711,78 +712,78 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     def local_output(self):
         for f in self.output:
-            if not f.is_remote:
+            if not f.is_storage:
                 yield f
 
     @property
-    def remote_input(self):
+    def storage_input(self):
         for f in self.input:
-            if f.is_remote:
+            if f.is_storage:
                 yield f
 
     @property
-    def remote_output(self):
+    def storage_output(self):
         for f in self.output:
-            if f.is_remote:
+            if f.is_storage:
                 yield f
 
     @property
-    def remote_input_newer_than_local(self):
+    def storage_input_newer_than_local(self):
         files = set()
-        for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+        for f in self.storage_input:
+            if (f.exists_in_storage and f.exists_local) and (
+                f.mtime.storage() > f.mtime.local(follow_symlinks=True)
             ):
                 files.add(f)
         return files
 
     @property
-    def remote_input_older_than_local(self):
+    def storage_input_older_than_local(self):
         files = set()
-        for f in self.remote_input:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+        for f in self.storage_input:
+            if (f.exists_in_storage and f.exists_local) and (
+                f.mtime.storage() < f.mtime.local(follow_symlinks=True)
             ):
                 files.add(f)
         return files
 
     @property
-    def remote_output_newer_than_local(self):
+    def storage_output_newer_than_local(self):
         files = set()
-        for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() > f.mtime.local(follow_symlinks=True)
+        for f in self.storage_output:
+            if (f.exists_in_storage and f.exists_local) and (
+                f.mtime.storage() > f.mtime.local(follow_symlinks=True)
             ):
                 files.add(f)
         return files
 
     @property
-    def remote_output_older_than_local(self):
+    def storage_output_older_than_local(self):
         files = set()
-        for f in self.remote_output:
-            if (f.exists_remote and f.exists_local) and (
-                f.mtime.remote() < f.mtime.local(follow_symlinks=True)
+        for f in self.storage_output:
+            if (f.exists_in_storage and f.exists_local) and (
+                f.mtime.storage() < f.mtime.local(follow_symlinks=True)
             ):
                 files.add(f)
         return files
 
     @property
-    def files_to_download(self):
-        toDownload = set()
+    def files_to_retrieve(self):
+        to_retrieve = set()
 
         for f in self.input:
-            if f.is_remote:
-                if (not f.exists_local and f.exists_remote) and (
-                    not self.rule.norun or f.remote_object.keep_local
+            if f.is_storage:
+                if (not f.exists_local and f.exists_in_storage) and (
+                    not self.rule.norun or f.storage_object.keep_local
                 ):
-                    toDownload.add(f)
+                    to_retrieve.add(f)
 
-        toDownload = toDownload | self.remote_input_newer_than_local
-        return toDownload
+        to_retrieve = to_retrieve | self.storage_input_newer_than_local
+        return to_retrieve
 
     @property
     def files_to_upload(self):
-        return self.missing_remote_input & self.remote_input_older_than_local
+        return self.missing_remote_input & self.storage_input_older_than_local
 
     @property
     def existing_output(self):
@@ -811,9 +812,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f in self.log:
             f.remove(remove_non_empty_dir=False)
 
-    def download_remote_input(self):
-        for f in self.files_to_download:
-            f.download_from_remote()
+    async def retrieve_storage_input(self):
+        for f in self.files_to_retrieve:
+            f.retrieve_from_storage()
 
     def prepare(self):
         """
@@ -845,18 +846,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        self.download_remote_input()
+        async_run(self.retrieve_storage_input())
 
         for f in self.log:
             f.prepare()
         if self.benchmark:
             self.benchmark.prepare()
 
-        # wait for input files, respecting keep_remote_local
-        force_stay_on_remote = not self.dag.workflow.storage_settings.keep_remote_local
+        # wait for input files, respecting keep_storage_local
+        wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
         wait_for_files(
             self.input,
-            force_stay_on_remote=force_stay_on_remote,
+            wait_for_local=wait_for_local,
             latency_wait=self.dag.workflow.execution_settings.latency_wait,
         )
 
@@ -940,10 +941,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
-    def close_remote(self):
+    def close_storage(self):
         for f in self.input + self.output:
-            if f.is_remote:
-                f.remote_object.close()
+            if f.is_storage:
+                f.storage_object.close()
 
     def cleanup(self):
         """Cleanup output files."""
@@ -952,10 +953,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         to_remove.extend(
             [
                 f
-                for f in self.remote_output
+                for f in self.storage_output
                 if (
-                    f.exists_remote
-                    if (f.is_remote and f.should_stay_on_remote)
+                    f.exists_in_storage
+                    if (f.is_storage and f.should_not_be_retrieved_from_storage)
                     else f.exists_local
                 )
             ]
@@ -1113,7 +1114,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         wait_for_files = []
         wait_for_files.extend(self.local_input)
         wait_for_files.extend(
-            f for f in self.remote_input if not f.should_stay_on_remote
+            f for f in self.storage_input if not f.should_not_be_retrieved_from_storage
         )
 
         if self.shadow_dir:
@@ -1143,7 +1144,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     def postprocess(
         self,
-        upload_remote=True,
+        store_in_storage=True,
         handle_log=True,
         handle_touch=True,
         error=False,
@@ -1166,16 +1167,16 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
-                self.dag.handle_remote(self, upload=upload_remote)
+                self.dag.handle_storage(self, store_in_storage=store_in_storage)
                 self.dag.handle_protected(self)
-            self.close_remote()
+            self.close_storage()
         else:
             if not error:
                 self.dag.check_and_touch_output(
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     no_touch=True,
-                    force_stay_on_remote=True,
+                    wait_for_local=False,
                 )
         if not error:
             try:
@@ -1377,10 +1378,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.reset_params_and_resources()
 
-    def download_remote_input(self):
-        for job in self.jobs:
-            job.download_remote_input()
-
     def get_wait_for_files(self):
         local_input = [
             f
@@ -1397,7 +1394,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
         wait_for_files = []
         wait_for_files.extend(local_input)
-        wait_for_files.extend(f for f in remote_input if not f.should_stay_on_remote)
+        wait_for_files.extend(f for f in remote_input if not f.should_not_be_retrieved_from_storage)
 
         for job in self.jobs:
             if job.shadow_dir:
