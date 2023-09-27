@@ -183,6 +183,7 @@ def run(
     all_temp=False,
     cleanup_metadata=None,
     rerun_triggers=settings.RerunTrigger.all(),
+    storage_provider_settings=None,
 ):
     """
     Test the Snakefile in the path.
@@ -303,6 +304,7 @@ def run(
                         default_storage_prefix=default_storage_prefix,
                         all_temp=all_temp,
                     ),
+                    storage_provider_settings=storage_provider_settings,
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                     ),

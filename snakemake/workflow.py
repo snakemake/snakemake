@@ -129,7 +129,7 @@ class Workflow(WorkflowExecutorInterface):
     remote_execution_settings: Optional[RemoteExecutionSettings] = None
     group_settings: Optional[GroupSettings] = None
     executor_settings: ExecutorSettingsBase = None
-    storage_provider_settings: Optional[Dict[str, TaggedSettings]] = None
+    storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None
     check_envvars: bool = True
     cache_rules: Mapping[str, str] = field(default_factory=dict)
     overwrite_workdir: Optional[str] = None
@@ -965,7 +965,10 @@ class Workflow(WorkflowExecutorInterface):
                 )
 
             if self.storage_settings.assume_shared_fs:
-                if DeploymentMethod.APPTAINER in self.deployment_settings.deployment_method:
+                if (
+                    DeploymentMethod.APPTAINER
+                    in self.deployment_settings.deployment_method
+                ):
                     self.dag.pull_container_imgs()
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()

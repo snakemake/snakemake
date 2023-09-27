@@ -182,6 +182,7 @@ class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
     default_storage_prefix: Optional[str] = None
     assume_shared_fs: bool = True
     keep_storage_local: bool = False
+    local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
 

@@ -529,7 +529,9 @@ class Rule(RuleInterface):
             newitem = None
             if item.is_storage:
                 storage_object = copy.copy(item.storage_object.clone())
-                storage_object.query = self._update_item_wildcard_constraints(storage_object.query)
+                storage_object.query = self._update_item_wildcard_constraints(
+                    storage_object.query
+                )
                 newitem = IOFile(storage_object.local_path(), rule=self)
                 newitem.clone_flags(item, skip_storage_object=True)
                 newitem.flags["storage_object"] = storage_object

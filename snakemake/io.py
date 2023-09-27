@@ -119,15 +119,15 @@ class IOCache(IOCacheStorageInterface):
     @property
     def mtime(self):
         return self._mtime
-    
+
     @property
     def exists_local(self):
         return self._exists_local
-    
+
     @property
     def exists_in_storage(self):
         return self._exists_in_storage
-    
+
     @property
     def size(self):
         return self._size
@@ -637,7 +637,8 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 logger.info("Finished retrieval.")
         else:
             raise WorkflowError(
-                "The file to be retrieved does not seem to exist in the storage.", rule=self.rule
+                "The file to be retrieved does not seem to exist in the storage.",
+                rule=self.rule,
             )
 
     def store_in_storage(self):
@@ -740,8 +741,17 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 fail_dynamic=fail_dynamic,
                 dynamic_fill=DYNAMIC_FILL,
             )
-            storage_object.validate_query()
-            file_with_wildcards_applied = IOFile(storage_object.local_path(), rule=self.rule)
+
+            validation_res = storage_object.is_valid_query()
+            if not validation_res:
+                raise WorkflowError(
+                    validation_res,
+                    rule=self.rule,
+                )
+
+            file_with_wildcards_applied = IOFile(
+                str(storage_object.local_path()), rule=self.rule
+            )
             file_with_wildcards_applied.clone_flags(self, skip_storage_object=True)
             file_with_wildcards_applied.flags["storage_object"] = storage_object
         else:
@@ -1398,7 +1408,7 @@ class Namedlist(list):
                 self.extend(map(custom_map, toclone))
             elif plainstr:
                 self.extend(
-                    x.storage_object.to_plainstr()
+                    x.storage_object.query
                     if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone

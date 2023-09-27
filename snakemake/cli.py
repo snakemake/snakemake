@@ -1293,7 +1293,7 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--default-storage-provider",
-        choices=StoragePluginRegistry().get_registered_plugins(),
+        choices=StoragePluginRegistry().get_registered_read_write_plugins(),
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
         "one.",
@@ -1858,10 +1858,10 @@ def args_to_api(args, parser):
                     notemp=args.notemp,
                     all_temp=args.all_temp,
                 ),
+                storage_provider_settings=storage_provider_settings,
                 workflow_settings=WorkflowSettings(
                     wrapper_prefix=args.wrapper_prefix,
                 ),
-                storage_provider_settings=storage_provider_settings,
                 snakefile=args.snakefile,
                 workdir=args.directory,
             )

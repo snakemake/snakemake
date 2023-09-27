@@ -48,7 +48,7 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 
 
-def format_files(job, io, dynamicio):
+def format_files(job, io, dynamicio, is_input: bool):
     for f in io:
         if f in dynamicio:
             yield f"{f.format_dynamic()} (dynamic)"
@@ -61,6 +61,9 @@ def format_files(job, io, dynamicio):
         elif is_flagged(f, "sourcecache_entry"):
             orig_path_or_uri = get_flag_value(f, "sourcecache_entry")
             yield f"{orig_path_or_uri} (cached)"
+        elif f.is_storage:
+            phrase = "retrieve from" if is_input else "send to"
+            yield f"{f.storage_object.query} ({phrase} storage)"
         else:
             yield f
 
@@ -1060,8 +1063,12 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             msg=self.message,
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
-            input=list(format_files(self, self.input, self.dynamic_input)),
-            output=list(format_files(self, self.output, self.dynamic_output)),
+            input=list(
+                format_files(self, self.input, self.dynamic_input, is_input=True)
+            ),
+            output=list(
+                format_files(self, self.output, self.dynamic_output, is_input=False)
+            ),
             log=list(self.log),
             benchmark=self.benchmark,
             wildcards=self.wildcards_dict,
@@ -1093,8 +1100,12 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             msg=msg,
             jobid=self.dag.jobid(self),
-            input=list(format_files(self, self.input, self.dynamic_output)),
-            output=list(format_files(self, self.output, self.dynamic_output)),
+            input=list(
+                format_files(self, self.input, self.dynamic_output, is_input=True)
+            ),
+            output=list(
+                format_files(self, self.output, self.dynamic_output, is_input=False)
+            ),
             log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
@@ -1394,7 +1405,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
         wait_for_files = []
         wait_for_files.extend(local_input)
-        wait_for_files.extend(f for f in remote_input if not f.should_not_be_retrieved_from_storage)
+        wait_for_files.extend(
+            f for f in remote_input if not f.should_not_be_retrieved_from_storage
+        )
 
         for job in self.jobs:
             if job.shadow_dir:

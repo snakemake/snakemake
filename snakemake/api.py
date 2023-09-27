@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Mapping, Optional, Set
 import os
 from functools import partial
 import importlib
@@ -40,6 +40,7 @@ from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSett
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
 from snakemake_interface_common.exceptions import ApiError
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -99,7 +100,7 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
-        storage_provider_settings: List[StorageProviderSettingsBase] = None,
+        storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -123,6 +124,8 @@ class SnakemakeApi(ApiBase):
             storage_settings = StorageSettings()
         if workflow_settings is None:
             workflow_settings = WorkflowSettings()
+        if storage_provider_settings is None:
+            storage_provider_settings = dict()
 
         self._check_is_in_context()
 
@@ -227,7 +230,7 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
-    storage_provider_settings: List[StorageProviderSettingsBase]
+    storage_provider_settings: Mapping[str, TaggedSettings]
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 

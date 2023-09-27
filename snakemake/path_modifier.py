@@ -108,7 +108,9 @@ class PathModifier:
         # This will convert any AnnotatedString to str
         fullpath = f"{self.workflow.storage_settings.default_storage_prefix}/{path}"
         fullpath = os.path.normpath(fullpath)
-        remote = self.workflow.storage_settings.default_storage_provider.remote(fullpath)
+        remote = self.workflow.storage_settings.default_storage_provider.remote(
+            fullpath
+        )
         return remote
 
     @property
