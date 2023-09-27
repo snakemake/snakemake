@@ -31,6 +31,7 @@ from snakemake_interface_storage_plugins.io import (
     WILDCARD_REGEX,
     IOCacheStorageInterface,
     Mtime,
+    get_constant_prefix,
 )
 
 from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
@@ -784,10 +785,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         return self._wildcard_constraints
 
     def constant_prefix(self):
-        first_wildcard = WILDCARD_REGEX.search(self.file)
-        if first_wildcard:
-            return self.file[: first_wildcard.start()]
-        return self.file
+        return get_constant_prefix(self.file)
 
     def constant_suffix(self):
         m = None
@@ -1280,13 +1278,20 @@ def glob_wildcards(pattern, files=None, followlinks=False):
     Glob the values of the wildcards by matching the given pattern to the filesystem.
     Returns a named tuple with a list of values for each wildcard.
     """
-    if is_flagged(pattern, "remote_object") and files is None:
+    if is_flagged(pattern, "storage_object"):
+        if files is not None:
+            raise WorkflowError(
+                "Error in glob_wildcards(): the files argument may not "
+                "be combined with a storage object as pattern."
+            )
         # for storage object patterns, we obtain the list of files from
         # the storage provider
-        pattern = pattern.path_without_protocol()
-        files = pattern.flags["remote_object"].list_all_below_ancestor()
+        storage_object = pattern.flags["storage_object"]
+        files = storage_object.list_candidate_matches()
+        pattern = storage_object.query
+    else:
+        pattern = os.path.normpath(pattern)
 
-    pattern = os.path.normpath(pattern)
     first_wildcard = re.search("{[^{]", pattern)
     dirname = (
         os.path.dirname(pattern[: first_wildcard.start()])
