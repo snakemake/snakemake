@@ -120,8 +120,8 @@ Each of these can be part of a rule, e.g.:
       input: ...
       output: ...
       resources:
-          partition: <partition name>
-          runtime: <some number>
+          partition=<partition name>,
+          runtime=<some number>
 
 Please note: as ``--mem`` and ``--mem-per-cpu`` are mutually exclusive on SLURM clusters, there corresponding resource flags ``mem_mb`` and ``mem_mb_per_cpu`` are mutually exclusive, too.
 You can only reserve memory a compute node has to provide or the memory required per CPU (SLURM does not make any distintion between real CPU cores and those provided by hyperthreads).
