@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import html
 import os
 import shutil
@@ -307,10 +308,11 @@ class DAG(DAGExecutorInterface):
 
     def retrieve_storage_inputs(self):
         async def runner():
-            for job in self.jobs:
-                for f in job.input:
-                    if f.is_storage and self.is_external_input(f, job):
-                        f.retrieve_from_storage()
+            async with asyncio.TaskGroup() as tg:
+                for job in self.jobs:
+                    for f in job.input:
+                        if f.is_storage and self.is_external_input(f, job):
+                            tg.create_task(f.retrieve_from_storage())
 
         async_run(runner())
 

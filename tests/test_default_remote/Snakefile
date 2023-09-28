@@ -6,7 +6,7 @@ rule all:
 
 
 def check_remote(f):
-    if not f.startswith("test-remote-bucket/"):
+    if not f.startswith(".snakemake/storage/"):
         raise ValueError("Input and output are not remote files.")
 
 

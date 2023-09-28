@@ -815,9 +815,12 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f in self.log:
             f.remove(remove_non_empty_dir=False)
 
-    async def retrieve_storage_input(self):
+    async def retrieve_storage_input_async(self):
         for f in self.files_to_retrieve:
             f.retrieve_from_storage()
+
+    def retrieve_storage_input(self):
+        async_run(self.retrieve_storage_input_async())
 
     def prepare(self):
         """
@@ -849,7 +852,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        async_run(self.retrieve_storage_input())
+        self.retrieve_storage_input()
 
         for f in self.log:
             f.prepare()
