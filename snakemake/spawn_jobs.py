@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import os
 import sys
 from typing import TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
 if TYPE_CHECKING:
     from snakemake.workflow import Workflow
@@ -18,7 +19,7 @@ class SpawnedJobArgsFactory:
 
     def get_default_storage_provider_args(self):
         has_default_storage_provider = (
-            self.workflow.storage_settings.default_storage_provider is not None
+            self.workflow.storage_registry.default_storage_provider is not None
         )
         if has_default_storage_provider:
             return join_cli_args(
@@ -29,12 +30,39 @@ class SpawnedJobArgsFactory:
                     ),
                     format_cli_arg(
                         "--default-storage-provider",
-                        self.workflow.storage_settings.default_storage_provider.name,
+                        self.workflow.storage_settings.default_storage_provider,
                     ),
                 ]
             )
         else:
             return ""
+
+    def get_storage_provider_args(self):
+        for (
+            plugin_name,
+            tagged_settings,
+        ) in self.workflow.storage_provider_settings.items():
+            plugin = StoragePluginRegistry().get_plugin(plugin_name)
+            for field in fields(plugin.settings_cls):
+                cli_arg = plugin.get_cli_arg(field.name)
+                unparse = field.metadata.get("unparse", lambda value: value)
+
+                def fmt_value(tag, value):
+                    value = unparse(value)
+                    if tag is not None:
+                        return f"{tag}:{value}"
+                    else:
+                        return value
+
+                field_settings = [
+                    fmt_value(tag, value)
+                    for tag, value in tagged_settings.get_field_settings(
+                        field.name
+                    ).items()
+                    if value is not None
+                ]
+                if field_settings:
+                    yield format_cli_arg(cli_arg, field_settings)
 
     def get_set_resources_args(self):
         return format_cli_arg(
@@ -143,6 +171,7 @@ class SpawnedJobArgsFactory:
             self.get_set_resources_args(),
             self.get_resource_scopes_args(),
         ]
+        args.extend(self.get_storage_provider_args())
         if pass_default_storage_provider_args:
             args.append(self.get_default_storage_provider_args())
         if pass_default_resources_args:

@@ -775,7 +775,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         to_retrieve = set()
 
         for f in self.input:
-            if f.is_storage:
+            if f.is_storage and f.storage_object.retrieve:
                 if (not f.exists_local and f.exists_in_storage) and (
                     not self.rule.norun or f.storage_object.keep_local
                 ):
@@ -1175,6 +1175,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     ignore_missing_output=ignore_missing_output,
+                    wait_for_local=True,
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:

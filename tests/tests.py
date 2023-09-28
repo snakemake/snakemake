@@ -718,13 +718,46 @@ def test_issue260():
 
 @skip_on_windows
 @not_ci
-def test_default_remote():
-    run(
-        dpath("test_default_remote"),
-        cores=1,
-        default_storage_provider="S3Mocked",
-        default_storage_prefix="test-remote-bucket",
+def test_default_storage():
+    from snakemake_storage_plugin_s3 import StorageProviderSettings
+    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+    import uuid
+    import boto3
+
+    endpoint_url = "https://play.minio.io:9000"
+    access_key = "Q3AM3UQ867SPQQA43P2F"
+    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    bucket = f"snakemake-{uuid.uuid4().hex}"
+
+    tagged_settings = TaggedSettings()
+    tagged_settings.register_settings(
+        StorageProviderSettings(
+            endpoint_url=endpoint_url,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
     )
+
+    try:
+        run(
+            dpath("test_default_remote"),
+            cores=1,
+            default_storage_provider="s3",
+            default_storage_prefix=f"s3://{bucket}",
+            storage_provider_settings={"s3": tagged_settings},
+        )
+    finally:
+        # clean up using boto3
+        s3c = boto3.resource(
+            "s3",
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+        )
+        try:
+            s3c.Bucket(bucket).delete()
+        except Exception:
+            pass
 
 
 def test_run_namedlist():

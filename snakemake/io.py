@@ -837,6 +837,13 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         return self._file.__hash__()
 
 
+def pretty_print_iofile(iofile: _IOFile):
+    if iofile.is_storage:
+        return f"{iofile.storage_object.query} (storage)"
+    else:
+        return iofile._file
+
+
 _double_slash_regex = (
     re.compile(r"([^:]//|^//)") if os.path.sep == "/" else re.compile(r"\\\\")
 )
@@ -1413,7 +1420,8 @@ class Namedlist(list):
                 self.extend(map(custom_map, toclone))
             elif plainstr:
                 self.extend(
-                    x.storage_object.query
+                    # use original query if storage is not retrieved by snakemake
+                    (x if x.storage_object.retrieve else x.storage_object.query)
                     if isinstance(x, _IOFile) and x.storage_object is not None
                     else str(x)
                     for x in toclone

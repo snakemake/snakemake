@@ -1,11 +1,14 @@
-import copy
+import copy, sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 from snakemake.workflow import Workflow
 from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
-from snakemake_interface_storage_plugins.storage_object import StorageObjectReadWrite
+from snakemake_interface_storage_plugins.storage_object import (
+    StorageObjectWrite,
+    StorageObjectRead,
+)
 
 
 @dataclass
@@ -41,17 +44,29 @@ class StorageRegistry:
         if final_settings is None:
             final_settings = plugin.settings_cls()
         else:
-            final_settings = final_settings.get_settings(tag)
+            try:
+                final_settings = final_settings.get_settings(tag)
+            except KeyError:
+                if tag is None:
+                    msg = f"No settings provided for storage {provider}."
+                else:
+                    msg = f"No settings provided for storage {provider} with tag {tag}."
+                raise WorkflowError(msg)
 
         final_settings = copy.copy(final_settings)
         final_settings.__dict__.update(**settings)
 
-        name = f"{plugin.name}:{tag}"
+        name = f"{plugin.name}:{tag}" if tag else plugin.name
 
         local_prefix = self.workflow.storage_settings.local_storage_prefix / name
 
-        if is_default and not isinstance(
-            plugin.storage_provider.storage_object_cls, StorageObjectReadWrite
+        if is_default and not (
+            issubclass(
+                plugin.storage_provider.get_storage_object_cls(), StorageObjectWrite
+            )
+            and issubclass(
+                plugin.storage_provider.get_storage_object_cls(), StorageObjectRead
+            )
         ):
             raise WorkflowError(
                 "Default storage provider must be a read-write storage provider, but "

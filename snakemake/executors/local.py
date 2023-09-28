@@ -144,6 +144,7 @@ class Executor(RealExecutor):
         benchmark_repeats = job.benchmark_repeats or 1
         if job.benchmark is not None:
             benchmark = str(job.benchmark)
+
         return (
             job.rule,
             job.input._plainstrings(),

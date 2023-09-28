@@ -198,6 +198,10 @@ class Workflow(WorkflowExecutorInterface):
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
 
     @property
+    def storage_registry(self):
+        return self._storage_registry
+
+    @property
     def enable_cache(self):
         return (
             self.execution_settings is not None

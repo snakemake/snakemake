@@ -558,7 +558,7 @@ class DAG(DAGExecutorInterface):
         wait=3,
         ignore_missing_output=False,
         no_touch=False,
-        wait_for_local=False,
+        wait_for_local=True,
     ):
         """Raise exception if output files of job are missing."""
         expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
