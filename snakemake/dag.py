@@ -1073,7 +1073,7 @@ class DAG(DAGExecutorInterface):
 
                 is_same_checksum_cache[(f, job)] = is_same
                 return is_same
-            
+
         def is_forced(job):
             return (
                 job not in self.omitforce
@@ -1173,7 +1173,12 @@ class DAG(DAGExecutorInterface):
 
         candidates = list(self.toposorted())
 
-        is_all_forced = all(is_forced(job) for level in candidates for job in level if job not in self._finished)
+        is_all_forced = all(
+            is_forced(job)
+            for level in candidates
+            for job in level
+            if job not in self._finished
+        )
 
         if is_all_forced:
             # all jobs are forced, no need to check for needrun
