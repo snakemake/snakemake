@@ -21,6 +21,7 @@ from operator import attrgetter
 from pathlib import Path
 from snakemake.settings import DeploymentMethod
 
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 
 from snakemake import workflow
@@ -85,6 +86,7 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
+        self.check_files = workflow.execution_settings.mode == ExecMode.DEFAULT
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -957,7 +959,7 @@ class DAG(DAGExecutorInterface):
 
             if not res.jobs:
                 # no producing job found
-                if not res.file.exists:
+                if self.check_files and not res.file.exists:
                     # file not found, hence missing input
                     missing_input.add(res.file)
                 known_producers[res.file] = None
@@ -1022,7 +1024,7 @@ class DAG(DAGExecutorInterface):
     def update_needrun(self, create_inventory=False):
         """Update the information whether a job needs to be executed."""
 
-        if create_inventory:
+        if create_inventory and self.check_files:
             # Concurrently collect mtimes of all existing files.
             self.workflow.iocache.mtime_inventory(self.jobs)
 

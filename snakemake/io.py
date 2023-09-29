@@ -631,7 +631,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         return self.mtime.local_or_storage(follow_symlinks=True) > time
 
     async def retrieve_from_storage(self):
-        if self.is_storage and self.storage_object.exists():
+        if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
                 logger.info(f"Retrieving from storage: {self.file}")
                 self.storage_object.managed_retrieve()
@@ -734,13 +734,18 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         file_with_wildcards_applied = None
 
         if self.is_storage:
-            storage_object = copy.copy(self.storage_object)
-            storage_object.query = apply_wildcards(
-                storage_object.query,
+            query = apply_wildcards(
+                self.storage_object.query,
                 wildcards,
                 fill_missing=fill_missing,
                 fail_dynamic=fail_dynamic,
                 dynamic_fill=DYNAMIC_FILL,
+            )
+            storage_object = self.storage_object.__class__(
+                query=query,
+                provider=self.storage_object.provider,
+                keep_local=self.storage_object.keep_local,
+                retrieve=self.storage_object.retrieve,
             )
 
             validation_res = storage_object.is_valid_query()
