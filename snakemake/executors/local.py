@@ -91,8 +91,11 @@ class Executor(RealExecutor):
     def get_envvar_declarations(self):
         return ""
 
+    def additional_general_args(self):
+        return "--quiet all"
+
     def get_job_args(self, job: JobExecutorInterface, **kwargs):
-        return f"{super().get_job_args(job, **kwargs)} --quiet"
+        return f"{super().get_job_args(job, **kwargs)}"
 
     def run_job(
         self,

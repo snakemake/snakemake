@@ -720,6 +720,8 @@ def setup_logger(
     dryrun=False,
     latency_wait=5,
 ):
+    from snakemake.settings import Quietness
+
     if mode is None:
         mode = get_default_exec_mode()
 
@@ -728,12 +730,10 @@ def setup_logger(
         quiet = set()
     elif isinstance(quiet, bool):
         if quiet:
-            quiet = set(["progress", "rules"])
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
-    elif isinstance(quiet, list):
-        quiet = set(quiet)
-    else:
+    elif not isinstance(quiet, set):
         raise ValueError(
             "Unsupported value provided for quiet mode (either bool, None or list allowed)."
         )

@@ -86,7 +86,7 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
-        self.check_files = workflow.execution_settings.mode == ExecMode.DEFAULT
+        self.is_main_process = workflow.execution_settings.mode == ExecMode.DEFAULT
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -309,14 +309,19 @@ class DAG(DAGExecutorInterface):
                 self.conda_envs[key] = env
 
     def retrieve_storage_inputs(self):
-        async def runner():
-            async with asyncio.TaskGroup() as tg:
-                for job in self.jobs:
-                    for f in job.input:
-                        if f.is_storage and self.is_external_input(f, job):
-                            tg.create_task(f.retrieve_from_storage())
+        if self.is_main_process or (
+            self.workflow.execution_settings.mode == ExecMode.REMOTE
+            and not self.workflow.storage_settings.assume_shared_fs
+        ):
 
-        async_run(runner())
+            async def runner():
+                async with asyncio.TaskGroup() as tg:
+                    for job in self.jobs:
+                        for f in job.input:
+                            if f.is_storage and self.is_external_input(f, job):
+                                tg.create_task(f.retrieve_from_storage())
+
+            async_run(runner())
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
@@ -743,7 +748,8 @@ class DAG(DAGExecutorInterface):
 
     def handle_storage(self, job, store_in_storage=True):
         """Remove local files if they are no longer needed and upload."""
-        if store_in_storage:
+        mode = self.workflow.execution_settings.mode
+        if store_in_storage and (mode == ExecMode.REMOTE or mode == ExecMode.DEFAULT):
             # handle output files
             files = job.expanded_output
             if job.benchmark:
@@ -959,7 +965,7 @@ class DAG(DAGExecutorInterface):
 
             if not res.jobs:
                 # no producing job found
-                if self.check_files and not res.file.exists:
+                if self.is_main_process and not res.file.exists:
                     # file not found, hence missing input
                     missing_input.add(res.file)
                 known_producers[res.file] = None
@@ -1024,7 +1030,7 @@ class DAG(DAGExecutorInterface):
     def update_needrun(self, create_inventory=False):
         """Update the information whether a job needs to be executed."""
 
-        if create_inventory and self.check_files:
+        if create_inventory and self.is_main_process:
             # Concurrently collect mtimes of all existing files.
             self.workflow.iocache.mtime_inventory(self.jobs)
 

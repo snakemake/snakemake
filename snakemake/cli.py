@@ -1702,7 +1702,7 @@ def parse_quietness(quietness) -> Set[Quietness]:
         # default case, set quiet to progress and rule
         quietness = [Quietness.PROGRESS, Quietness.RULES]
     else:
-        quietness = Quietness.parse_choices_set()
+        quietness = Quietness.parse_choices_set(quietness)
     return quietness
 
 
