@@ -1073,16 +1073,19 @@ class DAG(DAGExecutorInterface):
 
                 is_same_checksum_cache[(f, job)] = is_same
                 return is_same
+            
+        def is_forced(job):
+            return (
+                job not in self.omitforce
+                and job.rule in self.forcerules
+                or not self.forcefiles.isdisjoint(job.output)
+            )
 
         def update_needrun(job):
             reason = self.reason(job)
             noinitreason = not reason
 
-            if (
-                job not in self.omitforce
-                and job.rule in self.forcerules
-                or not self.forcefiles.isdisjoint(job.output)
-            ):
+            if is_forced(job):
                 reason.forced = True
             elif job in self.targetjobs:
                 # TODO find a way to handle added/removed input files here?
@@ -1170,56 +1173,65 @@ class DAG(DAGExecutorInterface):
 
         candidates = list(self.toposorted())
 
-        # Update the output mintime of all jobs.
-        # We traverse them in BFS (level order) starting from target jobs.
-        # Then, we check output mintime of job itself and all direct descendants,
-        # which have already been visited in the level before.
-        # This way, we achieve a linear runtime.
-        for level in reversed(candidates):
-            for job in level:
-                update_output_mintime(job)
+        is_all_forced = all(is_forced(job) for level in candidates for job in level if job not in self._finished)
 
-        # Update prior reason for all candidate jobs
-        # Move from the first level to the last of the toposorted candidates.
-        # If a job is needrun, mask all downstream jobs, they will below
-        # in the bi-directional BFS
-        # be determined as needrun because they depend on them.
-        masked = set()
-        queue = deque()
-        for level in candidates:
-            for job in level:
-                if job in masked:
-                    # depending jobs of jobs that are needrun as a prior
-                    # can be skipped
-                    continue
-                if update_needrun(job):
-                    queue.append(job)
-                    masked.update(self.bfs(self.depending, job))
+        if is_all_forced:
+            # all jobs are forced, no need to check for needrun
+            for level in candidates:
+                for job in level:
+                    self.reason(job).forced = True
+                    _needrun.add(job)
+        else:
+            # Update the output mintime of all jobs.
+            # We traverse them in BFS (level order) starting from target jobs.
+            # Then, we check output mintime of job itself and all direct descendants,
+            # which have already been visited in the level before.
+            # This way, we achieve a linear runtime.
+            for level in reversed(candidates):
+                for job in level:
+                    update_output_mintime(job)
 
-        # bi-directional BFS to determine further needrun jobs
-        visited = set(queue)
-        candidates_set = set(job for level in candidates for job in level)
-        while queue:
-            job = queue.popleft()
-            _needrun.add(job)
+            # Update prior reason for all candidate jobs
+            # Move from the first level to the last of the toposorted candidates.
+            # If a job is needrun, mask all downstream jobs, they will below
+            # in the bi-directional BFS
+            # be determined as needrun because they depend on them.
+            masked = set()
+            queue = deque()
+            for level in candidates:
+                for job in level:
+                    if job in masked:
+                        # depending jobs of jobs that are needrun as a prior
+                        # can be skipped
+                        continue
+                    if update_needrun(job):
+                        queue.append(job)
+                        masked.update(self.bfs(self.depending, job))
 
-            for job_, files in dependencies[job].items():
-                missing_output = list(job_.missing_output(files))
-                reason(job_).missing_output.update(missing_output)
-                if missing_output and job_ not in visited:
-                    visited.add(job_)
-                    queue.append(job_)
+            # bi-directional BFS to determine further needrun jobs
+            visited = set(queue)
+            candidates_set = set(job for level in candidates for job in level)
+            while queue:
+                job = queue.popleft()
+                _needrun.add(job)
 
-            for job_, files in depending[job].items():
-                if job_ in candidates_set:
-                    if job_ not in visited:
-                        if all(f.is_ancient and f.exists for f in files):
-                            # No other reason to run job_.
-                            # Since all files are ancient, we do not trigger it.
-                            continue
+                for job_, files in dependencies[job].items():
+                    missing_output = list(job_.missing_output(files))
+                    reason(job_).missing_output.update(missing_output)
+                    if missing_output and job_ not in visited:
                         visited.add(job_)
                         queue.append(job_)
-                    reason(job_).updated_input_run.update(files)
+
+                for job_, files in depending[job].items():
+                    if job_ in candidates_set:
+                        if job_ not in visited:
+                            if all(f.is_ancient and f.exists for f in files):
+                                # No other reason to run job_.
+                                # Since all files are ancient, we do not trigger it.
+                                continue
+                            visited.add(job_)
+                            queue.append(job_)
+                        reason(job_).updated_input_run.update(files)
 
         # update _n_until_ready
         for job in _needrun:
