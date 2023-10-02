@@ -17,7 +17,7 @@ from typing import Optional
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 from snakemake_interface_executor_plugins.jobs import (
     JobExecutorInterface,
     GroupJobExecutorInterface,

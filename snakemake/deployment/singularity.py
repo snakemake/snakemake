@@ -16,7 +16,7 @@ from snakemake.common import (
 )
 from snakemake.exceptions import WorkflowError
 from snakemake.logging import logger
-from snakemake_interface_executor_plugins.utils import lazy_property
+from snakemake_interface_common.utils import lazy_property
 
 
 SNAKEMAKE_MOUNTPOINT = "/mnt/snakemake"
