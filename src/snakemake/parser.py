@@ -82,6 +82,7 @@ class StopAutomaton(Exception):
 class TokenAutomaton:
     subautomata: Dict[str, Any] = {}
     deprecated: Dict[str, str] = {}
+    print_compilation = False
 
     def __init__(self, snakefile: "Snakefile", base_indent=0, dedent=0, root=True):
         self.root = root
@@ -290,7 +291,11 @@ class Envvars(GlobalKeywordState):
 
 
 class Include(GlobalKeywordState):
-    pass
+    def block_content(self, token):
+        if self.print_compilation:
+            yield f"{token.string}, print_compilation=True", token
+        else:
+            yield token.string, token
 
 
 class Workdir(GlobalKeywordState):
@@ -1302,8 +1307,10 @@ def parse(
     linemap: Dict[int, int],
     overwrite_shellcmd=None,
     rulecount=0,
+    print_compilation=False,
 ):
     Shell.overwrite_cmd = overwrite_shellcmd
+    TokenAutomaton.print_compilation = print_compilation
     with Snakefile(path, workflow, rulecount=rulecount) as snakefile:
         automaton = Python(snakefile)
         compilation = list()
