@@ -280,6 +280,13 @@ class Workflow(WorkflowExecutorInterface):
     def non_local_exec(self):
         return not self.local_exec
 
+    @property
+    def exec_mode(self):
+        if self.execution_settings is not None:
+            return self.execution_settings.mode
+        else:
+            return ExecMode.DEFAULT
+
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:
         from snakemake.spawn_jobs import SpawnedJobArgsFactory
@@ -938,7 +945,7 @@ class Workflow(WorkflowExecutorInterface):
             shadow_prefix=self.execution_settings.shadow_prefix,
         )
 
-        if self.execution_settings.mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
+        if self.exec_mode in [ExecMode.SUBPROCESS, ExecMode.REMOTE]:
             self.persistence.deactivate_cache()
 
         self._build_dag()
@@ -1026,7 +1033,7 @@ class Workflow(WorkflowExecutorInterface):
                     ):
                         logger.info("Singularity containers: ignored")
 
-                    if self.execution_settings.mode == ExecMode.DEFAULT:
+                    if self.exec_mode == ExecMode.DEFAULT:
                         logger.run_info("\n".join(self.dag.stats()))
                 else:
                     logger.info(NOTHING_TO_BE_DONE_MSG)
@@ -1085,7 +1092,7 @@ class Workflow(WorkflowExecutorInterface):
             if (
                 not self.remote_execution_settings.immediate_submit
                 and not self.dryrun
-                and self.execution_settings.mode == ExecMode.DEFAULT
+                and self.exec_mode == ExecMode.DEFAULT
             ):
                 self.dag.cleanup_workdir()
 

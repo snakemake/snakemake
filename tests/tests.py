@@ -344,14 +344,6 @@ def test_yaml_config():
     run(dpath("test_yaml_config"))
 
 
-@skip_on_windows
-@pytest.mark.xfail(
-    reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
-)
-def test_remote():
-    run(dpath("test_remote"), cores=1)
-
-
 @pytest.mark.skip(reason="This does not work reliably in CircleCI.")
 def test_symlink_temp():
     run(dpath("test_symlink_temp"), shouldfail=True)
@@ -554,49 +546,6 @@ def test_spaces_in_fnames():
     )
 
 
-# TODO deactivate because of problems with moto and boto3.
-# def test_static_remote():
-#     import importlib
-#     try:
-#         importlib.reload(boto3)
-#         importlib.reload(moto)
-#         # only run the remote file test if the dependencies
-#         # are installed, otherwise do nothing
-#         run(dpath("test_static_remote"), cores=1)
-#     except ImportError:
-#         pass
-
-
-@connected
-def test_remote_ncbi_simple():
-    try:
-        import Bio
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_remote_ncbi_simple"))
-    except ImportError:
-        pass
-
-
-@connected
-def test_remote_ncbi():
-    try:
-        import Bio
-
-        # only run the remote file test if the dependencies
-        # are installed, otherwise do nothing
-        run(dpath("test_remote_ncbi"))
-    except ImportError:
-        pass
-
-
-@ci
-@skip_on_windows
-def test_remote_irods():
-    run(dpath("test_remote_irods"))
-
-
 def test_deferred_func_eval():
     run(dpath("test_deferred_func_eval"))
 
@@ -700,135 +649,45 @@ def test_dynamic_temp():
     run(dpath("test_dynamic_temp"))
 
 
-# TODO this currently hangs. Has to be investigated (issue #660).
-# def test_ftp_immediate_close():
-#    try:
-#        import ftputil
-#
-#        # only run the remote file test if the dependencies
-#        # are installed, otherwise do nothing
-#        run(dpath("test_ftp_immediate_close"))
-#    except ImportError:
-#        pass
-
-
 def test_issue260():
     run(dpath("test_issue260"))
 
 
-@skip_on_windows
-@not_ci
-def test_default_storage():
-    from snakemake_storage_plugin_s3 import StorageProviderSettings
-    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
-    import uuid
-    import boto3
+def test_default_storage(s3_storage):
+    prefix, settings = s3_storage
 
-    endpoint_url = "https://play.minio.io:9000"
-    access_key = "Q3AM3UQ867SPQQA43P2F"
-    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
-    bucket = f"snakemake-{uuid.uuid4().hex}"
-
-    tagged_settings = TaggedSettings()
-    tagged_settings.register_settings(
-        StorageProviderSettings(
-            endpoint_url=endpoint_url,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
+    run(
+        dpath("test_default_remote"),
+        cores=1,
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
     )
 
-    try:
-        run(
-            dpath("test_default_remote"),
-            cores=1,
-            default_storage_provider="s3",
-            default_storage_prefix=f"s3://{bucket}",
-            storage_provider_settings={"s3": tagged_settings},
-        )
-    finally:
-        # clean up using boto3
-        s3c = boto3.resource(
-            "s3",
-            endpoint_url=endpoint_url,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-        )
-        try:
-            s3c.Bucket(bucket).delete()
-        except Exception:
-            pass
+
+def test_storage(s3_storage):
+    prefix, settings = s3_storage
+
+    run(
+        dpath("test_storage"),
+        config={"s3_prefix": prefix},
+        storage_provider_settings=settings,
+    )
+
+
+# TODO enable once storage directive is implemented
+# def test_storage_directive(s3_storage):
+#     prefix, settings = s3_storage
+
+#     run(
+#         dpath("test_storage_directive"),
+#         config={"s3_prefix": prefix},
+#         storage_provider_settings=settings,
+#     )
 
 
 def test_run_namedlist():
     run(dpath("test_run_namedlist"))
-
-
-@connected
-@not_ci
-@skip_on_windows
-def test_remote_gs():
-    run(dpath("test_remote_gs"))
-
-
-@pytest.mark.skip(reason="Need to choose how to provide billable project")
-@connected
-@not_ci
-def test_gs_requester_pays(
-    requesting_project=None,
-    requesting_url="gcp-public-data-landsat/LC08/01/001/003/LC08_L1GT_001003_20170430_20170501_01_RT/LC08_L1GT_001003_20170430_20170501_01_RT_MTL.txt",
-):
-    """Tests pull-request 79 / issue 96 for billable user projects on GS
-
-    If requesting_project None, behaves as test_remote_gs().
-
-    Parameters
-    ----------
-    requesting_project: Optional[str]
-        User project to bill for download. None will not provide the project for
-        requester-pays as is the usual default
-    requesting_url: str
-        URL of the bucket to download. The default will match the expected output but is a
-        bucket that doesn't require requester pays.
-    """
-    # create temporary config file
-    with tempfile.NamedTemporaryFile(suffix=".yaml") as handle:
-        # specify project and url for download
-        if requesting_project is None:
-            handle.write(b"project: null\n")
-        else:
-            handle.write('project: "{}"\n'.format(requesting_project).encode())
-        handle.write('url: "{}"\n'.format(requesting_url).encode())
-        # make sure we can read them
-        handle.flush()
-        # run the pipeline
-        run(dpath("test_gs_requester_pays"), configfiles=[handle.name], forceall=True)
-
-
-@pytest.mark.skip(reason="We need free azure access to test this in CircleCI.")
-@connected
-@ci
-@skip_on_windows
-def test_remote_azure():
-    run(dpath("test_remote_azure"))
-
-
-def test_remote_log():
-    run(dpath("test_remote_log"), shouldfail=True)
-
-
-@connected
-def test_remote_http():
-    run(dpath("test_remote_http"))
-
-
-@skip_on_windows
-@connected
-def test_remote_http_cluster():
-    run(
-        dpath("test_remote_http"),
-        cluster=os.path.abspath(dpath("test_group_job_fail/qsub")),
-    )
 
 
 def test_profile():
@@ -1495,22 +1354,17 @@ def test_output_file_cache():
 @pytest.mark.xfail(
     reason="moto currently fails with \"'_patch' object has no attribute 'is_local'\""
 )
-def test_output_file_cache_remote():
+def test_output_file_cache_storage(s3_storage):
+    prefix, settings = s3_storage
     test_path = dpath("test_output_file_cache_remote")
     os.environ["SNAKEMAKE_OUTPUT_CACHE"] = "cache"
     run(
         test_path,
         cache=["a", "b", "c"],
-        default_storage_provider="S3Mocked",
-        default_storage_prefix="test-remote-bucket",
+        default_storage_provider="s3",
+        default_storage_prefix=prefix,
+        storage_provider_settings=settings,
     )
-
-
-@connected
-@zenodo
-@pytest.mark.xfail(reason="zenodo currently returns an internal server error")
-def test_remote_zenodo():
-    run(dpath("test_remote_zenodo"))
 
 
 def test_multiext():

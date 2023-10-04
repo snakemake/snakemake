@@ -124,6 +124,42 @@ def print_tree(path, exclude=None):
             print(f"{subindent}{f}")
 
 
+@pytest.fixture
+def s3_storage():
+    from snakemake_storage_plugin_s3 import StorageProviderSettings
+    from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
+    import uuid
+    import boto3
+
+    endpoint_url = "https://play.minio.io:9000"
+    access_key = "Q3AM3UQ867SPQQA43P2F"
+    secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    bucket = f"snakemake-{uuid.uuid4().hex}"
+
+    tagged_settings = TaggedSettings()
+    tagged_settings.register_settings(
+        StorageProviderSettings(
+            endpoint_url=endpoint_url,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+    )
+
+    yield f"s3://{bucket}", {"s3": tagged_settings}
+
+    # clean up using boto3
+    s3c = boto3.resource(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+    )
+    try:
+        s3c.Bucket(bucket).delete()
+    except Exception:
+        pass
+
+
 def run(
     path,
     shouldfail=False,

@@ -621,7 +621,7 @@ class Rule(RuleInterface):
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.execution_settings.mode != ExecMode.SUBPROCESS
+                    and self.workflow.exec_mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(

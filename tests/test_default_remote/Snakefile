@@ -76,5 +76,7 @@ rule e:
 rule base:
     output:
         "test.txt"
+    log:
+        "logs/base.log"
     shell:
-        "touch {output}"
+        "touch {output} 2> {log}"

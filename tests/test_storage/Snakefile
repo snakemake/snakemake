@@ -1,0 +1,23 @@
+storage minio:
+    retries: 3
+
+rule all:
+    input:
+        storage(f"{config['s3_prefix']}/test2.out", provider="s3:minio")
+
+
+rule a:
+    output:
+        storage(f"{config['s3_prefix']}/test.out", provider="s3:minio")
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        rules.a.output[0]
+    output:
+        storage(f"{config['s3_prefix']}/test2.out", provider="s3:minio")
+    shell:
+        "cp {input} {output}"
+

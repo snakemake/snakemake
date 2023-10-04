@@ -86,7 +86,7 @@ class DAG(DAGExecutorInterface):
         omitrules=None,
         ignore_incomplete=False,
     ):
-        self.is_main_process = workflow.execution_settings.mode == ExecMode.DEFAULT
+        self.is_main_process = workflow.exec_mode == ExecMode.DEFAULT
         self.dependencies = defaultdict(partial(defaultdict, set))
         self.depending = defaultdict(partial(defaultdict, set))
         self._needrun = set()
@@ -310,7 +310,7 @@ class DAG(DAGExecutorInterface):
 
     def retrieve_storage_inputs(self):
         if self.is_main_process or (
-            self.workflow.execution_settings.mode == ExecMode.REMOTE
+            self.workflow.exec_mode == ExecMode.REMOTE
             and not self.workflow.storage_settings.assume_shared_fs
         ):
 
@@ -748,7 +748,7 @@ class DAG(DAGExecutorInterface):
 
     def handle_storage(self, job, store_in_storage=True):
         """Remove local files if they are no longer needed and upload."""
-        mode = self.workflow.execution_settings.mode
+        mode = self.workflow.exec_mode
         if store_in_storage and (mode == ExecMode.REMOTE or mode == ExecMode.DEFAULT):
             # handle output files
             files = job.expanded_output
