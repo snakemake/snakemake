@@ -836,6 +836,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             )
 
+        # TODO: instead of removing existing output, move it into a temp dir
+        # and make the files available to shell/run/script as prevoutput.
+        # Then delete after job completion.
         self.remove_existing_output()
 
         # Create tmpdir if necessary
