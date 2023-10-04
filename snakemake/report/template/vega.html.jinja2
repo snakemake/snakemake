@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+
+<div id="vis"></div>
+
+<script>{{packages["vega"].url|get_resource_as_string}}</script>
+<script>{{packages["vega-lite"].url|get_resource_as_string}}</script>
+<script>{{packages["vega-embed"].url|get_resource_as_string}}</script>
+
+<script type="text/javascript">
+  var spec = {{spec}};
+  vegaEmbed('#vis', spec).then(function(result) {
+    // Access the Vega view instance (https://vega.github.io/vega/docs/api/view/) as result.view
+  }).catch(console.error);
+</script>
+</body>
+</html>

@@ -99,6 +99,10 @@ def mime_from_file(file):
         logger.info(
             "Could not detect mimetype for {}, assuming text/plain.".format(file)
         )
+    if file.endswith(".vl.json"):
+        mime = "application/vnd.vegalite+json"
+    elif file.endswith(".vg.json"):
+        mime = "application/vnd.vega+json"
     return mime, encoding
 
 
@@ -480,6 +484,22 @@ class FileRecord:
                 )
         else:
             self.caption = ""
+
+    def write_data(self, zipfile, basedir, template_env=None, packages=None):
+        zip_path = str(basedir.joinpath(self.data_uri))
+        if self.is_vega:
+            # encode as HTML file
+            template = template_env.get_template("vega.html.jinja2")
+            with open(self.path, "r") as spec_file:
+                try:
+                    spec = json.dumps(json.load(spec_file))
+                except json.JSONDecodeError as e:
+                    raise WorkflowError(
+                        f"Failed to read Vega/Vega-Lite spec from {self.path} (invalid JSON)."
+                    )
+                zipfile.writestr(zip_path, template.render(spec=spec, packages=packages))
+        else:
+            zipfile.write(self.path, zip_path)
 
     @property
     def is_img(self):
@@ -878,7 +898,9 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                 for catresults in subcats.values():
                     for result in catresults:
                         # write raw data
-                        zipout.write(result.path, str(folder.joinpath(result.data_uri)))
+                        result.write_data(
+                            zipout, basedir=folder, template_env=env, packages=packages
+                        )
                         # write aux files
                         parent = folder.joinpath(result.data_uri).parent
                         for aux_path in result.aux_files:
