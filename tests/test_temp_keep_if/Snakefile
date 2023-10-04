@@ -1,0 +1,109 @@
+rule all:
+    input:
+        "test1.out",
+        "test2.out",
+        "test3.out",
+        "test4.out",
+        "test5.out",
+        "test6.out",
+        "test7.out",
+        "test8.out",
+
+
+# Case: not temp. Output files should be there.
+
+
+rule rule1:
+    output:
+        "test1.out",
+    shell:
+        "touch {output}"
+
+
+def f2(f):
+    assert f == "test2.out"
+    global called_f2
+    called_f2 = True
+    return True
+
+
+rule rule2:
+    output:
+        temp("test2.out", keep_if=f2),
+    shell:
+        "touch {output}"
+
+
+# Case: is temp. Output files should get deleted.
+
+
+rule rule3:
+    output:
+        temp("test3.out"),
+    shell:
+        "touch {output}"
+
+
+def f4(f):
+    assert f == "test4.out"
+    global called_f4
+    called_f4 = True
+    return False
+
+
+rule rule4:
+    output:
+        temp("test4.out", keep_if=f4),
+    shell:
+        "touch {output}"
+
+
+# Case: is temp. Output files should get deleted. Uses wildcards.
+
+
+rule rule5:
+    output:
+        temp("test{i}.out"),
+    wildcard_constraints:
+        i="5",
+    shell:
+        "touch {output}"
+
+
+def f6(f):
+    assert f == "test6.out"
+    global called_f6
+    called_f6 = True
+    return False
+
+
+rule rule6:
+    output:
+        temp("test{i}.out", keep_if=f6),
+    wildcard_constraints:
+        i="6",
+    shell:
+        "touch {output}"
+
+
+# Test boolean (instead of callable)
+
+
+rule rule7:
+    output:
+        temp("test7.out", keep_if=False),
+    shell:
+        "touch {output}"
+
+
+rule rule8:
+    output:
+        temp("test8.out", keep_if=True),
+    shell:
+        "touch {output}"
+
+
+onsuccess:
+    assert called_f2
+    assert called_f4
+    assert called_f6

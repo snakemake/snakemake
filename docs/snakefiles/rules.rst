@@ -1214,6 +1214,27 @@ Further, an output file marked as ``temp`` is deleted after all rules that use i
         shell:
             "somecommand {input} {output}"
 
+The ``temp`` can be disabled by using the ``keep_if`` keyword agument, as in:  ``temp("path/to/outputfile", keep_if=x)``.
+In this example, ``x`` can be an expression (like ``False`` or ``config.get("foo", False)``), or a callable which accepts a single argument (the name of the output file) like in the example below.
+In both cases, the truthiness of the expression or the return value will be used to determine if the file is deleted or kept.
+
+.. code-block:: python
+
+    FILES = ["file.ext", "file.ext.ext.ext"]
+
+    rule all:
+        input:
+            FILES
+
+    rule foo:
+        input:
+            "{path}"
+        output:
+            # "file.ext.ext" will be deleted. The other two will be kept.
+            temp("{path}.ext", keep_if=lambda f: f in FILES)
+        shell:
+            "somecommand {input} {output}"
+
 .. _snakefiles-directory_output:
 
 Directories as outputs

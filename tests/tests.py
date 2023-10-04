@@ -328,6 +328,10 @@ def test_temp_expand():
     run(dpath("test_temp_expand"))
 
 
+def test_temp_keep_if():
+    run(dpath("test_temp_keep_if"))
+
+
 def test_wildcard_count_ambiguity():
     run(dpath("test_wildcard_count_ambiguity"))
 

@@ -676,7 +676,13 @@ class DAG(DAGExecutorInterface):
                 self.handle_temp(j)
             return
 
-        is_temp = lambda f: is_flagged(f, "temp")
+        def is_temp(f):
+            if not is_flagged(f, "temp"):
+                return False
+            keep_if = is_flagged(f, "keep_if")
+            if callable(keep_if):
+                return not keep_if(f)
+            return not bool(keep_if)
 
         # handle temp input
         needed = lambda job_, f: any(
