@@ -37,14 +37,13 @@ class SpawnedJobArgsFactory:
         else:
             return ""
 
-    def get_storage_provider_args(self):
+    def _get_storage_provider_setting_items(self):
         for (
             plugin_name,
             tagged_settings,
         ) in self.workflow.storage_provider_settings.items():
             plugin = StoragePluginRegistry().get_plugin(plugin_name)
             for field in fields(plugin.settings_cls):
-                cli_arg = plugin.get_cli_arg(field.name)
                 unparse = field.metadata.get("unparse", lambda value: value)
 
                 def fmt_value(tag, value):
@@ -62,7 +61,19 @@ class SpawnedJobArgsFactory:
                     if value is not None
                 ]
                 if field_settings:
-                    yield format_cli_arg(cli_arg, field_settings)
+                    yield plugin, field, field_settings
+
+    def get_storage_provider_args(self):
+        for plugin, field, field_settings in self._get_storage_provider_setting_items():
+            cli_arg = plugin.get_cli_arg(field.name)
+            yield format_cli_arg(cli_arg, field_settings)
+
+    def get_storage_provider_envvars(self):
+        return {
+            plugin.get_envvar(field.name): field_settings
+            for plugin, field, field_settings in self._get_storage_provider_setting_items()
+            if "env_var" in field.metadata
+        }
 
     def get_set_resources_args(self):
         return format_cli_arg(
@@ -105,6 +116,14 @@ class SpawnedJobArgsFactory:
             value = not value
 
         return format_cli_arg(flag, value, quote=quote)
+
+    def envvars(self):
+        envvars = {
+            var: os.environ[var]
+            for var in self.workflow.remote_execution_settings.envvars
+        }
+        envvars.update(self.get_storage_provider_envvars())
+        return envvars
 
     def general_args(
         self,

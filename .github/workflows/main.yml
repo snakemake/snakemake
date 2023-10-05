@@ -74,6 +74,7 @@ jobs:
           mamba env update -q -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
           pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
