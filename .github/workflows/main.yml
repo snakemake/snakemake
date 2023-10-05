@@ -66,6 +66,7 @@ jobs:
           channels: "conda-forge, bioconda"
           miniforge-variant: Mambaforge
           miniforge-version: latest
+
       - name: Setup Snakemake environment
         shell: bash -el {0}
         run: |
@@ -87,19 +88,13 @@ jobs:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1:
           # cannot open shared object file: No such file or directory
           # mamba install -n snakemake "singularity<=3.8.6"
+
       - name: Setup apt dependencies
         run: |
           sudo gem install apt-spy2
           sudo apt-spy2 fix --commit --launchpad --country=US
           sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
-      - name: Setup iRODS
-        run: |
-          docker build -t irods-server tests/test_remote_irods
-          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
-          sleep 10
-          docker exec -u irods provider iput /incoming/infile
-          cp -r tests/test_remote_irods/setup-data ~/.irods
 
       - name: Test local
         env:
