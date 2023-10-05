@@ -792,28 +792,27 @@ class DAG(DAGExecutorInterface):
             )
 
             async def unneeded_files():
-                putative = (
-                    lambda f: f.is_storage
+                async def putative(f):
+                    return (f.is_storage
                     and not await f.protected()
-                    and not f.should_keep_local
-                )
+                    and not f.should_keep_local)
 
                 generated_input = set()
                 for job_, files in self.dependencies[job].items():
                     generated_input |= files
-                    for f in filter(putative, files):
-                        if not needed(job_, f):
+                    for f in files:
+                        if await putative(f) and not needed(job_, f):
                             yield f
                 for f, f_ in zip(job.output, job.rule.output):
-                    if putative(f) and not needed(job, f) and not f in self.targetfiles:
+                    if await putative(f) and not needed(job, f) and not f in self.targetfiles:
                         if f in job.dynamic_output:
                             for f_ in job.expand_dynamic(f_):
                                 yield f_
                         else:
                             yield f
-                for f in filter(putative, job.input):
+                for f in job.input:
                     # TODO what about storage inputs that are used by multiple jobs?
-                    if f not in generated_input:
+                    if await putative(f) and f not in generated_input:
                         yield f
 
             for f in await unneeded_files():

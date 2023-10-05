@@ -652,7 +652,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         return mintime
 
     async def missing_output(self, requested):
-        def handle_file(f):
+        async def handle_file(f):
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
             if is_flagged(f, "pipe") or is_flagged(f, "service") or not await f.exists():
@@ -665,10 +665,12 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                         if not self.expand_dynamic(f_):
                             yield f"{f_} (dynamic)"
                     else:
-                        yield from handle_file(f)
+                        async for f in handle_file(f):
+                            yield f
         else:
             for f in requested:
-                yield from handle_file(f)
+                async for f in handle_file(f):
+                    yield f
 
     @property
     def local_input(self):
