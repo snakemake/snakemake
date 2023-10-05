@@ -191,7 +191,7 @@ class DAG(DAGExecutorInterface):
 
         self.cleanup()
 
-        self.check_incomplete()
+        await self.check_incomplete()
 
         self.update_container_imgs()
         self.update_conda_envs()
@@ -368,11 +368,11 @@ class DAG(DAGExecutorInterface):
         """Update the OutputIndex."""
         self.output_index = OutputIndex(self.rules)
 
-    def check_incomplete(self):
+    async def check_incomplete(self):
         """Check if any output files are incomplete. This is done by looking up
         markers in the persistence module."""
         if not self.ignore_incomplete:
-            incomplete = self.incomplete_files
+            incomplete = await self.incomplete_files()
             if incomplete:
                 if self.workflow.dag_settings.force_incomplete:
                     logger.debug("Forcing incomplete files:")
@@ -491,20 +491,15 @@ class DAG(DAGExecutorInterface):
         """Return the files a job requests."""
         return set(*self.depending[job].values())
 
-    @property
-    def incomplete_files(self):
-        """Return list of incomplete files."""
-        return list(
-            chain(
-                *(
-                    job.output
-                    for job in filter(
-                        self.workflow.persistence.incomplete,
-                        filterfalse(self.needrun, self.jobs),
-                    )
-                )
-            )
-        )
+    async def incomplete_files(self):
+        """Yield incomplete files."""
+        incomplete = list()
+        for job in filterfalse(self.needrun, self.jobs):
+            is_incomplete = await self.workflow.persistence.incomplete(job)
+            if is_incomplete:
+                for f in job.output:
+                    incomplete.append(f)
+        return incomplete
 
     @property
     def newversion_files(self):

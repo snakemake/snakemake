@@ -345,9 +345,9 @@ class Persistence(PersistenceExecutorInterface):
                 return rec_path in self._incomplete_cache
 
         async def is_incomplete(f):
-            exists = f.exists()
+            exists = await f.exists()
             marked = marked_incomplete(f)
-            return await exists and marked
+            return exists and marked
 
         async with asyncio.TaskGroup() as tg:
             tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
