@@ -79,6 +79,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
+          pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
 
           # additionally add singularity (not necessary anymore, included in the test env now)
