@@ -53,6 +53,7 @@ from snakemake.utils import update_config, available_cpu_count
 from snakemake.common import (
     SNAKEFILE_CHOICES,
     __version__,
+    async_run,
     get_appdirs,
     get_container_image,
     parse_key_value_arg,
@@ -1761,7 +1762,7 @@ def parse_wait_for_files(args):
 
     aggregated_wait_for_files = args.wait_for_files
     if args.wait_for_files_file is not None:
-        wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait)
+        async_run(wait_for_files([args.wait_for_files_file], latency_wait=args.latency_wait))
 
         with open(args.wait_for_files_file) as fd:
             extra_wait_files = [line.strip() for line in fd.readlines()]

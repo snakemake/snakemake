@@ -18,6 +18,8 @@ from pathlib import Path
 
 from snakemake._version import get_versions
 
+from snakemake_interface_common.exceptions import WorkflowError
+
 __version__ = get_versions()["version"]
 del get_versions
 
@@ -84,9 +86,9 @@ def async_run(coroutine):
     try:
         _ = asyncio.get_running_loop()
     except RuntimeError:
-        asyncio.run(coroutine)
+        return asyncio.run(coroutine)
     else:
-        asyncio.create_task(coroutine)
+        raise WorkflowError("snakemake currently does not support being executed from an already running event loop.")
 
 
 APPDIRS = None

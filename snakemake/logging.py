@@ -15,7 +15,7 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, async_run
 
 
 def get_default_exec_mode():
@@ -487,7 +487,7 @@ class Logger:
         def show_logs(logs):
             from snakemake.io import wait_for_files
 
-            wait_for_files(logs, latency_wait=self.latency_wait)
+            async_run(wait_for_files(logs, latency_wait=self.latency_wait))
             for f in logs:
                 try:
                     content = open(f, "r").read()

@@ -92,6 +92,7 @@ from snakemake_interface_common.utils import not_iterable
 import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
+    async_run,
     is_local_file,
     Rules,
     Scatter,
@@ -188,7 +189,7 @@ class Workflow(WorkflowExecutorInterface):
         _globals["github"] = sourcecache.GithubFile
         _globals["gitlab"] = sourcecache.GitlabFile
         _globals["gitfile"] = sourcecache.LocalGitFile
-        _globals["storage"] = self._storage_registry.storage_object
+        _globals["storage"] = self._storage_registry
 
         self.vanilla_globals = dict(_globals)
         self.modifier_stack = [WorkflowModifier(self, globals=_globals)]
@@ -720,7 +721,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        self.dag.clean(only_temp=only_temp, dryrun=dryrun)
+        async_run(self.dag.clean(only_temp=only_temp, dryrun=dryrun))
 
     def list_untracked(self):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
@@ -732,7 +733,7 @@ class Workflow(WorkflowExecutorInterface):
         self._prepare_dag(forceall=False, ignore_incomplete=False, lock_warn_only=True)
         self._build_dag()
 
-        items = self.dag.get_outputs_with_changes(change_type)
+        items = async_run(self.dag.get_outputs_with_changes(change_type))
         if items:
             print(*items, sep="\n")
 
@@ -755,7 +756,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        print("\n".join(self.dag.summary(detailed=detailed)))
+        print("\n".join(async_run(self.dag.summary(detailed=detailed))))
 
     def conda_cleanup_envs(self):
         self._prepare_dag(forceall=True, ignore_incomplete=True, lock_warn_only=False)
@@ -840,7 +841,7 @@ class Workflow(WorkflowExecutorInterface):
         )
         self._build_dag()
 
-        auto_report(self.dag, path, stylesheet=stylesheet)
+        async_run(auto_report(self.dag, path, stylesheet=stylesheet))
 
     def conda_list_envs(self):
         self._prepare_dag(
@@ -905,7 +906,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
-        self.dag.init()
+        async_run(self.dag.init())
         self.dag.update_checkpoint_dependencies()
         self.dag.check_dynamic()
 
@@ -929,10 +930,10 @@ class Workflow(WorkflowExecutorInterface):
 
         if self.execution_settings.wait_for_files:
             try:
-                snakemake.io.wait_for_files(
+                async_run(snakemake.io.wait_for_files(
                     self.execution_settings.wait_for_files,
                     latency_wait=self.execution_settings.latency_wait,
-                )
+                ))
             except IOError as e:
                 logger.error(str(e))
                 return False
@@ -1095,6 +1096,8 @@ class Workflow(WorkflowExecutorInterface):
                 and self.exec_mode == ExecMode.DEFAULT
             ):
                 self.dag.cleanup_workdir()
+
+            self.dag.cleanup_storage_objects()
 
             if success:
                 if self.dryrun:

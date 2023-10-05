@@ -1,20 +1,23 @@
 rule all:
     input:
-        storage(f"{config['s3_prefix']}/test2.out", provider="s3:minio")
+        storage.s3(f"{config['s3_prefix']}/test2.out")
 
 
 rule a:
+    input:
+        gg=storage("https://www.google.com"),
+        gg2=storage.http("https://www.google.com")
     output:
-        storage(f"{config['s3_prefix']}/test.out", provider="s3:minio")
+        storage.s3(f"{config['s3_prefix']}/test.out")
     shell:
-        "touch {output}"
+        "cp {input.gg} {output}"
 
 
 rule b:
     input:
         rules.a.output[0]
     output:
-        storage(f"{config['s3_prefix']}/test2.out", provider="s3:minio")
+        storage.s3(f"{config['s3_prefix']}/test2.out")
     shell:
         "cp {input} {output}"
 

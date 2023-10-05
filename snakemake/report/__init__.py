@@ -42,6 +42,7 @@ from snakemake.io import (
 from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake.common import (
+    async_run,
     get_input_function_aux_params,
 )
 from snakemake import logging
@@ -555,7 +556,7 @@ def expand_labels(labels, wildcards, job):
     }
 
 
-def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
+async def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     try:
         from jinja2 import Environment, PackageLoader, UndefinedError
     except ImportError as e:
@@ -593,7 +594,7 @@ def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     for job in dag.jobs:
         for f in itertools.chain(job.expanded_output, job.input):
             if is_flagged(f, "report") and f not in recorded_files:
-                if not f.exists:
+                if not await f.exists():
                     raise WorkflowError(
                         "File {} marked for report but does not exist.".format(f)
                     )

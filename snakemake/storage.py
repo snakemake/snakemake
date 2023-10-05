@@ -11,13 +11,17 @@ from snakemake_interface_storage_plugins.storage_object import (
 )
 
 
-@dataclass
 class StorageRegistry:
-    workflow: Workflow
-    _storages: Dict[str, StorageProviderBase] = field(default_factory=dict)
-    _default_storage_provider: Optional[StorageProviderBase] = None
+    attrs = {
+        "workflow", "_storages", "_default_storage_provider", "default_storage_provider",
+        "register_storage", "infer_provider", "_storage_object", "__getattribute__", "attrs"
+    }
 
-    def __post_init__(self):
+    def __init__(self, workflow: Workflow):
+        self.workflow = workflow
+        self._storages = dict()
+        self._default_storage_provider = None
+
         if self.workflow.storage_settings.default_storage_provider is not None:
             self._default_storage_provider = self.register_storage(
                 self.workflow.storage_settings.default_storage_provider, is_default=True
@@ -56,7 +60,7 @@ class StorageRegistry:
         final_settings = copy.copy(final_settings)
         final_settings.__dict__.update(**settings)
 
-        name = f"{plugin.name}:{tag}" if tag else plugin.name
+        name = tag if tag else plugin.name
 
         local_prefix = self.workflow.storage_settings.local_storage_prefix / name
 
@@ -103,7 +107,25 @@ class StorageRegistry:
                 "Explictly specify the storage provider."
             )
 
-    def storage_object(
+    def __getattribute__(self, name: str) -> Any:
+        if name == "attrs":
+            return super().__getattribute__(name)
+        elif name in self.attrs:
+            return super().__getattribute__(name)
+        else:
+            return StorageProviderProxy(registry=self, name=name)
+    
+    def __call__(
+        self,
+        query: str,
+        retrieve: bool = True,
+        keep_local: bool = False,
+    ):
+        return self._storage_object(
+            query, provider=None, retrieve=retrieve, keep_local=keep_local
+        )
+
+    def _storage_object(
         self,
         query: str,
         provider: Optional[str] = None,
@@ -117,12 +139,22 @@ class StorageRegistry:
 
         provider = self._storages.get(provider_name)
         if provider is None:
-            if ":" in provider_name:
-                raise WorkflowError(
-                    "Usage of tagged storage (e.g. s3:mytag) requires a storage "
-                    "directive (storage: ...) to be used before in the workflow that "
-                    "defines the tag and the associated storage provider and settings."
-                )
             provider = self.register_storage(provider_name)
 
         return provider.object(query, retrieve=retrieve, keep_local=keep_local)
+
+
+class StorageProviderProxy:
+    def __init__(self, registry: StorageRegistry, name: str):
+        self.registry = registry
+        self.name = name
+
+    def __call__(
+        self,
+        query: str,
+        retrieve: bool = True,
+        keep_local: bool = False,
+    ):
+        return self.registry._storage_object(
+            query, provider=self.name, retrieve=retrieve, keep_local=keep_local
+        )

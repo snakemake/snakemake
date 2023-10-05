@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from collections import defaultdict
 import os, signal, sys
 import threading
 
@@ -13,6 +14,7 @@ from contextlib import ContextDecorator
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
+from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
 from snakemake.logging import logger
@@ -654,20 +656,16 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 for idx, job in enumerate(jobs)
             }
 
-            def size_gb(f):
-                if self.touch:
-                    # In case of touch mode, there is no need to prioritize based on size.
-                    # We cannot access it anyway, because the files might be temporary and
-                    # not present.
-                    return 0
-                else:
-                    return f.size / 1e9
-
             temp_files = {
                 temp_file
                 for job in jobs
                 for temp_file in self.workflow.dag.temp_input(job)
             }
+
+            async def get_temp_sizes_gb():
+                return {f: (await f.size()) / 1e9 for f in temp_files}
+                
+            temp_sizes_gb = defaultdict(int) if self.touch else async_run(get_temp_sizes_gb())
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
@@ -688,7 +686,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             prob = pulp.LpProblem("JobScheduler", pulp.LpMaximize)
 
             total_temp_size = max(
-                sum([size_gb(temp_file) for temp_file in temp_files]), 1
+                sum([temp_sizes_gb[temp_file] for temp_file in temp_files]), 1
             )
             total_core_requirement = sum(
                 [max(job.scheduler_resources.get("_cores", 1), 1) for job in jobs]
@@ -715,13 +713,13 @@ class JobScheduler(JobSchedulerExecutorInterface):
                 + total_temp_size
                 * lpSum(
                     [
-                        temp_file_deletable[temp_file] * size_gb(temp_file)
+                        temp_file_deletable[temp_file] * temp_sizes_gb[temp_file]
                         for temp_file in temp_files
                     ]
                 )
                 + lpSum(
                     [
-                        temp_job_improvement[temp_file] * size_gb(temp_file)
+                        temp_job_improvement[temp_file] * temp_sizes_gb[temp_file]
                         for temp_file in temp_files
                     ]
                 )
@@ -830,7 +828,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
             E = set(range(n))  # jobs still free to select
             u = [1] * n
             a = list(map(self.job_weight, jobs))  # resource usage of jobs
-            c = list(map(self.job_reward, jobs))  # job rewards
+            async def rewards():
+                return [await self.job_reward(job) for job in jobs]
+            c = async_run(rewards())  # job rewards
 
             def calc_reward():
                 return [c_j * y_j for c_j, y_j in zip(c, y)]
@@ -907,7 +907,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self.calc_resource(name, res.get(name, 0)) for name in self.global_resources
         ]
 
-    def job_reward(self, job):
+    async def job_reward(self, job):
         if (
             self.touch
             or self.dryrun
@@ -917,8 +917,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
             input_size = 0
         else:
             try:
-                temp_size = self.workflow.dag.temp_size(job)
-                input_size = job.inputsize
+                temp_size = await self.workflow.dag.temp_size(job)
+                input_size = await job.inputsize()
             except FileNotFoundError:
                 # If the file is not yet present, this shall not affect the
                 # job selection.

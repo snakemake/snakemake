@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import os
 import sys
 import base64
@@ -333,7 +334,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self.rule.expand_benchmark(self.wildcards_dict)
         self.rule.expand_log(self.wildcards_dict)
 
-    def outputs_older_than_script_or_notebook(self):
+    async def outputs_older_than_script_or_notebook(self):
         """return output that's older than script, i.e. script has changed"""
         path = self.rule.script or self.rule.notebook
         if not path:
@@ -344,8 +345,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
             for f in self.expanded_output:
-                if f.exists:
-                    if not f.is_newer(script_mtime):
+                if await f.exists():
+                    if not await f.is_newer(script_mtime):
                         yield f
         # TODO also handle remote file case here.
 
@@ -501,14 +502,13 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             (self.rule.name + "".join(self.output)).encode("utf-8")
         ).decode("utf-8")
 
-    @property
-    def inputsize(self):
+    async def inputsize(self):
         """
         Return the size of the input files.
         Input files need to be present.
         """
         if self._inputsize is None:
-            self._inputsize = sum(f.size for f in self.input)
+            self._inputsize = sum(await f.size() for f in self.input)
         return self._inputsize
 
     @property
@@ -628,50 +628,22 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         return wildcards
 
     @property
-    def missing_input(self):
-        """Return missing input files."""
-        return set(f for f in self.input if not f.exists)
-
-    @property
-    def existing_remote_input(self):
-        files = set()
-
-        for f in self.input:
-            if f.is_storage:
-                if f.exists_in_storage:
-                    files.add(f)
-        return files
-
-    @property
-    def existing_remote_output(self):
-        files = set()
-
-        for f in self.storage_output:
-            if f.exists_in_storage:
-                files.add(f)
-        return files
-
-    @property
-    def missing_remote_input(self):
-        return self.storage_input - self.existing_remote_input
-
-    @property
-    def missing_remote_output(self):
-        return self.storage_output - self.existing_remote_output
-
-    @property
-    def output_mintime(self):
+    async def output_mintime(self):
         """Return oldest output file."""
-        try:
-            mintime = min(
-                f.mtime.local_or_storage() for f in self.expanded_output if f.exists
-            )
-        except ValueError:
-            # no existing output
-            mintime = None
+        async def get_mtime(f):
+            if await f.exists():
+                return (await f.mtime()).local_or_storage()
+            else:
+                return None
 
-        if self.benchmark and self.benchmark.exists:
-            mintime_benchmark = self.benchmark.mtime.local_or_storage()
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(get_mtime(f)) for f in self.expanded_output]
+        mintimes = list(filter(lambda res: res is not None, (task.result() for task in tasks)))
+
+        mintime = min(mintimes) if mintimes else None
+
+        if self.benchmark and await self.benchmark.exists():
+            mintime_benchmark = (await self.benchmark.mtime()).local_or_storage()
             if mintime is not None:
                 return min(mintime, mintime_benchmark)
             else:
@@ -679,11 +651,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
         return mintime
 
-    def missing_output(self, requested):
+    async def missing_output(self, requested):
         def handle_file(f):
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
-            if is_flagged(f, "pipe") or is_flagged(f, "service") or not f.exists:
+            if is_flagged(f, "pipe") or is_flagged(f, "service") or not await f.exists():
                 yield f
 
         if self.dynamic_output:
@@ -730,70 +702,15 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             if f.is_storage:
                 yield f
 
-    @property
-    def storage_input_newer_than_local(self):
-        files = set()
-        for f in self.storage_input:
-            if (f.exists_in_storage and f.exists_local) and (
-                f.mtime.storage() > f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
+    async def existing_output(self):
+        for f in self.expanded_output:
+            if await f.exists():
+                yield f
 
-    @property
-    def storage_input_older_than_local(self):
-        files = set()
-        for f in self.storage_input:
-            if (f.exists_in_storage and f.exists_local) and (
-                f.mtime.storage() < f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def storage_output_newer_than_local(self):
-        files = set()
-        for f in self.storage_output:
-            if (f.exists_in_storage and f.exists_local) and (
-                f.mtime.storage() > f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def storage_output_older_than_local(self):
-        files = set()
-        for f in self.storage_output:
-            if (f.exists_in_storage and f.exists_local) and (
-                f.mtime.storage() < f.mtime.local(follow_symlinks=True)
-            ):
-                files.add(f)
-        return files
-
-    @property
-    def files_to_retrieve(self):
-        to_retrieve = set()
-
-        for f in self.input:
-            if f.is_storage and f.storage_object.retrieve:
-                if (not f.exists_local and f.exists_in_storage) and (
-                    not self.rule.norun or f.storage_object.keep_local
-                ):
-                    to_retrieve.add(f)
-
-        to_retrieve = to_retrieve | self.storage_input_newer_than_local
-        return to_retrieve
-
-    @property
-    def files_to_upload(self):
-        return self.missing_remote_input & self.storage_input_older_than_local
-
-    @property
-    def existing_output(self):
-        return filter(lambda f: f.exists, self.expanded_output)
-
-    def check_protected_output(self):
-        protected = list(filter(lambda f: f.protected, self.expanded_output))
+    async def check_protected_output(self):
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(f.protected()) for f in self.expanded_output]
+        protected = [f for f, task in zip(self.expanded_output, tasks) if task.result()]
         if protected:
             raise ProtectedOutputException(self, protected)
 
@@ -815,14 +732,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f in self.log:
             f.remove(remove_non_empty_dir=False)
 
-    async def retrieve_storage_input_async(self):
-        for f in self.files_to_retrieve:
-            f.retrieve_from_storage()
-
-    def retrieve_storage_input(self):
-        async_run(self.retrieve_storage_input_async())
-
-    def prepare(self):
+    async def prepare(self):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
@@ -833,7 +743,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self.check_protected_output()
 
         unexpected_output = self.dag.reason(self).missing_output.intersection(
-            self.existing_output
+            await self.existing_output()
         )
         if unexpected_output:
             logger.warning(
@@ -852,8 +762,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         for f, f_ in zip(self.output, self.rule.output):
             f.prepare()
 
-        self.retrieve_storage_input()
-
         for f in self.log:
             f.prepare()
         if self.benchmark:
@@ -861,7 +769,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
         # wait for input files, respecting keep_storage_local
         wait_for_local = self.dag.workflow.storage_settings.keep_storage_local
-        wait_for_files(
+        await wait_for_files(
             self.input,
             wait_for_local=wait_for_local,
             latency_wait=self.dag.workflow.execution_settings.latency_wait,
@@ -947,23 +855,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     link = os.path.join(self.shadow_dir, relative_source)
                     os.symlink(source, link)
 
-    def close_storage(self):
-        for f in self.input + self.output:
-            if f.is_storage:
-                f.storage_object.close()
-
-    def cleanup(self):
+    async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.expanded_output if f.exists]
+        to_remove = [f for f in self.expanded_output if await f.exists()]
 
         to_remove.extend(
             [
                 f
                 for f in self.storage_output
                 if (
-                    f.exists_in_storage
+                    await f.exists_in_storage()
                     if (f.is_storage and f.should_not_be_retrieved_from_storage)
-                    else f.exists_local
+                    else await f.exists_local()
                 )
             ]
         )
@@ -1156,7 +1059,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             )
         )
 
-    def postprocess(
+    async def postprocess(
         self,
         store_in_storage=True,
         handle_log=True,
@@ -1172,9 +1075,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:
-                self.dag.handle_log(self)
+                await self.dag.handle_log(self)
             if not error:
-                self.dag.check_and_touch_output(
+                await self.dag.check_and_touch_output(
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     ignore_missing_output=ignore_missing_output,
@@ -1182,12 +1085,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             self.dag.unshadow_output(self, only_log=error)
             if not error:
-                self.dag.handle_storage(self, store_in_storage=store_in_storage)
+                await self.dag.handle_storage(self, store_in_storage=store_in_storage)
                 self.dag.handle_protected(self)
-            self.close_storage()
         else:
             if not error:
-                self.dag.check_and_touch_output(
+                await self.dag.check_and_touch_output(
                     self,
                     wait=self.dag.workflow.execution_settings.latency_wait,
                     no_touch=True,
@@ -1510,7 +1412,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             self._jobid = last_job.uuid()
         return self._jobid
 
-    def cleanup(self):
+    async def cleanup(self):
         for job in self.jobs:
             job.cleanup()
 
@@ -1548,9 +1450,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         ]
 
     @property
-    def inputsize(self):
+    async def inputsize(self):
         if self._inputsize is None:
-            self._inputsize = sum(f.size for f in self.input)
+            self._inputsize = sum(await f.size() for f in self.input)
         return self._inputsize
 
     @property

@@ -12,6 +12,7 @@ import shlex
 import concurrent.futures
 import subprocess
 from functools import partial
+from snakemake.common import async_run
 from snakemake.executors import change_working_directory
 from snakemake.settings import DeploymentMethod
 
@@ -121,7 +122,7 @@ class Executor(RealExecutor):
         self.report_job_submission(job_info)
 
     def job_args_and_prepare(self, job: JobExecutorInterface):
-        job.prepare()
+        async_run(job.prepare())
 
         conda_env = (
             job.conda_env.address
@@ -281,7 +282,7 @@ class Executor(RealExecutor):
     def handle_job_error(self, job: JobExecutorInterface):
         super().handle_job_error(job)
         if not self.keepincomplete:
-            job.cleanup()
+            async_run(job.cleanup())
             self.workflow.persistence.cleanup(job)
 
     @property

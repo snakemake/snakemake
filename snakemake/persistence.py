@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 import os
 import shutil
 import pickle
@@ -20,6 +21,7 @@ from typing import Optional
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
+from snakemake.common import async_run
 
 import snakemake.exceptions
 from snakemake.logging import logger
@@ -290,7 +292,10 @@ class Persistence(PersistenceExecutorInterface):
                 starttime = self._read_record(self._metadata_path, f).get(
                     "starttime", None
                 )
-            endtime = f.mtime.local_or_storage() if f.exists else fallback_time
+            async def endtime():
+                return (await f.mtime()).local_or_storage() if await f.exists() else fallback_time
+            
+            endtime = async_run(endtime())
 
             checksums = ((infile, infile.checksum()) for infile in job.input)
 
@@ -324,7 +329,7 @@ class Persistence(PersistenceExecutorInterface):
             self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
-    def incomplete(self, job):
+    async def incomplete(self, job):
         if self._incomplete_cache is None:
             self._cache_incomplete_folder()
 
@@ -339,7 +344,15 @@ class Persistence(PersistenceExecutorInterface):
                 rec_path = self._record_path(self._incomplete_path, f)
                 return rec_path in self._incomplete_cache
 
-        return any(map(lambda f: f.exists and marked_incomplete(f), job.output))
+        async def is_incomplete(f):
+            exists = f.exists()
+            marked = marked_incomplete(f)
+            return await exists and marked
+
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(is_incomplete(f)) for f in job.output]
+
+        return any(task.result() for task in tasks)
 
     def _cache_incomplete_folder(self):
         self._incomplete_cache = {

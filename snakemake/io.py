@@ -133,8 +133,8 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
-    def mtime_inventory(self, jobs):
-        async_run(self._mtime_inventory(jobs))
+    async def mtime_inventory(self, jobs):
+        self._mtime_inventory(jobs)
 
     async def _mtime_inventory(self, jobs, n_workers=8):
         queue = asyncio.Queue()
@@ -164,9 +164,9 @@ class IOCache(IOCacheStorageInterface):
 
         for job in jobs:
             for f in chain(job.input, job.expanded_output):
-                if f.exists:
+                if await f.exists():
                     queue.put_nowait(f)
-            if job.benchmark and job.benchmark.exists:
+            if job.benchmark and await job.benchmark.exists():
                 queue.put_nowait(job.benchmark)
 
         # Send a stop item to each worker.
@@ -176,7 +176,7 @@ class IOCache(IOCacheStorageInterface):
         await asyncio.gather(*tasks)
 
     async def collect_mtime(self, path):
-        return path.mtime_uncached
+        return await path.mtime_uncached()
 
     def clear(self):
         self.mtime.clear()
@@ -197,35 +197,19 @@ def IOFile(file, rule=None):
     return f
 
 
-def _refer_to_storage(func: Callable):
-    """
-    A decorator so that if the file is in storage and has a version
-    of the same file-related function, call that version instead.
-    """
-
+async def iocache(func: Callable):
     @functools.wraps(func)
-    def wrapper(self: "_IOFile", *args, **kwargs):
-        if self.is_storage:
-            if hasattr(self.storage_object, func.__name__):
-                return getattr(self.storage_object, func.__name__)(*args, **kwargs)
-        return func(self, *args, **kwargs)
-
-    return wrapper
-
-
-def iocache(func: Callable):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
+    async def wrapper(self, *args, **kwargs):
         # self: _IOFile
         if self.rule.workflow.iocache.active:
             cache = getattr(self.rule.workflow.iocache, func.__name__)
             if self in cache:
                 return cache[self]
-            v = func(self, *args, **kwargs)
+            v = await func(self, *args, **kwargs)
             cache[self] = v
             return v
         else:
-            return func(self, *args, **kwargs)
+            return await func(self, *args, **kwargs)
 
     return wrapper
 
@@ -270,10 +254,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             new.storage_object._iofile = new
         return new
 
-    def inventory(self):
-        async_run(self._inventory())
-
-    async def _inventory(self):
+    async def inventory(self):
         """Starting from the given file, try to cache as much existence and
         modification date information of this and other files as possible.
         """
@@ -331,16 +312,18 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
         cache.remaining_wait_time -= time.time() - start_time
 
-    @_refer_to_storage
     def get_inventory_parent(self):
         """If eligible for inventory, get the parent of a given path.
 
         This code does not work on local Windows paths,
         but inventory is disabled on Windows.
         """
-        parent = os.path.dirname(self)
-        if parent and parent != "..":
-            return parent
+        if self.is_storage:
+            return self.storage_object.get_inventory_parent()
+        else:
+            parent = os.path.dirname(self)
+            if parent and parent != "..":
+                return parent
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
@@ -348,12 +331,16 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
         This can (and should) be used in a `with`-statement.
         """
-        if not self.exists:
-            raise WorkflowError(
-                f"File {self} cannot be opened, since it does not exist."
-            )
-        if not self.exists_local and self.is_storage:
-            async_run(self.retrieve_from_storage())
+        
+
+        async def retrieve():
+            if not await self.exists():
+                raise WorkflowError(
+                    f"File {self} cannot be opened, since it does not exist."
+                )
+            if not await self.exists_local() and self.is_storage:
+                await self.retrieve_from_storage()
+        async_run(retrieve())
 
         f = open(self)
         try:
@@ -401,7 +388,6 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         return get_flag_value(self._file, "storage_object")
 
     @property
-    @_refer_to_storage
     def file(self):
         if not self._is_function:
             return self._file
@@ -443,12 +429,11 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 "This is likely unintended. {}".format(self._file, os.path.sep, hint)
             )
 
-    @property
-    def exists(self):
+    async def exists(self):
         if self.is_storage:
-            return self.exists_in_storage
+            return self.exists_in_storage()
         else:
-            return self.exists_local
+            return self.exists_local()
 
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
@@ -457,35 +442,30 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             p.clone_flags(self)
             yield p
 
-    @property
     @iocache
-    def exists_local(self):
+    async def exists_local(self):
         return os.path.exists(self.file)
 
-    @property
     @iocache
-    def exists_in_storage(self):
+    async def exists_in_storage(self):
         if not self.is_storage:
             return False
-        return self.storage_object.exists()
+        return await self.storage_object.managed_exists()
 
-    @property
-    def protected(self):
+    async def protected(self):
         """Returns True if the file is protected. Always False for symlinks."""
         # symlinks are never regarded as protected
         return (
-            self.exists_local
+            await self.exists_local()
             and not os.access(self.file, os.W_OK)
             and not os.path.islink(self.file)
         )
 
-    @property
     @iocache
-    def mtime(self):
-        return self.mtime_uncached
+    async def mtime(self):
+        return self.mtime_uncached()
 
-    @property
-    def mtime_uncached(self):
+    async def mtime_uncached(self):
         """Obtain mtime.
 
         Usually, this will be one stat call only. For symlinks and directories
@@ -493,7 +473,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         for storage files it will additionally query the storage
         location.
         """
-        mtime_in_storage = self.storage_object.mtime() if self.is_storage else None
+        mtime_in_storage = (await self.storage_object.managed_mtime()) if self.is_storage else None
 
         # We first do a normal stat.
         try:
@@ -562,33 +542,33 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         """Return True if file is a FIFO according to the filesystem."""
         return stat.S_ISFIFO(os.stat(self).st_mode)
 
-    @property
     @iocache
-    @_refer_to_storage
-    def size(self):
-        return self.size_local
+    async def size(self):
+        if self.is_storage:
+            return self.storage_object.managed_size()
+        else:
+            return self.size_local()
 
-    @property
-    def size_local(self):
+    async def size_local(self):
         # follow symlinks but throw error if invalid
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
-    def is_checksum_eligible(self):
+    async def is_checksum_eligible(self):
         return (
-            self.exists_local
+            await self.exists_local()
             and not os.path.isdir(self.file)
-            and self.size < 100000
+            and await self.size() < 100000
             and not self.is_fifo()
         )
 
-    def checksum(self, force=False):
+    async def checksum(self, force=False):
         """Return checksum if file is small enough, else None.
         Returns None if file does not exist. If force is True,
         omit eligibility check."""
-        if force or self.is_checksum_eligible():  # less than 100000 bytes
+        if force or await self.is_checksum_eligible():  # less than 100000 bytes
             checksum = sha256()
-            if self.size > 0:
+            if await self.size() > 0:
                 # only read if file is bigger than zero
                 # otherwise the checksum is the same as taking hexdigest
                 # from the empty sha256 as initialized above
@@ -601,17 +581,17 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         else:
             return None
 
-    def is_same_checksum(self, other_checksum, force=False):
-        checksum = self.checksum(force=force)
+    async def is_same_checksum(self, other_checksum, force=False):
+        checksum = await self.checksum(force=force)
         if checksum is None or other_checksum is None:
             # if no checksum available or files too large, not the same
             return False
         else:
             return checksum == other_checksum
 
-    def check_broken_symlink(self):
+    async def check_broken_symlink(self):
         """Raise WorkflowError if file is a broken symlink."""
-        if not self.exists_local:
+        if not await self.exists_local():
             try:
                 if os.lstat(self.file):
                     raise WorkflowError(
@@ -621,14 +601,13 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 # there is no broken symlink present, hence all fine
                 return
 
-    @_refer_to_storage
-    def is_newer(self, time):
+    async def is_newer(self, time):
         """Returns true of the file (which is an input file) is newer than time, or if it is
         a symlink that points to a file newer than time."""
         if self.is_ancient:
             return False
 
-        return self.mtime.local_or_storage(follow_symlinks=True) > time
+        return (await self.mtime()).local_or_storage(follow_symlinks=True) > time
 
     async def retrieve_from_storage(self):
         if self.is_storage:
@@ -854,18 +833,18 @@ _double_slash_regex = (
 )
 
 
-def wait_for_files(
+async def wait_for_files(
     files, latency_wait=3, wait_for_local=False, ignore_pipe_or_service=False
 ):
     """Wait for given files to be present in the filesystem."""
     files = list(files)
 
-    def get_missing():
+    async def get_missing():
         return [
             f
             for f in files
             if not (
-                f.exists_in_storage
+                await f.exists_in_storage()
                 if (
                     isinstance(f, _IOFile)
                     and f.is_storage
@@ -880,7 +859,7 @@ def wait_for_files(
             )
         ]
 
-    missing = get_missing()
+    missing = await get_missing()
     if missing:
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
         for _ in range(latency_wait):
@@ -909,10 +888,10 @@ def contains_wildcard_constraints(pattern):
     return any(match.group("constraint") for match in WILDCARD_REGEX.finditer(pattern))
 
 
-def remove(file, remove_non_empty_dir=False):
+async def remove(file, remove_non_empty_dir=False):
     if file.is_storage and file.should_not_be_retrieved_from_storage:
-        if file.exists_in_storage:
-            file.storage_object.remove()
+        if await file.exists_in_storage():
+            await file.storage_object.managed_remove()
     elif os.path.isdir(file) and not os.path.islink(file):
         if remove_non_empty_dir:
             shutil.rmtree(file)
@@ -1566,7 +1545,9 @@ class Namedlist(list):
 class InputFiles(Namedlist):
     @property
     def size(self):
-        return sum(f.size for f in self)
+        async def sizes():
+            return [await f.size() for f in self]
+        return sum(async_run(sizes))
 
     @property
     def size_mb(self):
