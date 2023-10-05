@@ -1,6 +1,3 @@
-storage minio:
-    retries: 3
-
 rule all:
     input:
         storage(f"{config['s3_prefix']}/test2.out", provider="s3:minio")
