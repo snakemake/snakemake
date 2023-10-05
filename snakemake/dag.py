@@ -692,7 +692,7 @@ class DAG(DAGExecutorInterface):
         """Return the total size of temporary input files of the job.
         If none, return 0.
         """
-        return sum(await f.size() for f in self.temp_input(job))
+        return sum([await f.size() for f in self.temp_input(job)])
 
     def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
@@ -1095,7 +1095,7 @@ class DAG(DAGExecutorInterface):
                     if job.input:
                         if job.rule.norun:
                             reason.updated_input_run.update(
-                                f for f in job.input if not await f.exists()
+                                [f for f in job.input if not await f.exists()]
                             )
                         else:
                             reason.nooutput = True
@@ -1115,7 +1115,7 @@ class DAG(DAGExecutorInterface):
                             files.update(
                                 f for f in job.products() if f in self.targetfiles
                             )
-                    reason.missing_output.update(await job.missing_output(files))
+                    reason.missing_output.update([f async for f in job.missing_output(files)])
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 updated_input = None
@@ -1152,7 +1152,7 @@ class DAG(DAGExecutorInterface):
                             )
                         if RerunTrigger.CODE in self.workflow.rerun_triggers:
                             reason.code_changed = any(
-                                await job.outputs_older_than_script_or_notebook()
+                                [f async for f in job.outputs_older_than_script_or_notebook()]
                             ) or any(self.workflow.persistence.code_changed(job))
                         if RerunTrigger.SOFTWARE_ENV in self.workflow.rerun_triggers:
                             reason.software_stack_changed = any(
@@ -1224,7 +1224,7 @@ class DAG(DAGExecutorInterface):
                 _needrun.add(job)
 
                 for job_, files in dependencies[job].items():
-                    missing_output = list(await job_.missing_output(files))
+                    missing_output = [f async for f in job_.missing_output(files)]
                     reason(job_).missing_output.update(missing_output)
                     if missing_output and job_ not in visited:
                         visited.add(job_)

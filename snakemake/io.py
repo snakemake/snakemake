@@ -197,7 +197,7 @@ def IOFile(file, rule=None):
     return f
 
 
-async def iocache(func: Callable):
+def iocache(func: Callable):
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         # self: _IOFile
@@ -431,9 +431,9 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     async def exists(self):
         if self.is_storage:
-            return self.exists_in_storage()
+            return await self.exists_in_storage()
         else:
-            return self.exists_local()
+            return await self.exists_local()
 
     def parents(self, omit=0):
         """Yield all parent paths, omitting the given number of ancestors."""
@@ -463,7 +463,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @iocache
     async def mtime(self):
-        return self.mtime_uncached()
+        return await self.mtime_uncached()
 
     async def mtime_uncached(self):
         """Obtain mtime.
@@ -545,13 +545,13 @@ class _IOFile(str, AnnotatedStringStorageInterface):
     @iocache
     async def size(self):
         if self.is_storage:
-            return self.storage_object.managed_size()
+            return await self.storage_object.managed_size()
         else:
-            return self.size_local()
+            return await self.size_local()
 
     async def size_local(self):
         # follow symlinks but throw error if invalid
-        self.check_broken_symlink()
+        await self.check_broken_symlink()
         return os.path.getsize(self.file)
 
     async def is_checksum_eligible(self):
@@ -655,11 +655,11 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         # protect explicit output itself
         lchmod(self.file, mode)
 
-    def remove(self, remove_non_empty_dir=False):
+    async def remove(self, remove_non_empty_dir=False):
         if self.is_directory:
-            remove(self, remove_non_empty_dir=True)
+            await remove(self, remove_non_empty_dir=True)
         else:
-            remove(self, remove_non_empty_dir=remove_non_empty_dir)
+            await remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
         """times must be 2-tuple: (atime, mtime)"""
@@ -863,11 +863,11 @@ async def wait_for_files(
     if missing:
         logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
         for _ in range(latency_wait):
-            missing = get_missing()
+            missing = await get_missing()
             if not missing:
                 return
             time.sleep(1)
-        missing = "\n".join(get_missing())
+        missing = "\n".join(await get_missing())
         raise IOError(
             f"Missing files after {latency_wait} seconds. This might be due to "
             "filesystem latency. If that is the case, consider to increase the "

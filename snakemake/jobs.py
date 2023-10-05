@@ -508,7 +508,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         Input files need to be present.
         """
         if self._inputsize is None:
-            self._inputsize = sum(await f.size() for f in self.input)
+            self._inputsize = sum([await f.size() for f in self.input])
         return self._inputsize
 
     @property
@@ -632,7 +632,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         """Return oldest output file."""
         async def get_mtime(f):
             if await f.exists():
-                return (await f.mtime()).local_or_storage()
+                mtime = await f.mtime()
+                return mtime.local_or_storage()
             else:
                 return None
 
@@ -716,7 +717,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if protected:
             raise ProtectedOutputException(self, protected)
 
-    def remove_existing_output(self):
+    async def remove_existing_output(self):
         """Clean up both dynamic and regular output before rules actually run"""
         if self.dynamic_output:
             for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
@@ -726,13 +727,13 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             try:
                 # remove_non_empty_dir only applies to directories which aren't
                 # flagged with directory().
-                f.remove(remove_non_empty_dir=False)
+                await f.remove(remove_non_empty_dir=False)
             except FileNotFoundError:
                 # No file == no problem
                 pass
 
         for f in self.log:
-            f.remove(remove_non_empty_dir=False)
+            await f.remove(remove_non_empty_dir=False)
 
     async def prepare(self):
         """
@@ -742,10 +743,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         Creates a shadow directory for the job if specified.
         """
 
-        self.check_protected_output()
+        await self.check_protected_output()
 
         unexpected_output = self.dag.reason(self).missing_output.intersection(
-            await self.existing_output()
+            [f async for f in self.existing_output()]
         )
         if unexpected_output:
             logger.warning(
@@ -755,7 +756,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
             )
 
-        self.remove_existing_output()
+        await self.remove_existing_output()
 
         # Create tmpdir if necessary
         if self.resources.get("tmpdir"):
@@ -878,7 +879,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 " since they might be corrupted:\n{}".format(self, ", ".join(to_remove))
             )
             for f in to_remove:
-                f.remove()
+                await f.remove()
 
     def format_wildcards(self, string, **variables):
         """Format a string with variables from the job."""
