@@ -731,7 +731,7 @@ class Paramspace:
     def instance(self, wildcards):
         """Obtain instance (dataframe row) with the given wildcard values."""
         import pandas as pd
-        from snakemake.io import regex
+        from snakemake.io import regex_from_filepattern
 
         def convert_value_dtype(name, value):
             if self.dataframe.dtypes[name] == bool and value == "False":
