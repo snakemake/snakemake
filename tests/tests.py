@@ -226,10 +226,6 @@ def test_report_display_code():
     run(dpath("test_report_display_code"), report="report.html", check_md5=False)
 
 
-def test_dynamic():
-    run(dpath("test_dynamic"))
-
-
 def test_params():
     run(dpath("test_params"))
 
@@ -643,10 +639,6 @@ def test_threads():
 
 def test_threads0():
     run(dpath("test_threads0"))
-
-
-def test_dynamic_temp():
-    run(dpath("test_dynamic_temp"))
 
 
 def test_issue260():

@@ -258,7 +258,7 @@ class Workflow(WorkflowExecutorInterface):
     def touch(self):
         import snakemake.executors.touch
 
-        return isinstance(
+        return issubclass(
             self.executor_plugin.executor, snakemake.executors.touch.Executor
         )
 
@@ -908,7 +908,6 @@ class Workflow(WorkflowExecutorInterface):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
         self.dag.update_checkpoint_dependencies()
-        self.dag.check_dynamic()
 
     def execute(
         self,

@@ -279,12 +279,6 @@ class Executor(RealExecutor):
                 print_exception(ex, self.workflow.linemaps)
             self.report_job_error(job_info)
 
-    def handle_job_error(self, job: JobExecutorInterface):
-        super().handle_job_error(job)
-        if not self.keepincomplete:
-            async_run(job.cleanup())
-            self.workflow.persistence.cleanup(job)
-
     @property
     def cores(self):
         return self.workflow.resource_settings.cores

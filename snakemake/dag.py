@@ -93,7 +93,6 @@ class DAG(DAGExecutorInterface):
         self._priority = dict()
         self._reason = defaultdict(Reason)
         self._finished = set()
-        self._dynamic = set()
         self._len = 0
         self.workflow: _workflow.Workflow = workflow
         self.rules = set(rules)
@@ -139,8 +138,6 @@ class DAG(DAGExecutorInterface):
             self.omitrules.update(set(rule.name for rule in omitrules))
         if omitfiles:
             self.omitfiles.update(omitfiles)
-
-        self.has_dynamic_rules = any(rule.dynamic_output for rule in self.rules)
 
         self.omitforce = set()
 
@@ -404,16 +401,6 @@ class DAG(DAGExecutorInterface):
                 "to fix this issue.".format(job.jobid, jobids)
             )
 
-    def check_dynamic(self):
-        """Check dynamic output and update downstream rules if necessary."""
-        if self.has_dynamic_rules:
-            for job in filter(
-                lambda job: (job.dynamic_output and not self.needrun(job)),
-                list(self.jobs),
-            ):
-                self.update_dynamic(job)
-            self.postprocess()
-
     def is_edit_notebook_job(self, job):
         return (
             self.workflow.execution_settings.edit_notebook
@@ -422,11 +409,6 @@ class DAG(DAGExecutorInterface):
 
     def get_job_group(self, job):
         return self._group.get(job)
-
-    @property
-    def dynamic_output_jobs(self):
-        """Iterate over all jobs with dynamic output files."""
-        return (job for job in self.jobs if job.dynamic_output)
 
     @property
     def jobs(self):
@@ -477,19 +459,6 @@ class DAG(DAGExecutorInterface):
     def finished(self, job):
         """Return whether a job is finished."""
         return job in self._finished
-
-    def dynamic(self, job):
-        """
-        Return whether a job is dynamic (i.e. it is only a placeholder
-        for those that are created after the job with dynamic output has
-        finished.
-        """
-        if job.is_group():
-            for j in job:
-                if j in self._dynamic:
-                    return True
-        else:
-            return job in self._dynamic
 
     def requested_files(self, job):
         """Return the files a job requests."""
@@ -725,8 +694,7 @@ class DAG(DAGExecutorInterface):
 
             # temp output
             if (
-                not job.dynamic_output
-                and not job.is_checkpoint
+                not job.is_checkpoint
                 and (
                     job not in self.targetjobs
                     or job.rule.name == self.workflow.default_target
@@ -810,11 +778,7 @@ class DAG(DAGExecutorInterface):
                         and not needed(job, f)
                         and not f in self.targetfiles
                     ):
-                        if f in job.dynamic_output:
-                            for f_ in job.expand_dynamic(f_):
-                                yield f_
-                        else:
-                            yield f
+                        yield f
                 for f in job.input:
                     # TODO what about storage inputs that are used by multiple jobs?
                     if await putative(f) and f not in generated_input:
@@ -838,7 +802,6 @@ class DAG(DAGExecutorInterface):
         file=None,
         visited=None,
         known_producers=None,
-        skip_until_dynamic=False,
         progress=False,
         create_inventory=False,
     ):
@@ -876,7 +839,6 @@ class DAG(DAGExecutorInterface):
                     job,
                     visited=set(visited),
                     known_producers=known_producers,
-                    skip_until_dynamic=skip_until_dynamic,
                     progress=progress,
                     create_inventory=create_inventory,
                 )
@@ -944,7 +906,6 @@ class DAG(DAGExecutorInterface):
         job,
         visited=None,
         known_producers=None,
-        skip_until_dynamic=False,
         progress=False,
         create_inventory=False,
     ):
@@ -960,8 +921,6 @@ class DAG(DAGExecutorInterface):
         potential_dependencies = self.collect_potential_dependencies(
             job, known_producers=known_producers
         )
-
-        skip_until_dynamic = skip_until_dynamic and not job.dynamic_output
 
         missing_input = set()
         producer = dict()
@@ -993,8 +952,6 @@ class DAG(DAGExecutorInterface):
                         file=res.file,
                         visited=visited,
                         known_producers=known_producers,
-                        skip_until_dynamic=skip_until_dynamic
-                        or res.file in job.dynamic_input,
                         progress=progress,
                     )
                     producer[res.file] = selected_job
@@ -1035,9 +992,6 @@ class DAG(DAGExecutorInterface):
         if missing_input:
             self.delete_job(job, recursive=False)  # delete job from tree
             raise MissingInputException(job, missing_input)
-
-        if skip_until_dynamic:
-            self._dynamic.add(job)
 
     async def update_needrun(self, create_inventory=False):
         """Update the information whether a job needs to be executed."""
@@ -1248,7 +1202,7 @@ class DAG(DAGExecutorInterface):
                 for job_, files in depending[job].items():
                     if job_ in candidates_set:
                         if job_ not in visited:
-                            if all(f.is_ancient and await f.exists() for f in files):
+                            if all([f.is_ancient and await f.exists() for f in files]):
                                 # No other reason to run job_.
                                 # Since all files are ancient, we do not trigger it.
                                 continue
@@ -1612,7 +1566,7 @@ class DAG(DAGExecutorInterface):
                 # already gone
                 pass
 
-    def finish(self, job, update_dynamic=True):
+    def finish(self, job, update_checkpoint_dependencies=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
@@ -1638,7 +1592,7 @@ class DAG(DAGExecutorInterface):
         self._finished.update(jobs)
 
         updated_dag = False
-        if update_dynamic:
+        if update_checkpoint_dependencies:
             updated_dag = self.update_checkpoint_dependencies(jobs)
 
         depending = [
@@ -1656,21 +1610,6 @@ class DAG(DAGExecutorInterface):
                 self._n_until_ready[job] -= 1
 
         potential_new_ready_jobs = self.update_ready(depending)
-
-        for job in jobs:
-            if update_dynamic and job.dynamic_output:
-                logger.info("Dynamically updating jobs")
-                newjob = self.update_dynamic(job)
-                if newjob:
-                    # simulate that this job ran and was finished before
-                    self.omitforce.add(newjob)
-                    self._needrun.add(newjob)
-                    self._finished.add(newjob)
-                    updated_dag = True
-
-                    self.postprocess()
-                    self.handle_protected(newjob)
-                    self.handle_touch(newjob)
 
         if updated_dag:
             # We might have new jobs, so we need to ensure that all conda envs
@@ -1750,8 +1689,6 @@ class DAG(DAGExecutorInterface):
             self._needrun.remove(job)
         if job in self._finished:
             self._finished.remove(job)
-        if job in self._dynamic:
-            self._dynamic.remove(job)
         if job in self._ready_jobs:
             self._ready_jobs.remove(job)
         if job in self._n_until_ready:
@@ -1788,9 +1725,8 @@ class DAG(DAGExecutorInterface):
 
         async_run(self.update([newjob]))
 
-        logger.debug(f"Replace {job} with dynamic branch {newjob}")
+        logger.debug(f"Replace {job} with {newjob}")
         for job_, files in depending:
-            # if not job_.dynamic_input:
             logger.debug(f"updating depending job {job_}")
             self.dependencies[job_][newjob].update(files)
             self.depending[newjob][job_].update(files)
@@ -1994,8 +1930,6 @@ class DAG(DAGExecutorInterface):
         def node2style(job):
             if not self.needrun(job):
                 return "rounded,dashed"
-            if self.dynamic(job) or job.dynamic_input:
-                return "rounded,dotted"
             return "rounded"
 
         def format_wildcard(wildcard):
@@ -2211,7 +2145,7 @@ class DAG(DAGExecutorInterface):
             yield "output_file\tdate\trule\tversion\tlog-file(s)\tstatus\tplan"
 
         for job in self.jobs:
-            output = job.rule.output if self.dynamic(job) else job.expanded_output
+            output = job.expanded_output
             for f in output:
                 rule = job.rule.name
 

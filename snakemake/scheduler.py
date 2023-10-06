@@ -15,6 +15,7 @@ from contextlib import ContextDecorator
 from snakemake_interface_executor_plugins.scheduler import JobSchedulerExecutorInterface
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_executor_plugins.registry import Plugin as ExecutorPlugin
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.common import async_run
 
 from snakemake.exceptions import RuleException, WorkflowError, print_exception
@@ -66,7 +67,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         self.handle_job_success = True
         self.update_resources = True
         self.print_progress = not self.quiet and not self.dryrun
-        self.update_dynamic = not self.dryrun
+        self.update_checkpoint_dependencies = not self.dryrun
 
         nodes_unset = workflow.global_resources["_nodes"] is None
 
@@ -395,14 +396,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
     @property
     def open_jobs(self):
         """Return open jobs."""
-        jobs = self.workflow.dag.ready_jobs
-
-        if not self.dryrun:
-            jobs = [
-                job
-                for job in jobs
-                if not job.dynamic_input and not self.workflow.dag.dynamic(job)
-            ]
+        jobs = list(self.workflow.dag.ready_jobs)
         return jobs
 
     @property
@@ -533,48 +527,55 @@ class JobScheduler(JobSchedulerExecutorInterface):
         # clear the global tofinish such that parallel calls do not interfere
         async def postprocess():
             for job in self._tofinish:
-                try:
-                    if self.workflow.dag.is_main_process:
-                        await job.postprocess(
-                            store_in_storage=True,
-                            handle_log=True,
-                            handle_touch=True,
-                        )
+                if not self.workflow.dryrun:
+                    try:
+                        if self.workflow.exec_mode == ExecMode.DEFAULT:
+                            await job.postprocess(
+                                store_in_storage=True,
+                                handle_log=True,
+                                handle_touch=True,
+                                ignore_missing_output=self.touch,
+                            )
+                        elif self.workflow.exec_mode == ExecMode.SUBPROCESS:
+                            await job.postprocess(
+                                store_in_storage=False,
+                                handle_log=True,
+                                handle_touch=True,
+                            )
+                        else:
+                            await job.postprocess(
+                                store_in_storage=False,
+                                handle_log=False,
+                                handle_touch=False,
+                            )
+                    except (RuleException, WorkflowError) as e:
+                        # if an error occurs while processing job output,
+                        # we do the same as in case of errors during execution
+                        print_exception(e, self.workflow.linemaps)
+                        await job.postprocess(error=True)
+                        self._handle_error(job, postprocess_job=False)
+                        continue
+
+                if self.handle_job_success:
+                    self.get_executor(job).handle_job_success(job)
+
+                if self.update_resources:
+                    # normal jobs have len=1, group jobs have len>1
+                    self.finished_jobs += len(job)
+                    self.running.remove(job)
+                    self._free_resources(job)
+
+                if self.print_progress:
+                    if job.is_group():
+                        for j in job:
+                            logger.job_finished(jobid=j.jobid)
                     else:
-                        await job.postprocess(
-                            store_in_storage=False,
-                            handle_log=False,
-                            handle_touch=False,
-                        )
-                except (RuleException, WorkflowError) as e:
-                    # if an error occurs while processing job output,
-                    # we do the same as in case of errors during execution
-                    print_exception(e, self.workflow.linemaps)
-                    job.postprocess(error=True)
-                    self._handle_error(job, postprocess_job=False)
+                        logger.job_finished(jobid=job.jobid)
+                    self.progress()
 
-        if not self.workflow.dryrun:
-            async_run(postprocess())
+                self.workflow.dag.finish(job, update_checkpoint_dependencies=self.update_checkpoint_dependencies)
 
-        for job in self._tofinish:
-            if self.handle_job_success:
-                self.get_executor(job).handle_job_success(job)
-
-            if self.update_resources:
-                # normal jobs have len=1, group jobs have len>1
-                self.finished_jobs += len(job)
-                self.running.remove(job)
-                self._free_resources(job)
-
-            if self.print_progress:
-                if job.is_group():
-                    for j in job:
-                        logger.job_finished(jobid=j.jobid)
-                else:
-                    logger.job_finished(jobid=job.jobid)
-                self.progress()
-
-            self.workflow.dag.finish(job, update_dynamic=self.update_dynamic)
+        async_run(postprocess())
         self._tofinish.clear()
 
     def _error_jobs(self):

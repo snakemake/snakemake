@@ -968,11 +968,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def is_group(self):
         return False
 
-    def log_info(self, skip_dynamic=False, indent=False, printshellcmd=True):
+    def log_info(self, indent=False, printshellcmd=True):
         # skip dynamic jobs that will be "executed" only in dryrun mode
-        if skip_dynamic and self.dag.dynamic(self):
-            return
-
         priority = self.priority
         logger.job_info(
             jobid=self.dag.jobid(self),
@@ -1114,6 +1111,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                     "({}). Please ensure write permissions for the "
                     "directory {}".format(e, self.dag.workflow.persistence.path)
                 )
+        
+        if error and not self.dag.workflow.execution_settings.keep_incomplete:
+            await self.cleanup()
+            self.dag.workflow.persistence.cleanup(self)
 
     @property
     def name(self):
@@ -1275,10 +1276,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def is_updated(self):
         return any(job.is_updated for job in self.jobs)
 
-    def log_info(self, skip_dynamic=False):
+    def log_info(self):
         logger.group_info(groupid=self.groupid)
         for job in sorted(self.jobs, key=lambda j: j.rule.name):
-            job.log_info(skip_dynamic, indent=True)
+            job.log_info(indent=True)
 
     def log_error(self, msg=None, aux_logs: Optional[list] = None, **kwargs):
         job_error_info = [
@@ -1424,7 +1425,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
 
     async def cleanup(self):
         for job in self.jobs:
-            job.cleanup()
+            await job.cleanup()
 
     async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
@@ -1441,7 +1442,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             for f in job.output:
                 if is_flagged(f, "pipe") or is_flagged(f, "service"):
-                    f.remove()
+                    await f.remove()
 
     @property
     def name(self):
