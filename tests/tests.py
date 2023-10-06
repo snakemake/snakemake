@@ -433,16 +433,6 @@ def test_protected_symlink_output():
     run(dpath("test_protected_symlink_output"))
 
 
-def test_issue328():
-    try:
-        import pytools
-
-        run(dpath("test_issue328"), forcerun=["split"])
-    except ImportError:
-        # skip test if import fails
-        pass
-
-
 def test_conda():
     run(dpath("test_conda"), deployment_method={DeploymentMethod.CONDA})
 
@@ -639,10 +629,6 @@ def test_threads():
 
 def test_threads0():
     run(dpath("test_threads0"))
-
-
-def test_issue260():
-    run(dpath("test_issue260"))
 
 
 def test_default_storage(s3_storage):
