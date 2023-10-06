@@ -693,12 +693,9 @@ class DAG(DAGExecutorInterface):
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
-            if (
-                not job.is_checkpoint
-                and (
-                    job not in self.targetjobs
-                    or job.rule.name == self.workflow.default_target
-                )
+            if not job.is_checkpoint and (
+                job not in self.targetjobs
+                or job.rule.name == self.workflow.default_target
             ):
                 tempfiles = (
                     f
@@ -733,7 +730,7 @@ class DAG(DAGExecutorInterface):
                 files = chain(files, job.log)
             for f in files:
                 if f.is_storage and not f.should_not_be_retrieved_from_storage:
-                    f.store_in_storage()
+                    await f.store_in_storage()
                     storage_mtime = (await f.mtime()).storage()
                     # immediately force local mtime to match storage,
                     # since conversions from S3 headers are not 100% reliable
@@ -784,10 +781,10 @@ class DAG(DAGExecutorInterface):
                     if await putative(f) and f not in generated_input:
                         yield f
 
-            for f in await unneeded_files():
+            async for f in unneeded_files():
                 if await f.exists_local():
                     logger.info(f"Removing local copy of storage file: {f}")
-                    f.remove()
+                    await f.remove()
 
     def jobid(self, job):
         """Return job id of given job."""

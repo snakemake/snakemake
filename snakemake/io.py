@@ -612,7 +612,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
                 logger.info(f"Retrieving from storage: {self.storage_object.query}")
-                self.storage_object.managed_retrieve()
+                await self.storage_object.managed_retrieve()
                 logger.info("Finished retrieval.")
         else:
             raise WorkflowError(
@@ -620,10 +620,10 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 rule=self.rule,
             )
 
-    def store_in_storage(self):
+    async def store_in_storage(self):
         if self.is_storage:
             logger.info(f"Storing in storage: {self.storage_object.query}")
-            self.storage_object.managed_store()
+            await self.storage_object.managed_store()
             logger.info("Finished upload.")
 
     def prepare(self):
