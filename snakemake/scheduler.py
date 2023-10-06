@@ -553,7 +553,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                     job.postprocess(error=True)
                     self._handle_error(job, postprocess_job=False)
 
-        async_run(postprocess())
+        if not self.workflow.dryrun:
+            async_run(postprocess())
 
         for job in self._tofinish:
             if self.handle_job_success:
@@ -630,7 +631,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
         try to run the job again.
         """
         # must be called from within lock
-        if postprocess_job:
+        if postprocess_job and not self.workflow.dryrun:
             async_run(
                 job.postprocess(
                     error=True,
