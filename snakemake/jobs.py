@@ -630,6 +630,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     @property
     async def output_mintime(self):
         """Return oldest output file."""
+
         async def get_mtime(f):
             if await f.exists():
                 mtime = await f.mtime()
@@ -639,7 +640,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
         async with asyncio.TaskGroup() as tg:
             tasks = [tg.create_task(get_mtime(f)) for f in self.expanded_output]
-        mintimes = list(filter(lambda res: res is not None, (task.result() for task in tasks)))
+        mintimes = list(
+            filter(lambda res: res is not None, (task.result() for task in tasks))
+        )
 
         mintime = min(mintimes) if mintimes else None
 
@@ -656,7 +659,11 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         async def handle_file(f):
             # pipe or service output is always declared as missing
             # (even if it might be present on disk for some reason)
-            if is_flagged(f, "pipe") or is_flagged(f, "service") or not await f.exists():
+            if (
+                is_flagged(f, "pipe")
+                or is_flagged(f, "service")
+                or not await f.exists()
+            ):
                 yield f
 
         if self.dynamic_output:
@@ -1100,7 +1107,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 )
         if not error:
             try:
-                self.dag.workflow.persistence.finished(self)
+                await self.dag.workflow.persistence.finished(self)
             except IOError as e:
                 raise WorkflowError(
                     "Error recording metadata for finished job "
@@ -1419,15 +1426,16 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.cleanup()
 
-    def postprocess(self, error=False, **kwargs):
+    async def postprocess(self, error=False, **kwargs):
         # Iterate over jobs in toposorted order (see self.__iter__) to
         # ensure that outputs are touched in correct order.
-        for level in self.toposorted:
-            for job in level:
-                # postprocessing involves touching output files (to ensure that
-                # modification times are always correct. This has to happen in
-                # topological order, such that they are not mixed up.
-                job.postprocess(error=error, **kwargs)
+        async with asyncio.TaskGroup() as tg:
+            for level in self.toposorted:
+                for job in level:
+                    # postprocessing involves touching output files (to ensure that
+                    # modification times are always correct. This has to happen in
+                    # topological order, such that they are not mixed up.
+                    tg.create_task(job.postprocess(error=error, **kwargs))
         # remove all pipe and service outputs since all jobs of this group are done and the
         # outputs are no longer needed
         for job in self.jobs:

@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+import asyncio
 from collections import defaultdict
 import os, signal, sys
 import threading
@@ -530,16 +531,33 @@ class JobScheduler(JobSchedulerExecutorInterface):
     def _finish_jobs(self):
         # must be called from within lock
         # clear the global tofinish such that parallel calls do not interfere
-        for job in self._tofinish:
-            if self.handle_job_success:
+        async def postprocess():
+            for job in self._tofinish:
                 try:
-                    self.get_executor(job).handle_job_success(job)
+                    if self.workflow.dag.is_main_process:
+                        await job.postprocess(
+                            store_in_storage=True,
+                            handle_log=True,
+                            handle_touch=True,
+                        )
+                    else:
+                        await job.postprocess(
+                            store_in_storage=False,
+                            handle_log=False,
+                            handle_touch=False,
+                        )
                 except (RuleException, WorkflowError) as e:
                     # if an error occurs while processing job output,
                     # we do the same as in case of errors during execution
                     print_exception(e, self.workflow.linemaps)
-                    self._handle_error(job)
-                    continue
+                    job.postprocess(error=True)
+                    self._handle_error(job, postprocess_job=False)
+
+        async_run(postprocess())
+
+        for job in self._tofinish:
+            if self.handle_job_success:
+                self.get_executor(job).handle_job_success(job)
 
             if self.update_resources:
                 # normal jobs have len=1, group jobs have len>1
@@ -604,13 +622,20 @@ class JobScheduler(JobSchedulerExecutorInterface):
             self._toerror.append(job)
             self._open_jobs.release()
 
-    def _handle_error(self, job):
+    def _handle_error(self, job, postprocess_job: bool = True):
         """Clear jobs and stop the workflow.
 
         If Snakemake is configured to restart jobs then the job might have
         "restart_times" left and we just decrement and let the scheduler
         try to run the job again.
         """
+        # must be called from within lock
+        if postprocess_job:
+            async_run(
+                job.postprocess(
+                    error=True,
+                )
+            )
         self.get_executor(job).handle_job_error(job)
         self.running.remove(job)
         self._free_resources(job)
@@ -664,8 +689,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
 
             async def get_temp_sizes_gb():
                 return {f: (await f.size()) / 1e9 for f in temp_files}
-                
-            temp_sizes_gb = defaultdict(int) if self.touch else async_run(get_temp_sizes_gb())
+
+            temp_sizes_gb = (
+                defaultdict(int) if self.touch else async_run(get_temp_sizes_gb())
+            )
 
             temp_job_improvement = {
                 temp_file: pulp.LpVariable(
@@ -828,8 +855,10 @@ class JobScheduler(JobSchedulerExecutorInterface):
             E = set(range(n))  # jobs still free to select
             u = [1] * n
             a = list(map(self.job_weight, jobs))  # resource usage of jobs
+
             async def rewards():
                 return [await self.job_reward(job) for job in jobs]
+
             c = async_run(rewards())  # job rewards
 
             def calc_reward():

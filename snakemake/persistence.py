@@ -271,7 +271,7 @@ class Persistence(PersistenceExecutorInterface):
         for f in job.output:
             self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job):
+    async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(self._incomplete_path, f)
@@ -292,12 +292,14 @@ class Persistence(PersistenceExecutorInterface):
                 starttime = self._read_record(self._metadata_path, f).get(
                     "starttime", None
                 )
-            async def endtime():
-                return (await f.mtime()).local_or_storage() if await f.exists() else fallback_time
-            
-            endtime = async_run(endtime())
 
-            checksums = ((infile, infile.checksum()) for infile in job.input)
+            endtime = (
+                (await f.mtime()).local_or_storage()
+                if await f.exists()
+                else fallback_time
+            )
+
+            checksums = ((infile, await infile.checksum()) for infile in job.input)
 
             self._record(
                 self._metadata_path,
@@ -316,7 +318,7 @@ class Persistence(PersistenceExecutorInterface):
                     "container_img_url": job.container_img_url,
                     "input_checksums": {
                         infile: checksum
-                        for infile, checksum in checksums
+                        async for infile, checksum in checksums
                         if checksum is not None
                     },
                 },

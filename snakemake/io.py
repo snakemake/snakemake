@@ -133,10 +133,7 @@ class IOCache(IOCacheStorageInterface):
     def size(self):
         return self._size
 
-    async def mtime_inventory(self, jobs):
-        self._mtime_inventory(jobs)
-
-    async def _mtime_inventory(self, jobs, n_workers=8):
+    async def mtime_inventory(self, jobs, n_workers=8):
         queue = asyncio.Queue()
         stop_item = object()
 
@@ -331,7 +328,6 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
         This can (and should) be used in a `with`-statement.
         """
-        
 
         async def retrieve():
             if not await self.exists():
@@ -340,6 +336,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
                 )
             if not await self.exists_local() and self.is_storage:
                 await self.retrieve_from_storage()
+
         async_run(retrieve())
 
         f = open(self)
@@ -473,7 +470,9 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         for storage files it will additionally query the storage
         location.
         """
-        mtime_in_storage = (await self.storage_object.managed_mtime()) if self.is_storage else None
+        mtime_in_storage = (
+            (await self.storage_object.managed_mtime()) if self.is_storage else None
+        )
 
         # We first do a normal stat.
         try:
@@ -1547,6 +1546,7 @@ class InputFiles(Namedlist):
     def size(self):
         async def sizes():
             return [await f.size() for f in self]
+
         return sum(async_run(sizes))
 
     @property

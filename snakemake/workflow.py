@@ -930,10 +930,12 @@ class Workflow(WorkflowExecutorInterface):
 
         if self.execution_settings.wait_for_files:
             try:
-                async_run(snakemake.io.wait_for_files(
-                    self.execution_settings.wait_for_files,
-                    latency_wait=self.execution_settings.latency_wait,
-                ))
+                async_run(
+                    snakemake.io.wait_for_files(
+                        self.execution_settings.wait_for_files,
+                        latency_wait=self.execution_settings.latency_wait,
+                    )
+                )
             except IOError as e:
                 logger.error(str(e))
                 return False

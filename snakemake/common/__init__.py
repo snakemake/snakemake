@@ -88,7 +88,9 @@ def async_run(coroutine):
     except RuntimeError:
         return asyncio.run(coroutine)
     else:
-        raise WorkflowError("snakemake currently does not support being executed from an already running event loop.")
+        raise WorkflowError(
+            "snakemake currently does not support being executed from an already running event loop."
+        )
 
 
 APPDIRS = None

@@ -334,7 +334,11 @@ class DAG(DAGExecutorInterface):
                 async with asyncio.TaskGroup() as tg:
                     for job in self.jobs:
                         for f in chain(job.input, job.output):
-                            if f.is_storage and f not in cleaned and self.is_external_input(f, job):
+                            if (
+                                f.is_storage
+                                and f not in cleaned
+                                and self.is_external_input(f, job)
+                            ):
                                 tg.create_task(f.retrieve_from_storage())
                                 cleaned.add(f)
 
@@ -788,9 +792,11 @@ class DAG(DAGExecutorInterface):
 
             async def unneeded_files():
                 async def putative(f):
-                    return (f.is_storage
-                    and not await f.protected()
-                    and not f.should_keep_local)
+                    return (
+                        f.is_storage
+                        and not await f.protected()
+                        and not f.should_keep_local
+                    )
 
                 generated_input = set()
                 for job_, files in self.dependencies[job].items():
@@ -799,7 +805,11 @@ class DAG(DAGExecutorInterface):
                         if await putative(f) and not needed(job_, f):
                             yield f
                 for f, f_ in zip(job.output, job.rule.output):
-                    if await putative(f) and not needed(job, f) and not f in self.targetfiles:
+                    if (
+                        await putative(f)
+                        and not needed(job, f)
+                        and not f in self.targetfiles
+                    ):
                         if f in job.dynamic_output:
                             for f_ in job.expand_dynamic(f_):
                                 yield f_
@@ -1115,7 +1125,9 @@ class DAG(DAGExecutorInterface):
                             files.update(
                                 f for f in job.products() if f in self.targetfiles
                             )
-                    reason.missing_output.update([f async for f in job.missing_output(files)])
+                    reason.missing_output.update(
+                        [f async for f in job.missing_output(files)]
+                    )
             if not reason:
                 output_mintime_ = output_mintime.get(job)
                 updated_input = None
@@ -1152,7 +1164,10 @@ class DAG(DAGExecutorInterface):
                             )
                         if RerunTrigger.CODE in self.workflow.rerun_triggers:
                             reason.code_changed = any(
-                                [f async for f in job.outputs_older_than_script_or_notebook()]
+                                [
+                                    f
+                                    async for f in job.outputs_older_than_script_or_notebook()
+                                ]
                             ) or any(self.workflow.persistence.code_changed(job))
                         if RerunTrigger.SOFTWARE_ENV in self.workflow.rerun_triggers:
                             reason.software_stack_changed = any(
@@ -1412,12 +1427,6 @@ class DAG(DAGExecutorInterface):
                     continue
                 visited_groups.add(group)
                 yield group
-
-    def cleanup_storage_objects(self):
-        """Close all storage objects."""
-        for job in self.jobs:
-            if not self.needrun(job):
-                job.cleanup_storage()
 
     def postprocess(
         self, update_needrun=True, update_incomplete_input_expand_jobs=True
@@ -2209,7 +2218,11 @@ class DAG(DAGExecutorInterface):
                 version = self.workflow.persistence.version(f)
                 version = "-" if version is None else str(version)
 
-                date = time.ctime((await f.mtime()).local_or_storage()) if await f.exists() else "-"
+                date = (
+                    time.ctime((await f.mtime()).local_or_storage())
+                    if await f.exists()
+                    else "-"
+                )
 
                 pending = "update pending" if self.reason(job) else "no update"
 
@@ -2340,7 +2353,7 @@ class DAG(DAGExecutorInterface):
                             logger.info(msg.format(f))
                             if not dryrun:
                                 # Remove non-empty dirs if flagged as temp()
-                                f.remove(remove_non_empty_dir=only_temp)
+                                await f.remove(remove_non_empty_dir=only_temp)
 
     def list_untracked(self):
         """List files in the workdir that are not in the dag."""
@@ -2501,7 +2514,9 @@ class DAG(DAGExecutorInterface):
 
             yield sorted_layer
 
-    async def get_outputs_with_changes(self, change_type: ChangeType, include_needrun=True):
+    async def get_outputs_with_changes(
+        self, change_type: ChangeType, include_needrun=True
+    ):
         is_changed = lambda job: (
             getattr(self.workflow.persistence, f"{change_type}_changed")(job)
             if not job.is_group() and (include_needrun or not self.needrun(job))
@@ -2511,7 +2526,9 @@ class DAG(DAGExecutorInterface):
         if change_type == ChangeType.CODE:
             for job in self.jobs:
                 if not job.is_group() and (include_needrun or not self.needrun(job)):
-                    changed.extend(list(await job.outputs_older_than_script_or_notebook()))
+                    changed.extend(
+                        list(await job.outputs_older_than_script_or_notebook())
+                    )
         return changed
 
     def get_sources(self):

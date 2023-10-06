@@ -13,8 +13,15 @@ from snakemake_interface_storage_plugins.storage_object import (
 
 class StorageRegistry:
     attrs = {
-        "workflow", "_storages", "_default_storage_provider", "default_storage_provider",
-        "register_storage", "infer_provider", "_storage_object", "__getattribute__", "attrs"
+        "workflow",
+        "_storages",
+        "_default_storage_provider",
+        "default_storage_provider",
+        "register_storage",
+        "infer_provider",
+        "_storage_object",
+        "__getattribute__",
+        "attrs",
     }
 
     def __init__(self, workflow: Workflow):
@@ -114,7 +121,7 @@ class StorageRegistry:
             return super().__getattribute__(name)
         else:
             return StorageProviderProxy(registry=self, name=name)
-    
+
     def __call__(
         self,
         query: str,
