@@ -589,6 +589,7 @@ def get_argument_parser(profiles=None):
         nargs="+",
         metavar="VARNAME",
         parse_func=set,
+        default=set(),
         help="Environment variables to pass to cloud jobs.",
     )
     group_exec.add_argument(

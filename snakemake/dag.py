@@ -305,41 +305,32 @@ class DAG(DAGExecutorInterface):
                 )
                 self.conda_envs[key] = env
 
-    def retrieve_storage_inputs(self):
+    async def retrieve_storage_inputs(self):
         if self.is_main_process or (
             self.workflow.exec_mode == ExecMode.REMOTE
             and not self.workflow.storage_settings.assume_shared_fs
         ):
-
-            async def runner():
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.jobs:
-                        for f in job.input:
-                            if f.is_storage and self.is_external_input(f, job):
-                                tg.create_task(f.retrieve_from_storage())
-
-            async_run(runner())
+            async with asyncio.TaskGroup() as tg:
+                for job in self.jobs:
+                    for f in job.input:
+                        if f.is_storage and self.is_external_input(f, job):
+                            tg.create_task(f.retrieve_from_storage())
 
     def cleanup_storage_objects(self):
         if self.is_main_process or (
             self.workflow.exec_mode == ExecMode.REMOTE
             and not self.workflow.storage_settings.assume_shared_fs
         ):
-
-            async def runner():
-                cleaned = set()
-                async with asyncio.TaskGroup() as tg:
-                    for job in self.jobs:
-                        for f in chain(job.input, job.output):
-                            if (
-                                f.is_storage
-                                and f not in cleaned
-                                and self.is_external_input(f, job)
-                            ):
-                                tg.create_task(f.retrieve_from_storage())
-                                cleaned.add(f)
-
-            async_run(runner())
+            cleaned = set()
+            for job in self.jobs:
+                for f in chain(job.input, job.output):
+                    if (
+                        f.is_storage
+                        and f not in cleaned
+                        and self.is_external_input(f, job)
+                    ):
+                        f.storage_object.cleanup()
+                        cleaned.add(f)
 
     def create_conda_envs(self, dryrun=False, quiet=False):
         dryrun |= self.workflow.dryrun
@@ -667,14 +658,14 @@ class DAG(DAGExecutorInterface):
         """
         return sum([await f.size() for f in self.temp_input(job)])
 
-    def handle_temp(self, job):
+    async def handle_temp(self, job):
         """Remove temp files if they are no longer needed. Update temp_mtimes."""
         if self.workflow.storage_settings.notemp:
             return
 
         if job.is_group():
             for j in job:
-                self.handle_temp(j)
+                await self.handle_temp(j)
             return
 
         is_temp = lambda f: is_flagged(f, "temp")
@@ -709,7 +700,7 @@ class DAG(DAGExecutorInterface):
                 logger.info(f"Would remove temporary output {f}")
             else:
                 logger.info(f"Removing temporary output {f}.")
-                f.remove(remove_non_empty_dir=True)
+                await f.remove(remove_non_empty_dir=True)
 
     async def handle_log(self, job):
         for f in job.log:
@@ -978,7 +969,7 @@ class DAG(DAGExecutorInterface):
         if self.is_batch_rule(job.rule) and self.batch.is_final:
             # For the final batch, ensure that all input files from
             # previous batches are present on disk.
-            if any((f not in producer and not await f.exists()) for f in job.input):
+            if any([(f not in producer and not await f.exists()) for f in job.input]):
                 raise WorkflowError(
                     "Unable to execute batch {} because not all previous batches "
                     "have been completed before or files have been deleted.".format(
@@ -1323,7 +1314,7 @@ class DAG(DAGExecutorInterface):
         for group in self._group.values():
             group.finalize()
 
-    def update_incomplete_input_expand_jobs(self):
+    async def update_incomplete_input_expand_jobs(self):
         """Update (re-evaluate) all jobs which have incomplete input file expansions.
 
         only filled in the second pass of postprocessing.
@@ -1332,7 +1323,7 @@ class DAG(DAGExecutorInterface):
         for job in list(self.jobs):
             if job.incomplete_input_expand:
                 newjob = job.updated()
-                self.replace_job(job, newjob, recursive=False)
+                await self.replace_job(job, newjob, recursive=False)
                 updated = True
         return updated
 
@@ -1395,7 +1386,7 @@ class DAG(DAGExecutorInterface):
         self.update_groups()
 
         if update_incomplete_input_expand_jobs:
-            updated = self.update_incomplete_input_expand_jobs()
+            updated = await self.update_incomplete_input_expand_jobs()
             if updated:
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
@@ -1544,6 +1535,11 @@ class DAG(DAGExecutorInterface):
             if job.is_checkpoint:
                 depending = list(self.depending[job])
                 # re-evaluate depending jobs, replace and update DAG
+                if depending:
+                    async with asyncio.TaskGroup() as tg:
+                        for f in job.output:
+                            if f.is_storage:
+                                tg.create_task(f.retrieve_from_storage())
                 for j in depending:
                     logger.debug(f"Updating job {j}.")
                     newjob = j.updated()
@@ -1551,6 +1547,8 @@ class DAG(DAGExecutorInterface):
                     updated = True
         if updated:
             await self.postprocess()
+            if self.workflow.storage_settings.assume_shared_fs:
+                await self.retrieve_storage_inputs()
         return updated
 
     def register_running(self, jobs):
@@ -1624,7 +1622,7 @@ class DAG(DAGExecutorInterface):
             potential_new_ready_jobs = True
 
         for job in jobs:
-            self.handle_temp(job)
+            await self.handle_temp(job)
 
         return potential_new_ready_jobs
 

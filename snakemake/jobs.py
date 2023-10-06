@@ -1235,6 +1235,10 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def dag(self):
         return next(iter(self.jobs)).dag
 
+    async def retrieve_storage_input(self):
+        for job in self.jobs:
+            await job.retrieve_storage_input()
+
     def merge(self, other):
         assert other.groupid == self.groupid
         self.jobs = self.jobs | other.jobs
@@ -1298,9 +1302,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.register(external_jobid=external_jobid)
 
-    def remove_existing_output(self):
+    async def remove_existing_output(self):
         for job in self.jobs:
-            job.remove_existing_output()
+            await job.remove_existing_output()
 
     def reset_params_and_resources(self):
         for job in self.jobs:
@@ -1316,7 +1320,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         remote_input = [
             f
             for job in self.jobs
-            for f in job.remote_input
+            for f in job.storage_input
             if f not in self.all_products
         ]
 
@@ -1461,10 +1465,9 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
             if f not in self.all_products
         ]
 
-    @property
     async def inputsize(self):
         if self._inputsize is None:
-            self._inputsize = sum(await f.size() for f in self.input)
+            self._inputsize = sum([await f.size() for f in self.input])
         return self._inputsize
 
     @property

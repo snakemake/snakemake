@@ -324,21 +324,10 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     @contextmanager
     def open(self, mode="r", buffering=-1, encoding=None, errors=None, newline=None):
-        """Open this file. If necessary, download it from storage first.
+        """Open this file.
 
         This can (and should) be used in a `with`-statement.
         """
-
-        async def retrieve():
-            if not await self.exists():
-                raise WorkflowError(
-                    f"File {self} cannot be opened, since it does not exist."
-                )
-            if not await self.exists_local() and self.is_storage:
-                await self.retrieve_from_storage()
-
-        async_run(retrieve())
-
         f = open(self)
         try:
             yield f
@@ -611,9 +600,11 @@ class _IOFile(str, AnnotatedStringStorageInterface):
     async def retrieve_from_storage(self):
         if self.is_storage:
             if not self.should_not_be_retrieved_from_storage:
-                logger.info(f"Retrieving from storage: {self.storage_object.query}")
-                await self.storage_object.managed_retrieve()
-                logger.info("Finished retrieval.")
+                mtime = await self.mtime()
+                if not await self.exists_local() or mtime.local() < mtime.storage():
+                    logger.info(f"Retrieving from storage: {self.storage_object.query}")
+                    await self.storage_object.managed_retrieve()
+                    logger.info("Finished retrieval.")
         else:
             raise WorkflowError(
                 "The file to be retrieved does not seem to exist in the storage.",

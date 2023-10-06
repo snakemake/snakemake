@@ -907,7 +907,7 @@ class Workflow(WorkflowExecutorInterface):
     def _build_dag(self):
         logger.info("Building DAG of jobs...")
         async_run(self.dag.init())
-        self.dag.update_checkpoint_dependencies()
+        async_run(self.dag.update_checkpoint_dependencies())
 
     def execute(
         self,
@@ -985,7 +985,7 @@ class Workflow(WorkflowExecutorInterface):
                     self.dag.pull_container_imgs()
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
-                self.dag.retrieve_storage_inputs()
+                async_run(self.dag.retrieve_storage_inputs())
 
             self.scheduler = JobScheduler(self, executor_plugin)
 

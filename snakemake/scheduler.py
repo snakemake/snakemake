@@ -545,8 +545,8 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         else:
                             await job.postprocess(
                                 store_in_storage=False,
-                                handle_log=False,
-                                handle_touch=False,
+                                handle_log=True,
+                                handle_touch=True,
                             )
                     except (RuleException, WorkflowError) as e:
                         # if an error occurs while processing job output,
