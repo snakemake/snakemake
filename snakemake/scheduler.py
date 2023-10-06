@@ -573,7 +573,7 @@ class JobScheduler(JobSchedulerExecutorInterface):
                         logger.job_finished(jobid=job.jobid)
                     self.progress()
 
-                self.workflow.dag.finish(
+                await self.workflow.dag.finish(
                     job,
                     update_checkpoint_dependencies=self.update_checkpoint_dependencies,
                 )

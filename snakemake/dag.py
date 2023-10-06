@@ -737,7 +737,7 @@ class DAG(DAGExecutorInterface):
                     # without this, newness comparisons may fail down the line
                     f.touch(times=(storage_mtime, storage_mtime))
 
-                    if not f.exists_in_storage():
+                    if not await f.exists_in_storage():
                         raise RemoteFileException(
                             "The file upload was attempted, but it does not "
                             "exist in storage. Check that your credentials have "
@@ -1379,7 +1379,7 @@ class DAG(DAGExecutorInterface):
                 visited_groups.add(group)
                 yield group
 
-    def postprocess(
+    async def postprocess(
         self, update_needrun=True, update_incomplete_input_expand_jobs=True
     ):
         """Postprocess the DAG. This has to be invoked after any change to the
@@ -1389,7 +1389,7 @@ class DAG(DAGExecutorInterface):
         if update_needrun:
             self.update_container_imgs()
             self.update_conda_envs()
-            async_run(self.update_needrun())
+            await self.update_needrun()
         self.update_priority()
         self.handle_pipes_and_services()
         self.update_groups()
@@ -1400,7 +1400,7 @@ class DAG(DAGExecutorInterface):
                 # run a second pass, some jobs have been updated
                 # with potentially new input files that have depended
                 # on group ids.
-                self.postprocess(
+                await self.postprocess(
                     update_needrun=True, update_incomplete_input_expand_jobs=False
                 )
 
@@ -1534,7 +1534,7 @@ class DAG(DAGExecutorInterface):
                 (self._n_until_ready[job] - n_internal_deps(job)) == 0 for job in group
             )
 
-    def update_checkpoint_dependencies(self, jobs=None):
+    async def update_checkpoint_dependencies(self, jobs=None):
         """Update dependencies of checkpoints."""
         updated = False
         self.update_checkpoint_outputs()
@@ -1547,10 +1547,10 @@ class DAG(DAGExecutorInterface):
                 for j in depending:
                     logger.debug(f"Updating job {j}.")
                     newjob = j.updated()
-                    self.replace_job(j, newjob, recursive=False)
+                    await self.replace_job(j, newjob, recursive=False)
                     updated = True
         if updated:
-            self.postprocess()
+            await self.postprocess()
         return updated
 
     def register_running(self, jobs):
@@ -1563,7 +1563,7 @@ class DAG(DAGExecutorInterface):
                 # already gone
                 pass
 
-    def finish(self, job, update_checkpoint_dependencies=True):
+    async def finish(self, job, update_checkpoint_dependencies=True):
         """Finish a given job (e.g. remove from ready jobs, mark depending jobs
         as ready)."""
 
@@ -1590,7 +1590,7 @@ class DAG(DAGExecutorInterface):
 
         updated_dag = False
         if update_checkpoint_dependencies:
-            updated_dag = self.update_checkpoint_dependencies(jobs)
+            updated_dag = await self.update_checkpoint_dependencies(jobs)
 
         depending = [
             j
@@ -1697,7 +1697,7 @@ class DAG(DAGExecutorInterface):
             except KeyError:
                 pass
 
-    def replace_job(self, job, newjob, recursive=True):
+    async def replace_job(self, job, newjob, recursive=True):
         """Replace given job with new job."""
         add_to_targetjobs = job in self.targetjobs
         try:
@@ -1720,7 +1720,7 @@ class DAG(DAGExecutorInterface):
 
         self.cache_job(newjob)
 
-        async_run(self.update([newjob]))
+        await self.update([newjob])
 
         logger.debug(f"Replace {job} with {newjob}")
         for job_, files in depending:
