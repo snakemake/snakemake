@@ -631,6 +631,7 @@ def test_threads0():
     run(dpath("test_threads0"))
 
 
+@skip_on_windows
 def test_default_storage(s3_storage):
     prefix, settings = s3_storage
 
