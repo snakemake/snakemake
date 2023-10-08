@@ -271,6 +271,26 @@ class Scattergather(GlobalKeywordState):
     pass
 
 
+class Storage(GlobalKeywordState):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tag = None
+        self.state = self.register_tag
+
+    def start(self):
+        yield f"workflow.storage_registry.register_storage(tag={self.tag!r}, "
+
+    def register_tag(self, token):
+        if is_name(token):
+            self.tag = token.string
+        elif is_colon(token):
+            self.state = self.block
+            for t in self.start():
+                yield t, token
+        else:
+            self.error("Expected name or colon after storage keyword.", token)
+
+
 class ResourceScope(GlobalKeywordState):
     err_msg = (
         "Invalid scope: {resource}={scope}. Scope must be set to either 'local' or "
@@ -1141,6 +1161,7 @@ class Python(TokenAutomaton):
         container=GlobalContainer,
         containerized=GlobalContainerized,
         scattergather=Scattergather,
+        storage=Storage,
         resource_scopes=ResourceScope,
         module=Module,
         use=UseRule,

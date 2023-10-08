@@ -1,3 +1,12 @@
+storage:
+    provider="s3",
+    retries=5
+
+
+storage web:
+    provider="http"
+
+
 rule all:
     input:
         storage.s3(f"{config['s3_prefix']}/test2.out")
@@ -6,7 +15,7 @@ rule all:
 rule a:
     input:
         gg=storage("https://www.google.com"),
-        gg2=storage.http("https://www.google.com")
+        gg2=storage.web("https://www.google.com")
     output:
         storage.s3(f"{config['s3_prefix']}/test.out")
     shell:

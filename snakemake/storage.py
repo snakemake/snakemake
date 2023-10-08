@@ -40,29 +40,26 @@ class StorageRegistry:
 
     def register_storage(
         self,
-        provider: str,
+        provider: Optional[str] = None,
         tag: Optional[str] = None,
         is_default: bool = False,
         **settings,
     ):
+        if provider is None:
+            raise WorkflowError('Storage provider must be specified (provider="...").')
         if provider != provider.lower():
             raise WorkflowError("Storage provider must be lowercase.")
 
         # First retrieve plugin in order to ensure that it is there.
         plugin = StoragePluginRegistry().get_plugin(provider)
 
-        final_settings = self.workflow.storage_provider_settings.get(provider)
+        tagged_settings = self.workflow.storage_provider_settings.get(provider)
+        if tagged_settings is None:
+            final_settings = None
+        else:
+            final_settings = tagged_settings.get_settings(tag)
         if final_settings is None:
             final_settings = plugin.settings_cls()
-        else:
-            try:
-                final_settings = final_settings.get_settings(tag)
-            except KeyError:
-                if tag is None:
-                    msg = f"No settings provided for storage {provider}."
-                else:
-                    msg = f"No settings provided for storage {provider} with tag {tag}."
-                raise WorkflowError(msg)
 
         final_settings = copy.copy(final_settings)
         final_settings.__dict__.update(**settings)
