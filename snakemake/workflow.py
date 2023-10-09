@@ -104,7 +104,7 @@ from snakemake.utils import simplify_path
 from snakemake.checkpoints import Checkpoints
 from snakemake.resources import ResourceScopes
 from snakemake.caching.local import OutputFileCache as LocalOutputFileCache
-from snakemake.caching.remote import OutputFileCache as RemoteOutputFileCache
+from snakemake.caching.storage import OutputFileCache as StorageOutputFileCache
 from snakemake.modules import ModuleInfo, WorkflowModifier, get_name_modifier_func
 from snakemake.ruleinfo import InOutput, RuleInfo
 from snakemake.sourcecache import (
@@ -555,8 +555,8 @@ class Workflow(WorkflowExecutorInterface):
                 {rulename: "all" for rulename in self.dag_settings.cache}
             )
             if self.storage_settings.default_storage_provider is not None:
-                self._output_file_cache = RemoteOutputFileCache(
-                    self.storage_settings.default_storage_provider
+                self._output_file_cache = StorageOutputFileCache(
+                    self.storage_registry.default_storage_provider
                 )
             else:
                 self._output_file_cache = LocalOutputFileCache()

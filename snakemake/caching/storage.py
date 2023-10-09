@@ -4,12 +4,13 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
+from pathlib import Path
 
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
 from snakemake.io import get_flag_value
-from snakemake.remote import AbstractRemoteProvider
+from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -19,37 +20,41 @@ class OutputFileCache(AbstractOutputFileCache):
     each output file. This is the remote version.
     """
 
-    def __init__(self, remote_provider: AbstractRemoteProvider):
+    def __init__(self, storage_provider: StorageProviderBase):
         super().__init__()
-        self.remote_provider = remote_provider
+        self.storage_provider = storage_provider
 
-    def store(self, job: Job, cache_mode: str):
-        for entry in self._get_remotes(job, cache_mode, check_output_exists=True):
+    async def store(self, job: Job, cache_mode: str):
+        for entry in self._get_storage_objects(
+            job, cache_mode, check_output_exists=True
+        ):
             # upload to remote
             try:
-                entry.upload()
+                await entry.managed_store()
             except Exception as e:
                 self.raise_write_error(entry, exception=e)
 
-    def fetch(self, job: Job, cache_mode: str):
-        for entry in self._get_remotes(job, cache_mode):
-            if not entry.exists():
+    async def fetch(self, job: Job, cache_mode: str):
+        for entry in self._get_storage_objects(job, cache_mode):
+            if not await entry.managed_exists():
                 self.raise_cache_miss_exception(job)
 
             # download to outputfile
             try:
-                entry.download()
+                await entry.managed_retrieve()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def exists(self, job: Job, cache_mode: str):
-        for entry in self._get_remotes(job, cache_mode):
+    async def exists(self, job: Job, cache_mode: str):
+        for entry in self._get_storage_objects(job, cache_mode):
             try:
-                return entry.exists()
+                return await entry.managed_exists()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def _get_remotes(self, job: Job, cache_mode: str, check_output_exists=False):
+    def _get_storage_objects(
+        self, job: Job, cache_mode: str, check_output_exists=False
+    ):
         provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
 
         for outputfile, ext in self.get_outputfiles(job):
@@ -59,10 +64,9 @@ class OutputFileCache(AbstractOutputFileCache):
                     "(maybe it was not created by the job?)."
                 )
 
-            f = self.remote_provider.remote(
+            f = self.storage_provider.object(
                 f"{self.cache_location}/{provenance_hash}{ext}"
             )
-            remote = get_flag_value(f, "storage_object")
-            # set local copy of the remote file
-            remote._iofile = outputfile
-            yield remote
+            storage_object = f.flags["storage_object"]
+            storage_object.set_local_path(Path(outputfile))
+            yield storage_object

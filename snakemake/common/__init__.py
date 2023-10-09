@@ -84,12 +84,14 @@ def async_run(coroutine):
          https://stackoverflow.com/a/65696398
     """
     try:
-        _ = asyncio.get_running_loop()
-    except RuntimeError:
         return asyncio.run(coroutine)
-    else:
+    except RuntimeError as e:
         raise WorkflowError(
-            "snakemake currently does not support being executed from an already running event loop."
+            "Error running coroutine in event loop. Snakemake currently does not "
+            "support being executed from an already running event loop. "
+            "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
+            "separate process for Snakemake.",
+            e,
         )
 
 

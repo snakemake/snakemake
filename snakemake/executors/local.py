@@ -246,13 +246,13 @@ class Executor(RealExecutor):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         try:
             if cache_mode:
-                self.workflow.output_file_cache.fetch(job, cache_mode)
+                async_run(self.workflow.output_file_cache.fetch(job, cache_mode))
                 return
         except CacheMissException:
             pass
         run_func(*args)
         if cache_mode:
-            self.workflow.output_file_cache.store(job, cache_mode)
+            async_run(self.workflow.output_file_cache.store(job, cache_mode))
 
     def shutdown(self):
         self.pool.shutdown()
