@@ -49,7 +49,7 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 
 
-def format_files(job, io, dynamicio, is_input: bool):
+def format_files(io, dynamicio, is_input: bool):
     for f in io:
         if f in dynamicio:
             yield f"{f.format_dynamic()} (dynamic)"
@@ -87,7 +87,7 @@ class AbstractJob(JobExecutorInterface):
         ...
 
     def has_products(self, include_logfiles=True):
-        for o in self.products(include_logfiles=include_logfiles):
+        for _ in self.products(include_logfiles=include_logfiles):
             return True
         return False
 
@@ -345,9 +345,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
             for f in self.expanded_output:
-                if await f.exists():
-                    if not await f.is_newer(script_mtime):
-                        yield f
+                if await f.exists() and not await f.is_newer(script_mtime):
+                    yield f
         # TODO also handle remote file case here.
 
     def get_target_spec(self):
@@ -812,7 +811,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 if d and not os.path.isabs(d):
                     rel_path = os.path.relpath(d)
                     # Only create subdirectories
-                    if not rel_path.split(os.path.sep)[0] == "..":
+                    if rel_path.split(os.path.sep)[0] != "..":
                         os.makedirs(
                             os.path.join(self.shadow_dir, rel_path), exist_ok=True
                         )
@@ -977,10 +976,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
             input=list(
-                format_files(self, self.input, self.dynamic_input, is_input=True)
+                format_files(self.input, self.dynamic_input, is_input=True)
             ),
             output=list(
-                format_files(self, self.output, self.dynamic_output, is_input=False)
+                format_files(self.output, self.dynamic_output, is_input=False)
             ),
             log=list(self.log),
             benchmark=self.benchmark,
@@ -1014,10 +1013,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             msg=msg,
             jobid=self.dag.jobid(self),
             input=list(
-                format_files(self, self.input, self.dynamic_output, is_input=True)
+                format_files(self.input, self.dynamic_output, is_input=True)
             ),
             output=list(
-                format_files(self, self.output, self.dynamic_output, is_input=False)
+                format_files(self.output, self.dynamic_output, is_input=False)
             ),
             log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,

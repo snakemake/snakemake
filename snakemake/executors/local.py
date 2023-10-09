@@ -272,7 +272,7 @@ class Executor(RealExecutor):
         except SpawnedJobError:
             # don't print error message, this is done by the spawned subprocess
             self.report_job_error(job_info)
-        except BaseException as ex:
+        except Exception as ex:
             if self.workflow.output_settings.verbose or (
                 not job_info.job.is_group() and not job_info.job.is_shell
             ):
@@ -469,5 +469,5 @@ def run_wrapper(
     if benchmark is not None:
         try:
             write_benchmark_records(bench_records, benchmark)
-        except BaseException as ex:
+        except Exception as ex:
             raise WorkflowError(ex)

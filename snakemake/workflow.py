@@ -155,7 +155,7 @@ class Workflow(WorkflowExecutorInterface):
         self.rule_count = 0
         self.included = []
         self.included_stack = []
-        self._persistence: Persistence = None
+        self._persistence: Optional[Persistence] = None
         self._dag: Optional[DAG] = None
         self._onsuccess = lambda log: None
         self._onerror = lambda log: None
@@ -357,7 +357,7 @@ class Workflow(WorkflowExecutorInterface):
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             try:
                 return Conda().prefix_path
-            except CreateCondaEnvironmentException as e:
+            except CreateCondaEnvironmentException:
                 # Return no preset conda base path now and report error later in jobs.
                 return None
         else:
@@ -495,7 +495,7 @@ class Workflow(WorkflowExecutorInterface):
         """
         if not self._rules:
             raise NoRulesException()
-        if not name in self._rules:
+        if name not in self._rules:
             raise UnknownRuleException(name)
         return self._rules[name]
 
@@ -1619,7 +1619,7 @@ class Workflow(WorkflowExecutorInterface):
 
             if ruleinfo.default_target is True:
                 self.default_target = rule.name
-            elif not (ruleinfo.default_target is False):
+            elif ruleinfo.default_target is not False:
                 raise WorkflowError(
                     "Invalid argument for 'default_target:' directive. Only True allowed. "
                     "Do not use the directive for rules that shall not be the default target. ",
