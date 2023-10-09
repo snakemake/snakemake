@@ -975,12 +975,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             msg=self.message,
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
-            input=list(
-                format_files(self.input, self.dynamic_input, is_input=True)
-            ),
-            output=list(
-                format_files(self.output, self.dynamic_output, is_input=False)
-            ),
+            input=list(format_files(self.input, self.dynamic_input, is_input=True)),
+            output=list(format_files(self.output, self.dynamic_output, is_input=False)),
             log=list(self.log),
             benchmark=self.benchmark,
             wildcards=self.wildcards_dict,
@@ -1012,12 +1008,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             msg=msg,
             jobid=self.dag.jobid(self),
-            input=list(
-                format_files(self.input, self.dynamic_output, is_input=True)
-            ),
-            output=list(
-                format_files(self.output, self.dynamic_output, is_input=False)
-            ),
+            input=list(format_files(self.input, self.dynamic_output, is_input=True)),
+            output=list(format_files(self.output, self.dynamic_output, is_input=False)),
             log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
