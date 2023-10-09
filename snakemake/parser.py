@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from dataclasses import dataclass
 import textwrap
 import tokenize
 from typing import Any, Dict, Generator, List, Optional
@@ -17,6 +18,11 @@ INDENT = "\t"
 
 def is_newline(token, newline_tokens=set((tokenize.NEWLINE, tokenize.NL))):
     return token.type in newline_tokens
+
+
+def is_line_start(token):
+    prefix = token.line[: token.start[1]]
+    return not prefix or prefix.isspace()
 
 
 def is_indent(token):
@@ -1188,7 +1194,11 @@ class Python(TokenAutomaton):
 
     def python(self, token: tokenize.TokenInfo):
         if not (is_indent(token) or is_dedent(token)):
-            if self.lasttoken is None or self.lasttoken.isspace():
+            if (
+                self.lasttoken is None
+                or self.lasttoken.isspace()
+                and is_line_start(token)
+            ):
                 try:
                     for t in self.subautomaton(token.string, token=token).consume():
                         yield t
