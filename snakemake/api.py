@@ -166,11 +166,9 @@ class SnakemakeApi(ApiBase):
         ---------
         ex: Exception -- The exception to print.
         """
-        linemaps = (
-            self._workflow_api._workflow.linemaps
-            if self._workflow_api is not None
-            else dict()
-        )
+        linemaps = dict()
+        if self._workflow_api is not None and self._workflow_api._workflow_store is not None:
+            linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
     def _setup_logger(
