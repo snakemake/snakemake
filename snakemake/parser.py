@@ -110,7 +110,13 @@ class TokenAutomaton:
                     str(e).split(",")[0].strip("()''"), token
                 )  # TODO the inferred line number seems to be wrong sometimes
 
-    def error(self, msg, token):
+    def error(self, msg, token, naming_hint=None):
+        if naming_hint is not None:
+            msg += (
+                f" The keyword {naming_hint} has a special meaning in Snakemake. "
+                "If you named a variable or function like this, please rename it to "
+                "avoid the conflict."
+            )
         raise SyntaxError(msg, (self.snakefile.path, lineno(token), None, None))
 
     def subautomaton(self, automaton, *args, token=None, **kwargs):
@@ -288,7 +294,11 @@ class Storage(GlobalKeywordState):
             for t in self.start():
                 yield t, token
         else:
-            self.error("Expected name or colon after storage keyword.", token)
+            self.error(
+                "Expected name or colon after storage keyword.",
+                token,
+                naming_hint="storage",
+            )
 
 
 class ResourceScope(GlobalKeywordState):
@@ -715,7 +725,9 @@ class Rule(GlobalKeywordState):
                 yield t, token
         else:
             self.error(
-                "Expected name or colon after rule or checkpoint keyword.", token
+                "Expected name or colon after rule or checkpoint keyword.",
+                token,
+                naming_hint="rule",
             )
 
     def block_content(self, token):
@@ -866,7 +878,9 @@ class Module(GlobalKeywordState):
             self.primary_token = token
             self.state = self.block
         else:
-            self.error("Expected name after module keyword.", token)
+            self.error(
+                "Expected name after module keyword.", token, naming_hint="module"
+            )
 
     def block_content(self, token):
         if is_name(token):
