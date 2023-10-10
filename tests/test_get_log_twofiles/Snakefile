@@ -1,0 +1,10 @@
+rule:
+    input: "test.in"
+    output: "test.out"
+    log: 
+        stdout="test.log",
+        sterr= "test.err"
+    wrapper:
+        'file://wrapper.py'
+
+
