@@ -167,7 +167,7 @@ class Snakemake:
 
         if stdout and stderr:
             # Check if two files are provided
-            stdout_file, stderr_file = infer_stdout_and_stderr(self.log)
+            stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
 
             if stdout_file is not None:
                 # we have a stderr and a stdout file
