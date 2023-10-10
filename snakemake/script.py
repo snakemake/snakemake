@@ -153,15 +153,14 @@ class Snakemake:
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
 
-        If you provide two log files and name them err/out or sterr/stout.
-        The functions returns:
+      If you provide two log files, name them err/out or sterr/stout.
+      The function returns:
 
-            2>> sterr > stout
-            or with append=True
-            2>> sterr >> stoud 
+          2>> sterr > stout
+          or with append=True
+          2>> sterr >> stoud 
 
-            Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
-
+        Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
         """
 
 
