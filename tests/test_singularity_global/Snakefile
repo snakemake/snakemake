@@ -1,0 +1,7 @@
+singularity: "docker://bash"
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        'if [ -d "/.singularity.d/" ]; then echo "In Singularity" > {output}; else echo "Not in Singularity" > {output};  fi'

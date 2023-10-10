@@ -1,0 +1,12 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        "test.out"
+    shell:
+        "echo test > {output}"
+
+
+use rule a as b with:
+    output:
+        "test2.out"

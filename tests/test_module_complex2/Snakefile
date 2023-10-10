@@ -1,0 +1,31 @@
+from snakemake.utils import min_version
+
+min_version("6.0")
+
+configfile: "config.yaml"
+
+remote_workflow_directory = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/49e8479402e8094a6c0ade5f1ec6803cee255c79"
+workflow_snakefile = f"{remote_workflow_directory}/workflow/Snakefile"
+
+
+# basic
+## use basic workflow
+module basic:
+    snakefile:
+        workflow_snakefile
+    replace_prefix:
+        {
+            "benchmarking/": "benchmarking/basic/",
+            "logs/": "logs/basic/",
+            "results/": "results/basic/",
+        }
+    config:
+        config
+
+
+use rule * from basic as basic_*
+
+
+rule all:
+    input:
+        rules.basic_all.input

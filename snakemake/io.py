@@ -1,35 +1,36 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2022, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
-import collections
-import os
-import shutil
-from pathlib import Path
-import re
-import stat
-import time
-import datetime
-import json
-import copy
-import functools
-import subprocess as sp
-from itertools import product, chain
-from contextlib import contextmanager
-import string
-import collections
 import asyncio
+import collections
+import copy
+import datetime
+import functools
+import json
+import os
+import re
+import shutil
+import stat
+import string
+import subprocess as sp
+import time
+from contextlib import contextmanager
+from hashlib import sha256
+from inspect import isfunction, ismethod
+from itertools import chain, product
+from pathlib import Path
+from typing import Callable, Dict, Set
 
+from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
-    WorkflowError,
-    WildcardError,
     RemoteFileException,
+    WildcardError,
+    WorkflowError,
 )
 from snakemake.logging import logger
-from inspect import isfunction, ismethod
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
 
 
 class Mtime:
@@ -96,7 +97,6 @@ if os.chmod in os.supports_follow_symlinks:
     def lchmod(f, mode):
         os.chmod(f, mode, follow_symlinks=False)
 
-
 else:
 
     def lchmod(f, mode):
@@ -145,12 +145,15 @@ class IOCache:
                 if item is stop_item:
                     queue.task_done()
                     return
-                try:
-                    self.mtime[item] = await self.collect_mtime(item)
-                except Exception as e:
-                    queue.task_done()
+                # Avoid superfluously checking mtime as the same file might be
+                # added multiple times to the queue.
+                if item not in self.mtime:
+                    try:
+                        self.mtime[item] = await self.collect_mtime(item)
+                    except Exception as e:
+                        queue.task_done()
 
-                    raise e
+                        raise e
                 queue.task_done()
 
         tasks = [
@@ -193,17 +196,45 @@ def IOFile(file, rule=None):
     return f
 
 
+def _refer_to_remote(func: Callable):
+    """
+    A decorator so that if the file is remote and has a version
+    of the same file-related function, call that version instead.
+    """
+
+    @functools.wraps(func)
+    def wrapper(self: "_IOFile", *args, **kwargs):
+        if self.is_remote:
+            if hasattr(self.remote_object, func.__name__):
+                return getattr(self.remote_object, func.__name__)(*args, **kwargs)
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
+
+def iocache(func: Callable):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # self: _IOFile
+        if self.rule.workflow.iocache.active:
+            cache = getattr(self.rule.workflow.iocache, func.__name__)
+            if self in cache:
+                return cache[self]
+            v = func(self, *args, **kwargs)
+            cache[self] = v
+            return v
+        else:
+            return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class _IOFile(str):
     """
     A file that is either input or output of a rule.
     """
 
-    __slots__ = [
-        "_is_function",
-        "_file",
-        "rule",
-        "_regex",
-    ]
+    __slots__ = ["_is_function", "_file", "rule", "_regex", "_wildcard_constraints"]
 
     def __new__(cls, file):
         is_annotated = isinstance(file, AnnotatedString)
@@ -222,41 +253,21 @@ class _IOFile(str):
         obj._file = file
         obj.rule = None
         obj._regex = None
+        obj._wildcard_constraints = None
 
         if obj.is_remote:
             obj.remote_object._iofile = obj
 
         return obj
 
-    def iocache(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.rule.workflow.iocache.active:
-                cache = getattr(self.rule.workflow.iocache, func.__name__)
-                if self in cache:
-                    return cache[self]
-                v = func(self, *args, **kwargs)
-                cache[self] = v
-                return v
-            else:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
-    def _refer_to_remote(func):
-        """
-        A decorator so that if the file is remote and has a version
-        of the same file-related function, call that version instead.
-        """
-
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            if self.is_remote:
-                if hasattr(self.remote_object, func.__name__):
-                    return getattr(self.remote_object, func.__name__)(*args, **kwargs)
-            return func(self, *args, **kwargs)
-
-        return wrapper
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new._is_function = self._is_function
+        new._file = self._file
+        new.rule = self.rule
+        if new.is_remote:
+            new.remote_object._iofile = new
+        return new
 
     def inventory(self):
         async_run(self._inventory())
@@ -294,7 +305,7 @@ class _IOFile(str):
         else:
             ancestors = ["/".join(folders[:i]) for i in range(1, len(folders) + 1)]
 
-        for (i, path) in enumerate(ancestors):
+        for i, path in enumerate(ancestors):
             if path in cache.exists_local.has_inventory:
                 # This path was already scanned before, hence we can stop.
                 break
@@ -338,7 +349,7 @@ class _IOFile(str):
         """
         if not self.exists:
             raise WorkflowError(
-                "File {} cannot be opened, since it does not exist.".format(self)
+                f"File {self} cannot be opened, since it does not exist."
             )
         if not self.exists_local and self.is_remote:
             self.download_from_remote()
@@ -363,6 +374,10 @@ class _IOFile(str):
     @property
     def is_directory(self):
         return is_flagged(self._file, "directory")
+
+    @property
+    def is_temp(self):
+        return is_flagged(self._file, "temp")
 
     @property
     def is_multiext(self):
@@ -549,6 +564,10 @@ class _IOFile(str):
     def flags(self):
         return getattr(self._file, "flags", {})
 
+    def is_fifo(self):
+        """Return True if file is a FIFO according to the filesystem."""
+        return stat.S_ISFIFO(os.stat(self).st_mode)
+
     @property
     @iocache
     @_refer_to_remote
@@ -561,12 +580,52 @@ class _IOFile(str):
         self.check_broken_symlink()
         return os.path.getsize(self.file)
 
+    def is_checksum_eligible(self):
+        return (
+            self.exists_local
+            and not os.path.isdir(self.file)
+            and self.size < 100000
+            and not self.is_fifo()
+        )
+
+    def checksum(self, force=False):
+        """Return checksum if file is small enough, else None.
+        Returns None if file does not exist. If force is True,
+        omit eligibility check."""
+        if force or self.is_checksum_eligible():  # less than 100000 bytes
+            checksum = sha256()
+            if self.size > 0:
+                # only read if file is bigger than zero
+                # otherwise the checksum is the same as taking hexdigest
+                # from the empty sha256 as initialized above
+                # This helps endless reading in case the input
+                # is a named pipe or a socket or a symlink to a device like
+                # /dev/random.
+                with open(self.file, "rb") as f:
+                    checksum.update(f.read())
+            return checksum.hexdigest()
+        else:
+            return None
+
+    def is_same_checksum(self, other_checksum, force=False):
+        checksum = self.checksum(force=force)
+        if checksum is None or other_checksum is None:
+            # if no checksum available or files too large, not the same
+            return False
+        else:
+            return checksum == other_checksum
+
     def check_broken_symlink(self):
-        """ Raise WorkflowError if file is a broken symlink. """
-        if not self.exists_local and os.lstat(self.file):
-            raise WorkflowError(
-                "File {} seems to be a broken symlink.".format(self.file)
-            )
+        """Raise WorkflowError if file is a broken symlink."""
+        if not self.exists_local:
+            try:
+                if os.lstat(self.file):
+                    raise WorkflowError(
+                        f"File {self.file} seems to be a broken symlink."
+                    )
+            except FileNotFoundError as e:
+                # there is no broken symlink present, hence all fine
+                return
 
     @_refer_to_remote
     def is_newer(self, time):
@@ -580,7 +639,7 @@ class _IOFile(str):
     def download_from_remote(self):
         if self.is_remote and self.remote_object.exists():
             if not self.should_stay_on_remote:
-                logger.info("Downloading from remote: {}".format(self.file))
+                logger.info(f"Downloading from remote: {self.file}")
                 self.remote_object.download()
                 logger.info("Finished download.")
         else:
@@ -590,7 +649,7 @@ class _IOFile(str):
 
     def upload_to_remote(self):
         if self.is_remote:
-            logger.info("Uploading to remote: {}".format(self.file))
+            logger.info(f"Uploading to remote: {self.file}")
             self.remote_object.upload()
             logger.info("Finished upload.")
 
@@ -612,12 +671,14 @@ class _IOFile(str):
         mode = (
             os.lstat(self.file).st_mode & ~stat.S_IWUSR & ~stat.S_IWGRP & ~stat.S_IWOTH
         )
+        # iterate over content if output is a directory
         if os.path.isdir(self.file):
-            for root, dirs, files in os.walk(self.file):
-                for d in dirs:
-                    lchmod(os.path.join(self.file, d), mode)
-                for f in files:
-                    lchmod(os.path.join(self.file, f), mode)
+            # topdown=False ensures we chmod first the content, then the dir itself
+            for dirpath, dirnames, filenames in os.walk(self.file, topdown=False):
+                # no need to treat differently directories or files
+                for content in dirnames + filenames:
+                    lchmod(os.path.join(dirpath, content), mode)
+        # protect explicit output itself
         lchmod(self.file, mode)
 
     def remove(self, remove_non_empty_dir=False):
@@ -627,7 +688,7 @@ class _IOFile(str):
             remove(self, remove_non_empty_dir=remove_non_empty_dir)
 
     def touch(self, times=None):
-        """ times must be 2-tuple: (atime, mtime) """
+        """times must be 2-tuple: (atime, mtime)"""
         try:
             if self.is_directory:
                 file = os.path.join(self.file, ".snakemake_timestamp")
@@ -699,6 +760,11 @@ class _IOFile(str):
             self._regex = re.compile(regex(self.file))
         return self._regex
 
+    def wildcard_constraints(self):
+        if self._wildcard_constraints is None:
+            self._wildcard_constraints = get_wildcard_constraints(self.file)
+        return self._wildcard_constraints
+
     def constant_prefix(self):
         first_wildcard = _wildcard_regex.search(self.file)
         if first_wildcard:
@@ -723,7 +789,7 @@ class _IOFile(str):
     def clone_flags(self, other):
         if isinstance(self._file, str):
             self._file = AnnotatedString(self._file)
-        if isinstance(other._file, AnnotatedString):
+        if isinstance(other._file, AnnotatedString) or isinstance(other._file, _IOFile):
             self._file.flags = getattr(other._file, "flags", {}).copy()
             if "remote_object" in self._file.flags:
                 self._file.flags["remote_object"] = copy.copy(
@@ -778,9 +844,9 @@ _wildcard_regex = re.compile(
 
 
 def wait_for_files(
-    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe=False
+    files, latency_wait=3, force_stay_on_remote=False, ignore_pipe_or_service=False
 ):
-    """Wait for given files to be present in filesystem."""
+    """Wait for given files to be present in the filesystem."""
     files = list(files)
 
     def get_missing():
@@ -795,24 +861,28 @@ def wait_for_files(
                     and (force_stay_on_remote or f.should_stay_on_remote)
                 )
                 else os.path.exists(f)
-                if not (is_flagged(f, "pipe") and ignore_pipe)
+                if not (
+                    (is_flagged(f, "pipe") or is_flagged(f, "service"))
+                    and ignore_pipe_or_service
+                )
                 else True
             )
         ]
 
     missing = get_missing()
     if missing:
-        logger.info(
-            "Waiting at most {} seconds for missing files.".format(latency_wait)
-        )
+        logger.info(f"Waiting at most {latency_wait} seconds for missing files.")
         for _ in range(latency_wait):
-            if not get_missing():
+            missing = get_missing()
+            if not missing:
                 return
             time.sleep(1)
+        missing = "\n".join(get_missing())
         raise IOError(
-            "Missing files after {} seconds:\n{}".format(
-                latency_wait, "\n".join(get_missing())
-            )
+            f"Missing files after {latency_wait} seconds. This might be due to "
+            "filesystem latency. If that is the case, consider to increase the "
+            "wait time with --latency-wait:\n"
+            f"{missing}"
         )
 
 
@@ -821,7 +891,7 @@ def get_wildcard_names(pattern):
 
 
 def contains_wildcard(path):
-    return _wildcard_regex.search(path) is not None
+    return _wildcard_regex.search(str(path)) is not None
 
 
 def contains_wildcard_constraints(pattern):
@@ -841,9 +911,7 @@ def remove(file, remove_non_empty_dir=False):
             except OSError as e:
                 # skip non empty directories
                 if e.errno == 39:
-                    logger.info(
-                        "Skipped removing non-empty directory {}".format(e.filename)
-                    )
+                    logger.info(f"Skipped removing non-empty directory {e.filename}")
                 else:
                     logger.warning(str(e))
     # Remember that dangling symlinks fail the os.path.exists() test, but
@@ -854,6 +922,14 @@ def remove(file, remove_non_empty_dir=False):
             os.remove(file)
         except FileNotFoundError:
             pass
+
+
+def get_wildcard_constraints(pattern):
+    constraints = {}
+    for match in _wildcard_regex.finditer(pattern):
+        if match.group("constraint"):
+            constraints[match.group("name")] = re.compile(match.group("constraint"))
+    return constraints
 
 
 def regex(filepattern):
@@ -869,7 +945,7 @@ def regex(filepattern):
                     "Constraint regex must be defined only in the first "
                     "occurence of the wildcard in a string."
                 )
-            f.append("(?P={})".format(wildcard))
+            f.append(f"(?P={wildcard})")
         else:
             wildcards.add(wildcard)
             f.append(
@@ -901,21 +977,13 @@ def apply_wildcards(
             return str(value)  # convert anything into a str
         except KeyError as ex:
             if keep_dynamic:
-                return "{{{}}}".format(name)
+                return f"{{{name}}}"
             elif fill_missing:
                 return dynamic_fill
             else:
                 raise WildcardError(str(ex))
 
     return _wildcard_regex.sub(format_match, pattern)
-
-
-def not_iterable(value):
-    return (
-        isinstance(value, str)
-        or isinstance(value, dict)
-        or not isinstance(value, collections.abc.Iterable)
-    )
 
 
 def is_callable(value):
@@ -931,8 +999,16 @@ class AnnotatedString(str):
         self.flags = dict()
         self.callable = value if is_callable(value) else None
 
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
 
 def flag(value, flag_type, flag_value=True):
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     if isinstance(value, AnnotatedString):
         value.flags[flag_type] = flag_value
         return value
@@ -968,7 +1044,7 @@ def ancient(value):
 
 def directory(value):
     """
-    A flag to specify that an output is a directory, rather than a file or named pipe.
+    A flag to specify that output is a directory, rather than a file or named pipe.
     """
     if is_flagged(value, "pipe"):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
@@ -996,17 +1072,25 @@ def pipe(value):
     if is_flagged(value, "remote"):
         raise SyntaxError("Pipes may not be remote files.")
     if ON_WINDOWS:
-        logger.warning("Pipes is not yet supported on Windows.")
+        logger.warning("Pipes are not yet supported on Windows.")
     return flag(value, "pipe", not ON_WINDOWS)
 
 
+def service(value):
+    if is_flagged(value, "protected"):
+        raise SyntaxError("Pipes may not be protected.")
+    if is_flagged(value, "remote"):
+        raise SyntaxError("Pipes may not be remote files.")
+    return flag(value, "service")
+
+
 def temporary(value):
-    """ An alias for temp. """
+    """An alias for temp."""
     return temp(value)
 
 
 def protected(value):
-    """ A flag for a file that shall be write protected after creation. """
+    """A flag for a file that shall be write-protected after creation."""
     if is_flagged(value, "temp"):
         raise SyntaxError("Protected and temporary flags are mutually exclusive.")
     if is_flagged(value, "remote"):
@@ -1019,6 +1103,8 @@ def dynamic(value):
     A flag for a file that shall be dynamic, i.e. the multiplicity
     (and wildcard values) will be expanded after a certain
     rule has been run"""
+    from snakemake_interface_executor_plugins.utils import not_iterable
+
     annotated = flag(value, "dynamic", True)
     tocheck = [annotated] if not_iterable(annotated) else annotated
     for file in tocheck:
@@ -1037,6 +1123,10 @@ def touch(value):
     return flag(value, "touch")
 
 
+def ensure(value, non_empty=False, sha256=None):
+    return flag(value, "ensure", {"non_empty": non_empty, "sha256": sha256})
+
+
 def unpack(value):
     return flag(value, "unpack")
 
@@ -1050,35 +1140,53 @@ def checkpoint_target(value):
     return flag(value, "checkpoint_target")
 
 
+def sourcecache_entry(value, orig_path_or_uri):
+    from snakemake.sourcecache import SourceFile
+
+    assert not isinstance(
+        orig_path_or_uri, SourceFile
+    ), "bug: sourcecache_entry should recive a path or uri, not a SourceFile"
+    return flag(value, "sourcecache_entry", orig_path_or_uri)
+
+
 ReportObject = collections.namedtuple(
-    "ReportObject", ["caption", "category", "subcategory", "patterns", "htmlindex"]
+    "ReportObject",
+    ["caption", "category", "subcategory", "labels", "patterns", "htmlindex"],
 )
 
 
 def report(
-    value, caption=None, category=None, subcategory=None, patterns=[], htmlindex=None
+    value,
+    caption=None,
+    category=None,
+    subcategory=None,
+    labels=None,
+    patterns=[],
+    htmlindex=None,
 ):
     """Flag output file or directory as to be included into reports.
 
-    In case of directory, files to include can be specified via a glob pattern (default: *).
+    In the case of a directory, files to include can be specified via a glob pattern (default: *).
 
     Arguments
     value -- File or directory.
     caption -- Path to a .rst file with a textual description of the result.
-    category -- Name of the category in which the result should be displayed in the report.
-    pattern -- Wildcard pattern for selecting files if a directory is given (this is used as
+    category -- Name of the (optional) category in which the result should be displayed in the report.
+    subcategory -- Name of the (optional) subcategory
+    columns  -- Dict of strings (may contain wildcard expressions) that will be used as columns when displaying result tables
+    patterns -- Wildcard patterns for selecting files if a directory is given (this is used as
                input for snakemake.io.glob_wildcards). Pattern shall not include the path to the
                directory itself.
     """
     return flag(
         value,
         "report",
-        ReportObject(caption, category, subcategory, patterns, htmlindex),
+        ReportObject(caption, category, subcategory, labels, patterns, htmlindex),
     )
 
 
 def local(value):
-    """Mark a file as local file. This disables application of a default remote
+    """Mark a file as a local file. This disables the application of a default remote
     provider.
     """
     if is_flagged(value, "remote"):
@@ -1135,6 +1243,16 @@ def expand(*args, **wildcards):
                 format_dict = dict
                 break
 
+    # raise error if function is passed as value for any wildcard
+    for key, value in wildcards.items():
+        if callable(value):
+            raise WorkflowError(
+                f"Callable/function {value} is passed as value for {key} in 'expand' statement. "
+                "This is most likely not what you want, as expand takes iterables of values or single values for "
+                "its arguments. If you want to use a function to generate the values, you can wrap the entire "
+                "expand in another function that does the computation."
+            )
+
     # remove unused wildcards to avoid duplicate filepatterns
     wildcards = {
         filepattern: {
@@ -1161,14 +1279,14 @@ def expand(*args, **wildcards):
             for comb in map(format_dict, combinator(*flatten(wildcards[filepattern])))
         ]
     except KeyError as e:
-        raise WildcardError("No values given for wildcard {}.".format(e))
+        raise WildcardError(f"No values given for wildcard {e}.")
 
 
 def multiext(prefix, *extensions):
     """Expand a given prefix with multiple extensions (e.g. .txt, .csv, _peaks.bed, ...)."""
     if any((r"/" in ext or r"\\" in ext) for ext in extensions):
         raise WorkflowError(
-            r"Extensions for multiext may not contain path delimiters " r"(/,\)."
+            r"Extensions for multiext may not contain path delimiters (/,\)."
         )
     return [flag(prefix + ext, "multiext", flag_value=prefix) for ext in extensions]
 
@@ -1228,7 +1346,9 @@ def glob_wildcards(pattern, files=None, followlinks=False):
 
 
 def update_wildcard_constraints(
-    pattern, wildcard_constraints, global_wildcard_constraints
+    pattern,
+    wildcard_constraints: Dict[str, str],
+    global_wildcard_constraints: Dict[str, str],
 ):
     """Update wildcard constraints
 
@@ -1238,7 +1358,7 @@ def update_wildcard_constraints(
       global_wildcard_constraints (dict): dictionary of wildcard:constraint key-value pairs
     """
 
-    def replace_constraint(match):
+    def replace_constraint(match: re.Match):
         name = match.group("name")
         constraint = match.group("constraint")
         newconstraint = wildcard_constraints.get(
@@ -1252,11 +1372,11 @@ def update_wildcard_constraints(
             return match.group(0)
         # Only update if a new constraint has actually been set
         elif newconstraint is not None:
-            return "{{{},{}}}".format(name, newconstraint)
+            return f"{{{name},{newconstraint}}}"
         else:
             return match.group(0)
 
-    examined_names = set()
+    examined_names: Set[str] = set()
     updated = _wildcard_regex.sub(replace_constraint, pattern)
 
     # inherit flags
@@ -1266,89 +1386,11 @@ def update_wildcard_constraints(
     return updated
 
 
-def split_git_path(path):
-    file_sub = re.sub(r"^git\+file:/+", "/", path)
-    (file_path, version) = file_sub.split("@")
-    file_path = os.path.realpath(file_path)
-    root_path = get_git_root(file_path)
-    if file_path.startswith(root_path):
-        file_path = file_path[len(root_path) :].lstrip("/")
-    return (root_path, file_path, version)
-
-
-def get_git_root(path):
-    """
-    Args:
-        path: (str) Path a to a directory/file that is located inside the repo
-    Returns:
-        path to root folder for git repo
-    """
-    import git
-
-    try:
-        git_repo = git.Repo(path, search_parent_directories=True)
-        return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
-        return get_git_root_parent_directory(tail, path)
-
-
-def get_git_root_parent_directory(path, input_path):
-    """
-    This function will recursively go through parent directories until a git
-    repository is found or until no parent directories are left, in which case
-    a error will be raised. This is needed when providing a path to a
-    file/folder that is located on a branch/tag no currently checked out.
-
-    Args:
-        path: (str) Path a to a directory that is located inside the repo
-        input_path: (str) origin path, used when raising WorkflowError
-    Returns:
-        path to root folder for git repo
-    """
-    import git
-
-    try:
-        git_repo = git.Repo(path, search_parent_directories=True)
-        return git_repo.git.rev_parse("--show-toplevel")
-    except git.exc.NoSuchPathError:
-        tail, head = os.path.split(path)
-        if tail is None:
-            raise WorkflowError(
-                "Neither provided git path ({}) ".format(input_path)
-                + "or parent directories contain a valid git repo."
-            )
-        else:
-            return get_git_root_parent_directory(tail, input_path)
-
-
-def git_content(git_file):
-    """
-    This function will extract a file from a git repository, one located on
-    the filesystem.
-    Expected format is git+file:///path/to/your/repo/path_to_file@@version
-
-    Args:
-      env_file (str): consist of path to repo, @, version and file information
-                      Ex: git+file:////home/smeds/snakemake-wrappers/bio/fastqc/wrapper.py@0.19.3
-    Returns:
-        file content or None if the expected format isn't meet
-    """
-    import git
-
-    if git_file.startswith("git+file:"):
-        (root_path, file_path, version) = split_git_path(git_file)
-        return git.Repo(root_path).git.show("{}:{}".format(version, file_path))
-    else:
-        raise WorkflowError(
-            "Provided git path ({}) doesn't meet the "
-            "expected format:".format(git_file) + ", expected format is "
-            "git+file://PATH_TO_REPO/PATH_TO_FILE_INSIDE_REPO@VERSION"
-        )
-
-
 def strip_wildcard_constraints(pattern):
     """Return a string that does not contain any wildcard constraints."""
+    if is_callable(pattern):
+        # do not apply on e.g. input functions
+        return pattern
 
     def strip_constraint(match):
         return "{{{}}}".format(match.group("name"))
@@ -1359,7 +1401,7 @@ def strip_wildcard_constraints(pattern):
 class Namedlist(list):
     """
     A list that additionally provides functions to name items. Further,
-    it is hashable, however the hash does not consider the item names.
+    it is hashable, however, the hash does not consider the item names.
     """
 
     def __init__(
@@ -1387,18 +1429,23 @@ class Namedlist(list):
         for name in self._allowed_overrides:
             setattr(self, name, functools.partial(self._used_attribute, _name=name))
 
-        if toclone:
+        if toclone is not None:
             if custom_map is not None:
                 self.extend(map(custom_map, toclone))
             elif plainstr:
-                self.extend(map(str, toclone))
+                self.extend(
+                    x.remote_object.to_plainstr()
+                    if isinstance(x, _IOFile) and x.remote_object is not None
+                    else str(x)
+                    for x in toclone
+                )
             elif strip_constraints:
                 self.extend(map(strip_wildcard_constraints, toclone))
             else:
                 self.extend(toclone)
             if isinstance(toclone, Namedlist):
                 self._take_names(toclone._get_names())
-        if fromdict:
+        if fromdict is not None:
             for key, item in fromdict.items():
                 self.append(item)
                 self._add_name(key)
@@ -1476,7 +1523,6 @@ class Namedlist(list):
                 item[1][0] + 1 if item[1][1] is None else item[1][1],
             ),
         ):
-
             start, end = index
             if end is None:
                 end = start + 1
@@ -1513,11 +1559,10 @@ class Namedlist(list):
         return self.__dict__.get(key, default_value)
 
     def __getitem__(self, key):
-        try:
+        if isinstance(key, str):
+            return getattr(self, key)
+        else:
             return super().__getitem__(key)
-        except TypeError:
-            pass
-        return getattr(self, key)
 
     def __hash__(self):
         return hash(tuple(self))
@@ -1554,49 +1599,6 @@ class Resources(Namedlist):
 
 class Log(Namedlist):
     pass
-
-
-def _load_configfile(configpath, filetype="Config"):
-    "Tries to load a configfile first as JSON, then as YAML, into a dict."
-    import yaml
-
-    try:
-        with open(configpath) as f:
-            try:
-                return json.load(f, object_pairs_hook=collections.OrderedDict)
-            except ValueError:
-                f.seek(0)  # try again
-            try:
-                # From https://stackoverflow.com/a/21912744/84349
-                class OrderedLoader(yaml.Loader):
-                    pass
-
-                def construct_mapping(loader, node):
-                    loader.flatten_mapping(node)
-                    return collections.OrderedDict(loader.construct_pairs(node))
-
-                OrderedLoader.add_constructor(
-                    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
-                )
-                return yaml.load(f, Loader=OrderedLoader)
-            except yaml.YAMLError:
-                raise WorkflowError(
-                    "Config file is not valid JSON or YAML. "
-                    "In case of YAML, make sure to not mix "
-                    "whitespace and tab indentation.".format(filetype)
-                )
-    except FileNotFoundError:
-        raise WorkflowError("{} file {} not found.".format(filetype, configpath))
-
-
-def load_configfile(configpath):
-    "Loads a JSON or YAML configfile as a dict, then checks that it's a dict."
-    config = _load_configfile(configpath)
-    if not isinstance(config, dict):
-        raise WorkflowError(
-            "Config file must be given as JSON or YAML " "with keys at top level."
-        )
-    return config
 
 
 ##### Wildcard pumping detection #####

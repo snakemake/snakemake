@@ -1,0 +1,4 @@
+block:
+    bar: snake_bar
+    fubar: snake_fubar
+    foobar: null

@@ -1,0 +1,17 @@
+rule b:
+    output:
+        "test.txt"
+    shell:
+        "echo test_b > {output}"
+
+
+rule c:
+    input:
+        "test.txt"
+    output:
+        "test_final.txt"
+    shell:
+        """
+        cp {input} {output};
+        echo test_c >> {output}
+        """

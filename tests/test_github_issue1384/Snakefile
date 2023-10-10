@@ -1,0 +1,20 @@
+rule all:
+    input:
+        "results/checksum.txt"
+
+rule foo:
+    output:
+        directory("results/dir")
+    shell:
+        """
+        mkdir results/dir
+        echo hi >> results/dir/something
+        """
+
+rule bar:
+    input:
+        rules.foo.output
+    output:
+        "results/checksum.txt"
+    shell:
+        "ls {input}/* >> {output}"

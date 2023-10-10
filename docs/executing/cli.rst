@@ -8,19 +8,29 @@ This part of the documentation describes the ``snakemake`` executable.  Snakemak
 is primarily a command-line tool, so the ``snakemake`` executable is the primary way
 to execute, debug, and visualize workflows.
 
+.. user_manual-snakemake_envvars:
+
+-------------------------------
+Important environment variables
+-------------------------------
+
+Snakemake caches source files for performance and reproducibility.
+The location of this cache is determined by the `appdirs <https://github.com/ActiveState/appdirs>`_ package.
+If you want to change the location on a unix/linux system, you can define an override path via the environment variable ``XDG_CACHE_HOME``.
+
 .. user_manual-snakemake_options:
 
 -----------------------------
 Useful Command Line Arguments
 -----------------------------
 
-If called without parameters, i.e.
+If called with the number of cores to use, i.e.
 
 .. code-block:: console
 
-    $ snakemake
+    $ snakemake --cores 1
 
-Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (instead, the Snakefile can be given via the parameter ``-s``).
+Snakemake tries to execute the workflow specified in a file called ``Snakefile`` in the same directory (the Snakefile can be given via the parameter ``-s``).
 
 By issuing
 
@@ -38,7 +48,7 @@ Further, the reason for each rule execution can be printed via
     $ snakemake -n -r
 
 Importantly, Snakemake can automatically determine which parts of the workflow can be run in parallel.
-By specifying the number of available cores, i.e.
+By specifying more than one available core, i.e.
 
 .. code-block:: console
 
@@ -55,7 +65,13 @@ This can be done by using the ``--set-threads`` argument, e.g.,
     $ snakemake --cores 4 --set-threads myrule=2
 
 would overwrite whatever number of threads has been defined for the rule ``myrule`` and use ``2`` instead.
-This can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
+Similarly, it is possible to overwrite other resource definitions in rules, via
+
+.. code-block:: console
+
+    $ snakemake --cores 4 --set-resources myrule:partition="foo"
+
+Both mechanisms can be particularly handy when used in combination with :ref:`cluster execution <cluster>`.
 
 Dealing with very large workflows
 ---------------------------------
@@ -70,7 +86,7 @@ By running
 
     $ snakemake --cores 4 --batch myrule=1/3
 
-you instruct to only compute the first of three batches of the inputs of the rule `myrule`.
+you instruct to only compute the first of three batches of the inputs of the rule ``myrule``.
 To generate the second batch, run
 
 .. code-block:: console
@@ -84,7 +100,7 @@ Finally, when running
 
     $ snakemake --cores 4 --batch myrule=3/3
 
-Snakemake will process beyond the rule `myrule`, because all of its input files have been generated, and complete the workflow.
+Snakemake will process beyond the rule ``myrule``, because all of its input files have been generated, and complete the workflow.
 Obviously, a good choice of the rule to perform the batching is a rule that has a lot of input files and upstream jobs, for example a central aggregation step within your workflow.
 We advice all workflow developers to inform potential users of the best suited batching rule.
 
@@ -95,15 +111,28 @@ Profiles
 --------
 
 Adapting Snakemake to a particular environment can entail many flags and options.
-Therefore, since Snakemake 4.1, it is possible to specify a configuration profile
-to be used to obtain default options:
+Therefore, since Snakemake 4.1, it is possible to specify configuration profiles
+to be used to obtain default options.
+Since Snakemake 7.29, two kinds of profiles are supported:
+
+* A global profile that is defined in a system-wide or user-specific configuration directory (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+* A workflow specific profile (introduced in Snakemake 7.29) that is defined via a flag (``--workflow-profile``) or searched in a default location (``profile/default``) in the working directory or next to the Snakefile.
+
+The workflow specific profile is meant to be used to define default options for a particular workflow, like providing constraints for certain custom resources the workflow uses (e.g. ``api_calls``) or overwriting the threads and resource definitions of individual rules without modifying the workflow code itself.
+In contrast, the global profile is meant to be used to define default options for a particular environment, like the default cluster submission command or the default number of jobs to run in parallel.
+
+For example, the command
 
 .. code-block:: console
 
    $ snakemake --profile myprofile
 
-Here, a folder ``myprofile`` is searched in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
-Alternatively, an absolute or relative path to the folder can be given.
+would expect a folder ``myprofile`` in per-user and global configuration directories (on Linux, this will be ``$HOME/.config/snakemake`` and ``/etc/xdg/snakemake``, you can find the answer for your system via ``snakemake --help``).
+Alternatively, an absolute or relative path to the profile folder can be given.
+The default profile to use when no ``--profile`` argument is specified can also be set via the environment variable ``SNAKEMAKE_PROFILE``,
+e.g. by specifying ``export SNAKEMAKE_PROFILE=myprofile`` in your ``~/.bashrc`` or the system wide shell defaults means that the ``--profile`` flag can be omitted.
+In order unset the profile defined by this environment variable for individual runs without specifying and alternative profile you can provide the special value ``none``, i.e. ``--profile none``.
+
 The profile folder is expected to contain a file ``config.yaml`` that defines default values for the Snakemake command line arguments.
 For example, the file
 
@@ -114,13 +143,48 @@ For example, the file
 
 would setup Snakemake to always submit to the cluster via the ``qsub`` command, and never use more than 100 parallel jobs in total.
 The profile can be used to set a default for each option of the Snakemake command line interface.
-For this, option ``--someoption`` becomes ``someoption: `` in the profile.
+For this, option ``--someoption`` becomes ``someoption:`` in the profile.
+The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers. See https://github.com/snakemake-profiles/doc for examples.
 If options accept multiple arguments these must be given as YAML list in the profile.
-Under https://github.com/snakemake-profiles/doc, you can find publicly available profiles.
-Feel free to contribute your own.
+If options expect structured arguments (like ``--set-threads RULE=VALUE`` or ``--set-resources RULE:RESOURCE=VALUE``), those can be given as strings in the expected forms, i.e.
 
-The profile folder can additionally contain auxilliary files, e.g., jobscripts, or any kind of wrappers.
-See https://github.com/snakemake-profiles/doc for examples.
+.. code-block:: yaml
+
+    set-threads: myrule=5
+    set-resources: myrule:mem=500MB
+
+or alternatively (which is preferable) as YAML maps, e.g.:
+
+.. code-block:: yaml
+
+    set-threads:
+        myrule: 5
+    set-resources:
+        myrule:
+            mem: 500MB
+
+Setting resources or threads via the profile is of course rather a job for the workflow profile instead of the global profile (as such settings are likely workflow specific).
+
+Under https://github.com/snakemake-profiles/doc, you can find publicly available global profiles (e.g. for cluster systems).
+Feel free to contribute your own.
+Workflow specific profiles are either not shared at all, or can be distributed along with the workflow itself where it makes sense.
+For example, when the workflow has its Snakefile at ``workflow/Snakefile``, the profile config should be placed at ``workflow/profiles/default/config.yaml``.
+
+
+Use templating in profiles
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In Snakemake 7.30 or newer, when the profile starts with
+
+.. code-block:: yaml
+
+    __use_yte__: true
+
+It will be treated as a `YTE template <https://yte-template-engine.github.io>`_ and parsed accordingly.
+This can be handy to e.g. define values inside of the profile that are based on environment variables.
+For example, admins could use this to define user-specific settings.
+Another application would be the uniform redefinition of resource requirements for a larger set of rules in a workflow profile (see above).
+However, it should be noted that templated profiles are harder to keep free of errors and the profile author has to make sure that they always work correctly for the user.
 
 
 .. _getting_started-visualization:
@@ -180,5 +244,5 @@ To enable it globally, just append
 
     `snakemake --bash-completion`
 
-including the accents to your ``.bashrc``.
+including the backticks to your ``.bashrc``.
 This only works if the ``snakemake`` command is in your path.

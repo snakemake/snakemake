@@ -26,13 +26,15 @@ Snakemake includes the following remote providers, supported by the correspondin
 * GridFTP: ``snakemake.remote.gridftp``
 * iRODS: ``snakemake.remote.iRODS``
 * EGA: ``snakemake.remote.EGA``
+* Zenodo: ``snakemake.remote.zenodo``
+* AUTO: an automated remote selector
 
 Amazon Simple Storage Service (S3)
 ==================================
 
 This section describes usage of the S3 RemoteProvider, and also provides an intro to remote files and their usage.
 
-It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``=/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
+It is important to note that you must have credentials (``access_key_id`` and ``secret_access_key``) which permit read/write access. If a file only serves as input to a Snakemake rule, read access is sufficient. You may specify credentials as environment variables or in the file ``~/.aws/credentials``, prefixed with ``AWS_*``, as with a standard `boto config <https://boto.readthedocs.org/en/latest/boto_config_tut.html>`_. Credentials may also be explicitly listed in the ``Snakefile``, as shown below:
 
 For the Amazon S3 and Google Cloud Storage providers, the sub-directory used must be the bucket name.
 
@@ -148,15 +150,15 @@ variables are not passed directly to AzureRemoteProvider (see
 [BlobServiceClient
 class](https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azure.storage.blob.blobserviceclient?view=azure-python)
 for naming), they will be read from environment variables, named
-`AZ_BLOB_ACCOUNT_URL` and `AZ_BLOB_CREDENTIAL`. `AZ_BLOB_ACCOUNT_URL` takes the form
-`https://<accountname>.blob.core.windows.net` and may also contain a SAS. If
-a SAS is not part of the URL, `AZ_BLOB_CREDENTIAL` has to be set to the SAS or alternatively to
+``AZ_BLOB_ACCOUNT_URL`` and ``AZ_BLOB_CREDENTIAL``. ``AZ_BLOB_ACCOUNT_URL`` takes the form
+``https://<accountname>.blob.core.windows.net`` and may also contain a SAS. If
+a SAS is not part of the URL, ``AZ_BLOB_CREDENTIAL`` has to be set to the SAS or alternatively to
 the storage account key.
 
 When using AzBlob as default remote provider you will almost always want to
 pass these environment variables on to the remote execution environment (e.g.
-Kubernetes) with `--envvars`, e.g
-`--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL`.
+Kubernetes) with ```--envvars``, e.g
+``--envvars AZ_BLOB_ACCOUNT_URL AZ_BLOB_CREDENTIAL``.
 
 .. code-block:: python
 
@@ -362,6 +364,12 @@ For different types of authentication, you can pass in a Python ```requests.auth
 
 Since remote servers do not present directory contents uniformly, ``glob_wildcards()`` is __not__ supported by the HTTP provider.
 
+.. note::
+
+    Snakemake automatically decompresses http remote files if they are marked as `Content-Encoding: gzip` by the server and **not** end with ``.gz``.
+    The reason is that for those files the rule obviously expects the uncompressed version.
+    If in contrast the file ends on ``.gz`` the compressed version is expected and therefore no automatic decompression happens.
+
 File Transfer Protocol (FTP)
 ============================
 
@@ -488,11 +496,11 @@ This flag can be overridden on a file by file basis as described in the S3 remot
     from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
 
     XRootD = XRootDRemoteProvider(stay_on_remote=True)
-    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root")
+    file_numbers = XRootD.glob_wildcards("root://eospublic.cern.ch//eos/opendata/lhcb/MasterclassDatasets/D0lifetime/2014/mclasseventv2_D0_{n}.root").n
 
     rule all:
         input:
-            XRootD.remote(expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers))
+            expand("local_data/mclasseventv2_D0_{n}.root", n=file_numbers)
 
     rule make_data:
         input:
@@ -501,6 +509,14 @@ This flag can be overridden on a file by file basis as described in the S3 remot
             'local_data/mclasseventv2_D0_{n}.root'
         shell:
             'xrdcp {input[0]} {output[0]}'
+
+In order to access the files using autorization tokens, the "url_decorator" parameter can be used to append the necessary string to the URL e.g.
+
+.. code-block:: python
+
+    from snakemake.remote.XRootD import RemoteProvider as XRootDRemoteProvider
+    XRootD = XRootDRemoteProvider(stay_on_remote=True, url_decorator=lambda x: x + "?xrd.wantprot=unix&authz=XXXXXX")
+    
 
 GenBank / NCBI Entrez
 =====================
@@ -586,15 +602,16 @@ GFAL
 
 GFAL support is available in Snakemake 4.1 and later.
 
-Snakemake supports reading and writing remote files via the `GFAL <https://dmc.web.cern.ch/projects/gfal-2/home>`_ command line client (gfal-* commands).
+Snakemake supports reading and writing remote files via the `GFAL2 Python bindings <https://dmc-docs.web.cern.ch/dmc-docs/gfal2-python.html>`_ . This package is not installed by default with a Snakemake installation. The easiest installation method is with mamba or conda. e.g.: ``mamba install -c conda-forge python-gfal2``.
+
 By this, it supports various grid storage protocols like `GridFTP <https://en.wikipedia.org/wiki/GridFTP>`_.
-In general, if you are able to use the `gfal-*` commands directly, Snakemake support for GFAL will work as well.
+
 
 .. code-block:: python
 
     from snakemake.remote import gfal
 
-    gfal = gfal.RemoteProvider(retry=5)
+    gfal = gfal.RemoteProvider()
 
     rule a:
         input:
@@ -606,8 +623,6 @@ In general, if you are able to use the `gfal-*` commands directly, Snakemake sup
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
 
 Note that GFAL support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
@@ -625,7 +640,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
     from snakemake.remote import gridftp
 
-    gridftp = gridftp.RemoteProvider(retry=5)
+    gridftp = gridftp.RemoteProvider(streams=4)
 
     rule a:
         input:
@@ -637,8 +652,7 @@ This provider only supports the GridFTP protocol. Internally, it uses the `globu
 
 Authentication has to be setup in the system, e.g. via certificates in the ``.globus`` directory.
 Usually, this is already the case and no action has to be taken.
-The keyword argument to the remote provider allows to set the number of retries (10 per default) in case of failed commands (the GRID is usually relatively unreliable).
-The latter may be unsupported depending on the system configuration.
+The keyword argument to the remote provider allows to set the number of parallel streams used for file tranfers(4 per default). When ``streams``is set to 1 or smaller, the files are trasfered in a serial way. Paralell stream may be unsupported depending on the system configuration.
 
 Note that GridFTP support used together with the flags ``--no-shared-fs`` and ``--default-remote-provider`` enables you
 to transparently use Snakemake in a grid computing environment without a shared network filesystem.
@@ -782,17 +796,119 @@ Note that the filename should not include the ``.cip`` ending that is sometimes 
 
 .. code-block:: python
 
-  import snakemake.remote.EGA as EGA
+    import snakemake.remote.EGA as EGA
 
-  ega = EGA.RemoteProvider()
+    ega = EGA.RemoteProvider()
 
 
-  rule a:
-    input:
-        ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
-    output:
-        "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
-    shell:
-        "cp {input} {output}"
+    rule a:
+        input:
+            ega.remote("ega/EGAD00001002142/COLO_829_EPleasance_TGENPipe.bam.bai")
+        output:
+            "data/COLO_829BL_BCGSC_IlluminaPipe.bam.bai"
+        shell:
+            "cp {input} {output}"
 
 Upon download, Snakemake will automatically decrypt the file and check the MD5 hash.
+
+Zenodo
+======
+
+`Zenodo <https://zenodo.org>`_ is a catch-all open data and software repository. 
+Snakemake allows file upload and download from Zenodo. 
+To access your Zenodo files you need to set up Zenodo account and create a personal access token with at least write scope.
+Personal access token must be supplied as ``access_token`` argument.
+You need to supply deposition id as ``deposition`` to upload or download files from your deposition.
+If no deposition id is supplied, Snakemake creates a new deposition for upload.
+Zenodo UI and REST API responses were designed with having in mind uploads of a total of 20-30 files.
+Avoid creating uploads with too many files, and instead group and zip them to make it easier their distribution to end-users.
+
+.. code-block:: python
+
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "ZENODO_ACCESS_TOKEN"
+
+    zenodo = RemoteProvider(deposition="your deposition id", access_token=os.environ["ZENODO_ACCESS_TOKEN"])
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+It is possible to use `Zenodo sandbox environment <https://sandbox.zenodo.org>`_ for testing by setting ``sandbox=True`` argument.
+Using sandbox environment requires setting up sandbox account with its personal access token.
+
+Restricted access
+-----------------
+If you need to access a deposition with restricted access, you have to additionally provide a ``restricted_access_token``.
+This can be obtained from the restricted access URL that Zenodo usually sends you via email once restricted access to a deposition (requested via the web interface) has been granted by the owner.
+Let ``
+https://zenodo.org/record/000000000?token=dlksajdlkjaslnflkndlfnjnn`` be the URL provided by Zenodo.
+Then, the ``restricted_access_token`` is ``dlksajdlkjaslnflkndlfnjnn``, and it can be used as follows:
+
+.. code-block:: python
+
+    from snakemake.remote.zenodo import RemoteProvider
+    import os
+
+    # let Snakemake assert the presence of the required environment variable
+    envvars:
+        "ZENODO_ACCESS_TOKEN",
+        "ZENODO_RESTRICTED_ACCESS_TOKEN"
+
+    zenodo = RemoteProvider(
+        deposition="your deposition id",
+        access_token=os.environ["ZENODO_ACCESS_TOKEN"],
+        restricted_access_token=os.environ["ZENODO_RESTRICTED_ACCESS_TOKEN"]
+    )
+
+    rule upload:
+        input:
+            "output/results.csv"
+        output:
+            zenodo.remote("results.csv")
+        shell:
+            "cp {input} {output}"
+
+
+Auto remote provider
+====================
+
+A wrapper which automatically selects an appropriate remote provider based on the url's scheme.
+It removes some of the boilerplate code required to download remote files from various providers.
+The auto remote provider only works for those which do not require the passing of keyword arguments to the 
+``RemoteProvider`` object.
+
+.. code-block:: python
+
+    from snakemake.remote import AUTO
+
+
+    rule all:
+        input:
+            'foo'
+
+
+    rule download:
+        input:
+            ftp_file_list=AUTO.remote([
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxcat.tar.gz',
+                'ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz'
+            ], keep_local=True),
+            http_file=AUTO.remote(
+                'https://github.com/hetio/hetionet/raw/master/hetnet/tsv/hetionet-v1.0-nodes.tsv'
+            )
+        output:
+            touch('foo')
+        shell:
+            """
+            head {input.http_file}
+            """

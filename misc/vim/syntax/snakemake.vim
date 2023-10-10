@@ -44,14 +44,75 @@ source $VIMRUNTIME/indent/python.vim
 " group       = "group" ":" stringliteral
 
 
-syn keyword pythonStatement include workdir onsuccess onerror onstart
-syn keyword pythonStatement ruleorder localrules configfile group 
-syn keyword pythonStatement wrapper conda shadow
-syn keyword pythonStatement input output params wildcards priority message threads resources singularity wildcard_constraints
-syn keyword pythonStatement version run shell benchmark snakefile log script
-syn keyword pythonStatement rule subworkflow checkpoint nextgroup=pythonFunction skipwhite
-syn keyword pythonBuiltinObj config checkpoints rules
-syn keyword pythonBuiltinFunc directory ancient pipe unpack expand temp touch protected
+" general directives (e.g. input)
+syn keyword pythonStatement 
+      \ benchmark
+      \ conda
+      \ configfile
+      \ container
+      \ default_target
+      \ envmodules
+      \ group
+      \ include
+      \ input
+      \ localrule
+      \ localrules
+      \ log
+      \ message
+      \ notebook
+      \ onerror
+      \ onstart
+      \ onsuccess
+      \ output
+      \ params
+      \ priority
+      \ resources
+      \ ruleorder
+      \ run
+      \ scattergather
+      \ script
+      \ shadow
+      \ shell
+      \ singularity
+      \ snakefile
+      \ template_engine
+      \ threads
+      \ version
+      \ wildcard_constraints
+      \ wildcards
+      \ workdir
+      \ wrapper
+
+" directives with a label (e.g. rule)
+syn keyword pythonStatement 
+      \ checkpoint
+      \ rule
+      \ subworkflow
+      \ nextgroup=pythonFunction skipwhite
+
+" common snakemake objects
+syn keyword pythonBuiltinObj 
+      \ Paramspace
+      \ checkpoints
+      \ config
+      \ gather
+      \ rules
+      \ scatter
+      \ workflow
+
+" snakemake functions
+syn keyword pythonBuiltinFunc 
+      \ ancient
+      \ directory
+      \ expand
+      \ multiext
+      \ pipe
+      \ protected
+      \ read_job_properties
+      \ service
+      \ temp
+      \ touch
+      \ unpack
 
 " similar to special def and class treatment from python.vim, except
 " parenthetical part of def and class

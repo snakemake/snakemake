@@ -1,0 +1,13 @@
+# Snakefile
+rule all:
+    input:
+        "a.out",
+
+
+rule a:
+    output:
+        "a.out",
+    resources:
+        mem_mb=2000,  # Note that resources are specified here, but not in all.
+    shell:
+        "touch {output}"

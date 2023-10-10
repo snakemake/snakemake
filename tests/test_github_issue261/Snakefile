@@ -1,0 +1,25 @@
+import random
+
+checkpoint random:
+    output:
+        target = 'test1/{target}/{config}.txt'
+
+    run:
+        with open(output.target, 'w') as ftg:
+            for i in range(2, 10):
+                ftg.write(f'test1/{wildcards.target}/{wildcards.config}/v{i}\n')
+
+rule process:
+    output:
+        touch('test1/{target}/{config}/v{index}')
+
+def genetate_inputs(wildcards):
+    with checkpoints.random.get(**wildcards).output[0].open() as fran:
+        for line in fran.readlines():
+            yield line.rstrip()
+
+rule generate:
+    input:
+        genetate_inputs
+    output:
+        touch('test1/{target}/{config}.done')

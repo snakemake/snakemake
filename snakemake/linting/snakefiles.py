@@ -9,13 +9,13 @@ PATH_PATTERN = "(?P<quote>['\"])(?P<path>/?(?:[^/]+?/)+?(?:[^/]+?)?)(?P=quote)"
 
 class SnakefileLinter(Linter):
     def item_desc_plain(self, snakefile):
-        return "snakefile {}".format(snakefile)
+        return f"snakefile {snakefile}"
 
     def item_desc_json(self, snakefile):
         return {"snakefile": snakefile}
 
     def read_item(self, snakefile):
-        return open(snakefile).read()
+        return self.workflow.sourcecache.open(snakefile).read()
 
     def lint_absolute_paths(self, snakefile, regex=re.compile(ABS_PATH_PATTERN)):
         for match in regex.finditer(snakefile):
@@ -48,17 +48,13 @@ class SnakefileLinter(Linter):
     def lint_path_add(
         self,
         snakefile,
-        regex1=re.compile(
-            "{name} *\\+ *{path}".format(name=NAME_PATTERN, path=PATH_PATTERN)
-        ),
-        regex2=re.compile(
-            "{path} *\\+ *{name}".format(path=PATH_PATTERN, name=NAME_PATTERN)
-        ),
+        regex1=re.compile(f"{NAME_PATTERN} *\\+ *{PATH_PATTERN}"),
+        regex2=re.compile(f"{PATH_PATTERN} *\\+ *{NAME_PATTERN}"),
     ):
         for match in chain(regex1.finditer(snakefile), regex2.finditer(snakefile)):
             line = get_line(match, snakefile)
             yield Lint(
-                title="Path composition with '+' in line {}".format(line),
+                title=f"Path composition with '+' in line {line}",
                 body="This becomes quickly unreadable. Usually, it is better to endure some "
                 "redundancy against having a more readable workflow. Hence, just repeat common "
                 'prefixes. If path composition is unavoidable, use pathlib or (python >= 3.6) string formatting with f"...". ',
@@ -67,7 +63,7 @@ class SnakefileLinter(Linter):
     def lint_envvars(
         self,
         snakefile,
-        regex=re.compile("os.environ\[(?P<quote>['\"])(?P<name>.+)?(?P=quote)\]"),
+        regex=re.compile(r"os.environ\[(?P<quote>['\"])(?P<name>.+)?(?P=quote)\]"),
     ):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
@@ -98,7 +94,7 @@ class SnakefileLinter(Linter):
         for match in regex.finditer(snakefile):
             line = get_line(match, snakefile)
             yield Lint(
-                title="Tab usage in line {}.".format(line),
+                title=f"Tab usage in line {line}.",
                 body="Both Python and Snakemake can get confused when mixing tabs and spaces for indentation. "
                 "It is recommended to only use spaces for indentation.",
             )

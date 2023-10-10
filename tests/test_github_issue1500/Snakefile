@@ -1,0 +1,40 @@
+shell.executable("bash")
+
+configfile: "config/config.yaml"
+
+
+module test1:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        config
+    replace_prefix: 
+        {"results/": "results/testmodule1/"}
+
+
+
+
+module test2:
+    snakefile:
+        "module-test/Snakefile"
+    config:
+        config
+    replace_prefix: 
+        {"results/": "results/testmodule2/"}
+
+
+use rule * from test1 as test1_*
+
+use rule * from test2 as test2_*
+
+
+
+rule all:
+    default_target: True
+    input:
+        rules.test1_a.output,
+        rules.test2_a.output
+
+
+assert test1.some_func() == 15
+assert test2.some_func() == 15

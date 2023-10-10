@@ -1,0 +1,6 @@
+shell.executable("bash")
+
+rule:
+  input: "test.in"
+  output: "test.out"
+  shell: "cp {input} {output}; #" + "x" * 64 * 4096

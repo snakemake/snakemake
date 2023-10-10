@@ -1,5 +1,5 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018-2019, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@protonmail.com"
 __license__ = "MIT"
 
@@ -11,10 +11,10 @@ class OutputIndex:
         import datrie
 
         def prefixes(rule):
-            return (str(o.constant_prefix()) for o in rule.products)
+            return (str(o.constant_prefix()) for o in rule.products())
 
         def reverse_suffixes(rule):
-            return (str(o.constant_suffix())[::-1] for o in rule.products)
+            return (str(o.constant_suffix())[::-1] for o in rule.products())
 
         def calc_trie(subpatterns):
             t = datrie.Trie("".join(p for rule in rules for p in subpatterns(rule)))

@@ -1,0 +1,5 @@
+rule a:
+    output:
+        "test3.txt"
+    shell:
+        "echo foo > {output}"

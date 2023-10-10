@@ -1,0 +1,17 @@
+configfile: "config.yaml"
+
+
+module bwa_mapping:
+    meta_wrapper: "0.72.0/meta/bio/bwa_mapping"
+
+
+use rule * from bwa_mapping
+
+
+def get_input(wildcards):
+    return config["samples"][wildcards.sample]
+
+
+use rule bwa_mem from bwa_mapping with:
+    input:
+        get_input

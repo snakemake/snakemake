@@ -1,13 +1,12 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 import os
-from contextlib import contextmanager
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, DomainObject
+from snakemake.remote import AbstractRemoteProvider, PooledDomainObject
 from snakemake.exceptions import SFTPFileException, WorkflowError
 from snakemake.utils import os_sync
 
@@ -22,9 +21,7 @@ except ImportError as e:
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
-    allows_directories = True
 
     def __init__(
         self,
@@ -56,7 +53,7 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["ssh://", "sftp://"]
 
 
-class RemoteObject(DomainObject):
+class RemoteObject(PooledDomainObject):
     """This is a class to interact with an SFTP server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -64,33 +61,23 @@ class RemoteObject(DomainObject):
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
 
+    def get_default_kwargs(self, **defaults):
+        """define defaults beyond those set in PooledDomainObject"""
+        return super().get_default_kwargs(**{"port": 22})
+
+    def create_connection(self, *args_to_use, **kwargs_to_use):
+        """open an SFTP connection"""
+        return pysftp.Connection(*args_to_use, **kwargs_to_use)
+
+    def close_connection(self, connection):
+        """close an SFTP connection"""
+        connection.close()
+
     # === Implementations of abstract class members ===
-
-    @contextmanager  # makes this a context manager. after 'yield' is __exit__()
-    def sftpc(self):
-        # if args have been provided to remote(), use them over those given to RemoteProvider()
-        args_to_use = self.provider.args
-        if len(self.args):
-            args_to_use = self.args
-
-        # use kwargs passed in to remote() to override those given to the RemoteProvider()
-        # default to the host and port given as part of the file, falling back to one specified
-        # as a kwarg to remote() or the RemoteProvider (overriding the latter with the former if both)
-        kwargs_to_use = {}
-        kwargs_to_use["host"] = self.host
-        kwargs_to_use["port"] = int(self.port) if self.port else 22
-        for k, v in self.provider.kwargs.items():
-            kwargs_to_use[k] = v
-        for k, v in self.kwargs.items():
-            kwargs_to_use[k] = v
-
-        conn = pysftp.Connection(*args_to_use, **kwargs_to_use)
-        yield conn
-        conn.close()
 
     def exists(self):
         if self._matched_address:
-            with self.sftpc() as sftpc:
+            with self.connection_pool.item() as sftpc:
                 return sftpc.exists(self.remote_path)
             return False
         else:
@@ -101,7 +88,7 @@ class RemoteObject(DomainObject):
 
     def mtime(self):
         if self.exists():
-            with self.sftpc() as sftpc:
+            with self.connection_pool.item() as sftpc:
                 # As per local operation, don't follow symlinks when reporting mtime
                 attr = sftpc.lstat(self.remote_path)
                 return int(attr.st_mtime)
@@ -113,7 +100,7 @@ class RemoteObject(DomainObject):
     def is_newer(self, time):
         """Returns true if the file is newer than time, or if it is
         a symlink that points to a file newer than time."""
-        with self.sftpc() as sftpc:
+        with self.connection_pool.item() as sftpc:
             return (
                 sftpc.stat(self.remote_path).st_mtime > time
                 or sftpc.lstat(self.remote_path).st_mtime > time
@@ -121,14 +108,14 @@ class RemoteObject(DomainObject):
 
     def size(self):
         if self.exists():
-            with self.sftpc() as sftpc:
+            with self.connection_pool.item() as sftpc:
                 attr = sftpc.stat(self.remote_path)
                 return int(attr.st_size)
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
-        with self.sftpc() as sftpc:
+    def _download(self, make_dest_dirs=True):
+        with self.connection_pool.item() as sftpc:
             if self.exists():
                 # if the destination path does not exist
                 if make_dest_dirs:
@@ -155,7 +142,7 @@ class RemoteObject(DomainObject):
                 break
             list_remote_dir.insert(0, base)
 
-        with self.sftpc() as sftpc:
+        with self.connection_pool.item() as sftpc:
             for part in list_remote_dir:
                 try:
                     sftpc.chdir(part)
@@ -163,11 +150,11 @@ class RemoteObject(DomainObject):
                     sftpc.mkdir(part)
                     sftpc.chdir(part)
 
-    def upload(self):
+    def _upload(self):
         if self.provider.mkdir_remote:
             self.mkdir_remote_path()
 
-        with self.sftpc() as sftpc:
+        with self.connection_pool.item() as sftpc:
             sftpc.put(
                 localpath=self.local_path,
                 remotepath=self.remote_path,
@@ -182,7 +169,7 @@ class RemoteObject(DomainObject):
         first_wildcard = self._iofile.constant_prefix()
         dirname = first_wildcard.replace(self.path_prefix, "")
 
-        with self.sftpc() as sftpc:
+        with self.connection_pool.item() as sftpc:
 
             def _append_item(file_path):
                 file_path = file_path.lstrip("/")

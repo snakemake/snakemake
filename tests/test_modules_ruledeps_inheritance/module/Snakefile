@@ -1,0 +1,20 @@
+rule a:
+    output:
+        "test.txt"
+    shell:
+        "echo test > {output}"
+
+
+rule b:
+    input:
+        rules.a.output[0]
+    output:
+        "test2.txt"
+    shell:
+        "cp {input} {output}"
+
+
+
+use rule b as c with:
+    output:
+        "test4.txt"

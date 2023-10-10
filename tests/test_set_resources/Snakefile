@@ -1,0 +1,9 @@
+shell.executable("bash")
+
+rule a:
+    output:
+        "test.txt"
+    resources:
+        a=2, b="bar"
+    shell:
+        "echo {resources.a} {resources.b} > {output}"

@@ -1,23 +1,20 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018-2019, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from urllib.request import pathname2url
 import os
-import subprocess
 import tempfile
 import json
 import shutil
-import uuid
 from itertools import chain
 
 from snakemake.utils import format
-from snakemake.logging import logger
 from snakemake.exceptions import WorkflowError
 from snakemake.shell import shell
-from snakemake.common import get_container_image, Mode
-from snakemake.io import is_flagged
+from snakemake.common import get_container_image
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 
 def cwl(
@@ -35,6 +32,7 @@ def cwl(
     use_singularity,
     bench_record,
     jobid,
+    runtime_sourcecache_path,
 ):
     """
     Load cwl from the given basedir + path and execute it.
@@ -74,7 +72,7 @@ def cwl(
     with tempfile.NamedTemporaryFile(mode="w") as input_file:
         json.dump(inputs, input_file)
         input_file.flush()
-        cmd = "cwltool {} {} {}".format(args, sourceurl, input_file.name)
+        cmd = f"cwltool {args} {sourceurl} {input_file.name}"
         shell(cmd, bench_record=bench_record)
 
 
@@ -86,10 +84,10 @@ def job_to_cwl(job, dag, outputs, inputs):
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(
-                "All output files have to be relative to the " "working directory."
+                "All output files have to be relative to the working directory."
             )
 
-    get_output_id = lambda job, i: "#main/job-{}/{}".format(job.jobid, i)
+    get_output_id = lambda job, i: f"#main/job-{job.jobid}/{i}"
 
     dep_ids = {
         o: get_output_id(dep, i)
@@ -104,7 +102,7 @@ def job_to_cwl(job, dag, outputs, inputs):
     out = [get_output_id(job, i) for i, _ in enumerate(job.output)]
 
     def workdir_entry(i, f):
-        location = "??inputs.input_files[{}].location??".format(i)
+        location = f"??inputs.input_files[{i}].location??"
         if f.is_directory:
             entry = {
                 "class": "Directory",
@@ -142,8 +140,8 @@ def job_to_cwl(job, dag, outputs, inputs):
         outputs.append(
             {
                 "type": {"type": "array", "items": "File"},
-                "outputSource": "#main/job-{}/output_files".format(job.jobid),
-                "id": "#main/output/job-{}".format(job.jobid),
+                "outputSource": f"#main/job-{job.jobid}/output_files",
+                "id": f"#main/output/job-{job.jobid}",
             }
         )
 
@@ -168,22 +166,22 @@ def job_to_cwl(job, dag, outputs, inputs):
             "rules": {"default": [job.rule.name]},
         },
         "out": ["output_files"],
-        "id": "#main/job-{}".format(job.jobid),
+        "id": f"#main/job-{job.jobid}",
     }
     if files:
         inputs.append(
             {
                 "type": {"type": "array", "items": "File"},
                 "default": [{"class": "File", "location": f} for f in files],
-                "id": "#main/input/job-{}".format(job.jobid),
+                "id": f"#main/input/job-{job.jobid}",
             }
         )
 
     input_files = []
     if files:
-        input_files.append("#main/input/job-{}".format(job.jobid))
+        input_files.append(f"#main/input/job-{job.jobid}")
     input_files.extend(
-        "#main/job-{}/output_files".format(dep.jobid) for dep in dag.dependencies[job]
+        f"#main/job-{dep.jobid}/output_files" for dep in dag.dependencies[job]
     )
 
     cwl["in"]["input_files"] = {"source": input_files, "linkMerge": "merge_flattened"}
@@ -192,7 +190,7 @@ def job_to_cwl(job, dag, outputs, inputs):
 
 
 def dag_to_cwl(dag):
-    """Convert a given DAG to a CWL workflow, which is returned as JSON object."""
+    """Convert a given DAG to a CWL workflow, which is returned as a JSON object."""
     snakemake_cwl = {
         "class": "CommandLineTool",
         "id": "#snakemake-job",
@@ -202,32 +200,32 @@ def dag_to_cwl(dag):
         "requirements": {"ResourceRequirement": {"coresMin": "$(inputs.cores)"}},
         "arguments": [
             "--force",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             "--keep-remote",
             "--force-use-threads",
             "--wrapper-prefix",
-            dag.workflow.wrapper_prefix,
+            dag.workflow.workflow_settings.wrapper_prefix,
             "--notemp",
             "--quiet",
             "--use-conda",
             "--no-hooks",
             "--nolock",
             "--mode",
-            str(Mode.subprocess),
+            str(ExecMode.SUBPROCESS.item_to_choice()),
         ],
         "inputs": {
             "snakefile": {
                 "type": "File",
                 "default": {
                     "class": "File",
-                    "location": os.path.relpath(dag.workflow.snakefile),
+                    "location": os.path.relpath(dag.workflow.main_snakefile),
                 },
                 "inputBinding": {"prefix": "--snakefile"},
             },
             "sources": {
                 "type": "File[]",
                 "default": [
-                    {"class": "File", "location": f} for f in dag.workflow.get_sources()
+                    {"class": "File", "location": f} for f in dag.get_sources()
                 ],
             },
             "cores": {

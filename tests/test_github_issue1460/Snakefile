@@ -1,0 +1,29 @@
+rule all:
+    input:
+        "blob.txt",
+        "test.txt"
+
+
+rule intermediate:
+    input:
+        "preblob.txt",
+        "pretest.txt",
+    output:
+        "blob.txt",
+        "test.txt",
+    shell:
+        """
+        cp {input[0]} {output[0]}
+        cp {input[1]} {output[1]}
+        """
+
+
+rule create:
+    output:
+        "preblob.txt",
+        "pretest.txt"
+    shell:
+        '''
+        echo "test file" > {output[0]}
+        echo "test file" > {output[1]}
+        '''

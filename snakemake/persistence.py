@@ -1,26 +1,37 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2022, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 import shutil
-import signal
-import marshal
 import pickle
 import json
+import stat
+import tempfile
 import time
 from base64 import urlsafe_b64encode, b64encode
-from functools import lru_cache, partial
-from itertools import filterfalse, count
+from functools import lru_cache
+from itertools import count
 from pathlib import Path
+from contextlib import contextmanager
+from typing import Optional
 
+from snakemake_interface_executor_plugins.persistence import (
+    PersistenceExecutorInterface,
+)
+
+import snakemake.exceptions
 from snakemake.logging import logger
 from snakemake.jobs import jobfiles
 from snakemake.utils import listfiles
+from snakemake.io import is_flagged, get_flag_value
 
 
-class Persistence:
+UNREPRESENTABLE = object()
+
+
+class Persistence(PersistenceExecutorInterface):
     def __init__(
         self,
         nolock=False,
@@ -30,12 +41,21 @@ class Persistence:
         shadow_prefix=None,
         warn_only=False,
     ):
-        self.path = os.path.abspath(".snakemake")
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
+        import importlib.util
+
+        self._serialize_param = (
+            self._serialize_param_pandas
+            if importlib.util.find_spec("pandas") is not None
+            else self._serialize_param_builtin
+        )
+
+        self._max_len = None
+
+        self._path = Path(os.path.abspath(".snakemake"))
+        os.makedirs(self.path, exist_ok=True)
+
         self._lockdir = os.path.join(self.path, "locks")
-        if not os.path.exists(self._lockdir):
-            os.mkdir(self._lockdir)
+        os.makedirs(self._lockdir, exist_ok=True)
 
         self.dag = dag
         self._lockfile = dict()
@@ -45,6 +65,8 @@ class Persistence:
 
         self.conda_env_archive_path = os.path.join(self.path, "conda-archive")
         self.benchmark_path = os.path.join(self.path, "benchmarks")
+
+        self.source_cache = os.path.join(self.path, "source_cache")
 
         if conda_prefix is None:
             self.conda_env_path = os.path.join(self.path, "conda")
@@ -62,7 +84,7 @@ class Persistence:
             self.shadow_path = os.path.join(shadow_prefix, "shadow")
 
         # place to store any auxiliary information needed during a run (e.g. source tarballs)
-        self.aux_path = os.path.join(self.path, "auxiliary")
+        self._aux_path = os.path.join(self.path, "auxiliary")
 
         # migration of .snakemake folder structure
         migration_indicator = Path(
@@ -102,6 +124,14 @@ class Persistence:
 
         self._read_record = self._read_record_cached
 
+    @property
+    def path(self) -> Path:
+        return Path(self._path)
+
+    @property
+    def aux_path(self) -> Path:
+        return Path(self._aux_path)
+
     def migrate_v1_to_v2(self):
         logger.info("Migrating .snakemake folder to new format...")
         i = 0
@@ -119,14 +149,11 @@ class Persistence:
                             self._metadata_path
                         )
                         os.makedirs(target_path, exist_ok=True)
-                        shutil.copyfile(
-                            path / filename,
-                            target_path / filename,
-                        )
+                        shutil.copyfile(path / filename, target_path / filename)
                 i += 1
                 # this can take a while for large folders...
                 if (i % 10000) == 0 and i > 0:
-                    logger.info("{} files migrated".format(i))
+                    logger.info(f"{i} files migrated")
 
         logger.info("Migration complete")
 
@@ -155,6 +182,7 @@ class Persistence:
                             return True
         return False
 
+    @contextmanager
     def lock_warn_only(self):
         if self.locked:
             logger.info(
@@ -162,14 +190,20 @@ class Persistence:
                 "means that another Snakemake instance is running on this directory. "
                 "Another possibility is that a previous run exited unexpectedly."
             )
+        yield
 
+    @contextmanager
     def lock(self):
         if self.locked:
-            raise IOError("Another snakemake process " "has locked this directory.")
-        self._lock(self.all_inputfiles(), "input")
-        self._lock(self.all_outputfiles(), "output")
+            raise snakemake.exceptions.LockException()
+        try:
+            self._lock(self.all_inputfiles(), "input")
+            self._lock(self.all_outputfiles(), "output")
+            yield
+        finally:
+            self.unlock()
 
-    def unlock(self, *args):
+    def unlock(self):
         logger.debug("unlocking")
         for lockfile in self._lockfile.values():
             try:
@@ -184,12 +218,36 @@ class Persistence:
         shutil.rmtree(self._lockdir)
 
     def cleanup_metadata(self, path):
-        self._delete_record(self._metadata_path, path)
+        return self._delete_record(self._metadata_path, path)
 
     def cleanup_shadow(self):
         if os.path.exists(self.shadow_path):
             shutil.rmtree(self.shadow_path)
             os.mkdir(self.shadow_path)
+
+    def cleanup_containers(self):
+        from humanfriendly import format_size
+
+        required_imgs = {Path(img.path) for img in self.dag.container_imgs.values()}
+        img_dir = Path(self.container_img_path)
+        total_size_cleaned_up = 0
+        num_containers_removed = 0
+        for pulled_img in img_dir.glob("*.simg"):
+            if pulled_img in required_imgs:
+                continue
+            size_bytes = pulled_img.stat().st_size
+            total_size_cleaned_up += size_bytes
+            filesize = format_size(size_bytes)
+            pulled_img.unlink()
+            logger.debug(f"Removed unrequired container {pulled_img} ({filesize})")
+            num_containers_removed += 1
+
+        if num_containers_removed == 0:
+            logger.info("No containers require cleaning up")
+        else:
+            logger.info(
+                f"Cleaned up {num_containers_removed} containers, saving {format_size(total_size_cleaned_up)}"
+            )
 
     def conda_cleanup_envs(self):
         # cleanup envs
@@ -207,21 +265,16 @@ class Persistence:
             if d not in in_use:
                 shutil.rmtree(os.path.join(self.conda_env_archive_path, d))
 
-    def started(self, job, external_jobid=None):
+    def started(self, job, external_jobid: Optional[str] = None):
         for f in job.output:
-            self._record(
-                self._incomplete_path,
-                {"external_jobid": external_jobid},
-                f,
-            )
+            self._record(self._incomplete_path, {"external_jobid": external_jobid}, f)
 
-    def finished(self, job, keep_metadata=True):
-        if not keep_metadata:
+    def finished(self, job):
+        if not self.dag.workflow.execution_settings.keep_metadata:
             for f in job.expanded_output:
                 self._delete_record(self._incomplete_path, f)
             return
 
-        version = str(job.rule.version) if job.rule.version is not None else None
         code = self._code(job.rule)
         input = self._input(job)
         log = self._log(job)
@@ -238,10 +291,12 @@ class Persistence:
                     "starttime", None
                 )
             endtime = f.mtime.local_or_remote() if f.exists else fallback_time
+
+            checksums = ((infile, infile.checksum()) for infile in job.input)
+
             self._record(
                 self._metadata_path,
                 {
-                    "version": version,
                     "code": code,
                     "rule": job.rule.name,
                     "input": input,
@@ -254,6 +309,11 @@ class Persistence:
                     "job_hash": hash(job),
                     "conda_env": conda_env,
                     "container_img_url": job.container_img_url,
+                    "input_checksums": {
+                        infile: checksum
+                        for infile, checksum in checksums
+                        if checksum is not None
+                    },
                 },
                 f,
             )
@@ -299,9 +359,6 @@ class Persistence:
     def metadata(self, path):
         return self._read_record(self._metadata_path, path)
 
-    def version(self, path):
-        return self.metadata(path).get("version")
-
     def rule(self, path):
         return self.metadata(path).get("rule")
 
@@ -320,40 +377,69 @@ class Persistence:
     def code(self, path):
         return self.metadata(path).get("code")
 
-    def version_changed(self, job, file=None):
-        """Yields output files with changed versions of bool if file given."""
-        return _bool_or_gen(self._version_changed, job, file=file)
+    def conda_env(self, path):
+        return self.metadata(path).get("conda_env")
+
+    def container_img_url(self, path):
+        return self.metadata(path).get("container_img_url")
+
+    def input_checksums(self, job, input_path):
+        """Return all checksums of the given input file
+        recorded for the output of the given job.
+        """
+        return set(
+            self.metadata(output_path).get("input_checksums", {}).get(input_path)
+            for output_path in job.output
+        )
 
     def code_changed(self, job, file=None):
-        """Yields output files with changed code of bool if file given."""
+        """Yields output files with changed code or bool if file given."""
         return _bool_or_gen(self._code_changed, job, file=file)
 
     def input_changed(self, job, file=None):
-        """Yields output files with changed input of bool if file given."""
+        """Yields output files with changed input or bool if file given."""
         return _bool_or_gen(self._input_changed, job, file=file)
 
     def params_changed(self, job, file=None):
-        """Yields output files with changed params of bool if file given."""
+        """Yields output files with changed params or bool if file given."""
         return _bool_or_gen(self._params_changed, job, file=file)
 
-    def _version_changed(self, job, file=None):
-        assert file is not None
-        return self.version(file) != job.rule.version
+    def conda_env_changed(self, job, file=None):
+        """Yields output files with changed conda env or bool if file given."""
+        return _bool_or_gen(self._conda_env_changed, job, file=file)
+
+    def container_changed(self, job, file=None):
+        """Yields output files with changed container img or bool if file given."""
+        return _bool_or_gen(self._container_changed, job, file=file)
 
     def _code_changed(self, job, file=None):
         assert file is not None
-        return self.code(file) != self._code(job.rule)
+        recorded = self.code(file)
+        return recorded is not None and recorded != self._code(job.rule)
 
     def _input_changed(self, job, file=None):
         assert file is not None
-        return self.input(file) != self._input(job)
+        recorded = self.input(file)
+        return recorded is not None and recorded != self._input(job)
 
     def _params_changed(self, job, file=None):
         assert file is not None
-        return self.params(file) != self._params(job)
+        recorded = self.params(file)
+        return recorded is not None and recorded != self._params(job)
 
+    def _conda_env_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.conda_env(file)
+        return recorded is not None and recorded != self._conda_env(job)
+
+    def _container_changed(self, job, file=None):
+        assert file is not None
+        recorded = self.container_img_url(file)
+        return recorded is not None and recorded != job.container_img_url
+
+    @contextmanager
     def noop(self, *args):
-        pass
+        yield
 
     def _b64id(self, s):
         return urlsafe_b64encode(str(s).encode()).decode()
@@ -370,15 +456,55 @@ class Persistence:
 
     @lru_cache()
     def _input(self, job):
-        return sorted(job.input)
+        get_path = (
+            lambda f: get_flag_value(f, "sourcecache_entry")
+            if is_flagged(f, "sourcecache_entry")
+            else f
+        )
+        return sorted(get_path(f) for f in job.input)
 
     @lru_cache()
     def _log(self, job):
         return sorted(job.log)
 
+    def _serialize_param_builtin(self, param):
+        if param is None or isinstance(
+            param,
+            (
+                int,
+                float,
+                bool,
+                str,
+                complex,
+                range,
+                list,
+                tuple,
+                dict,
+                set,
+                frozenset,
+                bytes,
+                bytearray,
+            ),
+        ):
+            return repr(param)
+        else:
+            return UNREPRESENTABLE
+
+    def _serialize_param_pandas(self, param):
+        import pandas as pd
+
+        if isinstance(param, (pd.DataFrame, pd.Series, pd.Index)):
+            return repr(pd.util.hash_pandas_object(param).tolist())
+        return self._serialize_param_builtin(param)
+
     @lru_cache()
     def _params(self, job):
-        return sorted(map(repr, job.params))
+        return sorted(
+            filter(
+                lambda p: p is not UNREPRESENTABLE,
+                map(self._serialize_param, job.params),
+            )
+        )
 
     @lru_cache()
     def _output(self, job):
@@ -386,9 +512,28 @@ class Persistence:
 
     def _record(self, subject, json_value, id):
         recpath = self._record_path(subject, id)
-        os.makedirs(os.path.dirname(recpath), exist_ok=True)
-        with open(recpath, "w") as f:
-            json.dump(json_value, f)
+        recdir = os.path.dirname(recpath)
+        os.makedirs(recdir, exist_ok=True)
+        # Write content to temporary file and rename it to the final file.
+        # This avoids race-conditions while writing (e.g. on NFS when the main job
+        # and the cluster node job propagate their content and the system has some
+        # latency including non-atomic propagation processes).
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            dir=recdir,
+            delete=False,
+            # Add short prefix to final filename for better debugging.
+            # This may not be the full one, because that may be too long
+            # for the filesystem in combination with the prefix from the temp
+            # file.
+            suffix=f".{os.path.basename(recpath)[:8]}",
+        ) as tmpfile:
+            json.dump(json_value, tmpfile)
+        # ensure read and write permissions for user and group
+        os.chmod(
+            tmpfile.name, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP
+        )
+        os.replace(tmpfile.name, recpath)
 
     def _delete_record(self, subject, id):
         try:
@@ -397,9 +542,14 @@ class Persistence:
             recdirs = os.path.relpath(os.path.dirname(recpath), start=subject)
             if recdirs != ".":
                 os.removedirs(recdirs)
+            return True
         except OSError as e:
-            if e.errno != 2:  # not missing
+            if e.errno != 2:
+                # not missing
                 raise e
+            else:
+                # file is missing, report failure
+                return False
 
     @lru_cache()
     def _read_record_cached(self, subject, id):
@@ -409,7 +559,14 @@ class Persistence:
         if not self._exists_record(subject, id):
             return dict()
         with open(self._record_path(subject, id), "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError as e:
+                pass
+        # case: file is corrupted, delete it
+        logger.warning("Deleting corrupted metadata record.")
+        self._delete_record(subject, id)
+        return dict()
 
     def _exists_record(self, subject, id):
         return os.path.exists(self._record_path(subject, id))
@@ -418,23 +575,28 @@ class Persistence:
         return (
             f
             for f, _ in listfiles(
-                os.path.join(self._lockdir, "{{n,[0-9]+}}.{}.lock".format(type))
+                os.path.join(self._lockdir, f"{{n,[0-9]+}}.{type}.lock")
             )
             if not os.path.isdir(f)
         )
 
     def _lock(self, files, type):
         for i in count(0):
-            lockfile = os.path.join(self._lockdir, "{}.{}.lock".format(i, type))
+            lockfile = os.path.join(self._lockdir, f"{i}.{type}.lock")
             if not os.path.exists(lockfile):
                 self._lockfile[type] = lockfile
                 with open(lockfile, "w") as lock:
                     print(*files, sep="\n", file=lock)
                 return
 
+    def _fetch_max_len(self, subject):
+        if self._max_len is None:
+            self._max_len = os.pathconf(subject, "PC_NAME_MAX")
+        return self._max_len
+
     def _record_path(self, subject, id):
         max_len = (
-            os.pathconf(subject, "PC_NAME_MAX") if os.name == "posix" else 255
+            self._fetch_max_len(subject) if os.name == "posix" else 255
         )  # maximum NTFS and FAT32 filename length
         if max_len == 0:
             max_len = 255
@@ -449,7 +611,7 @@ class Persistence:
 
     def all_outputfiles(self):
         # we only look at output files that will be updated
-        return jobfiles(self.dag.needrun_jobs, "output")
+        return jobfiles(self.dag.needrun_jobs(), "output")
 
     def all_inputfiles(self):
         # we consider all input files, also of not running jobs

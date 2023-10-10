@@ -1,2 +1,4 @@
 configfile: "workflow-config.yaml"
 cores: all
+set-threads:
+  - a=2

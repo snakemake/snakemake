@@ -1,0 +1,20 @@
+
+from pathlib import Path
+
+
+rule all:
+  input:
+    out_file="out-file.txt"
+
+
+rule step1:
+  input:
+    text_file=Path("text-file.txt")
+  params:
+    param_dir=Path("dir")
+  output:
+    out_file=Path("out-file.txt")
+  conda:
+    "env.yaml"
+  script:
+    "r-script.R"

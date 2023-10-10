@@ -1,0 +1,28 @@
+from snakemake.utils import min_version
+
+min_version("6.1.1")
+
+configfile: "config.yaml"
+
+remote_snakefile = "https://raw.githubusercontent.com/snakemake-workflows/dna-seq-varlociraptor/v1.0.0/workflow/Snakefile"
+
+
+# import 1
+module first:
+    snakefile:
+        remote_snakefile
+    replace_prefix:
+        {
+            "benchmarking/": "benchmarking/first/",
+            "logs/": "logs/first/",
+            "results/": "results/first/",
+            "resources/": "resources/first/",
+        }
+    config:
+        config
+
+use rule * from first as first_*
+
+rule all:
+    input:
+        rules.first_all.input

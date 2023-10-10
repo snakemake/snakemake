@@ -50,15 +50,23 @@ This will install snakemake into an isolated software environment, that has to b
 Credentials
 :::::::::::
 
-Using the Google Life Sciences executor with Snakemake requires the environment 
-variable `GOOGLE_APPLICATION_CREDENTIALS` exported, which should point to
+Google's `Application Default Credentials <https://cloud.google.com/docs/authentication/application-default-credentials>`_ 
+automatically find credentials based on the application environment. Snakemake supports two approaches for running with
+Application Default Credentials:
+
+- The `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+- The service account attached to your Google Cloud Project
+
+**`GOOGLE_APPLICATION_CREDENTIALS`**
+
+For this approach, export the environment 
+variable `GOOGLE_APPLICATION_CREDENTIALS`, which should point to
 the full path of the file on your local machine. To generate this file, you
 can refer to the page under iam-admin to `download your service account <https://console.cloud.google.com/iam-admin/iam>`_ key and export it to the environment.
 
 .. code:: console
 
     export GOOGLE_APPLICATION_CREDENTIALS="/home/[username]/credentials.json"
-
 
 The suggested, minimal permissions required for this role include the following:
 
@@ -67,7 +75,17 @@ The suggested, minimal permissions required for this role include the following:
  - Service Account User
  - Cloud Life Sciences Workflows Runner
  - Service Usage Consumer
+ 
+*Note*: This tutorial assumes you are using the `GOOGLE_APPLICATION_CREDENTIALS` approach.
+ 
+**Service Account**
 
+When running on Google Compute Engine Virtual Machine instances, it is preferable to use your project's
+`service account <https://cloud.google.com/docs/authentication/application-default-credentials#attached-sa>`_ .
+
+You can use your service account's email address using the `--google-lifesciences-service-account-email` flag
+when running Snakemake. Should you do this, you do not need to set the `GOOGLE_APPLICATION_CREDENTIALS`
+environment variable.
 
 Step 1: Upload Your Data
 ::::::::::::::::::::::::
@@ -78,12 +96,12 @@ outputs there. You should first clone the repository with the Snakemake tutorial
 
 .. code:: console
 
-    git clone https://github.com/snakemake/snakemake-tutorial-data
-    cd snakemake-tutorial-data
+    git clone https://github.com/snakemake/snakemake-lsh-tutorial-data
+    cd snakemake-lsh-tutorial-data
 
 
 And then either manually create a bucket and upload data files there, or
-use the `provided script and instructions <https://github.com/snakemake/snakemake-tutorial-data#google-cloud-storage>`_
+use the `provided script and instructions <https://github.com/snakemake/snakemake-lsh-tutorial-data#google-cloud-storage>`_
 to do it programatically from the command line. The script generally works like:
 
 .. code:: console
@@ -120,9 +138,7 @@ Step 2: Write your Snakefile, Environment File, and Scripts
 Now that we've exported our credentials and have all dependencies installed, let's
 get our workflow! This is the exact same workflow from the :ref:`basic tutorial<tutorial-basics>`,
 so if you need a refresher on the design or basics, please see those pages.
-You can find the Snakefile, supporting scripts for plotting and environment in the
- `snakemake-tutorial-data <https://github.com/snakemake/snakemake-tutorial-data>`_
-repository.
+You can find the Snakefile, supporting scripts for plotting and environment in the `snakemake-lsh-tutorial-data <https://github.com/snakemake/snakemake-lsh-tutorial-data>`_ repository.
 
 First, how does a working directory work for this executor? The present
 working directory, as identified by Snakemake that has the Snakefile, and where
@@ -135,7 +151,7 @@ The build package is then downloaded and extracted by each cloud executor, which
 is a Google Compute instance.
 
 We next need an `environment.yaml` file that will define the dependencies
-that we want installed with conda for our job. If you cloned the "snakemake-tutorial-data"
+that we want installed with conda for our job. If you cloned the "snakemake-lsh-tutorial-data"
 repository you will already have this, and you are good to go. If not, save this to `environment.yaml`
 in your working directory:
 
@@ -235,9 +251,7 @@ storage instead of the local filesystem.
 
 
 And make sure you also have the script `plot-quals.py` in your present working directory for the last step.
-This script will help us to do the plotting, and is also included in the 
- `snakemake-tutorial-data <https://github.com/snakemake/snakemake-tutorial-data>`_
-repository.
+This script will help us to do the plotting, and is also included in the `snakemake-lsh-tutorial-data <https://github.com/snakemake/snakemake-lsh-tutorial-data>`_ repository.
 
 
 .. code:: python

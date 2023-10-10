@@ -1,0 +1,17 @@
+rule baserule:
+    params:
+        mymessage="I am the base rule",
+    output:
+        "test.file",
+    shell:
+        "echo {params.mymessage} > {output}"
+
+
+use rule baserule as childrule_1 with:
+    params:
+        mymessage="I am childrule_1",
+
+
+use rule baserule as childrule_2 with:
+    output:
+        "test.file",

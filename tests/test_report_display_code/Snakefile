@@ -1,0 +1,30 @@
+rule all:
+    input:
+        "test.vcf.gz",
+
+
+rule a:
+    output:
+        "{prefix}.txt",
+    shell:
+        "touch {output}"
+
+
+rule b:
+    input:
+        "{prefix}.txt",
+    output:
+        "{prefix}.vcf",
+    script:
+        "test.py"
+
+
+rule bgzip:
+    input:
+        "{prefix}.vcf",
+    output:
+        "{prefix}.vcf.gz",
+    log:
+        "logs/bgzip/{prefix}.log",
+    wrapper:
+        "v1.1.0/bio/bgzip"

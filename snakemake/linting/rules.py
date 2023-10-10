@@ -1,13 +1,14 @@
 from itertools import chain
 import re
+import sys
 
-from snakemake.io import get_wildcard_names, is_flagged
+from snakemake.io import is_flagged
 from snakemake.linting import Linter, Lint, links, NAME_PATTERN
 
 
 class RuleLinter(Linter):
     def item_desc_plain(self, rule):
-        return "rule {} (line {}, {})".format(rule.name, rule.lineno, rule.snakefile)
+        return f"rule {rule.name} (line {rule.lineno}, {rule.snakefile})"
 
     def item_desc_json(self, rule):
         return {"rule": rule.name, "line": rule.lineno, "snakefile": rule.snakefile}
@@ -35,7 +36,7 @@ class RuleLinter(Linter):
                 )
 
     def lint_log_directive(self, rule):
-        if not rule.log and not rule.norun:
+        if not rule.log and not rule.norun and not rule.is_handover:
             yield Lint(
                 title="No log directive defined",
                 body="Without a log directive, all output will be printed "
@@ -57,7 +58,7 @@ class RuleLinter(Linter):
             "threads",
             "resources",
         },
-        regex=re.compile("{{(?P<name>{}).*?}}".format(NAME_PATTERN)),
+        regex=re.compile(f"{{(?P<name>{NAME_PATTERN}).*?}}"),
     ):
         if rule.shellcmd:
             for match in regex.finditer(rule.shellcmd):
@@ -79,15 +80,6 @@ class RuleLinter(Linter):
                         links=[links.params],
                     )
 
-    def lint_version(self, rule):
-        if rule.version:
-            yield Lint(
-                title="The version directive is deprecated",
-                body="It was meant for documenting tool version, but this has been replaced "
-                "by using the conda or container directive.",
-                links=[links.package_management, links.containers],
-            )
-
     def lint_dynamic(self, rule):
         for file in chain(rule.output, rule.input):
             if is_flagged(file, "dynamic"):
@@ -99,18 +91,18 @@ class RuleLinter(Linter):
 
     def lint_long_run(self, rule):
         func_code = rule.run_func.__code__.co_code
-
-        if rule.is_run and len(func_code) > 70:
+        max_len = 70 if sys.version_info < (3, 11) else 210
+        if rule.is_run and len(func_code) > max_len:
             yield Lint(
                 title="Migrate long run directives into scripts or notebooks",
-                body="Long run directives hamper workflow readability. Use the script or notebook direcive instead. "
+                body="Long run directives hamper workflow readability. Use the script or notebook directive instead. "
                 "Note that the script or notebook directive does not involve boilerplate. Similar to run, you "
                 "will have direct access to params, input, output, and wildcards."
-                "Only use the run direcive for a handful of lines.",
+                "Only use the run directive for a handful of lines.",
                 links=[links.external_scripts, links.notebooks],
             )
 
-    def lint_iofile_by_index(self, rule, regex=re.compile("(input|output)\[[0-9]+\]")):
+    def lint_iofile_by_index(self, rule, regex=re.compile(r"(input|output)\[[0-9]+\]")):
         if rule.shellcmd and regex.search(rule.shellcmd):
             yield Lint(
                 title="Do not access input and output files individually by index in shell commands",
@@ -122,6 +114,7 @@ class RuleLinter(Linter):
     def lint_missing_software_definition(self, rule):
         if (
             not rule.norun
+            and not rule.is_handover
             and not rule.is_run
             and not (rule.conda_env or rule.container_img)
         ):

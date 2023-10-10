@@ -1,0 +1,25 @@
+rule all:
+    input:
+        "test2.txt",
+        "test3.txt",
+        "test4.txt",
+
+
+module somemodule:
+    snakefile:
+        "module/Snakefile"
+    config:
+        config
+
+
+use rule * from somemodule as somemodule_*
+
+
+module someothermodule:
+    snakefile:
+        "module2/Snakefile"
+    config:
+        config
+
+
+use rule * from someothermodule as someothermodule_*

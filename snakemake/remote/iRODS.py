@@ -1,17 +1,18 @@
 __author__ = "Oliver Stolpe"
-__copyright__ = "Copyright 2017, BIH Core Unit Bioinformatics"
+__copyright__ = "Copyright 2022, BIH Core Unit Bioinformatics"
 __email__ = "oliver.stolpe@bihealth.org"
 __license__ = "MIT"
 
 import os
-import re
 
-from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject
+from snakemake.remote import (
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError
 from snakemake.utils import os_sync
 
@@ -20,7 +21,11 @@ try:
     from irods.session import iRODSSession
     from irods.meta import iRODSMeta
     from irods.models import DataObject
-    from irods.exception import CollectionDoesNotExist, DataObjectDoesNotExist
+    from irods.exception import (
+        CollectionDoesNotExist,
+        DataObjectDoesNotExist,
+        CAT_NO_ACCESS_PERMISSION,
+    )
     import irods.keywords as kw
 except ImportError as e:
     raise WorkflowError(
@@ -58,7 +63,6 @@ def _irods_session(*args, **kwargs):
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
 
     def __init__(
@@ -86,8 +90,12 @@ class RemoteProvider(AbstractRemoteProvider):
         """List of valid protocols for this remote provider."""
         return ["irods://"]
 
+    def glob_wildcards(self, pattern, *args, **kwargs):
+        remote_pattern = os.path.join(os.sep, self._irods_session.zone, pattern)
+        return super().glob_wildcards(remote_pattern, *args, **kwargs)
 
-class RemoteObject(AbstractRemoteObject):
+
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with an iRODS server."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -169,7 +177,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             if make_dest_dirs:
                 os.makedirs(os.path.dirname(self.local_path), exist_ok=True)
@@ -190,19 +198,22 @@ class RemoteObject(AbstractRemoteObject):
                 "The file does not seem to exist remotely: %s" % self.local_file()
             )
 
-    def upload(self):
+    def _upload(self):
         # get current local timestamp
         stat = os.stat(self.local_path)
 
         # create folder structure on remote
         folders = os.path.dirname(self.remote_path).split(os.sep)[1:]
-        collpath = os.sep
+        # add zone name to path
+        collpath = os.sep + folders.pop(0) + os.sep + folders.pop(0)
 
         for folder in folders:
             collpath = os.path.join(collpath, folder)
-
             try:
                 self._irods_session.collections.get(collpath)
+            # ignore subdirectories where user does not have access
+            except CAT_NO_ACCESS_PERMISSION:
+                pass
             except:
                 self._irods_session.collections.create(collpath)
 

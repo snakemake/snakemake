@@ -1,0 +1,4 @@
+channels:
+  - conda-forge
+dependencies:
+  - bash >=4.0

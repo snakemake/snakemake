@@ -10,6 +10,7 @@
 # to directories.
 #
 # TODO - consider adding a cluster-based test for point 2 above.
+shell.executable("bash")
 
 
 # Setup - touch a mock input file and an out-of-date output file.

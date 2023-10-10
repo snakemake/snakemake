@@ -1,0 +1,7 @@
+rule a:
+    output:
+        "test.out"
+    params:
+        b=workflow.source_path("resources/test.txt")
+    shell:
+        "cat {params.b} > {output}"

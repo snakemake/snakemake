@@ -1,5 +1,5 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 import os
 
 from snakemake.jobs import Job
-from snakemake.io import is_flagged, get_flag_value, apply_wildcards
+from snakemake.io import apply_wildcards
 from snakemake.exceptions import WorkflowError, CacheMissException
 from snakemake.caching.hash import ProvenanceHashMap
 
@@ -29,11 +29,11 @@ class AbstractOutputFileCache:
         self.provenance_hash_map = ProvenanceHashMap()
 
     @abstractmethod
-    def store(self, job: Job):
+    def store(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
-    def fetch(self, job: Job):
+    def fetch(self, job: Job, cache_mode):
         pass
 
     @abstractmethod
@@ -47,6 +47,9 @@ class AbstractOutputFileCache:
             )
             yield from ((f, f[prefix_len:]) for f in job.output)
         else:
+            assert (
+                len(job.output) == 1
+            ), "bug: multiple output files in cacheable job but multiext not used for declaring them"
             yield (job.output[0], "")
 
     def raise_write_error(self, entry, exception=None):
@@ -66,4 +69,4 @@ class AbstractOutputFileCache:
         )
 
     def raise_cache_miss_exception(self, job):
-        raise CacheMissException("Job {} not yet cached.".format(job))
+        raise CacheMissException(f"Job {job} not yet cached.")

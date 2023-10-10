@@ -1,16 +1,15 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2017, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
-import os, sys
+import os
 import email.utils
 from contextlib import contextmanager
-import functools
 
 # module-specific
-from snakemake.remote import AbstractRemoteProvider, AbstractRemoteObject, DomainObject
-from snakemake.exceptions import WebDAVFileException, WorkflowError
+from snakemake.remote import AbstractRemoteProvider, DomainObject
+from snakemake.exceptions import WorkflowError
 from snakemake.utils import os_sync
 
 try:
@@ -64,7 +63,7 @@ class RemoteObject(DomainObject):
                 self.loop = asyncio.get_event_loop()
                 if self.loop.is_running():
                     raise NotImplementedError(
-                        "Cannot use aioutils in " "asynchroneous environment"
+                        "Cannot use aioutils in asynchroneous environment"
                     )
             except:
                 newloop = True
@@ -141,7 +140,7 @@ class RemoteObject(DomainObject):
         else:
             return self._iofile.size_local
 
-    def download(self, make_dest_dirs=True):
+    def _download(self, make_dest_dirs=True):
         if self.exists():
             # if the destination path does not exist, make it
             if make_dest_dirs:
@@ -156,7 +155,7 @@ class RemoteObject(DomainObject):
                 "The file does not seem to exist remotely: %s" % self.webdav_file
             )
 
-    def upload(self):
+    def _upload(self):
         # make containing folder
         with self.webdavc() as webdavc:
             self.loop.run_until_complete(

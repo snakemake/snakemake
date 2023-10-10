@@ -1,0 +1,6 @@
+block:
+    foo: cfg01_foo
+    bar: cfg01_bar
+    baz: cfg01_baz
+    foobar:
+        cfg01_key: cfg01_val

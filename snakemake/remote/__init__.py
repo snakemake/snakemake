@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -7,12 +7,28 @@ __license__ = "MIT"
 import os
 import sys
 import re
+from functools import partial
 from abc import ABCMeta, abstractmethod
+from contextlib import contextmanager
+import shutil
+
 from wrapt import ObjectProxy
+from reretry import retry
+
+try:
+    from connection_pool import ConnectionPool
+except ImportError:
+    # we just won't pool connections if it's not installed
+    #  Should there be a warning? Should there be a runtime flag?
+    pass
 import copy
+import collections
 
 # module-specific
+from snakemake.exceptions import WorkflowError
 import snakemake.io
+from snakemake.logging import logger
+from snakemake.common import parse_uri
 
 
 class StaticRemoteObjectProxy(ObjectProxy):
@@ -36,8 +52,8 @@ class StaticRemoteObjectProxy(ObjectProxy):
         copied_wrapped = copy.copy(self.__wrapped__)
         return type(self)(copied_wrapped)
 
-    def __deepcopy__(self):
-        copied_wrapped = copy.deepcopy(self.__wrapped__)
+    def __deepcopy__(self, memo):
+        copied_wrapped = copy.deepcopy(self.__wrapped__, memo)
         return type(self)(copied_wrapped)
 
 
@@ -49,7 +65,6 @@ class AbstractRemoteProvider:
     __metaclass__ = ABCMeta
 
     supports_default = False
-    allows_directories = False
 
     def __init__(
         self, *args, keep_local=False, stay_on_remote=False, is_default=False, **kwargs
@@ -104,7 +119,7 @@ class AbstractRemoteProvider:
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             provider=self,
-            **kwargs
+            **kwargs,
         )
         if static:
             remote_object = StaticRemoteObjectProxy(remote_object)
@@ -138,6 +153,10 @@ class AbstractRemoteProvider:
     def remote_interface(self):
         pass
 
+    @property
+    def name(self):
+        return self.__module__.split(".")[-1]
+
 
 class AbstractRemoteObject:
     """This is an abstract class to be used to derive remote object classes for
@@ -154,7 +173,7 @@ class AbstractRemoteObject:
         keep_local=False,
         stay_on_remote=False,
         provider=None,
-        **kwargs
+        **kwargs,
     ):
         assert protocol is not None
         # self._iofile must be set before the remote object can be used, in io.py or elsewhere
@@ -197,6 +216,12 @@ class AbstractRemoteObject:
     def remote_file(self):
         return self.protocol + self.local_file()
 
+    def to_plainstr(self):
+        if self.stay_on_remote:
+            return str(self.remote_file())
+        else:
+            return str(self.local_file())
+
     @abstractmethod
     def close(self):
         pass
@@ -213,12 +238,29 @@ class AbstractRemoteObject:
     def size(self):
         pass
 
+    def download(self):
+        try:
+            return self._download()
+        except Exception as e:
+            local_path = self.local_file()
+            if os.path.exists(local_path):
+                if os.path.isdir(local_path):
+                    shutil.rmtree(local_path)
+                os.remove(local_path)
+            raise WorkflowError(e)
+
+    def upload(self):
+        try:
+            self._upload()
+        except Exception as e:
+            raise WorkflowError(e)
+
     @abstractmethod
-    def download(self, *args, **kwargs):
+    def _download(self, *args, **kwargs):
         pass
 
     @abstractmethod
-    def upload(self, *args, **kwargs):
+    def _upload(self, *args, **kwargs):
         pass
 
     @abstractmethod
@@ -241,7 +283,17 @@ class AbstractRemoteObject:
         self._iofile.touch_or_create()
 
 
-class DomainObject(AbstractRemoteObject):
+class AbstractRemoteRetryObject(AbstractRemoteObject):
+    @retry(tries=3, delay=3, backoff=2, logger=logger)
+    def download(self):
+        return super().download()
+
+    @retry(tries=3, delay=3, backoff=2, logger=logger)
+    def upload(self):
+        super().upload()
+
+
+class DomainObject(AbstractRemoteRetryObject):
     """This is a mixin related to parsing components
     out of a location path specified as
     (host|IP):port/remote/location
@@ -294,3 +346,182 @@ class DomainObject(AbstractRemoteObject):
     @property
     def remote_path(self):
         return self.path_remainder
+
+
+class PooledDomainObject(DomainObject):
+    """This adds connection pooling to DomainObjects
+    out of a location path specified as
+    (host|IP):port/remote/location
+    """
+
+    connection_pools = {}
+
+    def __init__(self, *args, pool_size=100, immediate_close=False, **kwargs):
+        super(PooledDomainObject, self).__init__(*args, **kwargs)
+        self.pool_size = 100
+        self.immediate_close = immediate_close
+
+    def get_default_kwargs(self, **defaults):
+        defaults.setdefault("host", self.host)
+        defaults.setdefault("port", int(self.port) if self.port else None)
+        return defaults
+
+    def get_args_to_use(self):
+        """merge the objects args with the parent provider
+
+        Positional Args: use those of object or fall back to ones from provider
+        Keyword Args: merge with any defaults
+        """
+        # if args have been provided to remote(),
+        #  use them over those given to RemoteProvider()
+        args_to_use = self.provider.args
+        if len(self.args):
+            args_to_use = self.args
+
+        # use kwargs passed in to remote() to override those given to the RemoteProvider()
+        #  default to the host and port given as part of the file,
+        #  falling back to one specified as a kwarg to remote() or the RemoteProvider
+        #  (overriding the latter with the former if both)
+        kwargs_to_use = self.get_default_kwargs()
+        for k, v in self.provider.kwargs.items():
+            kwargs_to_use[k] = v
+        for k, v in self.kwargs.items():
+            kwargs_to_use[k] = v
+
+        return args_to_use, kwargs_to_use
+
+    @contextmanager
+    def get_connection(self):
+        """get a connection from a pool or create a new one"""
+        if not self.immediate_close and "connection_pool" in sys.modules:
+            # if we can (and the user doesn't override) use a pool
+            with self.connection_pool.item() as conn:
+                yield conn
+        else:
+            # otherwise create a one-time connection
+            args_to_use, kwargs_to_use = self.get_args_to_use()
+            conn = self.create_connection(*args_to_use, **kwargs_to_use)
+            try:
+                yield conn
+            finally:
+                self.close_connection(conn)
+
+    @property
+    def conn_keywords(self):
+        """returns list of keywords relevant to a unique connection"""
+        return ["host", "port", "username"]
+
+    @property
+    def connection_pool(self):
+        """set up a pool of re-usable active connections"""
+        # merge this object's values with those of its parent provider
+        args_to_use, kwargs_to_use = self.get_args_to_use()
+
+        # hashing connection pool on tuple of relevant arguments. There
+        # may be a better way to do this
+        conn_pool_label_tuple = (
+            type(self),
+            *args_to_use,
+            *[kwargs_to_use.get(k, None) for k in self.conn_keywords],
+        )
+
+        if conn_pool_label_tuple not in self.connection_pools:
+            create_callback = partial(
+                self.create_connection, *args_to_use, **kwargs_to_use
+            )
+            self.connection_pools[conn_pool_label_tuple] = ConnectionPool(
+                create_callback, close=self.close_connection, max_size=self.pool_size
+            )
+
+        return self.connection_pools[conn_pool_label_tuple]
+
+    @abstractmethod
+    def create_connection(self):
+        """handle the protocol specific job of creating a connection"""
+        pass
+
+    @abstractmethod
+    def close_connection(self, connection):
+        """handle the protocol specific job of closing a connection"""
+        pass
+
+
+class AutoRemoteProvider:
+    @property
+    def protocol_mapping(self):
+        # automatically gather all RemoteProviders
+        import pkgutil
+        import importlib.util
+
+        provider_list = []
+        for remote_submodule in pkgutil.iter_modules(snakemake.remote.__path__):
+            path = (
+                os.path.join(remote_submodule.module_finder.path, remote_submodule.name)
+                + ".py"
+            )
+
+            module_name = remote_submodule.name
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+
+            try:
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+            except Exception as e:
+                logger.debug(f"Autoloading {module_name} failed: {e}")
+                continue
+
+            provider_list.append(module.RemoteProvider)
+
+        # assemble scheme mapping
+        protocol_dict = {}
+        for Provider in provider_list:
+            try:
+                for protocol in Provider().available_protocols:
+                    protocol_short = protocol[:-3]  # remove "://" suffix
+                    protocol_dict[protocol_short] = Provider
+            except Exception as e:
+                # If for any reason Provider() fails (e.g. missing python
+                # packages or config env vars), skip this provider.
+                logger.debug(f"Instantiating {Provider.__class__.__name__} failed: {e}")
+        return protocol_dict
+
+    def remote(self, value, *args, provider_kws=None, **kwargs):
+        if isinstance(value, str):
+            values = [value]
+        elif isinstance(value, collections.abc.Iterable):
+            values = value
+        else:
+            raise TypeError(f"Invalid type ({type(value)}) passed to remote: {value}")
+
+        provider_remote_list = []
+        for value in values:
+            # select provider
+            o = parse_uri(value)
+            Provider = self.protocol_mapping.get(o.scheme)
+
+            if Provider is None:
+                raise TypeError(f"Could not find remote provider for: {value}")
+
+            # use provider's remote
+            provider_kws = {} if provider_kws is None else provider_kws.copy()
+
+            provider_remote_list.append(
+                Provider(**provider_kws).remote(value, *args, **kwargs)
+            )
+
+        return (
+            provider_remote_list[0]
+            if len(provider_remote_list) == 1
+            else provider_remote_list
+        )
+
+
+AUTO = AutoRemoteProvider()
+
+
+def check_deprecated_retry(retry):
+    if retry:
+        logger.warning(
+            "Using deprecated retry argument. Snakemake now always uses 3 retries on download and upload."
+        )

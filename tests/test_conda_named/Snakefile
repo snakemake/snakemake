@@ -1,0 +1,31 @@
+import subprocess as sp
+import sys
+
+
+try:
+    shell(
+        "mamba create -y -n xxx-test-env -c conda-forge --override-channels ripgrep==13.0.0"
+    )
+    print("created conda env", file=sys.stderr)
+except sp.CalledProcessError as e:
+    print(e.stderr)
+    raise e
+
+
+onsuccess:
+    shell("conda env remove -y -n xxx-test-env")
+
+
+onerror:
+    shell("conda env remove -y -n xxx-test-env")
+
+
+rule a:
+    output:
+        "test.out",
+    log:
+        err="test.log",
+    conda:
+        "xxx-test-env"
+    shell:
+        r"(rg --version | grep -o 'ripgrep [0-9]*\.[0-9]*\.[0-9]*' > {output}) 2> {log.err}"

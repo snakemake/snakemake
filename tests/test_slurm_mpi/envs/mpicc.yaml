@@ -1,0 +1,5 @@
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - openmpi-mpicc =4.1.4

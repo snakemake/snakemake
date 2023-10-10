@@ -77,8 +77,9 @@ For this, Snakemake provides the ``include`` directive to include another Snakef
 
 .. code:: python
 
-    include: "path/to/other.snakefile"
+    include: "path/to/other.smk"
 
+As can be seen, the default file extensions for snakefiles other than the main snakefile is ``.smk``.
 Alternatively, Snakemake allows to **define sub-workflows**.
 A sub-workflow refers to a working directory with a complete Snakemake workflow.
 Output files of that sub-workflow can be used in the current Snakefile.
@@ -128,6 +129,7 @@ with ``envs/samtools.yaml`` defined as
 
   channels:
     - bioconda
+    - conda-forge
   dependencies:
     - samtools =1.9
 
@@ -234,15 +236,15 @@ The **DRMAA support** can be activated by invoking Snakemake as follows:
     $ snakemake --drmaa --jobs 100
 
 If available, **DRMAA is preferable over the generic cluster modes** because it provides better control and error handling.
-To support additional cluster specific parametrization, a Snakefile can be complemented by a :ref:`snakefiles-cluster_configuration` file.
+To support additional cluster specific parametrization, a Snakefile can be complemented by a workflow specific profile (see :ref:`profiles`).
 
 Using --cluster-status
 ::::::::::::::::::::::
 
 Sometimes you need specific detection to determine if a cluster job completed successfully, failed or is still running.
-Error detection with ``--cluster`` can be improved for edge cases such as timeouts and jobs exceeding memory that are silently terminated by 
+Error detection with ``--cluster`` can be improved for edge cases such as timeouts and jobs exceeding memory that are silently terminated by
 the queueing system.
-This can be achieved with the ``--cluster-status`` option. This takes as input a script and passes a job id as first argument.
+This can be achieved with the ``--cluster-status`` option. The value of this option should be a executable script which takes a job id as the first argument and prints to stdout only one of [running|success|failed]. Importantly, the job id snakemake passes on is captured from the stdout of the cluster submit tool. This string will often include more than the job id, but snakemake does not modify this string and will pass this string to the status script unchanged. In the situation where snakemake has received more than the job id these are 3 potential solutions to consider: parse the string received by the script and extract the job id within the script, wrap the submission tool to intercept its stdout and return just the job code, or ideally, the cluster may offer an option to only return the job id upon submission and you can instruct snakemake to use that option. For sge this would look like  ``snakemake --cluster "qsub -terse"``.
 
 The following (simplified) script detects the job status on a given SLURM cluster (>= 14.03.0rc1 is required for ``--parsable``).
 
@@ -270,6 +272,26 @@ To use this script call snakemake similar to below, where ``status.py`` is the s
 
     $ snakemake all --jobs 100 --cluster "sbatch --cpus-per-task=1 --parsable" --cluster-status ./status.py
 
+
+Using --cluster-cancel
+::::::::::::::::::::::
+
+When snakemake is terminated by pressing ``Ctrl-C``, it will cancel all currently running node when using ``--drmaa``.
+You can get the same behaviour with ``--cluster`` by adding ``--cluster-cancel`` and passing a command to use for canceling jobs by their jobid (e.g., ``scancel`` for SLURM or ``qdel`` for SGE).
+Most job schedulers can be passed multiple jobids and you can use ``--cluster-cancel-nargs`` to limit the number of arguments (default is 1000 which is reasonable for most schedulers).
+
+Using --cluster-sidecar
+:::::::::::::::::::::::
+
+In certain situations, it is necessary to not perform calls to cluster commands directly and instead have a "sidecar" process, e.g., providing a REST API.
+One example is when using SLURM where regular calls to ``scontrol show job JOBID`` or ``sacct -j JOBID`` puts a high load on the controller.
+Rather, it is better to use the ``squeue`` command with the ``-i/--iterate`` option.
+
+When using ``--cluster``, you can use ``--cluster-sidecar`` to pass in a command that starts a sidecar server.
+The command should print one line to stdout and then block and accept connections.
+The line will subsequently be available in the calls to ``--cluster``, ``--cluster-status``, and ``--cluster-cancel`` in the environment variable ``SNAKEMAKE_CLUSTER_SIDECAR_VARS``.
+In the case of a REST server, you can use this to return the port that the server is listening on and credentials.
+When the Snakemake process terminates, the sidecar process will be terminated as well.
 
 Constraining wildcards
 ::::::::::::::::::::::

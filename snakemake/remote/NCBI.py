@@ -1,5 +1,5 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2017, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
@@ -8,7 +8,6 @@ import time
 import os
 import re
 import json
-import logging
 import xml.etree.ElementTree as ET
 
 # module-specific
@@ -34,7 +33,7 @@ class RemoteProvider(AbstractRemoteProvider):
         stay_on_remote=False,
         is_default=False,
         email=None,
-        **kwargs
+        **kwargs,
     ):
         super(RemoteProvider, self).__init__(
             *args,
@@ -42,7 +41,7 @@ class RemoteProvider(AbstractRemoteProvider):
             stay_on_remote=stay_on_remote,
             is_default=is_default,
             email=email,
-            **kwargs
+            **kwargs,
         )
         self._ncbi = NCBIHelper(*args, email=email, **kwargs)
 
@@ -82,7 +81,7 @@ class RemoteObject(AbstractRemoteObject):
         db=None,
         rettype=None,
         retmode=None,
-        **kwargs
+        **kwargs,
     ):
         super(RemoteObject, self).__init__(
             *args,
@@ -93,7 +92,7 @@ class RemoteObject(AbstractRemoteObject):
             db=db,
             rettype=rettype,
             retmode=retmode,
-            **kwargs
+            **kwargs,
         )
         if provider:
             self._ncbi = provider.remote_interface()
@@ -139,7 +138,7 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         if self.exists():
             self._ncbi.fetch_from_ncbi(
                 [self.accession],
@@ -148,14 +147,14 @@ class RemoteObject(AbstractRemoteObject):
                 retmode=self.retmode,
                 file_ext=self.file_ext,
                 db=self.db,
-                **self.kwargs
+                **self.kwargs,
             )
         else:
             raise NCBIFileException(
                 "The record does not seem to exist remotely: %s" % self.accession
             )
 
-    def upload(self):
+    def _upload(self):
         raise NCBIFileException(
             "Upload is not permitted for the NCBI remote provider. Is an output set to NCBI.RemoteProvider.remote()?"
         )
@@ -467,7 +466,7 @@ class NCBIHelper(object):
     @staticmethod
     def _seq_chunks(seq, n):
         # https://stackoverflow.com/a/312464/190597 (Ned Batchelder)
-        """ Yield successive n-sized chunks from seq."""
+        """Yield successive n-sized chunks from seq."""
         for i in range(0, len(seq), n):
             yield seq[i : i + n]
 
@@ -479,7 +478,7 @@ class NCBIHelper(object):
         return_type=int,
         raise_on_failure=True,
         retmode="xml",
-        **kwargs
+        **kwargs,
     ):
         result = self.entrez.esummary(db=db, id=accession, **kwargs)
 
@@ -542,7 +541,7 @@ class NCBIHelper(object):
         remove_separate_files=False,
         chunk_size=1,
         db="nuccore",
-        **kwargs
+        **kwargs,
     ):
         """
         This function downloads and saves files from NCBI.
@@ -594,7 +593,7 @@ class NCBIHelper(object):
                 )
             else:
                 output_file_path = os.path.join(
-                    output_directory, "chunk-{}".format(chunk_num) + output_extension
+                    output_directory, f"chunk-{chunk_num}" + output_extension
                 )
 
             if not force_overwrite:
@@ -623,7 +622,6 @@ class NCBIHelper(object):
                             outf.write(line)
                     output_files.append(output_file_path)
                 except IOError:
-
                     logger.warning(
                         "Error fetching file {}: {}, try #{} probably because NCBI is too busy.".format(
                             chunk_num + 1, acc_string, try_count

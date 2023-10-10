@@ -15,28 +15,43 @@ Thereby wildcards can be used to write general rules.
 Grammar
 -------
 
-The Snakefile syntax obeys the following grammar, given in extended Backus-Naur form (EBNF)
+The Snakefile syntax obeys the following grammar, given in `extended Backus-Naur form (EBNF) <https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form>`_.
 
 .. code-block:: text
 
-    snakemake  = statement | rule | include | workdir
-    rule       = "rule" (identifier | "") ":" ruleparams
-    include    = "include:" stringliteral
-    workdir    = "workdir:" stringliteral
-    ni         = NEWLINE INDENT
-    ruleparams = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni (run | shell)] NEWLINE snakemake
-    input      = "input" ":" parameter_list
-    output     = "output" ":" parameter_list
-    params     = "params" ":" parameter_list
-    log        = "log" ":" parameter_list
-    benchmark  = "benchmark" ":" statement
-    cache      = "cache" ":" bool
-    message    = "message" ":" stringliteral
-    threads    = "threads" ":" integer
-    resources  = "resources" ":" parameter_list
-    version    = "version" ":" statement
-    run        = "run" ":" ni statement
-    shell      = "shell" ":" stringliteral
+    snakemake    = statement | rule | include | workdir | module | configfile | container
+    rule         = "rule" (identifier | "") ":" ruleparams
+    include      = "include:" stringliteral
+    workdir      = "workdir:" stringliteral
+    module       = "module" identifier ":" moduleparams
+    configfile   = "configfile" ":" stringliteral
+    userule      = "use" "rule" (identifier | "*") "from" identifier ["as" identifier] ["with" ":" norunparams]
+    ni           = NEWLINE INDENT
+    norunparams  = [ni input] [ni output] [ni params] [ni message] [ni threads] [ni resources] [ni log] [ni conda] [ni container] [ni benchmark] [ni cache] [ni priority]
+    ruleparams   = norunparams [ni (run | shell | script | notebook)] NEWLINE snakemake
+    input        = "input" ":" parameter_list
+    output       = "output" ":" parameter_list
+    params       = "params" ":" parameter_list
+    log          = "log" ":" parameter_list
+    benchmark    = "benchmark" ":" statement
+    cache        = "cache" ":" bool
+    message      = "message" ":" stringliteral
+    threads      = "threads" ":" integer
+    priority     = "priority" ":" integer
+    resources    = "resources" ":" parameter_list
+    version      = "version" ":" statement
+    conda        = "conda" ":" stringliteral
+    container    = "container" ":" stringliteral
+    run          = "run" ":" ni statement
+    shell        = "shell" ":" stringliteral
+    script       = "script" ":" stringliteral
+    notebook     = "notebook" ":" stringliteral
+    moduleparams = [ni snakefile] [ni metawrapper] [ni config] [ni skipval]
+    snakefile    = "snakefile" ":" stringliteral
+    metawrapper  = "meta_wrapper" ":" stringliteral
+    config       = "config" ":" stringliteral
+    skipval      = "skip_validation" ":" stringliteral
+    
 
 while all not defined non-terminals map to their Python equivalents.
 
@@ -54,20 +69,3 @@ From Snakemake 3.2 on, if your workflow depends on a minimum Snakemake version, 
     min_version("3.2")
 
 given that your minimum required version of Snakemake is 3.2. The statement will raise a WorkflowError (and therefore abort the workflow execution) if the version is not met.
-
-
-.. _snakefiles-best_practices:
-
---------------
-Best practices
---------------
-
-Snakemake (>=5.11) comes with a code quality checker (a so called linter), that analyzes your workflow and highlights issues that should be solved in order to follow best practices, achieve maximum readability, and reproducibility.
-The linter can be invoked with 
-
-.. code-block:: bash
-
-    snakemake --lint
-
-given that a ``Snakefile`` or ``workflow/Snakefile`` is accessible from your working directory.
-It is **highly recommended** to run the linter before publishing any workflow, asking questions on Stack Overflow or filing issues on Github.

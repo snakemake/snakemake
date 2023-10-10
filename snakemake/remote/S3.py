@@ -1,17 +1,17 @@
 __author__ = "Christopher Tomkins-Tinch"
-__copyright__ = "Copyright 2015, Christopher Tomkins-Tinch"
+__copyright__ = "Copyright 2022, Christopher Tomkins-Tinch"
 __email__ = "tomkinsc@broadinstitute.org"
 __license__ = "MIT"
 
 # built-ins
 import os
 import re
-import math
-import functools
-import concurrent.futures
 
 # module-specific
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+)
 from snakemake.exceptions import WorkflowError, S3FileException
 from snakemake.utils import os_sync
 
@@ -29,7 +29,6 @@ except ImportError as e:
 class RemoteProvider(
     AbstractRemoteProvider
 ):  # class inherits from AbstractRemoteProvider
-
     supports_default = True  # class variable
 
     def __init__(
@@ -40,7 +39,7 @@ class RemoteProvider(
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )  # in addition to methods provided by AbstractRemoteProvider, we add these in
 
         self._s3c = S3Helper(*args, **kwargs)  # _private variable by convention
@@ -59,7 +58,7 @@ class RemoteProvider(
         return ["s3://"]
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     """This is a class to interact with the AWS S3 object store."""
 
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
@@ -97,11 +96,11 @@ class RemoteObject(AbstractRemoteObject):
         else:
             return self._iofile.size_local
 
-    def download(self):
+    def _download(self):
         self._s3c.download_from_s3(self.s3_bucket, self.s3_key, self.local_file())
         os_sync()  # ensure flush to disk
 
-    def upload(self):
+    def _upload(self):
         self._s3c.upload_to_s3(
             self.s3_bucket,
             self.local_file(),
@@ -290,7 +289,7 @@ class S3Helper(object):
             return destination_path
         except:
             raise S3FileException(
-                "Error downloading file '%s' from bucket '%s'." % (key, bucket_name)
+                f"Error downloading file '{key}' from bucket '{bucket_name}'."
             )
 
     def delete_from_bucket(self, bucket_name, key):

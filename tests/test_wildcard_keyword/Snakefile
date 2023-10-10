@@ -1,3 +1,4 @@
+shell.executable("bash")
 
 rule all:
     input: "stringbar.txt", "localbar.txt", "globalbar.txt", "ambig.u.ous.log"

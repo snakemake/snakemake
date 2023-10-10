@@ -1,0 +1,140 @@
+samples: samples.tsv
+
+units: units.tsv
+
+igv_report:
+  activate: true
+
+ref:
+  # Number of chromosomes to consider for calling.
+  # The first n entries of the FASTA will be considered.
+  n_chromosomes: 25
+  # Ensembl species name
+  species: homo_sapiens
+  # Ensembl release
+  release: 100
+  # Genome build
+  build: GRCh38
+
+primers:
+  trimming:
+    activate: false
+    # path to fasta files containg primer sequences
+    primers_fa1: "path/to/primer-fa1"
+    primers_fa2: "path/to/primer-fa2"
+     # Library mean + error determines the maximum insert size between the outer primer ends.
+    library_error: 0
+    # Mean insert size between the outer primer ends.
+    library_length: 0
+
+# Estimation of tumor mutational burden.
+tmb:
+  activate: false
+  # Size of the sequenced coding genome for TMB estimation
+  # Attention: when doing panel sequencing, set this to the
+  # CAPTURED coding genome, not the entire one!
+  coding_genome_size: 3e7
+  # Plotting modes - hist (stratified histogram)
+  # or curve (stratified curve)
+  mode:
+    - hist
+    - curve
+  # Name of the tumor sample in the scenario.yaml.
+  tumor_sample: tumor
+  somatic_events:
+    - SOMATIC_TUMOR_LOW
+    - SOMATIC_TUMOR_MEDIUM
+    - SOMATIC_TUMOR_HIGH
+
+# printing of variants in a matrix, sorted by recurrence
+report:
+  # if stratificatio is deactivated, one oncoprint for all
+  # samples will be created.
+  activate: true
+  max_read_depth: 250
+  stratify:
+    activate: false
+    # select a sample sheet column for stratification
+    by-column: condition
+
+# printing of variants in a table format
+tables:
+  activate: true
+  # vembrane expression to generate the table
+  output:
+    expression: "INDEX, CHROM, POS, REF, ALT[0], ANN['Consequence'], ANN['IMPACT'], ANN['SYMBOL'], ANN['Feature']"
+    genotype: true
+    coverage: true
+    event_prob: true
+  generate_excel: true
+
+calling:
+  delly:
+    activate: true
+  freebayes:
+    activate: true
+  # See https://varlociraptor.github.io/docs/calling/#generic-variant-calling
+  scenario: scenario.yaml
+  filter:
+    # Filter candidate variants (this filter helps to keep the number of evaluated candidates small).
+    # It should ideally generate a superset of all other filters defined below.
+    # Annotation of candidate variants tries to be as fast as possible, only using VEP
+    # default parameters.
+    candidates: "ANN['IMPACT'] != 'LOW'"
+    # Add any number of named filters here. They will be applied independenty,
+    # and can be referred in FDR control below to generate calls for different events.
+    # In particular, you can also filter by ID or dbsnp annotations here.
+    # See http://snpeff.sourceforge.net/SnpSift.html#filter
+    filtername: "ANN['IMPACT'] == 'HIGH'"
+  fdr-control:
+    threshold: 0.05
+    events: 
+      # Add any number of events here to filter for.
+      somatic:
+        varlociraptor: 
+          - "SOMATIC_TUMOR_HIGH"
+          - "SOMATIC_TUMOR_MEDIUM"
+        filter: filtername
+
+# Will be ignored if calc_consensus_reads is activated
+remove_duplicates:
+  activate: true
+
+calc_consensus_reads:
+  activate: true
+
+annotations:
+  vcfs:
+    activate: true
+    # annotate with known variants from ensembl
+    known: resources/variation.vcf.gz
+    # add more external VCFs as needed
+    # cosmic: path/to/cosmic.vcf.gz
+  dgidb:
+    activate: true
+    # List of datasources for filtering dgidb entries
+    # Available sources can be found on http://dgidb.org/api/v2/interaction_sources.json
+    datasources:
+      - DrugBank
+  vep:
+    # Consider removing --everything if VEP is slow for you (e.g. for WGS), 
+    # and think carefully about which annotations you need.
+    params: --everything
+    plugins:
+      # Add any plugin from https://www.ensembl.org/info/docs/tools/vep/script/vep_plugins.html
+      # Plugin args can be passed as well, e.g. "LoFtool,path/to/custom/scores.txt".
+      - LoFtool
+
+params:
+  cutadapt: ""
+  picard:
+    MarkDuplicates: "VALIDATION_STRINGENCY=LENIENT"
+  gatk:
+    BaseRecalibrator: ""
+    applyBQSR: ""
+  varlociraptor_preprocess:
+    max_depth: 200 # Set when processing panel data with high coverage
+  varlociraptor_call:
+    omit_read_bias: false # Set true when processing panel data
+  freebayes:
+    min_alternate_fraction: 0.05 # Reduce for calling variants with lower VAFs

@@ -1,7 +1,7 @@
 channels:
   - conda-forge
 dependencies:
-  - python >=3.5
+  - python >=3.7
   - datrie
   - wrapt
   - pyyaml
@@ -13,10 +13,12 @@ dependencies:
   - jsonschema
   - gitpython
   - sphinx
+  - pip
   - pip:
     - sphinxcontrib-napoleon
   - sphinx-argparse
   - sphinx_rtd_theme
-  - docutils==0.12
+  - docutils
   - recommonmark
   - commonmark
+  - myst-parser

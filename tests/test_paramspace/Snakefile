@@ -2,32 +2,39 @@ from snakemake.utils import Paramspace
 import pandas as pd
 
 
-# shold result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
+# should result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
 paramspace_default = Paramspace(pd.read_csv("params.tsv", sep="\t"))
 
-# shold result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
+# should result in alpha~{alpha}/beta~{beta}/gamma~{gamma}
 paramspace_empty = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=[])
 
-# shold result in alpha~{alpha}/gamma~{gamma}/beta~{beta}
+# should result in alpha~{alpha}/gamma~{gamma}/beta~{beta}
 paramspace_one = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta"])
 
-# shold result in alpha~{alpha}/beta~{beta}_gamma~{gamma}
+# should result in alpha~{alpha}/beta~{beta}_gamma~{gamma}
 paramspace_two = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma"])
 
-# shold result in alpha~{alpha}_beta~{beta}_gamma~{gamma}
+# should result in alpha~{alpha}_beta~{beta}_gamma~{gamma}
 paramspace_full = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["alpha", "beta", "gamma"])
 
-# shold result in beta~{beta}_gamma~{gamma}_alpha~{alpha}
+# should result in beta~{beta}_gamma~{gamma}_alpha~{alpha}
 paramspace_full_reorder = Paramspace(pd.read_csv("params.tsv", sep="\t"), filename_params=["beta", "gamma", "alpha"])
 
-# shold result in alpha:{alpha}/beta:{beta}/gamma:{gamma}
+# should result in alpha:{alpha}/beta:{beta}/gamma:{gamma}
 paramspace_sep = Paramspace(pd.read_csv("params.tsv", sep="\t"), param_sep="_is_")
 
-# shold result in beta={beta}_gamma={gamma}_alpha={alpha}
+# should result in beta={beta}_gamma={gamma}_alpha={alpha}
 paramspace_sep_and_pattern = Paramspace(
     pd.read_csv("params.tsv", sep="\t"),
     filename_params=["beta", "gamma", "alpha"],
     param_sep="=",
+)
+
+# should result in alpha~{alpha}::beta~{beta}::gamma~{gamma}
+paramspace_filenamesep = Paramspace(
+    pd.read_csv("params.tsv", sep="\t"),
+    filename_params="*",
+    filename_sep="__",
 )
 
 
@@ -41,6 +48,7 @@ rule all:
         expand("results/full_reorder/plots/{params}.pdf", params=paramspace_full_reorder.instance_patterns),
         expand("results/sep/plots/{params}.pdf", params=paramspace_sep.instance_patterns),
         expand("results/sep_and_pattern/plots/{params}.pdf", params=paramspace_sep_and_pattern.instance_patterns),
+        expand("results/filenamesep/plots/{params}.pdf", params=paramspace_filenamesep.instance_patterns),
 
 
 rule simulate_default:
@@ -183,5 +191,23 @@ rule plot_sep_and_pattern:
         f"results/sep_and_pattern/simulations/{paramspace_sep_and_pattern.wildcard_pattern}.tsv"
     output:
         f"results/sep_and_pattern/plots/{paramspace_sep_and_pattern.wildcard_pattern}.pdf"
+    shell:
+        "touch {output}"
+
+
+rule simulate_filenamesep:
+    output:
+        f"results/filenamesep/simulations/{paramspace_filenamesep.wildcard_pattern}.tsv"
+    params:
+        simulation=paramspace_filenamesep.instance
+    script:
+        "scripts/simulate.py"
+
+
+rule plot_filenamesep:
+    input:
+        f"results/filenamesep/simulations/{paramspace_filenamesep.wildcard_pattern}.tsv"
+    output:
+        f"results/filenamesep/plots/{paramspace_filenamesep.wildcard_pattern}.pdf"
     shell:
         "touch {output}"

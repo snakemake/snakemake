@@ -1,0 +1,51 @@
+samples = [0,1]
+
+rule all:
+    input:
+        "test.out"
+
+rule a:
+    output:
+        "a/{sample}.out"
+    group: 0
+    threads: 4
+    resources:
+        mem_mb=20000,
+        runtime=80,
+    shell:
+        "touch {output}"
+
+rule a_1:
+    output:
+        pipe("test.{sample}.txt")
+    group: 0
+    threads: 4
+    resources:
+        mem_mb=40000,
+        runtime=40,
+    shell:
+        "for i in {{0..2}}; do echo {wildcards.sample} >> {output}; done"
+
+
+rule b:
+    input:
+        a="a/{sample}.out",
+        a_1="test.{sample}.txt"
+    output:
+        "test.{sample}.out"
+    group: 0
+    threads: 2
+    resources:
+        runtime=20,
+        mem_mb=10000
+    shell:
+        "grep {wildcards.sample} < {input.a_1} > {output}"
+
+rule c:
+    input:
+        expand("test.{sample}.out", sample=samples)
+    output:
+        "test.out"
+    group: 0
+    shell:
+        "touch {output}"

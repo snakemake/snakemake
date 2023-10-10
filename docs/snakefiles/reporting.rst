@@ -5,7 +5,7 @@ Reports
 -------
 
 From Snakemake 5.1 on, it is possible to automatically generate detailed self-contained HTML reports that encompass runtime statistics, provenance information, workflow topology and results.
-**A realistic example report from a real workflow can be found** `here <https://koesterlab.github.io/resources/report.html>`_.
+**As an example, the report of the Snakemake rolling paper can be found** `here <https://snakemake.github.io/resources/report.html>`_.
 
 For including results into the report, the Snakefile has to be annotated with additional information.
 Each output file that shall be part of the report has to be marked with the ``report`` flag, which optionally points to a caption in `restructured text format <https://docutils.sourceforge.io/docs/user/rst/quickstart.html>`_ and allows to define a ``category`` for grouping purposes.
@@ -52,7 +52,11 @@ Consider the following example:
 
   rule d:
       output:
-          report(directory("testdir"), patterns=["{name}.txt"], caption="report/somedata.rst", category="Step 3")
+          report(
+              directory("testdir"), 
+              patterns=["{name}.txt"], 
+              caption="report/somedata.rst", 
+              category="Step 3")
       shell:
           "mkdir {output}; for i in 1 2 3; do echo $i > {output}/$i.txt; done"
 
@@ -89,8 +93,45 @@ This works as follows:
             echo \"alert('test')\" > test/js/test.js
             """
 
+Defining file labels
+~~~~~~~~~~~~~~~~~~~~~
 
-Moreover, in every ``.rst`` document, you can link to
+In addition to category, and subcategory, it is possible to define a dictionary of labels for each report item.
+By that, the actual filename will be hidden in the report and instead a table with the label keys as columns and the values in the respective row for the file will be displayed.
+This can lead to less technical reports that abstract away the fact that the results of the analysis are actually files.
+Consider the following modification of rule ``b`` from above:
+
+.. code-block:: python
+
+    rule b:
+      input:
+          expand("{model}.{i}.out", i=range(10))
+      output:
+          report(
+              "fig2.png", 
+              caption="report/fig2.rst", 
+              category="Step 2", 
+              subcategory="{model}",
+              labels={
+                  "model": "{model}",
+                  "figure": "some plot"
+              }
+          )
+      shell:
+          "sleep `shuf -i 1-3 -n 1`; cp data/fig2.png {output}"
+
+
+Determining category, subcategory, and labels dynamically via functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Similar to e.g. with input file and parameter definition (see :ref:`snakefiles-input_functions`), ``category`` and a ``subcategory`` and ``labels`` can be specified by pointing to a function that takes ``wildcards`` as the first argument (and optionally in addition ``input``, ``output``, ``params`` in any order).
+The function is expected to return a string or number (int, float, numpy types), or, in case of labels, a dict with strings as keys and strings or numbers as values.
+
+
+Linking between items
+~~~~~~~~~~~~~~~~~~~~~
+
+In every ``.rst`` document, you can link to
 
 * the **Workflow** panel (with ``Rules_``),
 * the **Statistics** panel (with ``Statistics_``),
@@ -98,6 +139,9 @@ Moreover, in every ``.rst`` document, you can link to
 * any **file** marked with the report flag (with ``myfile.txt_``, while ``myfile.txt`` is the basename of the file, without any leading directories). E.g., with above example, you could write ``see fig2.png_`` in order to link to the result in the report document.
 
 For details about the hyperlink mechanism of restructured text see `here <https://docutils.sourceforge.io/docs/user/rst/quickref.html#hyperlink-targets>`_.
+
+Rendering reports
+~~~~~~~~~~~~~~~~~
 
 To create the report simply run
 
@@ -119,7 +163,7 @@ You can define an institute specific stylesheet with:
 In particular, this allows you to e.g. set a logo at the top (by using CSS to inject a background for the placeholder ``<div id="brand">``, or overwrite colors.
 For an example custom stylesheet defining the logo, see :download:`here <../../tests/test_report/custom-stylesheet.css>`.
 The report for above example can be found :download:`here <../../tests/test_report/expected-results/report.html>` (with a custom branding for the University of Duisburg-Essen).
-The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/master/tests/test_report/>`_.
+The full example source code can be found `here <https://github.com/snakemake/snakemake/tree/main/tests/test_report/>`_.
 
 Note that the report can be restricted to particular jobs and results by specifying targets at the command line, analog to normal Snakemake execution.
 For example, with

@@ -11,6 +11,7 @@ dist/
 .snakemake*
 .venv
 .venv/*
+.python-version
 
 
 .idea

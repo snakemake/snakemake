@@ -4,7 +4,7 @@
 Snakemake Executor Tutorials
 ============================
 
-.. _cloud executors: https://snakemake.readthedocs.io/en/stable/executing/cluster-cloud.html
+.. _cloud executors: https://snakemake.readthedocs.io/en/stable/executing/cloud.html
 .. _tutorial: https://snakemake.readthedocs.io/en/stable/tutorial/tutorial.html
 
 This set of tutorials are intended to introduce you to executing `cloud executors`_.
@@ -23,8 +23,9 @@ We ensured that no bioinformatics knowledge is needed to understand the tutorial
 .. toctree::
    :maxdepth: 2
 
-   google_lifesciences
-
+   azure_batch
    azure_aks
+   google_lifesciences
+   flux
 
    

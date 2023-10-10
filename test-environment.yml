@@ -2,27 +2,31 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - python >=3.5
+  - python >=3.7
+  - yte
+  - packaging
+  - stopit
   - datrie
   - boto3
-  - moto
-  - junit-xml  # needed for S3Mocked
+  - moto =3 # breaking changes in moto 4 that would need an update of S3Mocked
+  - junit-xml # needed for S3Mocked
   - httpretty
   - wrapt
   - pyyaml
-  - pytest ==6.1.2
+  - pytest
+  - pytest-mock
   - pytest-cov
   - ftputil
   - pysftp
   - requests
-  - responses <0.12.1 # responses 0.12.1 delivers a "TypeError: cannot unpack non-iterable CallbackResponse object"
+  - responses
   - dropbox
   - numpy
   - appdirs
   - pytools
   - docutils
   - pygments
-  - pandoc <2.0  # pandoc has changed the CLI API so that it is no longer compatible with the version of r-markdown below
+  - pandoc
   - xorg-libxrender
   - xorg-libxext
   - xorg-libxau
@@ -33,27 +37,41 @@ dependencies:
   - google-api-python-client
   - oauth2client
   - azure-storage-blob
-  - ratelimiter
   - configargparse
   - appdirs
-  - python-irodsclient
-  - cwltool <=3.0.20201203173111 # TODO remove once schema-salad has been updated in conda-forge
+  - python-irodsclient <1.1.2 # bug in 1.1.2 leads to KeyError
+  - cwltool
+  - cwl-utils
   - jsonschema
   - pandas
-  - networkx
-  - pygraphviz
   - python-kubernetes
   - gitpython
   - pulp >=2.0
   - tibanna
   - environment-modules
   - nbformat
-  - toposort
+  - toposort >=1.10
   - mamba
   - crc32c
-  - pip:
-    - py-tes
+  - pip
+  - connection_pool
+  - py-tes
   - requests-mock
   - peppy
   - eido
   - glpk
+  - smart_open
+  - filelock
+  - tabulate
+  - reretry
+  - graphviz
+  - humanfriendly
+  - throttler
+  - msrest
+  - azure-batch
+  - azure-mgmt-batch
+  - azure-identity
+  - nodejs  # for cwltool
+  - apptainer
+  - squashfuse # for apptainer
+  - immutables

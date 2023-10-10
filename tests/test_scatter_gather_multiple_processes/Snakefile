@@ -1,0 +1,59 @@
+scattergather:
+    rule_a=4,
+    rule_b=3,
+
+
+rule all:
+    input:
+        "gathered/all_a.txt",
+        "gathered/all_b.txt",
+
+
+rule split_a:
+    output:
+        scatter.rule_a("split_a/{scatteritem}.txt"),
+    shell:
+        "touch {output}"
+
+
+rule split_b:
+    output:
+        scatter.rule_b("split_b/{scatteritem}.txt"),
+    shell:
+        "touch {output}"
+
+
+rule intermediate_a:
+    input:
+        "split_a/{scatteritem}.txt",
+    output:
+        "split_a/{scatteritem}.post.txt",
+    shell:
+        "cp {input} {output}"
+
+
+rule intermediate_b:
+    input:
+        "split_b/{scatteritem}.txt",
+    output:
+        "split_b/{scatteritem}.post.txt",
+    shell:
+        "cp {input} {output}"
+
+
+rule gather_a:
+    input:
+        gather.rule_a("split_a/{scatteritem}.post.txt"),
+    output:
+        "gathered/all_a.txt",
+    shell:
+        "cat {input} > {output}"
+
+
+rule gather_b:
+    input:
+        gather.rule_b("split_b/{scatteritem}.post.txt"),
+    output:
+        "gathered/all_b.txt",
+    shell:
+        "cat {input} > {output}"

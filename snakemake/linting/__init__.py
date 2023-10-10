@@ -61,10 +61,10 @@ class Linter(ABC):
 
 
 class Lint:
-    def __init__(self, title, body, links=[]):
+    def __init__(self, title, body, links=None):
         self.title = title
         self.body = body
-        self.links = links
+        self.links = links or []
 
     def __str__(self):
         width, _ = shutil.get_terminal_size()

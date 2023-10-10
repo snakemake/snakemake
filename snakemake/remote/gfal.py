@@ -1,32 +1,32 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2017-2019, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
-import re
-import shutil
-import subprocess as sp
-from datetime import datetime
-import time
+import stat
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteProvider,
+    AbstractRemoteRetryObject,
+    check_deprecated_retry,
+)
 from snakemake.exceptions import WorkflowError
-from snakemake.common import lazy_property
-from snakemake.logging import logger
 from snakemake.utils import os_sync
 
-
-if not shutil.which("gfal-copy"):
+try:
+    # third-party modules
+    import gfal2
+except ImportError as e:
     raise WorkflowError(
-        "The gfal-* commands need to be available for " "gfal remote support."
-    )
+        'gfal2 python binding not found. The conda package name is "python-gfal2" '
+    ) from e
 
 
 class RemoteProvider(AbstractRemoteProvider):
-
     supports_default = True
-    allows_directories = True
+
+    gfalcntx = gfal2.creat_context()
 
     def __init__(
         self,
@@ -34,17 +34,20 @@ class RemoteProvider(AbstractRemoteProvider):
         keep_local=False,
         stay_on_remote=False,
         is_default=False,
-        retry=5,
-        **kwargs
+        retry=None,
+        **kwargs,
     ):
         super(RemoteProvider, self).__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
-        self.retry = retry
+        check_deprecated_retry(retry)
+
+    def remote_interface(self):
+        return self.gfalcntx
 
     @property
     def default_protocol(self):
@@ -58,98 +61,98 @@ class RemoteProvider(AbstractRemoteProvider):
         return ["gsiftp://", "srm://"]
 
 
-class RemoteObject(AbstractRemoteObject):
-    mtime_re = re.compile(r"^\s*Modify: (.+)$", flags=re.MULTILINE)
-    size_re = re.compile(r"^\s*Size: ([0-9]+).*$", flags=re.MULTILINE)
-
+class RemoteObject(AbstractRemoteRetryObject):
     def __init__(self, *args, keep_local=False, provider=None, **kwargs):
         super(RemoteObject, self).__init__(
             *args, keep_local=keep_local, provider=provider, **kwargs
         )
-
-    def _gfal(self, cmd, *args, retry=None, raise_workflow_error=True):
-        if retry is None:
-            retry = self.provider.retry
-        _cmd = ["gfal-" + cmd] + list(args)
-        for i in range(retry + 1):
-            try:
-                logger.debug(_cmd)
-                return sp.run(
-                    _cmd, check=True, stderr=sp.PIPE, stdout=sp.PIPE
-                ).stdout.decode()
-            except sp.CalledProcessError as e:
-                if i == retry:
-                    if raise_workflow_error:
-                        raise WorkflowError(
-                            "Error calling gfal-{}:\n{}".format(cmd, e.stderr.decode())
-                        )
-                    else:
-                        raise e
-                else:
-                    # try again after some seconds
-                    time.sleep(1)
-                    continue
+        if self.provider:
+            self.gfalcntxt = provider.remote_interface()
+        else:
+            self.gfalcntxt = gfal2.creat_context()
 
     # === Implementations of abstract class members ===
 
     def exists(self):
         try:
-            self._gfal(
-                "ls", "-a", self.remote_file(), retry=0, raise_workflow_error=False
-            )
-        except sp.CalledProcessError as e:
-            if e.returncode == 2:
-                # exit code 2 means no such file or directory
+            self.gfalcntxt.stat(self.remote_file())
+        except gfal2.GError as e:
+            if "No such file or directory" in e.message:
                 return False
             else:
                 raise WorkflowError(
-                    "Error calling gfal-ls:\n{}".format(e.stderr.decode())
-                )
-        # exit code 0 means that the file is present
+                    f"Error calling gfal2-python stat:\n\t{e.message} \n\t{e.code}"
+                ) from e
+
         return True
 
     def _stat(self):
-        stat = self._gfal("stat", self.remote_file())
-        return stat
+        return self._gfal("stat", self.remote_file())
 
     def mtime(self):
-        # assert self.exists()
-        stat = self._stat()
-        mtime = self.mtime_re.search(stat).group(1)
-        date = datetime.strptime(mtime, "%Y-%m-%d %H:%M:%S.%f")
-        return date.timestamp()
+        return self.gfalcntxt.stat(self.remote_file()).st_mtime
 
     def size(self):
-        # assert self.exists()
-        stat = self._stat()
-        size = self.size_re.search(stat).group(1)
-        return int(size)
+        stat = self.gfalcntxt.stat(self.remote_file())
+        return stat.st_size
 
-    def download(self):
-        if self.exists():
-            if self.size() == 0:
-                # Globus erroneously thinks that a transfer is incomplete if a
-                # file is empty. Hence we manually touch the local file.
-                self.local_touch_or_create()
-                return self.local_file()
-            # Download file. Wait for staging.
-            source = self.remote_file()
-            target = "file://" + os.path.abspath(self.local_file())
+    def _download(self):
+        if not self.exists():
+            return None
 
-            # disable all timeouts (file transfers can take a long time)
-            self._gfal(
-                "copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target
-            )
-
-            os_sync()
+        if self.size() == 0:
+            # Globus erroneously thinks that a transfer is incomplete if a
+            # file is empty. Hence we manually touch the local file.
+            self.local_touch_or_create()
             return self.local_file()
-        return None
+        # Download file. Wait for staging.
+        source = self.remote_file()
+        target = f"file://{os.path.abspath(self.local_file())}"
 
-    def upload(self):
+        self._transfer_file(target, source)
+
+        os_sync()
+        return self.local_file()
+
+    def _upload(self):
         target = self.remote_file()
-        source = "file://" + os.path.abspath(self.local_file())
-        # disable all timeouts (file transfers can take a long time)
-        self._gfal("copy", "-p", "-f", "-n", "4", "-t", "0", "-T", "0", source, target)
+        source = f"file://{os.path.abspath(self.local_file())}"
+
+        self._transfer_file(target, source)
+
+    def _transfer_file(self, target, source):
+        params = self.gfalcntxt.transfer_parameters()
+        params.overwrite = True
+        params.nbstreams = 4
+        params.timeout = 1200
+        params.create_parent = True
+
+        try:
+            self.gfalcntxt.filecopy(params, source, target)
+        except gfal2.GError as e:
+            raise WorkflowError(
+                f"Error calling gfal2-python copy:\n\t{e.message} \n\t{e.code}"
+            ) from e
+
+    def remove(self):
+        self._do_rm(self.remote_file())
+
+    def _do_rm(self, surl):
+        """ """
+        st = self.gfalcntxt.stat(surl)
+        if stat.S_ISDIR(st.st_mode):
+            self._do_rmdir(surl)
+            return
+        self.gfalcntxt.unlink(surl)
+
+    def _do_rmdir(self, surl):
+        """ """
+        base_dir = surl
+        if base_dir.endswith("/"):
+            base_dir = f"{base_dir}/"
+        contents = self.gfalcntxt.listdir(surl)
+        [self._do_rm(base_dir + c) for c in contents if c not in (".", "..")]
+        self.gfalcntx.rmdir(surl)
 
     @property
     def list(self):

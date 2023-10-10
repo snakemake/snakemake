@@ -1,0 +1,4 @@
+block:
+    foo: cfg02_foo
+    qux: cfg02_qux
+    bowser: cfg02_bowser

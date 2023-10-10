@@ -1,0 +1,11 @@
+configfile: "config_snakefile.yaml"
+
+
+rule dump_config:
+    output:
+        "test.out",
+    run:
+        import json
+
+        with open(output[0], "w") as fd:
+            json.dump(config, fd, sort_keys=True)

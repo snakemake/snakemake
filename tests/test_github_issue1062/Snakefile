@@ -1,0 +1,20 @@
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+
+FTP = FTPRemoteProvider(username="demo", password="password")
+
+
+rule all:
+    input:
+        "readme.txt",
+
+
+FTP_URL = "ftp://test.rebex.net/readme.txt"
+
+
+rule get_fasta_ftp:
+    input:
+        FTP.remote(FTP_URL, keep_local=True),
+    output:
+        "readme.txt",
+    shell:
+        "mv {input:q} {output:q}"

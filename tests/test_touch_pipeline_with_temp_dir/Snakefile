@@ -1,0 +1,16 @@
+rule all:
+    input: "out.txt"
+
+rule input:
+    output: temp("tmp.txt")
+    run:
+        with open(f"{output}", "w") as output:
+            print("tmp", file=output)
+
+rule intemediate:
+    input: "tmp.txt"
+    output: "out.txt"
+    run:
+        with open(f"{input}") as input:
+          with open(f"{output}", "w") as output:
+            print(*input.readlines(), file=output)

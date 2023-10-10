@@ -1,0 +1,27 @@
+shell.executable("bash")
+
+rule all:
+    input:
+        "test.out"
+
+rule a:
+    output:
+        pipe("testa.{i}.txt")
+    shell:
+        "echo {wildcards.i} > {output}"
+
+rule b:
+    input:
+        rules.a.output
+    output:
+        pipe("testb.{i}.txt")
+    shell:
+        "cat {input} > {output}"
+
+rule c:
+    input:
+        expand(rules.b.output, i=range(2))
+    output:
+        "test.out"
+    shell:
+        "cat {input} > {output}"

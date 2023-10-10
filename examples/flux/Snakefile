@@ -1,0 +1,19 @@
+# By convention, the first pseudorule should be called "all"
+# We're using the expand() function to create multiple targets
+rule all:
+	input:
+		expand(
+			"{greeting}/world.txt",
+			greeting = ['hello', 'hola'],
+		),
+
+# First real rule, this is using a wildcard called "greeting"
+rule multilingual_hello_world:
+	output:
+		"{greeting}/world.txt",
+	shell:
+		"""
+		mkdir -p "{wildcards.greeting}"
+		sleep 5
+		echo "{wildcards.greeting}, World!" > {output}
+		"""

@@ -1,5 +1,7 @@
 import os
 
+shell.executable("bash")
+
 
 def get_mem_gb(wildcards, input):
     size = 0

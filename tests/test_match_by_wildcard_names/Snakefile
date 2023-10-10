@@ -1,0 +1,22 @@
+rule all:
+    input:
+        expand("test.{sample}.{read}.fq", sample=["a"], read=["r1"]),
+
+
+rule a:
+    input:
+        "foo.{sample}{read}.fq",
+    output:
+        "test.{sample}.{read}.fq",
+    shell:
+        "touch {output}"
+
+
+rule b:
+    output:
+        "foo.{sample}{read}.fq",
+    run:
+        if "r" in wildcards.sample:
+            raise ValueError("sample name contains 'r'")
+        with open(output[0], "w") as f:
+            f.write("foo")

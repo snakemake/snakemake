@@ -1,0 +1,16 @@
+rule a:
+    input:
+        "test2.txt"
+    output:
+        "test.txt"
+    shell:
+        "echo {resources.tmpdir} > {output}"
+
+
+rule b:
+    output:
+        "test2.txt"
+    resources:
+        tmpdir="foo"
+    shell:
+        "echo {resources.tmpdir} $TMPDIR $TEMP $TMP $TEMPDIR > {output}"

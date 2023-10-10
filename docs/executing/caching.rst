@@ -32,9 +32,13 @@ Alternatively, rules can be marked as eligible for caching via the ``cache`` dir
     rule download_data:
         output:
             "results/data/worldcitiespop.csv"
-        cache: True
+        cache: True # allowed values: "all", "omit-software", True
         shell:
             "curl -L https://burntsushi.net/stuff/worldcitiespop.csv > {output}"
+
+Here, the given value defines what information shall be considered for calculating the hash value.
+With ``"all"`` or ``True``, all relevant rule information is used as outlined above (this is the recommended default).
+With ``"omit-software"``, the software stack is not considered, which is useful if the software stack is not relevant for the result (e.g., if the rule is only a data download).
 
 For workflows defining cache rules like this, it is enough to invoke Snakemake with
 

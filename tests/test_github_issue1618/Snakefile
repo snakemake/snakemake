@@ -1,0 +1,19 @@
+rule all:
+    input:
+        "test2.out",
+
+
+rule a:
+    output:
+        "test.out",
+    threads: 4
+    shell:
+        """
+        echo {threads} > {output}
+        """
+
+
+use rule a as b with:
+    threads: 5
+    output:
+        "test2.out",

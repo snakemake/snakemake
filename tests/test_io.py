@@ -104,11 +104,4 @@ def test_expand():
     ) == sorted(["a: aa + b: b", "a: aa + b: bb", "c: c", "c: cc"])
 
     # expand on pathlib.Path objects
-    assert (
-        expand(
-            PosixPath() / "{x}" / "{y}",
-            x="Hello",
-            y="world",
-        )
-        == ["Hello/world"]
-    )
+    assert expand(PosixPath() / "{x}" / "{y}", x="Hello", y="world") == ["Hello/world"]

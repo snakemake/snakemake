@@ -1,0 +1,22 @@
+ruleorder: single_file > both_files
+
+
+rule all:
+    input:
+        "foo.txt",
+        "bar.txt",
+
+
+rule both_files:
+    output:
+        "foo.txt",
+        "bar.txt",
+    shell:
+        "if [[ -e foo.txt ]]; then exit 1; fi; touch {output}"
+
+
+rule single_file:
+    output:
+        "foo.txt",
+    shell:
+        "if [[ -e foo.txt ]]; then exit 1; fi; touch {output}"

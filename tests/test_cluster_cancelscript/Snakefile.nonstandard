@@ -1,0 +1,13 @@
+
+
+
+rule all:
+	input: 'f.1', 'f.2'
+
+rule one:
+	output: 'f.1'
+	shell: "sleep 120s; touch {output}"
+
+rule two:
+	output: 'f.2'
+	shell: "sleep 120s; touch {output}"

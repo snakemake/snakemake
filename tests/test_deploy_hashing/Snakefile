@@ -1,0 +1,19 @@
+rule all:
+    input:
+        expand("{s}.txt", s=["a", "b"])
+
+rule a:
+    output:
+        "a.txt"
+    conda:
+        "a.yaml"
+    shell:
+        "touch {output}"
+
+rule b:
+    output:
+        "b.txt"
+    conda:
+        "b.yaml"
+    shell:
+        "touch {output}"

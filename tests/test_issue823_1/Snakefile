@@ -1,0 +1,27 @@
+rule all:
+    input:
+        "b.txt"
+
+checkpoint a:
+    output:
+        # to reproduce the bug:
+        # >1 output required
+        # one or more temp() outputs required
+        # exception: will work if only the first output is temp()
+        temp('a1.txt'),
+        temp('a2.txt'),
+    shell:
+        "touch {output}"
+
+def _checkpoint_output(wildcards):
+    out = checkpoints.a.get(**wildcards).output
+    return out
+
+rule b:
+    input:
+        _checkpoint_output,
+    output:
+        'b.txt'
+    shell:
+        "touch {output}"
+

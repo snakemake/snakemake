@@ -44,7 +44,7 @@ Contributing a new cluster or cloud execution backend
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Execution backends are added by implementing a so-called ``Executor``.
-All executors are located in `snakemake/executors.py <https://github.com/snakemake/snakemake/tree/master/snakemake/executors.py>`_.
+All executors are located in `snakemake/executors/ <https://github.com/snakemake/snakemake/tree/main/snakemake/executors>`_.
 In order to implement a new executor, you have to inherit from the class ``ClusterExecutor``.
 Below you find a skeleton
 
@@ -57,15 +57,11 @@ Below you find a skeleton
                  quiet=False,
                  printshellcmds=False,
                  latency_wait=3,
-                 cluster_config=None,
                  local_input=None,
                  restart_times=None,
                  exec_job=None,
                  assume_shared_fs=True,
                  max_status_checks_per_second=1):
-
-            # overwrite the command to execute a single snakemake job if necessary
-            # exec_job = "..."
 
             super().__init__(workflow, dag, None,
                              jobname=jobname,
@@ -73,12 +69,10 @@ Below you find a skeleton
                              quiet=quiet,
                              printshellcmds=printshellcmds,
                              latency_wait=latency_wait,
-                             cluster_config=cluster_config,
                              local_input=local_input,
                              restart_times=restart_times,
-                             exec_job=exec_job,
-                             assume_shared_fs=False,
-                             max_status_checks_per_second=10)
+                             assume_shared_fs=False, # if your executor relies on a shared file system, set this to True
+                             max_status_checks_per_second=max_status_checks_per_second)  # set this to a reasonable default
 
             # add additional attributes
 
@@ -89,6 +83,7 @@ Below you find a skeleton
         def cancel(self):
             for job in self.active_jobs:
                 # cancel active jobs here
+                pass
             self.shutdown()
         
         def run_jobs(self, jobs, callback=None, submit_callback=None, error_callback=None):
@@ -116,7 +111,9 @@ Below you find a skeleton
             """Run an individual job or a job group.
             """
 
+            # Necessary: perform additional executor independent steps before running the job
             super()._run(job)
+
             # obtain job execution command
             exec_job = self.format_job(
                 self.exec_job, job, _quote_all=True,
@@ -130,13 +127,14 @@ Below you find a skeleton
             self.active_jobs.append(MyJob(
                 job, jobid, callback, error_callback))
 
-        def _wait_for_jobs(self):
+        async def _wait_for_jobs(self):
+            from snakemake.executors import sleep
             # busy wait on job completion
             # This is only needed if your backend does not allow to use callbacks
             # for obtaining job status.
             while True:
                 # always use self.lock to avoid race conditions
-                with self.lock:
+                async with async_lock(self.lock):
                     if not self.wait:
                         return
                     active_jobs = self.active_jobs
@@ -144,15 +142,16 @@ Below you find a skeleton
                     still_running = list()
                 for j in active_jobs:
                     # use self.status_rate_limiter to avoid too many API calls.
-                    with self.status_rate_limiter:
+                    async with self.status_rate_limiter:
 
                         # Retrieve status of job j from your backend via j.jobid
                         # Handle completion and errors, calling either j.callback(j.job)
                         # or j.error_callback(j.job)
                         # In case of error, add job j to still_running.
-                with self.lock:
+                        pass
+                async with async_lock(self.lock):
                     self.active_jobs.extend(still_running)
-                sleep()
+                await sleep()
 
 
 Write Documentation
@@ -196,7 +195,7 @@ To create a Pull Request you need to do these steps:
 10. If you now go to the webpage for your Github copy of Snakemake you should see a link in the sidebar called "Create Pull Request".
 11. Now you need to choose your PR from the menu and click the "Create pull request" button. Be sure to change the pull request target branch to <descriptive_branch_name>!
 
-If you want to create more pull requests, first run :code:`git checkout master` and then start at step 5. with a new branch name.
+If you want to create more pull requests, first run :code:`git checkout main` and then start at step 5. with a new branch name.
 
 Feel free to ask questions about this if you want to contribute to Snakemake :)
 
@@ -218,13 +217,12 @@ The easiest way to run your development version of Snakemake is perhaps to go to
 
 This will make your development version of Snakemake the one called when running snakemake. You do not need to run this command after each time you make code changes.
 
-From the base snakemake folder you call :code:`nosetests` to run all the tests, or choose one specific test. For this to work, Nose (the testing framework we use) can be installed to the conda environment using pip:
+From the base snakemake folder you call :code:`pytest` to run all the tests, or choose one specific test:
 
 .. code-block:: console
 
-   $ pip install nose
-   $ nosetests
-   $ nosetests tests.tests:test_log_input
+   $ pytest
+   $ pytest tests/tests.py::test_log_input
 
 If you introduce a new feature you should add a new test to the tests directory. See the folder for examples.
 

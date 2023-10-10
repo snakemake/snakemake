@@ -9,7 +9,6 @@
 #    gls.py save <bucket> /google/logs/output source/logs
 
 import argparse
-import datetime
 
 from google.cloud import storage
 from glob import glob
@@ -25,7 +24,7 @@ def download_blob(bucket_name, source_blob_name, destination_file_name):
 
     blob.download_to_filename(destination_file_name)
 
-    print("Blob {} downloaded to {}.".format(source_blob_name, destination_file_name))
+    print(f"Blob {source_blob_name} downloaded to {destination_file_name}.")
 
 
 def save_files(bucket_name, source_path, destination_path):
@@ -46,20 +45,15 @@ def save_files(bucket_name, source_path, destination_path):
 
     # Do the upload!
     for filename in filenames:
-
         # The relative path of the filename from the source path
         relative_path = filename.replace(source_path, "", 1).strip("/")
-
         # The path in storage includes relative path from destination_path
         storage_path = os.path.join(destination_path, relative_path)
         full_path = os.path.join(bucket_name, storage_path)
         print(f"{filename} -> {full_path}")
-
-        # Get the blob
         blob = bucket.blob(storage_path)
-        if not blob.exists():
-            print("Uploading %s to %s" % (filename, full_path))
-            blob.upload_from_filename(filename)
+        print(f"Uploading {filename} to {full_path}")
+        blob.upload_from_filename(filename, content_type=".txt")
 
 
 def get_source_files(source_path):

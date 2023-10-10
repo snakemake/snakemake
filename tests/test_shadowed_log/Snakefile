@@ -1,0 +1,4 @@
+rule all:
+    shadow: "minimal"
+    output: touch("all.out")
+    log: "all.log"

@@ -1,4 +1,4 @@
-# snakemake
+shell.executable("bash")
 
 rule all:
 	input: a=dynamic("test.{n}.{bla}.out"), b=dynamic("test.{n}.{bla}.csv")

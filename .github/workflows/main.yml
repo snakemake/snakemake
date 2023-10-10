@@ -3,77 +3,92 @@ name: CI
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
     branches_ignore: []
-
 jobs:
+  cancel-previous:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - uses: khan/pull-request-workflow-cancel@1.0.1
+        with:
+          workflows: main.yml
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
   formatting:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-
+      - uses: actions/checkout@v3
       - name: Setup black environment
         run: |
           conda create -c conda-forge -y -q --name black black
-
       - name: Check formatting
-        run: |
+        run: >
           export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate black
-          black --check --diff snakemake tests/tests.py tests/test_tes.py tests/test_io.py tests/common.py tests/test_google_lifesciences.py
 
+          source activate black
+
+          black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
-        uses: marocchino/sticky-pull-request-comment@v1.1.0
+        uses: marocchino/sticky-pull-request-comment@v2.8.0
         with:
-          message: 'Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`.'
+          message: "Please format your code with [black](https://black.readthedocs.io): `black snakemake tests/*.py`."
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   testing:
     runs-on: ubuntu-latest
     needs: formatting
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - "8888:3306"
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
     env:
-      AWS_AVAILABLE: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      GCP_AVAILABLE: ${{ secrets.GCP_SA_KEY }}
+      AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+      GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
-      - uses: actions/checkout@v1
-      
-      - name: Setup Snakemake environment
-        run: |
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          conda install -c conda-forge -q mamba
-          mamba env create -q --name snakemake --file test-environment.yml
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
+      - name: Setup mamba
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: snakemake
+          channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
+      - name: Setup Snakemake environment
+        shell: bash -el {0}
+        run: |
+          conda config --set channel_priority strict
+
+          mamba env update -q -n snakemake --file test-environment.yml
+
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
+          pip install -e .
+
+          # additionally add singularity (not necessary anymore, included in the test env now)
+          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
+          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
+          # cannot open shared object file: No such file or directory
+          # mamba install -n snakemake "singularity<=3.8.6"
       - name: Setup apt dependencies
         run: |
-          sudo apt install -y stress \
-            build-essential \
-            libssl-dev \
-            uuid-dev \
-            libgpgme11-dev \
-            squashfs-tools \
-            libseccomp-dev \
-            wget \
-            pkg-config \
-            git \
-            cryptsetup
-
-      - name: Setup Golang
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.13'
-
-      - name: Setup singularity
-        run: |
-          export VERSION=3.6.2
-          wget https://github.com/sylabs/singularity/releases/download/v${VERSION}/singularity-${VERSION}.tar.gz
-          tar -xzf singularity-${VERSION}.tar.gz
-          cd singularity
-          ./mconfig
-          make -C builddir
-          sudo make -C builddir install
-        
+          sudo gem install apt-spy2
+          sudo apt-spy2 fix --commit --launchpad --country=US
+          sudo apt-get update
+          sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
       - name: Setup iRODS
         run: |
           docker build -t irods-server tests/test_remote_irods
@@ -82,128 +97,80 @@ jobs:
           docker exec -u irods provider iput /incoming/infile
           cp -r tests/test_remote_irods/setup-data ~/.irods
 
-      - name: Setup Gcloud
-        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
-        if: env.GCP_AVAILABLE
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
-
-      - name: Setup AWS
-        uses: aws-actions/configure-aws-credentials@v1
-        if: env.AWS_AVAILABLE
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Run tests
+      - name: Test local
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+        shell: bash -el {0}
         run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-
-          pytest -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py
+          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/tests.py
 
       - name: Build and publish docker image
-        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
-        uses: elgohr/Publish-Docker-Github-Action@2.16
+        if: >-
+          contains(github.event.pull_request.labels.*.name,
+          'update-container-image')
+        uses: elgohr/Publish-Docker-Github-Action@v5
         with:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
           tags: ${{ env.GITHUB_SHA }}
-      
+
       - name: Set container image
-        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        if: >-
+          contains(github.event.pull_request.labels.*.name,
+          'update-container-image')
         run: |
           echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
 
-      - name: Test Kubernetes execution
-        if: env.GCP_AVAILABLE
-        env:
-          CI: true
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-
-          pytest -s -v -x tests/test_kubernetes.py
-
-      - name: Test AWS execution
-        if: env.AWS_AVAILABLE && (success() || failure())
-        env: 
-          CI: true
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-
-          pytest -v -x tests/test_tibanna.py
-
-      - name: Test Google Life Sciences Executor
-        if: env.GCP_AVAILABLE && (success() || failure())
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_google_lifesciences.py
-
-      - name: Test GA4GH TES executor
-        run: |
-          # activate conda env
-          export PATH="/usr/share/miniconda/bin:$PATH"
-          source activate snakemake
-          pytest -s -v -x tests/test_tes.py
-        
       - name: Delete container image
-        if: "contains(github.event.pull_request.labels.*.name, 'update-container-image') && always()"
+        if: >-
+          contains(github.event.pull_request.labels.*.name,
+          'update-container-image') && always()
         run: |
           docker run --rm lumir/remove-dockerhub-tag \
           --user ${{ secrets.DOCKER_USERNAME }} \
           --password ${{ secrets.DOCKER_TOKEN }} \
           snakemake/snakemake:${{ env.GITHUB_SHA }}
-
       - name: Build container image
-        if: "!contains(github.event.pull_request.labels.*.name, 'update-container-image')"
+        if: >-
+          !contains(github.event.pull_request.labels.*.name,
+          'update-container-image')
         run: docker build .
-
 
   testing-windows:
     runs-on: windows-latest
     needs: formatting
-
     steps:
-      - uses: actions/checkout@v1
-
-      # No win conda package exist for pygraphviz yet
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Remove unix-only dependencies
         shell: python
         run: |
           import fileinput
-          excluded_on_win = ["pygraphviz", "environment-modules","pandoc","tibanna"]
+          excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
-
       - name: Setup miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: snakemake
-          python-version: 3.8
-          channels: conda-forge, bioconda
-
+          channels: "conda-forge, bioconda"
+          miniforge-variant: Mambaforge
+          miniforge-version: latest
       - name: Setup Snakemake environment
         run: |
-          conda install -q --name base mamba
+          conda config --set channel_priority strict
           mamba env update -q --file test-environment.yml
 
+          # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install -e .
       - name: Run tests
         env:
           CI: true
+          ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest -v -x tests/tests.py
+          python -m pytest --show-capture=stderr -v -x tests/tests.py

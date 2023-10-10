@@ -1,16 +1,18 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2022, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 import traceback
 import textwrap
 from tokenize import TokenError
-from snakemake.logging import logger
+from snakemake_interface_common.exceptions import WorkflowError, ApiError
 
 
-def format_error(ex, lineno, linemaps=None, snakefile=None, show_traceback=False):
+def format_error(
+    ex, lineno, linemaps=None, snakefile=None, show_traceback=False, rule=None
+):
     if linemaps is None:
         linemaps = dict()
     msg = str(ex)
@@ -18,9 +20,13 @@ def format_error(ex, lineno, linemaps=None, snakefile=None, show_traceback=False
         lineno = linemaps[snakefile][lineno]
         if isinstance(ex, SyntaxError):
             msg = ex.msg
-    location = (
-        " in line {} of {}".format(lineno, snakefile) if lineno and snakefile else ""
-    )
+
+    location = ""
+    if lineno and snakefile:
+        location = f" in file {snakefile}, line {lineno}"
+        if rule:
+            location = f" in rule {rule}{location}"
+
     tb = ""
     if show_traceback:
         tb = "\n".join(format_traceback(cut_traceback(ex), linemaps=linemaps))
@@ -28,7 +34,7 @@ def format_error(ex, lineno, linemaps=None, snakefile=None, show_traceback=False
         ex.__class__.__name__,
         location,
         ":\n" + msg if msg else ".",
-        "\n{}".format(tb) if show_traceback and tb else "",
+        f"\n{tb}" if show_traceback and tb else "",
     )
 
 
@@ -44,7 +50,10 @@ def cut_traceback(ex):
         dir = os.path.dirname(line[0])
         if not dir:
             dir = "."
-        if not os.path.isdir(dir) or not os.path.samefile(snakemake_path, dir):
+        is_snakemake_dir = lambda path: os.path.realpath(path).startswith(
+            os.path.realpath(snakemake_path)
+        )
+        if not os.path.isdir(dir) or not is_snakemake_dir(dir):
             yield line
 
 
@@ -53,15 +62,17 @@ def format_traceback(tb, linemaps):
         if file in linemaps:
             lineno = linemaps[file][lineno]
         if code is not None:
-            yield '  File "{}", line {}, in {}'.format(file, lineno, function)
+            yield f'  File "{file}", line {lineno}, in {function}'
 
 
 def log_verbose_traceback(ex):
+    from snakemake.logging import logger
+
     tb = "Full " + "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
     logger.debug(tb)
 
 
-def print_exception(ex, linemaps):
+def print_exception(ex, linemaps=None):
     """
     Print an error message for a given exception.
 
@@ -70,6 +81,8 @@ def print_exception(ex, linemaps):
     linemaps -- a dict of a dict that maps for each snakefile
         the compiled lines to source code lines in the snakefile.
     """
+    from snakemake.logging import logger
+
     log_verbose_traceback(ex)
     if isinstance(ex, SyntaxError) or isinstance(ex, IndentationError):
         logger.error(
@@ -82,7 +95,7 @@ def print_exception(ex, linemaps):
             )
         )
         return
-    origin = get_exception_origin(ex, linemaps)
+    origin = get_exception_origin(ex, linemaps) if linemaps is not None else None
     if origin is not None:
         lineno, file = origin
         logger.error(
@@ -100,7 +113,7 @@ def print_exception(ex, linemaps):
             )
         )
     elif isinstance(ex, RuleException):
-        for e in ex._include + [ex]:
+        for e in ex._include:
             if not e.omit:
                 logger.error(
                     format_error(
@@ -111,6 +124,16 @@ def print_exception(ex, linemaps):
                         show_traceback=True,
                     )
                 )
+        logger.error(
+            format_error(
+                ex,
+                ex.lineno,
+                linemaps=linemaps,
+                snakefile=ex.filename,
+                show_traceback=True,
+                rule=ex.rule,
+            )
+        )
     elif isinstance(ex, WorkflowError):
         logger.error(
             format_error(
@@ -119,46 +142,22 @@ def print_exception(ex, linemaps):
                 linemaps=linemaps,
                 snakefile=ex.snakefile,
                 show_traceback=True,
+                rule=ex.rule,
             )
         )
+    elif isinstance(ex, ApiError):
+        logger.error(f"Error: {ex}")
+    elif isinstance(ex, CliException):
+        logger.error(f"Error: {ex}")
     elif isinstance(ex, KeyboardInterrupt):
         logger.info("Cancelling snakemake on user request.")
     else:
         traceback.print_exception(type(ex), ex, ex.__traceback__)
 
 
-class WorkflowError(Exception):
-    @staticmethod
-    def format_arg(arg):
-        if isinstance(arg, str):
-            return arg
-        elif isinstance(arg, WorkflowError):
-            spec = ""
-            if arg.rule is not None:
-                spec += "rule {}".format(arg.rule)
-            if arg.snakefile is not None:
-                if spec:
-                    spec += ", "
-                spec += "line {}, {}".format(arg.lineno, arg.snakefile)
-
-            if spec:
-                spec = " ({})".format(spec)
-
-            return "{}{}:\n{}".format(
-                arg.__class__.__name__, spec, textwrap.indent(str(arg), "    ")
-            )
-        else:
-            return "{}: {}".format(arg.__class__.__name__, str(arg))
-
-    def __init__(self, *args, lineno=None, snakefile=None, rule=None):
-        super().__init__("\n".join(self.format_arg(arg) for arg in args))
-        if rule is not None:
-            self.lineno = rule.lineno
-            self.snakefile = rule.snakefile
-        else:
-            self.lineno = lineno
-            self.snakefile = snakefile
-        self.rule = rule
+class SourceFileError(WorkflowError):
+    def __init__(self, msg):
+        super().__init__(f"Error in source file definition: {msg}")
 
 
 class WildcardError(WorkflowError):
@@ -167,7 +166,7 @@ class WildcardError(WorkflowError):
 
 class RuleException(Exception):
     """
-    Base class for exception occuring within the
+    Base class for exception occurring within the
     execution or definition of rules.
     """
 
@@ -196,6 +195,7 @@ class RuleException(Exception):
                 snakefile = rule.snakefile
 
         self._include = list(self._include)
+        self.rule = rule
         self.lineno = lineno
         self.filename = snakefile
         self.omit = not message
@@ -211,9 +211,7 @@ class InputFunctionException(WorkflowError):
             "Error:\n  "
             + self.format_arg(msg)
             + "\nWildcards:\n"
-            + "\n".join(
-                "  {}={}".format(name, value) for name, value in wildcards.items()
-            )
+            + "\n".join(f"  {name}={value}" for name, value in wildcards.items())
             + "\nTraceback:\n"
             + "\n".join(format_traceback(cut_traceback(msg), rule.workflow.linemaps))
         )
@@ -237,18 +235,23 @@ class ChildIOException(WorkflowError):
 
 
 class IOException(RuleException):
-    def __init__(self, prefix, rule, files, include=None, lineno=None, snakefile=None):
-        message = (
-            "{} for rule {}:\n{}".format(prefix, rule, "\n".join(files))
-            if files
-            else ""
-        )
+    def __init__(self, prefix, job, files, include=None, lineno=None, snakefile=None):
+        from snakemake.logging import format_wildcards
+
+        msg = ""
+        if files:
+            msg = f"{prefix} for rule {job.rule}:"
+            if job.output:
+                msg += "\n" + f"    output: {', '.join(job.output)}"
+            if job.wildcards:
+                msg += "\n" + f"    wildcards: {format_wildcards(job.wildcards)}"
+            msg += "\n    affected files:\n        " + "\n        ".join(files)
         super().__init__(
-            message=message,
+            message=msg,
             include=include,
             lineno=lineno,
             snakefile=snakefile,
-            rule=rule,
+            rule=job.rule,
         )
 
 
@@ -262,15 +265,16 @@ class MissingOutputException(RuleException):
         rule=None,
         jobid="",
     ):
-        message = "Job {} completed successfully, but some output files are missing. {}".format(
-            message, jobid
-        )
+        if jobid:
+            jobid = f"{jobid} "
+        message = f"Job {jobid} completed successfully, but some output files are missing. {message}"
         super().__init__(message, include, lineno, snakefile, rule)
 
 
 class MissingInputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         msg = "Missing input files"
+
         if any(map(lambda f: f.startswith("~"), files)):
             msg += (
                 "(Using '~' in your paths is not allowed as such platform "
@@ -278,7 +282,7 @@ class MissingInputException(IOException):
                 "try sticking to relative paths for everything inside the "
                 "working directory.)"
             )
-        super().__init__(msg, rule, files, include, lineno=lineno, snakefile=snakefile)
+        super().__init__(msg, job, files, include, lineno=lineno, snakefile=snakefile)
 
 
 class PeriodicWildcardError(RuleException):
@@ -286,10 +290,10 @@ class PeriodicWildcardError(RuleException):
 
 
 class ProtectedOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         super().__init__(
             "Write-protected output files",
-            rule,
+            job,
             files,
             include,
             lineno=lineno,
@@ -298,24 +302,11 @@ class ProtectedOutputException(IOException):
 
 
 class ImproperOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
+    def __init__(self, job, files, include=None, lineno=None, snakefile=None):
         super().__init__(
             "Outputs of incorrect type (directories when expecting files or vice versa). "
             "Output directories must be flagged with directory().",
-            rule,
-            files,
-            include,
-            lineno=lineno,
-            snakefile=snakefile,
-        )
-
-
-class UnexpectedOutputException(IOException):
-    def __init__(self, rule, files, include=None, lineno=None, snakefile=None):
-        super().__init__(
-            "Unexpectedly present output files "
-            "(accidentally created by other rule?)",
-            rule,
+            job,
             files,
             include,
             lineno=lineno,
@@ -348,7 +339,7 @@ class AmbiguousRuleException(RuleException):
             "\t{job_b}: {wildcards_b}\n"
             "Expected input files:\n"
             "\t{job_a}: {job_a.input}\n"
-            "\t{job_b}: {job_b.input}"
+            "\t{job_b}: {job_b.input}\n"
             "Expected output files:\n"
             "\t{job_a}: {job_a.output}\n"
             "\t{job_b}: {job_b.output}".format(
@@ -366,9 +357,7 @@ class AmbiguousRuleException(RuleException):
 
 class CyclicGraphException(RuleException):
     def __init__(self, repeatedrule, file, rule=None):
-        super().__init__(
-            "Cyclic dependency on rule {}.".format(repeatedrule), rule=rule
-        )
+        super().__init__(f"Cyclic dependency on rule {repeatedrule}.", rule=rule)
         self.file = file
 
 
@@ -385,9 +374,9 @@ class MissingRuleException(RuleException):
 
 class UnknownRuleException(RuleException):
     def __init__(self, name, prefix="", lineno=None, snakefile=None):
-        msg = "There is no rule named {}.".format(name)
+        msg = f"There is no rule named {name}."
         if prefix:
-            msg = "{} {}".format(prefix, msg)
+            msg = f"{prefix} {msg}"
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 
@@ -465,6 +454,11 @@ class WebDAVFileException(RuleException):
         super().__init__(msg, lineno=lineno, snakefile=snakefile)
 
 
+class ZenodoFileException(RuleException):
+    def __init__(self, msg, lineno=None, snakefile=None):
+        super().__init__(msg, lineno=lineno, snakefile=snakefile)
+
+
 class ClusterJobException(RuleException):
     def __init__(self, job_info, jobid):
         super().__init__(
@@ -504,7 +498,7 @@ class CheckSumMismatchException(WorkflowError):
 class IncompleteCheckpointException(Exception):
     def __init__(self, rule, targetfile):
         super().__init__(
-            "The requested checkpoint output is not yet created."
+            "The requested checkpoint output is not yet created. "
             "If you see this error, you have likely tried to use "
             "checkpoint output outside of an input function, or "
             "you have tried to call an input function directly "
@@ -524,3 +518,30 @@ class IncompleteCheckpointException(Exception):
 
 class CacheMissException(Exception):
     pass
+
+
+class LockException(WorkflowError):
+    def __init__(self):
+        super().__init__(
+            "Error: Directory cannot be locked. Please make "
+            "sure that no other Snakemake process is trying to create "
+            "the same files in the following directory:\n{}\n"
+            "If you are sure that no other "
+            "instances of snakemake are running on this directory, "
+            "the remaining lock was likely caused by a kill signal or "
+            "a power loss. It can be removed with "
+            "the --unlock argument.".format(os.getcwd())
+        )
+
+
+class ResourceScopesException(Exception):
+    def __init__(self, msg, invalid_resources):
+        super().__init__(msg, invalid_resources)
+        self.msg = msg
+        self.invalid_resources = invalid_resources
+
+
+class CliException(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+        self.msg = msg

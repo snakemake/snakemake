@@ -1,3 +1,5 @@
+shell.executable("bash")
+
 from itertools import product
 
 src_lang = config['src_lang']

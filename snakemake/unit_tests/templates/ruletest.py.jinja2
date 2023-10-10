@@ -30,9 +30,9 @@ def test_{{ ruletest.name }}():
             "-m",
             "snakemake", 
             "{{ ruletest.target }}",
-            "-F", 
+            "-f", 
             "-j1",
-            "--keep-target-files",
+            "--target-files-omit-workdir-adjustment",
             {% if configfiles %}
             "--configfile",
             {% for configfile in configfiles %}

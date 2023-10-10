@@ -1,22 +1,22 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2018-2019, Johannes Köster"
+__copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@tu-dortmund.de"
 __license__ = "MIT"
 
 import os
-import json
 import time
-import uuid
 from collections import namedtuple
 import hashlib
 
 import requests
-from requests.auth import HTTPBasicAuth
 
 
-from snakemake.remote import AbstractRemoteObject, AbstractRemoteProvider
+from snakemake.remote import (
+    AbstractRemoteProvider,
+    check_deprecated_retry,
+)
 from snakemake.exceptions import WorkflowError
-from snakemake.common import lazy_property
+from snakemake_interface_executor_plugins.utils import lazy_property
 
 
 EGAFileInfo = namedtuple("EGAFileInfo", ["size", "status", "id", "checksum"])
@@ -30,17 +30,17 @@ class RemoteProvider(AbstractRemoteProvider):
         keep_local=False,
         stay_on_remote=False,
         is_default=False,
-        retry=5,
-        **kwargs
+        retry=None,
+        **kwargs,
     ):
         super().__init__(
             *args,
             keep_local=keep_local,
             stay_on_remote=stay_on_remote,
             is_default=is_default,
-            **kwargs
+            **kwargs,
         )
-        self.retry = retry
+        check_deprecated_retry(retry)
         self._token = None
         self._expires = None
         self._file_cache = dict()
@@ -75,13 +75,13 @@ class RemoteProvider(AbstractRemoteProvider):
                     raise WorkflowError("Error contacting EGA.", e)
 
         if r.status_code != 200:
-            raise WorkflowError("Login to EGA failed with:\n{}".format(r.text))
+            raise WorkflowError(f"Login to EGA failed with:\n{r.text}")
         r = r.json()
         # store session token
         try:
             self._token = r["access_token"]
         except KeyError:
-            raise WorkflowError("Login to EGA failed:\n{}".format(r))
+            raise WorkflowError(f"Login to EGA failed:\n{r}")
 
     def _expire_token(self):
         self._expires = None
@@ -97,7 +97,7 @@ class RemoteProvider(AbstractRemoteProvider):
         url_prefix="https://ega.ebi.ac.uk:8051/elixir/",
         json=True,
         post=False,
-        **params
+        **params,
     ):
         """Make an API request.
 
@@ -112,7 +112,7 @@ class RemoteProvider(AbstractRemoteProvider):
             if json
             else {"Accept": "application/octet-stream"}
         )
-        headers["Authorization"] = "Bearer {}".format(self.token)
+        headers["Authorization"] = f"Bearer {self.token}"
 
         for i in range(3):
             try:
@@ -136,7 +136,7 @@ class RemoteProvider(AbstractRemoteProvider):
                     raise WorkflowError("Error contacting EGA.", e)
         if r.status_code != 200:
             raise WorkflowError(
-                "Access to EGA API endpoint {} failed " "with:\n{}".format(url, r.text)
+                "Access to EGA API endpoint {} failed with:\n{}".format(url, r.text)
             )
         if json:
             msg = r.json()
@@ -146,9 +146,7 @@ class RemoteProvider(AbstractRemoteProvider):
 
     def get_files(self, dataset):
         if dataset not in self._file_cache:
-            files = self.api_request(
-                "data/metadata/datasets/{dataset}/files".format(dataset=dataset)
-            )
+            files = self.api_request(f"data/metadata/datasets/{dataset}/files")
             self._file_cache[dataset] = {
                 os.path.basename(f["fileName"])[:-4]: EGAFileInfo(
                     int(f["fileSize"]), f["fileStatus"], f["fileId"], f["checksum"]
@@ -193,7 +191,7 @@ class RemoteProvider(AbstractRemoteProvider):
             )
 
 
-class RemoteObject(AbstractRemoteObject):
+class RemoteObject(AbstractRemoteRetryObject):
     # === Implementations of abstract class members ===
     def _stats(self):
         return self.provider.get_files(self.parts.dataset)[self.parts.path]
@@ -209,11 +207,11 @@ class RemoteObject(AbstractRemoteObject):
         # Hence, the files are always considered to be "ancient".
         return 0
 
-    def download(self):
+    def _download(self):
         stats = self._stats()
 
         r = self.provider.api_request(
-            "data/files/{}?destinationFormat=plain".format(stats.id), json=False
+            f"data/files/{stats.id}?destinationFormat=plain", json=False
         )
 
         local_md5 = hashlib.md5()
@@ -229,7 +227,7 @@ class RemoteObject(AbstractRemoteObject):
 
         if local_md5 != stats.checksum:
             raise WorkflowError(
-                "File checksums do not match for: {}".format(self.remote_file())
+                f"File checksums do not match for: {self.remote_file()}"
             )
 
     @lazy_property

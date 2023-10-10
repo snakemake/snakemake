@@ -1,30 +1,33 @@
 __author__ = "Johannes Köster"
-__copyright__ = "Copyright 2015-2019, Johannes Köster"
-__email__ = "koester@jimmy.harvard.edu"
+__copyright__ = "Copyright 2022, Johannes Köster"
+__email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
-import re
-import sys
-import inspect
-import sre_constants
+import types
+import typing
+from snakemake.path_modifier import PATH_MODIFIER_FLAG
 import collections
-from urllib.parse import urljoin
 from pathlib import Path
 from itertools import chain
+from functools import partial
+
+try:
+    import re._constants as sre_constants
+except ImportError:  # python < 3.11
+    import sre_constants
+
+from snakemake_interface_executor_plugins.settings import ExecMode
 
 from snakemake.io import (
     IOFile,
     _IOFile,
-    protected,
-    temp,
-    dynamic,
     Namedlist,
     AnnotatedString,
     contains_wildcard_constraints,
     update_wildcard_constraints,
-)
-from snakemake.io import (
+    flag,
+    get_flag_value,
     expand,
     InputFiles,
     OutputFiles,
@@ -33,11 +36,9 @@ from snakemake.io import (
     Log,
     Resources,
     strip_wildcard_constraints,
-)
-from snakemake.io import (
     apply_wildcards,
     is_flagged,
-    not_iterable,
+    flag,
     is_callable,
     DYNAMIC_FILL,
     ReportObject,
@@ -51,11 +52,20 @@ from snakemake.exceptions import (
     IncompleteCheckpointException,
 )
 from snakemake.logging import logger
-from snakemake.common import Mode, lazy_property, TBDInt
+from snakemake.common import (
+    ON_WINDOWS,
+    get_function_params,
+    get_input_function_aux_params,
+    mb_to_mib,
+)
+from snakemake.common.tbdstring import TBDString
+from snakemake.resources import infer_resources
+from snakemake_interface_executor_plugins.utils import not_iterable, lazy_property
+from snakemake_interface_common.rules import RuleInterface
 
 
-class Rule:
-    def __init__(self, *args, lineno=None, snakefile=None, restart_times=0):
+class Rule(RuleInterface):
+    def __init__(self, *args, lineno=None, snakefile=None):
         """
         Create a rule
 
@@ -64,7 +74,7 @@ class Rule:
         """
         if len(args) == 2:
             name, workflow = args
-            self.name = name
+            self._name = name
             self.workflow = workflow
             self.docstring = None
             self.message = None
@@ -78,34 +88,41 @@ class Rule:
             self.temp_output = set()
             self.protected_output = set()
             self.touch_output = set()
-            self.subworkflow_input = dict()
             self.shadow_depth = None
             self.resources = None
             self.priority = 0
-            self._version = None
             self._log = Log()
             self._benchmark = None
             self._conda_env = None
             self._container_img = None
+            self.is_containerized = False
             self.env_modules = None
-            self.group = None
+            self._group = None
             self._wildcard_names = None
-            self.lineno = lineno
-            self.snakefile = snakefile
+            self._lineno = lineno
+            self._snakefile = snakefile
             self.run_func = None
             self.shellcmd = None
             self.script = None
             self.notebook = None
             self.wrapper = None
+            self.template_engine = None
             self.cwl = None
             self.norun = False
+            self.is_handover = False
             self.is_branched = False
             self.is_checkpoint = False
-            self.restart_times = 0
+            self._restart_times = 0
             self.basedir = None
+            self.input_modifier = None
+            self.output_modifier = None
+            self.log_modifier = None
+            self.benchmark_modifier = None
+            self.ruleinfo = None
+            self.module_globals = None
         elif len(args) == 1:
             other = args[0]
-            self.name = other.name
+            self._name = other.name
             self.workflow = other.workflow
             self.docstring = other.docstring
             self.message = other.message
@@ -119,35 +136,42 @@ class Rule:
             self.temp_output = set(other.temp_output)
             self.protected_output = set(other.protected_output)
             self.touch_output = set(other.touch_output)
-            self.subworkflow_input = dict(other.subworkflow_input)
             self.shadow_depth = other.shadow_depth
             self.resources = other.resources
             self.priority = other.priority
-            self.version = other.version
             self._log = other._log
             self._benchmark = other._benchmark
             self._conda_env = other._conda_env
             self._container_img = other._container_img
+            self.is_containerized = other.is_containerized
             self.env_modules = other.env_modules
-            self.group = other.group
+            self._group = other.group
             self._wildcard_names = (
                 set(other._wildcard_names)
                 if other._wildcard_names is not None
                 else None
             )
-            self.lineno = other.lineno
-            self.snakefile = other.snakefile
+            self._lineno = other.lineno
+            self._snakefile = other.snakefile
             self.run_func = other.run_func
             self.shellcmd = other.shellcmd
             self.script = other.script
             self.notebook = other.notebook
             self.wrapper = other.wrapper
+            self.template_engine = other.template_engine
             self.cwl = other.cwl
             self.norun = other.norun
+            self.is_handover = other.is_handover
             self.is_branched = True
             self.is_checkpoint = other.is_checkpoint
-            self.restart_times = other.restart_times
+            self._restart_times = other.restart_times
             self.basedir = other.basedir
+            self.input_modifier = other.input_modifier
+            self.output_modifier = other.output_modifier
+            self.log_modifier = other.log_modifier
+            self.benchmark_modifier = other.benchmark_modifier
+            self.ruleinfo = other.ruleinfo
+            self.module_globals = other.module_globals
 
     def dynamic_branch(self, wildcards, input=True):
         def get_io(rule):
@@ -166,7 +190,7 @@ class Rule:
             # perform the partial expansion from f's string representation
             s = str(f).replace("{", "{{").replace("}", "}}")
             for key in wildcards.keys():
-                s = s.replace("{{{{{}}}}}".format(key), "{{{}}}".format(key))
+                s = s.replace(f"{{{{{key}}}}}", f"{{{key}}}")
             # build result
             anno_s = AnnotatedString(s)
             anno_s.flags = f.flags
@@ -217,9 +241,14 @@ class Rule:
                 if len(set(values)) == 1
             )
             # TODO have a look into how to concretize dependencies here
-            branch._input, _, branch.dependencies = branch.expand_input(
+            branch._input, _, branch.dependencies, incomplete = branch.expand_input(
                 non_dynamic_wildcards
             )
+            assert not incomplete, (
+                "bug: dynamic branching resulted in incomplete input files, "
+                "please file an issue on https://github.com/snakemake/snakemake"
+            )
+
             branch._output, _ = branch.expand_output(non_dynamic_wildcards)
 
             resources = branch.expand_resources(non_dynamic_wildcards, branch._input, 1)
@@ -239,6 +268,52 @@ class Rule:
         return branch
 
     @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
+    @property
+    def lineno(self):
+        return self._lineno
+
+    @property
+    def snakefile(self):
+        return self._snakefile
+
+    @property
+    def restart_times(self):
+        if self.workflow.remote_execution_settings.preemptible_rules.is_preemptible(
+            self.name
+        ):
+            return self.workflow.remote_execution_settings.preemptible_retries
+        if self._restart_times is None:
+            return self.workflow.execution_settings.retries
+        return self._restart_times
+
+    @restart_times.setter
+    def restart_times(self, restart_times):
+        self._restart_times = restart_times
+
+    @property
+    def group(self):
+        if self.workflow.local_exec:
+            return None
+        else:
+            overwrite_group = self.workflow.group_settings.overwrite_groups.get(
+                self.name
+            )
+            if overwrite_group is not None:
+                return overwrite_group
+            return self._group
+
+    @group.setter
+    def group(self, group):
+        self._group = group
+
+    @property
     def is_shell(self):
         return self.shellcmd is not None
 
@@ -253,6 +328,10 @@ class Rule:
     @property
     def is_wrapper(self):
         return self.wrapper is not None
+
+    @property
+    def is_template_engine(self):
+        return self.template_engine is not None
 
     @property
     def is_cwl(self):
@@ -297,18 +376,6 @@ class Rule:
         return bool(self.wildcard_names)
 
     @property
-    def version(self):
-        return self._version
-
-    @version.setter
-    def version(self, version):
-        if isinstance(version, str) and "\n" in version:
-            raise WorkflowError(
-                "Version string may not contain line breaks.", rule=self
-            )
-        self._version = version
-
-    @property
     def benchmark(self):
         return self._benchmark
 
@@ -317,7 +384,9 @@ class Rule:
         if isinstance(benchmark, Path):
             benchmark = str(benchmark)
         if not callable(benchmark):
-            benchmark = self.apply_default_remote(benchmark)
+            benchmark = self.apply_path_modifier(
+                benchmark, self.benchmark_modifier, property="benchmark"
+            )
             benchmark = self._update_item_wildcard_constraints(benchmark)
 
         self._benchmark = IOFile(benchmark, rule=self)
@@ -329,7 +398,7 @@ class Rule:
 
     @conda_env.setter
     def conda_env(self, conda_env):
-        self._conda_env = IOFile(conda_env, rule=self)
+        self._conda_env = conda_env
 
     @property
     def container_img(self):
@@ -359,12 +428,21 @@ class Rule:
     def output(self):
         return self._output
 
-    @property
-    def products(self):
+    def products(self, include_logfiles=True):
+        products = [self.output]
+        if include_logfiles:
+            products.append(self.log)
         if self.benchmark:
-            return chain(self.output, self.log, [self.benchmark])
-        else:
-            return chain(self.output, self.log)
+            products.append([self.benchmark])
+        return chain(*products)
+
+    def get_some_product(self):
+        for product in self.products():
+            return product
+        return None
+
+    def has_products(self):
+        return self.get_some_product() is not None
 
     def register_wildcards(self, wildcard_names):
         if self._wildcard_names is None:
@@ -412,7 +490,7 @@ class Rule:
 
     def check_output_duplicates(self):
         """Check ``Namedlist`` for duplicate entries and raise a ``WorkflowError``
-        on problems.
+        on problems. Does not raise if the entry is empty.
         """
         seen = dict()
         idx = None
@@ -422,30 +500,18 @@ class Rule:
                     idx = 0
                 else:
                     idx += 1
-            if value in seen:
+            if value and value in seen:
                 raise WorkflowError(
                     "Duplicate output file pattern in rule {}. First two "
-                    "duplicate for entries {} and {}".format(
+                    "duplicate for entries {} and {}.".format(
                         self.name, seen[value], name or idx
                     )
                 )
             seen[value] = name or idx
 
-    def apply_default_remote(self, item):
-        def is_annotated_callable(value):
-            if isinstance(value, AnnotatedString):
-                return bool(value.callable)
-
-        def apply(value):
-            if (
-                not is_flagged(value, "remote_object")
-                and not is_flagged(value, "local")
-                and not is_annotated_callable(value)
-                and self.workflow.default_remote_provider is not None
-            ):
-                return self.workflow.apply_default_remote(value)
-            else:
-                return value
+    def apply_path_modifier(self, item, path_modifier, property=None):
+        assert path_modifier is not None
+        apply = partial(path_modifier.modify, property=property)
 
         assert not callable(item)
         if isinstance(item, dict):
@@ -466,11 +532,11 @@ class Rule:
             self.output[i] = newitem
 
     def _update_item_wildcard_constraints(self, item):
-        if not (self.wildcard_constraints or self.workflow._wildcard_constraints):
+        if not (self.wildcard_constraints or self.workflow.wildcard_constraints):
             return item
         try:
             return update_wildcard_constraints(
-                item, self.wildcard_constraints, self.workflow._wildcard_constraints
+                item, self.wildcard_constraints, self.workflow.wildcard_constraints
             )
         except ValueError as e:
             raise IOFileException(str(e), snakefile=self.snakefile, lineno=self.lineno)
@@ -484,54 +550,81 @@ class Rule:
         inoutput -- a Namedlist of either input or output items
         name     -- an optional name for the item
         """
+
         inoutput = self.output if output else self.input
+
         # Check to see if the item is a path, if so, just make it a string
         if isinstance(item, Path):
             item = str(item)
         if isinstance(item, str):
-            item = self.apply_default_remote(item)
+            if ON_WINDOWS:
+                if isinstance(item, (_IOFile, AnnotatedString)):
+                    item = item.new_from(item.replace(os.sep, os.altsep))
+                else:
+                    item = item.replace(os.sep, os.altsep)
+
+            rule_dependency = None
+            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
+                rule_dependency = item.rule
+
+            if output:
+                path_modifier = self.output_modifier
+                property = "output"
+            else:
+                path_modifier = self.input_modifier
+                property = "input"
+
+            item = self.apply_path_modifier(item, path_modifier, property=property)
 
             # Check to see that all flags are valid
             # Note that "remote", "dynamic", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
-                for flag in item.flags:
-                    if not output and flag in [
+                for item_flag in item.flags:
+                    if not output and item_flag in [
                         "protected",
                         "temp",
                         "temporary",
                         "directory",
                         "touch",
                         "pipe",
+                        "service",
+                        "ensure",
                     ]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for outputs, not inputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
-                    if output and flag in ["ancient"]:
+                    if output and item_flag in ["ancient"]:
                         logger.warning(
                             "The flag '{}' used in rule {} is only valid for inputs, not outputs.".format(
-                                flag, self
+                                item_flag, self
                             )
                         )
 
             # add the rule to the dependencies
-            if isinstance(item, _IOFile) and item.rule and item in item.rule.output:
-                self.dependencies[item] = item.rule
+            if rule_dependency is not None:
+                self.dependencies[item] = rule_dependency
             if output:
                 item = self._update_item_wildcard_constraints(item)
             else:
                 if (
                     contains_wildcard_constraints(item)
-                    and self.workflow.mode != Mode.subprocess
+                    and self.workflow.execution_settings.mode != ExecMode.SUBPROCESS
                 ):
                     logger.warning(
                         "Wildcard constraints in inputs are ignored. (rule: {})".format(
                             self
                         )
                     )
+
+            if self.workflow.storage_settings.all_temp and output:
+                # mark as temp if all output files shall be marked as temp
+                item = flag(item, "temp")
+
             # record rule if this is an output file output
             _item = IOFile(item, rule=self)
+
             if is_flagged(item, "temp"):
                 if output:
                     self.temp_output.add(_item)
@@ -550,29 +643,14 @@ class Rule:
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
                     r = ReportObject(
-                        os.path.join(self.workflow.current_basedir, report_obj.caption),
+                        self.workflow.current_basedir.join(report_obj.caption),
                         report_obj.category,
                         report_obj.subcategory,
+                        report_obj.labels,
                         report_obj.patterns,
                         report_obj.htmlindex,
                     )
                     item.flags["report"] = r
-            if is_flagged(item, "subworkflow"):
-                if output:
-                    raise SyntaxError("Only input files may refer to a subworkflow")
-                else:
-                    # record the workflow this item comes from
-                    sub = item.flags["subworkflow"]
-                    if _item in self.subworkflow_input:
-                        other = self.subworkflow_input[_item]
-                        if sub != other:
-                            raise WorkflowError(
-                                "The input file {} is ambiguously "
-                                "associated with two subworkflows "
-                                "{} and {}.".format(item, sub, other),
-                                rule=self,
-                            )
-                    self.subworkflow_input[_item] = sub
             inoutput.append(_item)
             if name:
                 inoutput._add_name(name)
@@ -636,7 +714,7 @@ class Rule:
             item = str(item)
         if isinstance(item, str) or callable(item):
             if not callable(item):
-                item = self.apply_default_remote(item)
+                item = self.apply_path_modifier(item, self.log_modifier, property="log")
                 item = self._update_item_wildcard_constraints(item)
 
             self.log.append(IOFile(item, rule=self) if isinstance(item, str) else item)
@@ -657,8 +735,8 @@ class Rule:
 
         if missing_wildcards:
             raise RuleException(
-                "Could not resolve wildcards in rule {}:\n{}".format(
-                    self.name, "\n".join(self.wildcard_names)
+                "Could not resolve wildcards:\n{}".format(
+                    "\n".join(self.wildcard_names)
                 ),
                 lineno=self.lineno,
                 snakefile=self.snakefile,
@@ -670,21 +748,51 @@ class Rule:
         wildcards,
         incomplete_checkpoint_func=lambda e: None,
         raw_exceptions=False,
-        **aux_params
+        groupid=None,
+        **aux_params,
     ):
         incomplete = False
         if isinstance(func, _IOFile):
             func = func._file.callable
         elif isinstance(func, AnnotatedString):
             func = func.callable
-        sig = inspect.signature(func)
-        _aux_params = {k: v for k, v in aux_params.items() if k in sig.parameters}
+
+        if "groupid" in get_function_params(func):
+            if groupid is not None:
+                aux_params["groupid"] = groupid
+            else:
+                # Return empty list of files and incomplete marker
+                # the job will be reevaluated once groupids have been determined
+                return [], True
+
+        _aux_params = get_input_function_aux_params(func, aux_params)
+
+        # call any callables in _aux_params
+        # This way, we enable to delay the evaluation of expensive
+        # aux params until they are actually needed.
+        for name, value in list(_aux_params.items()):
+            if callable(value):
+                _aux_params[name] = value()
+
         try:
             value = func(Wildcards(fromdict=wildcards), **_aux_params)
+            if isinstance(value, types.GeneratorType):
+                # generators should be immediately collected here,
+                # otherwise we would miss any exceptions and
+                # would have to capture them again later.
+                value = list(value)
         except IncompleteCheckpointException as e:
             value = incomplete_checkpoint_func(e)
             incomplete = True
-        except (Exception, BaseException) as e:
+        except FileNotFoundError as e:
+            # Function evaluation can depend on input files. Since expansion can happen during dryrun,
+            # where input files are not yet present, we need to skip such cases and
+            # mark them as <TBD>.
+            if "input" in aux_params and e.filename in aux_params["input"]:
+                value = TBDString()
+            else:
+                raise e
+        except BaseException as e:
             if raw_exceptions:
                 raise e
             else:
@@ -702,10 +810,13 @@ class Rule:
         mapping=None,
         no_flattening=False,
         aux_params=None,
-        apply_default_remote=True,
+        path_modifier=None,
+        property=None,
         incomplete_checkpoint_func=lambda e: None,
         allow_unpack=True,
+        groupid=None,
     ):
+        incomplete = False
         if aux_params is None:
             aux_params = dict()
         for name, item in olditems._allitems():
@@ -721,37 +832,39 @@ class Rule:
                     wildcards,
                     incomplete_checkpoint_func=incomplete_checkpoint_func,
                     is_unpack=is_unpack,
-                    **aux_params
+                    groupid=groupid,
+                    **aux_params,
                 )
-                if apply_default_remote:
-                    item = self.apply_default_remote(item)
 
             if is_unpack and not incomplete:
                 if not allow_unpack:
                     raise WorkflowError(
                         "unpack() is not allowed with params. "
                         "Simply return a dictionary which can be directly ."
-                        "used, e.g. via {params[mykey]}."
+                        "used, e.g. via {params[mykey]}.",
+                        rule=self,
                     )
                 # Sanity checks before interpreting unpack()
                 if not isinstance(item, (list, dict)):
                     raise WorkflowError(
-                        "Can only use unpack() on list and dict", rule=self
+                        f"Can only use unpack() on list and dict, but {item} was returned.",
+                        rule=self,
                     )
                 if name:
                     raise WorkflowError(
-                        "Cannot combine named input file with unpack()", rule=self
+                        f"Cannot combine named input file (name {name}) with unpack()",
+                        rule=self,
                     )
                 # Allow streamlined code with/without unpack
                 if isinstance(item, list):
-                    pairs = zip([None] * len(item), item)
+                    pairs = zip([None] * len(item), item, [_is_callable] * len(item))
                 else:
                     assert isinstance(item, dict)
-                    pairs = item.items()
+                    pairs = [(name, item, _is_callable) for name, item in item.items()]
             else:
-                pairs = [(name, item)]
+                pairs = [(name, item, _is_callable)]
 
-            for name, item in pairs:
+            for name, item, from_callable in pairs:
                 is_iterable = True
                 if not_iterable(item) or no_flattening:
                     item = [item]
@@ -763,8 +876,14 @@ class Rule:
                         and not isinstance(item_, Path)
                     ):
                         raise WorkflowError(
-                            "Function did not return str or list " "of str.", rule=self
+                            "Function did not return str or list of str.", rule=self
                         )
+
+                    if from_callable and path_modifier is not None and not incomplete:
+                        item_ = self.apply_path_modifier(
+                            item_, path_modifier, property=property
+                        )
+
                     concrete = concretize(item_, wildcards, _is_callable)
                     newitems.append(concrete)
                     if mapping is not None:
@@ -775,8 +894,9 @@ class Rule:
                         name, start, end=len(newitems) if is_iterable else None
                     )
                     start = len(newitems)
+        return incomplete
 
-    def expand_input(self, wildcards):
+    def expand_input(self, wildcards, groupid=None):
         def concretize_iofile(f, wildcards, is_from_callable):
             if is_from_callable:
                 if isinstance(f, Path):
@@ -801,17 +921,20 @@ class Rule:
         input = InputFiles()
         mapping = dict()
         try:
-            self._apply_wildcards(
+            incomplete = self._apply_wildcards(
                 input,
                 self.input,
                 wildcards,
                 concretize=concretize_iofile,
                 mapping=mapping,
                 incomplete_checkpoint_func=handle_incomplete_checkpoint,
+                path_modifier=self.input_modifier,
+                property="input",
+                groupid=groupid,
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in input files cannot be " "determined from output files:",
+                "Wildcards in input files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -830,9 +953,9 @@ class Rule:
         for f in input:
             f.check()
 
-        return input, mapping, dependencies
+        return input, mapping, dependencies, incomplete
 
-    def expand_params(self, wildcards, input, output, resources, omit_callable=False):
+    def expand_params(self, wildcards, input, output, job, omit_callable=False):
         def concretize_param(p, wildcards, is_from_callable):
             if not is_from_callable:
                 if isinstance(p, str):
@@ -843,6 +966,24 @@ class Rule:
                         for v in p
                     ]
             return p
+
+        def handle_incomplete_checkpoint(exception):
+            """If checkpoint is incomplete, target it such that it is completed
+            before this rule gets executed."""
+            if exception.targetfile in input:
+                return TBDString()
+            else:
+                raise WorkflowError(
+                    "Rule parameter depends on checkpoint but checkpoint output is not defined as input file for the rule. "
+                    "Please add the output of the respective checkpoint to the rule inputs."
+                )
+
+        # We make sure that resources are only evaluated if a param function
+        # actually needs them by turning them into callables and delegating their
+        # evaluation to a later stage that only happens if the param function
+        # requests access to resources or threads.
+        resources = lambda: job.resources
+        threads = lambda: job.resources._cores
 
         params = Params()
         try:
@@ -857,14 +998,14 @@ class Rule:
                 omit_callable=omit_callable,
                 allow_unpack=False,
                 no_flattening=True,
-                apply_default_remote=False,
+                property="params",
                 aux_params={
                     "input": input._plainstrings(),
                     "resources": resources,
                     "output": output._plainstrings(),
-                    "threads": resources._cores,
+                    "threads": threads,
                 },
-                incomplete_checkpoint_func=lambda e: "<incomplete checkpoint>",
+                incomplete_checkpoint_func=handle_incomplete_checkpoint,
             )
         except WildcardError as e:
             raise WildcardError(
@@ -905,11 +1046,16 @@ class Rule:
 
         try:
             self._apply_wildcards(
-                log, self.log, wildcards, concretize=concretize_logfile
+                log,
+                self.log,
+                wildcards,
+                concretize=concretize_logfile,
+                path_modifier=self.log_modifier,
+                property="log",
             )
         except WildcardError as e:
             raise WildcardError(
-                "Wildcards in log files cannot be " "determined from output files:",
+                "Wildcards in log files cannot be determined from output files:",
                 str(e),
                 rule=self,
             )
@@ -937,15 +1083,19 @@ class Rule:
 
         return benchmark
 
-    def expand_resources(self, wildcards, input, attempt):
+    def expand_resources(
+        self, wildcards, input, attempt, skip_evaluation: typing.Optional[set] = None
+    ):
         resources = dict()
 
         def apply(name, res, threads=None):
-            if callable(res):
-                aux = dict(rulename=self.name)
-                if threads:
-                    aux["threads"] = threads
-                try:
+            if skip_evaluation is not None and name in skip_evaluation:
+                res = TBDString()
+            else:
+                if callable(res):
+                    aux = dict(rulename=self.name)
+                    if threads is not None:
+                        aux["threads"] = threads
                     try:
                         res, _ = self.apply_input_function(
                             res,
@@ -954,36 +1104,70 @@ class Rule:
                             attempt=attempt,
                             incomplete_checkpoint_func=lambda e: 0,
                             raw_exceptions=True,
-                            **aux
+                            **aux,
                         )
-                    except FileNotFoundError as e:
-                        # Resources can depend on input files. Since expansion can happen during dryrun,
-                        # where input files are not yet present, we need to skip such resources and
-                        # mark them as [TBD].
-                        if e.filename in input:
-                            # use zero for resource if it cannot yet be determined
-                            res = TBDInt(0)
-                        else:
-                            raise e
-                except (Exception, BaseException) as e:
-                    raise InputFunctionException(e, rule=self, wildcards=wildcards)
+                    except BaseException as e:
+                        raise InputFunctionException(e, rule=self, wildcards=wildcards)
 
-                if not isinstance(res, int) and not isinstance(res, str):
+                if isinstance(res, float):
+                    # round to integer
+                    res = int(round(res))
+
+                if (
+                    not isinstance(res, int)
+                    and not isinstance(res, str)
+                    and res is not None
+                ):
                     raise WorkflowError(
-                        "Resources function did not return int or str.", rule=self
+                        f"Resource {name} is neither int, float(would be rounded to nearest int), str, or None.",
+                        rule=self,
                     )
-            if isinstance(res, int):
-                global_res = self.workflow.global_resources.get(name, res)
-                if global_res is not None:
+
+            global_res = self.workflow.global_resources.get(name)
+            if global_res is not None and res is not None:
+                if not isinstance(res, TBDString) and type(res) != type(global_res):
+                    global_type = (
+                        "an int" if isinstance(global_res, int) else type(global_res)
+                    )
+                    raise WorkflowError(
+                        f"Resource {name} is of type {type(res).__name__} but global resource constraint "
+                        f"defines {global_type} with value {global_res}. "
+                        "Resources with the same name need to have the same types (int, float, or str are allowed).",
+                        rule=self,
+                    )
+                if isinstance(res, int):
                     res = min(global_res, res)
             return res
 
         threads = apply("_cores", self.resources["_cores"])
+        if threads is None:
+            raise WorkflowError("Threads must be given as an int", rule=self)
+        if self.workflow.resource_settings.max_threads is not None:
+            threads = min(threads, self.workflow.resource_settings.max_threads)
         resources["_cores"] = threads
 
-        for name, res in self.resources.items():
+        for name, res in list(self.resources.items()):
             if name != "_cores":
-                resources[name] = apply(name, res, threads=threads)
+                value = apply(name, res, threads=threads)
+
+                if value is not None:
+                    resources[name] = value
+                    # Infer standard resources from eventual human readable forms.
+                    infer_resources(name, value, resources)
+
+                    # infer additional resources
+                    for mb_item, mib_item in (
+                        ("mem_mb", "mem_mib"),
+                        ("disk_mb", "disk_mib"),
+                    ):
+                        if (
+                            name == mb_item
+                            and mib_item not in self.resources.keys()
+                            and isinstance(value, int)
+                        ):
+                            # infer mem_mib (memory in Mebibytes) as additional resource
+                            resources[mib_item] = mb_to_mib(value)
+
         resources = Resources(fromdict=resources)
         return resources
 
@@ -997,21 +1181,41 @@ class Rule:
         else:
             return self.group
 
-    def expand_conda_env(self, wildcards):
-        try:
-            conda_env = (
-                self.conda_env.apply_wildcards(wildcards) if self.conda_env else None
-            )
-        except WildcardError as e:
-            raise WildcardError(
-                "Wildcards in conda environment file cannot be "
-                "determined from output files:",
-                str(e),
-                rule=self,
+    def expand_conda_env(self, wildcards, params=None, input=None):
+        from snakemake.common import is_local_file
+        from snakemake.sourcecache import SourceFile, infer_source_file
+        from snakemake.deployment.conda import (
+            is_conda_env_file,
+            CondaEnvFileSpec,
+            CondaEnvNameSpec,
+        )
+
+        conda_env = self._conda_env
+        if callable(conda_env):
+            conda_env, _ = self.apply_input_function(
+                conda_env, wildcards=wildcards, params=params, input=input
             )
 
-        if conda_env is not None:
-            conda_env.check()
+        if conda_env is None:
+            return None
+
+        if is_conda_env_file(conda_env):
+            if not isinstance(conda_env, SourceFile):
+                if is_local_file(conda_env) and not os.path.isabs(conda_env):
+                    # Conda env file paths are considered to be relative to the directory of the Snakefile
+                    # hence we adjust the path accordingly.
+                    # This is not necessary in case of receiving a SourceFile.
+                    conda_env = self.basedir.join(conda_env)
+                else:
+                    # infer source file from unmodified uri or path
+                    conda_env = infer_source_file(conda_env)
+
+            conda_env = CondaEnvFileSpec(conda_env, rule=self)
+        else:
+            conda_env = CondaEnvNameSpec(conda_env)
+
+        conda_env = conda_env.apply_wildcards(wildcards, self)
+        conda_env.check()
 
         return conda_env
 
@@ -1020,35 +1224,64 @@ class Rule:
         Returns True if this rule is a producer of the requested output.
         """
         try:
-            for o in self.products:
+            for o in self.products():
                 if o.match(requested_output):
                     return True
             return False
         except sre_constants.error as ex:
             raise IOFileException(
-                "{} in wildcard statement".format(ex),
+                f"{ex} in wildcard statement",
                 snakefile=self.snakefile,
                 lineno=self.lineno,
             )
         except ValueError as ex:
-            raise IOFileException(
-                "{}".format(ex), snakefile=self.snakefile, lineno=self.lineno
-            )
+            raise IOFileException(f"{ex}", snakefile=self.snakefile, lineno=self.lineno)
 
-    def get_wildcards(self, requested_output):
+    def get_wildcards(self, requested_output, wildcards_dict=None):
         """
-        Return wildcard dictionary by matching regular expression
-        output files to the requested concrete ones.
+        Return wildcard dictionary by
+        1. trying to format the output with the given wildcards and comparing with the requested output
+        2. matching regular expression output files to the requested concrete ones.
 
         Arguments
         requested_output -- a concrete filepath
         """
         if requested_output is None:
             return dict()
+
+        # first try to match the output with the given wildcards
+        if wildcards_dict is not None:
+            if self.wildcard_names <= wildcards_dict.keys():
+                wildcards_dict = {
+                    wildcard: value
+                    for wildcard, value in wildcards_dict.items()
+                    if wildcard in self.wildcard_names
+                }
+                for o in self.products():
+                    try:
+                        applied = o.apply_wildcards(wildcards_dict)
+                        # if the output formatted with the wildcards matches the requested output,
+                        if applied == requested_output:
+                            # we check whether the wildcards satisfy the constraints
+                            constraints = o.wildcard_constraints()
+
+                            def check_constraint(wildcard, value):
+                                constraint = constraints.get(wildcard)
+                                return constraint is None or constraint.match(value)
+
+                            if all(
+                                check_constraint(name, value)
+                                for name, value in wildcards_dict.items()
+                            ):
+                                # and then just return the given wildcards_dict limited to the wildcards that are actually used
+                                return wildcards_dict
+                    except WildcardError:
+                        continue
+
         bestmatchlen = 0
         bestmatch = None
 
-        for o in self.products:
+        for o in self.products():
             match = o.match(requested_output)
             if match:
                 l = self.get_wildcard_len(match.groupdict())
@@ -1083,7 +1316,10 @@ class Rule:
         return self.name.__hash__()
 
     def __eq__(self, other):
-        return self.name == other.name and self.output == other.output
+        if isinstance(other, Rule):
+            return self.name == other.name and self.output == other.output
+        else:
+            return False
 
 
 class Ruleorder:
@@ -1140,7 +1376,23 @@ class RuleProxy:
 
     @lazy_property
     def input(self):
-        return self.rule.input._stripped_constraints()
+        def modify_callable(item):
+            if is_callable(item):
+                # For callables ensure that the rule's original path modifier is applied as well.
+
+                def inner(wildcards):
+                    return self.rule.apply_path_modifier(
+                        item(wildcards), self.rule.input_modifier, property="input"
+                    )
+
+                return inner
+            else:
+                # For strings, the path modifier has been already applied.
+                return item
+
+        return InputFiles(
+            toclone=self.rule.input, strip_constraints=True, custom_map=modify_callable
+        )
 
     @lazy_property
     def params(self):
@@ -1156,11 +1408,14 @@ class RuleProxy:
 
     def _to_iofile(self, files):
         def cleanup(f):
-            prefix = self.rule.workflow.default_remote_prefix
+            prefix = self.rule.workflow.storage_settings.default_remote_prefix
             # remove constraints and turn this into a plain string
             cleaned = strip_wildcard_constraints(f)
+
+            modified_by = get_flag_value(f, PATH_MODIFIER_FLAG)
+
             if (
-                self.rule.workflow.default_remote_provider is not None
+                self.rule.workflow.storage_settings.default_remote_provider is not None
                 and f.startswith(prefix)
                 and not is_flagged(f, "local")
             ):
@@ -1169,6 +1424,9 @@ class RuleProxy:
             else:
                 cleaned = IOFile(AnnotatedString(cleaned), rule=self.rule)
                 cleaned.clone_remote_object(f)
+
+            if modified_by is not None:
+                cleaned.flags[PATH_MODIFIER_FLAG] = modified_by
 
             return cleaned
 

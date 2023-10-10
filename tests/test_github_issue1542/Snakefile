@@ -1,0 +1,20 @@
+# Snakefile
+rule all:
+    input:
+        "b.txt",
+
+
+rule a:
+    output:
+        temp("a.txt"),
+    shell:
+        "touch a.txt"
+
+
+rule b:
+    input:
+        "a.txt",
+    output:
+        "b.txt",
+    shell:
+        "touch b.txt"

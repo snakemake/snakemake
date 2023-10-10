@@ -1,15 +1,15 @@
 __authors__ = "Johannes Köster, Sven Nahnsen"
-__copyright__ = "Copyright 2019, Johannes Köster, Sven Nahnsen"
+__copyright__ = "Copyright 2022, Johannes Köster, Sven Nahnsen"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 import os
 
-from snakemake.caching.hash import ProvenanceHashMap
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
-from snakemake.io import get_flag_value, IOFile
+from snakemake.io import get_flag_value
+from snakemake.remote import AbstractRemoteProvider
 
 
 class OutputFileCache(AbstractOutputFileCache):
@@ -19,20 +19,20 @@ class OutputFileCache(AbstractOutputFileCache):
     each output file. This is the remote version.
     """
 
-    def __init__(self, remote_provider):
+    def __init__(self, remote_provider: AbstractRemoteProvider):
         super().__init__()
         self.remote_provider = remote_provider
 
-    def store(self, job: Job):
-        for entry in self._get_remotes(job, check_output_exists=True):
+    def store(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(job, cache_mode, check_output_exists=True):
             # upload to remote
             try:
                 entry.upload()
             except Exception as e:
                 self.raise_write_error(entry, exception=e)
 
-    def fetch(self, job: Job):
-        for entry in self._get_remotes(job):
+    def fetch(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(job, cache_mode):
             if not entry.exists():
                 self.raise_cache_miss_exception(job)
 
@@ -42,15 +42,15 @@ class OutputFileCache(AbstractOutputFileCache):
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def exists(self, job: Job):
-        for entry in self._get_remotes(job):
+    def exists(self, job: Job, cache_mode: str):
+        for entry in self._get_remotes(job, cache_mode):
             try:
                 return entry.exists()
             except Exception as e:
                 self.raise_read_error(entry, exception=e)
 
-    def _get_remotes(self, job: Job, check_output_exists=False):
-        provenance_hash = self.provenance_hash_map.get_provenance_hash(job)
+    def _get_remotes(self, job: Job, cache_mode: str, check_output_exists=False):
+        provenance_hash = self.provenance_hash_map.get_provenance_hash(job, cache_mode)
 
         for outputfile, ext in self.get_outputfiles(job):
             if check_output_exists and not os.path.exists(outputfile):
@@ -60,7 +60,7 @@ class OutputFileCache(AbstractOutputFileCache):
                 )
 
             f = self.remote_provider.remote(
-                "{}/{}{}".format(self.cache_location, provenance_hash, ext)
+                f"{self.cache_location}/{provenance_hash}{ext}"
             )
             remote = get_flag_value(f, "remote_object")
             # set local copy of the remote file

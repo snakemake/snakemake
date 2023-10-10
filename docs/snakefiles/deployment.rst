@@ -1,4 +1,4 @@
-
+.. _distribution_and_reproducibility:
 
 ================================
 Distribution and Reproducibility
@@ -35,43 +35,155 @@ following structure:
     ├── results
     └── resources
 
-In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``. 
-Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure. 
-In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``. Such modules should end with ``.smk`` the recommended file extension of Snakemake.
+In other words, the workflow code goes into a subfolder ``workflow``, while the configuration is stored in a subfolder ``config``.
+Inside of the ``workflow`` subfolder, the central ``Snakefile`` marks the entrypoint of the workflow (it will be automatically discovered when running snakemake from the root of above structure.
+This main structure and the recommendations below are implemented in `this Snakemake workflow template <https://github.com/snakemake-workflows/snakemake-workflow-template>`_ that you can use to `create your own workflow repository with a single click on "Use this template" <https://github.com/snakemake-workflows/snakemake-workflow-template/generate>`_.
+In addition to the central ``Snakefile``, rules can be stored in a modular way, using the optional subfolder ``workflow/rules``.
+Such modules should end with ``.smk``, the recommended file extension of Snakemake.
 Further, :ref:`scripts <snakefiles-external_scripts>` should be stored in a subfolder ``workflow/scripts`` and notebooks in a subfolder ``workflow/notebooks``.
 Conda environments (see :ref:`integrated_package_management`) should be stored in a subfolder ``workflow/envs`` (make sure to keep them as finegrained as possible to improve transparency and maintainability).
 Finally, :ref:`report caption files <snakefiles-reports>` should be stored in ``workflow/report``.
-All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``. The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
+All output files generated in the workflow should be stored under ``results``, unless they are rather retrieved resources, in which case they should be stored under ``resources``.
+The latter subfolder may also contain small resources that shall be delivered along with the workflow via git (although it might be tempting, please refrain from trying to generate output file paths with string concatenation of a central ``outdir`` variable or so, as this hampers readability).
 
-Then, a workflow can be deployed to a new system via the following steps
+Workflows set up in above structure can be easily used and combined via :ref:`the Snakemake module system <use_with_modules>`.
+Such deployment can even be automated via  `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Moreover, by publishing a workflow on `Github <https://github.com>`_ and following a set of additional `rules <https://snakemake.github.io/snakemake-workflow-catalog/?rules=true>`_ the workflow will be automatically included in the `Snakemake workflow catalog <https://snakemake.github.io/snakemake-workflow-catalog>`_, thereby easing discovery and even automating its usage documentation.
+For an example of such automated documentation, see `here <https://snakemake.github.io/snakemake-workflow-catalog/?usage=snakemake-workflows%2Fdna-seq-varlociraptor>`_.
+
+Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for more best-practice workflows.
+
+.. _use_with_modules:
+
+-----------------------------------------
+Using and combining pre-exising workflows
+-----------------------------------------
+
+Via the :ref:`module/use <snakefiles-modules>` system introduced with Snakemake 6.0, it is very easy to deploy existing workflows for new projects.
+This ranges from the simple application to new data to the complex combination of several complementary workflows in order to perfom an integrated analysis over multiple data types.
+
+Consider the following example:
 
 .. code-block:: python
 
-    # clone workflow into working directory
-    git clone https://github.com/user/myworkflow.git path/to/workdir
-    cd path/to/workdir
+    from snakemake.utils import min_version
+    min_version("6.0")
 
-    # edit config and workflow as needed
-    vim config/config.yaml
+    configfile: "config/config.yaml"
 
-    # execute workflow, deploy software dependencies via conda
-    snakemake -n --use-conda
+    module dna_seq:
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config:
+            config
 
-Importantly, git branching and pull requests can be used to modify and possibly re-integrate workflows.
-A `cookiecutter <https://github.com/audreyr/cookiecutter>`_ template for creating this structure can be found `here <https://github.com/snakemake-workflows/cookiecutter-snakemake-workflow>`_.
-Given that cookiecutter is installed, you can use it via:
+    use rule * from dna_seq
 
-.. code-block:: bash
+First, we load a local configuration file.
+Next, we define the module ``dna_seq`` to be loaded from the URL ``https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile``, while using the contents of the local configuration file.
+Note that it is possible to either specify the full URL pointing to the raw Snakefile as a string or to use the github marker as done here.
+With the latter, Snakemake can however cache the used source files persistently (if a tag is given), such that they don't have to be downloaded on each invocation.
+Finally we declare all rules of the dna_seq module to be used.
 
-    cookiecutter gh:snakemake-workflows/cookiecutter-snakemake-workflow
+This kind of deployment is equivalent to just cloning the original repository and modifying the configuration in it.
+However, the advantage here is that we are (a) able to easily extend of modify the workflow, while making the changes transparent, and (b) we can store this workflow in a separate (e.g. private) git repository, along with for example configuration and meta data, without the need to duplicate the workflow code.
+Finally, we are always able to later combine another module into the current workflow, e.g. when further kinds of analyses are needed.
+The ability to modify rules upon using them (see :ref:`snakefiles-modules`) allows for arbitrary rewiring and configuration of the combined modules.
 
-Visit the `Snakemake Workflows Project <https://github.com/snakemake-workflows/docs>`_ for best-practice workflows.
+For example, we can easily add another rule to extend the given workflow:
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile:
+            # here, it is also possible to provide a plain raw URL like "https://github.com/snakemake-workflows/dna-seq-gatk-variant-calling/raw/v2.0.1/workflow/Snakefile"
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config: config
+
+    use rule * from dna_seq as dna_seq_*
+
+    # easily extend the workflow
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
+    # Define a new default target that collects both the targets from the dna_seq module as well as
+    # the new plot.
+    rule all:
+        input:
+            rules.dna_seq_all.input,
+            "results/plots/vafs.svg",
+        default_target: True
+
+Above, we have added a prefix to all rule names of the dna_seq module, such that there is no name clash with the added rules (``as dna_seq_*`` in the ``use rule`` statement).
+In addition, we have added a new rule ``all``, defining the default target in case the workflow is executed (as usually) without any specific target files or rule.
+The new target rule collects both all input files of the rule ``all`` from the dna_seq workflow, as well as additionally collecting the new plot.
+
+It is possible to further extend the workflow with other modules, thereby generating an integrative analysis.
+Here, let us assume that we want to conduct another kind of analysis, say RNA-seq, using a different external workflow.
+We can extend above example in the following way:
+
+.. code-block:: python
+
+    from snakemake.utils import min_version
+    min_version("6.0")
+
+    configfile: "config/config.yaml"
+
+    module dna_seq:
+        snakefile:
+            github("snakemake-workflows/dna-seq-gatk-variant-calling", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["dna-seq"]
+        prefix: "dna-seq"
+
+    use rule * from dna_seq as dna_seq_*
+
+    rule plot_vafs:
+        input:
+            "filtered/all.vcf.gz"
+        output:
+            "results/plots/vafs.svg"
+        notebook:
+            "notebooks/plot-vafs.py.ipynb"
+
+    module rna_seq:
+        snakefile:
+            github("snakemake-workflows/rna-seq-kallisto-sleuth", path="workflow/Snakefile", tag="v2.0.1")
+        config: config["rna-seq"]
+        prefix: "rna-seq"
+
+    use rule * from rna_seq as rna_seq_*
+
+
+    # Define a new default target that collects all the targets from the dna_seq and rna_seq module.
+    rule all:
+        input:
+            rules.dna_seq_all.input,
+            rules.rna_seq_all.input,
+        default_target: True
+
+Above, several things have changed.
+
+* First, we have added another module ``rna_seq``.
+* Second, we have added a prefix to all non-absolute input and output file names of both modules (``prefix: "dna-seq"`` and ``prefix: "rna-seq"``) in order to avoid file name clashes.
+* Third, we have added a default target rule that collects both the default targets from the module ``dna_seq`` as well as the module ``rna_seq``.
+* Finally, we provide the config of the two modules via two separate sections in the common config file (``config["dna-seq"]`` and ``config["rna-seq"]``).
 
 ----------------------------------
 Uploading workflows to WorkflowHub
 ----------------------------------
 
-In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metatada and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
+In order to share a workflow with the scientific community it is advised to upload the repository to `WorkflowHub <https://workflowhub.eu/>`_, where each submission will be automatically parsed and encapsulated into a `Research Object Crate <https://w3id.org/ro/crate>`_. That way a *snakemake* workflow is annotated with proper metadata and thus complies with the `FAIR <https://en.wikipedia.org/wiki/FAIR_data>`_ principles of scientific data.
 
 To adhere to the high WorkflowHub standards of scientific workflows the recommended *snakemake* repository structure presented above needs to be extended by the following elements:
 
@@ -157,23 +269,134 @@ with the following `environment definition <https://conda.io/projects/conda/en/l
      - r=3.3.1
      - r-ggplot2=2.1.0
 
+Please note that in the environment definition, conda determines the priority of channels depending on their order of appearance in the channels list. For instance, the channel that comes first in the list gets the highest priority.
+
 The path to the environment definition is interpreted as **relative to the Snakefile that contains the rule** (unless it is an absolute path, which is discouraged).
+
+Instead of using a concrete path, it is also possible to provide a path containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+
+In addition, it is possible to use a callable which returns a ``str`` value.
+The signature of the callable has to be ``callable(wildcards [, params] [, input])`` (``params`` and ``input`` are optional parameters).
+
+Note that the use of distinct conda environments for different jobs from the same rule is currently not properly displayed in the generated reports.
+At the moment, only a single, random conda environment is shown.
 
 .. sidebar:: Note
 
-   Note that conda environments are only used with ``shell``, ``script`` and the ``wrapper`` directive, not the ``run`` directive.
-   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself.
+   Note that conda environments are only used with ``shell``, ``script``, ``notebook`` and the ``wrapper`` directive, not the ``run`` directive.
+   The reason is that the ``run`` directive has access to the rest of the Snakefile (e.g. globally defined variables) and therefore must be executed in the same process as Snakemake itself. If used with ``notebook`` directive, the associated conda environment should have package ``jupyter`` installed (this package contains dependencies required to execute the notebook).
+
+   Further, note that search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments.
+   Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
+   If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
 
 Snakemake will store the environment persistently in ``.snakemake/conda/$hash`` with ``$hash`` being the MD5 hash of the environment definition file content. This way, updates to the environment definition are automatically detected.
 Note that you need to clean up environments manually for now. However, in many cases they are lightweight and consist of symlinks to your central conda installation.
 
-.. sidebar:: Note
-
-    Search path modifying environment variables like ``R_LIBS`` and ``PYTHONPATH`` can interfere with your conda environments. 
-    Therefore, Snakemake automatically deactivates them for a job when a conda environment definition is used.
-    If you know what you are doing, in order to deactivate this behavior, you can use the flag ``--conda-not-block-search-path-envvars``.
-
 Conda deployment also works well for offline or air-gapped environments. Running ``snakemake --use-conda --conda-create-envs-only`` will only install the required conda environments without running the full workflow. Subsequent runs with ``--use-conda`` will make use of the local environments without requiring internet access.
+
+Freezing environments to exactly pinned packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If Snakemake finds a special file ending on ``<platform>.pin.txt`` next to a conda environment file (with ``<platform>`` being the current platform, e.g. ``linux-64``), it will try to use the contents of that file to determine the conda packages to deploy.
+The file is expected to contain conda's `explicit specification file format <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#building-identical-conda-environments>`_.
+Snakemake will first try to deploy the environment using that file, and only if that fails it will use the regular enviroment file.
+
+This enables to freeze an environment to a certain state, and will ensure that people using a workflow will get exactly the same environments down to the individual package builds, which is in fact very similar to providing the environment encapsulated in a container image.
+Generating such pin files for conda environments can be automatically done using `Snakedeploy <https://snakedeploy.readthedocs.io>`_.
+Let ``envs/ggplot.yaml`` be the conda environment file used in the example above.
+Then, the pinning can be generated with
+
+.. code-block:: bash
+
+    snakedeploy pin-conda-envs envs/ggplot.yaml
+
+Multiple paths to environments can be provided at the same time; also see ``snakedeploy pin-conda-envs --help``.
+
+Of course, it is **important to update the pinnings** whenever the original environment is modified, such that they do not diverge.
+
+Updating environments
+~~~~~~~~~~~~~~~~~~~~~
+
+When a workflow contains many conda environments, it can be helpful to automatically update them to the latest versions of all packages.
+This can be done automatically via `Snakedeploy <https://snakedeploy.readthedocs.io>`_:
+
+.. code-block:: bash
+
+    snakedeploy update-conda-envs envs/ggplot.yaml
+
+Multiple paths to environments can be provided at the same time; also see ``snakedeploy update-conda-envs --help``.
+
+
+Providing post-deployment scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From Snakemake 6.14 onwards post-deployment shell-scripts can be provided to perform additional adjustments of a conda environment.
+This might be helpful in case a conda package is missing components or requires further configuration for execution.
+Post-deployment scripts must be placed next to their corresponding environment-file and require the suffix ``.post-deploy.sh``, e.g.:
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "seqs.fastq"
+        output:
+            "results.tsv"
+        conda:
+            "envs/interproscan.yaml"
+        shell:
+            "interproscan.sh -i {input} -f tsv -o {output}"
+
+.. code-block:: none
+
+    ├── Snakefile
+    └── envs
+        ├── interproscan.yaml
+        └── interproscan.post-deploy.sh
+
+The path of the conda environment can be accessed within the script via ``$CONDA_PREFIX``.
+Importantly, if the script relies on certain shell specific syntax, (e.g. `set -o pipefail` for bash), make sure to add a matching shebang to the script, e.g.:
+
+.. code-block:: bash
+
+    #!env bash
+    set -o pipefail
+    # ...
+
+If no shebang line like above (``#!env bash``) is provided, the script will be executed with the ``sh`` command.
+
+.. _conda_named_env:
+
+-----------------------------------------------
+Using already existing named conda environments
+-----------------------------------------------
+
+Sometimes it can be handy to refer to an already existing named conda environment from a rule, instead of defining a new one from scratch.
+Importantly, one should be aware that this can **hamper reproducibility**, because the workflow then relies on this environment to be present
+**in exactly the same way** on any new system where the workflow is executed. Essentially, you will have to take care of this manually in such a case.
+Therefore, the approach using environment definition files described above is highly recommended and preferred.
+
+Nevertheless, in case you are still sure that you want to use an existing named environment, it can simply be put into the conda directive, e.g.
+
+.. code-block:: python
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "some-env-name"
+        script:
+            "scripts/plot-stuff.R"
+
+For such a rule, Snakemake will just activate the given environment, instead of automatically deploying anything.
+Instead of using a concrete name, it is also possible to provide a name containing wildcards (which must also occur in the output files of the rule), analogous to the specification of input files.
+
+Note that Snakemake distinguishes file based environments from named ones as follows:
+if the given specification ends on ``.yaml`` or ``.yml``, Snakemake assumes it to be a path to an environment definition file; otherwise, it assumes the given specification
+to be the name of an existing environment.
+
 
 .. _singularity:
 
@@ -214,9 +437,64 @@ However, ``docker://`` is preferred, as other container runtimes will be support
 When ``--use-singularity`` is combined with ``--kubernetes`` (see :ref:`kubernetes`), cloud jobs will be automatically configured to run in priviledged mode, because this is a current requirement of the singularity executable.
 Importantly, those privileges won't be shared by the actual code that is executed in the singularity container though.
 
---------------------------------------------------
-Combining Conda package management with containers
---------------------------------------------------
+A global definition of a container image can be given:
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        ...
+
+In this case all jobs will be executed in a container. You can disable execution in container
+by setting the container directive of the rule to ``None``.
+
+.. code-block:: python
+
+    container: "docker://joseespinosa/docker-r-ggplot2"
+
+    rule NAME:
+        container: None
+
+-----------------------------------------
+Containerization of Conda based workflows
+-----------------------------------------
+While :ref:`integrated_package_management` provides control over the used software in exactly
+the desired versions, it does not control the underlying operating system.
+However, given a workflow with conda environments for each rule, Snakemake can automatically
+generate a container image specification (in the form of a ``Dockerfile``) that contains
+all required environments via the flag --containerize:
+
+.. code-block:: bash
+
+    snakemake --containerize > Dockerfile
+
+The container image specification generated by Snakemake aims to be transparent and readable, e.g. by displaying each contained environment in a human readable way.
+Via the special directive ``containerized`` this container image can be used in the workflow (both globally or per rule) such that no further conda package downloads are necessary, for example:
+
+.. code-block:: python
+
+    containerized: "docker://username/myworkflow:1.0.0"
+
+    rule NAME:
+        input:
+            "table.txt"
+        output:
+            "plots/myplot.pdf"
+        conda:
+            "envs/ggplot.yaml"
+        script:
+            "scripts/plot-stuff.R"
+
+Using the containerization of Snakemake has three advantages over manually crafting a container image for a workflow:
+
+1. A workflow with conda environment definitions is much more transparent to the reader than a black box container image, as each rule directly shows which software stack is used. Containerization just persistently projects those environments into a container image.
+2. It remains possible to run the workflow without containers, just via the conda environments.
+3. During development, testing can first happen without the container and just on the conda environments. When releasing a production version of the workflow the image can be uploaded just once and for future stable releases, thereby limiting the overhead created in container registries.
+
+--------------------------------------------------------------
+Ad-hoc combination of Conda package management with containers
+--------------------------------------------------------------
 
 While :ref:`integrated_package_management` provides control over the used software in exactly
 the desired versions, it does not control the underlying operating system.
