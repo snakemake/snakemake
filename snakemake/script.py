@@ -73,6 +73,49 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
+
+    def _infer_stdout_and_stderr(log: Optional[PathLike]) -> tuple:
+        """
+        If multiple log files are provided, try to infer which one is for stderr.
+
+        If only one log file is provided, or inference fails, return None for stdout_file
+
+
+        Returns
+        -------
+        tuple
+            stdout_file, stderr_file
+
+
+        """
+        import warnings
+
+        if len(log) == 0:
+            return None, None
+
+        elif len(log) == 1:
+            return None, log[0]
+
+        else:
+            # infer stdout and stderr file
+            for key in ["stderr", "err"]:
+                if hasattr(log, key):
+                    stderr_file = log[key]
+
+            for key in ["stdout", "out"]:
+                if hasattr(log, key):
+                    stdout_file = log[key]
+
+            if (stderr_file is None) or (stderr_file is None):
+                warnings.warn(
+                    "Cannot infer which logfile is stderr and which is stdout, Logging stderr and stdout to the same file"
+                )
+                return None, log[0]
+
+            else:
+                return stdout_file, stderr_file
+
+                
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
         Return a shell redirection string to be used in `shell()` calls
@@ -109,7 +152,37 @@ class Snakemake:
         False    True     False    fn    2> fn
         any      any      any      None  ""
         -------- -------- -------- ----- -----------
+
+        If you provide two log files and name them err/out or sterr/stout.
+        The functions returns:
+
+            2>> sterr > stout
+            or with append=True
+            2>> sterr >> stoud 
+
+            Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
+
         """
+
+
+        if stdout and stderr:
+            # Check if two files are provided
+            stdout_file, stderr_file = infer_stdout_and_stderr(self.log)
+
+            if stdout_file is not None:
+                # we have a stderr and a stdout file
+
+                 return (
+                    _log_shell_redirect(
+                        stderr_file, stdout=False, stderr=True, append=True
+                    )
+                    + " "
+                    + _log_shell_redirect(
+                        stdout_file, stdout=True, stderr=False, append=append
+                    )
+                )
+
+
         return _log_shell_redirect(self.log, stdout, stderr, append)
 
 
