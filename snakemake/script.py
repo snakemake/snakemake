@@ -105,7 +105,7 @@ class Snakemake:
                 if hasattr(log, key):
                     stdout_file = log[key]
 
-            if (stderr_file is None) or (stderr_file is None):
+            if (stderr_file is None) or (stdout_file is None):
                 warnings.warn(
                     "Cannot infer which logfile is stderr and which is stdout, Logging stderr and stdout to the same file"
                 )
