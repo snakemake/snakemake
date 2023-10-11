@@ -181,6 +181,10 @@ class REncoder:
     def encode_value(cls, value):
         if value is None:
             return "NULL"
+        elif value == float("inf"):
+            return "Inf"
+        elif value == - float("inf"):
+            return "-Inf"
         elif isinstance(value, str):
             return repr(value)
         elif isinstance(value, Path):

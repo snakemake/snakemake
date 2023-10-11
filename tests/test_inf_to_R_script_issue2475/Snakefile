@@ -1,0 +1,7 @@
+configfile: "config.yaml"
+
+rule all:
+  output: "final.rst"
+  params:
+    threshold = [-float("inf"), float("inf")]
+  script: "test.R"
