@@ -4,15 +4,11 @@ import operator as op
 import re
 import tempfile
 
-from snakemake_interface_executor_plugins.resources import (
-    DefaultResourcesExecutorInterface,
-)
-
 from snakemake.exceptions import ResourceScopesException, WorkflowError
 from snakemake.common.tbdstring import TBDString
 
 
-class DefaultResources(DefaultResourcesExecutorInterface):
+class DefaultResources:
     defaults = {
         "mem_mb": "max(2*input.size_mb, 1000)",
         "disk_mb": "max(2*input.size_mb, 1000)",

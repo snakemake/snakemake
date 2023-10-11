@@ -122,16 +122,7 @@ class JobFactory:
         update=False,
         groupid=None,
     ):
-        if rule.is_branched:
-            # for distinguishing branched rules, we need input and output in addition
-            key = (
-                rule.name,
-                *rule.output,
-                *rule.input,
-                *sorted(wildcards_dict.items()),
-            )
-        else:
-            key = (rule.name, *sorted(wildcards_dict.items()))
+        key = (rule.name, *sorted(wildcards_dict.items()))
         if update:
             # cache entry has to be replaced because job shall be constructed from scratch
             obj = Job(rule, dag, wildcards_dict, format_wildcards, targetfile, groupid)
@@ -1123,10 +1114,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         return products
 
     @property
-    def is_branched(self):
-        return self.rule.is_branched
-
-    @property
     def rules(self):
         return [self.rule.name]
 
@@ -1526,10 +1513,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.attempt = attempt
         self._attempt = attempt
-
-    @property
-    def is_branched(self):
-        return any(job.is_branched for job in self.jobs)
 
     @property
     def needs_singularity(self):

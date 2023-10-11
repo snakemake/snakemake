@@ -66,113 +66,58 @@ from snakemake_interface_common.rules import RuleInterface
 
 
 class Rule(RuleInterface):
-    def __init__(self, *args, lineno=None, snakefile=None):
+    def __init__(self, name, workflow, lineno=None, snakefile=None):
         """
         Create a rule
 
         Arguments
         name -- the name of the rule
         """
-        if len(args) == 2:
-            name, workflow = args
-            self._name = name
-            self.workflow = workflow
-            self.docstring = None
-            self.message = None
-            self._input = InputFiles()
-            self._output = OutputFiles()
-            self._params = Params()
-            self._wildcard_constraints = dict()
-            self.dependencies = dict()
-            self.dynamic_output = set()
-            self.dynamic_input = set()
-            self.temp_output = set()
-            self.protected_output = set()
-            self.touch_output = set()
-            self.shadow_depth = None
-            self.resources = None
-            self.priority = 0
-            self._log = Log()
-            self._benchmark = None
-            self._conda_env = None
-            self._container_img = None
-            self.is_containerized = False
-            self.env_modules = None
-            self._group = None
-            self._wildcard_names = None
-            self._lineno = lineno
-            self._snakefile = snakefile
-            self.run_func = None
-            self.shellcmd = None
-            self.script = None
-            self.notebook = None
-            self.wrapper = None
-            self.template_engine = None
-            self.cwl = None
-            self.norun = False
-            self.is_handover = False
-            self.is_branched = False
-            self.is_checkpoint = False
-            self._restart_times = 0
-            self.basedir = None
-            self.input_modifier = None
-            self.output_modifier = None
-            self.log_modifier = None
-            self.benchmark_modifier = None
-            self.ruleinfo = None
-            self.module_globals = None
-        elif len(args) == 1:
-            other = args[0]
-            self._name = other.name
-            self.workflow = other.workflow
-            self.docstring = other.docstring
-            self.message = other.message
-            self._input = InputFiles(other._input)
-            self._output = OutputFiles(other._output)
-            self._params = Params(other._params)
-            self._wildcard_constraints = dict(other._wildcard_constraints)
-            self.dependencies = dict(other.dependencies)
-            self.dynamic_output = set(other.dynamic_output)
-            self.dynamic_input = set(other.dynamic_input)
-            self.temp_output = set(other.temp_output)
-            self.protected_output = set(other.protected_output)
-            self.touch_output = set(other.touch_output)
-            self.shadow_depth = other.shadow_depth
-            self.resources = other.resources
-            self.priority = other.priority
-            self._log = other._log
-            self._benchmark = other._benchmark
-            self._conda_env = other._conda_env
-            self._container_img = other._container_img
-            self.is_containerized = other.is_containerized
-            self.env_modules = other.env_modules
-            self._group = other.group
-            self._wildcard_names = (
-                set(other._wildcard_names)
-                if other._wildcard_names is not None
-                else None
-            )
-            self._lineno = other.lineno
-            self._snakefile = other.snakefile
-            self.run_func = other.run_func
-            self.shellcmd = other.shellcmd
-            self.script = other.script
-            self.notebook = other.notebook
-            self.wrapper = other.wrapper
-            self.template_engine = other.template_engine
-            self.cwl = other.cwl
-            self.norun = other.norun
-            self.is_handover = other.is_handover
-            self.is_branched = True
-            self.is_checkpoint = other.is_checkpoint
-            self._restart_times = other.restart_times
-            self.basedir = other.basedir
-            self.input_modifier = other.input_modifier
-            self.output_modifier = other.output_modifier
-            self.log_modifier = other.log_modifier
-            self.benchmark_modifier = other.benchmark_modifier
-            self.ruleinfo = other.ruleinfo
-            self.module_globals = other.module_globals
+        self._name = name
+        self.workflow = workflow
+        self.docstring = None
+        self.message = None
+        self._input = InputFiles()
+        self._output = OutputFiles()
+        self._params = Params()
+        self._wildcard_constraints = dict()
+        self.dependencies = dict()
+        self.dynamic_output = set()
+        self.dynamic_input = set()
+        self.temp_output = set()
+        self.protected_output = set()
+        self.touch_output = set()
+        self.shadow_depth = None
+        self.resources = None
+        self.priority = 0
+        self._log = Log()
+        self._benchmark = None
+        self._conda_env = None
+        self._container_img = None
+        self.is_containerized = False
+        self.env_modules = None
+        self._group = None
+        self._wildcard_names = None
+        self._lineno = lineno
+        self._snakefile = snakefile
+        self.run_func = None
+        self.shellcmd = None
+        self.script = None
+        self.notebook = None
+        self.wrapper = None
+        self.template_engine = None
+        self.cwl = None
+        self.norun = False
+        self.is_handover = False
+        self.is_checkpoint = False
+        self._restart_times = 0
+        self.basedir = None
+        self.input_modifier = None
+        self.output_modifier = None
+        self.log_modifier = None
+        self.benchmark_modifier = None
+        self.ruleinfo = None
+        self.module_globals = None
 
     @property
     def name(self):

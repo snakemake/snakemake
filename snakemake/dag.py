@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import textwrap
 import time
-from typing import Union
+from typing import Optional, Union
 import uuid
 import subprocess
 from collections import Counter, defaultdict, deque, namedtuple
@@ -372,7 +372,7 @@ class DAG(DAGExecutorInterface):
                 else:
                     raise IncompleteFilesException(incomplete)
 
-    def incomplete_external_jobid(self, job):
+    def incomplete_external_jobid(self, job) -> Optional[str]:
         """Return the external jobid of the job if it is marked as incomplete.
 
         Returns None, if job is not incomplete, or if no external jobid has been
