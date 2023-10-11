@@ -55,7 +55,7 @@ class Executor(RealExecutor):
         raise NotImplementedError()
 
     def handle_job_success(self, job: JobExecutorInterface):
-        super().handle_job_success(job, ignore_missing_output=True)
+        super().handle_job_success(job)
 
     def cancel(self):
         # nothing to do

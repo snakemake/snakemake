@@ -178,36 +178,13 @@ class DAGSettings(SettingsBase):
 
 @dataclass
 class StorageSettings(SettingsBase, StorageSettingsExecutorInterface):
-    default_remote_provider: Optional[str] = None
-    default_remote_prefix: Optional[str] = None
+    default_storage_provider: Optional[str] = None
+    default_storage_prefix: Optional[str] = None
     assume_shared_fs: bool = True
-    keep_remote_local: bool = False
+    keep_storage_local: bool = False
+    local_storage_prefix: Path = Path(".snakemake/storage")
     notemp: bool = False
     all_temp: bool = False
-
-    def __post_init__(self):
-        self.default_remote_provider = self._get_default_remote_provider()
-        super().__post_init__()
-
-    def _get_default_remote_provider(self):
-        if self.default_remote_provider is not None:
-            try:
-                rmt = importlib.import_module(
-                    "snakemake.remote." + self.default_remote_provider
-                )
-            except ImportError:
-                raise ApiError(
-                    f"Unknown default remote provider {self.default_remote_provider}."
-                )
-            if rmt.RemoteProvider.supports_default:
-                return rmt.RemoteProvider(
-                    keep_local=self.keep_remote_local, is_default=True
-                )
-            else:
-                raise ApiError(
-                    "Remote provider {} does not (yet) support to "
-                    "be used as default provider."
-                )
 
 
 class CondaCleanupPkgs(SettingsEnumBase):

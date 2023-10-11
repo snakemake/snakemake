@@ -9,6 +9,7 @@ from snakemake_interface_executor_plugins.jobs import (
 )
 from snakemake_interface_executor_plugins.settings import CommonSettings
 from snakemake_interface_executor_plugins.executors.base import SubmittedJobInfo
+from snakemake.common import async_run
 
 from snakemake.logging import logger
 
@@ -43,7 +44,7 @@ class Executor(AbstractExecutor):
     def printcache(self, job: JobExecutorInterface):
         cache_mode = self.workflow.get_cache_mode(job.rule)
         if cache_mode:
-            if self.workflow.output_file_cache.exists(job, cache_mode):
+            if async_run(self.workflow.output_file_cache.exists(job, cache_mode)):
                 logger.info(
                     "Output file {} will be obtained from global between-workflow cache.".format(
                         job.output[0]

@@ -2,6 +2,7 @@ from itertools import groupby
 from pathlib import Path
 import shutil
 import os
+from snakemake.common import async_run
 
 from snakemake.logging import logger
 from snakemake import __version__
@@ -74,7 +75,7 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
 
         written = False
         for job in jobs:
-            if all(f.exists for f in job.input):
+            if all(async_run(f.exists()) for f in job.input):
                 logger.info(f"Generating unit test for rule {rulename}: {testpath}.")
                 os.makedirs(path / rulename, exist_ok=True)
 

@@ -78,9 +78,6 @@ def cwl(
 
 def job_to_cwl(job, dag, outputs, inputs):
     """Convert a job with its dependencies to a CWL workflow step."""
-
-    if job.dynamic_output:
-        raise WorkflowError("Dynamic output is not supported by CWL conversion.")
     for f in job.output:
         if os.path.isabs(f):
             raise WorkflowError(

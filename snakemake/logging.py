@@ -15,7 +15,7 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake.common import DYNAMIC_FILL
+from snakemake.common import DYNAMIC_FILL, async_run
 
 
 def get_default_exec_mode():
@@ -306,7 +306,7 @@ class Logger:
         self.show_failed_logs = False
         self.logfile_handler = None
         self.dryrun = False
-        latency_wait = 5
+        self.latency_wait = 5
 
     def setup_logfile(self):
         from snakemake_interface_executor_plugins.settings import ExecMode
@@ -487,7 +487,7 @@ class Logger:
         def show_logs(logs):
             from snakemake.io import wait_for_files
 
-            wait_for_files(logs, latency_wait=self.latency_wait)
+            async_run(wait_for_files(logs, latency_wait=self.latency_wait))
             for f in logs:
                 try:
                     content = open(f, "r").read()
@@ -601,7 +601,7 @@ class Logger:
             timestamp()
             self.logger.error("\n".join(group_error()))
         else:
-            if level == "info":
+            if level == "info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             if level == "warning":
                 self.logger.critical(msg["msg"])
@@ -609,9 +609,9 @@ class Logger:
                 self.logger.error(msg["msg"])
             elif level == "debug":
                 self.logger.debug(msg["msg"])
-            elif level == "resources_info":
+            elif level == "resources_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
-            elif level == "run_info":
+            elif level == "run_info" and not self.is_quiet_about("progress"):
                 self.logger.warning(msg["msg"])
             elif level == "progress" and not self.is_quiet_about("progress"):
                 done = msg["done"]
@@ -720,6 +720,8 @@ def setup_logger(
     dryrun=False,
     latency_wait=5,
 ):
+    from snakemake.settings import Quietness
+
     if mode is None:
         mode = get_default_exec_mode()
 
@@ -728,12 +730,10 @@ def setup_logger(
         quiet = set()
     elif isinstance(quiet, bool):
         if quiet:
-            quiet = set(["progress", "rules"])
+            quiet = {Quietness.PROGRESS, Quietness.RULES}
         else:
             quiet = set()
-    elif isinstance(quiet, list):
-        quiet = set(quiet)
-    else:
+    elif not isinstance(quiet, set):
         raise ValueError(
             "Unsupported value provided for quiet mode (either bool, None or list allowed)."
         )

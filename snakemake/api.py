@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Mapping, Optional, Set
 import os
 from functools import partial
 import importlib
@@ -38,7 +38,9 @@ from snakemake.settings import (
 
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
 from snakemake_interface_common.exceptions import ApiError
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 
 from snakemake.workflow import Workflow
 from snakemake.exceptions import print_exception
@@ -98,6 +100,7 @@ class SnakemakeApi(ApiBase):
         config_settings: Optional[ConfigSettings] = None,
         storage_settings: Optional[StorageSettings] = None,
         workflow_settings: Optional[WorkflowSettings] = None,
+        storage_provider_settings: Optional[Mapping[str, TaggedSettings]] = None,
         snakefile: Optional[Path] = None,
         workdir: Optional[Path] = None,
     ):
@@ -121,6 +124,8 @@ class SnakemakeApi(ApiBase):
             storage_settings = StorageSettings()
         if workflow_settings is None:
             workflow_settings = WorkflowSettings()
+        if storage_provider_settings is None:
+            storage_provider_settings = dict()
 
         self._check_is_in_context()
 
@@ -136,6 +141,7 @@ class SnakemakeApi(ApiBase):
             resource_settings=resource_settings,
             storage_settings=storage_settings,
             workflow_settings=workflow_settings,
+            storage_provider_settings=storage_provider_settings,
         )
         return self._workflow_api
 
@@ -160,11 +166,12 @@ class SnakemakeApi(ApiBase):
         ---------
         ex: Exception -- The exception to print.
         """
-        linemaps = (
-            self._workflow_api._workflow.linemaps
-            if self._workflow_api is not None
-            else dict()
-        )
+        linemaps = dict()
+        if (
+            self._workflow_api is not None
+            and self._workflow_api._workflow_store is not None
+        ):
+            linemaps = self._workflow_api._workflow_store.linemaps
         print_exception(ex, linemaps)
 
     def _setup_logger(
@@ -224,6 +231,7 @@ class WorkflowApi(ApiBase):
     resource_settings: ResourceSettings
     storage_settings: StorageSettings
     workflow_settings: WorkflowSettings
+    storage_provider_settings: Mapping[str, TaggedSettings]
     _workflow_store: Optional[Workflow] = field(init=False, default=None)
     _workdir_handler: Optional[WorkdirHandler] = field(init=False)
 
@@ -307,6 +315,7 @@ class WorkflowApi(ApiBase):
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,
+            storage_provider_settings=self.storage_provider_settings,
             **kwargs,
         )
 

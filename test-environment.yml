@@ -16,6 +16,7 @@ dependencies:
   - pytest
   - pytest-mock
   - pytest-cov
+  - pytest-split
   - ftputil
   - pysftp
   - requests

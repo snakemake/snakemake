@@ -41,6 +41,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   testing:
+    strategy:
+      matrix:
+        test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ubuntu-latest
     needs: formatting
     services:
@@ -66,6 +69,7 @@ jobs:
           channels: "conda-forge, bioconda"
           miniforge-variant: Mambaforge
           miniforge-version: latest
+
       - name: Setup Snakemake environment
         shell: bash -el {0}
         run: |
@@ -74,8 +78,12 @@ jobs:
           mamba env update -q -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
           pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
+          pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
+          pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
+          pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
 
           # additionally add singularity (not necessary anymore, included in the test env now)
@@ -83,62 +91,37 @@ jobs:
           # bin/unsquashfs: error while loading shared libraries: libz.so.1:
           # cannot open shared object file: No such file or directory
           # mamba install -n snakemake "singularity<=3.8.6"
+
       - name: Setup apt dependencies
         run: |
           sudo gem install apt-spy2
           sudo apt-spy2 fix --commit --launchpad --country=US
           sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev mariadb-server
-      - name: Setup iRODS
-        run: |
-          docker build -t irods-server tests/test_remote_irods
-          docker run -d -p 1247:1247 --name provider irods-server -i run_irods
-          sleep 10
-          docker exec -u irods provider iput /incoming/infile
-          cp -r tests/test_remote_irods/setup-data ~/.irods
 
       - name: Test local
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
+          #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/tests.py
+          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/tests.py
 
-      - name: Build and publish docker image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
-        uses: elgohr/Publish-Docker-Github-Action@v5
+  build-container-image:
+    runs-on: ubuntu-latest
+    needs: testing
+    steps:
+      - uses: actions/checkout@v3
         with:
-          name: snakemake/snakemake
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-          tags: ${{ env.GITHUB_SHA }}
-
-      - name: Set container image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
-        run: |
-          echo CONTAINER_IMAGE=snakemake/snakemake:$GITHUB_SHA >> $GITHUB_ENV
-
-      - name: Delete container image
-        if: >-
-          contains(github.event.pull_request.labels.*.name,
-          'update-container-image') && always()
-        run: |
-          docker run --rm lumir/remove-dockerhub-tag \
-          --user ${{ secrets.DOCKER_USERNAME }} \
-          --password ${{ secrets.DOCKER_TOKEN }} \
-          snakemake/snakemake:${{ env.GITHUB_SHA }}
+          fetch-depth: 0
       - name: Build container image
-        if: >-
-          !contains(github.event.pull_request.labels.*.name,
-          'update-container-image')
         run: docker build .
 
   testing-windows:
+    strategy:
+      matrix:
+        test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: windows-latest
     needs: formatting
     steps:
@@ -166,11 +149,17 @@ jobs:
           mamba env update -q --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
+          pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
+          pip install git+https://github.com/snakemake/snakemake-executor-plugin-cluster-generic.git
+          pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
+          pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
+          pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
+          
           pip install -e .
       - name: Run tests
         env:
           CI: true
           ZENODO_SANDBOX_PAT: "${{ secrets.ZENODO_SANDBOX_PAT }}"
         run: |
-          python -m pytest --show-capture=stderr -v -x tests/tests.py
+          python -m pytest --show-capture=stderr -v -x --splits 10 --group ${{ matrix.test_group }} tests/tests.py
