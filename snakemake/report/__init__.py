@@ -42,7 +42,6 @@ from snakemake.io import (
 from snakemake.exceptions import InputFunctionException, WorkflowError
 from snakemake.script import Snakemake
 from snakemake.common import (
-    async_run,
     get_input_function_aux_params,
 )
 from snakemake import logging

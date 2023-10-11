@@ -21,7 +21,6 @@ from typing import Optional
 from snakemake_interface_executor_plugins.persistence import (
     PersistenceExecutorInterface,
 )
-from snakemake.common import async_run
 
 import snakemake.exceptions
 from snakemake.logging import logger

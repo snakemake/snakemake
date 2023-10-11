@@ -29,7 +29,6 @@ from snakemake import workflow as _workflow
 from snakemake.common import (
     DYNAMIC_FILL,
     ON_WINDOWS,
-    async_run,
     group_into_chunks,
     is_local_file,
 )

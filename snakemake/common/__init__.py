@@ -86,6 +86,7 @@ def async_run(coroutine):
     try:
         return asyncio.run(coroutine)
     except RuntimeError as e:
+        coroutine.close()
         raise WorkflowError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "

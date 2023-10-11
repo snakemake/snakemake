@@ -41,7 +41,6 @@ from snakemake.exceptions import RuleException, ProtectedOutputException, Workfl
 from snakemake.logging import logger
 from snakemake.common import (
     DYNAMIC_FILL,
-    async_run,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
