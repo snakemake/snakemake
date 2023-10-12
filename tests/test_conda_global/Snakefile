@@ -1,0 +1,6 @@
+conda:
+    "env.yaml"
+
+import PIL
+from snakemake.shell import shell
+shell("which rg")

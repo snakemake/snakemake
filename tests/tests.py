@@ -1889,3 +1889,7 @@ def test_config_yte():
 
 def test_load_metawrapper():
     run(dpath("test_load_metawrapper"), executor="dryrun")
+
+
+def test_conda_global():
+    run(dpath("test_conda_global"), deployment_method={DeploymentMethod.CONDA}, executor="dryrun")

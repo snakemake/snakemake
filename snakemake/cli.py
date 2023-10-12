@@ -1306,6 +1306,14 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
+        "--default-storage-provider-auto-deploy",
+        action="store_true",
+        help="Automatically deploy the default storage provider if it is not present "
+        "in the environment. This uses the selected deployment method to automatically "
+        "install the storage provider if the deployment method supports that. Currently "
+        "this is only supported for conda/mamba."
+    )
+    group_behavior.add_argument(
         "--no-shared-fs",
         action="store_true",
         help="Do not assume that jobs share a common file "
@@ -1836,6 +1844,14 @@ def args_to_api(args, parser):
             keep_logger=False,
         )
     ) as snakemake_api:
+        deployment_method = args.software_deployment_method
+        if args.use_conda:
+            deployment_method.add(DeploymentMethod.CONDA)
+        if args.use_apptainer:
+            deployment_method.add(DeploymentMethod.APPTAINER)
+        if args.use_envmodules:
+            deployment_method.add(DeploymentMethod.ENV_MODULES)
+
         try:
             workflow_api = snakemake_api.workflow(
                 resource_settings=ResourceSettings(
@@ -1866,6 +1882,17 @@ def args_to_api(args, parser):
                 workflow_settings=WorkflowSettings(
                     wrapper_prefix=args.wrapper_prefix,
                 ),
+                deployment_settings=DeploymentSettings(
+                    deployment_method=deployment_method,
+                    conda_prefix=args.conda_prefix,
+                    conda_cleanup_pkgs=args.conda_cleanup_pkgs,
+                    conda_base_path=args.conda_base_path,
+                    conda_frontend=args.conda_frontend,
+                    conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
+                    apptainer_args=args.apptainer_args,
+                    apptainer_prefix=args.apptainer_prefix,
+                    default_storage_provider_auto_deploy=args.default_storage_provider_auto_deploy,
+                ),
                 snakefile=args.snakefile,
                 workdir=args.directory,
             )
@@ -1882,14 +1909,6 @@ def args_to_api(args, parser):
             elif args.print_compilation:
                 workflow_api.print_compilation()
             else:
-                deployment_method = args.software_deployment_method
-                if args.use_conda:
-                    deployment_method.add(DeploymentMethod.CONDA)
-                if args.use_apptainer:
-                    deployment_method.add(DeploymentMethod.APPTAINER)
-                if args.use_envmodules:
-                    deployment_method.add(DeploymentMethod.ENV_MODULES)
-
                 dag_api = workflow_api.dag(
                     dag_settings=DAGSettings(
                         targets=args.targets,
@@ -1906,16 +1925,6 @@ def args_to_api(args, parser):
                         rerun_triggers=args.rerun_triggers,
                         max_inventory_wait_time=args.max_inventory_time,
                         cache=args.cache,
-                    ),
-                    deployment_settings=DeploymentSettings(
-                        deployment_method=deployment_method,
-                        conda_prefix=args.conda_prefix,
-                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                        conda_base_path=args.conda_base_path,
-                        conda_frontend=args.conda_frontend,
-                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                        apptainer_args=args.apptainer_args,
-                        apptainer_prefix=args.apptainer_prefix,
                     ),
                 )
 

@@ -366,6 +366,12 @@ class GlobalContainerized(GlobalKeywordState):
         return "global_containerized"
 
 
+class GlobalConda(GlobalKeywordState):
+    @property
+    def keyword(self):
+        return "global_conda"
+
+
 class Localrules(GlobalKeywordState):
     def block_content(self, token):
         if is_comma(token):
@@ -1180,6 +1186,7 @@ class Python(TokenAutomaton):
         singularity=GlobalSingularity,
         container=GlobalContainer,
         containerized=GlobalContainerized,
+        conda=GlobalConda,
         scattergather=Scattergather,
         storage=Storage,
         resource_scopes=ResourceScope,
