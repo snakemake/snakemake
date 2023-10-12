@@ -139,6 +139,19 @@ class TestWorkflowsBase(ABC):
         return registry.get_plugin(self.get_executor()).common_settings
 
 
+class TestWorkflowsLocalStorageBase(TestWorkflowsBase):
+    def get_default_storage_provider(self) -> Optional[str]:
+        return None
+
+    def get_default_storage_prefix(self) -> Optional[str]:
+        return None
+
+    def get_default_storage_provider_settings(
+        self,
+    ) -> Optional[Mapping[str, TaggedSettings]]:
+        return None
+
+
 class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
     def __init__(self):
         import uuid
@@ -163,7 +176,7 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
 
     def get_default_storage_provider_settings(
         self,
-    ) -> Optional[StorageProviderSettingsBase]:
+    ) -> Optional[Mapping[str, TaggedSettings]]:
         tagged_settings = TaggedSettings()
         tagged_settings.register_settings(self._storage_provider_settings)
         return {"s3": tagged_settings}
