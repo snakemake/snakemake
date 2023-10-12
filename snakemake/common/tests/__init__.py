@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import shutil
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 import pytest
 from snakemake import api, settings
@@ -54,7 +54,7 @@ class TestWorkflowsBase(ABC):
     @abstractmethod
     def get_default_storage_provider_settings(
         self,
-    ) -> Optional[StorageProviderSettingsBase]:
+    ) -> Optional[Mapping[str, TaggedSettings]]:
         ...
 
     def get_assume_shared_fs(self) -> bool:
@@ -85,11 +85,6 @@ class TestWorkflowsBase(ABC):
             cores = 1
             nodes = 3
 
-        default_storage_provider_settings = TaggedSettings()
-        default_storage_provider_settings.register_settings(
-            self.get_default_storage_provider_settings()
-        )
-
         with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
@@ -106,7 +101,7 @@ class TestWorkflowsBase(ABC):
                     default_storage_prefix=self.get_default_storage_prefix(),
                     assume_shared_fs=self.get_assume_shared_fs(),
                 ),
-                storage_provider_settings=default_storage_provider_settings,
+                storage_provider_settings=self.get_default_storage_provider_settings(),
                 workdir=Path(tmp_path),
                 snakefile=tmp_path / "Snakefile",
             )
@@ -142,3 +137,48 @@ class TestWorkflowsBase(ABC):
     def _common_settings(self):
         registry = ExecutorPluginRegistry()
         return registry.get_plugin(self.get_executor()).common_settings
+
+
+class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
+    def __init__(self):
+        import uuid
+        from snakemake_storage_plugin_s3 import StorageProviderSettings
+
+        endpoint_url = "https://play.minio.io:9000"
+        access_key = "Q3AM3UQ867SPQQA43P2F"
+        secret_key = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+        self._bucket = f"snakemake-{uuid.uuid4().hex}"
+
+        self._storage_provider_settings = StorageProviderSettings(
+            endpoint_url=endpoint_url,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+
+    def get_default_storage_provider(self) -> Optional[str]:
+        return "s3"
+
+    def get_default_storage_prefix(self) -> Optional[str]:
+        return f"s3://{self._bucket}"
+
+    def get_default_storage_provider_settings(
+        self,
+    ) -> Optional[StorageProviderSettingsBase]:
+        tagged_settings = TaggedSettings()
+        tagged_settings.register_settings(self._storage_provider_settings)
+        return {"s3": tagged_settings}
+
+    def cleanup_test(self):
+        import boto3
+
+        # clean up using boto3
+        s3c = boto3.resource(
+            "s3",
+            endpoint_url=self._storage_provider_settings.endpoint_url,
+            aws_access_key_id=self._storage_provider_settings.access_key,
+            aws_secret_access_key=self._storage_provider_settings.secret_key,
+        )
+        try:
+            s3c.Bucket(self._bucket).delete()
+        except Exception:
+            pass
