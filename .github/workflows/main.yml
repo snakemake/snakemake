@@ -106,7 +106,7 @@ jobs:
           #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
-          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/tests.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/tests.py
+          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/tests.py
 
   build-container-image:
     runs-on: ubuntu-latest

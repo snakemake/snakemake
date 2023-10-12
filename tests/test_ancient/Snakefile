@@ -1,8 +1,8 @@
 shell.executable("bash")
 
 shell("touch C && sleep 1 && touch B && sleep 1 && touch A && touch D && \
-    mkdir -p .snakemake/storage/http/github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results && \
-    touch .snakemake/storage/http/github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results/landsat-data.txt && \
+    mkdir -p .snakemake/storage/http/github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results && \
+    touch .snakemake/storage/http/github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results/landsat-data.txt && \
     touch -t 200101010101 old_file")
 
 #Will not be executed even though A is newer
@@ -35,7 +35,7 @@ rule c:
 rule remote_ancient:
     input:
         storage(
-            "https://github.com/snakemake/snakemake/raw/main/tests/test_remote_http/expected-results/landsat-data.txt"
+            "https://github.com/snakemake/snakemake/raw/series-7/tests/test_remote_http/expected-results/landsat-data.txt"
         )
     output:
         "old_file"
