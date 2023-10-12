@@ -72,8 +72,10 @@ class StorageRegistry:
                         f"via conda-inject: {e.stdout.decode()}",
                         e,
                     )
-            # try to register again
-            register()
+                # try to register again
+                register()
+            else:
+                raise e
 
     @property
     def default_storage_provider(self):
