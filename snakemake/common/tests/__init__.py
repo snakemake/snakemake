@@ -6,8 +6,10 @@ from typing import List, Optional
 import pytest
 from snakemake import api, settings
 
+from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 from snakemake_interface_executor_plugins.settings import ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
+from snakemake_interface_storage_plugins.settings import StorageProviderSettingsBase
 
 
 def handle_testcase(func):
@@ -49,6 +51,12 @@ class TestWorkflowsBase(ABC):
     def get_default_storage_prefix(self) -> Optional[str]:
         ...
 
+    @abstractmethod
+    def get_default_storage_provider_settings(
+        self,
+    ) -> Optional[StorageProviderSettingsBase]:
+        ...
+
     def get_assume_shared_fs(self) -> bool:
         return True
 
@@ -77,6 +85,11 @@ class TestWorkflowsBase(ABC):
             cores = 1
             nodes = 3
 
+        default_storage_provider_settings = TaggedSettings()
+        default_storage_provider_settings.register_settings(
+            self.get_default_storage_provider_settings()
+        )
+
         with api.SnakemakeApi(
             settings.OutputSettings(
                 verbose=True,
@@ -93,6 +106,7 @@ class TestWorkflowsBase(ABC):
                     default_storage_prefix=self.get_default_storage_prefix(),
                     assume_shared_fs=self.get_assume_shared_fs(),
                 ),
+                storage_provider_settings=default_storage_provider_settings,
                 workdir=Path(tmp_path),
                 snakefile=tmp_path / "Snakefile",
             )
