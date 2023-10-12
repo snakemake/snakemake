@@ -1311,7 +1311,7 @@ def get_argument_parser(profiles=None):
         help="Automatically deploy the default storage provider if it is not present "
         "in the environment. This uses the selected deployment method to automatically "
         "install the storage provider if the deployment method supports that. Currently "
-        "this is only supported for conda/mamba."
+        "this is only supported for conda/mamba.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",

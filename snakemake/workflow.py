@@ -1729,15 +1729,20 @@ class Workflow(WorkflowExecutorInterface):
             return ruleinfo
 
         return decorate
-    
+
     def global_conda(self, conda_env):
         if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
             from conda_inject import inject_env_file, PackageManager
+
             try:
-                package_manager = PackageManager[self.deployment_settings.conda_frontend.upper()]
+                package_manager = PackageManager[
+                    self.deployment_settings.conda_frontend.upper()
+                ]
             except KeyError:
-                raise WorkflowError(f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject.")
-            
+                raise WorkflowError(
+                    f"Chosen conda frontend {self.deployment_settings.conda_frontend} is not supported by conda-inject."
+                )
+
             # Handle relative path
             if not isinstance(conda_env, SourceFile):
                 if is_local_file(conda_env) and not os.path.isabs(conda_env):
@@ -1751,9 +1756,14 @@ class Workflow(WorkflowExecutorInterface):
 
             logger.info(f"Injecting conda environment {conda_env.get_path_or_uri()}.")
             try:
-                env = inject_env_file(conda_env.get_path_or_uri(), package_manager=package_manager)
+                env = inject_env_file(
+                    conda_env.get_path_or_uri(), package_manager=package_manager
+                )
             except subprocess.CalledProcessError as e:
-                raise WorkflowError(f"Failed to inject conda environment {conda_env}: {e.stdout.decode()}", e)
+                raise WorkflowError(
+                    f"Failed to inject conda environment {conda_env}: {e.stdout.decode()}",
+                    e,
+                )
             self.injected_conda_envs.append(env)
 
     def container(self, container_img):

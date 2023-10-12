@@ -154,7 +154,7 @@ class SnakemakeApi(ApiBase):
             logger.cleanup()
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
-            if (self._workflow_api._workflow_store is not None):
+            if self._workflow_api._workflow_store is not None:
                 for conda_env in self._workflow_api._workflow_store.injected_conda_envs:
                     conda_env.remove()
                 if self._workflow_api._workflow._workdir_handler is not None:
@@ -313,7 +313,7 @@ class WorkflowApi(ApiBase):
             config_settings=self.config_settings,
             resource_settings=self.resource_settings,
             workflow_settings=self.workflow_settings,
-            deployment_settings = self.deployment_settings,
+            deployment_settings=self.deployment_settings,
             storage_settings=self.storage_settings,
             output_settings=self.snakemake_api.output_settings,
             overwrite_workdir=self.workdir,

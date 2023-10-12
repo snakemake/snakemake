@@ -1892,4 +1892,8 @@ def test_load_metawrapper():
 
 
 def test_conda_global():
-    run(dpath("test_conda_global"), deployment_method={DeploymentMethod.CONDA}, executor="dryrun")
+    run(
+        dpath("test_conda_global"),
+        deployment_method={DeploymentMethod.CONDA},
+        executor="dryrun",
+    )
