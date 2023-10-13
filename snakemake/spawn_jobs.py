@@ -164,6 +164,7 @@ class SpawnedJobArgsFactory:
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
+            w2a("deployment_settings.default_storage_provider_auto_deploy"),
             w2a("resource_settings.max_threads"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True

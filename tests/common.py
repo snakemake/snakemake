@@ -220,6 +220,7 @@ def run(
     cleanup_metadata=None,
     rerun_triggers=settings.RerunTrigger.all(),
     storage_provider_settings=None,
+    default_storage_provider_auto_deploy=False,
 ):
     """
     Test the Snakefile in the path.
@@ -344,6 +345,12 @@ def run(
                     workflow_settings=settings.WorkflowSettings(
                         wrapper_prefix=wrapper_prefix,
                     ),
+                    deployment_settings=settings.DeploymentSettings(
+                        conda_frontend=conda_frontend,
+                        conda_prefix=conda_prefix,
+                        deployment_method=deployment_method,
+                        default_storage_provider_auto_deploy=default_storage_provider_auto_deploy,
+                    ),
                     snakefile=Path(original_snakefile if no_tmpdir else snakefile),
                     workdir=Path(path if no_tmpdir else tmpdir),
                 )
@@ -359,11 +366,6 @@ def run(
                         cache=cache,
                         forceall=forceall,
                         rerun_triggers=rerun_triggers,
-                    ),
-                    deployment_settings=settings.DeploymentSettings(
-                        conda_frontend=conda_frontend,
-                        conda_prefix=conda_prefix,
-                        deployment_method=deployment_method,
                     ),
                 )
 

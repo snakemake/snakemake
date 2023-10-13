@@ -1889,3 +1889,33 @@ def test_config_yte():
 
 def test_load_metawrapper():
     run(dpath("test_load_metawrapper"), executor="dryrun")
+
+
+@skip_on_windows
+def test_conda_global():
+    run(
+        dpath("test_conda_global"),
+        deployment_method={DeploymentMethod.CONDA},
+        executor="dryrun",
+    )
+
+
+@skip_on_windows
+def test_default_storage_provider_auto_deploy(s3_storage):
+    prefix, settings = s3_storage
+
+    subprocess.run(["pip", "uninstall", "--yes", "snakemake-storage-plugin-s3"])
+
+    try:
+        run(
+            dpath("test_default_remote"),
+            cores=1,
+            default_storage_provider="s3",
+            default_storage_prefix=prefix,
+            storage_provider_settings=settings,
+            deployment_method={DeploymentMethod.CONDA},
+            executor="dryrun",
+            default_storage_provider_auto_deploy=True,
+        )
+    finally:
+        subprocess.run(["pip", "install", "snakemake-storage-plugin-s3"])

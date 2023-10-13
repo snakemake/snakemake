@@ -57,6 +57,19 @@ class TestWorkflowsBase(ABC):
     ) -> Optional[Mapping[str, TaggedSettings]]:
         ...
 
+    def get_remote_execution_settings(self) -> settings.RemoteExecutionSettings:
+        return settings.RemoteExecutionSettings(
+            seconds_between_status_checks=0,
+            envvars=self.get_envvars(),
+        )
+
+    def get_deployment_settings(
+        self, deployment_method=frozenset()
+    ) -> settings.DeploymentSettings:
+        return settings.DeploymentSettings(
+            deployment_method=deployment_method,
+        )
+
     def get_assume_shared_fs(self) -> bool:
         return True
 
@@ -101,26 +114,20 @@ class TestWorkflowsBase(ABC):
                     default_storage_prefix=self.get_default_storage_prefix(),
                     assume_shared_fs=self.get_assume_shared_fs(),
                 ),
+                deployment_settings=self.get_deployment_settings(deployment_method),
                 storage_provider_settings=self.get_default_storage_provider_settings(),
                 workdir=Path(tmp_path),
                 snakefile=tmp_path / "Snakefile",
             )
 
-            dag_api = workflow_api.dag(
-                deployment_settings=settings.DeploymentSettings(
-                    deployment_method=deployment_method,
-                ),
-            )
+            dag_api = workflow_api.dag()
             dag_api.execute_workflow(
                 executor=self.get_executor(),
                 executor_settings=self.get_executor_settings(),
                 execution_settings=settings.ExecutionSettings(
                     latency_wait=self.latency_wait,
                 ),
-                remote_execution_settings=settings.RemoteExecutionSettings(
-                    seconds_between_status_checks=0,
-                    envvars=self.get_envvars(),
-                ),
+                remote_execution_settings=self.get_remote_execution_settings(),
             )
 
     @handle_testcase
