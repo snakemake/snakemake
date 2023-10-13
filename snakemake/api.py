@@ -521,17 +521,23 @@ class DAGApi(ApiBase):
 
     def conda_cleanup_envs(self):
         """Cleanup the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_cleanup_envs()
 
     def conda_create_envs(self):
         """Only create the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_create_envs()
 
     def conda_list_envs(self):
         """List the conda environments of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.CONDA)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.CONDA
+        )
         self.workflow_api._workflow.conda_list_envs()
 
     def cleanup_shadow(self):
@@ -540,7 +546,9 @@ class DAGApi(ApiBase):
 
     def container_cleanup_images(self):
         """Cleanup the container images of the workflow."""
-        self.deployment_settings.imply_deployment_method(DeploymentMethod.APPTAINER)
+        self.workflow_api.deployment_settings.imply_deployment_method(
+            DeploymentMethod.APPTAINER
+        )
         self.workflow_api._workflow.container_cleanup_images()
 
     def list_changes(self, change_type: ChangeType):
