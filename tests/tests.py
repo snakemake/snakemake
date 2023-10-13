@@ -1891,6 +1891,7 @@ def test_load_metawrapper():
     run(dpath("test_load_metawrapper"), executor="dryrun")
 
 
+@skip_on_windows
 def test_conda_global():
     run(
         dpath("test_conda_global"),
