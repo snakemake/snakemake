@@ -20,6 +20,7 @@ class StorageRegistry:
         "_storages",
         "_default_storage_provider",
         "default_storage_provider",
+        "_register_default_storage",
         "register_storage",
         "infer_provider",
         "_storage_object",
@@ -37,53 +38,18 @@ class StorageRegistry:
 
     def _register_default_storage(self):
         plugin_name = self.workflow.storage_settings.default_storage_provider
-
-        def register():
-            self._default_storage_provider = self.register_storage(
-                plugin_name,
-                is_default=True,
-            )
-
-        try:
-            register()
-        except InvalidPluginException as e:
-            if (
-                self.workflow.deployment_settings.default_storage_provider_auto_deploy
-                and DeploymentMethod.CONDA
-                in self.workflow.deployment_settings.deployment_method
-            ):
-                # first deploy with conda_inject
-                from conda_inject import inject_packages
-                from importlib.metadata import version
-
-                def get_version(package_name):
-                    return ".".join(version(package_name).split(".")[:2])
-
-                common_interface_version = get_version("snakemake-interface-common")
-                storage_interface_version = get_version(
-                    "snakemake-interface-storage-plugins"
-                )
-
-                try:
-                    inject_packages(
-                        channels=["conda-forge", "bioconda", "nodefaults"],
-                        packages=[
-                            f"snakemake-interface-common ={common_interface_version}",
-                            f"snakemake-interface-storage-plugins ={storage_interface_version}"
-                            f"snakemake-storage-plugin-{plugin_name}",
-                        ],
-                    )
-                except subprocess.CalledProcessError as e:
-                    raise WorkflowError(
-                        "Failed to install storage plugin "
-                        f"{self.workflow.storage_settings.default_storage_provider} "
-                        f"via conda-inject: {e.stdout.decode()}",
-                        e,
-                    )
-                # try to register again
-                register()
-            else:
-                raise e
+        if (
+            not StoragePluginRegistry().is_installed(plugin_name) and self.workflow.deployment_settings.default_storage_provider_auto_deploy
+        ):
+            try:
+                subprocess.run(["pip", "install", f"snakemake-storage-plugin-{plugin_name}"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                raise WorkflowError(f"Failed to install storage plugin {plugin_name} via pip: {e.stdout.decode()}", e)
+            StoragePluginRegistry().collect_plugins()
+        self._default_storage_provider = self.register_storage(
+            plugin_name,
+            is_default=True,
+        )
 
     @property
     def default_storage_provider(self):

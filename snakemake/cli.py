@@ -1309,9 +1309,11 @@ def get_argument_parser(profiles=None):
         "--default-storage-provider-auto-deploy",
         action="store_true",
         help="Automatically deploy the default storage provider if it is not present "
-        "in the environment. This uses the selected deployment method to automatically "
-        "install the storage provider if the deployment method supports that. Currently "
-        "this is only supported for conda/mamba.",
+        "in the environment. This uses pip and will modify your current environment "
+        "by installing the storage plugin and all its dependencies if not present. "
+        "Use this if you run Snakemake with a remote executor plugin like "
+        "kubernetes where the jobs will run in a container that might not have the "
+        "required storage plugin installed.",
     )
     group_behavior.add_argument(
         "--no-shared-fs",
