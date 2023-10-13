@@ -47,21 +47,29 @@ class StorageRegistry:
         try:
             register()
         except InvalidPluginException as e:
-            # first deploy with conda_inject
             if (
                 self.workflow.deployment_settings.default_storage_provider_auto_deploy
                 and DeploymentMethod.CONDA
                 in self.workflow.deployment_settings.deployment_method
             ):
+                # first deploy with conda_inject
                 from conda_inject import inject_packages
+                from importlib.metadata import version
 
-                snakemake_version = ".".join(__version__.split(".")[:2])
+                def get_version(package_name):
+                    return ".".join(version(package_name).split(".")[:2])
+
+                common_interface_version = get_version("snakemake-interface-common")
+                storage_interface_version = get_version(
+                    "snakemake-interface-storage-plugins"
+                )
 
                 try:
                     inject_packages(
                         channels=["conda-forge", "bioconda", "nodefaults"],
                         packages=[
-                            f"snakemake ={snakemake_version}",
+                            f"snakemake-interface-common ={common_interface_version}",
+                            f"snakemake-interface-storage-plugins ={storage_interface_version}"
                             f"snakemake-storage-plugin-{plugin_name}",
                         ],
                     )
