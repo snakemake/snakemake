@@ -1,5 +1,11 @@
+import sys
+import os
+
 conda:
     "env.yaml"
+
+print(sys.path)
+print(os.environ["PATH"])
 
 import PIL
 from snakemake.shell import shell
