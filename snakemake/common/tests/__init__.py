@@ -57,6 +57,12 @@ class TestWorkflowsBase(ABC):
     ) -> Optional[Mapping[str, TaggedSettings]]:
         ...
 
+    def get_remote_execution_settings(self) -> settings.RemoteExecutionSettings:
+        return settings.RemoteExecutionSettings(
+            seconds_between_status_checks=0,
+            envvars=self.get_envvars(),
+        )
+
     def get_deployment_settings(
         self, deployment_method=frozenset()
     ) -> settings.DeploymentSettings:
@@ -121,10 +127,7 @@ class TestWorkflowsBase(ABC):
                 execution_settings=settings.ExecutionSettings(
                     latency_wait=self.latency_wait,
                 ),
-                remote_execution_settings=settings.RemoteExecutionSettings(
-                    seconds_between_status_checks=0,
-                    envvars=self.get_envvars(),
-                ),
+                remote_execution_settings=self.get_remote_execution_settings(),
             )
 
     @handle_testcase
