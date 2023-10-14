@@ -203,7 +203,7 @@ class TestWorkflowsMinioPlayStorageBase(TestWorkflowsBase):
         return f"snakemake-{uuid.uuid4().hex}"
 
     @property
-    def enpoint_url(self):
+    def endpoint_url(self):
         return "https://play.minio.io:9000"
 
     @property
