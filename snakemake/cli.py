@@ -807,6 +807,11 @@ def get_argument_parser(profiles=None):
         action="store_true",
         help=("Do not evaluate or execute subworkflows."),
     )
+    group_exec.add_argument(
+        "--precommand",
+        help="Only used in case of remote execution. Command to be executed before "
+        "Snakemake executes each job on the remote compute node.",
+    )
 
     group_group = parser.add_argument_group("GROUPING")
     group_group.add_argument(

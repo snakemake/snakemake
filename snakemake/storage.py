@@ -34,31 +34,10 @@ class StorageRegistry:
         self._default_storage_provider = None
 
         if self.workflow.storage_settings.default_storage_provider is not None:
-            self._register_default_storage()
-
-    def _register_default_storage(self):
-        plugin_name = self.workflow.storage_settings.default_storage_provider
-        if (
-            not StoragePluginRegistry().is_installed(plugin_name)
-            and self.workflow.deployment_settings.default_storage_provider_auto_deploy
-        ):
-            try:
-                subprocess.run(
-                    ["pip", "install", f"snakemake-storage-plugin-{plugin_name}"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    check=True,
-                )
-            except subprocess.CalledProcessError as e:
-                raise WorkflowError(
-                    f"Failed to install storage plugin {plugin_name} via pip: {e.stdout.decode()}",
-                    e,
-                )
-            StoragePluginRegistry().collect_plugins()
-        self._default_storage_provider = self.register_storage(
-            plugin_name,
-            is_default=True,
-        )
+            self._default_storage_provider = self.register_storage(
+                self.workflow.storage_settings.default_storage_provider,
+                is_default=True,
+            )
 
     @property
     def default_storage_provider(self):
