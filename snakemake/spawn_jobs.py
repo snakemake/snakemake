@@ -125,10 +125,10 @@ class SpawnedJobArgsFactory:
         envvars.update(self.get_storage_provider_envvars())
         return envvars
 
-    def precommand(self) -> str:
+    def precommand(self, auto_deploy_default_storage_provider: bool) -> str:
         precommand = self.workflow.remote_execution_settings.precommand or ""
         if (
-            self.workflow_api.deployment_settings.default_storage_provider_auto_deploy
+            auto_deploy_default_storage_provider
             and self.workflow_api.storage_settings.default_storage_provider is not None
         ):
             package_name = StoragePluginRegistry().get_plugin_package_name(
@@ -176,7 +176,6 @@ class SpawnedJobArgsFactory:
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
-            w2a("deployment_settings.default_storage_provider_auto_deploy"),
             w2a("resource_settings.max_threads"),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True

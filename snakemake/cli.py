@@ -1897,7 +1897,6 @@ def args_to_api(args, parser):
                     conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
                     apptainer_args=args.apptainer_args,
                     apptainer_prefix=args.apptainer_prefix,
-                    default_storage_provider_auto_deploy=args.default_storage_provider_auto_deploy,
                 ),
                 snakefile=args.snakefile,
                 workdir=args.directory,
