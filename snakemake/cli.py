@@ -1310,16 +1310,6 @@ def get_argument_parser(profiles=None):
         help="Specify prefix for default storage provider. E.g. a bucket name.",
     )
     group_behavior.add_argument(
-        "--default-storage-provider-auto-deploy",
-        action="store_true",
-        help="Automatically deploy the default storage provider if it is not present "
-        "in the environment. This uses pip and will modify your current environment "
-        "by installing the storage plugin and all its dependencies if not present. "
-        "Use this if you run Snakemake with a remote executor plugin like "
-        "kubernetes where the jobs will run in a container that might not have the "
-        "required storage plugin installed.",
-    )
-    group_behavior.add_argument(
         "--no-shared-fs",
         action="store_true",
         help="Do not assume that jobs share a common file "
