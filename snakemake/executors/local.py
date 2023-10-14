@@ -42,6 +42,8 @@ from snakemake.exceptions import (
 common_settings = CommonSettings(
     non_local_exec=False,
     implies_no_shared_fs=False,
+    pass_envvar_declarations_to_cmd=False,
+    auto_deploy_default_storage_provider=False,
 )
 
 
@@ -55,17 +57,7 @@ except ImportError:
 
 
 class Executor(RealExecutor):
-    def __init__(
-        self,
-        workflow: WorkflowExecutorInterface,
-        logger: LoggerExecutorInterface,
-    ):
-        super().__init__(
-            workflow,
-            logger,
-            pass_envvar_declarations_to_cmd=False,
-        )
-
+    def __post_init__(self):
         self.use_threads = self.workflow.execution_settings.use_threads
         self.keepincomplete = self.workflow.execution_settings.keep_incomplete
         cores = self.workflow.resource_settings.cores
