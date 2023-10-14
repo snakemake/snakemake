@@ -1295,10 +1295,9 @@ def get_argument_parser(profiles=None):
     )
     group_behavior.add_argument(
         "--default-storage-provider",
-        choices=StoragePluginRegistry().get_registered_read_write_plugins(),
         help="Specify default storage provider to be used for "
         "all input and output files that don't yet specify "
-        "one.",
+        "one (e.g. 's3').",
     )
     group_behavior.add_argument(
         "--default-storage-prefix",
