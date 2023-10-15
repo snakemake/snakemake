@@ -134,7 +134,9 @@ class SpawnedJobArgsFactory:
             package_name = StoragePluginRegistry().get_plugin_package_name(
                 self.workflow.storage_settings.default_storage_provider
             )
-            precommand += f" && pip install {package_name}"
+            if precommand:
+                precommand += " && "
+            precommand += f"pip install {package_name}"
         return precommand
 
     def general_args(
