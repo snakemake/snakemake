@@ -129,10 +129,10 @@ class SpawnedJobArgsFactory:
         precommand = self.workflow.remote_execution_settings.precommand or ""
         if (
             auto_deploy_default_storage_provider
-            and self.workflow_api.storage_settings.default_storage_provider is not None
+            and self.workflow.storage_settings.default_storage_provider is not None
         ):
             package_name = StoragePluginRegistry().get_plugin_package_name(
-                self.workflow_api.storage_settings.default_storage_provider
+                self.workflow.storage_settings.default_storage_provider
             )
             precommand += f" && pip install {package_name}"
         return precommand
