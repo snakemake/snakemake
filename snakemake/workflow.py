@@ -283,15 +283,15 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def non_local_exec(self):
         return not self.local_exec
-    
+
     @property
     def remote_exec(self):
         return self.exec_mode == ExecMode.REMOTE
-    
+
     @property
     def global_or_node_local_shared_fs(self):
         return self.storage_settings.assume_shared_fs or self.remote_exec_no_shared_fs
-    
+
     @property
     def remote_exec_no_shared_fs(self):
         return self.remote_exec and not self.workflow.storage_settings.assume_shared_fs
