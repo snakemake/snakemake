@@ -1059,7 +1059,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             # No postprocessing necessary, we have just created the skeleton notebook and
             # execution will anyway stop afterwards.
             return
-        if self.dag.workflow.storage_settings.assume_shared_fs:
+        if self.dag.workflow.global_or_node_local_shared_fs:
             if not error and handle_touch:
                 self.dag.handle_touch(self)
             if handle_log:

@@ -283,6 +283,18 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def non_local_exec(self):
         return not self.local_exec
+    
+    @property
+    def remote_exec(self):
+        return self.exec_mode == ExecMode.REMOTE
+    
+    @property
+    def global_or_node_local_shared_fs(self):
+        return self.storage_settings.assume_shared_fs or self.remote_exec_no_shared_fs
+    
+    @property
+    def remote_exec_no_shared_fs(self):
+        return self.remote_exec and not self.workflow.storage_settings.assume_shared_fs
 
     @property
     def exec_mode(self):
@@ -980,7 +992,7 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if self.storage_settings.assume_shared_fs:
+            if self.storage_settings.global_or_node_local_shared_fs:
                 if (
                     DeploymentMethod.APPTAINER
                     in self.deployment_settings.deployment_method
@@ -1101,6 +1113,7 @@ class Workflow(WorkflowExecutorInterface):
             ):
                 self.dag.cleanup_workdir()
 
+            async_run(self.dag.store_storage_outputs())
             self.dag.cleanup_storage_objects()
 
             if success:

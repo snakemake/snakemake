@@ -533,7 +533,13 @@ class _IOFile(str, AnnotatedStringStorageInterface):
     @iocache
     async def size(self):
         if self.is_storage:
-            return await self.storage_object.managed_size()
+            try:
+                return await self.storage_object.managed_size()
+            except WorkflowError as e:
+                try:
+                    return await self.size_local()
+                except IOError:
+                    raise e
         else:
             return await self.size_local()
 
