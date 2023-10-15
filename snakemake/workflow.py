@@ -992,7 +992,7 @@ class Workflow(WorkflowExecutorInterface):
                     f for job in self.dag.needrun_jobs() for f in job.output
                 )
 
-            if self.storage_settings.global_or_node_local_shared_fs:
+            if self.global_or_node_local_shared_fs:
                 if (
                     DeploymentMethod.APPTAINER
                     in self.deployment_settings.deployment_method
