@@ -313,7 +313,7 @@ class DAG(DAGExecutorInterface):
                             tg.create_task(f.retrieve_from_storage())
 
     async def store_storage_outputs(self):
-        if self.is_main_process or self.workflow.remote_exec_no_shared_fs:
+        if self.workflow.remote_exec_no_shared_fs:
             async with asyncio.TaskGroup() as tg:
                 for job in self.jobs:
                     for f in job.output:
