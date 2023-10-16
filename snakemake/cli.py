@@ -1380,32 +1380,6 @@ def get_argument_parser(profiles=None):
         "Currently slack and workflow management system (wms) are supported.",
     )
 
-    group_slurm = parser.add_argument_group("SLURM")
-    slurm_mode_group = group_slurm.add_mutually_exclusive_group()
-
-    slurm_mode_group.add_argument(
-        "--slurm",
-        action="store_true",
-        help=(
-            "Execute snakemake rules as SLURM batch jobs according"
-            " to their 'resources' definition. SLURM resources as "
-            " 'partition', 'ntasks', 'cpus', etc. need to be defined"
-            " per rule within the 'resources' definition. Note, that"
-            " memory can only be defined as 'mem_mb' or 'mem_mb_per_cpu'"
-            " as analogous to the SLURM 'mem' and 'mem-per-cpu' flags"
-            " to sbatch, respectively. Here, the unit is always 'MiB'."
-            " In addition '--default_resources' should contain the"
-            " SLURM account."
-        ),
-    ),
-    slurm_mode_group.add_argument(
-        "--slurm-jobstep",
-        action="store_true",
-        help=configargparse.SUPPRESS,  # this should be hidden and only be used
-        # for snakemake to be working in jobscript-
-        # mode
-    )
-
     group_cluster = parser.add_argument_group("REMOTE EXECUTION")
 
     group_cluster.add_argument(
@@ -1451,44 +1425,6 @@ def get_argument_parser(profiles=None):
     )
 
     group_flux = parser.add_argument_group("FLUX")
-    group_google_life_science = parser.add_argument_group("GOOGLE_LIFE_SCIENCE")
-    group_tes = parser.add_argument_group("TES")
-    group_tibanna = parser.add_argument_group("TIBANNA")
-
-    group_tibanna.add_argument(
-        "--tibanna",
-        action="store_true",
-        help="Execute workflow on AWS cloud using Tibanna. This requires "
-        "--default-storage-prefix to be set to S3 bucket name and prefix"
-        " (e.g. 'bucketname/subdirectory') where input is already stored"
-        " and output will be sent to. Using --tibanna implies --default-resources"
-        " is set as default. Optionally, use --precommand to"
-        " specify any preparation command to run before snakemake command"
-        " on the cloud (inside snakemake container on Tibanna VM)."
-        " Also, --use-conda, --use-singularity, --config, --configfile are"
-        " supported and will be carried over.",
-    )
-    group_tibanna.add_argument(
-        "--tibanna-sfn",
-        help="Name of Tibanna Unicorn step function (e.g. tibanna_unicorn_monty)."
-        "This works as serverless scheduler/resource allocator and must be "
-        "deployed first using tibanna cli. (e.g. tibanna deploy_unicorn --usergroup="
-        "monty --buckets=bucketname)",
-    )
-    group_tibanna.add_argument(
-        "--precommand",
-        help="Any command to execute before snakemake command on AWS cloud "
-        "such as wget, git clone, unzip, etc. This is used with --tibanna."
-        "Do not include input/output download/upload commands - file transfer"
-        " between S3 bucket and the run environment (container) is automatically"
-        " handled by Tibanna.",
-    )
-    group_tibanna.add_argument(
-        "--tibanna-config",
-        nargs="+",
-        help="Additional tibanna config e.g. --tibanna-config spot_instance=true subnet="
-        "<subnet_id> security group=<security_group_id>",
-    )
 
     group_flux.add_argument(
         "--flux",
