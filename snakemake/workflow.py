@@ -294,7 +294,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def remote_exec_no_shared_fs(self):
-        return self.remote_exec and not self.workflow.storage_settings.assume_shared_fs
+        return self.remote_exec and not self.storage_settings.assume_shared_fs
 
     @property
     def exec_mode(self):
