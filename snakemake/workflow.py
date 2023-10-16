@@ -268,7 +268,7 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def use_threads(self):
         return (
-            self.workflow.execution_settings.use_threads
+            self.execution_settings.use_threads
             or (os.name not in ["posix", "nt"])
             or not self.local_exec
         )
