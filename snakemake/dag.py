@@ -281,7 +281,7 @@ class DAG(DAGExecutorInterface):
             (job.conda_env_spec, job.container_img_url)
             for job in self.jobs
             if job.conda_env_spec
-            and (self.workflow.storage_settings.assume_shared_fs or job.is_local)
+            and (job.is_local or self.workflow.global_or_node_local_shared_fs)
         }
 
         # Then based on md5sum values
@@ -305,21 +305,23 @@ class DAG(DAGExecutorInterface):
                 self.conda_envs[key] = env
 
     async def retrieve_storage_inputs(self):
-        if self.is_main_process or (
-            self.workflow.exec_mode == ExecMode.REMOTE
-            and not self.workflow.storage_settings.assume_shared_fs
-        ):
+        if self.is_main_process or self.workflow.remote_exec_no_shared_fs:
             async with asyncio.TaskGroup() as tg:
                 for job in self.jobs:
                     for f in job.input:
                         if f.is_storage and self.is_external_input(f, job):
                             tg.create_task(f.retrieve_from_storage())
 
+    async def store_storage_outputs(self):
+        if self.workflow.remote_exec_no_shared_fs:
+            async with asyncio.TaskGroup() as tg:
+                for job in self.jobs:
+                    for f in job.output:
+                        if f.is_storage:
+                            tg.create_task(f.store_in_storage())
+
     def cleanup_storage_objects(self):
-        if self.is_main_process or (
-            self.workflow.exec_mode == ExecMode.REMOTE
-            and not self.workflow.storage_settings.assume_shared_fs
-        ):
+        if self.is_main_process or self.workflow.remote_exec_no_shared_fs:
             cleaned = set()
             for job in self.jobs:
                 for f in chain(job.input, job.output):
@@ -1546,7 +1548,7 @@ class DAG(DAGExecutorInterface):
                     updated = True
         if updated:
             await self.postprocess()
-            if self.workflow.storage_settings.assume_shared_fs:
+            if self.workflow.global_or_node_local_shared_fs:
                 await self.retrieve_storage_inputs()
         return updated
 

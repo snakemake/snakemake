@@ -220,7 +220,6 @@ class DeploymentSettings(SettingsBase, DeploymentSettingsExecutorInterface):
     conda_not_block_search_path_envvars: bool = False
     apptainer_args: str = ""
     apptainer_prefix: Optional[Path] = None
-    default_storage_provider_auto_deploy: bool = False
 
     def imply_deployment_method(self, method: DeploymentMethod):
         self.deployment_method = set(self.deployment_method)
@@ -350,6 +349,7 @@ class RemoteExecutionSettings(SettingsBase, RemoteExecutionSettingsExecutorInter
     preemptible_rules: PreemptibleRules = field(default_factory=PreemptibleRules)
     envvars: Sequence[str] = tuple()
     immediate_submit: bool = False
+    precommand: Optional[str] = None
 
 
 @dataclass

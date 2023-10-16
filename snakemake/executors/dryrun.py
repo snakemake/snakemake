@@ -18,6 +18,8 @@ common_settings = CommonSettings(
     non_local_exec=False,
     dryrun_exec=True,
     implies_no_shared_fs=False,
+    pass_envvar_declarations_to_cmd=False,
+    auto_deploy_default_storage_provider=False,
 )
 
 

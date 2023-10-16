@@ -1,7 +1,7 @@
 from dataclasses import dataclass, fields
 import os
 import sys
-from typing import TypeVar, TYPE_CHECKING, Any
+from typing import Mapping, TypeVar, TYPE_CHECKING, Any
 from snakemake_interface_executor_plugins.utils import format_cli_arg, join_cli_args
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 
@@ -117,7 +117,7 @@ class SpawnedJobArgsFactory:
 
         return format_cli_arg(flag, value, quote=quote)
 
-    def envvars(self):
+    def envvars(self) -> Mapping[str, str]:
         envvars = {
             var: os.environ[var]
             for var in self.workflow.remote_execution_settings.envvars
@@ -125,11 +125,25 @@ class SpawnedJobArgsFactory:
         envvars.update(self.get_storage_provider_envvars())
         return envvars
 
+    def precommand(self, auto_deploy_default_storage_provider: bool) -> str:
+        precommand = self.workflow.remote_execution_settings.precommand or ""
+        if (
+            auto_deploy_default_storage_provider
+            and self.workflow.storage_settings.default_storage_provider is not None
+        ):
+            package_name = StoragePluginRegistry().get_plugin_package_name(
+                self.workflow.storage_settings.default_storage_provider
+            )
+            if precommand:
+                precommand += " && "
+            precommand += f"pip install {package_name}"
+        return precommand
+
     def general_args(
         self,
         pass_default_storage_provider_args: bool = True,
         pass_default_resources_args: bool = False,
-    ):
+    ) -> str:
         """Return a string to add to self.exec_job that includes additional
         arguments from the command line. This is currently used in the
         ClusterExecutor and CPUExecutor, as both were using the same
@@ -164,8 +178,10 @@ class SpawnedJobArgsFactory:
             ),
             w2a("deployment_settings.apptainer_prefix"),
             w2a("deployment_settings.apptainer_args"),
-            w2a("deployment_settings.default_storage_provider_auto_deploy"),
             w2a("resource_settings.max_threads"),
+            w2a(
+                "storage_settings.assume_shared_fs", flag="--no-shared-fs", invert=True
+            ),
             w2a(
                 "execution_settings.keep_metadata", flag="--drop-metadata", invert=True
             ),
