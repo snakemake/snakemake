@@ -40,7 +40,6 @@ from snakemake.exceptions import RuleException, ProtectedOutputException, Workfl
 
 from snakemake.logging import logger
 from snakemake.common import (
-    DYNAMIC_FILL,
     is_local_file,
     get_uuid,
     IO_PROP_LIMIT,
@@ -48,11 +47,9 @@ from snakemake.common import (
 from snakemake.common.tbdstring import TBDString
 
 
-def format_files(io, dynamicio, is_input: bool):
+def format_files(io, is_input: bool):
     for f in io:
-        if f in dynamicio:
-            yield f"{f.format_dynamic()} (dynamic)"
-        elif is_flagged(f, "pipe"):
+        if is_flagged(f, "pipe"):
             yield f"{f} (pipe)"
         elif is_flagged(f, "service"):
             yield f"{f} (service)"
@@ -157,8 +154,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         "_conda_env",
         "_shadow_dir",
         "_inputsize",
-        "dynamic_output",
-        "dynamic_input",
         "temp_output",
         "protected_output",
         "touch_output",
@@ -225,13 +220,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         self._attempt = self.dag.workflow.attempt
 
         # TODO get rid of these
-        self.dynamic_output, self.dynamic_input = set(), set()
         self.temp_output, self.protected_output = set(), set()
         self.touch_output = set()
         for f in self.output:
             f_ = output_mapping[f]
-            if f_ in self.rule.dynamic_output:
-                self.dynamic_output.add(f)
             if f_ in self.rule.temp_output:
                 self.temp_output.add(f)
             if f_ in self.rule.protected_output:
@@ -240,8 +232,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 self.touch_output.add(f)
         for f in self.input:
             f_ = input_mapping[f]
-            if f_ in self.rule.dynamic_input:
-                self.dynamic_input.add(f)
 
     @property
     def is_updated(self):
@@ -334,7 +324,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             path = self.rule.basedir.join(path).get_path_or_uri()
         if is_local_file(path) and os.path.exists(path):
             script_mtime = os.lstat(path).st_mtime
-            for f in self.expanded_output:
+            for f in self.output:
                 if await f.exists() and not await f.is_newer(script_mtime):
                     yield f
         # TODO also handle remote file case here.
@@ -579,21 +569,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def is_service(self):
         return any(is_flagged(o, "service") for o in self.output)
 
-    @property
-    def expanded_output(self):
-        """Iterate over output files while dynamic output is expanded."""
-        for f, f_ in zip(self.output, self.rule.output):
-            if f in self.dynamic_output:
-                expansion = self.expand_dynamic(f_)
-                if not expansion:
-                    yield f_
-                for f, _ in expansion:
-                    file_to_yield = IOFile(f, self.rule)
-                    file_to_yield.clone_flags(f_)
-                    yield file_to_yield
-            else:
-                yield f
-
     def shadowed_path(self, f):
         """Get the shadowed path of IOFile f."""
         if not self.shadow_dir:
@@ -601,20 +576,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         f_ = IOFile(os.path.join(self.shadow_dir, f), self.rule)
         f_.clone_flags(f)
         return f_
-
-    @property
-    def dynamic_wildcards(self):
-        """Return all wildcard values determined from dynamic output."""
-        combinations = set()
-        for f, f_ in zip(self.output, self.rule.output):
-            if f in self.dynamic_output:
-                for f, w in self.expand_dynamic(f_):
-                    combinations.add(tuple(w.items()))
-        wildcards = defaultdict(list)
-        for combination in combinations:
-            for name, value in combination:
-                wildcards[name].append(value)
-        return wildcards
 
     @property
     async def output_mintime(self):
@@ -628,7 +589,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 return None
 
         async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(get_mtime(f)) for f in self.expanded_output]
+            tasks = [tg.create_task(get_mtime(f)) for f in self.output]
         mintimes = list(
             filter(lambda res: res is not None, (task.result() for task in tasks))
         )
@@ -655,19 +616,9 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             ):
                 yield f
 
-        if self.dynamic_output:
-            for f, f_ in zip(self.output, self.rule.output):
-                if f in requested:
-                    if f in self.dynamic_output:
-                        if not self.expand_dynamic(f_):
-                            yield f"{f_} (dynamic)"
-                    else:
-                        async for f in handle_file(f):
-                            yield f
-        else:
-            for f in requested:
-                async for f in handle_file(f):
-                    yield f
+        for f in requested:
+            async for f in handle_file(f):
+                yield f
 
     @property
     def local_input(self):
@@ -702,23 +653,19 @@ class Job(AbstractJob, SingleJobExecutorInterface):
                 yield f
 
     async def existing_output(self):
-        for f in self.expanded_output:
+        for f in self.output:
             if await f.exists():
                 yield f
 
     async def check_protected_output(self):
         async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(f.protected()) for f in self.expanded_output]
-        protected = [f for f, task in zip(self.expanded_output, tasks) if task.result()]
+            tasks = [tg.create_task(f.protected()) for f in self.output]
+        protected = [f for f, task in zip(self.output, tasks) if task.result()]
         if protected:
             raise ProtectedOutputException(self, protected)
 
     async def remove_existing_output(self):
-        """Clean up both dynamic and regular output before rules actually run"""
-        if self.dynamic_output:
-            for f, _ in chain(*map(self.expand_dynamic, self.rule.dynamic_output)):
-                os.remove(f)
-
+        """Clean up output before rules actually run"""
         for f, f_ in zip(self.output, self.rule.output):
             try:
                 # remove_non_empty_dir only applies to directories which aren't
@@ -735,7 +682,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         """
         Prepare execution of job.
         This includes creation of directories and deletion of previously
-        created dynamic files.
+        created files.
         Creates a shadow directory for the job if specified.
         """
 
@@ -856,7 +803,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
 
     async def cleanup(self):
         """Cleanup output files."""
-        to_remove = [f for f in self.expanded_output if await f.exists()]
+        to_remove = [f for f in self.output if await f.exists()]
 
         to_remove.extend(
             [
@@ -948,25 +895,18 @@ class Job(AbstractJob, SingleJobExecutorInterface):
     def __gt__(self, other):
         return self.rule.__gt__(other.rule)
 
-    def expand_dynamic(self, pattern):
-        """Expand dynamic files."""
-        return list(
-            listfiles(pattern, restriction=self.wildcards, omit_value=DYNAMIC_FILL)
-        )
-
     def is_group(self):
         return False
 
     def log_info(self, indent=False, printshellcmd=True):
-        # skip dynamic jobs that will be "executed" only in dryrun mode
         priority = self.priority
         logger.job_info(
             jobid=self.dag.jobid(self),
             msg=self.message,
             name=self.rule.name,
             local=self.dag.workflow.is_local(self.rule),
-            input=list(format_files(self.input, self.dynamic_input, is_input=True)),
-            output=list(format_files(self.output, self.dynamic_output, is_input=False)),
+            input=list(format_files(self.input, is_input=True)),
+            output=list(format_files(self.output, is_input=False)),
             log=list(self.log),
             benchmark=self.benchmark,
             wildcards=self.wildcards_dict,
@@ -983,13 +923,6 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         )
         logger.shellcmd(self.shellcmd, indent=indent)
 
-        if self.dynamic_output:
-            logger.info(
-                "Subsequent jobs will be added dynamically "
-                "depending on the output of this job",
-                indent=True,
-            )
-
     def get_log_error_info(
         self, msg=None, indent=False, aux_logs: Optional[list] = None, **kwargs
     ):
@@ -998,8 +931,8 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             name=self.rule.name,
             msg=msg,
             jobid=self.dag.jobid(self),
-            input=list(format_files(self.input, self.dynamic_output, is_input=True)),
-            output=list(format_files(self.output, self.dynamic_output, is_input=False)),
+            input=list(format_files(self.input, is_input=True)),
+            output=list(format_files(self.output, is_input=False)),
             log=list(self.log) + aux_logs,
             conda_env=self.conda_env.address if self.conda_env else None,
             aux=kwargs,
@@ -1433,15 +1366,6 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
         for job in self.jobs:
             job.check_protected_output()
 
-    @property
-    def dynamic_input(self):
-        return [
-            f
-            for job in self.jobs
-            for f in job.dynamic_input
-            if f not in self.all_products
-        ]
-
     async def inputsize(self):
         if self._inputsize is None:
             self._inputsize = sum([await f.size() for f in self.input])
@@ -1526,7 +1450,7 @@ class GroupJob(AbstractJob, GroupJobExecutorInterface):
     def expanded_output(self):
         """Yields the entire expanded output of all jobs"""
         for job in self.jobs:
-            yield from job.expanded_output
+            yield from job.output
 
     @property
     def restart_times(self):
@@ -1589,7 +1513,7 @@ class Reason:
     def set_cleanup_metadata_instructions(self, job):
         self.cleanup_metadata_instructions = (
             "To ignore these changes, run snakemake "
-            f"--cleanup-metadata {' '.join(job.expanded_output)}"
+            f"--cleanup-metadata {' '.join(job.output)}"
         )
 
     def is_provenance_triggered(self):

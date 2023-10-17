@@ -591,7 +591,7 @@ async def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
     records = defaultdict(JobRecord)
     recorded_files = set()
     for job in dag.jobs:
-        for f in itertools.chain(job.expanded_output, job.input):
+        for f in itertools.chain(job.output, job.input):
             if is_flagged(f, "report") and f not in recorded_files:
                 if not await f.exists():
                     raise WorkflowError(
@@ -686,7 +686,7 @@ async def auto_report(dag, path: Path, stylesheet: Optional[Path] = None):
                             rule=job.rule,
                         )
 
-        for f in job.expanded_output:
+        for f in job.output:
             meta = persistence.metadata(f)
             if not meta:
                 logger.warning(

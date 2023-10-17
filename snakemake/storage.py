@@ -2,6 +2,7 @@ import copy, sys
 import subprocess
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
+from snakemake.io import flag
 from snakemake.workflow import Workflow
 from snakemake_interface_common.exceptions import WorkflowError, InvalidPluginException
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
@@ -150,7 +151,11 @@ class StorageRegistry:
         if provider is None:
             provider = self.register_storage(provider_name)
 
-        return provider.object(query, retrieve=retrieve, keep_local=keep_local)
+        storage_object = provider.object(
+            query, retrieve=retrieve, keep_local=keep_local
+        )
+
+        return flag(storage_object.local_path(), "storage_object", storage_object)
 
 
 class StorageProviderProxy:

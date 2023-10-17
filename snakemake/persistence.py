@@ -272,7 +272,7 @@ class Persistence(PersistenceExecutorInterface):
 
     async def finished(self, job):
         if not self.dag.workflow.execution_settings.keep_metadata:
-            for f in job.expanded_output:
+            for f in job.output:
                 self._delete_record(self._incomplete_path, f)
             return
 
@@ -283,7 +283,7 @@ class Persistence(PersistenceExecutorInterface):
         shellcmd = job.shellcmd
         conda_env = self._conda_env(job)
         fallback_time = time.time()
-        for f in job.expanded_output:
+        for f in job.output:
             rec_path = self._record_path(self._incomplete_path, f)
             starttime = os.path.getmtime(rec_path) if os.path.exists(rec_path) else None
             # Sometimes finished is called twice, if so, lookup the previous starttime
@@ -326,7 +326,7 @@ class Persistence(PersistenceExecutorInterface):
             self._delete_record(self._incomplete_path, f)
 
     def cleanup(self, job):
-        for f in job.expanded_output:
+        for f in job.output:
             self._delete_record(self._incomplete_path, f)
             self._delete_record(self._metadata_path, f)
 
@@ -639,7 +639,7 @@ class Persistence(PersistenceExecutorInterface):
 
 def _bool_or_gen(func, job, file=None):
     if file is None:
-        return (f for f in job.expanded_output if func(job, file=f))
+        return (f for f in job.output if func(job, file=f))
     else:
         return func(job, file=file)
 
