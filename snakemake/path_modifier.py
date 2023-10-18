@@ -91,6 +91,7 @@ class PathModifier:
         """Apply the defined default remote provider to the given path and return the updated _IOFile.
         Asserts that default remote provider is defined.
         """
+        from snakemake.storage import flag_with_storage_object
 
         def is_annotated_callable(value):
             if isinstance(value, AnnotatedString):
@@ -111,8 +112,7 @@ class PathModifier:
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )
-
-        return storage_object
+        return flag_with_storage_object(path, storage_object)
 
     @property
     def modifies_prefixes(self):

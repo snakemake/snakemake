@@ -11,8 +11,16 @@ from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectWrite,
     StorageObjectRead,
 )
+from snakemake.io import MaybeAnnotated
 from snakemake_interface_executor_plugins.settings import DeploymentMethod
 from snakemake.common import __version__
+
+
+def flag_with_storage_object(path: MaybeAnnotated, storage_object):
+    modified = flag(storage_object.local_path(), "storage_object", storage_object)
+    modified.flags = getattr(path, "flags", {}).copy()
+
+    return modified
 
 
 class StorageRegistry:
@@ -155,7 +163,7 @@ class StorageRegistry:
             query, retrieve=retrieve, keep_local=keep_local
         )
 
-        return flag(storage_object.local_path(), "storage_object", storage_object)
+        return flag_with_storage_object(query, storage_object)
 
 
 class StorageProviderProxy:
