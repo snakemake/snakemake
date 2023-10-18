@@ -25,7 +25,6 @@ del get_versions
 
 
 MIN_PY_VERSION = (3, 7)
-DYNAMIC_FILL = "__snakemake_dynamic__"
 UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://snakemake.readthedocs.io")
 NOTHING_TO_BE_DONE_MSG = (
     "Nothing to be done (all requested files are present and up to date)."

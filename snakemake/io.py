@@ -3,6 +3,7 @@ __copyright__ = "Copyright 2022, Johannes Köster"
 __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
+from abc import ABC, abstractmethod
 import asyncio
 import collections
 import copy
@@ -21,23 +22,19 @@ from hashlib import sha256
 from inspect import isfunction, ismethod
 from itertools import chain, product
 from pathlib import Path
-from typing import Callable, Dict, Set
+from typing import Any, Callable, Dict, Set, Union
 
+from snakemake_interface_common.utils import not_iterable
 from snakemake_interface_storage_plugins.io import (
-    AnnotatedStringStorageInterface,
-    AnnotatedString,
-    is_flagged,
-    flag,
     WILDCARD_REGEX,
     IOCacheStorageInterface,
     Mtime,
     get_constant_prefix,
 )
 
-from snakemake.common import DYNAMIC_FILL, ON_WINDOWS, async_run
+from snakemake.common import ON_WINDOWS, async_run
 from snakemake.exceptions import (
     MissingOutputException,
-    RemoteFileException,
     WildcardError,
     WorkflowError,
 )
@@ -86,6 +83,20 @@ else:
 
     def lchmod(f, mode):
         os.chmod(f, mode)
+
+
+class AnnotatedStringInterface(ABC):
+    @property
+    @abstractmethod
+    def flags(self) -> Dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def is_callable(self) -> bool:
+        ...
+
+    def is_flagged(self, flag: str) -> bool:
+        return flag in self.flags and bool(self.flags[flag])
 
 
 class ExistsDict(dict):
@@ -160,7 +171,7 @@ class IOCache(IOCacheStorageInterface):
         ]
 
         for job in jobs:
-            for f in chain(job.input, job.expanded_output):
+            for f in chain(job.input, job.output):
                 if await f.exists():
                     queue.put_nowait(f)
             if job.benchmark and await job.benchmark.exists():
@@ -211,7 +222,7 @@ def iocache(func: Callable):
     return wrapper
 
 
-class _IOFile(str, AnnotatedStringStorageInterface):
+class _IOFile(str, AnnotatedStringInterface):
     """
     A file that is either input or output of a rule.
     """
@@ -624,11 +635,10 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             logger.info("Finished upload.")
 
     def prepare(self):
-        path_until_wildcard = re.split(DYNAMIC_FILL, self.file)[0]
-        dir = os.path.dirname(path_until_wildcard)
-        if len(dir) > 0:
+        dirpath = os.path.dirname(self.file)
+        if len(dirpath) > 0:
             try:
-                os.makedirs(dir, exist_ok=True)
+                os.makedirs(dirpath, exist_ok=True)
             except OSError as e:
                 # ignore Errno 17 "File exists" (reason: multiprocessing)
                 if e.errno != 17:
@@ -697,7 +707,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             with open(file, "w") as f:
                 pass
 
-    def apply_wildcards(self, wildcards, fill_missing=False, fail_dynamic=False):
+    def apply_wildcards(self, wildcards):
         f = self._file
 
         if self._is_function:
@@ -709,13 +719,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
         file_with_wildcards_applied = None
 
         if self.is_storage:
-            query = apply_wildcards(
-                self.storage_object.query,
-                wildcards,
-                fill_missing=fill_missing,
-                fail_dynamic=fail_dynamic,
-                dynamic_fill=DYNAMIC_FILL,
-            )
+            query = apply_wildcards(self.storage_object.query, wildcards)
             storage_object = self.storage_object.__class__(
                 query=query,
                 provider=self.storage_object.provider,
@@ -737,13 +741,7 @@ class _IOFile(str, AnnotatedStringStorageInterface):
             file_with_wildcards_applied.flags["storage_object"] = storage_object
         else:
             file_with_wildcards_applied = IOFile(
-                apply_wildcards(
-                    f,
-                    wildcards,
-                    fill_missing=fill_missing,
-                    fail_dynamic=fail_dynamic,
-                    dynamic_fill=DYNAMIC_FILL,
-                ),
+                apply_wildcards(f, wildcards),
                 rule=self.rule,
             )
             file_with_wildcards_applied.clone_flags(self)
@@ -778,9 +776,6 @@ class _IOFile(str, AnnotatedStringStorageInterface):
 
     def match(self, target):
         return self.regex().match(target) or None
-
-    def format_dynamic(self):
-        return self.replace(DYNAMIC_FILL, "{*}")
 
     def clone_flags(self, other, skip_storage_object=False):
         if isinstance(self._file, str):
@@ -822,6 +817,55 @@ def pretty_print_iofile(iofile: _IOFile):
         return f"{iofile.storage_object.query} (storage)"
     else:
         return iofile._file
+
+
+class AnnotatedString(str, AnnotatedStringInterface):
+    def __init__(self, value):
+        self._flags = dict()
+        self.callable = value if is_callable(value) else None
+
+    def new_from(self, new_value):
+        new = str.__new__(self.__class__, new_value)
+        new.flags = self.flags
+        new.callable = self.callable
+        return new
+
+    def is_callable(self) -> bool:
+        return self.callable is not None
+
+    @property
+    def flags(self) -> Dict[str, Any]:
+        return self._flags
+
+    @flags.setter
+    def flags(self, value):
+        self._flags = value
+
+
+MaybeAnnotated = Union[AnnotatedStringInterface, str]
+
+
+def is_flagged(value: MaybeAnnotated, flag: str) -> bool:
+    if not isinstance(value, AnnotatedStringInterface):
+        return False
+    return value.is_flagged(flag)
+
+
+def flag(value, flag_type, flag_value=True):
+    if isinstance(value, AnnotatedString):
+        value.flags[flag_type] = flag_value
+        return value
+    if not_iterable(value):
+        value = AnnotatedString(value)
+        value.flags[flag_type] = flag_value
+        return value
+    return [flag(v, flag_type, flag_value=flag_value) for v in value]
+
+
+def is_callable(value: Any):
+    return callable(value) or (
+        isinstance(value, AnnotatedStringInterface) and value.is_callable()
+    )
 
 
 _double_slash_regex = (
@@ -946,28 +990,14 @@ def regex_from_filepattern(filepattern):
     return "".join(f)
 
 
-def apply_wildcards(
-    pattern,
-    wildcards,
-    fill_missing=False,
-    fail_dynamic=False,
-    dynamic_fill=None,
-    keep_dynamic=False,
-):
+def apply_wildcards(pattern, wildcards):
     def format_match(match):
         name = match.group("name")
         try:
             value = wildcards[name]
-            if fail_dynamic and value == dynamic_fill:
-                raise WildcardError(name)
             return str(value)  # convert anything into a str
         except KeyError as ex:
-            if keep_dynamic:
-                return f"{{{name}}}"
-            elif fill_missing:
-                return dynamic_fill
-            else:
-                raise WildcardError(str(ex))
+            raise WildcardError(str(ex))
 
     return WILDCARD_REGEX.sub(format_match, pattern)
 
@@ -1003,8 +1033,6 @@ def directory(value):
         raise SyntaxError("Pipe and directory flags are mutually exclusive.")
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and directory flags are mutually exclusive.")
-    if is_flagged(value, "dynamic"):
-        raise SyntaxError("Dynamic and directory flags are mutually exclusive.")
     return flag(value, "directory")
 
 
@@ -1049,27 +1077,6 @@ def protected(value):
     if is_flagged(value, "storage_object"):
         raise SyntaxError("Storage and protected flags are mutually exclusive.")
     return flag(value, "protected")
-
-
-def dynamic(value):
-    """
-    A flag for a file that shall be dynamic, i.e. the multiplicity
-    (and wildcard values) will be expanded after a certain
-    rule has been run"""
-    from snakemake_interface_common.utils import not_iterable
-
-    annotated = flag(value, "dynamic", True)
-    tocheck = [annotated] if not_iterable(annotated) else annotated
-    for file in tocheck:
-        matches = list(WILDCARD_REGEX.finditer(file))
-        # if len(matches) != 1:
-        #    raise SyntaxError("Dynamic files need exactly one wildcard.")
-        for match in matches:
-            if match.group("constraint"):
-                raise SyntaxError(
-                    "The wildcards in dynamic files cannot be constrained."
-                )
-    return annotated
 
 
 def touch(value):

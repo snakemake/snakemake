@@ -9,7 +9,6 @@ from pathlib import Path
 from snakemake.caching import AbstractOutputFileCache
 from snakemake.exceptions import WorkflowError
 from snakemake.jobs import Job
-from snakemake.io import get_flag_value
 from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 
 
@@ -64,9 +63,8 @@ class OutputFileCache(AbstractOutputFileCache):
                     "(maybe it was not created by the job?)."
                 )
 
-            f = self.storage_provider.object(
+            storage_object = self.storage_provider.object(
                 f"{self.cache_location}/{provenance_hash}{ext}"
             )
-            storage_object = f.flags["storage_object"]
             storage_object.set_local_path(Path(outputfile))
             yield storage_object

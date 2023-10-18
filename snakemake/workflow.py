@@ -65,7 +65,6 @@ from snakemake.io import (
     ancient,
     directory,
     expand,
-    dynamic,
     glob_wildcards,
     flag,
     touch,

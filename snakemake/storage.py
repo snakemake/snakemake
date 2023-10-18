@@ -1,17 +1,22 @@
-import copy, sys
-import subprocess
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+import copy
+from typing import Any, Optional
+from snakemake.io import flag
 from snakemake.workflow import Workflow
-from snakemake_interface_common.exceptions import WorkflowError, InvalidPluginException
+from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectWrite,
     StorageObjectRead,
 )
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
+from snakemake.io import MaybeAnnotated
 from snakemake.common import __version__
+
+
+def flag_with_storage_object(path: MaybeAnnotated, storage_object):
+    modified = flag(storage_object.local_path(), "storage_object", storage_object)
+    modified.flags.update(getattr(path, "flags", {}).copy())
+
+    return modified
 
 
 class StorageRegistry:
@@ -150,7 +155,11 @@ class StorageRegistry:
         if provider is None:
             provider = self.register_storage(provider_name)
 
-        return provider.object(query, retrieve=retrieve, keep_local=keep_local)
+        storage_object = provider.object(
+            query, retrieve=retrieve, keep_local=keep_local
+        )
+
+        return flag_with_storage_object(query, storage_object)
 
 
 class StorageProviderProxy:

@@ -98,7 +98,7 @@ def generate(dag, path: Path, deploy=["conda", "singularity"], configfiles=None)
                         open(path / rulename / content_type / ".gitempty", "w").close()
 
                 copy_files(job.input, "data")
-                copy_files(job.expanded_output, "expected")
+                copy_files(job.output, "expected")
 
                 with open(testpath, "w") as test:
                     print(

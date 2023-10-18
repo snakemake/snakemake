@@ -15,8 +15,6 @@ from functools import partial
 import inspect
 import textwrap
 
-from snakemake.common import DYNAMIC_FILL
-
 
 def get_default_exec_mode():
     from snakemake_interface_executor_plugins.settings import ExecMode
@@ -677,7 +675,7 @@ def format_dict(dict_like, omit_keys=None, omit_values=None):
 
 
 format_resources = partial(format_dict, omit_keys={"_cores", "_nodes"})
-format_wildcards = partial(format_dict, omit_values={DYNAMIC_FILL})
+format_wildcards = format_dict
 
 
 def format_resource_names(resources, omit_resources="_cores _nodes".split()):

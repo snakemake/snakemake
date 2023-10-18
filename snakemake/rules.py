@@ -41,7 +41,6 @@ from snakemake.io import (
     is_flagged,
     flag,
     is_callable,
-    DYNAMIC_FILL,
     ReportObject,
 )
 from snakemake.exceptions import (
@@ -82,8 +81,6 @@ class Rule(RuleInterface):
         self._params = Params()
         self._wildcard_constraints = dict()
         self.dependencies = dict()
-        self.dynamic_output = set()
-        self.dynamic_input = set()
         self.temp_output = set()
         self.protected_output = set()
         self.touch_output = set()
@@ -216,10 +213,6 @@ class Rule(RuleInterface):
                         "if they can be distinguished by a fixed set of extensions (i.e. mime types).",
                         rule=self,
                     )
-            if self.dynamic_output:
-                raise RuleException(
-                    "Rules with dynamic output files may not be cached.", rule=self
-                )
 
     def has_wildcards(self):
         """
@@ -330,11 +323,6 @@ class Rule(RuleInterface):
             self._set_inoutput_item(item, output=True, name=name)
 
         for item in self.output:
-            if self.dynamic_output and item not in self.dynamic_output:
-                raise SyntaxError(
-                    "A rule with dynamic output may not define any "
-                    "non-dynamic output files."
-                )
             self.register_wildcards(item.get_wildcard_names())
         # Check output file name list for duplicates
         self.check_output_duplicates()
@@ -439,7 +427,7 @@ class Rule(RuleInterface):
             item = self.apply_path_modifier(item, path_modifier, property=property)
 
             # Check to see that all flags are valid
-            # Note that "storage", "dynamic", and "expand" are valid for both inputs and outputs.
+            # Note that "storage", and "expand" are valid for both inputs and outputs.
             if isinstance(item, AnnotatedString):
                 for item_flag in item.flags:
                     if not output and item_flag in [
@@ -496,11 +484,6 @@ class Rule(RuleInterface):
             if is_flagged(item, "touch"):
                 if output:
                     self.touch_output.add(_item)
-            if is_flagged(item, "dynamic"):
-                if output:
-                    self.dynamic_output.add(_item)
-                else:
-                    self.dynamic_input.add(_item)
             if is_flagged(item, "report"):
                 report_obj = item.flags["report"]
                 if report_obj.caption is not None:
@@ -763,17 +746,9 @@ class Rule(RuleInterface):
             if is_from_callable:
                 if isinstance(f, Path):
                     f = str(f)
-                return IOFile(f, rule=self).apply_wildcards(
-                    wildcards,
-                    fill_missing=f in self.dynamic_input,
-                    fail_dynamic=self.dynamic_output,
-                )
+                return IOFile(f, rule=self).apply_wildcards(wildcards)
             else:
-                return f.apply_wildcards(
-                    wildcards,
-                    fill_missing=f in self.dynamic_input,
-                    fail_dynamic=self.dynamic_output,
-                )
+                return f.apply_wildcards(wildcards)
 
         def handle_incomplete_checkpoint(exception):
             """If checkpoint is incomplete, target it such that it is completed
@@ -900,9 +875,7 @@ class Rule(RuleInterface):
             if is_from_callable:
                 return IOFile(f, rule=self)
             else:
-                return f.apply_wildcards(
-                    wildcards, fill_missing=False, fail_dynamic=self.dynamic_output
-                )
+                return f.apply_wildcards(wildcards)
 
         log = Log()
 
@@ -1039,7 +1012,7 @@ class Rule(RuleInterface):
             item, _ = self.apply_input_function(self.group, wildcards)
             return item
         elif isinstance(self.group, str):
-            return apply_wildcards(self.group, wildcards, dynamic_fill=DYNAMIC_FILL)
+            return apply_wildcards(self.group, wildcards)
         else:
             return self.group
 
@@ -1198,8 +1171,6 @@ class Ruleorder:
         """
         Return whether rule2 has a higher priority than rule1.
         """
-        # if rules have the same name, they have been specialized by dynamic output
-        # in that case, clauses are irrelevant and have to be skipped
         if rule1.name != rule2.name:
             # try the last clause first,
             # i.e. clauses added later overwrite those before.

@@ -27,7 +27,6 @@ from snakemake_interface_executor_plugins.dag import DAGExecutorInterface
 from snakemake import workflow
 from snakemake import workflow as _workflow
 from snakemake.common import (
-    DYNAMIC_FILL,
     ON_WINDOWS,
     group_into_chunks,
     is_local_file,
@@ -538,7 +537,7 @@ class DAG(DAGExecutorInterface):
         wait_for_local=True,
     ):
         """Raise exception if output files of job are missing."""
-        expanded_output = [job.shadowed_path(path) for path in job.expanded_output]
+        expanded_output = [job.shadowed_path(path) for path in job.output]
         if job.benchmark:
             expanded_output.append(job.benchmark)
 
@@ -590,10 +589,10 @@ class DAG(DAGExecutorInterface):
 
     def unshadow_output(self, job, only_log=False):
         """Move files from shadow directory to real output paths."""
-        if not job.shadow_dir or not job.expanded_output:
+        if not job.shadow_dir or not job.output:
             return
 
-        files = job.log if only_log else chain(job.expanded_output, job.log)
+        files = job.log if only_log else chain(job.output, job.log)
 
         for real_output in files:
             shadow_output = job.shadowed_path(real_output).file
@@ -632,14 +631,14 @@ class DAG(DAGExecutorInterface):
 
     def handle_protected(self, job):
         """Write-protect output files that are marked with protected()."""
-        for f in job.expanded_output:
+        for f in job.output:
             if f in job.protected_output:
                 logger.info(f"Write-protecting output file {f}.")
                 f.protect()
 
     def handle_touch(self, job):
         """Touches those output files that are marked for touching."""
-        for f in job.expanded_output:
+        for f in job.output:
             if f in job.touch_output:
                 f = job.shadowed_path(f)
                 logger.info(f"Touching output file {f}.")
@@ -681,7 +680,7 @@ class DAG(DAGExecutorInterface):
         def unneeded_files():
             # temp input
             for job_, files in self.dependencies[job].items():
-                tempfiles = set(f for f in job_.expanded_output if is_temp(f))
+                tempfiles = set(f for f in job_.output if is_temp(f))
                 yield from filterfalse(partial(needed, job_), tempfiles & files)
 
             # temp output
@@ -690,9 +689,7 @@ class DAG(DAGExecutorInterface):
                 or job.rule.name == self.workflow.default_target
             ):
                 tempfiles = (
-                    f
-                    for f in job.expanded_output
-                    if is_temp(f) and f not in self.targetfiles
+                    f for f in job.output if is_temp(f) and f not in self.targetfiles
                 )
                 yield from filterfalse(partial(needed, job), tempfiles)
 
@@ -715,9 +712,9 @@ class DAG(DAGExecutorInterface):
         mode = self.workflow.exec_mode
         if store_in_storage and (mode == ExecMode.REMOTE or mode == ExecMode.DEFAULT):
             # handle output files
-            files = job.expanded_output
+            files = job.output
             if job.benchmark:
-                files = chain(job.expanded_output, (job.benchmark,))
+                files = chain(job.output, (job.benchmark,))
             if job.log:
                 files = chain(files, job.log)
             for f in files:
@@ -1930,8 +1927,6 @@ class DAG(DAGExecutorInterface):
 
         def format_wildcard(wildcard):
             name, value = wildcard
-            if DYNAMIC_FILL in value:
-                value = "..."
             return f"{name}: {value}"
 
         node2rule = lambda job: job.rule
@@ -2141,7 +2136,7 @@ class DAG(DAGExecutorInterface):
             yield "output_file\tdate\trule\tversion\tlog-file(s)\tstatus\tplan"
 
         for job in self.jobs:
-            output = job.expanded_output
+            output = job.output
             for f in output:
                 rule = job.rule.name
 
