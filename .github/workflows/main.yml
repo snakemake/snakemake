@@ -44,6 +44,7 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        py_ver: ["3.11", "3.12"]
     runs-on: ubuntu-latest
     needs: formatting
     services:
@@ -75,7 +76,9 @@ jobs:
         run: |
           conda config --set channel_priority strict
 
-          mamba env update -q -n snakemake --file test-environment.yml
+          mamba install python=${{ matrix.py_ver }} -y
+
+          mamba env update -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
@@ -85,12 +88,6 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
-
-          # additionally add singularity (not necessary anymore, included in the test env now)
-          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
-          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
-          # cannot open shared object file: No such file or directory
-          # mamba install -n snakemake "singularity<=3.8.6"
 
       - name: Setup apt dependencies
         run: |
