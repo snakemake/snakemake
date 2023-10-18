@@ -15,6 +15,7 @@ from collections import defaultdict
 from itertools import chain, filterfalse
 from operator import attrgetter
 from typing import Optional
+from collections.abc import AsyncGenerator
 from abc import ABC, abstractmethod
 from snakemake.settings import DeploymentMethod
 
@@ -26,6 +27,7 @@ from snakemake_interface_executor_plugins.jobs import (
 )
 
 from snakemake.io import (
+    _IOFile,
     IOFile,
     Wildcards,
     Resources,
@@ -652,7 +654,7 @@ class Job(AbstractJob, SingleJobExecutorInterface):
             if f.is_storage:
                 yield f
 
-    async def existing_output(self):
+    async def existing_output(self) -> AsyncGenerator[_IOFile, None]:
         for f in self.output:
             if await f.exists():
                 yield f
