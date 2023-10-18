@@ -1,18 +1,14 @@
-import copy, sys
-import subprocess
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+import copy
+from typing import Any, Optional
 from snakemake.io import flag
 from snakemake.workflow import Workflow
-from snakemake_interface_common.exceptions import WorkflowError, InvalidPluginException
+from snakemake_interface_common.exceptions import WorkflowError
 from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
-from snakemake_interface_storage_plugins.storage_provider import StorageProviderBase
 from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectWrite,
     StorageObjectRead,
 )
 from snakemake.io import MaybeAnnotated
-from snakemake_interface_executor_plugins.settings import DeploymentMethod
 from snakemake.common import __version__
 
 
