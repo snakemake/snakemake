@@ -77,7 +77,7 @@ jobs:
           conda config --set channel_priority strict
 
           # modify test env
-          sed -E -i 's/python.+/python =${{ matrix.py_ver }}/' test-environment.yml
+          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment.yml
 
           mamba env update -n snakemake --file test-environment.yml
 
