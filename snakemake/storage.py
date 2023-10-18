@@ -14,7 +14,7 @@ from snakemake.common import __version__
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):
     modified = flag(storage_object.local_path(), "storage_object", storage_object)
-    modified.flags = getattr(path, "flags", {}).copy()
+    modified.flags.update(getattr(path, "flags", {}).copy())
 
     return modified
 
