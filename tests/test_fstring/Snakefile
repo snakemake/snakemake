@@ -31,12 +31,11 @@ assert (
 """
 )
 
-if sys.version_info.minor > 11:
+if 1:
     assert (
         f"""
 {
   "hello, snakemake"
-  # i'm python
 }
 """
         == """
