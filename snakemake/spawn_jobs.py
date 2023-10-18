@@ -162,6 +162,7 @@ class SpawnedJobArgsFactory:
             "--nolock",
             "--ignore-incomplete",
             w2a("execution_settings.keep_incomplete"),
+            w2a("output_settings.verbose"),
             w2a("rerun_triggers"),
             w2a(
                 "execution_settings.cleanup_scripts",
