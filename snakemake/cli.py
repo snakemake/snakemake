@@ -1105,6 +1105,12 @@ def get_argument_parser(profiles=None):
         "Provenance-information based reports (e.g. --report and the "
         "--list_x_changes functions) will be empty or incomplete.",
     )
+    group_utils.add_argument(
+        "--deploy-sources",
+        metavar="QUERY",
+        help="Deploy sources from given storage provider query to the current working "
+        "directory. Meant for internal use only.",
+    )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
     group_output = parser.add_argument_group("OUTPUT")
