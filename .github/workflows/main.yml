@@ -7,12 +7,10 @@ on:
   pull_request:
     branches_ignore: []
 
-
-concurrency: 
+concurrency:
   # Cancel concurrent flows on PRs
   group: ci-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-    
 
 jobs:
   formatting:
@@ -44,6 +42,7 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        py_ver: ["3.11", "3.12"]
     runs-on: ubuntu-latest
     needs: formatting
     env:
@@ -53,18 +52,22 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-            
+
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
         with:
           environment-file: test-environment.yml
           environment-name: snakemake
-          cache-environment: true          
-    
+          cache-environment: true
+
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
+
+          mamba install python=${{ matrix.py_ver }} -y
+
+          mamba env update -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
@@ -73,7 +76,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
-          pip install .
+          pip install -e .
 
       - name: Setup apt dependencies
         run: |
@@ -104,7 +107,7 @@ jobs:
     needs: testing
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build container image
         run: docker build .
 
@@ -126,7 +129,7 @@ jobs:
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
-      
+
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -134,7 +137,7 @@ jobs:
           environment-name: snakemake
           init-shell: powershell
           cache-environment: true
-            
+
       - name: Install snakemake from source
         run: |
           # TODO remove and add as regular dependency once released
@@ -144,7 +147,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
-          
+
           pip install .
 
       - name: Run tests
