@@ -1171,22 +1171,22 @@ class Ruleorder:
         """
         Return whether rule2 has a higher priority than rule1.
         """
-        assert rule1.name != rule2.name
-        # try the last clause first,
-        # i.e. clauses added later overwrite those before.
-        for clause in reversed(self.order):
-            try:
-                i = clause.index(rule1.name)
-                j = clause.index(rule2.name)
-                # rules with higher priority should have a smaller index
-                comp = j - i
-                if comp < 0:
-                    comp = -1
-                elif comp > 0:
-                    comp = 1
-                return comp
-            except ValueError:
-                pass
+        if rule1.name != rule2.name:
+            # try the last clause first,
+            # i.e. clauses added later overwrite those before.
+            for clause in reversed(self.order):
+                try:
+                    i = clause.index(rule1.name)
+                    j = clause.index(rule2.name)
+                    # rules with higher priority should have a smaller index
+                    comp = j - i
+                    if comp < 0:
+                        comp = -1
+                    elif comp > 0:
+                        comp = 1
+                    return comp
+                except ValueError:
+                    pass
 
         # if no ruleorder given, prefer rule without wildcards
         wildcard_cmp = rule2.has_wildcards() - rule1.has_wildcards()
