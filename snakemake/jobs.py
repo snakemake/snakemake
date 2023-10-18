@@ -890,10 +890,10 @@ class Job(AbstractJob, SingleJobExecutorInterface):
         return self.rule.name
 
     def __lt__(self, other):
-        return self.rule.__lt__(other.rule)
+        return self.rule.name.__lt__(other.rule.name)
 
     def __gt__(self, other):
-        return self.rule.__gt__(other.rule)
+        return self.rule.name.__gt__(other.rule.name)
 
     def is_group(self):
         return False
