@@ -1273,7 +1273,10 @@ if sys.version_info.minor > 11:
                 yield s_
                 s_ = s
             elif isin_fstring:
-                isin_fstring = not s == t.string
+                if s != t.string:
+                    # print(f"{s}|", t.string, "<fake fstring space>")
+                    continue
+                isin_fstring = False
                 # print(f"{s}|", t.string, "<right fstring middle>")
                 s_ += s
             elif t.type == tokenize.FSTRING_END:  # type: ignore [attr-defined]
