@@ -14,10 +14,22 @@ assert (
     f"""
 {
   "hello, snakemake"
-  # i'm python
 }
 """
     == """
 hello, snakemake
 """
 )
+
+if sys.version_info.minor > 11:
+    assert (
+        f"""
+{
+  "hello, snakemake"
+  # i'm python
+}
+"""
+        == """
+hello, snakemake
+"""
+    )
