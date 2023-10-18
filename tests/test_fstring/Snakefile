@@ -20,6 +20,16 @@ assert (
 hello, snakemake
 """
 )
+assert (
+    f"""
+    {
+  "hello, snakemake"
+}
+"""
+    == """
+    hello, snakemake
+"""
+)
 
 if sys.version_info.minor > 11:
     assert (
