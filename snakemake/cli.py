@@ -1785,6 +1785,22 @@ def args_to_api(args, parser):
             deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
+            storage_settings = StorageSettings(
+                default_storage_provider=args.default_storage_provider,
+                default_storage_prefix=args.default_storage_prefix,
+                assume_shared_fs=not args.no_shared_fs,
+                keep_storage_local=args.keep_storage_local_copies,
+                notemp=args.notemp,
+                all_temp=args.all_temp,
+            )
+
+            if args.deploy_sources:
+                snakemake_api.deploy_sources(
+                    args.deploy_sources,
+                    storage_settings=storage_settings,
+                    storage_provider_settings=storage_provider_settings,
+                )
+
             workflow_api = snakemake_api.workflow(
                 resource_settings=ResourceSettings(
                     cores=args.cores,
@@ -1802,14 +1818,7 @@ def args_to_api(args, parser):
                     config=args.config,
                     configfiles=args.configfile,
                 ),
-                storage_settings=StorageSettings(
-                    default_storage_provider=args.default_storage_provider,
-                    default_storage_prefix=args.default_storage_prefix,
-                    assume_shared_fs=not args.no_shared_fs,
-                    keep_storage_local=args.keep_storage_local_copies,
-                    notemp=args.notemp,
-                    all_temp=args.all_temp,
-                ),
+                storage_settings=storage_settings,
                 storage_provider_settings=storage_provider_settings,
                 workflow_settings=WorkflowSettings(
                     wrapper_prefix=args.wrapper_prefix,
