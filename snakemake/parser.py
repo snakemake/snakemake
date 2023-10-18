@@ -1255,7 +1255,7 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-if sys.version_info.minor > 11:
+if sys.version_info > (3, 11):
 
     def format_f_tokens(
         tokens: list[tuple[str, tokenize.TokenInfo]]
