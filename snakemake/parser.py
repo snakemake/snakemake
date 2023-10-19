@@ -1255,7 +1255,7 @@ def format_tokens(tokens) -> Generator[str, None, None]:
         t_ = t
 
 
-if sys.version_info > (3, 11):
+if sys.version_info >= (3, 12):
 
     def format_f_tokens(
         tokens: list[tuple[str, tokenize.TokenInfo]]
@@ -1266,7 +1266,7 @@ if sys.version_info > (3, 11):
             if t.type == tokenize.FSTRING_MIDDLE:  # type: ignore [attr-defined]
                 # print(f"{s}|", t.string, "<left fstring middle>")
                 isin_fstring = True
-                s_ += s
+                s_ += s.replace("{", "{{").replace("}", "}}")
             elif t.type == tokenize.FSTRING_START and s == t.string:  # type: ignore [attr-defined]
                 # print(f"{s}|", t.string, "<fstring start>")
                 isin_fstring = True
