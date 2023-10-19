@@ -34,8 +34,6 @@ dependencies:
   - oauth2client
   - configargparse
   - appdirs
-  - cwltool
-  - cwl-utils
   - jsonschema
   - pandas
   - gitpython
@@ -45,6 +43,9 @@ dependencies:
   - toposort >=1.10
   - crc32c
   - pip
+  - pip:
+    - cwltool
+    - cwl-utils
   - requests-mock
   - peppy
   - eido
@@ -56,7 +57,7 @@ dependencies:
   - graphviz
   - humanfriendly
   - throttler
-  - nodejs  # for cwltool
+  - nodejs # for cwltool
   - apptainer
   - squashfuse # for apptainer
   - immutables
