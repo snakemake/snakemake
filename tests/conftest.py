@@ -28,7 +28,10 @@ if ON_WINDOWS and bash_cmd:
 
     @pytest.fixture(autouse=True)
     def prepend_usable_bash_to_path(monkeypatch):
-        monkeypatch.setenv("PATH", os.path.dirname(bash_cmd), prepend=os.pathsep)
+        # New Git for windows have split bash tools into two directories
+        dir1 = os.path.dirname(bash_cmd)
+        dir2 = os.path.dirname(dir1) + "\\usr\\bin"
+        monkeypatch.setenv("PATH", dir1 + os.pathsep + dir2, prepend=os.pathsep)
 
     @pytest.fixture(autouse=True)
     def reset_shell_exec_on_windows(prepend_usable_bash_to_path):
