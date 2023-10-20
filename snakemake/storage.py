@@ -1,3 +1,4 @@
+import os
 import copy
 from typing import Any, Optional
 from snakemake.io import flag
@@ -9,7 +10,7 @@ from snakemake_interface_storage_plugins.storage_object import (
     StorageObjectRead,
 )
 from snakemake.io import MaybeAnnotated
-from snakemake.common import __version__
+from snakemake.common import __version__, ON_WINDOWS
 
 
 def flag_with_storage_object(path: MaybeAnnotated, storage_object):
@@ -173,6 +174,9 @@ class StorageProviderProxy:
         retrieve: bool = True,
         keep_local: bool = False,
     ):
-        return self.registry._storage_object(
+        astr = self.registry._storage_object(
             query, provider=self.name, retrieve=retrieve, keep_local=keep_local
         )
+        if ON_WINDOWS:
+            astr = astr.new_from(astr.replace(os.sep, os.altsep))
+        return astr
