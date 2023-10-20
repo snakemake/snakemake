@@ -109,7 +109,7 @@ jobs:
           # long tests
           pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/tests.py
           # other tests
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py tests/test_api.py
 
   build-container-image:
     runs-on: ubuntu-latest

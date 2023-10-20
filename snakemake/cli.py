@@ -1107,9 +1107,11 @@ def get_argument_parser(profiles=None):
     )
     group_utils.add_argument(
         "--deploy-sources",
-        metavar="QUERY",
-        help="Deploy sources from given storage provider query to the current working "
-        "directory. Meant for internal use only.",
+        nargs="2",
+        metavar=("QUERY", "CHECKSUM"),
+        help="Deploy sources archive from given storage provider query to the current "
+        "working sdirectory and control for archive checksum to proceed. Meant for "
+        "internal use only.",
     )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
@@ -1801,8 +1803,10 @@ def args_to_api(args, parser):
             )
 
             if args.deploy_sources:
+                query, checksum = args.deploy_sources
                 snakemake_api.deploy_sources(
-                    args.deploy_sources,
+                    query,
+                    checksum,
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,
                 )

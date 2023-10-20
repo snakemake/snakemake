@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 import sys
 from typing import Dict, List, Mapping, Optional, Set
@@ -165,6 +166,7 @@ class SnakemakeApi(ApiBase):
     def deploy_sources(
         self,
         query: str,
+        checksum: str,
         storage_settings: StorageSettings,
         storage_provider_settings: Dict[str, TaggedSettings],
     ):
@@ -180,6 +182,14 @@ class SnakemakeApi(ApiBase):
         )
         storage_object = provider_instance.object(query)
         async_run(storage_object.managed_retrieve())
+        obtained_checksum = hashlib.file_digest(
+            storage_object.local_path(), "sha256"
+        ).hexdigest()
+        if obtained_checksum != checksum:
+            raise ApiError(
+                f"Checksum of retrieved sources ({obtained_checksum}) does not match "
+                f"expected checksum ({checksum})."
+            )
         with tarfile.open(storage_object.local_path(), "r") as tar:
             tar.extractall()
 

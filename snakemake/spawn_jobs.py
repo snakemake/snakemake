@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields
+import hashlib
 import os
 import sys
 from typing import Mapping, TypeVar, TYPE_CHECKING, Any
@@ -125,8 +126,14 @@ class SpawnedJobArgsFactory:
         envvars.update(self.get_storage_provider_envvars())
         return envvars
 
-    def precommand(self, auto_deploy_default_storage_provider: bool) -> str:
-        precommand = self.workflow.remote_execution_settings.precommand or ""
+    def precommand(
+        self,
+        auto_deploy_default_storage_provider: bool = False,
+        python_executable: str = "python",
+    ) -> str:
+        precommand = []
+        if self.workflow.remote_execution_settings.precommand:
+            precommand.append(self.workflow.remote_execution_settings.precommand)
         if (
             auto_deploy_default_storage_provider
             and self.workflow.storage_settings.default_storage_provider is not None
@@ -134,10 +141,15 @@ class SpawnedJobArgsFactory:
             package_name = StoragePluginRegistry().get_plugin_package_name(
                 self.workflow.storage_settings.default_storage_provider
             )
-            if precommand:
-                precommand += " && "
-            precommand += f"pip install {package_name}"
-        return precommand
+            precommand.append(f"pip install {package_name}")
+
+        if not self.workflow.storage_settings.assume_shared_fs:
+            archive = self.workflow.source_archive
+            precommand.append(
+                f"{python_executable} -m snakemake --deploy-sources {archive.query} {archive.checksum}"
+            )
+
+        return " && ".join(precommand)
 
     def general_args(
         self,
