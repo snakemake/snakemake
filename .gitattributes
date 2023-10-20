@@ -1,3 +1,5 @@
+* text=auto eol=lf
+
 snakemake/_version.py export-subst
 snakemake/report/report.html linguist-vendored=true
 snakemake/gui.html linguist-vendored=true
