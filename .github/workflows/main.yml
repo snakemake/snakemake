@@ -97,10 +97,14 @@ jobs:
           #PYTHONTRACEMALLOC: 10
         shell: bash -el {0}
         run: |
-          # long tests
-          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration -v -x tests/tests.py
-          # other tests
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+          pytest -v -x --show-capture=stderr \
+            --splits 10 --group ${{ matrix.test_group }} --splitting-algorithm=least_duration \
+            tests/tests.py \
+            tests/test_expand.py \
+            tests/test_io.py \
+            tests/test_schema.py \
+            tests/test_linting.py \
+            tests/test_executor_test_suite.py
 
   build-container-image:
     runs-on: ubuntu-latest
