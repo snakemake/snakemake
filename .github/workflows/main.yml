@@ -82,7 +82,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-interface-storage-plugins.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
-          pip install -e .
+          pip install .
 
       - name: Setup apt dependencies
         run: |
@@ -149,7 +149,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           
-          pip install -e .
+          pip install .
 
       - name: Run tests
         env:
