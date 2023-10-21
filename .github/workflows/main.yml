@@ -6,16 +6,15 @@ on:
       - main
   pull_request:
     branches_ignore: []
+
+
+concurrency: 
+  # Cancel concurrent flows on PRs
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+    
+
 jobs:
-  cancel-previous:
-    runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
-    steps:
-      - uses: khan/pull-request-workflow-cancel@1.0.1
-        with:
-          workflows: main.yml
-        env:
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
   formatting:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -58,25 +57,20 @@ jobs:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
+      - name: Setup snakemke environment
+        uses: mamba-org/setup-micromamba@v1
         with:
-          fetch-depth: 0
-
-      - name: Setup mamba
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
+          environment-file: test-environment.yml
+          environment-name: snakemake
+          init-shell: bash
+          cache-environment: true
+              
 
       - name: Setup Snakemake environment
         shell: bash -el {0}
         run: |
-          conda config --set channel_priority strict
-
-          mamba env update -q -n snakemake --file test-environment.yml
-
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
@@ -115,9 +109,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: testing
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+      
       - name: Build container image
         run: docker build .
 
