@@ -132,18 +132,17 @@ jobs:
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line)
-      - name: Setup miniconda
-        uses: conda-incubator/setup-miniconda@v2
+      
+      - name: Setup snakemke environment
+        uses: mamba-org/setup-micromamba@v1
         with:
-          activate-environment: snakemake
-          channels: "conda-forge, bioconda"
-          miniforge-variant: Mambaforge
-          miniforge-version: latest
-      - name: Setup Snakemake environment
+          environment-file: test-environment.yml
+          environment-name: snakemake
+          init-shell: powershell
+          cache-environment: true
+            
+      - name: Install snakemake from source
         run: |
-          conda config --set channel_priority strict
-          mamba env update -q --file test-environment.yml
-
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
@@ -153,6 +152,7 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           
           pip install -e .
+
       - name: Run tests
         env:
           CI: true
