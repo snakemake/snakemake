@@ -64,10 +64,14 @@ jobs:
         with:
           environment-file: test-environment.yml
           environment-name: snakemake
-          init-shell: bash
           cache-environment: true
-              
-
+          condarc: |
+            channels:
+              - conda-forge
+              - bioconda
+            strict_channel_priority: true
+          
+    
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
