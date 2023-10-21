@@ -25,6 +25,7 @@ from snakemake.io import (
     _IOFile,
     Namedlist,
     AnnotatedString,
+    ensure_forward_slash_on_win,
     contains_wildcard_constraints,
     update_wildcard_constraints,
     flag,
@@ -353,6 +354,13 @@ class Rule(RuleInterface):
         assert path_modifier is not None
         apply = partial(path_modifier.modify, property=property)
 
+        if ON_WINDOWS:
+
+            def compose(f, g):
+                return lambda x: f(g(x))
+
+            apply = compose(ensure_forward_slash_on_win, apply)
+
         assert not callable(item)
         if isinstance(item, dict):
             return {k: apply(v) for k, v in item.items()}
@@ -408,10 +416,7 @@ class Rule(RuleInterface):
             item = str(item)
         if isinstance(item, str):
             if ON_WINDOWS:
-                if isinstance(item, (_IOFile, AnnotatedString)):
-                    item = item.new_from(item.replace(os.sep, os.altsep))
-                else:
-                    item = item.replace(os.sep, os.altsep)
+                item = ensure_forward_slash_on_win(item)
 
             rule_dependency = None
             if isinstance(item, _IOFile) and item.rule and item in item.rule.output:

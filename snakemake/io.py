@@ -1623,3 +1623,13 @@ class PeriodicityDetector:
         m = self.regex.search(value)  # search for a periodic suffix.
         if m is not None:
             return m.group("value")
+
+
+def ensure_forward_slash_on_win(item):
+    if not ON_WINDOWS:
+        return item
+    if isinstance(item, AnnotatedStringInterface):
+        item = item.new_from(item.replace(os.sep, os.altsep))
+    elif isinstance(item, str):
+        item = item.replace(os.sep, os.altsep)
+    return item
