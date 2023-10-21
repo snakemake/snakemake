@@ -107,9 +107,47 @@ jobs:
         shell: bash -el {0}
         run: |
           # long tests
-          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x tests/tests.py
+          pytest --show-capture=stderr --splits 10 --group ${{ matrix.test_group }} -v -x  --store-durations --clean-durations \ 
+             tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+
           # other tests
-          pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+          #pytest --show-capture=stderr -v -x tests/test_expand.py tests/test_io.py tests/test_schema.py tests/test_linting.py tests/test_executor_test_suite.py
+
+      - name: Upload partial durations
+        uses: actions/upload-artifact@v3
+        with:
+          name: split-${{ matrix.test_group }}
+          path: | 
+            .test_durations
+          retention-days: 1
+
+
+  combine-and-upload-timings:
+    runs-on: ubuntu-latest
+    needs: testing
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Combine test-durations
+        run: |
+          import json, pathlib
+          files = pathlib.Path.cwd().glob("split-*/.test_durations")
+          out = {}
+          for file in files:
+              out.update(json.loads(file.read_text()))
+          out = {k: v for k, v in sorted(out.items(), key=lambda item: item[1], reverse=True)}
+          pathlib.Path('.test_durations').write_text(json.dumps(out, indent=2))    
+        shell: python
+
+      - name: Upload full durations file
+        uses: actions/upload-artifact@v3
+        with:
+          name: .test_durations
+          path: .test_durations
+          retention-days: 1
+        
 
   build-container-image:
     runs-on: ubuntu-latest
