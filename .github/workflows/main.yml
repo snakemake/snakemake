@@ -68,7 +68,7 @@ jobs:
           cache-environment: true
               
 
-      - name: Setup Snakemake environment
+      - name: Install snakemake from source
         shell: bash -el {0}
         run: |
           # TODO remove and add as regular dependency once released
@@ -79,12 +79,6 @@ jobs:
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-http.git
           pip install git+https://github.com/snakemake/snakemake-storage-plugin-s3.git
           pip install -e .
-
-          # additionally add singularity (not necessary anymore, included in the test env now)
-          # TODO remove version constraint: needed because 3.8.7 fails with missing libz:
-          # bin/unsquashfs: error while loading shared libraries: libz.so.1:
-          # cannot open shared object file: No such file or directory
-          # mamba install -n snakemake "singularity<=3.8.6"
 
       - name: Setup apt dependencies
         run: |
