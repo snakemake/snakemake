@@ -57,8 +57,10 @@ jobs:
       AWS_AVAILABLE: "${{ secrets.AWS_ACCESS_KEY_ID }}"
       GCP_AVAILABLE: "${{ secrets.GCP_SA_KEY }}"
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+            
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
         with:
