@@ -72,6 +72,8 @@ jobs:
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
+          conda config --set channel_priority strict
+
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
           pip install git+https://github.com/snakemake/snakemake-interface-executor-plugins.git
