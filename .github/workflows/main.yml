@@ -21,17 +21,18 @@ jobs:
       pull-requests: write # for marocchino/sticky-pull-request-comment to create or update PR comment
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup black environment
-        run: |
-          conda create -c conda-forge -y -q --name black black
+      - uses: actions/checkout@v4
+
+      - uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-name: black
+          create-args: black
+          cache-environment: true
+
       - name: Check formatting
-        run: >
-          export PATH="/usr/share/miniconda/bin:$PATH"
+        shell: bash -el {0}
+        run: black --check --diff .
 
-          source activate black
-
-          black --check --diff .
       - name: Comment PR
         if: github.event_name == 'pull_request' && failure()
         uses: marocchino/sticky-pull-request-comment@v2.8.0
@@ -66,13 +67,7 @@ jobs:
         with:
           environment-file: test-environment.yml
           environment-name: snakemake
-          cache-environment: true
-          condarc: |
-            channels:
-              - conda-forge
-              - bioconda
-            strict_channel_priority: true
-          
+          cache-environment: true          
     
       - name: Install snakemake from source
         shell: bash -el {0}
