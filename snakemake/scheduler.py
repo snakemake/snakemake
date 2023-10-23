@@ -5,6 +5,7 @@ __license__ = "MIT"
 
 import asyncio
 from collections import defaultdict
+import math
 import os, signal, sys
 import threading
 
@@ -571,7 +572,9 @@ class JobScheduler(JobSchedulerExecutorInterface):
             return self.job_selector_greedy(jobs)
 
         selected_jobs = set(
-            job for job, variable in scheduled_jobs.items() if variable.value() == 1.0
+            job
+            for job, variable in scheduled_jobs.items()
+            if math.isclose(variable.value(), 1.0)
         )
 
         if not selected_jobs:
