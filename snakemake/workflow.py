@@ -1064,7 +1064,7 @@ class Workflow(WorkflowExecutorInterface):
                 async_run(self.dag.retrieve_storage_inputs())
 
             if (
-                self.storage_settings.assume_shared_fs
+                not self.storage_settings.assume_shared_fs
                 and self.exec_mode == ExecMode.DEFAULT
             ):
                 # no shared FS, hence we have to upload the sources to the storage
