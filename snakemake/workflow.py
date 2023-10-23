@@ -4,16 +4,19 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from dataclasses import dataclass, field
+import hashlib
 import re
 import os
 import subprocess
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from itertools import filterfalse, chain
 from functools import partial
 import copy
 from pathlib import Path
+import tarfile
+import tempfile
 from typing import Dict, List, Optional, Set
 from snakemake.common.workdir_handler import WorkdirHandler
 from snakemake.settings import (
@@ -117,6 +120,9 @@ from snakemake.deployment.conda import Conda
 from snakemake import api, sourcecache
 
 
+SourceArchiveInfo = namedtuple("SourceArchiveInfo", ("query", "checksum"))
+
+
 @dataclass
 class Workflow(WorkflowExecutorInterface):
     config_settings: ConfigSettings
@@ -179,6 +185,7 @@ class Workflow(WorkflowExecutorInterface):
         self._spawned_job_general_args = None
         self._executor_plugin = None
         self._storage_registry = StorageRegistry(self)
+        self._source_archive = None
 
         _globals = globals()
         from snakemake.shell import shell
@@ -203,6 +210,61 @@ class Workflow(WorkflowExecutorInterface):
     @property
     def storage_registry(self):
         return self._storage_registry
+
+    @property
+    def source_archive(self):
+        assert self._source_archive is not None, (
+            "bug: source archive info accessed but source archive has not been "
+            "uploaded to default storage provider before"
+        )
+        return self._source_archive
+
+    def upload_sources(self):
+        with tempfile.NamedTemporaryFile(suffix="snakemake-sources.tar.xz") as f:
+            self.write_source_archive(Path(f.name))
+            f.flush()
+            with open(f.name, "rb") as f:
+                checksum = hashlib.file_digest(f, "sha256").hexdigest()
+
+            prefix = self.storage_settings.default_storage_prefix
+            query = f"{prefix}/snakemake-workflow-sources.{checksum}.tar.xz"
+
+            self._source_archive = SourceArchiveInfo(query, checksum)
+
+            obj = self.storage_registry.default_storage_provider.object(query)
+            obj.set_local_path(Path(f.name))
+            logger.info("Uploading source archive to storage provider...")
+            async_run(obj.managed_store())
+
+    def write_source_archive(self, path: Path):
+        def get_files():
+            for f in self.dag.get_sources():
+                if f.startswith(".."):
+                    logger.warning(
+                        "Ignoring source file {}. Only files relative "
+                        "to the working directory are allowed.".format(f)
+                    )
+                    continue
+
+                # The kubernetes API can't create secret files larger than 1MB.
+                source_file_size = os.path.getsize(f)
+                max_file_size = 10000000
+                if source_file_size > max_file_size:
+                    logger.warning(
+                        "Skipping the source file for upload {f}. Its size "
+                        "{source_file_size} exceeds "
+                        "the maximum file size (10MB). Consider to provide the file as "
+                        "input file instead.".format(
+                            f=f, source_file_size=source_file_size
+                        )
+                    )
+                    continue
+                yield f
+
+        assert path.suffixes == [".tar", ".xz"]
+        with tarfile.open(path, "w:xz") as archive:
+            for f in get_files():
+                archive.add(f)
 
     @property
     def enable_cache(self):
@@ -1000,6 +1062,13 @@ class Workflow(WorkflowExecutorInterface):
                 if DeploymentMethod.CONDA in self.deployment_settings.deployment_method:
                     self.dag.create_conda_envs()
                 async_run(self.dag.retrieve_storage_inputs())
+
+            if (
+                self.storage_settings.assume_shared_fs
+                and self.exec_mode == ExecMode.DEFAULT
+            ):
+                # no shared FS, hence we have to upload the sources to the storage
+                self.upload_sources()
 
             self.scheduler = JobScheduler(self, executor_plugin)
 

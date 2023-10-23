@@ -1105,6 +1105,14 @@ def get_argument_parser(profiles=None):
         "Provenance-information based reports (e.g. --report and the "
         "--list_x_changes functions) will be empty or incomplete.",
     )
+    group_utils.add_argument(
+        "--deploy-sources",
+        nargs="2",
+        metavar=("QUERY", "CHECKSUM"),
+        help="Deploy sources archive from given storage provider query to the current "
+        "working sdirectory and control for archive checksum to proceed. Meant for "
+        "internal use only.",
+    )
     group_utils.add_argument("--version", "-v", action="version", version=__version__)
 
     group_output = parser.add_argument_group("OUTPUT")
@@ -1785,6 +1793,24 @@ def args_to_api(args, parser):
             deployment_method.add(DeploymentMethod.ENV_MODULES)
 
         try:
+            storage_settings = StorageSettings(
+                default_storage_provider=args.default_storage_provider,
+                default_storage_prefix=args.default_storage_prefix,
+                assume_shared_fs=not args.no_shared_fs,
+                keep_storage_local=args.keep_storage_local_copies,
+                notemp=args.notemp,
+                all_temp=args.all_temp,
+            )
+
+            if args.deploy_sources:
+                query, checksum = args.deploy_sources
+                snakemake_api.deploy_sources(
+                    query,
+                    checksum,
+                    storage_settings=storage_settings,
+                    storage_provider_settings=storage_provider_settings,
+                )
+
             workflow_api = snakemake_api.workflow(
                 resource_settings=ResourceSettings(
                     cores=args.cores,
@@ -1802,14 +1828,7 @@ def args_to_api(args, parser):
                     config=args.config,
                     configfiles=args.configfile,
                 ),
-                storage_settings=StorageSettings(
-                    default_storage_provider=args.default_storage_provider,
-                    default_storage_prefix=args.default_storage_prefix,
-                    assume_shared_fs=not args.no_shared_fs,
-                    keep_storage_local=args.keep_storage_local_copies,
-                    notemp=args.notemp,
-                    all_temp=args.all_temp,
-                ),
+                storage_settings=storage_settings,
                 storage_provider_settings=storage_provider_settings,
                 workflow_settings=WorkflowSettings(
                     wrapper_prefix=args.wrapper_prefix,
