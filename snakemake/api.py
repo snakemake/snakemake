@@ -426,6 +426,15 @@ class DAGApi(ApiBase):
         if executor_plugin.common_settings.implies_no_shared_fs:
             self.workflow_api.storage_settings.assume_shared_fs = False
 
+        if (
+            self.workflow_api.storage_settings.assume_shared_fs
+            and not self.workflow_api.storage_settings.default_storage_provider
+        ):
+            raise ApiError(
+                "If no shared filesystem is assumed, a default storage provider "
+                "has to be set."
+            )
+
         self.snakemake_api._setup_logger(
             stdout=executor_plugin.common_settings.dryrun_exec,
             mode=execution_settings.mode,
