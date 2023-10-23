@@ -26,11 +26,19 @@ def test_deploy_sources(s3_storage):
                 cores=1,
             ),
             storage_provider_settings=s3_settings,
-            snakefile=dpath("test01/Snakefile"),
+            snakefile=Path(dpath("test01/Snakefile")),
         )
+        dag_api = workflow_api.dag()
 
-        workflow = workflow_api._get_workflow(check_envvars=False)
-        workflow._prepare_dag()
+        workflow = dag_api.workflow_api._workflow
+        # add dummy remote execution settings as we do not actually execute here
+        # (in reality they are present)
+        workflow.remote_execution_settings = settings.RemoteExecutionSettings()
+        workflow._prepare_dag(
+            forceall=False,
+            ignore_incomplete=False,
+            lock_warn_only=False,
+        )
         workflow._build_dag()
         workflow.upload_sources()
 

@@ -232,15 +232,15 @@ class Workflow(WorkflowExecutorInterface):
             self._source_archive = SourceArchiveInfo(query, checksum)
 
             obj = self.storage_registry.default_storage_provider.object(query)
-            obj.set_local_path(f.name)
-            self.logger.info("Uploading source archive to storage provider...")
+            obj.set_local_path(Path(f.name))
+            logger.info("Uploading source archive to storage provider...")
             async_run(obj.managed_store())
 
     def write_source_archive(self, path: Path):
         def get_files():
-            for f in enumerate(self.dag.get_sources()):
+            for f in self.dag.get_sources():
                 if f.startswith(".."):
-                    self.logger.warning(
+                    logger.warning(
                         "Ignoring source file {}. Only files relative "
                         "to the working directory are allowed.".format(f)
                     )
@@ -250,7 +250,7 @@ class Workflow(WorkflowExecutorInterface):
                 source_file_size = os.path.getsize(f)
                 max_file_size = 10000000
                 if source_file_size > max_file_size:
-                    self.logger.warning(
+                    logger.warning(
                         "Skipping the source file for upload {f}. Its size "
                         "{source_file_size} exceeds "
                         "the maximum file size (10MB). Consider to provide the file as "
@@ -261,7 +261,7 @@ class Workflow(WorkflowExecutorInterface):
                     continue
                 yield f
 
-        assert path.suffix == "tar.xz"
+        assert path.suffixes == [".tar", ".xz"]
         with tarfile.open(path, "w:xz") as archive:
             for f in get_files():
                 archive.add(f)
