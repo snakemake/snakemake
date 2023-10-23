@@ -76,3 +76,4 @@ dependencies:
   - apptainer
   - squashfuse # for apptainer
   - immutables
+  - conda
