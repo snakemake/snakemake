@@ -5,14 +5,16 @@ __license__ = "MIT"
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 import sys
 from typing import Dict, List, Mapping, Optional, Set
 import os
 from functools import partial
 import importlib
+import tarfile
 
-from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES
+from snakemake.common import MIN_PY_VERSION, SNAKEFILE_CHOICES, async_run
 from snakemake.settings import (
     ChangeType,
     GroupSettings,
@@ -39,6 +41,7 @@ from snakemake.settings import (
 from snakemake_interface_executor_plugins.settings import ExecMode, ExecutorSettingsBase
 from snakemake_interface_executor_plugins.registry import ExecutorPluginRegistry
 from snakemake_interface_common.exceptions import ApiError
+from snakemake_interface_storage_plugins.registry import StoragePluginRegistry
 from snakemake_interface_common.plugin_registry.plugin import TaggedSettings
 
 from snakemake.workflow import Workflow
@@ -159,6 +162,36 @@ class SnakemakeApi(ApiBase):
                     conda_env.remove()
                 if self._workflow_api._workflow._workdir_handler is not None:
                     self._workflow_api._workflow._workdir_handler.change_back()
+
+    def deploy_sources(
+        self,
+        query: str,
+        checksum: str,
+        storage_settings: StorageSettings,
+        storage_provider_settings: Dict[str, TaggedSettings],
+    ):
+        plugin = StoragePluginRegistry().get_plugin(
+            storage_settings.default_storage_provider
+        )
+        provider_instance = plugin.storage_provider(
+            local_prefix=self.workflow.storage_settings.local_storage_prefix,
+            settings=storage_provider_settings.get(
+                storage_settings.default_storage_provider
+            ).get_settings(None),
+            is_default=True,
+        )
+        storage_object = provider_instance.object(query)
+        async_run(storage_object.managed_retrieve())
+        obtained_checksum = hashlib.file_digest(
+            storage_object.local_path(), "sha256"
+        ).hexdigest()
+        if obtained_checksum != checksum:
+            raise ApiError(
+                f"Checksum of retrieved sources ({obtained_checksum}) does not match "
+                f"expected checksum ({checksum})."
+            )
+        with tarfile.open(storage_object.local_path(), "r") as tar:
+            tar.extractall()
 
     def print_exception(self, ex: Exception):
         """Print an exception during workflow execution in a human readable way
