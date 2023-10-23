@@ -427,7 +427,7 @@ class DAGApi(ApiBase):
             self.workflow_api.storage_settings.assume_shared_fs = False
 
         if (
-            execution_settings.mode == ExecMode.Default
+            execution_settings.mode == ExecMode.DEFAULT
             and self.workflow_api.storage_settings.assume_shared_fs
             and not self.workflow_api.storage_settings.default_storage_provider
         ):
