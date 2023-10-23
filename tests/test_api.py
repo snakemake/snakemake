@@ -22,6 +22,9 @@ def test_deploy_sources(s3_storage):
                 default_storage_prefix=s3_prefix,
                 default_storage_provider="s3",
             ),
+            resource_settings=settings.ResourceSettings(
+                cores=1,
+            ),
             storage_provider_settings=s3_settings,
             snakefile=dpath("test01/Snakefile"),
         )
