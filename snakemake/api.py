@@ -170,6 +170,13 @@ class SnakemakeApi(ApiBase):
         storage_settings: StorageSettings,
         storage_provider_settings: Dict[str, TaggedSettings],
     ):
+        if (
+            storage_settings.default_storage_provider is None
+            or storage_settings.default_storage_prefix is None
+        ):
+            raise ApiError(
+                "A default storage provider and prefix has to be set for deployment of sources."
+            )
         plugin = StoragePluginRegistry().get_plugin(
             storage_settings.default_storage_provider
         )

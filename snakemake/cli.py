@@ -1107,7 +1107,7 @@ def get_argument_parser(profiles=None):
     )
     group_utils.add_argument(
         "--deploy-sources",
-        nargs="2",
+        nargs=2,
         metavar=("QUERY", "CHECKSUM"),
         help="Deploy sources archive from given storage provider query to the current "
         "working sdirectory and control for archive checksum to proceed. Meant for "
