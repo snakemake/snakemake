@@ -181,7 +181,7 @@ class SnakemakeApi(ApiBase):
             storage_settings.default_storage_provider
         )
         provider_instance = plugin.storage_provider(
-            local_prefix=self.workflow.storage_settings.local_storage_prefix,
+            local_prefix=storage_settings.local_storage_prefix,
             settings=storage_provider_settings.get(
                 storage_settings.default_storage_provider
             ).get_settings(None),
