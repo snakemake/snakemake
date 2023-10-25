@@ -435,7 +435,8 @@ class DAGApi(ApiBase):
         executor_plugin_registry = _get_executor_plugin_registry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
 
-        executor_plugin.validate_settings(executor_settings)
+        if executor_settings is not None:
+            executor_plugin.validate_settings(executor_settings)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
             self.workflow_api.storage_settings.assume_shared_fs = False
