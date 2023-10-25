@@ -74,6 +74,8 @@ class StorageRegistry:
         final_settings = copy.copy(final_settings)
         final_settings.__dict__.update(**settings)
 
+        plugin.validate_settings(final_settings)
+
         name = tag if tag else plugin.name
 
         local_prefix = self.workflow.storage_settings.local_storage_prefix / name

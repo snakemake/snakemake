@@ -65,7 +65,7 @@ class ApiBase(ABC):
         pass
 
 
-def resolve_snakefile(path: Optional[Path]):
+def resolve_snakefile(path: Optional[Path], allow_missing: bool = False):
     """Get path to the snakefile.
 
     Arguments
@@ -76,9 +76,10 @@ def resolve_snakefile(path: Optional[Path]):
         for p in SNAKEFILE_CHOICES:
             if p.exists():
                 return p
-        raise ApiError(
-            f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
-        )
+        if not allow_missing:
+            raise ApiError(
+                f"No Snakefile found, tried {', '.join(map(str, SNAKEFILE_CHOICES))}."
+            )
     return path
 
 
@@ -180,18 +181,22 @@ class SnakemakeApi(ApiBase):
         plugin = StoragePluginRegistry().get_plugin(
             storage_settings.default_storage_provider
         )
+
+        plugin_settings = storage_provider_settings.get(
+            storage_settings.default_storage_provider
+        ).get_settings(None)
+
+        plugin.validate_settings(plugin_settings)
+
         provider_instance = plugin.storage_provider(
             local_prefix=storage_settings.local_storage_prefix,
-            settings=storage_provider_settings.get(
-                storage_settings.default_storage_provider
-            ).get_settings(None),
+            settings=plugin_settings,
             is_default=True,
         )
         storage_object = provider_instance.object(query)
         async_run(storage_object.managed_retrieve())
-        obtained_checksum = hashlib.file_digest(
-            storage_object.local_path(), "sha256"
-        ).hexdigest()
+        with open(storage_object.local_path(), "rb") as f:
+            obtained_checksum = hashlib.file_digest(f, "sha256").hexdigest()
         if obtained_checksum != checksum:
             raise ApiError(
                 f"Checksum of retrieved sources ({obtained_checksum}) does not match "
@@ -429,6 +434,8 @@ class DAGApi(ApiBase):
 
         executor_plugin_registry = _get_executor_plugin_registry()
         executor_plugin = executor_plugin_registry.get_plugin(executor)
+
+        executor_plugin.validate_settings(executor_settings)
 
         if executor_plugin.common_settings.implies_no_shared_fs:
             self.workflow_api.storage_settings.assume_shared_fs = False

@@ -1586,12 +1586,12 @@ def parse_args(argv):
     parser = get_argument_parser()
     args = parser.parse_args(argv)
 
-    snakefile = resolve_snakefile(args.snakefile)
+    snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
     workflow_profile = None
     if args.workflow_profile != "none":
         if args.workflow_profile:
             workflow_profile = args.workflow_profile
-        else:
+        elif snakefile is not None:
             # checking for default profile
             default_path = Path("profiles/default")
             workflow_profile_candidates = [
@@ -1810,174 +1810,174 @@ def args_to_api(args, parser):
                     storage_settings=storage_settings,
                     storage_provider_settings=storage_provider_settings,
                 )
-
-            workflow_api = snakemake_api.workflow(
-                resource_settings=ResourceSettings(
-                    cores=args.cores,
-                    nodes=args.jobs,
-                    local_cores=args.local_cores,
-                    max_threads=args.max_threads,
-                    resources=args.resources,
-                    overwrite_threads=args.set_threads,
-                    overwrite_scatter=args.set_scatter,
-                    overwrite_resource_scopes=args.set_resource_scopes,
-                    overwrite_resources=args.set_resources,
-                    default_resources=args.default_resources,
-                ),
-                config_settings=ConfigSettings(
-                    config=args.config,
-                    configfiles=args.configfile,
-                ),
-                storage_settings=storage_settings,
-                storage_provider_settings=storage_provider_settings,
-                workflow_settings=WorkflowSettings(
-                    wrapper_prefix=args.wrapper_prefix,
-                ),
-                deployment_settings=DeploymentSettings(
-                    deployment_method=deployment_method,
-                    conda_prefix=args.conda_prefix,
-                    conda_cleanup_pkgs=args.conda_cleanup_pkgs,
-                    conda_base_path=args.conda_base_path,
-                    conda_frontend=args.conda_frontend,
-                    conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
-                    apptainer_args=args.apptainer_args,
-                    apptainer_prefix=args.apptainer_prefix,
-                ),
-                snakefile=args.snakefile,
-                workdir=args.directory,
-            )
-
-            if args.lint:
-                any_lint = workflow_api.lint()
-                if any_lint:
-                    # trigger exit code 1
-                    return False
-            elif args.list_target_rules:
-                workflow_api.list_rules(only_targets=True)
-            elif args.list_rules:
-                workflow_api.list_rules(only_targets=False)
-            elif args.print_compilation:
-                workflow_api.print_compilation()
             else:
-                dag_api = workflow_api.dag(
-                    dag_settings=DAGSettings(
-                        targets=args.targets,
-                        target_jobs=args.target_jobs,
-                        target_files_omit_workdir_adjustment=args.target_files_omit_workdir_adjustment,
-                        batch=args.batch,
-                        forcetargets=args.force,
-                        forceall=args.forceall,
-                        forcerun=args.forcerun,
-                        until=args.until,
-                        omit_from=args.omit_from,
-                        force_incomplete=args.rerun_incomplete,
-                        allowed_rules=args.allowed_rules,
-                        rerun_triggers=args.rerun_triggers,
-                        max_inventory_wait_time=args.max_inventory_time,
-                        cache=args.cache,
+                workflow_api = snakemake_api.workflow(
+                    resource_settings=ResourceSettings(
+                        cores=args.cores,
+                        nodes=args.jobs,
+                        local_cores=args.local_cores,
+                        max_threads=args.max_threads,
+                        resources=args.resources,
+                        overwrite_threads=args.set_threads,
+                        overwrite_scatter=args.set_scatter,
+                        overwrite_resource_scopes=args.set_resource_scopes,
+                        overwrite_resources=args.set_resources,
+                        default_resources=args.default_resources,
                     ),
+                    config_settings=ConfigSettings(
+                        config=args.config,
+                        configfiles=args.configfile,
+                    ),
+                    storage_settings=storage_settings,
+                    storage_provider_settings=storage_provider_settings,
+                    workflow_settings=WorkflowSettings(
+                        wrapper_prefix=args.wrapper_prefix,
+                    ),
+                    deployment_settings=DeploymentSettings(
+                        deployment_method=deployment_method,
+                        conda_prefix=args.conda_prefix,
+                        conda_cleanup_pkgs=args.conda_cleanup_pkgs,
+                        conda_base_path=args.conda_base_path,
+                        conda_frontend=args.conda_frontend,
+                        conda_not_block_search_path_envvars=args.conda_not_block_search_path_envvars,
+                        apptainer_args=args.apptainer_args,
+                        apptainer_prefix=args.apptainer_prefix,
+                    ),
+                    snakefile=args.snakefile,
+                    workdir=args.directory,
                 )
 
-                if args.preemptible_rules is not None:
-                    if not preemptible_rules:
-                        # no specific rule given, consider all to be made preemptible
-                        preemptible_rules = PreemptibleRules(all=True)
-                    else:
-                        preemptible_rules = PreemptibleRules(
-                            rules=args.preemptible_rules
-                        )
+                if args.lint:
+                    any_lint = workflow_api.lint()
+                    if any_lint:
+                        # trigger exit code 1
+                        return False
+                elif args.list_target_rules:
+                    workflow_api.list_rules(only_targets=True)
+                elif args.list_rules:
+                    workflow_api.list_rules(only_targets=False)
+                elif args.print_compilation:
+                    workflow_api.print_compilation()
                 else:
-                    preemptible_rules = PreemptibleRules()
+                    dag_api = workflow_api.dag(
+                        dag_settings=DAGSettings(
+                            targets=args.targets,
+                            target_jobs=args.target_jobs,
+                            target_files_omit_workdir_adjustment=args.target_files_omit_workdir_adjustment,
+                            batch=args.batch,
+                            forcetargets=args.force,
+                            forceall=args.forceall,
+                            forcerun=args.forcerun,
+                            until=args.until,
+                            omit_from=args.omit_from,
+                            force_incomplete=args.rerun_incomplete,
+                            allowed_rules=args.allowed_rules,
+                            rerun_triggers=args.rerun_triggers,
+                            max_inventory_wait_time=args.max_inventory_time,
+                            cache=args.cache,
+                        ),
+                    )
 
-                if args.containerize:
-                    dag_api.containerize()
-                elif args.report:
-                    dag_api.create_report(
-                        path=args.report,
-                        stylesheet=args.report_stylesheet,
-                    )
-                elif args.generate_unit_tests:
-                    dag_api.generate_unit_tests(args.generate_unit_tests)
-                elif args.dag:
-                    dag_api.printdag()
-                elif args.rulegraph:
-                    dag_api.printrulegraph()
-                elif args.filegraph:
-                    dag_api.printfilegraph()
-                elif args.d3dag:
-                    dag_api.printd3dag()
-                elif args.unlock:
-                    dag_api.unlock()
-                elif args.cleanup_metadata:
-                    dag_api.cleanup_metadata(args.cleanup_metadata)
-                elif args.conda_cleanup_envs:
-                    dag_api.conda_cleanup_envs()
-                elif args.conda_create_envs_only:
-                    dag_api.conda_create_envs()
-                elif args.list_conda_envs:
-                    dag_api.conda_list_envs()
-                elif args.cleanup_shadow:
-                    dag_api.cleanup_shadow()
-                elif args.container_cleanup_images:
-                    dag_api.container_cleanup_images()
-                elif args.list_changes:
-                    dag_api.list_changes(args.list_changes)
-                elif args.list_untracked:
-                    dag_api.list_untracked()
-                elif args.summary:
-                    dag_api.summary()
-                elif args.detailed_summary:
-                    dag_api.summary(detailed=True)
-                elif args.archive:
-                    dag_api.archive(args.archive)
-                elif args.delete_all_output:
-                    dag_api.delete_output()
-                elif args.delete_temp_output:
-                    dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
-                else:
-                    dag_api.execute_workflow(
-                        executor=args.executor,
-                        execution_settings=ExecutionSettings(
-                            keep_going=args.keep_going,
-                            debug=args.debug,
-                            standalone=True,
-                            ignore_ambiguity=args.allow_ambiguity,
-                            lock=not args.nolock,
-                            ignore_incomplete=args.ignore_incomplete,
-                            latency_wait=args.latency_wait,
-                            wait_for_files=wait_for_files,
-                            no_hooks=args.no_hooks,
-                            retries=args.retries,
-                            attempt=args.attempt,
-                            use_threads=args.force_use_threads,
-                            shadow_prefix=args.shadow_prefix,
-                            mode=args.mode,
-                            keep_incomplete=args.keep_incomplete,
-                            keep_metadata=not args.drop_metadata,
-                            edit_notebook=edit_notebook,
-                            cleanup_scripts=not args.skip_script_cleanup,
-                        ),
-                        remote_execution_settings=RemoteExecutionSettings(
-                            jobname=args.jobname,
-                            jobscript=args.jobscript,
-                            max_status_checks_per_second=args.max_status_checks_per_second,
-                            seconds_between_status_checks=args.seconds_between_status_checks,
-                            container_image=args.container_image,
-                            preemptible_retries=args.preemptible_retries,
-                            preemptible_rules=preemptible_rules,
-                            envvars=args.envvars,
-                            immediate_submit=args.immediate_submit,
-                        ),
-                        scheduling_settings=SchedulingSettings(
-                            prioritytargets=args.prioritize,
-                            scheduler=args.scheduler,
-                            ilp_solver=args.scheduler_ilp_solver,
-                            solver_path=args.scheduler_solver_path,
-                            greediness=args.scheduler_greediness,
-                            max_jobs_per_second=args.max_jobs_per_second,
-                        ),
-                        executor_settings=executor_settings,
-                    )
+                    if args.preemptible_rules is not None:
+                        if not preemptible_rules:
+                            # no specific rule given, consider all to be made preemptible
+                            preemptible_rules = PreemptibleRules(all=True)
+                        else:
+                            preemptible_rules = PreemptibleRules(
+                                rules=args.preemptible_rules
+                            )
+                    else:
+                        preemptible_rules = PreemptibleRules()
+
+                    if args.containerize:
+                        dag_api.containerize()
+                    elif args.report:
+                        dag_api.create_report(
+                            path=args.report,
+                            stylesheet=args.report_stylesheet,
+                        )
+                    elif args.generate_unit_tests:
+                        dag_api.generate_unit_tests(args.generate_unit_tests)
+                    elif args.dag:
+                        dag_api.printdag()
+                    elif args.rulegraph:
+                        dag_api.printrulegraph()
+                    elif args.filegraph:
+                        dag_api.printfilegraph()
+                    elif args.d3dag:
+                        dag_api.printd3dag()
+                    elif args.unlock:
+                        dag_api.unlock()
+                    elif args.cleanup_metadata:
+                        dag_api.cleanup_metadata(args.cleanup_metadata)
+                    elif args.conda_cleanup_envs:
+                        dag_api.conda_cleanup_envs()
+                    elif args.conda_create_envs_only:
+                        dag_api.conda_create_envs()
+                    elif args.list_conda_envs:
+                        dag_api.conda_list_envs()
+                    elif args.cleanup_shadow:
+                        dag_api.cleanup_shadow()
+                    elif args.container_cleanup_images:
+                        dag_api.container_cleanup_images()
+                    elif args.list_changes:
+                        dag_api.list_changes(args.list_changes)
+                    elif args.list_untracked:
+                        dag_api.list_untracked()
+                    elif args.summary:
+                        dag_api.summary()
+                    elif args.detailed_summary:
+                        dag_api.summary(detailed=True)
+                    elif args.archive:
+                        dag_api.archive(args.archive)
+                    elif args.delete_all_output:
+                        dag_api.delete_output()
+                    elif args.delete_temp_output:
+                        dag_api.delete_output(only_temp=True, dryrun=args.dryrun)
+                    else:
+                        dag_api.execute_workflow(
+                            executor=args.executor,
+                            execution_settings=ExecutionSettings(
+                                keep_going=args.keep_going,
+                                debug=args.debug,
+                                standalone=True,
+                                ignore_ambiguity=args.allow_ambiguity,
+                                lock=not args.nolock,
+                                ignore_incomplete=args.ignore_incomplete,
+                                latency_wait=args.latency_wait,
+                                wait_for_files=wait_for_files,
+                                no_hooks=args.no_hooks,
+                                retries=args.retries,
+                                attempt=args.attempt,
+                                use_threads=args.force_use_threads,
+                                shadow_prefix=args.shadow_prefix,
+                                mode=args.mode,
+                                keep_incomplete=args.keep_incomplete,
+                                keep_metadata=not args.drop_metadata,
+                                edit_notebook=edit_notebook,
+                                cleanup_scripts=not args.skip_script_cleanup,
+                            ),
+                            remote_execution_settings=RemoteExecutionSettings(
+                                jobname=args.jobname,
+                                jobscript=args.jobscript,
+                                max_status_checks_per_second=args.max_status_checks_per_second,
+                                seconds_between_status_checks=args.seconds_between_status_checks,
+                                container_image=args.container_image,
+                                preemptible_retries=args.preemptible_retries,
+                                preemptible_rules=preemptible_rules,
+                                envvars=args.envvars,
+                                immediate_submit=args.immediate_submit,
+                            ),
+                            scheduling_settings=SchedulingSettings(
+                                prioritytargets=args.prioritize,
+                                scheduler=args.scheduler,
+                                ilp_solver=args.scheduler_ilp_solver,
+                                solver_path=args.scheduler_solver_path,
+                                greediness=args.scheduler_greediness,
+                                max_jobs_per_second=args.max_jobs_per_second,
+                            ),
+                            executor_settings=executor_settings,
+                        )
 
         except Exception as e:
             snakemake_api.print_exception(e)

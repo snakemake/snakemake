@@ -66,12 +66,13 @@ class SpawnedJobArgsFactory:
 
     def get_storage_provider_args(self):
         for plugin, field, field_settings in self._get_storage_provider_setting_items():
-            cli_arg = plugin.get_cli_arg(field.name)
-            yield format_cli_arg(cli_arg, field_settings)
+            if not field.metadata.get("env_var", False):
+                cli_arg = plugin.get_cli_arg(field.name)
+                yield format_cli_arg(cli_arg, field_settings)
 
     def get_storage_provider_envvars(self):
         return {
-            plugin.get_envvar(field.name): field_settings
+            plugin.get_envvar(field.name): " ".join(map(str, field_settings))
             for plugin, field, field_settings in self._get_storage_provider_setting_items()
             if "env_var" in field.metadata
         }
@@ -145,10 +146,12 @@ class SpawnedJobArgsFactory:
 
         if not self.workflow.storage_settings.assume_shared_fs:
             archive = self.workflow.source_archive
-            storage_provider_args = self.get_default_storage_provider_args()
+            default_storage_provider_args = self.get_default_storage_provider_args()
+            storage_provider_args = " ".join(self.get_storage_provider_args())
             precommand.append(
                 f"{python_executable} -m snakemake --deploy-sources "
-                f"{archive.query} {archive.checksum} {storage_provider_args}"
+                f"{archive.query} {archive.checksum} {default_storage_provider_args} "
+                f"{storage_provider_args}"
             )
 
         return " && ".join(precommand)
