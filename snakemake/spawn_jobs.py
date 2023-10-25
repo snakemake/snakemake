@@ -18,7 +18,7 @@ else:
 class SpawnedJobArgsFactory:
     workflow: TWorkflow
 
-    def get_default_storage_provider_args(self):
+    def get_default_storage_provider_args(self) -> str:
         has_default_storage_provider = (
             self.workflow.storage_registry.default_storage_provider is not None
         )
@@ -145,8 +145,10 @@ class SpawnedJobArgsFactory:
 
         if not self.workflow.storage_settings.assume_shared_fs:
             archive = self.workflow.source_archive
+            storage_provider_args = self.get_default_storage_provider_args()
             precommand.append(
-                f"{python_executable} -m snakemake --deploy-sources {archive.query} {archive.checksum}"
+                f"{python_executable} -m snakemake --deploy-sources "
+                f"{archive.query} {archive.checksum} {storage_provider_args}"
             )
 
         return " && ".join(precommand)
