@@ -112,6 +112,11 @@ class PathModifier:
         storage_object = self.workflow.storage_registry.default_storage_provider.object(
             query
         )
+        validation_res = storage_object.is_valid_query()
+        if not validation_res:
+            raise WorkflowError(
+                validation_res,
+            )
         return flag_with_storage_object(path, storage_object)
 
     @property
