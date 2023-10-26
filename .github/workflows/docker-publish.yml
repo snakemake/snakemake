@@ -7,11 +7,6 @@ on:
 
 jobs:
   update:
-    strategy:
-      matrix:
-        arch:
-          - amd64
-          - arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,4 +20,4 @@ jobs:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-          platforms: linux/${{ matrix.arch }}
+          platforms: linux/amd64, linux/arm64
