@@ -20,4 +20,4 @@ jobs:
           name: snakemake/snakemake
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-          platforms: linux/amd64, linux/arm64
+          platforms: linux/amd64,linux/arm64
