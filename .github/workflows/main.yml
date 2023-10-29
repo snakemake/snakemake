@@ -27,7 +27,7 @@ jobs:
         with:
           environment-name: black
           create-args: black
-          cache-environment: true
+          cache-environment: false
 
       - name: Check formatting
         shell: bash -el {0}
@@ -59,7 +59,7 @@ jobs:
         with:
           environment-file: test-environment.yml
           environment-name: snakemake
-          cache-environment: true          
+          cache-environment: false
     
       - name: Install snakemake from source
         shell: bash -el {0}
@@ -133,7 +133,7 @@ jobs:
           environment-file: test-environment.yml
           environment-name: snakemake
           init-shell: powershell
-          cache-environment: true
+          cache-environment: false
             
       - name: Install snakemake from source
         run: |
