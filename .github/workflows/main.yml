@@ -130,7 +130,7 @@ jobs:
           excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
-                  if line.endswith("pip:")
+                  if line.endswith("pip:"):
                       print(line.replace("pip:", "pip"))
                   else:
                       print(line)
