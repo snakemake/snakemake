@@ -74,6 +74,6 @@ dependencies:
   - squashfuse # for apptainer
   - immutables
   - conda
-  - pip
-    - cwltool
-    - cwl-utils
+  - pip:
+      - cwltool
+      - cwl-utils
