@@ -53,10 +53,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Modify python version in test env
+        shell: bash -el {0}
+        run: |
+          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
+
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
         with:
-          environment-file: test-environment.yml
+          environment-file: test-environment-${{ matrix.py_ver }}.yml
           environment-name: snakemake
           cache-environment: false
 
@@ -64,11 +69,6 @@ jobs:
         shell: bash -el {0}
         run: |
           conda config --set channel_priority strict
-
-          # modify test env
-          sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment.yml
-
-          mamba env update -n snakemake --file test-environment.yml
 
           # TODO remove and add as regular dependency once released
           pip install git+https://github.com/snakemake/snakemake-interface-common.git
