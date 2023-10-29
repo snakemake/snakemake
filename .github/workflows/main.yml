@@ -130,7 +130,10 @@ jobs:
           excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
-                  print(line)
+                  if line.endswith("pip:")
+                      print(line.replace("pip:", "pip"))
+                  else:
+                      print(line)
 
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
