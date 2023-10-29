@@ -58,7 +58,7 @@ jobs:
         with:
           environment-file: test-environment.yml
           environment-name: snakemake
-          cache-environment: true
+          cache-environment: false
 
       - name: Install snakemake from source
         shell: bash -el {0}
