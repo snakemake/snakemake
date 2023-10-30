@@ -246,24 +246,50 @@ def parse_jobs(jobs):
         )
 
 
-def get_profile_file(profile, file, return_default=False):
+def get_profile_dir(profile: str) -> (Path, Path):
+    config_pattern = re.compile(r"config(.v(?P<min_major>\d+)\+)?.yaml")
+
+    def get_config_min_major(filename):
+        m = config_pattern.match(filename)
+        if m:
+            min_major = m.group("min_major")
+            if min_major is None:
+                return 0
+            min_major = int(min_major)
+
+            return min_major
+        return None
+
     dirs = get_appdirs()
     if os.path.exists(profile):
         search_dirs = [os.path.dirname(profile)]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
-    get_path = lambda d: os.path.join(d, profile, file)
     for d in search_dirs:
-        p = get_path(d)
-        # "file" can actually be a full command. If so, `p` won't exist as the
-        # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
-        # exists. To fix this, we use shlex.split() to get the path to the
-        # script. We check for both, in case the path contains spaces or some
-        # other thing that would cause shlex.split() to mangle the path
-        # inaccurately.
-        if os.path.exists(p) or os.path.exists(shlex.split(p)[0]):
-            return p
+        d = Path(d)
+        files = os.listdir(d / profile)
+        curr_major = int(__version__.split(".")[0])
+        config_files = {
+            f: min_major
+            for f, min_major in zip(files, map(get_config_min_major, files))
+            if min_major is not None and curr_major >= min_major
+        }
+        if config_files:
+            config_file = max(config_files, key=config_files.get)
+            return d / profile, config_file
+
+
+def get_profile_file(profile_dir: Path, file, return_default=False):
+    p = profile_dir / file
+    # "file" can actually be a full command. If so, `p` won't exist as the
+    # below would check if e.g. '/path/to/profile/script --arg1 val --arg2'
+    # exists. To fix this, we use shlex.split() to get the path to the
+    # script. We check for both, in case the path contains spaces or some
+    # other thing that would cause shlex.split() to mangle the path
+    # inaccurately.
+    if p.exists() or os.path.exists(shlex.split(str(p))[0]):
+        return p
 
     if return_default:
         return file
@@ -276,14 +302,18 @@ def get_argument_parser(profiles=None):
 
     dirs = get_appdirs()
     config_files = []
+    profile_dir = None
     if profiles:
         for profile in profiles:
             if profile == "":
                 print("Error: invalid profile name.", file=sys.stderr)
                 exit(1)
 
-            config_file = get_profile_file(profile, "config.yaml")
-            if config_file is None:
+            profile_entry = get_profile_dir(profile)
+            if profile_entry is not None:
+                profile_dir, config_file = profile_entry
+                config_files.append(config_file)
+            else:
                 print(
                     "Error: profile given but no config.yaml found. "
                     "Profile has to be given as either absolute path, relative "
@@ -294,7 +324,6 @@ def get_argument_parser(profiles=None):
                     file=sys.stderr,
                 )
                 exit(1)
-            config_files.append(config_file)
 
     parser = snakemake.common.argparse.ArgumentParser(
         description="Snakemake is a Python based language and execution "
@@ -1086,14 +1115,6 @@ def get_argument_parser(profiles=None):
         "that this will not recurse into subworkflows.",
     )
     group_utils.add_argument(
-        "--bash-completion",
-        action="store_true",
-        help="Output code to register bash completion for snakemake. Put the "
-        "following in your .bashrc (including the accents): "
-        "`snakemake --bash-completion` or issue it in an open terminal "
-        "session.",
-    )
-    group_utils.add_argument(
         "--keep-incomplete",
         action="store_true",
         help="Do not remove incomplete output files by failed jobs.",
@@ -1567,7 +1588,7 @@ def get_argument_parser(profiles=None):
     # Add namespaced arguments to parser for each plugin
     _get_executor_plugin_registry().register_cli_args(parser)
     StoragePluginRegistry().register_cli_args(parser)
-    return parser
+    return parser, profile_dir
 
 
 def generate_parser_metadata(parser, args):
@@ -1583,7 +1604,7 @@ def generate_parser_metadata(parser, args):
 
 
 def parse_args(argv):
-    parser = get_argument_parser()
+    parser, profile_dir = get_argument_parser()
     args = parser.parse_args(argv)
 
     snakefile = resolve_snakefile(args.snakefile, allow_missing=True)
@@ -1624,15 +1645,15 @@ def parse_args(argv):
             file=sys.stderr,
         )
 
-        parser = get_argument_parser(profiles=profiles)
+        parser, profile_dir = get_argument_parser(profiles=profiles)
         args = parser.parse_args(argv)
 
         def adjust_path(path_or_value):
             if isinstance(path_or_value, str):
                 adjusted = get_profile_file(
-                    args.profile, path_or_value, return_default=False
+                    profile_dir, path_or_value, return_default=False
                 )
-                if adjusted is None:
+                if adjusted is None or os.path.exists(path_or_value):
                     return path_or_value
                 else:
                     return adjusted
@@ -1640,7 +1661,7 @@ def parse_args(argv):
                 return path_or_value
 
         # Update file paths to be relative to the profile if profile
-        # contains them.
+        # contains them and they don't exist without prepending it.
         for key, _ in list(args._get_kwargs()):
             setattr(args, key, adjust_path(getattr(args, key)))
 
@@ -1731,11 +1752,6 @@ def parse_rerun_triggers(values):
 
 def args_to_api(args, parser):
     """Convert argparse args to API calls."""
-
-    if args.bash_completion:
-        cmd = b"complete -o bashdefault -C snakemake-bash-completion snakemake"
-        sys.stdout.buffer.write(cmd)
-        sys.exit(0)
 
     # handle legacy executor names
     if args.dryrun:
@@ -2011,43 +2027,3 @@ def main(argv=None):
         print_exception(e)
         sys.exit(1)
     sys.exit(0 if success else 1)
-
-
-def bash_completion(snakefile="Snakefile"):
-    """Entry point for bash completion."""
-    if len(sys.argv) < 2:
-        print(
-            "Calculate bash completion for snakemake. This tool shall not be invoked by hand."
-        )
-        sys.exit(1)
-
-    def print_candidates(candidates):
-        if candidates:
-            candidates = sorted(set(candidates))
-            ## Use bytes for avoiding '^M' under Windows.
-            sys.stdout.buffer.write(b"\n".join(s.encode() for s in candidates))
-
-    prefix = sys.argv[2]
-
-    if prefix.startswith("-"):
-        print_candidates(
-            action.option_strings[0]
-            for action in get_argument_parser()._actions
-            if action.option_strings and action.option_strings[0].startswith(prefix)
-        )
-    else:
-        candidates = []
-        files = glob.glob(f"{prefix}*")
-        if files:
-            candidates.extend(files)
-        if os.path.exists(snakefile):
-            workflow = Workflow(snakefile=snakefile)
-            workflow.include(snakefile)
-
-            candidates.extend(
-                [file for file in workflow.concrete_files if file.startswith(prefix)]
-                + [rule.name for rule in workflow.rules if rule.name.startswith(prefix)]
-            )
-        if len(candidates) > 0:
-            print_candidates(candidates)
-    sys.exit(0)
