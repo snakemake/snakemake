@@ -262,7 +262,8 @@ def get_profile_dir(profile: str) -> (Path, Path):
 
     dirs = get_appdirs()
     if os.path.exists(profile):
-        search_dirs = [os.path.dirname(profile)]
+        parent_dir = os.path.dirname(profile) or "."
+        search_dirs = [parent_dir]
         profile = os.path.basename(profile)
     else:
         search_dirs = [os.getcwd(), dirs.user_config_dir, dirs.site_config_dir]
@@ -277,7 +278,7 @@ def get_profile_dir(profile: str) -> (Path, Path):
         }
         if config_files:
             config_file = max(config_files, key=config_files.get)
-            return d / profile, config_file
+            return d / profile, d / profile / config_file
 
 
 def get_profile_file(profile_dir: Path, file, return_default=False):
