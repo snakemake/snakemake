@@ -200,7 +200,7 @@ class IOCache(IOCacheStorageInterface):
 
 def IOFile(file, rule=None):
     assert rule is not None
-    if ON_WINDOWS and isinstance(file, str):
+    if ON_WINDOWS and hasattr(file, "replace"):
         file = file.replace("\\", "/")
     f = _IOFile(file)
     f.rule = rule
