@@ -45,6 +45,7 @@ SNAKEFILE_CHOICES = list(
         ),
     )
 )
+PIP_DEPLOYMENTS_PATH = ".snakemake/pip-deployments"
 
 
 def get_snakemake_searchpaths():

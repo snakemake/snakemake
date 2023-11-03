@@ -556,7 +556,7 @@ def get_argument_parser(profiles=None):
             "The inputsize is the sum of the sizes of all input files of a rule. "
             "By default, Snakemake assumes a default for mem_mb, disk_mb, and tmpdir (see below). "
             "This option allows to add further defaults (e.g. account and partition for slurm) or to overwrite these default values. "
-            "The defaults are 'mem_mb=max(2*input.size_mb, 1000)', "
+            "The defaults are 'mem_mb=min(max(2*input.size_mb, 1000), 8000)', "
             "'disk_mb=max(2*input.size_mb, 1000)' "
             "(i.e., default disk and mem usage is twice the input file size but at least 1GB), and "
             "the system temporary directory (as given by $TMPDIR, $TEMP, or $TMP) is used for the tmpdir resource. "
