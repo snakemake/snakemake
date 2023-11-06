@@ -165,6 +165,7 @@ class Executor(RealExecutor):
             else None,
             self.workflow.conda_base_path,
             job.rule.basedir,
+            self.workflow.sourcecache.cache_path,
             self.workflow.sourcecache.runtime_cache_path,
         )
 
@@ -298,6 +299,7 @@ def run_wrapper(
     edit_notebook,
     conda_base_path,
     basedir,
+    sourcecache_path,
     runtime_sourcecache_path,
 ):
     """
@@ -377,6 +379,7 @@ def run_wrapper(
                             edit_notebook,
                             conda_base_path,
                             basedir,
+                            sourcecache_path,
                             runtime_sourcecache_path,
                         )
                     else:
@@ -407,6 +410,7 @@ def run_wrapper(
                                 edit_notebook,
                                 conda_base_path,
                                 basedir,
+                                sourcecache_path,
                                 runtime_sourcecache_path,
                             )
                     # Store benchmark record for this iteration
@@ -435,6 +439,7 @@ def run_wrapper(
                     edit_notebook,
                     conda_base_path,
                     basedir,
+                    sourcecache_path,
                     runtime_sourcecache_path,
                 )
     except (KeyboardInterrupt, SystemExit) as e:
