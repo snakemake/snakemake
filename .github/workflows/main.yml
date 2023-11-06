@@ -69,10 +69,6 @@ jobs:
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
-          export MAMBA=$CONDA_PREFIX/bin/mamba
-          echo "micromamba $@" > $MAMBA
-          chmod +x $MAMBA
-
           conda config --set channel_priority strict
 
           # TODO remove and add as regular dependency once released
@@ -135,8 +131,6 @@ jobs:
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
-          print("  - conda")
-          print("  - mamba")
 
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
