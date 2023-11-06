@@ -227,7 +227,7 @@ class Workflow(WorkflowExecutorInterface):
         if self.remote_exec_no_shared_fs:
             return self.snakemake_tmp_dir / "source-cache"
         else:
-            Path(os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache"))
+            return Path(os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache"))
 
     @property
     def storage_registry(self):
