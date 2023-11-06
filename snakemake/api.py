@@ -159,10 +159,7 @@ class SnakemakeApi(ApiBase):
         if self._workflow_api is not None:
             self._workflow_api._workdir_handler.change_back()
             if self._workflow_api._workflow_store is not None:
-                for conda_env in self._workflow_api._workflow_store.injected_conda_envs:
-                    conda_env.remove()
-                if self._workflow_api._workflow._workdir_handler is not None:
-                    self._workflow_api._workflow._workdir_handler.change_back()
+                self._workflow_api._workflow_store.tear_down()
 
     def deploy_sources(
         self,

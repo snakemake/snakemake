@@ -96,6 +96,7 @@ import snakemake.wrapper
 from snakemake.common import (
     ON_WINDOWS,
     async_run,
+    get_appdirs,
     is_local_file,
     Rules,
     Scatter,
@@ -180,7 +181,10 @@ class Workflow(WorkflowExecutorInterface):
         self._resource_scopes = ResourceScopes.defaults()
         self._resource_scopes.update(self.resource_settings.overwrite_resource_scopes)
         self.modules = dict()
-        self._sourcecache = SourceCache()
+        self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
+
+        self._sourcecache = SourceCache(self.source_cache_path)
+
         self._scheduler = None
         self._spawned_job_general_args = None
         self._executor_plugin = None
@@ -206,6 +210,26 @@ class Workflow(WorkflowExecutorInterface):
         self.cache_rules = dict()
 
         self.globals["config"] = copy.deepcopy(self.config_settings.overwrite_config)
+
+    def tear_down(self):
+        for conda_env in self.injected_conda_envs:
+            conda_env.remove()
+        if self._workdir_handler is not None:
+            self._workdir_handler.change_back()
+        self._snakemake_tmp_dir.cleanup()
+
+    @property
+    def snakemake_tmp_dir(self) -> Path:
+        return Path(self._snakemake_tmp_dir.name)
+
+    @property
+    def source_cache_path(self) -> Path:
+        if self.remote_exec_no_shared_fs:
+            return self.snakemake_tmp_dir / "source-cache"
+        else:
+            return Path(
+                os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
+            )
 
     @property
     def storage_registry(self):
@@ -718,6 +742,12 @@ class Workflow(WorkflowExecutorInterface):
             ignore_incomplete=ignore_incomplete,
         )
 
+        persistence_path = (
+            self.snakemake_tmp_dir / "persistence"
+            if self.remote_exec_no_shared_fs
+            else None
+        )
+
         self._persistence = Persistence(
             nolock=nolock,
             dag=self._dag,
@@ -725,6 +755,7 @@ class Workflow(WorkflowExecutorInterface):
             singularity_prefix=self.deployment_settings.apptainer_prefix,
             shadow_prefix=shadow_prefix,
             warn_only=lock_warn_only,
+            path=persistence_path,
         )
 
     def generate_unit_tests(self, path: Path):
