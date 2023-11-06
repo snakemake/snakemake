@@ -59,6 +59,11 @@ jobs:
           cp test-environment.yml test-environment-${{ matrix.py_ver }}.yml
           sed -E -i 's/- python.+/- python =${{ matrix.py_ver }}/' test-environment-${{ matrix.py_ver }}.yml
 
+          if [[ "3.11" < "${{ matrix.py_ver }}" ]]
+          then
+              sed -E -i 's/- mamba/#- mamba/' test-environment-${{ matrix.py_ver }}.yml
+          fi
+
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -69,6 +74,13 @@ jobs:
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
+          if [[ "3.11" < "${{ matrix.py_ver }}" ]]
+          then
+              export MAMBA=$CONDA_PREFIX/bin/mamba
+              echo "echo $@; conda $@" > $MAMBA
+              chmod +x $MAMBA
+          fi
+
           conda config --set channel_priority strict
 
           # TODO remove and add as regular dependency once released
