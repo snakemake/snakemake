@@ -213,7 +213,7 @@ class Workflow(WorkflowExecutorInterface):
 
     def tear_down(self):
         for conda_env in self.injected_conda_envs:
-            conda_env.remove()
+            conda_env.deactivate()
         if self._workdir_handler is not None:
             self._workdir_handler.change_back()
         self._snakemake_tmp_dir.cleanup()
