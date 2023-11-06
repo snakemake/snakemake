@@ -183,9 +183,6 @@ class Workflow(WorkflowExecutorInterface):
         self.modules = dict()
         self._snakemake_tmp_dir = tempfile.TemporaryDirectory(prefix="snakemake")
 
-        import pdb
-
-        pdb.set_trace()
         self._sourcecache = SourceCache(self.source_cache_path)
 
         self._scheduler = None
