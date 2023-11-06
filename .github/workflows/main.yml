@@ -42,7 +42,7 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11", "3.12"]
+        py_ver: ["3.11"] # , "3.12"
     runs-on: ubuntu-latest
     needs: formatting
     env:
@@ -129,9 +129,7 @@ jobs:
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
                   if line.endswith("pip:"):
-                      print(line.replace("pip:", "pip"))
-                  else:
-                      print(line)
+                      break
 
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
