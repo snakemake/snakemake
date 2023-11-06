@@ -129,6 +129,8 @@ jobs:
           import fileinput
           excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
+              if "  - pip:" in line:
+                  break
               if all(pkg not in line for pkg in excluded_on_win):
                   print(line, end="")
 
