@@ -50,7 +50,6 @@ dependencies:
   - environment-modules
   - nbformat
   - toposort >=1.10
-  - mamba
   - crc32c
   - connection_pool
   - py-tes
@@ -73,7 +72,6 @@ dependencies:
   - apptainer
   - squashfuse # for apptainer
   - immutables
-  - conda
   - pip
   - pip:
       - cwltool

@@ -42,7 +42,7 @@ jobs:
     strategy:
       matrix:
         test_group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        py_ver: ["3.11"] # , "3.12"
+        py_ver: ["3.11", "3.12"]
     runs-on: ubuntu-latest
     needs: formatting
     env:
@@ -64,11 +64,15 @@ jobs:
         with:
           environment-file: test-environment-${{ matrix.py_ver }}.yml
           environment-name: snakemake
-          cache-environment: false
+          cache-environment: true
 
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
+          export MAMBA=$CONDA_PREFIX/bin/mamba
+          echo "micromamba $@" > $MAMBA
+          chmod +x $MAMBA
+
           conda config --set channel_priority strict
 
           # TODO remove and add as regular dependency once released
@@ -82,6 +86,8 @@ jobs:
 
       - name: Setup apt dependencies
         run: |
+          sudo gem install apt-spy2
+          sudo apt-spy2 fix --commit --launchpad --country=US
           sudo apt-get update
           sudo apt install -y stress git wget openmpi-bin libopenmpi-dev
 
@@ -128,8 +134,9 @@ jobs:
           excluded_on_win = ["environment-modules", "cwltool", "cwl-utils", "apptainer", "squashfuse"]
           for line in fileinput.input("test-environment.yml", inplace=True):
               if all(pkg not in line for pkg in excluded_on_win):
-                  if line.endswith("pip:"):
-                      break
+                  print(line, end="")
+          print("  - conda")
+          print("  - mamba")
 
       - name: Setup snakemke environment
         uses: mamba-org/setup-micromamba@v1
