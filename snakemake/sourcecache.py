@@ -15,6 +15,7 @@ import io
 from abc import ABC, abstractmethod
 from urllib.parse import unquote
 
+from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake.common import (
     ON_WINDOWS,
     is_local_file,
@@ -346,10 +347,8 @@ class SourceCache:
         r"https://raw.githubusercontent.com/snakemake/snakemake-wrappers/\d+\.\d+.\d+"
     ]  # TODO add more prefixes for uris that are save to be cached
 
-    def __init__(self, runtime_cache_path=None):
-        self.cache = Path(
-            os.path.join(get_appdirs().user_cache_dir, "snakemake/source-cache")
-        )
+    def __init__(self, cache_path: Path, runtime_cache_path: Path = None):
+        self.cache = cache_path
         os.makedirs(self.cache, exist_ok=True)
         if runtime_cache_path is None:
             runtime_cache_parent = self.cache / "runtime-cache"
