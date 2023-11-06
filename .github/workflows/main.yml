@@ -74,13 +74,6 @@ jobs:
       - name: Install snakemake from source
         shell: bash -el {0}
         run: |
-          if [[ "3.11" < "${{ matrix.py_ver }}" ]]
-          then
-              export MAMBA=$CONDA_PREFIX/bin/mamba
-              echo "echo $@; conda $@" > $MAMBA
-              chmod +x $MAMBA
-          fi
-
           conda config --set channel_priority strict
 
           # TODO remove and add as regular dependency once released
