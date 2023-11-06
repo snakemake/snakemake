@@ -348,10 +348,10 @@ class SourceCache:
     ]  # TODO add more prefixes for uris that are save to be cached
 
     def __init__(self, cache_path: Path, runtime_cache_path: Path = None):
-        self.cache = cache_path
-        os.makedirs(self.cache, exist_ok=True)
+        self.cache_path = cache_path
+        os.makedirs(self.cache_path, exist_ok=True)
         if runtime_cache_path is None:
-            runtime_cache_parent = self.cache / "runtime-cache"
+            runtime_cache_parent = self.cache_path / "runtime-cache"
             os.makedirs(runtime_cache_parent, exist_ok=True)
             self.runtime_cache = tempfile.TemporaryDirectory(dir=runtime_cache_parent)
             self._runtime_cache_path = None
@@ -388,7 +388,7 @@ class SourceCache:
         # TODO add git support to smart_open!
         if source_file.is_persistently_cacheable():
             # check cache
-            return self.cache / file_cache_path
+            return self.cache_path / file_cache_path
         else:
             # check runtime cache
             return Path(self.runtime_cache_path) / file_cache_path
