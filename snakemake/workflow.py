@@ -383,10 +383,7 @@ class Workflow(WorkflowExecutorInterface):
 
     @property
     def exec_mode(self):
-        if self.execution_settings is not None:
-            return self.execution_settings.mode
-        else:
-            return ExecMode.DEFAULT
+        return self.workflow_settings.exec_mode
 
     @lazy_property
     def spawned_job_args_factory(self) -> SpawnedJobArgsFactoryExecutorInterface:

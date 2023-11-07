@@ -88,7 +88,6 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
     attempt: int = 1
     use_threads: bool = False
     shadow_prefix: Optional[Path] = None
-    mode: ExecMode = ExecMode.DEFAULT
     keep_incomplete: bool = False
     keep_metadata: bool = True
     edit_notebook: Optional[NotebookEditMode] = None
@@ -98,6 +97,7 @@ class ExecutionSettings(SettingsBase, ExecutionSettingsExecutorInterface):
 @dataclass
 class WorkflowSettings(SettingsBase):
     wrapper_prefix: Optional[str] = None
+    exec_mode: ExecMode = ExecMode.DEFAULT
 
 
 class Batch:
