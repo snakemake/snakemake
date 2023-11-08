@@ -76,6 +76,10 @@ The easiest way to set these prerequisites up, is to use the Mambaforge_ Python 
 The tutorial assumes that you are using either Linux or MacOS X.
 Both Snakemake and Mambaforge_ work also under Windows, but the Windows shell is too different to be able to provide generic examples.
 
+**Currently, the setup currently only works for Intel based machines (x86_64), not ARM based machines like the new Apple M1/2/3 architecture.**
+This will change in the coming months. In the meantime, if you are on an ARM based Mac, you can use Rosetta to emulate an intel architecture.
+Otherwise, you can simply use the Gitpod approach outlined above.
+
 Setup on Windows
 ::::::::::::::::
 
