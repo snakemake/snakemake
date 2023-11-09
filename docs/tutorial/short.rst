@@ -236,7 +236,7 @@ Instead of a shell command, we use Snakemake's Jupyter notebook integration by s
 .. code:: python
 
        notebook:
-           "notebooks/plot-quals.py"
+           "notebooks/plot-quals.py.ipynb"
 
 instead of using the ``shell`` directive as before.
 
