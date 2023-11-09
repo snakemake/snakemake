@@ -73,7 +73,7 @@ class Snakemake:
         self.bench_iteration = bench_iteration
         self.scriptdir = scriptdir
 
-    def _infer_stdout_and_stderr(log: Optional[PathLike]) -> tuple:
+    def _infer_stdout_and_stderr(log: Optional[PathLike]) -> tuple[str|None, str|None]:
         """
         If multiple log files are provided, try to infer which one is for stderr.
 
@@ -89,14 +89,14 @@ class Snakemake:
         """
         import warnings
 
-        if len(log) == 0:
-            return None, None
+        stderr_file, stdout_file = None, None
 
-        elif len(log) == 1:
-            return None, log[0]
 
-        else:
-            # infer stdout and stderr file
+
+        if len(log) == 1:
+            stderr_file= log[0]
+        elif len(log)>1:
+            # infer stdout and stderr file from log keys
             for key in ["stderr", "err"]:
                 if hasattr(log, key):
                     stderr_file = log[key]
@@ -107,12 +107,13 @@ class Snakemake:
 
             if (stderr_file is None) or (stdout_file is None):
                 warnings.warn(
-                    "Cannot infer which logfile is stderr and which is stdout, Logging stderr and stdout to the same file"
+                    "You have more than one log file, but I cannot infer which logfile is stderr and which is stdout,"
+                    f"Logging stderr and stdout to the same file {stderr_file}"
                 )
                 return None, log[0]
 
-            else:
-                return stdout_file, stderr_file
+            
+        return stdout_file, stderr_file
 
     def log_fmt_shell(self, stdout=True, stderr=True, append=False):
         """
@@ -151,14 +152,14 @@ class Snakemake:
           any      any      any      None  ""
           -------- -------- -------- ----- -----------
 
-        If you provide two log files, name them err/out or sterr/stout.
+        If you provide two log files name them err/out or sterr/stout.
         The function returns:
 
             2>> sterr > stout
             or with append=True
             2>> sterr >> stoud
 
-          Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
+        Appending to sterr is required as error messages from the wrapper will be overwritten otherwise.
         """
 
         if stdout and stderr:
@@ -166,7 +167,7 @@ class Snakemake:
             stdout_file, stderr_file = _infer_stdout_and_stderr(self.log)
 
             if stdout_file is not None:
-                # we have a stderr and a stdout file
+                # We have a stderr and a stdout file
 
                 return (
                     _log_shell_redirect(
@@ -190,7 +191,7 @@ def _log_shell_redirect(
     """
     Return a shell redirection string to be used in `shell()` calls
 
-    This function allows scripts and wrappers support optional `log` files
+    This function allows scripts and wrappers to support optional `log` files
     specified in the calling rule.  If no `log` was specified, then an
     empty string "" is returned, regardless of the values of `stdout`,
     `stderr`, and `append`.
